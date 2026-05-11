@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import {
   useListTeams,
   useCreateTeam,
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -88,8 +88,23 @@ function TeamForm({ tournamentId, team, onClose }: { tournamentId: number; team?
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={copy} title="Copy owner link">
+      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+    </Button>
+  );
+}
+
 export default function Teams() {
   const [, params] = useRoute("/tournament/:id/teams");
+  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
   const { data: teams, isLoading } = useListTeams(tournamentId, {
@@ -103,6 +118,10 @@ export default function Teams() {
     if (!confirm("Remove this team?")) return;
     await deleteTeam.mutateAsync({ tournamentId, teamId });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+  }
+
+  function getOwnerLink(teamId: number) {
+    return `${location.origin}/tournament/${tournamentId}/owner/${teamId}`;
   }
 
   return (
@@ -130,53 +149,76 @@ export default function Teams() {
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-44" />)}
+            {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-52" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teams?.map(team => (
-              <Card key={team.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
-                <div className="h-2" style={{ backgroundColor: team.color || "#444" }} />
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-sm"
-                        style={{ backgroundColor: `${team.color}22`, color: team.color || "#fff", border: `1px solid ${team.color}44` }}
+            {teams?.map(team => {
+              const ownerLink = getOwnerLink(team.id);
+              return (
+                <Card key={team.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
+                  <div className="h-2" style={{ backgroundColor: team.color || "#444" }} />
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-sm"
+                          style={{ backgroundColor: `${team.color}22`, color: team.color || "#fff", border: `1px solid ${team.color}44` }}
+                        >
+                          {team.shortCode}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg leading-tight">{team.name}</h3>
+                          <p className="text-xs text-muted-foreground">{team.ownerName}</p>
+                          {team.ownerMobile && <p className="text-xs text-muted-foreground font-mono">{team.ownerMobile}</p>}
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(team); setOpen(true); }}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(team.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm border-t border-border pt-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Wallet className="w-4 h-4" />
+                        <span>Purse: <span className="text-foreground font-semibold">{formatShortIndianRupee(team.purse)}</span></span>
+                      </div>
+                      <Badge
+                        variant={team.isBiddingEnabled ? "default" : "secondary"}
+                        className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : ""}
                       >
-                        {team.shortCode}
+                        {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
+                      </Badge>
+                    </div>
+
+                    {/* Owner Panel Link */}
+                    <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
+                        <p className="text-xs font-mono text-muted-foreground truncate">{ownerLink}</p>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg leading-tight">{team.name}</h3>
-                        <p className="text-xs text-muted-foreground">{team.ownerName}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(team); setOpen(true); }}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(team.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <CopyButton text={ownerLink} />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+                        onClick={() => navigate(`/tournament/${tournamentId}/owner/${team.id}`)}
+                        title="Open owner panel"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </Button>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm border-t border-border pt-4">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Wallet className="w-4 h-4" />
-                      <span>Purse: <span className="text-foreground font-semibold">{formatShortIndianRupee(team.purse)}</span></span>
-                    </div>
-                    <Badge
-                      variant={team.isBiddingEnabled ? "default" : "secondary"}
-                      className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : ""}
-                    >
-                      {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
             <Card
-              className="border-dashed border-2 border-border hover:border-primary/50 cursor-pointer transition-all flex items-center justify-center h-44"
+              className="border-dashed border-2 border-border hover:border-primary/50 cursor-pointer transition-all flex items-center justify-center h-52"
               onClick={() => { setEditing(null); setOpen(true); }}
             >
               <div className="text-center text-muted-foreground">

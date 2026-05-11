@@ -6,6 +6,7 @@ import {
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
+import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Trophy } from "lucide-react";
@@ -21,8 +22,12 @@ function SoldStamp() {
       className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
     >
       <div
-        className="text-8xl font-display font-black text-red-500 border-[8px] border-red-500 px-8 py-4 rounded-lg"
-        style={{ textShadow: "0 0 40px rgba(239,68,68,0.8)", boxShadow: "0 0 40px rgba(239,68,68,0.5)", transform: "rotate(-12deg)" }}
+        className="text-8xl font-display font-black text-red-500 border-[8px] border-red-500 px-8 py-4 rounded-2xl"
+        style={{
+          textShadow: "0 0 40px rgba(239,68,68,0.8)",
+          boxShadow: "0 0 60px rgba(239,68,68,0.6)",
+          transform: "rotate(-12deg)",
+        }}
       >
         SOLD!
       </div>
@@ -36,11 +41,14 @@ export default function DisplayView() {
   const [showSold, setShowSold] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
 
+  // Real-time WebSocket connection
+  useAuctionSocket(tournamentId);
+
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 1000,
+      refetchInterval: 5000,
     },
   });
 
@@ -48,7 +56,7 @@ export default function DisplayView() {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 3000,
+      refetchInterval: 10000,
     },
   });
 
@@ -56,7 +64,7 @@ export default function DisplayView() {
     if (state?.lastAction && state.lastAction.startsWith("SOLD:") && state.lastAction !== lastAction) {
       setShowSold(true);
       setLastAction(state.lastAction);
-      const timer = setTimeout(() => setShowSold(false), 3000);
+      const timer = setTimeout(() => setShowSold(false), 3500);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -71,12 +79,12 @@ export default function DisplayView() {
       <div
         className="min-h-screen flex flex-col select-none"
         style={{
-          background: `radial-gradient(ellipse at 30% 20%, ${teamColor}15 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, ${teamColor}10 0%, transparent 60%), #09090b`,
-          transition: "background 1s ease",
+          background: `radial-gradient(ellipse at 30% 20%, ${teamColor}18 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, ${teamColor}12 0%, transparent 55%), #09090b`,
+          transition: "background 0.8s ease",
         }}
       >
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-border/50">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-border/40 bg-black/20 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <Trophy className="w-6 h-6 text-primary" />
             <span className="font-display font-black text-xl tracking-widest text-primary uppercase">BIDWAR</span>
@@ -90,14 +98,16 @@ export default function DisplayView() {
               {isActive && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
               <span className="text-xs font-bold uppercase tracking-widest">{state?.status || "IDLE"}</span>
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
-              {state?.soldPlayersCount || 0} Sold · {state?.remainingPlayersCount || 0} Left
+            <div className="text-xs text-muted-foreground font-mono tabular-nums">
+              <span className="text-green-400 font-bold">{state?.soldPlayersCount || 0}</span> Sold
+              {" · "}
+              <span className="text-muted-foreground">{state?.remainingPlayersCount || 0}</span> Left
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative">
+        <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative overflow-hidden">
           <AnimatePresence>{showSold && <SoldStamp />}</AnimatePresence>
 
           {state?.currentPlayer ? (
@@ -106,20 +116,37 @@ export default function DisplayView() {
                 {/* Player Photo */}
                 <motion.div
                   key={state.currentPlayer.id}
-                  initial={{ opacity: 0, scale: 0.8, x: -40 }}
+                  initial={{ opacity: 0, scale: 0.8, x: -60 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.5, type: "spring" }}
                   className="flex-shrink-0"
                 >
                   <div
-                    className="w-48 h-56 md:w-64 md:h-72 rounded-2xl border-4 overflow-hidden flex items-center justify-center"
-                    style={{ borderColor: teamColor, boxShadow: `0 0 40px ${teamColor}44` }}
+                    className="w-52 h-60 md:w-72 md:h-80 rounded-3xl border-4 overflow-hidden flex items-center justify-center relative"
+                    style={{
+                      borderColor: teamColor,
+                      boxShadow: `0 0 60px ${teamColor}55, 0 0 120px ${teamColor}22`,
+                    }}
                   >
                     {state.currentPlayer.photoUrl ? (
                       <img src={state.currentPlayer.photoUrl} alt={state.currentPlayer.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-card flex items-center justify-center">
-                        <User className="w-20 h-20 text-muted-foreground opacity-30" />
+                      <div className="w-full h-full bg-card flex flex-col items-center justify-center gap-3">
+                        <User className="w-24 h-24 text-muted-foreground opacity-20" />
+                        {state.currentPlayer.jerseyNumber && (
+                          <span className="font-display font-black text-5xl text-muted-foreground opacity-30">
+                            #{state.currentPlayer.jerseyNumber}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* Jersey badge */}
+                    {state.currentPlayer.jerseyNumber && state.currentPlayer.photoUrl && (
+                      <div
+                        className="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center font-display font-black text-sm"
+                        style={{ backgroundColor: teamColor, color: "#000" }}
+                      >
+                        #{state.currentPlayer.jerseyNumber}
                       </div>
                     )}
                   </div>
@@ -128,94 +155,130 @@ export default function DisplayView() {
                 {/* Player Info + Bid */}
                 <motion.div
                   key={`info-${state.currentPlayer.id}`}
-                  initial={{ opacity: 0, x: 40 }}
+                  initial={{ opacity: 0, x: 60 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                  className="flex-1 text-center md:text-left space-y-6"
+                  transition={{ duration: 0.5, delay: 0.1, type: "spring" }}
+                  className="flex-1 text-center md:text-left space-y-5"
                 >
                   <div>
                     <p className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-2">
-                      {state.currentPlayer.role || "Player"} · {state.currentPlayer.city || ""}
+                      {[state.currentPlayer.role, state.currentPlayer.city, state.currentPlayer.battingStyle]
+                        .filter(Boolean).join(" · ")}
                     </p>
-                    <h1 className="text-6xl md:text-7xl font-display font-black tracking-tight leading-none text-white">
+                    <h1 className="text-6xl md:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
                       {state.currentPlayer.name}
                     </h1>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground uppercase tracking-widest">Current Bid</p>
-                    <motion.div
-                      key={state.currentBid}
-                      initial={{ scale: 0.7, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: "spring", bounce: 0.5 }}
-                    >
-                      <p
-                        className="text-7xl md:text-8xl font-display font-black"
-                        style={{ color: teamColor, textShadow: `0 0 60px ${teamColor}88` }}
+
+                  <div>
+                    <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">Current Bid</p>
+                    <AnimatePresence mode="wait">
+                      <motion.p
+                        key={state.currentBid}
+                        initial={{ scale: 0.6, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 1.2, opacity: 0 }}
+                        transition={{ type: "spring", bounce: 0.5 }}
+                        className="text-7xl md:text-8xl font-display font-black leading-none"
+                        style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
                       >
                         {formatIndianRupee(state.currentBid || 0)}
-                      </p>
-                    </motion.div>
+                      </motion.p>
+                    </AnimatePresence>
                   </div>
-                  {state.currentBidTeamName && (
+
+                  {state.currentBidTeamName ? (
                     <motion.div
                       key={state.currentBidTeamId}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="inline-flex items-center gap-3 px-6 py-3 rounded-full border-2"
+                      initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl border-2"
                       style={{
                         borderColor: teamColor,
-                        backgroundColor: `${teamColor}22`,
-                        boxShadow: `0 0 30px ${teamColor}44`,
+                        backgroundColor: `${teamColor}18`,
+                        boxShadow: `0 0 40px ${teamColor}44`,
                       }}
                     >
-                      <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: teamColor }} />
-                      <span className="text-2xl font-display font-black" style={{ color: teamColor }}>
+                      <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: teamColor }} />
+                      <span className="text-3xl font-display font-black" style={{ color: teamColor }}>
                         {state.currentBidTeamName}
                       </span>
                     </motion.div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border/50 text-muted-foreground">
+                      <span className="text-lg font-semibold">Waiting for first bid...</span>
+                    </div>
                   )}
+
                   <p className="text-sm text-muted-foreground">
-                    Base Price: {formatIndianRupee(state.currentPlayer.basePrice)}
+                    Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(state.currentPlayer.basePrice)}</span>
+                    {state.bidIncrement && (
+                      <span className="ml-3">· Increment: <span className="font-semibold text-foreground">{formatIndianRupee(state.bidIncrement)}</span></span>
+                    )}
                   </p>
                 </motion.div>
               </div>
             </div>
           ) : (
-            <div className="text-center space-y-4">
-              <Trophy className="w-16 h-16 text-primary/30 mx-auto" />
-              <h2 className="text-4xl font-display font-bold text-muted-foreground">
+            <div className="text-center space-y-6">
+              <motion.div
+                animate={{ opacity: [0.3, 0.8, 0.3] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <Trophy className="w-20 h-20 text-primary/40 mx-auto" />
+              </motion.div>
+              <h2 className="text-5xl font-display font-bold text-muted-foreground">
                 {state?.status === "completed"
                   ? "Auction Complete"
                   : isPaused
                   ? "Auction Paused"
-                  : "Waiting for Auction"}
+                  : "Live Auction"}
               </h2>
-              {state?.lastAction && <p className="text-muted-foreground text-lg">{state.lastAction}</p>}
+              {state?.lastAction && (
+                <p className="text-muted-foreground text-xl max-w-lg mx-auto">{state.lastAction}</p>
+              )}
+              {!isActive && !isPaused && (
+                <p className="text-muted-foreground text-base">Waiting for operator to start...</p>
+              )}
             </div>
           )}
         </div>
 
         {/* Bottom: Team Purse Strip */}
         {teamPurses && teamPurses.length > 0 && (
-          <div className="px-6 py-4 border-t border-border/30 bg-card/30 backdrop-blur-sm">
-            <div className="flex items-center gap-4 overflow-x-auto">
-              {teamPurses.map(team => (
-                <div
-                  key={team.teamId}
-                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-border/50"
-                  style={{ borderColor: `${team.color}33` }}
-                >
-                  <div className="w-3 h-8 rounded-sm" style={{ backgroundColor: team.color || "#666" }} />
-                  <div>
-                    <p className="text-xs font-bold leading-tight">{team.shortCode}</p>
-                    <p className="text-xs font-mono" style={{ color: team.color || "#fff" }}>
-                      {formatShortIndianRupee(team.purseRemaining)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">{team.playersBought}P</p>
+          <div className="px-6 py-4 border-t border-border/30 bg-black/30 backdrop-blur-sm">
+            <div className="flex items-center gap-3 overflow-x-auto">
+              {teamPurses.map(team => {
+                const pctUsed = Math.min(100, (team.purseUsed / team.purse) * 100);
+                const isLeading = state?.currentBidTeamId === team.teamId;
+                return (
+                  <div
+                    key={team.teamId}
+                    className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isLeading ? "scale-105" : ""}`}
+                    style={{
+                      backgroundColor: `${team.color}18`,
+                      border: `1px solid ${team.color}${isLeading ? "88" : "33"}`,
+                      boxShadow: isLeading ? `0 0 20px ${team.color}44` : undefined,
+                    }}
+                  >
+                    <div className="w-3 h-10 rounded-full" style={{ backgroundColor: team.color || "#666" }} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold leading-tight" style={{ color: isLeading ? team.color : "#fff" }}>
+                          {team.shortCode}
+                        </p>
+                        {isLeading && (
+                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                        )}
+                      </div>
+                      <p className="text-sm font-mono font-bold" style={{ color: team.color || "#fff" }}>
+                        {formatShortIndianRupee(team.purseRemaining)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{team.playersBought}P · {Math.round(pctUsed)}% used</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

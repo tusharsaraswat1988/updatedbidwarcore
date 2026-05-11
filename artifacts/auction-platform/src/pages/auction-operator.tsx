@@ -18,6 +18,7 @@ import {
   getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,11 +36,14 @@ export default function AuctionOperator() {
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
 
+  // Real-time SSE connection
+  useAuctionSocket(tournamentId);
+
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 1500,
+      refetchInterval: 5000, // fallback polling only
     },
   });
 
@@ -53,7 +57,7 @@ export default function AuctionOperator() {
     query: {
       queryKey: getListBidsQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 2000,
+      refetchInterval: 5000,
     },
   });
 
@@ -77,8 +81,8 @@ export default function AuctionOperator() {
   }
 
   async function handleBid(teamId: number) {
-    if (!state?.currentBid && state?.currentBid !== 0) return;
-    const nextBid = (state.currentBid || 0) + 50000;
+    const increment = state?.bidIncrement ?? 50000;
+    const nextBid = (state?.currentBid || 0) + increment;
     await placeBid.mutateAsync({ tournamentId, data: { teamId, amount: nextBid } });
     invalidate();
   }
@@ -103,6 +107,7 @@ export default function AuctionOperator() {
   const hasPlayer = !!state?.currentPlayer;
   const hasBid = !!state?.currentBidTeamId;
   const available = (players || []).filter(p => p.status === "available");
+  const increment = state?.bidIncrement ?? 50000;
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -113,9 +118,12 @@ export default function AuctionOperator() {
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
               <Gavel className="w-7 h-7 text-primary" />
               Operator Panel
+              <span className="inline-flex items-center gap-1.5 text-xs font-normal px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+                Live
+              </span>
             </h1>
             <p className="text-muted-foreground mt-1">
-              Status:{" "}
               <span className={`font-bold ${isActive ? "text-green-400" : isPaused ? "text-yellow-400" : "text-muted-foreground"}`}>
                 {state?.status?.toUpperCase() || "IDLE"}
               </span>
@@ -180,9 +188,10 @@ export default function AuctionOperator() {
                           {state?.currentPlayer?.role && <Badge variant="outline" className="capitalize">{state.currentPlayer.role}</Badge>}
                           {state?.currentPlayer?.city && <Badge variant="secondary">{state.currentPlayer.city}</Badge>}
                           {state?.currentPlayer?.battingStyle && <Badge variant="secondary" className="text-xs">{state.currentPlayer.battingStyle}</Badge>}
+                          {state?.currentPlayer?.jerseyNumber && <Badge variant="outline" className="font-mono">#{state.currentPlayer.jerseyNumber}</Badge>}
                         </div>
                         {state?.currentPlayer?.achievements && (
-                          <p className="text-xs text-muted-foreground mt-2 line-clamp-1">{state.currentPlayer.achievements}</p>
+                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{state.currentPlayer.achievements}</p>
                         )}
                       </div>
                     </CardContent>
@@ -206,7 +215,9 @@ export default function AuctionOperator() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Current Bid</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                      Current Bid <span className="normal-case font-normal">(+{formatShortIndianRupee(increment)} per raise)</span>
+                    </p>
                     <motion.p
                       key={state?.currentBid}
                       initial={{ scale: 0.8, opacity: 0 }}
@@ -255,12 +266,14 @@ export default function AuctionOperator() {
             {/* Team Bid Buttons */}
             {teams && teams.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Bid by Team</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Quick Bid by Team — next bid: {formatIndianRupee((state?.currentBid || 0) + increment)}
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {teams.map(team => {
                     const purseLeft = team.purse - (team.purseUsed || 0);
                     const isLeading = state?.currentBidTeamId === team.id;
-                    const nextBid = (state?.currentBid || 0) + 50000;
+                    const nextBid = (state?.currentBid || 0) + increment;
                     const canBid = isActive && hasPlayer && purseLeft >= nextBid && !!team.isBiddingEnabled;
                     return (
                       <button
@@ -311,9 +324,9 @@ export default function AuctionOperator() {
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <p className="text-sm font-semibold">Bid History</p>
                 </div>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-52">
                   <div className="space-y-2 pr-2">
-                    {(bids || []).slice(0, 15).map(bid => (
+                    {(bids || []).slice(0, 20).map(bid => (
                       <div key={bid.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: bid.teamColor || "#666" }} />
@@ -337,9 +350,9 @@ export default function AuctionOperator() {
                   <Trophy className="w-4 h-4 text-muted-foreground" />
                   <p className="text-sm font-semibold">Queue ({available.length})</p>
                 </div>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-52">
                   <div className="space-y-1 pr-2">
-                    {available.slice(0, 20).map(player => (
+                    {available.slice(0, 25).map(player => (
                       <button
                         key={player.id}
                         disabled={!isActive || nextPlayer.isPending}
