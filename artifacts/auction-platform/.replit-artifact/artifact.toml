@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Live Sports Auction Platform"
+version = "1.0.0"
+id = "artifacts/auction-platform"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24755
+
+[services.development]
+run = "pnpm --filter @workspace/auction-platform run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/auction-platform", "run", "build" ]
+publicDir = "artifacts/auction-platform/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24755"
+BASE_PATH = "/"

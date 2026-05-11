@@ -1,10 +1,11 @@
-# [Project name]
+# BidWar — India's Live Sports Auction Platform
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A full-stack broadcast-quality live sports auction system for cricket, football, kabaddi, and other franchise-based tournaments. Supports tournament management, live auction operations, team owner bidding, LED big-screen display, and analytics.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080, proxied at `/api`)
+- `pnpm --filter @workspace/auction-platform run dev` — run the frontend (proxied at `/`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -14,31 +15,56 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite, Tailwind CSS v4, shadcn/ui, framer-motion, recharts
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
+- Validation: Zod, drizzle-zod
+- API codegen: Orval (from OpenAPI spec → React Query hooks)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/auction-platform/src/pages/` — all page components
+- `artifacts/auction-platform/src/components/layout.tsx` — sidebar + fullscreen layouts
+- `artifacts/auction-platform/src/lib/format.ts` — Indian rupee formatting helpers
+- `artifacts/api-server/src/routes/` — all API route handlers
+- `lib/api-spec/openapi.yaml` — source of truth for all API contracts
+- `lib/api-client-react/src/generated/api.ts` — generated React Query hooks (do not edit)
+- `lib/db/src/schema/` — Drizzle table schemas (tournaments, teams, categories, players, bids, auction_sessions)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Contract-first API**: OpenAPI spec → Orval codegen → typed React Query hooks. All mutations use flat params `{ tournamentId, data }` (no `params` wrapper).
+- **Query options need `queryKey`**: Generated hooks require `queryKey` in the `query` option — always use the corresponding `getXxxQueryKey(...)` function.
+- **Dark mode only**: `dark` class applied at root. No theme toggle. Sports broadcast aesthetic.
+- **Indian number formatting**: All money values use `formatIndianRupee` / `formatShortIndianRupee` from `@/lib/format`.
+- **Auction state polling**: Operator panel polls every 1.5s, display screen polls every 1s, owner panel polls every 1s.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Dashboard**: List and search all tournaments
+- **Tournament Hub**: Summary stats (players sold/unsold, total spent) + team purse overview
+- **Teams**: CRUD for franchise teams with color picker and purse management
+- **Categories**: Player tiers (Platinum, Gold, Silver, Emerging) with min bid and increment settings
+- **Players**: Full player registry with role, stats, category assignment; filter by status
+- **Operator Panel** (`/tournament/:id/auction`): Start/pause/next/random player, quick bid buttons per team, SOLD/UNSOLD actions, undo, bid history, player queue
+- **LED Display** (`/tournament/:id/display`): Fullscreen broadcast view — animated player card, live bid amount, leading team, SOLD stamp animation, team purse strip
+- **Owner Panel** (`/tournament/:id/owner/:teamId`): Tablet-optimized big bid button for team owners, shows purse remaining and leading status
+- **Reports** (`/tournament/:id/reports`): Bar charts, pie chart, team purse breakdown, top sold players
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- No emojis in UI
+- Dark mode only, sports broadcast aesthetic
+- Indian Rupee formatting throughout (₹1,00,00,000 style)
+- Use lucide-react icons
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Always run `pnpm --filter @workspace/api-spec run codegen` after editing the OpenAPI spec
+- Mutations in generated hooks use flat params: `mutateAsync({ tournamentId, data })` NOT `mutateAsync({ params: { tournamentId }, data })`
+- Query options need explicit queryKey: `{ query: { queryKey: getXxxQueryKey(id), enabled: !!id } }`
+- API server uses plain `zod` (not `zod/v4`) due to esbuild bundling constraints
 
 ## Pointers
 

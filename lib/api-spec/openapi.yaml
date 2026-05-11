@@ -1,22 +1,33 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Live Sports Auction Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tournaments
+    description: Tournament management
+  - name: teams
+    description: Team management
+  - name: players
+    description: Player management
+  - name: categories
+    description: Category management
+  - name: auction
+    description: Auction session and bidding
+  - name: analytics
+    description: Analytics and reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +35,691 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── TOURNAMENTS ───────────────────────────────────────────────────────────
+  /tournaments:
+    get:
+      operationId: listTournaments
+      tags: [tournaments]
+      summary: List all tournaments
+      responses:
+        "200":
+          description: List of tournaments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tournament"
+    post:
+      operationId: createTournament
+      tags: [tournaments]
+      summary: Create a tournament
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+
+  /tournaments/{tournamentId}:
+    get:
+      operationId: getTournament
+      tags: [tournaments]
+      summary: Get a tournament by ID
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTournament
+      tags: [tournaments]
+      summary: Update a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+    delete:
+      operationId: deleteTournament
+      tags: [tournaments]
+      summary: Delete a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── TEAMS ─────────────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams in a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Teams list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Create a team
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+
+  /tournaments/{tournamentId}/teams/{teamId}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a team by ID
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+    patch:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update a team
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+    delete:
+      operationId: deleteTeam
+      tags: [teams]
+      summary: Delete a team
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── CATEGORIES ────────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List categories in a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Categories list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /tournaments/{tournamentId}/categories/{categoryId}:
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a category
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── PLAYERS ───────────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/players:
+    get:
+      operationId: listPlayers
+      tags: [players]
+      summary: List players in a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Players list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+    post:
+      operationId: createPlayer
+      tags: [players]
+      summary: Create a player
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/{playerId}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get a player by ID
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+    patch:
+      operationId: updatePlayer
+      tags: [players]
+      summary: Update a player
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+    delete:
+      operationId: deletePlayer
+      tags: [players]
+      summary: Delete a player
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── AUCTION SESSION ────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/auction:
+    get:
+      operationId: getAuctionState
+      tags: [auction]
+      summary: Get current auction state
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Auction state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/start:
+    post:
+      operationId: startAuction
+      tags: [auction]
+      summary: Start or resume the auction
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Auction started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/pause:
+    post:
+      operationId: pauseAuction
+      tags: [auction]
+      summary: Pause the auction
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Auction paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/next-player:
+    post:
+      operationId: nextPlayer
+      tags: [auction]
+      summary: Move to next player
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NextPlayerInput"
+      responses:
+        "200":
+          description: Next player selected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/bid:
+    post:
+      operationId: placeBid
+      tags: [auction]
+      summary: Place a bid for a team
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BidInput"
+      responses:
+        "200":
+          description: Bid placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+        "400":
+          description: Invalid bid
+
+  /tournaments/{tournamentId}/auction/sell:
+    post:
+      operationId: sellPlayer
+      tags: [auction]
+      summary: Mark current player as sold to highest bidder
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player sold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/unsold:
+    post:
+      operationId: markUnsold
+      tags: [auction]
+      summary: Mark current player as unsold
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player marked unsold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/undo:
+    post:
+      operationId: undoLastAction
+      tags: [auction]
+      summary: Undo the last auction action
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Action undone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/bids:
+    get:
+      operationId: listBids
+      tags: [auction]
+      summary: Get bid history for a tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bid history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bid"
+
+  # ─── ANALYTICS / WOW ────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/analytics/summary:
+    get:
+      operationId: getTournamentSummary
+      tags: [analytics]
+      summary: Get high-level auction summary stats
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentSummary"
+
+  /tournaments/{tournamentId}/analytics/team-purses:
+    get:
+      operationId: getTeamPurses
+      tags: [analytics]
+      summary: Get purse remaining and spent per team
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team purse breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamPurse"
+
+  /tournaments/{tournamentId}/analytics/top-bids:
+    get:
+      operationId: getTopBids
+      tags: [analytics]
+      summary: Get top sold players by price
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Top sold players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopBidEntry"
+
+  /tournaments/{tournamentId}/analytics/category-breakdown:
+    get:
+      operationId: getCategoryBreakdown
+      tags: [analytics]
+      summary: Get sold/unsold counts per category
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Category breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryBreakdown"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +727,466 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # Tournament schemas
+    Tournament:
+      type: object
+      required: [id, name, sport, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sport:
+          type: string
+        venue:
+          type: ["string", "null"]
+        auctionDate:
+          type: ["string", "null"]
+        organizerName:
+          type: ["string", "null"]
+        basePurse:
+          type: integer
+        minBid:
+          type: integer
+        bidIncrement:
+          type: integer
+        timerSeconds:
+          type: integer
+        status:
+          type: string
+          enum: [setup, active, paused, completed]
+        createdAt:
+          type: string
+
+    TournamentInput:
+      type: object
+      required: [name, sport]
+      properties:
+        name:
+          type: string
+        sport:
+          type: string
+          enum: [cricket, football, kabaddi, badminton, volleyball, esports, other]
+        venue:
+          type: string
+        auctionDate:
+          type: string
+        organizerName:
+          type: string
+        basePurse:
+          type: integer
+        minBid:
+          type: integer
+        bidIncrement:
+          type: integer
+        timerSeconds:
+          type: integer
+
+    TournamentUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        sport:
+          type: string
+        venue:
+          type: string
+        auctionDate:
+          type: string
+        organizerName:
+          type: string
+        basePurse:
+          type: integer
+        minBid:
+          type: integer
+        bidIncrement:
+          type: integer
+        timerSeconds:
+          type: integer
+        status:
+          type: string
+
+    # Team schemas
+    Team:
+      type: object
+      required: [id, tournamentId, name, shortCode, ownerName, purse, purseUsed, createdAt]
+      properties:
+        id:
+          type: integer
+        tournamentId:
+          type: integer
+        name:
+          type: string
+        shortCode:
+          type: string
+        ownerName:
+          type: string
+        ownerMobile:
+          type: ["string", "null"]
+        color:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        purse:
+          type: integer
+        purseUsed:
+          type: integer
+        isBiddingEnabled:
+          type: boolean
+        createdAt:
+          type: string
+
+    TeamInput:
+      type: object
+      required: [name, shortCode, ownerName]
+      properties:
+        name:
+          type: string
+        shortCode:
+          type: string
+        ownerName:
+          type: string
+        ownerMobile:
+          type: string
+        color:
+          type: string
+        logoUrl:
+          type: string
+        purse:
+          type: integer
+
+    TeamUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        shortCode:
+          type: string
+        ownerName:
+          type: string
+        ownerMobile:
+          type: string
+        color:
+          type: string
+        logoUrl:
+          type: string
+        purse:
+          type: integer
+        isBiddingEnabled:
+          type: boolean
+
+    # Category schemas
+    Category:
+      type: object
+      required: [id, tournamentId, name, minBid, createdAt]
+      properties:
+        id:
+          type: integer
+        tournamentId:
+          type: integer
+        name:
+          type: string
+        minBid:
+          type: integer
+        bidIncrement:
+          type: ["integer", "null"]
+        maxPlayers:
+          type: ["integer", "null"]
+        colorCode:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CategoryInput:
+      type: object
+      required: [name, minBid]
+      properties:
+        name:
+          type: string
+        minBid:
+          type: integer
+        bidIncrement:
+          type: integer
+        maxPlayers:
+          type: integer
+        colorCode:
+          type: string
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        minBid:
+          type: integer
+        bidIncrement:
+          type: integer
+        maxPlayers:
+          type: integer
+        colorCode:
+          type: string
+
+    # Player schemas
+    Player:
+      type: object
+      required: [id, tournamentId, name, basePrice, status, createdAt]
+      properties:
+        id:
+          type: integer
+        tournamentId:
+          type: integer
+        categoryId:
+          type: ["integer", "null"]
+        teamId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        city:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+        battingStyle:
+          type: ["string", "null"]
+        bowlingStyle:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        basePrice:
+          type: integer
+        soldPrice:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [available, sold, unsold]
+        jerseyNumber:
+          type: ["string", "null"]
+        achievements:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    PlayerInput:
+      type: object
+      required: [name, basePrice]
+      properties:
+        categoryId:
+          type: integer
+        name:
+          type: string
+        city:
+          type: string
+        role:
+          type: string
+          enum: [batsman, bowler, all-rounder, wicketkeeper, midfielder, forward, defender, goalkeeper, smash, service, libero, other]
+        battingStyle:
+          type: string
+        bowlingStyle:
+          type: string
+        age:
+          type: integer
+        photoUrl:
+          type: string
+        basePrice:
+          type: integer
+        jerseyNumber:
+          type: string
+        achievements:
+          type: string
+
+    PlayerUpdate:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+        name:
+          type: string
+        city:
+          type: string
+        role:
+          type: string
+        battingStyle:
+          type: string
+        bowlingStyle:
+          type: string
+        age:
+          type: integer
+        photoUrl:
+          type: string
+        basePrice:
+          type: integer
+        jerseyNumber:
+          type: string
+        achievements:
+          type: string
+        status:
+          type: string
+        teamId:
+          type: ["integer", "null"]
+
+    # Bid schemas
+    BidInput:
+      type: object
+      required: [teamId, amount]
+      properties:
+        teamId:
+          type: integer
+        amount:
+          type: integer
+
+    Bid:
+      type: object
+      required: [id, tournamentId, playerId, teamId, amount, timestamp]
+      properties:
+        id:
+          type: integer
+        tournamentId:
+          type: integer
+        playerId:
+          type: integer
+        teamId:
+          type: integer
+        amount:
+          type: integer
+        timestamp:
+          type: string
+        playerName:
+          type: ["string", "null"]
+        teamName:
+          type: ["string", "null"]
+        teamColor:
+          type: ["string", "null"]
+
+    # Next player input
+    NextPlayerInput:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        mode:
+          type: string
+          enum: [sequential, random, manual]
+
+    # Auction state
+    AuctionState:
+      type: object
+      required: [tournamentId, status]
+      properties:
+        tournamentId:
+          type: integer
+        status:
+          type: string
+          enum: [idle, active, paused, completed]
+        currentPlayer:
+          $ref: "#/components/schemas/Player"
+          nullable: true
+        currentBid:
+          type: ["integer", "null"]
+        currentBidTeamId:
+          type: ["integer", "null"]
+        currentBidTeamName:
+          type: ["string", "null"]
+        currentBidTeamColor:
+          type: ["string", "null"]
+        timerSeconds:
+          type: ["integer", "null"]
+        lastAction:
+          type: ["string", "null"]
+        soldPlayersCount:
+          type: integer
+        unsoldPlayersCount:
+          type: integer
+        remainingPlayersCount:
+          type: integer
+
+    # Analytics schemas
+    TournamentSummary:
+      type: object
+      required: [totalPlayers, soldPlayers, unsoldPlayers, availablePlayers, totalSpent, totalTeams, avgBidAmount]
+      properties:
+        totalPlayers:
+          type: integer
+        soldPlayers:
+          type: integer
+        unsoldPlayers:
+          type: integer
+        availablePlayers:
+          type: integer
+        totalSpent:
+          type: integer
+        totalTeams:
+          type: integer
+        avgBidAmount:
+          type: integer
+        highestBid:
+          type: integer
+        mostActiveTeam:
+          type: ["string", "null"]
+
+    TeamPurse:
+      type: object
+      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought]
+      properties:
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        shortCode:
+          type: string
+        color:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        purse:
+          type: integer
+        purseUsed:
+          type: integer
+        purseRemaining:
+          type: integer
+        playersBought:
+          type: integer
+
+    TopBidEntry:
+      type: object
+      required: [playerId, playerName, teamName, soldPrice, basePrice, categoryName]
+      properties:
+        playerId:
+          type: integer
+        playerName:
+          type: string
+        teamName:
+          type: string
+        teamColor:
+          type: ["string", "null"]
+        soldPrice:
+          type: integer
+        basePrice:
+          type: integer
+        categoryName:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+
+    CategoryBreakdown:
+      type: object
+      required: [categoryId, categoryName, total, sold, unsold, available]
+      properties:
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        colorCode:
+          type: ["string", "null"]
+        total:
+          type: integer
+        sold:
+          type: integer
+        unsold:
+          type: integer
+        available:
+          type: integer
+        totalSpent:
+          type: integer
