@@ -154,6 +154,7 @@ export const ListTeamsResponseItem = zod.object({
   purse: zod.number(),
   purseUsed: zod.number(),
   isBiddingEnabled: zod.boolean().optional(),
+  accessCode: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListTeamsResponse = zod.array(ListTeamsResponseItem);
@@ -195,6 +196,7 @@ export const GetTeamResponse = zod.object({
   purse: zod.number(),
   purseUsed: zod.number(),
   isBiddingEnabled: zod.boolean().optional(),
+  accessCode: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -215,6 +217,7 @@ export const UpdateTeamBody = zod.object({
   logoUrl: zod.string().optional(),
   purse: zod.number().optional(),
   isBiddingEnabled: zod.boolean().optional(),
+  regenerateCode: zod.boolean().optional(),
 });
 
 export const UpdateTeamResponse = zod.object({
@@ -229,6 +232,7 @@ export const UpdateTeamResponse = zod.object({
   purse: zod.number(),
   purseUsed: zod.number(),
   isBiddingEnabled: zod.boolean().optional(),
+  accessCode: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -255,6 +259,7 @@ export const ListCategoriesResponseItem = zod.object({
   bidIncrement: zod.number().nullish(),
   maxPlayers: zod.number().nullish(),
   colorCode: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
   createdAt: zod.string(),
 });
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem);
@@ -272,6 +277,7 @@ export const CreateCategoryBody = zod.object({
   bidIncrement: zod.number().optional(),
   maxPlayers: zod.number().optional(),
   colorCode: zod.string().optional(),
+  sortOrder: zod.number().optional(),
 });
 
 /**
@@ -288,6 +294,7 @@ export const UpdateCategoryBody = zod.object({
   bidIncrement: zod.number().optional(),
   maxPlayers: zod.number().optional(),
   colorCode: zod.string().optional(),
+  sortOrder: zod.number().optional(),
 });
 
 export const UpdateCategoryResponse = zod.object({
@@ -298,6 +305,7 @@ export const UpdateCategoryResponse = zod.object({
   bidIncrement: zod.number().nullish(),
   maxPlayers: zod.number().nullish(),
   colorCode: zod.string().nullish(),
+  sortOrder: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -588,6 +596,7 @@ export const GetAuctionStateResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -647,6 +656,7 @@ export const StartAuctionResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -706,6 +716,7 @@ export const PauseAuctionResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -770,6 +781,7 @@ export const NextPlayerResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -834,6 +846,7 @@ export const PlaceBidResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -893,6 +906,7 @@ export const SellPlayerResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -957,6 +971,7 @@ export const ManualSellResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -1016,6 +1031,7 @@ export const MarkUnsoldResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -1080,6 +1096,7 @@ export const ReAuctionPlayerResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -1139,6 +1156,7 @@ export const UndoLastActionResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -1198,6 +1216,87 @@ export const ResetTrialAuctionResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Toggle team purse view on LED displays
+ */
+export const SetTeamPurseViewParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SetTeamPurseViewBody = zod.object({
+  active: zod.boolean(),
+});
+
+export const SetTeamPurseViewResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Verify owner panel access code
+ */
+export const VerifyOwnerAccessParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  teamId: zod.coerce.number(),
+});
+
+export const VerifyOwnerAccessBody = zod.object({
+  code: zod.string(),
+});
+
+export const VerifyOwnerAccessResponse = zod.object({
+  valid: zod.boolean(),
 });
 
 /**
@@ -1270,6 +1369,7 @@ export const SyncFortuneWheelResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**
@@ -1339,6 +1439,7 @@ export const StartTimerResponse = zod.object({
     )
     .optional(),
   wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
 });
 
 /**

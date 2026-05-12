@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -111,12 +111,19 @@ export default function Teams() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const deleteTeam = useDeleteTeam();
+  const updateTeam = useUpdateTeam();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
   async function handleDelete(teamId: number) {
     if (!confirm("Remove this team?")) return;
     await deleteTeam.mutateAsync({ tournamentId, teamId });
+    qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+  }
+
+  async function handleRegenerateCode(teamId: number) {
+    if (!confirm("Regenerate access code? The old code will stop working immediately.")) return;
+    await updateTeam.mutateAsync({ tournamentId, teamId, data: { regenerateCode: true } });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
   }
 
@@ -195,6 +202,28 @@ export default function Teams() {
                         {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
                       </Badge>
                     </div>
+
+                    {/* Access Code */}
+                    {team.accessCode && (
+                      <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                        <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Access Code</p>
+                          <p className="text-sm font-display font-black tracking-[0.2em] text-primary">{team.accessCode}</p>
+                        </div>
+                        <CopyButton text={team.accessCode} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+                          title="Regenerate access code"
+                          disabled={updateTeam.isPending}
+                          onClick={() => handleRegenerateCode(team.id)}
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Owner Panel Link */}
                     <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">

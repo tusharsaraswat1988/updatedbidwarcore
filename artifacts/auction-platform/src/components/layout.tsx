@@ -60,10 +60,18 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
                   <Settings className="w-5 h-5" />
                   <span className="font-medium">Categories</span>
                 </Link>
-                <Link href={`/tournament/${tournamentId}/reports`} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/reports` ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-                  <BarChart3 className="w-5 h-5" />
-                  <span className="font-medium">Reports</span>
-                </Link>
+                {tournament?.status === "completed" ? (
+                  <Link href={`/tournament/${tournamentId}/reports`} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/reports` ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                    <BarChart3 className="w-5 h-5" />
+                    <span className="font-medium">Reports</span>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-md opacity-30 cursor-not-allowed select-none" title="Available after auction is marked completed">
+                    <BarChart3 className="w-5 h-5" />
+                    <span className="font-medium">Reports</span>
+                    <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Locked</span>
+                  </div>
+                )}
               </nav>
 
               <div className="px-4 mt-8 mb-4 text-xs font-semibold text-primary uppercase tracking-wider">

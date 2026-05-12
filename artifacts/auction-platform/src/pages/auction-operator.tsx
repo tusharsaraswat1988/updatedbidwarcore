@@ -16,6 +16,7 @@ import {
   useReAuctionPlayer,
   useResetTrialAuction,
   useStartTimer,
+  useSetTeamPurseView,
   getGetAuctionStateQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
@@ -36,7 +37,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
-  Settings2, RefreshCw, Timer,
+  Settings2, RefreshCw, Timer, LayoutGrid,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -78,6 +79,7 @@ export default function AuctionOperator() {
   const reAuction = useReAuctionPlayer();
   const resetTrial = useResetTrialAuction();
   const startTimerMut = useStartTimer();
+  const setTeamPurseView = useSetTeamPurseView();
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
@@ -222,6 +224,20 @@ export default function AuctionOperator() {
             </Button>
             <Button variant="ghost" size="icon" onClick={handleUndo} disabled={undoAction.isPending} title="Undo last action">
               <Undo2 className="w-5 h-5" />
+            </Button>
+            <Button
+              variant={state?.teamPurseViewActive ? "default" : "outline"}
+              size="sm"
+              className={`gap-2 ${state?.teamPurseViewActive ? "bg-primary text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]" : "border-border text-muted-foreground hover:text-foreground"}`}
+              title="Show/hide team purse view on LED"
+              onClick={async () => {
+                await setTeamPurseView.mutateAsync({ tournamentId, data: { active: !state?.teamPurseViewActive } });
+                invalidate();
+              }}
+              disabled={setTeamPurseView.isPending}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              {state?.teamPurseViewActive ? "Hide Purses" : "Show Purses"}
             </Button>
             <Button
               variant="outline"

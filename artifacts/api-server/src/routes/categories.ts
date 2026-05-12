@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { categoriesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -14,6 +14,7 @@ const catToJson = (c: typeof categoriesTable.$inferSelect) => ({
   bidIncrement: c.bidIncrement,
   maxPlayers: c.maxPlayers,
   colorCode: c.colorCode,
+  sortOrder: c.sortOrder,
   createdAt: c.createdAt.toISOString(),
 });
 
@@ -24,7 +25,7 @@ router.get("/tournaments/:tournamentId/categories", async (req, res) => {
     .select()
     .from(categoriesTable)
     .where(eq(categoriesTable.tournamentId, tid))
-    .orderBy(categoriesTable.minBid);
+    .orderBy(asc(categoriesTable.sortOrder), asc(categoriesTable.minBid));
   res.json(categories.map(catToJson));
 });
 
@@ -37,6 +38,7 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
     bidIncrement: z.number().int().optional(),
     maxPlayers: z.number().int().optional(),
     colorCode: z.string().optional(),
+    sortOrder: z.number().int().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -50,6 +52,7 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
       bidIncrement: d.bidIncrement ?? null,
       maxPlayers: d.maxPlayers ?? null,
       colorCode: d.colorCode ?? "#F59E0B",
+      sortOrder: d.sortOrder ?? 0,
     })
     .returning();
   res.status(201).json(catToJson(cat));
@@ -65,6 +68,7 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
     bidIncrement: z.number().int().optional(),
     maxPlayers: z.number().int().optional(),
     colorCode: z.string().optional(),
+    sortOrder: z.number().int().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -75,6 +79,7 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
   if (d.maxPlayers !== undefined) updates.maxPlayers = d.maxPlayers;
   if (d.colorCode !== undefined) updates.colorCode = d.colorCode;
+  if (d.sortOrder !== undefined) updates.sortOrder = d.sortOrder;
   const [cat] = await db
     .update(categoriesTable)
     .set(updates)

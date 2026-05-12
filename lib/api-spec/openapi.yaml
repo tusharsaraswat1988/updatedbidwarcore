@@ -703,6 +703,73 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/team-purse-view:
+    post:
+      operationId: setTeamPurseView
+      tags: [auction]
+      summary: Toggle team purse view on LED displays
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [active]
+              properties:
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: State updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/teams/{teamId}/verify-access:
+    post:
+      operationId: verifyOwnerAccess
+      tags: [teams]
+      summary: Verify owner panel access code
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid]
+                properties:
+                  valid:
+                    type: boolean
+
   /tournaments/{tournamentId}/auction/fortune-wheel:
     post:
       operationId: syncFortuneWheel
@@ -990,6 +1057,8 @@ components:
           type: integer
         isBiddingEnabled:
           type: boolean
+        accessCode:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -1031,6 +1100,8 @@ components:
           type: integer
         isBiddingEnabled:
           type: boolean
+        regenerateCode:
+          type: boolean
 
     # Category schemas
     Category:
@@ -1051,6 +1122,8 @@ components:
           type: ["integer", "null"]
         colorCode:
           type: ["string", "null"]
+        sortOrder:
+          type: integer
         createdAt:
           type: string
 
@@ -1068,6 +1141,8 @@ components:
           type: integer
         colorCode:
           type: string
+        sortOrder:
+          type: integer
 
     CategoryUpdate:
       type: object
@@ -1082,6 +1157,8 @@ components:
           type: integer
         colorCode:
           type: string
+        sortOrder:
+          type: integer
 
     # Player schemas
     Player:
@@ -1359,6 +1436,8 @@ components:
             $ref: "#/components/schemas/WheelItem"
         wheelWinner:
           type: ["string", "null"]
+        teamPurseViewActive:
+          type: boolean
 
     TournamentSummary:
       type: object

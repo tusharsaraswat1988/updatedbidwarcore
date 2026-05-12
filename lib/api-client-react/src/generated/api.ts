@@ -34,6 +34,7 @@ import type {
   PlayerInput,
   PlayerUpdate,
   ReAuctionInput,
+  SetTeamPurseViewBody,
   Team,
   TeamInput,
   TeamPurse,
@@ -44,6 +45,8 @@ import type {
   TournamentInput,
   TournamentSummary,
   TournamentUpdate,
+  VerifyOwnerAccess200,
+  VerifyOwnerAccessBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2807,6 +2810,207 @@ export const useResetTrialAuction = <
   TContext
 > => {
   return useMutation(getResetTrialAuctionMutationOptions(options));
+};
+
+/**
+ * @summary Toggle team purse view on LED displays
+ */
+export const getSetTeamPurseViewUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/team-purse-view`;
+};
+
+export const setTeamPurseView = async (
+  tournamentId: number,
+  setTeamPurseViewBody: SetTeamPurseViewBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetTeamPurseViewUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setTeamPurseViewBody),
+  });
+};
+
+export const getSetTeamPurseViewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setTeamPurseView>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setTeamPurseView>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+  TContext
+> => {
+  const mutationKey = ["setTeamPurseView"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setTeamPurseView>>,
+    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setTeamPurseView(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetTeamPurseViewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setTeamPurseView>>
+>;
+export type SetTeamPurseViewMutationBody = BodyType<SetTeamPurseViewBody>;
+export type SetTeamPurseViewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle team purse view on LED displays
+ */
+export const useSetTeamPurseView = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setTeamPurseView>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setTeamPurseView>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+  TContext
+> => {
+  return useMutation(getSetTeamPurseViewMutationOptions(options));
+};
+
+/**
+ * @summary Verify owner panel access code
+ */
+export const getVerifyOwnerAccessUrl = (
+  tournamentId: number,
+  teamId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`;
+};
+
+export const verifyOwnerAccess = async (
+  tournamentId: number,
+  teamId: number,
+  verifyOwnerAccessBody: VerifyOwnerAccessBody,
+  options?: RequestInit,
+): Promise<VerifyOwnerAccess200> => {
+  return customFetch<VerifyOwnerAccess200>(
+    getVerifyOwnerAccessUrl(tournamentId, teamId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(verifyOwnerAccessBody),
+    },
+  );
+};
+
+export const getVerifyOwnerAccessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyOwnerAccess>>,
+    TError,
+    {
+      tournamentId: number;
+      teamId: number;
+      data: BodyType<VerifyOwnerAccessBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyOwnerAccess>>,
+  TError,
+  {
+    tournamentId: number;
+    teamId: number;
+    data: BodyType<VerifyOwnerAccessBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["verifyOwnerAccess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyOwnerAccess>>,
+    {
+      tournamentId: number;
+      teamId: number;
+      data: BodyType<VerifyOwnerAccessBody>;
+    }
+  > = (props) => {
+    const { tournamentId, teamId, data } = props ?? {};
+
+    return verifyOwnerAccess(tournamentId, teamId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyOwnerAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyOwnerAccess>>
+>;
+export type VerifyOwnerAccessMutationBody = BodyType<VerifyOwnerAccessBody>;
+export type VerifyOwnerAccessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Verify owner panel access code
+ */
+export const useVerifyOwnerAccess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyOwnerAccess>>,
+    TError,
+    {
+      tournamentId: number;
+      teamId: number;
+      data: BodyType<VerifyOwnerAccessBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyOwnerAccess>>,
+  TError,
+  {
+    tournamentId: number;
+    teamId: number;
+    data: BodyType<VerifyOwnerAccessBody>;
+  },
+  TContext
+> => {
+  return useMutation(getVerifyOwnerAccessMutationOptions(options));
 };
 
 /**

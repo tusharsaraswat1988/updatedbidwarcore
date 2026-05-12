@@ -10,6 +10,7 @@ export const categoriesTable = pgTable("categories", {
   bidIncrement: integer("bid_increment"),
   maxPlayers: integer("max_players"),
   colorCode: text("color_code").default("#F59E0B"),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

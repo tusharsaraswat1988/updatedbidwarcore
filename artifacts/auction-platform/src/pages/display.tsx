@@ -11,10 +11,19 @@ import {
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Calendar, Timer, Dices } from "lucide-react";
+import { User, Trophy, Calendar, Timer, Dices, Wallet } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 type WheelItem = { label: string; color: string };
+
+type SoldRecord = {
+  playerName: string;
+  photoUrl: string | null | undefined;
+  amount: number;
+  teamName: string;
+  teamColor: string;
+  teamShortCode?: string;
+};
 
 function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation: number) {
   const ctx = canvas.getContext("2d");
@@ -65,67 +74,48 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
   const [spinning, setSpinning] = useState(false);
   const prevWinnerRef = useRef<string | null | undefined>(undefined);
 
-  // Draw idle slow spin until winner arrives
   useEffect(() => {
     if (winner || spinning) return;
     let running = true;
     function animate() {
       if (!running) return;
       rotRef.current += 0.003;
-      if (canvasRef.current && items.length) {
-        drawWheelCanvas(canvasRef.current, items, rotRef.current);
-      }
+      if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
       animRef.current = requestAnimationFrame(animate);
     }
     animRef.current = requestAnimationFrame(animate);
     return () => { running = false; cancelAnimationFrame(animRef.current); };
   }, [items, winner, spinning]);
 
-  // Trigger spin animation when winner changes from null/undefined to a value
   useEffect(() => {
     if (winner === prevWinnerRef.current) return;
     prevWinnerRef.current = winner;
-    if (!winner || !items.length) {
-      setLocalWinner(null);
-      return;
-    }
-    // Find the winner item
+    if (!winner || !items.length) { setLocalWinner(null); return; }
     const winnerItem = items.find(i => i.label === winner) || { label: winner, color: "#EAB308" };
     const winnerIdx = items.findIndex(i => i.label === winner);
     if (winnerIdx < 0) { setLocalWinner(winnerItem); return; }
-
-    // Spin to land on winner
     setSpinning(true);
     setLocalWinner(null);
     cancelAnimationFrame(animRef.current);
-
     const arc = (2 * Math.PI) / items.length;
     const sliceCenter = winnerIdx * arc + arc / 2;
     const target = rotRef.current + 6 * Math.PI + ((2 * Math.PI - sliceCenter) % (2 * Math.PI));
     const duration = 3500;
     const startTime = performance.now();
     const startRot = rotRef.current;
-
     function animate(now: number) {
       const progress = Math.min((now - startTime) / duration, 1);
       const ease = 1 - Math.pow(1 - progress, 4);
       rotRef.current = startRot + (target - startRot) * ease;
       if (canvasRef.current) drawWheelCanvas(canvasRef.current, items, rotRef.current);
-      if (progress < 1) {
-        animRef.current = requestAnimationFrame(animate);
-      } else {
-        setSpinning(false);
-        setLocalWinner(winnerItem);
-      }
+      if (progress < 1) { animRef.current = requestAnimationFrame(animate); }
+      else { setSpinning(false); setLocalWinner(winnerItem); }
     }
     animRef.current = requestAnimationFrame(animate);
   }, [winner, items]);
 
-  // Draw static wheel when items change (no animation running)
   useEffect(() => {
-    if (canvasRef.current && items.length) {
-      drawWheelCanvas(canvasRef.current, items, rotRef.current);
-    }
+    if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
   }, [items]);
 
   const size = Math.min(typeof window !== "undefined" ? window.innerHeight * 0.75 : 600, 700);
@@ -133,52 +123,26 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none"
       style={{ background: "radial-gradient(ellipse at center, #1a1a2e 0%, #09090b 100%)" }}>
-      {/* Title */}
-      <motion.div
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="flex items-center gap-4 mb-6"
-      >
+      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center gap-4 mb-6">
         <Dices className="w-10 h-10 text-primary" />
-        <h1 className="font-display font-black text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>
-          FORTUNE WHEEL
-        </h1>
+        <h1 className="font-display font-black text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>FORTUNE WHEEL</h1>
         <Dices className="w-10 h-10 text-primary" />
       </motion.div>
-
-      {/* Wheel + pointer */}
       <div className="relative flex-shrink-0">
         <div className="absolute top-1/2 -right-5 -translate-y-1/2 z-10">
           <div className="w-0 h-0 border-t-[16px] border-b-[16px] border-r-[36px] border-t-transparent border-b-transparent border-r-primary drop-shadow-lg" />
         </div>
-        <canvas
-          ref={canvasRef}
-          width={size}
-          height={size}
-          className="rounded-full"
-          style={{ filter: "drop-shadow(0 0 60px rgba(234,179,8,0.4))" }}
-        />
+        <canvas ref={canvasRef} width={size} height={size} className="rounded-full" style={{ filter: "drop-shadow(0 0 60px rgba(234,179,8,0.4))" }} />
       </div>
-
-      {/* Winner banner */}
       <AnimatePresence>
         {localWinner && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0, y: 40 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0, opacity: 0 }}
+          <motion.div initial={{ scale: 0, opacity: 0, y: 40 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
             className="mt-8 text-center px-12 py-6 rounded-3xl border-4"
-            style={{
-              borderColor: localWinner.color,
-              background: `${localWinner.color}22`,
-              boxShadow: `0 0 80px ${localWinner.color}55`,
-            }}
+            style={{ borderColor: localWinner.color, background: `${localWinner.color}22`, boxShadow: `0 0 80px ${localWinner.color}55` }}
           >
             <p className="text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">Winner</p>
-            <p className="font-display font-black text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>
-              {localWinner.label}
-            </p>
+            <p className="font-display font-black text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>{localWinner.label}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -186,26 +150,87 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
   );
 }
 
-function SoldStamp() {
+/** Full-screen overlay showing all team purse statuses */
+function TeamPurseOverlay({ purses, currentBidTeamId }: {
+  purses: Array<{ teamId: number; teamName: string; shortCode: string; color: string | null | undefined; logoUrl?: string | null; purse: number; purseUsed: number; purseRemaining: number; playersBought: number }>;
+  currentBidTeamId?: number | null;
+}) {
   return (
-    <motion.div
-      initial={{ scale: 3, opacity: 0, rotate: -15 }}
-      animate={{ scale: 1, opacity: 1, rotate: -12 }}
-      exit={{ scale: 0.5, opacity: 0 }}
-      transition={{ duration: 0.5, type: "spring", bounce: 0.4 }}
-      className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-    >
-      <div
-        className="text-8xl font-display font-black text-red-500 border-[8px] border-red-500 px-8 py-4 rounded-2xl"
-        style={{
-          textShadow: "0 0 40px rgba(239,68,68,0.8)",
-          boxShadow: "0 0 60px rgba(239,68,68,0.6)",
-          transform: "rotate(-12deg)",
-        }}
-      >
-        SOLD!
+    <div className="absolute inset-0 z-40 flex flex-col select-none"
+      style={{ background: "radial-gradient(ellipse at center, #0f172a 0%, #09090b 100%)" }}>
+      <div className="flex items-center justify-center gap-4 pt-8 pb-6">
+        <Wallet className="w-8 h-8 text-primary" />
+        <h1 className="font-display font-black text-4xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.4)" }}>
+          TEAM PURSE STATUS
+        </h1>
+        <Wallet className="w-8 h-8 text-primary" />
       </div>
-    </motion.div>
+      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-6 pb-8 overflow-y-auto">
+        {purses.map(team => {
+          const pctUsed = Math.min(100, team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0);
+          const isLeading = currentBidTeamId === team.teamId;
+          const color = team.color || "#F59E0B";
+          return (
+            <motion.div
+              key={team.teamId}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: isLeading ? 1.03 : 1 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="flex flex-col rounded-3xl border-2 p-5 gap-3 relative overflow-hidden"
+              style={{
+                borderColor: isLeading ? color : `${color}44`,
+                backgroundColor: `${color}10`,
+                boxShadow: isLeading ? `0 0 40px ${color}55, inset 0 0 30px ${color}15` : `0 0 10px ${color}18`,
+              }}
+            >
+              {isLeading && (
+                <div className="absolute inset-0 animate-pulse" style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}20 0%, transparent 70%)` }} />
+              )}
+              <div className="flex items-center gap-3 relative">
+                {team.logoUrl ? (
+                  <img src={team.logoUrl} alt={team.teamName} className="w-12 h-12 rounded-xl object-contain" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }} />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-lg"
+                    style={{ backgroundColor: `${color}30`, color, border: `2px solid ${color}55` }}>
+                    {team.shortCode}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-black text-base leading-tight truncate" style={{ color: isLeading ? color : "#fff" }}>
+                    {team.teamName}
+                  </p>
+                  <p className="text-xs font-bold" style={{ color: `${color}99` }}>{team.shortCode}</p>
+                </div>
+                {isLeading && (
+                  <div className="w-3 h-3 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: color }} />
+                )}
+              </div>
+              <div className="relative">
+                <p className="text-2xl font-display font-black tabular-nums" style={{ color, textShadow: `0 0 20px ${color}66` }}>
+                  {formatShortIndianRupee(team.purseRemaining)}
+                </p>
+                <p className="text-xs text-muted-foreground">Remaining</p>
+              </div>
+              <div className="space-y-1.5 relative">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{team.playersBought} players</span>
+                  <span>{Math.round(pctUsed)}% used</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pctUsed}%` }}
+                    transition={{ duration: 0.8, delay: 0.2 }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -214,9 +239,7 @@ function SponsorTicker({ logos }: { logos: { url: string; name: string }[] }) {
   const doubled = [...logos, ...logos];
   return (
     <div className="overflow-hidden flex items-center gap-0 h-12 bg-black/40 border-t border-border/20">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-4 whitespace-nowrap flex-shrink-0">
-        POWERED BY
-      </span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-4 whitespace-nowrap flex-shrink-0">POWERED BY</span>
       <div className="flex items-center gap-8 animate-[marquee_20s_linear_infinite] whitespace-nowrap">
         {doubled.map((logo, i) => (
           <div key={i} className="flex items-center gap-2 flex-shrink-0">
@@ -232,12 +255,213 @@ function SponsorTicker({ logos }: { logos: { url: string; name: string }[] }) {
   );
 }
 
+/** 1-second SOLD stamp */
+function SoldStamp() {
+  return (
+    <motion.div
+      initial={{ scale: 3, opacity: 0, rotate: -15 }}
+      animate={{ scale: 1, opacity: 1, rotate: -12 }}
+      exit={{ scale: 0.5, opacity: 0 }}
+      transition={{ duration: 0.45, type: "spring", bounce: 0.4 }}
+      className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
+    >
+      <div className="text-8xl font-display font-black text-red-500 border-[8px] border-red-500 px-8 py-4 rounded-2xl"
+        style={{ textShadow: "0 0 40px rgba(239,68,68,0.8)", boxShadow: "0 0 60px rgba(239,68,68,0.6)", transform: "rotate(-12deg)" }}>
+        SOLD!
+      </div>
+    </motion.div>
+  );
+}
+
+/** Full-screen sold card shown after the stamp, until next player starts */
+function SoldCard({ record }: { record: SoldRecord }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center"
+      style={{ background: `radial-gradient(ellipse at 40% 30%, ${record.teamColor}22 0%, transparent 60%), radial-gradient(ellipse at 60% 70%, ${record.teamColor}15 0%, transparent 60%), #09090b` }}
+    >
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0, y: 40 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: "spring", bounce: 0.35, duration: 0.6 }}
+        className="flex flex-col items-center gap-6 max-w-2xl text-center px-8"
+      >
+        {/* Sold badge */}
+        <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full border-2 border-red-500 bg-red-500/15"
+          style={{ boxShadow: "0 0 40px rgba(239,68,68,0.5)" }}>
+          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+          <span className="font-display font-black text-2xl tracking-widest text-red-400">SOLD</span>
+        </div>
+
+        {/* Player photo */}
+        <div className="relative">
+          <div
+            className="w-52 h-60 rounded-3xl border-4 overflow-hidden flex items-center justify-center"
+            style={{
+              borderColor: record.teamColor,
+              boxShadow: `0 0 80px ${record.teamColor}66, 0 0 160px ${record.teamColor}22`,
+            }}
+          >
+            {record.photoUrl ? (
+              <img src={record.photoUrl} alt={record.playerName} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-card flex items-center justify-center">
+                <User className="w-24 h-24 text-muted-foreground opacity-20" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Player name */}
+        <div>
+          <h1 className="font-display font-black text-6xl md:text-7xl tracking-tight text-white leading-none mb-2"
+            style={{ textShadow: "0 0 40px rgba(255,255,255,0.15)" }}>
+            {record.playerName}
+          </h1>
+        </div>
+
+        {/* Amount */}
+        <motion.div
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3, type: "spring", bounce: 0.5 }}
+        >
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Sold For</p>
+          <p className="font-display font-black text-7xl leading-none" style={{ color: record.teamColor, textShadow: `0 0 60px ${record.teamColor}99` }}>
+            {formatIndianRupee(record.amount)}
+          </p>
+        </motion.div>
+
+        {/* Sold to team */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="flex items-center gap-4 px-10 py-5 rounded-2xl border-2"
+          style={{ borderColor: record.teamColor, backgroundColor: `${record.teamColor}18`, boxShadow: `0 0 40px ${record.teamColor}44` }}
+        >
+          <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: record.teamColor }} />
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-0.5">Sold To</p>
+            <p className="font-display font-black text-3xl leading-none" style={{ color: record.teamColor }}>
+              {record.teamName}
+            </p>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Waiting hint */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5 }}
+        className="absolute bottom-24 text-xs text-muted-foreground/50 uppercase tracking-widest animate-pulse"
+      >
+        Waiting for next player...
+      </motion.p>
+    </motion.div>
+  );
+}
+
+/** Redesigned full-width bottom team purse strip */
+function TeamPurseStrip({ purses, currentBidTeamId }: {
+  purses: Array<{ teamId: number; teamName: string; shortCode: string; color: string | null | undefined; logoUrl?: string | null; purse: number; purseUsed: number; purseRemaining: number; playersBought: number }>;
+  currentBidTeamId?: number | null;
+}) {
+  if (!purses.length) return null;
+  return (
+    <div className="border-t border-border/30 bg-black/50 backdrop-blur-sm">
+      <div className="flex items-stretch divide-x divide-border/20">
+        {purses.map(team => {
+          const isLeading = currentBidTeamId === team.teamId;
+          const color = team.color || "#F59E0B";
+          const pctUsed = Math.min(100, team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0);
+          return (
+            <motion.div
+              key={team.teamId}
+              animate={isLeading ? { scale: 1.02 } : { scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="flex-1 flex flex-col gap-1 px-4 py-3 relative min-w-0 overflow-hidden"
+              style={{
+                backgroundColor: isLeading ? `${color}18` : "transparent",
+                boxShadow: isLeading ? `inset 0 0 0 2px ${color}55, 0 0 30px ${color}33` : undefined,
+              }}
+            >
+              {/* Glow pulse when leading */}
+              {isLeading && (
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  animate={{ opacity: [0.3, 0.7, 0.3] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                  style={{ background: `radial-gradient(ellipse at 50% 100%, ${color}30 0%, transparent 70%)` }}
+                />
+              )}
+
+              {/* Color accent bar */}
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: color, boxShadow: isLeading ? `0 0 8px ${color}` : undefined }} />
+
+              {/* Team identity */}
+              <div className="flex items-center gap-2 relative">
+                {team.logoUrl ? (
+                  <img src={team.logoUrl} alt={team.teamName} className="w-7 h-7 object-contain rounded flex-shrink-0" />
+                ) : (
+                  <div className="w-7 h-7 rounded flex items-center justify-center text-[10px] font-display font-black flex-shrink-0"
+                    style={{ backgroundColor: `${color}25`, color }}>
+                    {team.shortCode}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold leading-tight truncate" style={{ color: isLeading ? color : "#e5e7eb" }}>
+                    {team.shortCode}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground leading-tight truncate">{team.teamName}</p>
+                </div>
+                {isLeading && (
+                  <motion.div className="w-2 h-2 rounded-full flex-shrink-0" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
+                    style={{ backgroundColor: color }} />
+                )}
+              </div>
+
+              {/* Purse remaining */}
+              <p className="text-base font-display font-black leading-none tabular-nums relative" style={{ color, textShadow: isLeading ? `0 0 15px ${color}` : undefined }}>
+                {formatShortIndianRupee(team.purseRemaining)}
+              </p>
+
+              {/* Progress bar + count */}
+              <div className="relative space-y-1">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pctUsed}%`, backgroundColor: color, boxShadow: isLeading ? `0 0 6px ${color}` : undefined }} />
+                </div>
+                <p className="text-[9px] text-muted-foreground">{team.playersBought}P · {Math.round(pctUsed)}% used</p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DisplayView() {
   const [, params] = useRoute("/tournament/:id/display");
   const tournamentId = parseInt(params?.id || "0");
-  const [showSold, setShowSold] = useState(false);
+
+  // Sold animation state machine
+  const [soldPhase, setSoldPhase] = useState<"stamp" | "card" | null>(null);
+  const [soldRecord, setSoldRecord] = useState<SoldRecord | null>(null);
   const [lastSoldAction, setLastSoldAction] = useState<string | null>(null);
   const prevPlayerIdRef = useRef<number | null>(null);
+  const soldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the last known player + bid info so we can show sold card even after
+  // the API clears currentPlayer=null in the same update as lastAction="SOLD:..."
+  const lastKnownPlayerRef = useRef<{
+    name: string; photoUrl?: string | null;
+    bid: number; teamName: string; teamColor: string;
+  } | null>(null);
 
   useAuctionSocket(tournamentId);
 
@@ -257,26 +481,62 @@ export default function DisplayView() {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 10000,
+      refetchInterval: 8000,
     },
   });
 
-  // Show sold stamp when lastAction changes to a SOLD message
+  // Keep lastKnownPlayerRef up to date whenever a player is live in auction
+  useEffect(() => {
+    if (state?.currentPlayer && state.currentBidTeamId) {
+      lastKnownPlayerRef.current = {
+        name: state.currentPlayer.name,
+        photoUrl: state.currentPlayer.photoUrl,
+        bid: state.currentBid ?? 0,
+        teamName: state.currentBidTeamName ?? "Unknown Team",
+        teamColor: state.currentBidTeamColor ?? "#F59E0B",
+      };
+    }
+  }, [state?.currentPlayer?.id, state?.currentBidTeamId, state?.currentBid]);
+
+  // Show SOLD stamp (1s) → then sold card (until next player)
   useEffect(() => {
     if (state?.lastAction && state.lastAction.startsWith("SOLD:") && state.lastAction !== lastSoldAction) {
-      setShowSold(true);
       setLastSoldAction(state.lastAction);
-      const timer = setTimeout(() => setShowSold(false), 3500);
-      return () => clearTimeout(timer);
+      // After sell the API sets currentPlayer=null in the same payload, so use cached ref
+      const src = state.currentPlayer
+        ? {
+            playerName: state.currentPlayer.name,
+            photoUrl: state.currentPlayer.photoUrl,
+            amount: state.currentBid || 0,
+            teamName: state.currentBidTeamName || "Unknown Team",
+            teamColor: state.currentBidTeamColor || "#F59E0B",
+          }
+        : lastKnownPlayerRef.current
+        ? {
+            playerName: lastKnownPlayerRef.current.name,
+            photoUrl: lastKnownPlayerRef.current.photoUrl,
+            amount: lastKnownPlayerRef.current.bid,
+            teamName: lastKnownPlayerRef.current.teamName,
+            teamColor: lastKnownPlayerRef.current.teamColor,
+          }
+        : null;
+      if (src) setSoldRecord(src);
+      setSoldPhase("stamp");
+      if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
+      // After 1s, switch stamp → card
+      soldTimerRef.current = setTimeout(() => {
+        setSoldPhase("card");
+      }, 1000);
     }
     return undefined;
   }, [state?.lastAction, lastSoldAction]);
 
-  // Bug fix: clear sold stamp immediately when a new player appears
+  // Clear sold card when next player appears
   useEffect(() => {
     const currentId = state?.currentPlayer?.id ?? null;
     if (currentId && currentId !== prevPlayerIdRef.current) {
-      setShowSold(false);
+      setSoldPhase(null);
+      setSoldRecord(null);
       prevPlayerIdRef.current = currentId;
     } else if (!currentId) {
       prevPlayerIdRef.current = null;
@@ -300,7 +560,6 @@ export default function DisplayView() {
   const isPaused = state?.status === "paused";
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
 
-  // Parse sponsor logos from JSON string
   let sponsorLogos: { url: string; name: string }[] = [];
   if (tournament?.sponsorLogos) {
     try { sponsorLogos = JSON.parse(tournament.sponsorLogos); } catch { /* ignore */ }
@@ -317,6 +576,19 @@ export default function DisplayView() {
       ].filter(Boolean)
     : [];
 
+  // Merge purse data for strip (include teamName/shortCode from state if available)
+  const stripPurses = (teamPurses || []).map(t => ({
+    teamId: t.teamId,
+    teamName: t.teamName,
+    shortCode: t.shortCode || t.teamName.slice(0, 4).toUpperCase(),
+    color: t.color,
+    logoUrl: t.logoUrl,
+    purse: t.purse,
+    purseUsed: t.purseUsed,
+    purseRemaining: t.purseRemaining,
+    playersBought: t.playersBought,
+  }));
+
   return (
     <FullscreenLayout>
       <style>{`
@@ -332,8 +604,8 @@ export default function DisplayView() {
           transition: "background 0.8s ease",
         }}
       >
-        {/* Top Bar — Tournament Branding */}
-        <div className="flex items-center justify-between px-8 py-4 border-b border-border/40 bg-black/30 backdrop-blur-sm">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between px-8 py-4 border-b border-border/40 bg-black/30 backdrop-blur-sm flex-shrink-0">
           <div className="flex items-center gap-4">
             {tournament?.logoUrl ? (
               <img src={tournament.logoUrl} alt={tournament.name} className="h-12 w-12 object-contain rounded-lg" />
@@ -372,9 +644,15 @@ export default function DisplayView() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative overflow-hidden">
-          <AnimatePresence>{showSold && <SoldStamp />}</AnimatePresence>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative overflow-hidden min-h-0">
+          {/* SOLD animations — stamp then card */}
+          <AnimatePresence>
+            {soldPhase === "stamp" && <SoldStamp key="stamp" />}
+          </AnimatePresence>
+          <AnimatePresence>
+            {soldPhase === "card" && soldRecord && <SoldCard key="card" record={soldRecord} />}
+          </AnimatePresence>
 
           {state?.currentPlayer ? (
             <div className="w-full max-w-5xl">
@@ -524,19 +802,12 @@ export default function DisplayView() {
                   transition={{ duration: 3, repeat: Infinity }}
                 />
               ) : (
-                <motion.div
-                  animate={{ opacity: [0.3, 0.8, 0.3] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                >
+                <motion.div animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 3, repeat: Infinity }}>
                   <Trophy className="w-20 h-20 text-primary/40 mx-auto" />
                 </motion.div>
               )}
               <h2 className="text-5xl font-display font-bold text-muted-foreground">
-                {state?.status === "completed"
-                  ? "Auction Complete"
-                  : isPaused
-                  ? "Auction Paused"
-                  : tournament?.name || "Live Auction"}
+                {state?.status === "completed" ? "Auction Complete" : isPaused ? "Auction Paused" : tournament?.name || "Live Auction"}
               </h2>
               {state?.lastAction && (
                 <p className="text-muted-foreground text-xl max-w-lg mx-auto">{state.lastAction}</p>
@@ -548,53 +819,29 @@ export default function DisplayView() {
           )}
         </div>
 
-        {/* Bottom: Team Purse Strip */}
-        {teamPurses && teamPurses.length > 0 && (
-          <div className="px-6 py-3 border-t border-border/30 bg-black/30 backdrop-blur-sm">
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
-              {teamPurses.map(team => {
-                const pctUsed = Math.min(100, (team.purseUsed / team.purse) * 100);
-                const isLeading = state?.currentBidTeamId === team.teamId;
-                return (
-                  <div
-                    key={team.teamId}
-                    className={`flex-shrink-0 flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${isLeading ? "scale-105" : ""}`}
-                    style={{
-                      backgroundColor: `${team.color}18`,
-                      border: `1px solid ${team.color}${isLeading ? "88" : "33"}`,
-                      boxShadow: isLeading ? `0 0 20px ${team.color}44` : undefined,
-                    }}
-                  >
-                    {team.logoUrl ? (
-                      <img src={team.logoUrl} alt={team.teamName} className="w-8 h-8 object-contain rounded" />
-                    ) : (
-                      <div className="w-2 h-8 rounded-full" style={{ backgroundColor: team.color || "#666" }} />
-                    )}
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-bold leading-tight" style={{ color: isLeading ? (team.color || "#fff") : "#fff" }}>
-                          {team.shortCode}
-                        </p>
-                        {isLeading && (
-                          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
-                        )}
-                      </div>
-                      <p className="text-sm font-mono font-bold" style={{ color: team.color || "#fff" }}>
-                        {formatShortIndianRupee(team.purseRemaining)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{team.playersBought}P · {Math.round(pctUsed)}% used</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Full-width Bottom Team Strip */}
+        <TeamPurseStrip purses={stripPurses} currentBidTeamId={state?.currentBidTeamId} />
 
         {/* Sponsor Logos Ticker */}
         <SponsorTicker logos={sponsorLogos} />
 
-        {/* Fortune Wheel Overlay — covers everything when active */}
+        {/* Team Purse View Overlay */}
+        <AnimatePresence>
+          {state?.teamPurseViewActive && stripPurses.length > 0 && (
+            <motion.div
+              key="purse-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <TeamPurseOverlay purses={stripPurses} currentBidTeamId={state?.currentBidTeamId} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Fortune Wheel Overlay */}
         <AnimatePresence>
           {state?.fortuneWheelActive && (
             <motion.div
@@ -605,10 +852,7 @@ export default function DisplayView() {
               transition={{ duration: 0.5 }}
               className="absolute inset-0"
             >
-              <FortuneWheelOverlay
-                items={state.wheelItems ?? []}
-                winner={state.wheelWinner}
-              />
+              <FortuneWheelOverlay items={state.wheelItems ?? []} winner={state.wheelWinner} />
             </motion.div>
           )}
         </AnimatePresence>

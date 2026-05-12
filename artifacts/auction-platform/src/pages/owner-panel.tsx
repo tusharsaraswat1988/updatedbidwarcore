@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
   useGetTeam,
   useGetTeamPurses,
   usePlaceBid,
+  useVerifyOwnerAccess,
   getGetAuctionStateQueryKey,
   getGetTeamQueryKey,
   getGetTeamPursesQueryKey,
@@ -13,14 +14,144 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+
+function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
+  tournamentId: number;
+  teamId: number;
+  teamName: string;
+  teamColor: string;
+  onVerified: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const verify = useVerifyOwnerAccess();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      const result = await verify.mutateAsync({ tournamentId, teamId, data: { code: code.trim() } });
+      if (result.valid) {
+        sessionStorage.setItem(`owner_verified_${teamId}`, "1");
+        onVerified();
+      } else {
+        setError("Incorrect access code. Please try again.");
+        setCode("");
+      }
+    } catch {
+      setError("Verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6"
+      style={{ background: `radial-gradient(ellipse at top, ${teamColor}15 0%, transparent 55%), #09090b` }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.4, type: "spring" }}
+        className="w-full max-w-sm space-y-8 text-center"
+      >
+        <div className="space-y-3">
+          <div
+            className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center"
+            style={{ backgroundColor: `${teamColor}22`, border: `2px solid ${teamColor}66` }}
+          >
+            <Lock className="w-9 h-9" style={{ color: teamColor }} />
+          </div>
+          <h1 className="font-display font-black text-3xl text-white">{teamName}</h1>
+          <p className="text-muted-foreground text-sm">Enter your team access code to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <input
+              type={showCode ? "text" : "password"}
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              placeholder="ACCESS CODE"
+              autoComplete="off"
+              className="w-full px-5 py-4 rounded-2xl border text-center font-display font-black text-2xl tracking-[0.3em] bg-card/50 border-border text-white placeholder:text-muted-foreground/40 outline-none focus:border-primary/60 transition-all"
+              style={{ caretColor: teamColor }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowCode(v => !v)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
+              {showCode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-destructive text-sm text-center"
+              >
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <motion.button
+            type="submit"
+            disabled={loading || !code.trim()}
+            whileTap={{ scale: 0.97 }}
+            className="w-full py-5 rounded-2xl font-display font-black text-xl text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            style={{ backgroundColor: teamColor, boxShadow: `0 0 40px ${teamColor}55` }}
+          >
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin mx-auto" /> : "ENTER"}
+          </motion.button>
+        </form>
+
+        <p className="text-xs text-muted-foreground/60">
+          Contact the auction operator if you don't have the code.
+        </p>
+      </motion.div>
+    </div>
+  );
+}
 
 export default function OwnerPanel() {
   const [, params] = useRoute("/tournament/:id/owner/:teamId");
   const tournamentId = parseInt(params?.id || "0");
   const teamId = parseInt(params?.teamId || "0");
   const qc = useQueryClient();
+
+  const [verified, setVerified] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const { data: team } = useGetTeam(tournamentId, teamId, {
+    query: {
+      queryKey: getGetTeamQueryKey(tournamentId, teamId),
+      enabled: !!tournamentId && !!teamId,
+    },
+  });
+
+  // Check session storage for prior verification
+  useEffect(() => {
+    if (!team) return;
+    if (!team.accessCode) {
+      setVerified(true);
+    } else {
+      const stored = sessionStorage.getItem(`owner_verified_${teamId}`);
+      if (stored === "1") setVerified(true);
+    }
+    setChecking(false);
+  }, [team, teamId]);
 
   // Real-time SSE connection
   useAuctionSocket(tournamentId);
@@ -30,13 +161,6 @@ export default function OwnerPanel() {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
       refetchInterval: 5000,
-    },
-  });
-
-  const { data: team } = useGetTeam(tournamentId, teamId, {
-    query: {
-      queryKey: getGetTeamQueryKey(tournamentId, teamId),
-      enabled: !!tournamentId && !!teamId,
     },
   });
 
@@ -78,6 +202,30 @@ export default function OwnerPanel() {
   }
 
   const teamColor = team?.color || "#F59E0B";
+
+  if (checking || !team) {
+    return (
+      <FullscreenLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
+  if (!verified) {
+    return (
+      <FullscreenLayout>
+        <AccessGate
+          tournamentId={tournamentId}
+          teamId={teamId}
+          teamName={team.name}
+          teamColor={teamColor}
+          onVerified={() => setVerified(true)}
+        />
+      </FullscreenLayout>
+    );
+  }
 
   return (
     <FullscreenLayout>

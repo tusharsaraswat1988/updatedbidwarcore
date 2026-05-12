@@ -102,6 +102,8 @@ export interface Team {
   purse: number;
   purseUsed: number;
   isBiddingEnabled?: boolean;
+  /** @nullable */
+  accessCode?: string | null;
   createdAt: string;
 }
 
@@ -124,6 +126,7 @@ export interface TeamUpdate {
   logoUrl?: string;
   purse?: number;
   isBiddingEnabled?: boolean;
+  regenerateCode?: boolean;
 }
 
 export interface Category {
@@ -137,6 +140,7 @@ export interface Category {
   maxPlayers?: number | null;
   /** @nullable */
   colorCode?: string | null;
+  sortOrder?: number;
   createdAt: string;
 }
 
@@ -146,6 +150,7 @@ export interface CategoryInput {
   bidIncrement?: number;
   maxPlayers?: number;
   colorCode?: string;
+  sortOrder?: number;
 }
 
 export interface CategoryUpdate {
@@ -154,6 +159,7 @@ export interface CategoryUpdate {
   bidIncrement?: number;
   maxPlayers?: number;
   colorCode?: string;
+  sortOrder?: number;
 }
 
 export type PlayerStatus = (typeof PlayerStatus)[keyof typeof PlayerStatus];
@@ -368,6 +374,7 @@ export interface AuctionState {
   wheelItems?: WheelItem[];
   /** @nullable */
   wheelWinner?: string | null;
+  teamPurseViewActive?: boolean;
 }
 
 export interface TournamentSummary {
@@ -430,3 +437,15 @@ export interface CategoryBreakdown {
   available: number;
   totalSpent?: number;
 }
+
+export type SetTeamPurseViewBody = {
+  active: boolean;
+};
+
+export type VerifyOwnerAccessBody = {
+  code: string;
+};
+
+export type VerifyOwnerAccess200 = {
+  valid: boolean;
+};

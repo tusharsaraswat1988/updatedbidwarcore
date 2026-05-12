@@ -6,6 +6,10 @@ import { z } from "zod";
 
 const router = Router();
 
+function genAccessCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id,
   tournamentId: t.tournamentId,
@@ -18,6 +22,7 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   purse: t.purse,
   purseUsed: t.purseUsed,
   isBiddingEnabled: t.isBiddingEnabled,
+  accessCode: t.accessCode,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -60,6 +65,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
       purse: d.purse ?? 10000000,
       purseUsed: 0,
       isBiddingEnabled: true,
+      accessCode: genAccessCode(),
     })
     .returning();
   res.status(201).json(teamToJson(team));
@@ -90,6 +96,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     logoUrl: z.string().optional(),
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
+    regenerateCode: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -103,6 +110,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
   if (d.purse !== undefined) updates.purse = d.purse;
   if (d.isBiddingEnabled !== undefined) updates.isBiddingEnabled = d.isBiddingEnabled;
+  if (d.regenerateCode) updates.accessCode = genAccessCode();
   const [team] = await db
     .update(teamsTable)
     .set(updates)
@@ -110,6 +118,23 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .returning();
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   res.json(teamToJson(team));
+});
+
+// POST verify owner access code
+router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({ code: z.string() }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!team) { res.status(404).json({ error: "Not found" }); return; }
+  // If no access code set, any code is accepted (backward compat)
+  const valid = !team.accessCode || team.accessCode.toUpperCase() === body.data.code.toUpperCase();
+  res.json({ valid });
 });
 
 router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {

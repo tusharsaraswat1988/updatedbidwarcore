@@ -14,6 +14,7 @@ export const teamsTable = pgTable("teams", {
   purse: integer("purse").notNull().default(10000000),
   purseUsed: integer("purse_used").notNull().default(0),
   isBiddingEnabled: boolean("is_bidding_enabled").notNull().default(true),
+  accessCode: text("access_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

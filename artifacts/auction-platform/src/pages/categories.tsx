@@ -28,6 +28,7 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
     bidIncrement: category?.bidIncrement || 50000,
     maxPlayers: category?.maxPlayers || 5,
     colorCode: category?.colorCode || "#F59E0B",
+    sortOrder: category?.sortOrder ?? 0,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -69,6 +70,10 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
             <Input value={form.colorCode} onChange={e => setForm(f => ({ ...f, colorCode: e.target.value }))} className="font-mono" />
           </div>
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Auction Priority Order (lower number = auctions first, 0 = default)</Label>
+        <Input type="number" min={0} value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} placeholder="0" />
       </div>
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1" disabled={createCat.isPending || updateCat.isPending}>
@@ -152,7 +157,7 @@ export default function Categories() {
                       </Button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
+                  <div className="grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
                     <div>
                       <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Min Bid</p>
                       <p className="font-bold font-mono" style={{ color: cat.colorCode || "#F59E0B" }}>{formatIndianRupee(cat.minBid)}</p>
@@ -160,6 +165,10 @@ export default function Categories() {
                     <div>
                       <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Increment</p>
                       <p className="font-bold font-mono text-muted-foreground">{formatIndianRupee(cat.bidIncrement || 0)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Priority</p>
+                      <p className="font-bold font-mono text-muted-foreground">#{cat.sortOrder ?? 0}</p>
                     </div>
                   </div>
                 </CardContent>

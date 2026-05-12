@@ -132,6 +132,7 @@ async function buildAuctionState(tournamentId: number) {
     fortuneWheelActive: session.fortuneWheelActive,
     wheelItems,
     wheelWinner: session.wheelWinner,
+    teamPurseViewActive: session.teamPurseViewActive,
   };
 }
 
@@ -593,6 +594,20 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   }
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
+});
+
+// POST toggle team purse view
+router.post("/tournaments/:tournamentId/auction/team-purse-view", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({ active: z.boolean() }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  await getOrCreateSession(tid);
+  await db
+    .update(auctionSessionsTable)
+    .set({ teamPurseViewActive: body.data.active })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  res.json(await broadcastState(tid));
 });
 
 // POST fortune wheel sync (active, items, winner)
