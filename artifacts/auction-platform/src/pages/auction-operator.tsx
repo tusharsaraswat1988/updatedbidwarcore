@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
@@ -185,9 +185,14 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  // Sync timerSecs input whenever tournament timer setting changes
+  // Seed the timer input once from the tournament setting (never overwrite after that,
+  // so the operator can freely type a custom value without it being clobbered by polls).
+  const timerSecsInitialized = useRef(false);
   useEffect(() => {
-    if (state?.timerSeconds) setTimerSecs(String(state.timerSeconds));
+    if (!timerSecsInitialized.current && state?.timerSeconds) {
+      setTimerSecs(String(state.timerSeconds));
+      timerSecsInitialized.current = true;
+    }
   }, [state?.timerSeconds]);
 
   // Client-side countdown from server timerEndsAt
@@ -479,9 +484,18 @@ export default function AuctionOperator() {
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
                   <Timer className={`w-4 h-4 flex-shrink-0 ${timerActive && timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : timerActive ? "text-green-400" : "text-muted-foreground"}`} />
                   {timerActive && timeLeft !== null ? (
-                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-green-400"}`}>
-                      {`${timeLeft}s`}
-                    </span>
+                    <>
+                      <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-green-400"}`}>
+                        {`${timeLeft}s`}
+                      </span>
+                      <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                        hasBid
+                          ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                          : "bg-green-500/20 text-green-400 border-green-500/30"
+                      }`}>
+                        {hasBid ? "BID TIMER" : "START TIMER"}
+                      </span>
+                    </>
                   ) : timeLeft === 0 ? (
                     <span className="text-2xl font-display font-black tabular-nums text-red-500">EXPIRED</span>
                   ) : (

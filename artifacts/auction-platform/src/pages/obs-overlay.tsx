@@ -54,12 +54,16 @@ function HexPhoto({ src, color, size = 180 }: { src?: string | null; color: stri
 }
 
 // ─── Countdown ring ───────────────────────────────────────────────────────────
-function CountdownRing({ timerEndsAt, timerSeconds }: { timerEndsAt?: string | null; timerSeconds?: number | null }) {
+function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null; timerSeconds?: number | null }) {
   const [remaining, setRemaining] = useState(0);
-  const total = timerSeconds ?? 30;
+  // Capture the full duration at the moment timerEndsAt arrives so the ring
+  // always starts at 100% regardless of what the tournament default is.
+  const totalRef = useRef<number>(30);
 
   useEffect(() => {
     if (!timerEndsAt) { setRemaining(0); return; }
+    const fullMs = new Date(timerEndsAt).getTime() - Date.now();
+    totalRef.current = Math.max(1, Math.ceil(fullMs / 1000));
     const tick = () => {
       const ms = new Date(timerEndsAt).getTime() - Date.now();
       setRemaining(Math.max(0, Math.ceil(ms / 1000)));
@@ -69,7 +73,7 @@ function CountdownRing({ timerEndsAt, timerSeconds }: { timerEndsAt?: string | n
     return () => clearInterval(id);
   }, [timerEndsAt]);
 
-  const pct = total > 0 ? remaining / total : 0;
+  const pct = totalRef.current > 0 ? remaining / totalRef.current : 0;
   const r = 28, cx = 34, cy = 34;
   const circumference = 2 * Math.PI * r;
   const strokeDash = circumference * pct;
