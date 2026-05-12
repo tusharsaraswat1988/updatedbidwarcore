@@ -24,7 +24,7 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
   Gavel, Monitor, Trophy, ExternalLink, Pencil, Link2, Dices, KeyRound,
-  Building2, Timer, PlusCircle, Trash2, ChevronDown, ChevronRight,
+  Building2, Timer, PlusCircle, Trash2, ChevronDown, ChevronRight, Download,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -99,6 +99,7 @@ export default function TournamentHub() {
     { increment: 100000 },
   ]);
   const [orgPassword, setOrgPassword] = useState("");
+  const [exportLoading, setExportLoading] = useState(false);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -154,6 +155,26 @@ export default function TournamentHub() {
     setOrgPassword("");
     setActiveSection("identity");
     setEditOpen(true);
+  }
+
+  async function handleExportForLocal() {
+    setExportLoading(true);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/export`);
+      if (!res.ok) throw new Error("Export failed");
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(tournament?.name || "tournament").replace(/\s+/g, "-").toLowerCase()}-bidwar-export.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Export failed. Please try again.");
+    } finally {
+      setExportLoading(false);
+    }
   }
 
   async function handleSave() {
@@ -259,6 +280,14 @@ export default function TournamentHub() {
               onClick={() => navigate(`/tournament/${tournamentId}/reports`)}
             >
               <Trophy className="w-4 h-4" /> Reports
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10"
+              onClick={handleExportForLocal}
+              disabled={exportLoading}
+            >
+              <Download className="w-4 h-4" /> {exportLoading ? "Exporting..." : "Export for Local"}
             </Button>
           </div>
         </div>

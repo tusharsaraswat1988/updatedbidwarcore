@@ -493,6 +493,49 @@ export interface TimerInput {
   seconds: number;
 }
 
+export interface TournamentExport {
+  version: number;
+  exportedAt: string;
+  tournament: Tournament;
+  teams: Team[];
+  players: Player[];
+  categories: Category[];
+}
+
+export type LocalSyncPayloadPlayerResultsItem = {
+  cloudId: number;
+  status: string;
+  /** @nullable */
+  teamCloudId?: number | null;
+  /** @nullable */
+  soldPrice?: number | null;
+};
+
+export type LocalSyncPayloadTeamPursesItem = {
+  cloudId: number;
+  purseUsed: number;
+};
+
+export type LocalSyncPayloadBidsItem = {
+  playerCloudId: number;
+  teamCloudId: number;
+  amount: number;
+  timestamp: string;
+};
+
+export interface LocalSyncPayload {
+  playerResults: LocalSyncPayloadPlayerResultsItem[];
+  teamPurses: LocalSyncPayloadTeamPursesItem[];
+  bids?: LocalSyncPayloadBidsItem[];
+}
+
+export interface LocalSyncResult {
+  ok: boolean;
+  playersUpdated: number;
+  teamsUpdated: number;
+  bidsInserted: number;
+}
+
 export interface CategoryBreakdown {
   categoryId: number;
   categoryName: string;

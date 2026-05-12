@@ -119,6 +119,54 @@ paths:
         "204":
           description: Deleted
 
+  /tournaments/{tournamentId}/export:
+    get:
+      operationId: exportTournamentForLocal
+      tags: [tournaments]
+      summary: Export full tournament snapshot for local/offline mode
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tournament snapshot JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentExport"
+        "404":
+          description: Not found
+
+  /tournaments/{tournamentId}/sync:
+    post:
+      operationId: syncLocalAuction
+      tags: [tournaments]
+      summary: Sync local offline auction results back to cloud
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocalSyncPayload"
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalSyncResult"
+        "404":
+          description: Not found
+
   # ─── TEAMS ──────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/teams:
     get:
@@ -1627,6 +1675,85 @@ components:
           type: integer
           minimum: 5
           maximum: 300
+
+    TournamentExport:
+      type: object
+      required: [version, exportedAt, tournament, teams, players, categories]
+      properties:
+        version:
+          type: integer
+        exportedAt:
+          type: string
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/Team"
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+
+    LocalSyncPayload:
+      type: object
+      required: [playerResults, teamPurses]
+      properties:
+        playerResults:
+          type: array
+          items:
+            type: object
+            required: [cloudId, status]
+            properties:
+              cloudId:
+                type: integer
+              status:
+                type: string
+              teamCloudId:
+                type: ["integer", "null"]
+              soldPrice:
+                type: ["integer", "null"]
+        teamPurses:
+          type: array
+          items:
+            type: object
+            required: [cloudId, purseUsed]
+            properties:
+              cloudId:
+                type: integer
+              purseUsed:
+                type: integer
+        bids:
+          type: array
+          items:
+            type: object
+            required: [playerCloudId, teamCloudId, amount, timestamp]
+            properties:
+              playerCloudId:
+                type: integer
+              teamCloudId:
+                type: integer
+              amount:
+                type: integer
+              timestamp:
+                type: string
+
+    LocalSyncResult:
+      type: object
+      required: [ok, playersUpdated, teamsUpdated, bidsInserted]
+      properties:
+        ok:
+          type: boolean
+        playersUpdated:
+          type: integer
+        teamsUpdated:
+          type: integer
+        bidsInserted:
+          type: integer
 
     CategoryBreakdown:
       type: object

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BidWar Local</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .header {
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .header .badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: #eab30822;
+      color: #eab308;
+      border: 1px solid #eab30844;
+      letter-spacing: 1px;
+    }
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 14px; font-weight: 600; color: #a1a1aa; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ip-display {
+      background: #09090b;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 28px;
+      font-weight: 700;
+      font-family: monospace;
+      color: #eab308;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    .ip-port { font-size: 16px; color: #71717a; margin-top: 6px; text-align: center; font-family: monospace; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: #eab308; color: #09090b; }
+    .btn-primary:hover { background: #ca8a04; }
+    .btn-outline { background: transparent; color: #fafafa; border: 1px solid #3f3f46; }
+    .btn-outline:hover { background: #27272a; }
+    .btn-danger { background: transparent; color: #f87171; border: 1px solid #f8717133; }
+    .btn-danger:hover { background: #f8717111; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .action-btn {
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid #27272a;
+      background: #18181b;
+      color: #fafafa;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .action-btn:hover { background: #27272a; border-color: #3f3f46; }
+    .action-btn .title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .action-btn .desc { font-size: 11px; color: #71717a; }
+    .status-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #27272a; }
+    .status-row:last-child { border-bottom: none; }
+    .status-label { font-size: 13px; color: #a1a1aa; }
+    .status-value { font-size: 13px; font-weight: 500; font-family: monospace; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-green { background: #22c55e; }
+    .dot-yellow { background: #eab308; animation: pulse 1.5s infinite; }
+    .dot-red { background: #ef4444; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .import-area {
+      border: 2px dashed #3f3f46;
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .import-area:hover { border-color: #eab308; background: #eab30808; }
+    .import-area p { font-size: 13px; color: #71717a; margin-top: 8px; }
+    .message { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; }
+    .message-ok { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+    .message-err { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
+    #file-input { display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BidWar Local</h1>
+    <span class="badge">OFFLINE MODE</span>
+  </div>
+  <div class="content">
+    <!-- Network Info -->
+    <div class="card">
+      <h2>Local Network Access</h2>
+      <div class="ip-display" id="local-ip">Loading...</div>
+      <div class="ip-port" id="local-port"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:center;">
+        <button class="btn btn-primary" onclick="openAuction()">Open Auction in Browser</button>
+        <button class="btn btn-outline" onclick="copyIP()">Copy URL</button>
+      </div>
+      <p style="font-size:12px;color:#71717a;text-align:center;margin-top:10px;">
+        Team owners: connect to the local WiFi, then open this address in any browser
+      </p>
+    </div>
+
+    <!-- Import Tournament -->
+    <div class="card">
+      <h2>Import Tournament</h2>
+      <div class="import-area" onclick="document.getElementById('file-input').click()">
+        <div style="font-size:32px;">&#8659;</div>
+        <strong>Click to select tournament export file</strong>
+        <p>Download from BidWar cloud using the "Export for Local" button on the Tournament Hub</p>
+      </div>
+      <input type="file" id="file-input" accept=".json" onchange="handleFileImport(event)" />
+      <div id="import-msg"></div>
+    </div>
+
+    <!-- Quick Access -->
+    <div class="card">
+      <h2>Quick Access</h2>
+      <div class="grid">
+        <button class="action-btn" onclick="openPath('/tournament/1/auction')">
+          <div class="title">Operator Panel</div>
+          <div class="desc">Control the live auction</div>
+        </button>
+        <button class="action-btn" onclick="openPath('/tournament/1/display')">
+          <div class="title">LED Display</div>
+          <div class="desc">Big screen broadcast view</div>
+        </button>
+        <button class="action-btn" onclick="openPath('/tournament/1/teams')">
+          <div class="title">Team Owner Panels</div>
+          <div class="desc">Individual team bidding</div>
+        </button>
+        <button class="action-btn" onclick="openPath('/tournament/1/reports')">
+          <div class="title">Reports</div>
+          <div class="desc">Auction results & charts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Cloud Sync -->
+    <div class="card">
+      <h2>Cloud Sync</h2>
+      <div id="sync-status">
+        <div class="status-row">
+          <span class="status-label">Internet</span>
+          <span class="status-value" id="internet-status"><span class="dot dot-yellow"></span>Checking...</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Last sync</span>
+          <span class="status-value" id="last-sync">Never</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Pending changes</span>
+          <span class="status-value" id="pending-changes">-</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn btn-outline" onclick="manualSync()">Sync to Cloud Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let localIP = "127.0.0.1";
+    let serverPort = 3741;
+    let tournamentId = 1;
+
+    async function init() {
+      try {
+        localIP = await window.bidwar.getLocalIP();
+        serverPort = await window.bidwar.getServerPort();
+        document.getElementById("local-ip").textContent = localIP;
+        document.getElementById("local-port").textContent = `http://${localIP}:${serverPort}`;
+        checkInternet();
+        setInterval(checkInternet, 10000);
+        loadSyncStatus();
+        setInterval(loadSyncStatus, 15000);
+      } catch (e) {
+        document.getElementById("local-ip").textContent = "Starting...";
+        setTimeout(init, 2000);
+      }
+    }
+
+    async function checkInternet() {
+      try {
+        const res = await fetch("https://clients1.google.com/generate_204", { mode: "no-cors", signal: AbortSignal.timeout(3000) });
+        document.getElementById("internet-status").innerHTML = '<span class="dot dot-green"></span>Connected';
+      } catch {
+        document.getElementById("internet-status").innerHTML = '<span class="dot dot-red"></span>Offline';
+      }
+    }
+
+    async function loadSyncStatus() {
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/sync-status`);
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById("pending-changes").textContent = data.pending || "0";
+          document.getElementById("last-sync").textContent = data.lastSync ? new Date(data.lastSync).toLocaleString() : "Never";
+        }
+      } catch {}
+    }
+
+    async function openAuction() {
+      await window.bidwar.openBrowser(`/tournament/${tournamentId}/auction`);
+    }
+
+    async function openPath(p) {
+      const path = p.replace("/tournament/1/", `/tournament/${tournamentId}/`);
+      await window.bidwar.openBrowser(path);
+    }
+
+    async function copyIP() {
+      const url = `http://${localIP}:${serverPort}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("URL copied: " + url);
+      } catch {
+        prompt("Copy this URL and share it on the local WiFi:", url);
+      }
+    }
+
+    async function handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const msgEl = document.getElementById("import-msg");
+      msgEl.innerHTML = "";
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        const res = await fetch(`http://localhost:${serverPort}/local/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(json),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          tournamentId = data.tournamentId;
+          msgEl.innerHTML = `<div class="message message-ok">Imported: ${json.tournament?.name} (${json.players?.length} players, ${json.teams?.length} teams)</div>`;
+        } else {
+          msgEl.innerHTML = `<div class="message message-err">Import failed: ${data.error || "Unknown error"}</div>`;
+        }
+      } catch (e) {
+        msgEl.innerHTML = `<div class="message message-err">Error reading file: ${e.message}</div>`;
+      }
+      event.target.value = "";
+    }
+
+    async function manualSync() {
+      const cloudUrl = prompt("Enter your BidWar cloud URL (e.g. https://yourdomain.replit.app):");
+      if (!cloudUrl) return;
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/sync-to-cloud`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cloudBaseUrl: cloudUrl.trim().replace(/\/$/, ""), tournamentId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Sync complete! Players updated: ${data.playersUpdated}, Bids synced: ${data.bidsInserted}`);
+          loadSyncStatus();
+        } else {
+          alert("Sync failed: " + (data.error || "Unknown error"));
+        }
+      } catch (e) {
+        alert("Sync error: " + e.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

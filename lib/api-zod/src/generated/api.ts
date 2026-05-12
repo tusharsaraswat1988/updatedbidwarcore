@@ -176,6 +176,142 @@ export const DeleteTournamentParams = zod.object({
 });
 
 /**
+ * @summary Export full tournament snapshot for local/offline mode
+ */
+export const ExportTournamentForLocalParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ExportTournamentForLocalResponse = zod.object({
+  version: zod.number(),
+  exportedAt: zod.string(),
+  tournament: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    sport: zod.string(),
+    venue: zod.string().nullish(),
+    auctionDate: zod.string().nullish(),
+    organizerName: zod.string().nullish(),
+    organizerMobile: zod.string().nullish(),
+    logoUrl: zod.string().nullish(),
+    sponsorLogos: zod.string().nullish(),
+    basePurse: zod.number().optional(),
+    minBid: zod.number().optional(),
+    bidIncrement: zod.number().optional(),
+    bidTier1UpTo: zod.number().optional(),
+    bidTier1Increment: zod.number().optional(),
+    bidTier2UpTo: zod.number().optional(),
+    bidTier2Increment: zod.number().optional(),
+    bidTier3Increment: zod.number().optional(),
+    bidTiers: zod.string().nullish(),
+    timerSeconds: zod.number().optional(),
+    bidTimerSeconds: zod.number().optional(),
+    playerSelectionMode: zod
+      .enum(["sequential", "random", "manual"])
+      .optional(),
+    status: zod.enum(["setup", "active", "paused", "completed"]),
+    createdAt: zod.string(),
+  }),
+  teams: zod.array(
+    zod.object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      name: zod.string(),
+      shortCode: zod.string(),
+      ownerName: zod.string(),
+      ownerMobile: zod.string().nullish(),
+      color: zod.string().nullish(),
+      logoUrl: zod.string().nullish(),
+      purse: zod.number(),
+      purseUsed: zod.number(),
+      isBiddingEnabled: zod.boolean().optional(),
+      accessCode: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+  players: zod.array(
+    zod.object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    }),
+  ),
+  categories: zod.array(
+    zod.object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      name: zod.string(),
+      minBid: zod.number(),
+      bidIncrement: zod.number().nullish(),
+      maxPlayers: zod.number().nullish(),
+      colorCode: zod.string().nullish(),
+      sortOrder: zod.number().optional(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Sync local offline auction results back to cloud
+ */
+export const SyncLocalAuctionParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SyncLocalAuctionBody = zod.object({
+  playerResults: zod.array(
+    zod.object({
+      cloudId: zod.number(),
+      status: zod.string(),
+      teamCloudId: zod.number().nullish(),
+      soldPrice: zod.number().nullish(),
+    }),
+  ),
+  teamPurses: zod.array(
+    zod.object({
+      cloudId: zod.number(),
+      purseUsed: zod.number(),
+    }),
+  ),
+  bids: zod
+    .array(
+      zod.object({
+        playerCloudId: zod.number(),
+        teamCloudId: zod.number(),
+        amount: zod.number(),
+        timestamp: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+export const SyncLocalAuctionResponse = zod.object({
+  ok: zod.boolean(),
+  playersUpdated: zod.number(),
+  teamsUpdated: zod.number(),
+  bidsInserted: zod.number(),
+});
+
+/**
  * @summary List teams in a tournament
  */
 export const ListTeamsParams = zod.object({

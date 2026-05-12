@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { tournamentsTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -157,6 +157,112 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.delete(tournamentsTable).where(eq(tournamentsTable.id, id));
   res.status(204).send();
+});
+
+// GET export full tournament snapshot for local/offline mode
+router.get("/tournaments/:tournamentId/export", async (req, res) => {
+  const id = parseInt(req.params.tournamentId);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
+  const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
+  const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, id));
+
+  const playerToJson = (p: typeof playersTable.$inferSelect) => ({
+    id: p.id, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
+    name: p.name, city: p.city, role: p.role, battingStyle: p.battingStyle,
+    bowlingStyle: p.bowlingStyle, specialization: p.specialization, age: p.age,
+    photoUrl: p.photoUrl, basePrice: p.basePrice, soldPrice: p.soldPrice,
+    retainedPrice: p.retainedPrice, status: p.status, jerseyNumber: p.jerseyNumber,
+    achievements: p.achievements, mobileNumber: p.mobileNumber, cricheroUrl: p.cricheroUrl,
+    availabilityDates: p.availabilityDates, createdAt: p.createdAt.toISOString(),
+  });
+
+  res.json({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tournament: tournamentToJson(tournament),
+    teams: teams.map(t => ({
+      id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
+      ownerName: t.ownerName, ownerMobile: t.ownerMobile, color: t.color,
+      logoUrl: t.logoUrl, purse: t.purse, purseUsed: t.purseUsed,
+      isBiddingEnabled: t.isBiddingEnabled, accessCode: t.accessCode,
+      createdAt: t.createdAt.toISOString(),
+    })),
+    players: players.map(playerToJson),
+    categories: categories.map(c => ({
+      id: c.id, tournamentId: c.tournamentId, name: c.name, minBid: c.minBid,
+      bidIncrement: c.bidIncrement, maxPlayers: c.maxPlayers, colorCode: c.colorCode,
+      sortOrder: c.sortOrder, createdAt: c.createdAt.toISOString(),
+    })),
+  });
+});
+
+// POST sync local offline auction results back to cloud
+router.post("/tournaments/:tournamentId/sync", async (req, res) => {
+  const id = parseInt(req.params.tournamentId);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    playerResults: z.array(z.object({
+      cloudId: z.number().int(),
+      status: z.string(),
+      teamCloudId: z.number().int().nullable().optional(),
+      soldPrice: z.number().int().nullable().optional(),
+    })),
+    teamPurses: z.array(z.object({
+      cloudId: z.number().int(),
+      purseUsed: z.number().int(),
+    })),
+    bids: z.array(z.object({
+      playerCloudId: z.number().int(),
+      teamCloudId: z.number().int(),
+      amount: z.number().int(),
+      timestamp: z.string(),
+    })).optional().default([]),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid sync payload" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { playerResults, teamPurses, bids } = parsed.data;
+
+  let playersUpdated = 0;
+  for (const p of playerResults) {
+    await db.update(playersTable).set({
+      status: p.status,
+      teamId: p.teamCloudId ?? null,
+      soldPrice: p.soldPrice ?? null,
+    }).where(eq(playersTable.id, p.cloudId));
+    playersUpdated++;
+  }
+
+  let teamsUpdated = 0;
+  for (const t of teamPurses) {
+    await db.update(teamsTable).set({ purseUsed: t.purseUsed }).where(eq(teamsTable.id, t.cloudId));
+    teamsUpdated++;
+  }
+
+  let bidsInserted = 0;
+  for (const b of bids) {
+    await db.insert(bidsTable).values({
+      tournamentId: id,
+      playerId: b.playerCloudId,
+      teamId: b.teamCloudId,
+      amount: b.amount,
+    });
+    bidsInserted++;
+  }
+
+  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, id));
+
+  res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted });
 });
 
 export default router;

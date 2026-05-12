@@ -1,0 +1,58 @@
+{
+  "name": "@workspace/bidwar-local",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "build:server": "node ./build-server.mjs",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "pnpm run build:server && pnpm run build:electron",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package:win": "electron-builder --win",
+    "package:mac": "electron-builder --mac"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@workspace/db-local": "workspace:*",
+    "cors": "^2.8.5",
+    "drizzle-orm": "catalog:",
+    "express": "^5.1.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.3",
+    "@types/node": "catalog:",
+    "electron": "^36.3.2",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.9.0"
+  },
+  "build": {
+    "appId": "com.bidwar.local",
+    "productName": "BidWar Local",
+    "copyright": "Copyright 2025 BidWar",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**",
+      "dist-server/**",
+      "renderer/**",
+      "node_modules/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.sports"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

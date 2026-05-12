@@ -28,6 +28,8 @@ import type {
   CategoryUpdate,
   FortuneWheelSync,
   HealthStatus,
+  LocalSyncPayload,
+  LocalSyncResult,
   ManualSellInput,
   NextPlayerInput,
   Player,
@@ -43,6 +45,7 @@ import type {
   TimerInput,
   TopBidEntry,
   Tournament,
+  TournamentExport,
   TournamentInput,
   TournamentSummary,
   TournamentUpdate,
@@ -552,6 +555,188 @@ export const useDeleteTournament = <
   TContext
 > => {
   return useMutation(getDeleteTournamentMutationOptions(options));
+};
+
+/**
+ * @summary Export full tournament snapshot for local/offline mode
+ */
+export const getExportTournamentForLocalUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/export`;
+};
+
+export const exportTournamentForLocal = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<TournamentExport> => {
+  return customFetch<TournamentExport>(
+    getExportTournamentForLocalUrl(tournamentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getExportTournamentForLocalQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/export`] as const;
+};
+
+export const getExportTournamentForLocalQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportTournamentForLocal>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportTournamentForLocal>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportTournamentForLocalQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportTournamentForLocal>>
+  > = ({ signal }) =>
+    exportTournamentForLocal(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportTournamentForLocal>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportTournamentForLocalQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportTournamentForLocal>>
+>;
+export type ExportTournamentForLocalQueryError = ErrorType<void>;
+
+/**
+ * @summary Export full tournament snapshot for local/offline mode
+ */
+
+export function useExportTournamentForLocal<
+  TData = Awaited<ReturnType<typeof exportTournamentForLocal>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportTournamentForLocal>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportTournamentForLocalQueryOptions(
+    tournamentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Sync local offline auction results back to cloud
+ */
+export const getSyncLocalAuctionUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/sync`;
+};
+
+export const syncLocalAuction = async (
+  tournamentId: number,
+  localSyncPayload: LocalSyncPayload,
+  options?: RequestInit,
+): Promise<LocalSyncResult> => {
+  return customFetch<LocalSyncResult>(getSyncLocalAuctionUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(localSyncPayload),
+  });
+};
+
+export const getSyncLocalAuctionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncLocalAuction>>,
+    TError,
+    { tournamentId: number; data: BodyType<LocalSyncPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncLocalAuction>>,
+  TError,
+  { tournamentId: number; data: BodyType<LocalSyncPayload> },
+  TContext
+> => {
+  const mutationKey = ["syncLocalAuction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncLocalAuction>>,
+    { tournamentId: number; data: BodyType<LocalSyncPayload> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return syncLocalAuction(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncLocalAuctionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncLocalAuction>>
+>;
+export type SyncLocalAuctionMutationBody = BodyType<LocalSyncPayload>;
+export type SyncLocalAuctionMutationError = ErrorType<void>;
+
+/**
+ * @summary Sync local offline auction results back to cloud
+ */
+export const useSyncLocalAuction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncLocalAuction>>,
+    TError,
+    { tournamentId: number; data: BodyType<LocalSyncPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncLocalAuction>>,
+  TError,
+  { tournamentId: number; data: BodyType<LocalSyncPayload> },
+  TContext
+> => {
+  return useMutation(getSyncLocalAuctionMutationOptions(options));
 };
 
 /**
