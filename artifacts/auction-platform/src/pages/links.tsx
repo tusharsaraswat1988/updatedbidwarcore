@@ -75,9 +75,9 @@ export default function LinksPage() {
               description="Open this on the projector or big screen TV during the auction."
             />
             <LinkRow
-              label="OBS Overlay (same URL)"
-              url={`${base}/tournament/${tournamentId}/display`}
-              description="Add as Browser Source in OBS for live streaming overlays. Size: 1920x1080."
+              label="OBS Camera Overlay"
+              url={`${base}/tournament/${tournamentId}/obs`}
+              description="Camera overlay for YouTube live streaming. Add as Browser Source in OBS (1920x1080). Transparent top, animated auction details at the bottom."
             />
             <LinkRow
               label="Fortune Wheel"
