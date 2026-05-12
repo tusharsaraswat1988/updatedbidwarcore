@@ -693,4 +693,173 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name } });
 });
 
+// ─── OTP: Send code via Twilio Verify ────────────────────────────────────────
+
+router.post("/auth/organizer-account/otp/send", async (req, res) => {
+  const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  if (!sid || !token || !serviceSid) {
+    res.status(503).json({ error: "OTP service not configured" }); return;
+  }
+
+  const digits = body.data.mobile.replace(/\D/g, "");
+  const e164 = `+${digits.startsWith("91") ? digits : digits.startsWith("0") ? `91${digits.slice(1)}` : `91${digits}`}`;
+
+  // Check organizer exists
+  const rows = await db.select().from(organizersTable).where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
+  if (rows.length === 0) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
+
+  const url = `https://verify.twilio.com/v2/Services/${serviceSid}/Verifications`;
+  const params = new URLSearchParams({ To: e164, Channel: "whatsapp" });
+  const twilioRes = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+  if (!twilioRes.ok) {
+    // Fallback to SMS if WhatsApp not enabled
+    const smsParams = new URLSearchParams({ To: e164, Channel: "sms" });
+    const smsRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: smsParams.toString(),
+    });
+    if (!smsRes.ok) {
+      res.status(500).json({ error: "Failed to send OTP. Please try again." }); return;
+    }
+  }
+
+  res.json({ success: true, message: "OTP sent to your WhatsApp / SMS" });
+});
+
+// ─── OTP: Verify code and reset password ─────────────────────────────────────
+
+router.post("/auth/organizer-account/otp/verify", async (req, res) => {
+  const body = z.object({
+    mobile: z.string().min(7),
+    code: z.string().length(6),
+    newPassword: z.string().min(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile, 6-digit code, and new password required" }); return; }
+
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  if (!sid || !token || !serviceSid) { res.status(503).json({ error: "OTP service not configured" }); return; }
+
+  const digits = body.data.mobile.replace(/\D/g, "");
+  const e164 = `+${digits.startsWith("91") ? digits : digits.startsWith("0") ? `91${digits.slice(1)}` : `91${digits}`}`;
+
+  const url = `https://verify.twilio.com/v2/Services/${serviceSid}/VerificationCheck`;
+  const params = new URLSearchParams({ To: e164, Code: body.data.code });
+  const twilioRes = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+  const twilioData = await twilioRes.json() as { status?: string };
+  if (!twilioRes.ok || twilioData.status !== "approved") {
+    res.status(400).json({ error: "Invalid or expired OTP code" }); return;
+  }
+
+  const rows = await db.select().from(organizersTable).where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
+  if (rows.length === 0) { res.status(404).json({ error: "Account not found" }); return; }
+
+  const newHash = await hashPassword(body.data.newPassword);
+  const [updated] = await db.update(organizersTable).set({ passwordHash: newHash }).where(eq(organizersTable.id, rows[0].id)).returning();
+
+  req.session.organizerAccountId = updated.id;
+  if (!req.session.organizer) req.session.organizer = {};
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
+  for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
+
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
+// ─── Google OAuth ─────────────────────────────────────────────────────────────
+
+router.get("/auth/google", (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) { res.status(503).send("Google login not configured"); return; }
+  const domain = process.env.REPLIT_DEV_DOMAIN ?? "";
+  const redirectUri = `https://${domain}/api/auth/google/callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get("/auth/google/callback", async (req, res) => {
+  const code = req.query.code as string | undefined;
+  if (!code) { res.redirect("/organizer?error=google_cancelled"); return; }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const domain = process.env.REPLIT_DEV_DOMAIN ?? "";
+  const redirectUri = `https://${domain}/api/auth/google/callback`;
+  if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
+
+  try {
+    // Exchange code for tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" }),
+    });
+    const tokens = await tokenRes.json() as { access_token?: string; error?: string };
+    if (!tokens.access_token) { res.redirect("/organizer?error=google_token_failed"); return; }
+
+    // Get user info
+    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const gUser = await userRes.json() as { email?: string; name?: string; id?: string };
+    if (!gUser.email) { res.redirect("/organizer?error=no_email"); return; }
+
+    // Find or create organizer by email
+    let rows = await db.select().from(organizersTable).where(eq(organizersTable.email, gUser.email));
+    let organizer = rows[0];
+
+    if (!organizer) {
+      // Auto-create account — mobile will be empty (they can fill it later)
+      const [created] = await db.insert(organizersTable).values({
+        name: gUser.name ?? gUser.email.split("@")[0],
+        email: gUser.email,
+        mobile: `google_${gUser.id ?? Date.now()}`,
+        passwordHash: await hashPassword(Math.random().toString(36)),
+        licenseStatus: "pending",
+        maxTournaments: 1,
+      }).returning();
+      organizer = created;
+    }
+
+    req.session.organizerAccountId = organizer.id;
+    if (!req.session.organizer) req.session.organizer = {};
+    const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+    for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
+
+    res.redirect("/organizer?login=success");
+  } catch {
+    res.redirect("/organizer?error=google_failed");
+  }
+});
+
 export default router;

@@ -34,3 +34,13 @@ externalPort = 3002
 [[ports]]
 localPort = 24755
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+TWILIO_ACCOUNT_SID = "ACbbb4fbce1da4c85e3a3f94215d5e0dae"
+TWILIO_AUTH_TOKEN = "709f54d5557fa871a82e7f794d2add11"
+TWILIO_WHATSAPP_FROM = "+18382214175"
+TWILIO_VERIFY_SERVICE_SID = "VAe4efc72be53dbe5039603cda016e513c"
+GOOGLE_CLIENT_ID = "72869814220-h79racjrrtfv0gdvntmdaqkkgi3nqiub.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"

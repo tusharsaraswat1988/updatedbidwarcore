@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import {
   signupOrganizerAccount,
   loginOrganizerAccount,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
+  sendOtp,
+  verifyOtpAndReset,
 } from "@/lib/auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   UserCircle2, LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, Clock, CheckCircle2,
-  XCircle, Eye, EyeOff, ArrowLeft,
+  XCircle, Eye, EyeOff, ArrowLeft, MessageSquare, KeyRound,
 } from "lucide-react";
 
 type OrganizerInfo = {
@@ -192,8 +194,109 @@ function CreateTournamentModal({
   );
 }
 
+function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+  const [step, setStep] = useState<"mobile" | "code">("mobile");
+  const [mobile, setMobile] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function handleSendOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mobile.trim()) { setError("Enter your registered mobile number"); return; }
+    setLoading(true); setError("");
+    const r = await sendOtp(mobile.trim());
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Failed to send OTP"); return; }
+    setSuccess("OTP sent to your WhatsApp / SMS. Check your phone.");
+    setStep("code");
+  }
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.length !== 6) { setError("Enter the 6-digit code"); return; }
+    if (newPassword.length < 6) { setError("Password must be at least 6 characters"); return; }
+    if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
+    setLoading(true); setError("");
+    const r = await verifyOtpAndReset(mobile, code, newPassword);
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Verification failed"); return; }
+    const me = await checkOrganizerAccountAuth();
+    if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+      </button>
+      <div className="flex items-center gap-2 mb-2">
+        <KeyRound className="w-4 h-4 text-primary" />
+        <p className="font-semibold text-sm">Reset Password via OTP</p>
+      </div>
+      {step === "mobile" ? (
+        <form onSubmit={handleSendOtp} className="space-y-3">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Registered Mobile</Label>
+            <Input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" />
+          </div>
+          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <MessageSquare className="w-4 h-4 mr-2" />}
+            Send OTP via WhatsApp
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerify} className="space-y-3">
+          {success && <p className="text-green-400 text-xs flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" />{success}</p>}
+          <div className="space-y-2">
+            <Label className="text-sm">6-Digit OTP Code</Label>
+            <Input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} className="tracking-widest text-center text-lg font-mono" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">New Password</Label>
+            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm">Confirm Password</Label>
+            <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
+          </div>
+          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+            Verify & Reset Password
+          </Button>
+          <button type="button" onClick={() => { setStep("mobile"); setSuccess(""); }} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center">
+            Resend OTP
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function GoogleSignInButton() {
+  return (
+    <a
+      href="/api/auth/google"
+      className="flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
+    >
+      <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </a>
+  );
+}
+
 function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
-  const [view, setView] = useState<"login" | "signup">("login");
+  const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -255,25 +358,31 @@ function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]
           <p className="text-muted-foreground text-sm">Organizer Portal</p>
         </div>
 
-        <div className="flex rounded-xl bg-muted/20 p-1 border border-border/50">
-          <button
-            onClick={() => { setView("login"); setError(""); }}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => { setView("signup"); setError(""); }}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            Create Account
-          </button>
-        </div>
+        {view !== "forgot" && (
+          <div className="flex rounded-xl bg-muted/20 p-1 border border-border/50">
+            <button
+              onClick={() => { setView("login"); setError(""); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "login" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => { setView("signup"); setError(""); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Create Account
+            </button>
+          </div>
+        )}
 
         <Card className="border-border/50 bg-card/50">
           <CardContent className="p-6">
             <AnimatePresence mode="wait">
-              {view === "login" ? (
+              {view === "forgot" ? (
+                <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                  <ForgotPasswordFlow onBack={() => { setView("login"); setError(""); }} onSuccess={onSuccess} />
+                </motion.div>
+              ) : view === "login" ? (
                 <motion.form
                   key="login"
                   initial={{ opacity: 0, x: -10 }}
@@ -295,9 +404,18 @@ function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm">
-                      <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => { setView("forgot"); setError(""); }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <div className="relative">
                       <Input
                         type={showPw ? "text" : "password"}
@@ -320,6 +438,11 @@ function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Sign In
                   </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                  </div>
+                  <GoogleSignInButton />
                 </motion.form>
               ) : (
                 <motion.form
@@ -580,6 +703,7 @@ export default function OrganizerPortal() {
   const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [checking, setChecking] = useState(true);
+  const search = useSearch();
 
   async function refresh() {
     const me = await checkOrganizerAccountAuth();
@@ -592,6 +716,15 @@ export default function OrganizerPortal() {
     }
     setChecking(false);
   }
+
+  // Handle Google OAuth redirect (?login=success or ?error=...)
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get("login") === "success") {
+      refresh();
+      window.history.replaceState({}, "", "/organizer");
+    }
+  }, [search]);
 
   useEffect(() => { refresh(); }, []);
 

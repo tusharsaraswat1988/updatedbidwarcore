@@ -10,6 +10,7 @@ import {
 import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
+import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 
 const router = Router();
 
@@ -452,6 +453,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   await db.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
 
   const [soldPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
   await db
     .update(auctionSessionsTable)
@@ -464,6 +466,15 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
       lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  // Fire-and-forget WhatsApp notification
+  notifyPlayerSold({
+    mobile: soldPlayer?.mobileNumber ?? null,
+    playerName: soldPlayer?.name ?? "Player",
+    teamName: team?.name ?? "Team",
+    amount: soldAmount,
+    tournamentName: tournament?.name ?? "the tournament",
+  });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
@@ -502,6 +513,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   }
 
   const [soldPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+  const [manualTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
   await db
     .update(auctionSessionsTable)
@@ -514,6 +526,14 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       lastAction: `SOLD (manual): ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  notifyPlayerSold({
+    mobile: soldPlayer?.mobileNumber ?? null,
+    playerName: soldPlayer?.name ?? "Player",
+    teamName: team?.name ?? "Team",
+    amount,
+    tournamentName: manualTournament?.name ?? "the tournament",
+  });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
@@ -536,6 +556,8 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     .set({ status: "unsold" })
     .where(eq(playersTable.id, session.currentPlayerId));
 
+  const [unsoldTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
   await db
     .update(auctionSessionsTable)
     .set({
@@ -547,6 +569,12 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
       lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  notifyPlayerUnsold({
+    mobile: player?.mobileNumber ?? null,
+    playerName: player?.name ?? "Player",
+    tournamentName: unsoldTournament?.name ?? "the tournament",
+  });
 
   res.json(await broadcastState(tid, ["players"]));
 });
@@ -591,8 +619,8 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
     .set({ status: "available", teamId: null, soldPrice: null })
     .where(eq(playersTable.id, playerId));
 
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  const timerSecs = tournament?.timerSeconds ?? 30;
+  const [reTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  const timerSecs = reTournament?.timerSeconds ?? 30;
 
   await db
     .update(auctionSessionsTable)
@@ -606,6 +634,12 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       lastAction: `RE-AUCTION: ${player.name}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  notifyPlayerReAuction({
+    mobile: player.mobileNumber ?? null,
+    playerName: player.name,
+    tournamentName: reTournament?.name ?? "the tournament",
+  });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });

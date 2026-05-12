@@ -302,3 +302,32 @@ export async function deleteAdminOrganizer(id: number): Promise<{ success: boole
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }
+
+// ─── OTP password reset ───────────────────────────────────────────────────────
+
+export async function sendOtp(mobile: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/otp/send", {
+      method: "POST",
+      body: JSON.stringify({ mobile }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to send OTP" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function verifyOtpAndReset(mobile: string, code: string, newPassword: string): Promise<{
+  success: boolean; error?: string;
+  organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number };
+}> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ mobile, code, newPassword }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "OTP verification failed" };
+    return { success: true, organizer: d.organizer };
+  } catch { return { success: false, error: "Network error" }; }
+}
