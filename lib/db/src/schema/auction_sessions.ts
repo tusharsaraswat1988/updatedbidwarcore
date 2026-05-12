@@ -11,6 +11,7 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   currentBidTeamId: integer("current_bid_team_id"),
   timerSeconds: integer("timer_seconds"),
   timerEndsAt: text("timer_ends_at"),
+  timerType: text("timer_type"),
   lastAction: text("last_action"),
   isBreak: boolean("is_break").notNull().default(false),
   breakEndsAt: text("break_ends_at"),

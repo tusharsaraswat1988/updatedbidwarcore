@@ -634,10 +634,15 @@ export default function DisplayView() {
     }
   }, [state?.currentPlayer?.id]);
 
-  // Countdown timer
+  // Countdown timer — derives from server timerEndsAt so all clients agree.
+  // timerTotalRef captures the full duration at the moment timerEndsAt arrives so
+  // the progress bar always starts at 100% regardless of the tournament default setting.
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const timerTotalRef = useRef<number>(30);
   useEffect(() => {
     if (!state?.timerEndsAt) { setTimeLeft(null); return; }
+    const fullMs = new Date(state.timerEndsAt).getTime() - Date.now();
+    timerTotalRef.current = Math.max(1, Math.ceil(fullMs / 1000));
     const update = () => {
       const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
       setTimeLeft(diff > 0 ? diff : 0);
@@ -867,29 +872,40 @@ export default function DisplayView() {
                   )}
 
                   {timeLeft !== null && (
-                    <div className={`flex items-center gap-3 ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-muted-foreground"}`}>
-                      <Timer className={`w-6 h-6 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={timeLeft}
-                          initial={{ scale: 1.3, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          className={`text-6xl md:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
-                        >
-                          {timeLeft}
-                        </motion.span>
-                      </AnimatePresence>
-                      <div className="flex flex-col justify-center">
-                        <span className="text-xl font-bold uppercase tracking-widest">sec</span>
-                        <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
-                          state.timerType === "bid"
-                            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                            : "bg-green-500/20 text-green-400 border-green-500/30"
-                        }`}>
-                          {state.timerType === "bid" ? "BID TIMER" : "START TIMER"}
-                        </span>
+                    <div className="space-y-2">
+                      <div className={`flex items-center gap-3 ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-muted-foreground"}`}>
+                        <Timer className={`w-6 h-6 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={timeLeft}
+                            initial={{ scale: 1.3, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className={`text-6xl md:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
+                          >
+                            {timeLeft}
+                          </motion.span>
+                        </AnimatePresence>
+                        <div className="flex flex-col justify-center">
+                          <span className="text-xl font-bold uppercase tracking-widest">sec</span>
+                          <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
+                            state.timerType === "bid"
+                              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                              : "bg-green-500/20 text-green-400 border-green-500/30"
+                          }`}>
+                            {state.timerType === "bid" ? "BID TIMER" : "START TIMER"}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Progress bar — uses timerTotalRef so it starts at 100% regardless
+                          of tournament default. Same full-duration tracking as the OBS ring. */}
+                      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <motion.div
+                          className={`h-full rounded-full ${timeLeft <= 5 ? "bg-red-400" : timeLeft <= 10 ? "bg-orange-400" : "bg-green-400"}`}
+                          style={{ width: `${Math.min(100, (timeLeft / timerTotalRef.current) * 100)}%` }}
+                          transition={{ duration: 0.25, ease: "linear" }}
+                        />
                       </div>
                     </div>
                   )}

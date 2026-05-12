@@ -181,12 +181,9 @@ async function buildAuctionState(tournamentId: number) {
     timerSeconds,
     bidTimerSeconds,
     timerEndsAt: session.timerEndsAt,
-    // Authoritative timer mode: set by the route that last updated timerEndsAt.
-    // 'start' = operator manually started the countdown,
-    // 'bid'   = a bid was placed and the bid countdown was set.
-    timerType: session.timerEndsAt
-      ? (session.currentBidTeamId ? "bid" : "start")
-      : null,
+    // Authoritative timer mode — stored directly in the session by the route that
+    // last set timerEndsAt (start-timer → 'start', bid → 'bid').
+    timerType: session.timerEndsAt ? (session.timerType ?? null) : null,
     lastAction: session.lastAction,
     soldPlayersCount: soldCount,
     unsoldPlayersCount: unsoldCount,
@@ -422,6 +419,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
       currentBid: amount,
       currentBidTeamId: teamId,
       timerEndsAt: newTimerEndsAt,
+      timerType: "bid",
       pausedTimeRemaining: null,
       lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
     })
@@ -846,7 +844,7 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)
-    .set({ timerEndsAt: endsAt })
+    .set({ timerEndsAt: endsAt, timerType: "start" })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });
