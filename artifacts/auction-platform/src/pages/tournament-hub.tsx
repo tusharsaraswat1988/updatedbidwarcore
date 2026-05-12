@@ -123,6 +123,7 @@ export default function TournamentHub() {
       bidIncrement: String(tournament.bidIncrement ?? ""),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
+      playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
     });
     try {
       const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
@@ -151,6 +152,7 @@ export default function TournamentHub() {
         bidIncrement: Number(editForm.bidIncrement) || undefined,
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+        playerSelectionMode: editForm.playerSelectionMode as string || undefined,
       } as any,
     });
     if (orgPassword.trim()) {
@@ -467,8 +469,27 @@ export default function TournamentHub() {
                         <Timer className="w-3.5 h-3.5 text-primary" /> Subsequent Bid Timer (seconds)
                       </Label>
                       <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
-                      <p className="text-xs text-muted-foreground">Auto-starts after each bid — locks owner panel bidding on expiry</p>
+                      <p className="text-xs text-muted-foreground">Auto-restarts after every bid — owner panel bidding locks when it expires</p>
                     </div>
+                  </div>
+                  <div className="space-y-2 border-t border-border pt-4">
+                    <Label className="flex items-center gap-1.5">
+                      <Dices className="w-3.5 h-3.5 text-muted-foreground" /> Player Selection Mode
+                    </Label>
+                    <Select
+                      value={editForm.playerSelectionMode as string || "sequential"}
+                      onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="sequential">Sequential — players come in order (by ID)</SelectItem>
+                        <SelectItem value="random">Random — randomized draw each time</SelectItem>
+                        <SelectItem value="manual">Manual — operator picks player from the queue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Controls what "Next Player" does in the operator panel. Manual hides the Next button — operator must select from the queue list.
+                    </p>
                   </div>
                 </>
               )}

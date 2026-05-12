@@ -32,6 +32,7 @@ export const ListTournamentsResponseItem = zod.object({
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -62,6 +63,7 @@ export const CreateTournamentBody = zod.object({
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -86,6 +88,7 @@ export const GetTournamentResponse = zod.object({
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -111,6 +114,7 @@ export const UpdateTournamentBody = zod.object({
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.string().optional(),
 });
 
@@ -129,6 +133,7 @@ export const UpdateTournamentResponse = zod.object({
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -603,6 +608,7 @@ export const GetAuctionStateResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -664,6 +670,7 @@ export const StartAuctionResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -725,6 +732,7 @@ export const PauseAuctionResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -791,6 +799,7 @@ export const NextPlayerResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -857,6 +866,7 @@ export const PlaceBidResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -918,6 +928,7 @@ export const SellPlayerResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -984,6 +995,7 @@ export const ManualSellResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1045,6 +1057,7 @@ export const MarkUnsoldResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1111,6 +1124,7 @@ export const ReAuctionPlayerResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1172,6 +1186,7 @@ export const UndoLastActionResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1233,6 +1248,7 @@ export const ResetTrialAuctionResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1298,6 +1314,7 @@ export const SetTeamPurseViewResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1388,6 +1405,7 @@ export const SyncFortuneWheelResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1453,6 +1471,7 @@ export const SetCategoryFilterResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**
@@ -1524,6 +1543,7 @@ export const StartTimerResponse = zod.object({
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
 });
 
 /**

@@ -19,6 +19,7 @@ export const tournamentsTable = pgTable("tournaments", {
   bidIncrement: integer("bid_increment").notNull().default(100000),
   timerSeconds: integer("timer_seconds").notNull().default(30),
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
+  playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
   status: text("status").notNull().default("setup"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

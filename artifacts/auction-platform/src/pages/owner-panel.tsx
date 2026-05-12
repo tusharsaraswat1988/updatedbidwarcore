@@ -192,11 +192,12 @@ export default function OwnerPanel() {
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
+  const timerActive = !!state?.timerEndsAt && timeLeft !== null && timeLeft > 0;
   const teamPurse = allPurses?.find(t => t.teamId === teamId);
   const purseRemaining = teamPurse?.purseRemaining ?? (team ? team.purse - (team.purseUsed || 0) : 0);
   const increment = state?.bidIncrement ?? 50000;
   const nextBidAmount = (state?.currentBid || 0) + increment;
-  const canBid = isActive && hasPlayer && !isLeading && purseRemaining >= nextBidAmount && (team?.isBiddingEnabled ?? true) && !timerExpired;
+  const canBid = isActive && hasPlayer && timerActive && !isLeading && purseRemaining >= nextBidAmount && (team?.isBiddingEnabled ?? true);
 
   async function handleBid() {
     if (!canBid || isBidding) return;

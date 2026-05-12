@@ -119,6 +119,11 @@ async function buildAuctionState(tournamentId: number) {
     if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds);
   } catch { /* ignore */ }
 
+  const [tournamentRow] = await db
+    .select({ playerSelectionMode: tournamentsTable.playerSelectionMode })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+
   return {
     tournamentId,
     status: session.status,
@@ -139,6 +144,7 @@ async function buildAuctionState(tournamentId: number) {
     wheelWinner: session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
     activeCategoryIds,
+    playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
   };
 }
 
@@ -305,6 +311,10 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No player currently up for bid" }); return; }
   if (session.status !== "active") { res.status(400).json({ error: "Auction is not active" }); return; }
+  if (!session.timerEndsAt || new Date(session.timerEndsAt).getTime() <= Date.now()) {
+    res.status(400).json({ error: "Bidding is not open — operator must start the timer first" });
+    return;
+  }
   if (amount <= (session.currentBid ?? 0)) { res.status(400).json({ error: "Bid must be higher than current bid" }); return; }
 
   // Issue 4: Double-bid prevention — same team can't bid if already leading

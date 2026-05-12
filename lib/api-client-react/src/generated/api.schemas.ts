@@ -9,6 +9,15 @@ export interface HealthStatus {
   status: string;
 }
 
+export type TournamentPlayerSelectionMode =
+  (typeof TournamentPlayerSelectionMode)[keyof typeof TournamentPlayerSelectionMode];
+
+export const TournamentPlayerSelectionMode = {
+  sequential: "sequential",
+  random: "random",
+  manual: "manual",
+} as const;
+
 export type TournamentStatus =
   (typeof TournamentStatus)[keyof typeof TournamentStatus];
 
@@ -40,6 +49,7 @@ export interface Tournament {
   bidIncrement?: number;
   timerSeconds?: number;
   bidTimerSeconds?: number;
+  playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
   createdAt: string;
 }
@@ -57,6 +67,15 @@ export const TournamentInputSport = {
   other: "other",
 } as const;
 
+export type TournamentInputPlayerSelectionMode =
+  (typeof TournamentInputPlayerSelectionMode)[keyof typeof TournamentInputPlayerSelectionMode];
+
+export const TournamentInputPlayerSelectionMode = {
+  sequential: "sequential",
+  random: "random",
+  manual: "manual",
+} as const;
+
 export interface TournamentInput {
   name: string;
   sport: TournamentInputSport;
@@ -71,7 +90,17 @@ export interface TournamentInput {
   bidIncrement?: number;
   timerSeconds?: number;
   bidTimerSeconds?: number;
+  playerSelectionMode?: TournamentInputPlayerSelectionMode;
 }
+
+export type TournamentUpdatePlayerSelectionMode =
+  (typeof TournamentUpdatePlayerSelectionMode)[keyof typeof TournamentUpdatePlayerSelectionMode];
+
+export const TournamentUpdatePlayerSelectionMode = {
+  sequential: "sequential",
+  random: "random",
+  manual: "manual",
+} as const;
 
 export interface TournamentUpdate {
   name?: string;
@@ -87,6 +116,7 @@ export interface TournamentUpdate {
   bidIncrement?: number;
   timerSeconds?: number;
   bidTimerSeconds?: number;
+  playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
   status?: string;
 }
 
@@ -351,6 +381,15 @@ export const AuctionStateStatus = {
   completed: "completed",
 } as const;
 
+export type AuctionStatePlayerSelectionMode =
+  (typeof AuctionStatePlayerSelectionMode)[keyof typeof AuctionStatePlayerSelectionMode];
+
+export const AuctionStatePlayerSelectionMode = {
+  sequential: "sequential",
+  random: "random",
+  manual: "manual",
+} as const;
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -379,6 +418,7 @@ export interface AuctionState {
   wheelWinner?: string | null;
   teamPurseViewActive?: boolean;
   activeCategoryIds?: number[] | null;
+  playerSelectionMode?: AuctionStatePlayerSelectionMode;
 }
 
 export interface TournamentSummary {

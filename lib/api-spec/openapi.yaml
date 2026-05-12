@@ -997,6 +997,9 @@ components:
           type: integer
         bidTimerSeconds:
           type: integer
+        playerSelectionMode:
+          type: string
+          enum: [sequential, random, manual]
         status:
           type: string
           enum: [setup, active, paused, completed]
@@ -1034,6 +1037,9 @@ components:
           type: integer
         bidTimerSeconds:
           type: integer
+        playerSelectionMode:
+          type: string
+          enum: [sequential, random, manual]
 
     TournamentUpdate:
       type: object
@@ -1064,6 +1070,9 @@ components:
           type: integer
         bidTimerSeconds:
           type: integer
+        playerSelectionMode:
+          type: string
+          enum: [sequential, random, manual]
         status:
           type: string
 
@@ -1480,6 +1489,9 @@ components:
           items:
             type: integer
           nullable: true
+        playerSelectionMode:
+          type: string
+          enum: [sequential, random, manual]
 
     TournamentSummary:
       type: object

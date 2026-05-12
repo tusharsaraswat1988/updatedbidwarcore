@@ -22,6 +22,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidIncrement: t.bidIncrement,
   timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds,
+  playerSelectionMode: t.playerSelectionMode,
   status: t.status,
   createdAt: t.createdAt.toISOString(),
 });
@@ -41,6 +42,7 @@ const tournamentInputSchema = z.object({
   bidIncrement: z.number().int().optional(),
   timerSeconds: z.number().int().optional(),
   bidTimerSeconds: z.number().int().optional(),
+  playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {

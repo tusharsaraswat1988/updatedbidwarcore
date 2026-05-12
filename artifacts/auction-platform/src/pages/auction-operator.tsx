@@ -190,6 +190,7 @@ export default function AuctionOperator() {
   const isPaused = state?.status === "paused";
   const hasPlayer = !!state?.currentPlayer;
   const hasBid = !!state?.currentBidTeamId;
+  const timerActive = !!state?.timerEndsAt && timeLeft !== null && timeLeft > 0;
   const available = (players || []).filter(p => p.status === "available");
   const soldPlayers = (players || []).filter(p => p.status === "sold");
   const unsoldPlayers = (players || []).filter(p => p.status === "unsold");
@@ -198,6 +199,7 @@ export default function AuctionOperator() {
   const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
   const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
   const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
+  const selectionMode = (state as any)?.playerSelectionMode ?? "sequential";
 
   const rightPanelPlayers = reAuctionTab === "queue"
     ? available
@@ -252,12 +254,22 @@ export default function AuctionOperator() {
                 <Pause className="w-5 h-5" /> Pause
               </Button>
             )}
-            <Button variant="outline" className="gap-2" onClick={() => handleNextPlayer("sequential")} disabled={nextPlayer.isPending}>
-              <SkipForward className="w-4 h-4" /> Next
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => handleNextPlayer("random")} disabled={nextPlayer.isPending}>
-              <Shuffle className="w-4 h-4" /> Random
-            </Button>
+            {selectionMode !== "manual" && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
+                disabled={nextPlayer.isPending}
+              >
+                {selectionMode === "random" ? <Shuffle className="w-4 h-4" /> : <SkipForward className="w-4 h-4" />}
+                Next {selectionMode === "random" ? "(Random)" : "(Sequential)"}
+              </Button>
+            )}
+            {selectionMode === "manual" && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground">
+                <Settings2 className="w-3.5 h-3.5" /> Manual mode — pick from queue
+              </div>
+            )}
             <Button variant="ghost" size="icon" onClick={handleUndo} disabled={undoAction.isPending} title="Undo last action">
               <Undo2 className="w-5 h-5" />
             </Button>
@@ -439,13 +451,17 @@ export default function AuctionOperator() {
                 </div>
                 {/* Timer */}
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
-                  <Timer className={`w-4 h-4 flex-shrink-0 ${timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : "text-muted-foreground"}`} />
-                  {timeLeft !== null ? (
-                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 0 ? "text-red-500" : timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-foreground"}`}>
-                      {timeLeft <= 0 ? "EXPIRED" : `${timeLeft}s`}
+                  <Timer className={`w-4 h-4 flex-shrink-0 ${timerActive && timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : timerActive ? "text-green-400" : "text-muted-foreground"}`} />
+                  {timerActive && timeLeft !== null ? (
+                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-green-400"}`}>
+                      {`${timeLeft}s`}
                     </span>
+                  ) : timeLeft === 0 ? (
+                    <span className="text-2xl font-display font-black tabular-nums text-red-500">EXPIRED</span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">No timer running</span>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {hasPlayer ? "Press START to open bidding" : "No player selected"}
+                    </span>
                   )}
                   <div className="flex items-center gap-2 ml-auto">
                     <Input
@@ -459,12 +475,16 @@ export default function AuctionOperator() {
                     <span className="text-xs text-muted-foreground">sec</span>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
-                      onClick={handleStartTimer}
                       disabled={!hasPlayer || startTimerMut.isPending}
+                      onClick={handleStartTimer}
+                      className={`h-8 gap-1.5 font-bold ${
+                        hasPlayer && !timerActive
+                          ? "bg-primary text-black hover:bg-primary/90 shadow-[0_0_16px_rgba(234,179,8,0.5)]"
+                          : "bg-transparent border border-primary/40 text-primary hover:bg-primary/10"
+                      }`}
                     >
-                      <Timer className="w-3.5 h-3.5" /> Start
+                      <Timer className="w-3.5 h-3.5" />
+                      {hasPlayer && !timerActive ? "START BIDDING" : "Restart"}
                     </Button>
                   </div>
                 </div>
@@ -515,8 +535,7 @@ export default function AuctionOperator() {
                     const purseLeft = team.purse - (team.purseUsed || 0);
                     const isLeading = state?.currentBidTeamId === team.id;
                     const nextBid = (state?.currentBid || 0) + increment;
-                    // Issue 4: Block bid button for leading team even in operator panel
-                    const canBid = isActive && hasPlayer && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading;
+                    const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading;
                     return (
                       <button
                         key={team.id}
