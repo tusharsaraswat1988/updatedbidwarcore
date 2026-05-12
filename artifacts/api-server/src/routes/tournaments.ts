@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -239,13 +239,14 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
       status: p.status,
       teamId: p.teamCloudId ?? null,
       soldPrice: p.soldPrice ?? null,
-    }).where(eq(playersTable.id, p.cloudId));
+    }).where(and(eq(playersTable.id, p.cloudId), eq(playersTable.tournamentId, id)));
     playersUpdated++;
   }
 
   let teamsUpdated = 0;
   for (const t of teamPurses) {
-    await db.update(teamsTable).set({ purseUsed: t.purseUsed }).where(eq(teamsTable.id, t.cloudId));
+    await db.update(teamsTable).set({ purseUsed: t.purseUsed })
+      .where(and(eq(teamsTable.id, t.cloudId), eq(teamsTable.tournamentId, id)));
     teamsUpdated++;
   }
 
