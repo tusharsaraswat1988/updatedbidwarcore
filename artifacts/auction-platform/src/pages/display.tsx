@@ -838,14 +838,24 @@ export default function DisplayView() {
                       key={state.currentBidTeamId}
                       initial={{ opacity: 0, y: 20, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl border-2"
+                      className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border-2"
                       style={{
                         borderColor: teamColor,
                         backgroundColor: `${teamColor}18`,
                         boxShadow: `0 0 40px ${teamColor}44`,
                       }}
                     >
-                      <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: teamColor }} />
+                      {(state as any).currentBidTeamLogoUrl ? (
+                        <img
+                          src={(state as any).currentBidTeamLogoUrl}
+                          alt={state.currentBidTeamName}
+                          className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
+                          style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+                          onError={e => (e.currentTarget.style.display = "none")}
+                        />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: teamColor }} />
+                      )}
                       <span className="text-3xl font-display font-black" style={{ color: teamColor }}>
                         {state.currentBidTeamName}
                       </span>

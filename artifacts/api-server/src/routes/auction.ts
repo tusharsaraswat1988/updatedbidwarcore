@@ -63,14 +63,31 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   createdAt: p.createdAt.toISOString(),
 });
 
-function computeTieredIncrement(currentBid: number, t: {
+type BidTier = { upTo?: number; increment: number };
+
+function parseBidTiers(tiersJson: string | null | undefined, fallback: {
   bidTier1UpTo: number; bidTier1Increment: number;
   bidTier2UpTo: number; bidTier2Increment: number;
   bidTier3Increment: number;
-}) {
-  if (currentBid < t.bidTier1UpTo) return t.bidTier1Increment;
-  if (currentBid < t.bidTier2UpTo) return t.bidTier2Increment;
-  return t.bidTier3Increment;
+}): BidTier[] {
+  if (tiersJson) {
+    try {
+      const parsed = JSON.parse(tiersJson);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as BidTier[];
+    } catch { /* ignore */ }
+  }
+  return [
+    { upTo: fallback.bidTier1UpTo, increment: fallback.bidTier1Increment },
+    { upTo: fallback.bidTier2UpTo, increment: fallback.bidTier2Increment },
+    { increment: fallback.bidTier3Increment },
+  ];
+}
+
+function computeTieredIncrement(currentBid: number, tiers: BidTier[]): number {
+  for (const tier of tiers) {
+    if (tier.upTo === undefined || currentBid < tier.upTo) return tier.increment;
+  }
+  return tiers[tiers.length - 1]?.increment ?? 50000;
 }
 
 async function buildAuctionState(tournamentId: number) {
@@ -87,6 +104,7 @@ async function buildAuctionState(tournamentId: number) {
       bidTier2UpTo: tournamentsTable.bidTier2UpTo,
       bidTier2Increment: tournamentsTable.bidTier2Increment,
       bidTier3Increment: tournamentsTable.bidTier3Increment,
+      bidTiers: tournamentsTable.bidTiers,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
@@ -94,17 +112,16 @@ async function buildAuctionState(tournamentId: number) {
   const timerSeconds = tournamentRow?.timerSeconds ?? 30;
   const bidTimerSeconds = tournamentRow?.bidTimerSeconds ?? 15;
 
+  const tiers = parseBidTiers(tournamentRow?.bidTiers, {
+    bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
+    bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
+    bidTier2UpTo: tournamentRow?.bidTier2UpTo ?? 200000,
+    bidTier2Increment: tournamentRow?.bidTier2Increment ?? 50000,
+    bidTier3Increment: tournamentRow?.bidTier3Increment ?? 100000,
+  });
+
   let currentPlayer = null;
-  // Default bidIncrement from tiered system at base (0 bid = tier 1 increment)
-  let bidIncrement = tournamentRow
-    ? computeTieredIncrement(session.currentBid ?? 0, {
-        bidTier1UpTo: tournamentRow.bidTier1UpTo,
-        bidTier1Increment: tournamentRow.bidTier1Increment,
-        bidTier2UpTo: tournamentRow.bidTier2UpTo,
-        bidTier2Increment: tournamentRow.bidTier2Increment,
-        bidTier3Increment: tournamentRow.bidTier3Increment,
-      })
-    : 50000;
+  let bidIncrement = computeTieredIncrement(session.currentBid ?? 0, tiers);
 
   if (session.currentPlayerId) {
     const [p] = await db
@@ -118,6 +135,7 @@ async function buildAuctionState(tournamentId: number) {
 
   let currentBidTeamName = null;
   let currentBidTeamColor = null;
+  let currentBidTeamLogoUrl = null;
   if (session.currentBidTeamId) {
     const [team] = await db
       .select()
@@ -126,6 +144,7 @@ async function buildAuctionState(tournamentId: number) {
     if (team) {
       currentBidTeamName = team.name;
       currentBidTeamColor = team.color;
+      currentBidTeamLogoUrl = team.logoUrl;
     }
   }
 
@@ -156,6 +175,7 @@ async function buildAuctionState(tournamentId: number) {
     currentBidTeamId: session.currentBidTeamId,
     currentBidTeamName,
     currentBidTeamColor,
+    currentBidTeamLogoUrl,
     bidIncrement,
     timerSeconds,
     bidTimerSeconds,
@@ -211,17 +231,22 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   res.json(await buildAuctionState(tid));
 });
 
-// POST start auction
+// POST start / resume auction
 router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  await getOrCreateSession(tid);
+  const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const timerSecs = tournament?.timerSeconds ?? 30;
-  await db
-    .update(auctionSessionsTable)
-    .set({ status: "active", lastAction: "Auction started", timerSeconds: timerSecs })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  // On resume: restore the remaining timer that was frozen on pause
+  const patch: Record<string, unknown> = { status: "active", lastAction: "Auction resumed", timerSeconds: timerSecs };
+  if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {
+    patch.timerEndsAt = new Date(Date.now() + session.pausedTimeRemaining * 1000).toISOString();
+    patch.pausedTimeRemaining = null;
+  }
+
+  await db.update(auctionSessionsTable).set(patch).where(eq(auctionSessionsTable.tournamentId, tid));
   await db.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
   res.json(await broadcastState(tid));
 });
@@ -230,10 +255,18 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  await getOrCreateSession(tid);
+  const session = await getOrCreateSession(tid);
+
+  // Capture remaining timer so it can be restored on resume
+  let pausedTimeRemaining: number | null = null;
+  if (session.timerEndsAt) {
+    const remaining = Math.ceil((new Date(session.timerEndsAt).getTime() - Date.now()) / 1000);
+    pausedTimeRemaining = remaining > 0 ? remaining : null;
+  }
+
   await db
     .update(auctionSessionsTable)
-    .set({ status: "paused", lastAction: "Auction paused" })
+    .set({ status: "paused", lastAction: "Auction paused", timerEndsAt: null, pausedTimeRemaining })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
   res.json(await broadcastState(tid));
@@ -315,6 +348,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
+      pausedTimeRemaining: null,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -365,6 +399,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
       currentBid: amount,
       currentBidTeamId: teamId,
       timerEndsAt: newTimerEndsAt,
+      pausedTimeRemaining: null,
       lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -409,6 +444,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
       currentBid: null,
       currentBidTeamId: null,
       timerEndsAt: null,
+      pausedTimeRemaining: null,
       lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -458,6 +494,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       currentBid: null,
       currentBidTeamId: null,
       timerEndsAt: null,
+      pausedTimeRemaining: null,
       lastAction: `SOLD (manual): ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -490,6 +527,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
       currentBid: null,
       currentBidTeamId: null,
       timerEndsAt: null,
+      pausedTimeRemaining: null,
       lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));

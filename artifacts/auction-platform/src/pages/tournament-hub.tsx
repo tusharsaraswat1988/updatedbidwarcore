@@ -93,6 +93,11 @@ export default function TournamentHub() {
   const [activeSection, setActiveSection] = useState<"identity" | "auction">("identity");
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
+  const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
+    { upTo: 100000, increment: 25000 },
+    { upTo: 200000, increment: 50000 },
+    { increment: 100000 },
+  ]);
   const [orgPassword, setOrgPassword] = useState("");
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
@@ -120,15 +125,28 @@ export default function TournamentHub() {
       logoUrl: tournament.logoUrl || "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
-      bidTier1UpTo: String((tournament as any).bidTier1UpTo ?? "100000"),
-      bidTier1Increment: String((tournament as any).bidTier1Increment ?? "25000"),
-      bidTier2UpTo: String((tournament as any).bidTier2UpTo ?? "200000"),
-      bidTier2Increment: String((tournament as any).bidTier2Increment ?? "50000"),
-      bidTier3Increment: String((tournament as any).bidTier3Increment ?? "100000"),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
       playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
     });
+    // Load bidTiers from JSON column, fall back to legacy 5-column values
+    try {
+      const rawTiers = (tournament as any).bidTiers;
+      if (rawTiers) {
+        const parsed = JSON.parse(rawTiers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setBidTiers(parsed);
+        } else { throw new Error("empty"); }
+      } else {
+        setBidTiers([
+          { upTo: (tournament as any).bidTier1UpTo ?? 100000, increment: (tournament as any).bidTier1Increment ?? 25000 },
+          { upTo: (tournament as any).bidTier2UpTo ?? 200000, increment: (tournament as any).bidTier2Increment ?? 50000 },
+          { increment: (tournament as any).bidTier3Increment ?? 100000 },
+        ]);
+      }
+    } catch {
+      setBidTiers([{ upTo: 100000, increment: 25000 }, { upTo: 200000, increment: 50000 }, { increment: 100000 }]);
+    }
     try {
       const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
       setSponsorLogos(Array.isArray(parsed) ? parsed : []);
@@ -153,11 +171,7 @@ export default function TournamentHub() {
         sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
         minBid: Number(editForm.minBid) || undefined,
-        bidTier1UpTo: Number(editForm.bidTier1UpTo) || undefined,
-        bidTier1Increment: Number(editForm.bidTier1Increment) || undefined,
-        bidTier2UpTo: Number(editForm.bidTier2UpTo) || undefined,
-        bidTier2Increment: Number(editForm.bidTier2Increment) || undefined,
-        bidTier3Increment: Number(editForm.bidTier3Increment) || undefined,
+        bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
         playerSelectionMode: editForm.playerSelectionMode as string || undefined,
@@ -461,37 +475,67 @@ export default function TournamentHub() {
                     </div>
                   </div>
                   <div className="space-y-3 border-t border-border pt-4">
-                    <div>
-                      <Label className="text-sm font-semibold">Bid Increment Tiers</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Increment amount changes as bid value grows.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Tier 1 — up to (₹)</Label>
-                        <Input type="number" value={editForm.bidTier1UpTo as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier1UpTo: e.target.value }))} placeholder="100000" />
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Bid Increment Tiers</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">Increment rises as bids grow. Last tier has no upper limit.</p>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Tier 1 — increment (₹)</Label>
-                        <Input type="number" value={editForm.bidTier1Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier1Increment: e.target.value }))} placeholder="25000" />
-                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}
+                      >
+                        + Add Tier
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Tier 2 — up to (₹)</Label>
-                        <Input type="number" value={editForm.bidTier2UpTo as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier2UpTo: e.target.value }))} placeholder="200000" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Tier 2 — increment (₹)</Label>
-                        <Input type="number" value={editForm.bidTier2Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier2Increment: e.target.value }))} placeholder="50000" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Tier 3 — above Tier 2 threshold, increment (₹)</Label>
-                      <Input type="number" value={editForm.bidTier3Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier3Increment: e.target.value }))} placeholder="100000" />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5">
-                      Example with defaults: ₹25K increments up to ₹1L, ₹50K up to ₹2L, then ₹1L per bid.
-                    </p>
+                    {bidTiers.map((tier, i) => {
+                      const isLast = i === bidTiers.length - 1;
+                      return (
+                        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">{isLast ? "Above all — Increment (₹)" : `Tier ${i + 1} — Up to (₹)`}</Label>
+                            {isLast ? (
+                              <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No limit</div>
+                            ) : (
+                              <Input
+                                type="number"
+                                value={tier.upTo ?? ""}
+                                onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
+                                placeholder="e.g. 100000"
+                              />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Increment (₹)</Label>
+                            <Input
+                              type="number"
+                              value={tier.increment || ""}
+                              onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
+                              placeholder="e.g. 25000"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                            disabled={bidTiers.length <= 1}
+                            onClick={() => setBidTiers(t => {
+                              const next = t.filter((_, j) => j !== i);
+                              if (next.length === 0) return t;
+                              // Ensure last tier has no upTo
+                              const last = { ...next[next.length - 1] };
+                              delete last.upTo;
+                              return [...next.slice(0, -1), last];
+                            })}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

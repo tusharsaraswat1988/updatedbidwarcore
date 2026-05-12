@@ -25,6 +25,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTier2UpTo: t.bidTier2UpTo,
   bidTier2Increment: t.bidTier2Increment,
   bidTier3Increment: t.bidTier3Increment,
+  bidTiers: t.bidTiers,
   timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds,
   playerSelectionMode: t.playerSelectionMode,
@@ -45,6 +46,7 @@ const tournamentInputSchema = z.object({
   basePurse: z.number().int().optional(),
   minBid: z.number().int().optional(),
   bidIncrement: z.number().int().optional(),
+  bidTiers: z.string().optional(),
   timerSeconds: z.number().int().optional(),
   bidTimerSeconds: z.number().int().optional(),
   playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
@@ -111,6 +113,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidTier2UpTo: z.number().int().optional(),
     bidTier2Increment: z.number().int().optional(),
     bidTier3Increment: z.number().int().optional(),
+    bidTiers: z.string().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
     status: z.string().optional(),
@@ -136,6 +139,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidTier2UpTo !== undefined) updates.bidTier2UpTo = d.bidTier2UpTo;
   if (d.bidTier2Increment !== undefined) updates.bidTier2Increment = d.bidTier2Increment;
   if (d.bidTier3Increment !== undefined) updates.bidTier3Increment = d.bidTier3Increment;
+  if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
   if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
   if (d.status !== undefined) updates.status = d.status;

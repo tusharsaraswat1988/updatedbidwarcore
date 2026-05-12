@@ -52,6 +52,8 @@ export interface Tournament {
   bidTier2UpTo?: number;
   bidTier2Increment?: number;
   bidTier3Increment?: number;
+  /** @nullable */
+  bidTiers?: string | null;
   timerSeconds?: number;
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentPlayerSelectionMode;
@@ -98,6 +100,7 @@ export interface TournamentInput {
   bidTier2UpTo?: number;
   bidTier2Increment?: number;
   bidTier3Increment?: number;
+  bidTiers?: string;
   timerSeconds?: number;
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentInputPlayerSelectionMode;
@@ -129,6 +132,7 @@ export interface TournamentUpdate {
   bidTier2UpTo?: number;
   bidTier2Increment?: number;
   bidTier3Increment?: number;
+  bidTiers?: string;
   timerSeconds?: number;
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
@@ -417,6 +421,8 @@ export interface AuctionState {
   currentBidTeamName?: string | null;
   /** @nullable */
   currentBidTeamColor?: string | null;
+  /** @nullable */
+  currentBidTeamLogoUrl?: string | null;
   bidIncrement?: number;
   /** @nullable */
   timerSeconds?: number | null;

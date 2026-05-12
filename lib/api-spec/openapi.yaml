@@ -1022,6 +1022,8 @@ components:
           type: integer
         bidTier3Increment:
           type: integer
+        bidTiers:
+          type: ["string", "null"]
         timerSeconds:
           type: integer
         bidTimerSeconds:
@@ -1072,6 +1074,8 @@ components:
           type: integer
         bidTier3Increment:
           type: integer
+        bidTiers:
+          type: string
         timerSeconds:
           type: integer
         bidTimerSeconds:
@@ -1115,6 +1119,8 @@ components:
           type: integer
         bidTier3Increment:
           type: integer
+        bidTiers:
+          type: string
         timerSeconds:
           type: integer
         bidTimerSeconds:
@@ -1508,6 +1514,8 @@ components:
         currentBidTeamName:
           type: ["string", "null"]
         currentBidTeamColor:
+          type: ["string", "null"]
+        currentBidTeamLogoUrl:
           type: ["string", "null"]
         bidIncrement:
           type: integer

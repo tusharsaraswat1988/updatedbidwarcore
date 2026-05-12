@@ -22,6 +22,7 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTier2UpTo: integer("bid_tier2_up_to").notNull().default(200000),
   bidTier2Increment: integer("bid_tier2_increment").notNull().default(50000),
   bidTier3Increment: integer("bid_tier3_increment").notNull().default(100000),
+  bidTiers: text("bid_tiers"),
   timerSeconds: integer("timer_seconds").notNull().default(30),
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
   playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
