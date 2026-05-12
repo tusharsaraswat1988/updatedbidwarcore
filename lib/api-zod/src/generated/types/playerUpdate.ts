@@ -13,11 +13,16 @@ export interface PlayerUpdate {
   role?: string;
   battingStyle?: string;
   bowlingStyle?: string;
+  specialization?: string;
   age?: number;
   photoUrl?: string;
   basePrice?: number;
   jerseyNumber?: string;
   achievements?: string;
+  mobileNumber?: string;
+  cricheroUrl?: string;
+  availabilityDates?: string;
+  retainedPrice?: number;
   status?: string;
   /** @nullable */
   teamId?: number | null;

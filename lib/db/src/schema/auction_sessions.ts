@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, integer, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, text, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,7 +10,10 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   currentBid: integer("current_bid"),
   currentBidTeamId: integer("current_bid_team_id"),
   timerSeconds: integer("timer_seconds"),
+  timerEndsAt: text("timer_ends_at"),
   lastAction: text("last_action"),
+  isBreak: boolean("is_break").notNull().default(false),
+  breakEndsAt: text("break_ends_at"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

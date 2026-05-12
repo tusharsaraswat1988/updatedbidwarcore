@@ -12,4 +12,5 @@ export const PlayerStatus = {
   available: "available",
   sold: "sold",
   unsold: "unsold",
+  retained: "retained",
 } as const;

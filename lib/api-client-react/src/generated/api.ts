@@ -20,15 +20,19 @@ import type {
   AuctionState,
   Bid,
   BidInput,
+  BulkPlayerInput,
+  BulkPlayerResult,
   Category,
   CategoryBreakdown,
   CategoryInput,
   CategoryUpdate,
   HealthStatus,
+  ManualSellInput,
   NextPlayerInput,
   Player,
   PlayerInput,
   PlayerUpdate,
+  ReAuctionInput,
   Team,
   TeamInput,
   TeamPurse,
@@ -1508,6 +1512,93 @@ export const useCreatePlayer = <
 };
 
 /**
+ * @summary Bulk create players from CSV data
+ */
+export const getBulkCreatePlayersUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/players/bulk`;
+};
+
+export const bulkCreatePlayers = async (
+  tournamentId: number,
+  bulkPlayerInput: BulkPlayerInput,
+  options?: RequestInit,
+): Promise<BulkPlayerResult> => {
+  return customFetch<BulkPlayerResult>(getBulkCreatePlayersUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkPlayerInput),
+  });
+};
+
+export const getBulkCreatePlayersMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCreatePlayers>>,
+    TError,
+    { tournamentId: number; data: BodyType<BulkPlayerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkCreatePlayers>>,
+  TError,
+  { tournamentId: number; data: BodyType<BulkPlayerInput> },
+  TContext
+> => {
+  const mutationKey = ["bulkCreatePlayers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkCreatePlayers>>,
+    { tournamentId: number; data: BodyType<BulkPlayerInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return bulkCreatePlayers(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkCreatePlayersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkCreatePlayers>>
+>;
+export type BulkCreatePlayersMutationBody = BodyType<BulkPlayerInput>;
+export type BulkCreatePlayersMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk create players from CSV data
+ */
+export const useBulkCreatePlayers = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkCreatePlayers>>,
+    TError,
+    { tournamentId: number; data: BodyType<BulkPlayerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkCreatePlayers>>,
+  TError,
+  { tournamentId: number; data: BodyType<BulkPlayerInput> },
+  TContext
+> => {
+  return useMutation(getBulkCreatePlayersMutationOptions(options));
+};
+
+/**
  * @summary Get a player by ID
  */
 export const getGetPlayerUrl = (tournamentId: number, playerId: number) => {
@@ -2291,6 +2382,93 @@ export const useSellPlayer = <
 };
 
 /**
+ * @summary Manually sell current player to a specific team at a set price
+ */
+export const getManualSellUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/manual-sell`;
+};
+
+export const manualSell = async (
+  tournamentId: number,
+  manualSellInput: ManualSellInput,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getManualSellUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(manualSellInput),
+  });
+};
+
+export const getManualSellMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof manualSell>>,
+    TError,
+    { tournamentId: number; data: BodyType<ManualSellInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof manualSell>>,
+  TError,
+  { tournamentId: number; data: BodyType<ManualSellInput> },
+  TContext
+> => {
+  const mutationKey = ["manualSell"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof manualSell>>,
+    { tournamentId: number; data: BodyType<ManualSellInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return manualSell(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ManualSellMutationResult = NonNullable<
+  Awaited<ReturnType<typeof manualSell>>
+>;
+export type ManualSellMutationBody = BodyType<ManualSellInput>;
+export type ManualSellMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Manually sell current player to a specific team at a set price
+ */
+export const useManualSell = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof manualSell>>,
+    TError,
+    { tournamentId: number; data: BodyType<ManualSellInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof manualSell>>,
+  TError,
+  { tournamentId: number; data: BodyType<ManualSellInput> },
+  TContext
+> => {
+  return useMutation(getManualSellMutationOptions(options));
+};
+
+/**
  * @summary Mark current player as unsold
  */
 export const getMarkUnsoldUrl = (tournamentId: number) => {
@@ -2375,6 +2553,93 @@ export const useMarkUnsold = <
 };
 
 /**
+ * @summary Bring a previously sold/unsold player back for re-auction
+ */
+export const getReAuctionPlayerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/re-auction`;
+};
+
+export const reAuctionPlayer = async (
+  tournamentId: number,
+  reAuctionInput: ReAuctionInput,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getReAuctionPlayerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reAuctionInput),
+  });
+};
+
+export const getReAuctionPlayerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reAuctionPlayer>>,
+    TError,
+    { tournamentId: number; data: BodyType<ReAuctionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reAuctionPlayer>>,
+  TError,
+  { tournamentId: number; data: BodyType<ReAuctionInput> },
+  TContext
+> => {
+  const mutationKey = ["reAuctionPlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reAuctionPlayer>>,
+    { tournamentId: number; data: BodyType<ReAuctionInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return reAuctionPlayer(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReAuctionPlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reAuctionPlayer>>
+>;
+export type ReAuctionPlayerMutationBody = BodyType<ReAuctionInput>;
+export type ReAuctionPlayerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bring a previously sold/unsold player back for re-auction
+ */
+export const useReAuctionPlayer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reAuctionPlayer>>,
+    TError,
+    { tournamentId: number; data: BodyType<ReAuctionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reAuctionPlayer>>,
+  TError,
+  { tournamentId: number; data: BodyType<ReAuctionInput> },
+  TContext
+> => {
+  return useMutation(getReAuctionPlayerMutationOptions(options));
+};
+
+/**
  * @summary Undo the last auction action
  */
 export const getUndoLastActionUrl = (tournamentId: number) => {
@@ -2456,6 +2721,90 @@ export const useUndoLastAction = <
   TContext
 > => {
   return useMutation(getUndoLastActionMutationOptions(options));
+};
+
+/**
+ * @summary Reset all players back to available (clears trial bids)
+ */
+export const getResetTrialAuctionUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/reset-trial`;
+};
+
+export const resetTrialAuction = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getResetTrialAuctionUrl(tournamentId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getResetTrialAuctionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetTrialAuction>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetTrialAuction>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  const mutationKey = ["resetTrialAuction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetTrialAuction>>,
+    { tournamentId: number }
+  > = (props) => {
+    const { tournamentId } = props ?? {};
+
+    return resetTrialAuction(tournamentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetTrialAuctionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetTrialAuction>>
+>;
+
+export type ResetTrialAuctionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset all players back to available (clears trial bids)
+ */
+export const useResetTrialAuction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetTrialAuction>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetTrialAuction>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  return useMutation(getResetTrialAuctionMutationOptions(options));
 };
 
 /**

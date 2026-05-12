@@ -14,6 +14,9 @@ import AuctionOperator from "@/pages/auction-operator";
 import DisplayView from "@/pages/display";
 import OwnerPanel from "@/pages/owner-panel";
 import Reports from "@/pages/reports";
+import LinksPage from "@/pages/links";
+import FortuneWheel from "@/pages/fortune-wheel";
+import PlayerRegister from "@/pages/player-register";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +40,9 @@ function Router() {
       <Route path="/tournament/:id/display" component={DisplayView} />
       <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />
       <Route path="/tournament/:id/reports" component={Reports} />
+      <Route path="/tournament/:id/links" component={LinksPage} />
+      <Route path="/tournament/:id/fortune-wheel" component={FortuneWheel} />
+      <Route path="/tournament/:id/register" component={PlayerRegister} />
       <Route component={NotFound} />
     </Switch>
   );

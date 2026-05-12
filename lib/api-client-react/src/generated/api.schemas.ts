@@ -29,6 +29,12 @@ export interface Tournament {
   auctionDate?: string | null;
   /** @nullable */
   organizerName?: string | null;
+  /** @nullable */
+  organizerMobile?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  sponsorLogos?: string | null;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -56,6 +62,9 @@ export interface TournamentInput {
   venue?: string;
   auctionDate?: string;
   organizerName?: string;
+  organizerMobile?: string;
+  logoUrl?: string;
+  sponsorLogos?: string;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -68,6 +77,9 @@ export interface TournamentUpdate {
   venue?: string;
   auctionDate?: string;
   organizerName?: string;
+  organizerMobile?: string;
+  logoUrl?: string;
+  sponsorLogos?: string;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
@@ -150,6 +162,7 @@ export const PlayerStatus = {
   available: "available",
   sold: "sold",
   unsold: "unsold",
+  retained: "retained",
 } as const;
 
 export interface Player {
@@ -169,17 +182,27 @@ export interface Player {
   /** @nullable */
   bowlingStyle?: string | null;
   /** @nullable */
+  specialization?: string | null;
+  /** @nullable */
   age?: number | null;
   /** @nullable */
   photoUrl?: string | null;
   basePrice: number;
   /** @nullable */
   soldPrice?: number | null;
+  /** @nullable */
+  retainedPrice?: number | null;
   status: PlayerStatus;
   /** @nullable */
   jerseyNumber?: string | null;
   /** @nullable */
   achievements?: string | null;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
+  cricheroUrl?: string | null;
+  /** @nullable */
+  availabilityDates?: string | null;
   createdAt: string;
 }
 
@@ -208,11 +231,17 @@ export interface PlayerInput {
   role?: PlayerInputRole;
   battingStyle?: string;
   bowlingStyle?: string;
+  specialization?: string;
   age?: number;
   photoUrl?: string;
   basePrice: number;
   jerseyNumber?: string;
   achievements?: string;
+  mobileNumber?: string;
+  cricheroUrl?: string;
+  availabilityDates?: string;
+  retainedPrice?: number;
+  status?: string;
 }
 
 export interface PlayerUpdate {
@@ -222,19 +251,44 @@ export interface PlayerUpdate {
   role?: string;
   battingStyle?: string;
   bowlingStyle?: string;
+  specialization?: string;
   age?: number;
   photoUrl?: string;
   basePrice?: number;
   jerseyNumber?: string;
   achievements?: string;
+  mobileNumber?: string;
+  cricheroUrl?: string;
+  availabilityDates?: string;
+  retainedPrice?: number;
   status?: string;
   /** @nullable */
   teamId?: number | null;
 }
 
+export interface BulkPlayerInput {
+  players: PlayerInput[];
+}
+
+export interface BulkPlayerResult {
+  created: number;
+  failed: number;
+  errors?: string[];
+}
+
 export interface BidInput {
   teamId: number;
   amount: number;
+}
+
+export interface ManualSellInput {
+  teamId: number;
+  amount: number;
+}
+
+export interface ReAuctionInput {
+  playerId: number;
+  startFromBase?: boolean;
 }
 
 export interface Bid {
@@ -288,8 +342,11 @@ export interface AuctionState {
   currentBidTeamName?: string | null;
   /** @nullable */
   currentBidTeamColor?: string | null;
+  bidIncrement?: number;
   /** @nullable */
   timerSeconds?: number | null;
+  /** @nullable */
+  timerEndsAt?: string | null;
   /** @nullable */
   lastAction?: string | null;
   soldPlayersCount?: number;

@@ -20,8 +20,11 @@ export interface AuctionState {
   currentBidTeamName?: string | null;
   /** @nullable */
   currentBidTeamColor?: string | null;
+  bidIncrement?: number;
   /** @nullable */
   timerSeconds?: number | null;
+  /** @nullable */
+  timerEndsAt?: string | null;
   /** @nullable */
   lastAction?: string | null;
   soldPlayersCount?: number;

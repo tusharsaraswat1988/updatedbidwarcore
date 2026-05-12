@@ -24,16 +24,26 @@ export interface Player {
   /** @nullable */
   bowlingStyle?: string | null;
   /** @nullable */
+  specialization?: string | null;
+  /** @nullable */
   age?: number | null;
   /** @nullable */
   photoUrl?: string | null;
   basePrice: number;
   /** @nullable */
   soldPrice?: number | null;
+  /** @nullable */
+  retainedPrice?: number | null;
   status: PlayerStatus;
   /** @nullable */
   jerseyNumber?: string | null;
   /** @nullable */
   achievements?: string | null;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
+  cricheroUrl?: string | null;
+  /** @nullable */
+  availabilityDates?: string | null;
   createdAt: string;
 }

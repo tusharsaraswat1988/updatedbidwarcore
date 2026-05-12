@@ -8,19 +8,12 @@ servers:
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: tournaments
-    description: Tournament management
   - name: teams
-    description: Team management
   - name: players
-    description: Player management
   - name: categories
-    description: Category management
   - name: auction
-    description: Auction session and bidding
   - name: analytics
-    description: Analytics and reports
 
 paths:
   /healthz:
@@ -36,7 +29,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  # ─── TOURNAMENTS ───────────────────────────────────────────────────────────
+  # ─── TOURNAMENTS ────────────────────────────────────────────────────────────
   /tournaments:
     get:
       operationId: listTournaments
@@ -126,7 +119,7 @@ paths:
         "204":
           description: Deleted
 
-  # ─── TEAMS ─────────────────────────────────────────────────────────────────
+  # ─── TEAMS ──────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/teams:
     get:
       operationId: listTeams
@@ -241,7 +234,7 @@ paths:
         "204":
           description: Deleted
 
-  # ─── CATEGORIES ────────────────────────────────────────────────────────────
+  # ─── CATEGORIES ─────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/categories:
     get:
       operationId: listCategories
@@ -334,7 +327,7 @@ paths:
         "204":
           description: Deleted
 
-  # ─── PLAYERS ───────────────────────────────────────────────────────────────
+  # ─── PLAYERS ────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/players:
     get:
       operationId: listPlayers
@@ -378,6 +371,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/bulk:
+    post:
+      operationId: bulkCreatePlayers
+      tags: [players]
+      summary: Bulk create players from CSV data
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkPlayerInput"
+      responses:
+        "200":
+          description: Bulk upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkPlayerResult"
 
   /tournaments/{tournamentId}/players/{playerId}:
     get:
@@ -449,7 +467,7 @@ paths:
         "204":
           description: Deleted
 
-  # ─── AUCTION SESSION ────────────────────────────────────────────────────────
+  # ─── AUCTION SESSION ─────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/auction:
     get:
       operationId: getAuctionState
@@ -578,6 +596,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/manual-sell:
+    post:
+      operationId: manualSell
+      tags: [auction]
+      summary: Manually sell current player to a specific team at a set price
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualSellInput"
+      responses:
+        "200":
+          description: Player sold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/unsold:
     post:
       operationId: markUnsold
@@ -597,6 +640,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/re-auction:
+    post:
+      operationId: reAuctionPlayer
+      tags: [auction]
+      summary: Bring a previously sold/unsold player back for re-auction
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReAuctionInput"
+      responses:
+        "200":
+          description: Player back in auction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/undo:
     post:
       operationId: undoLastAction
@@ -611,6 +679,25 @@ paths:
       responses:
         "200":
           description: Action undone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/reset-trial:
+    post:
+      operationId: resetTrialAuction
+      tags: [auction]
+      summary: Reset all players back to available (clears trial bids)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reset complete
           content:
             application/json:
               schema:
@@ -637,7 +724,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Bid"
 
-  # ─── ANALYTICS / WOW ────────────────────────────────────────────────────────
+  # ─── ANALYTICS ───────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/analytics/summary:
     get:
       operationId: getTournamentSummary
@@ -746,6 +833,12 @@ components:
           type: ["string", "null"]
         organizerName:
           type: ["string", "null"]
+        organizerMobile:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        sponsorLogos:
+          type: ["string", "null"]
         basePurse:
           type: integer
         minBid:
@@ -775,6 +868,12 @@ components:
           type: string
         organizerName:
           type: string
+        organizerMobile:
+          type: string
+        logoUrl:
+          type: string
+        sponsorLogos:
+          type: string
         basePurse:
           type: integer
         minBid:
@@ -796,6 +895,12 @@ components:
         auctionDate:
           type: string
         organizerName:
+          type: string
+        organizerMobile:
+          type: string
+        logoUrl:
+          type: string
+        sponsorLogos:
           type: string
         basePurse:
           type: integer
@@ -951,6 +1056,8 @@ components:
           type: ["string", "null"]
         bowlingStyle:
           type: ["string", "null"]
+        specialization:
+          type: ["string", "null"]
         age:
           type: ["integer", "null"]
         photoUrl:
@@ -959,12 +1066,20 @@ components:
           type: integer
         soldPrice:
           type: ["integer", "null"]
+        retainedPrice:
+          type: ["integer", "null"]
         status:
           type: string
-          enum: [available, sold, unsold]
+          enum: [available, sold, unsold, retained]
         jerseyNumber:
           type: ["string", "null"]
         achievements:
+          type: ["string", "null"]
+        mobileNumber:
+          type: ["string", "null"]
+        cricheroUrl:
+          type: ["string", "null"]
+        availabilityDates:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -986,6 +1101,8 @@ components:
           type: string
         bowlingStyle:
           type: string
+        specialization:
+          type: string
         age:
           type: integer
         photoUrl:
@@ -995,6 +1112,16 @@ components:
         jerseyNumber:
           type: string
         achievements:
+          type: string
+        mobileNumber:
+          type: string
+        cricheroUrl:
+          type: string
+        availabilityDates:
+          type: string
+        retainedPrice:
+          type: integer
+        status:
           type: string
 
     PlayerUpdate:
@@ -1012,6 +1139,8 @@ components:
           type: string
         bowlingStyle:
           type: string
+        specialization:
+          type: string
         age:
           type: integer
         photoUrl:
@@ -1022,10 +1151,40 @@ components:
           type: string
         achievements:
           type: string
+        mobileNumber:
+          type: string
+        cricheroUrl:
+          type: string
+        availabilityDates:
+          type: string
+        retainedPrice:
+          type: integer
         status:
           type: string
         teamId:
           type: ["integer", "null"]
+
+    BulkPlayerInput:
+      type: object
+      required: [players]
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerInput"
+
+    BulkPlayerResult:
+      type: object
+      required: [created, failed]
+      properties:
+        created:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
 
     # Bid schemas
     BidInput:
@@ -1036,6 +1195,24 @@ components:
           type: integer
         amount:
           type: integer
+
+    ManualSellInput:
+      type: object
+      required: [teamId, amount]
+      properties:
+        teamId:
+          type: integer
+        amount:
+          type: integer
+
+    ReAuctionInput:
+      type: object
+      required: [playerId]
+      properties:
+        playerId:
+          type: integer
+        startFromBase:
+          type: boolean
 
     Bid:
       type: object
@@ -1060,7 +1237,6 @@ components:
         teamColor:
           type: ["string", "null"]
 
-    # Next player input
     NextPlayerInput:
       type: object
       properties:
@@ -1070,7 +1246,6 @@ components:
           type: string
           enum: [sequential, random, manual]
 
-    # Auction state
     AuctionState:
       type: object
       required: [tournamentId, status]
@@ -1091,8 +1266,12 @@ components:
           type: ["string", "null"]
         currentBidTeamColor:
           type: ["string", "null"]
+        bidIncrement:
+          type: integer
         timerSeconds:
           type: ["integer", "null"]
+        timerEndsAt:
+          type: ["string", "null"]
         lastAction:
           type: ["string", "null"]
         soldPlayersCount:
@@ -1102,7 +1281,6 @@ components:
         remainingPlayersCount:
           type: integer
 
-    # Analytics schemas
     TournamentSummary:
       type: object
       required: [totalPlayers, soldPlayers, unsoldPlayers, availablePlayers, totalSpent, totalTeams, avgBidAmount]

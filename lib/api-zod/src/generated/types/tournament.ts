@@ -17,6 +17,12 @@ export interface Tournament {
   auctionDate?: string | null;
   /** @nullable */
   organizerName?: string | null;
+  /** @nullable */
+  organizerMobile?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  sponsorLogos?: string | null;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;

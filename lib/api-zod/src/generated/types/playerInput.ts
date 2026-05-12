@@ -14,9 +14,15 @@ export interface PlayerInput {
   role?: PlayerInputRole;
   battingStyle?: string;
   bowlingStyle?: string;
+  specialization?: string;
   age?: number;
   photoUrl?: string;
   basePrice: number;
   jerseyNumber?: string;
   achievements?: string;
+  mobileNumber?: string;
+  cricheroUrl?: string;
+  availabilityDates?: string;
+  retainedPrice?: number;
+  status?: string;
 }

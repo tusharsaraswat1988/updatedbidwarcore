@@ -13,6 +13,9 @@ export interface TournamentInput {
   venue?: string;
   auctionDate?: string;
   organizerName?: string;
+  organizerMobile?: string;
+  logoUrl?: string;
+  sponsorLogos?: string;
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;

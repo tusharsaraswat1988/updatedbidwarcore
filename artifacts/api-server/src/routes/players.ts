@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playersTable } from "@workspace/db";
+import { playersTable, teamsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -16,14 +16,39 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   role: p.role,
   battingStyle: p.battingStyle,
   bowlingStyle: p.bowlingStyle,
+  specialization: p.specialization,
   age: p.age,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
   soldPrice: p.soldPrice,
+  retainedPrice: p.retainedPrice,
   status: p.status,
   jerseyNumber: p.jerseyNumber,
   achievements: p.achievements,
+  mobileNumber: p.mobileNumber,
+  cricheroUrl: p.cricheroUrl,
+  availabilityDates: p.availabilityDates,
   createdAt: p.createdAt.toISOString(),
+});
+
+const playerInputSchema = z.object({
+  categoryId: z.number().int().optional(),
+  name: z.string().min(1),
+  city: z.string().optional(),
+  role: z.string().optional(),
+  battingStyle: z.string().optional(),
+  bowlingStyle: z.string().optional(),
+  specialization: z.string().optional(),
+  age: z.number().int().optional(),
+  photoUrl: z.string().optional(),
+  basePrice: z.number().int(),
+  jerseyNumber: z.string().optional(),
+  achievements: z.string().optional(),
+  mobileNumber: z.string().optional(),
+  cricheroUrl: z.string().optional(),
+  availabilityDates: z.string().optional(),
+  retainedPrice: z.number().int().optional(),
+  status: z.string().optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -40,21 +65,8 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const schema = z.object({
-    categoryId: z.number().int().optional(),
-    name: z.string().min(1),
-    city: z.string().optional(),
-    role: z.string().optional(),
-    battingStyle: z.string().optional(),
-    bowlingStyle: z.string().optional(),
-    age: z.number().int().optional(),
-    photoUrl: z.string().optional(),
-    basePrice: z.number().int(),
-    jerseyNumber: z.string().optional(),
-    achievements: z.string().optional(),
-  });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const parsed = playerInputSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
   const [player] = await db
     .insert(playersTable)
@@ -66,15 +78,67 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       role: d.role ?? null,
       battingStyle: d.battingStyle ?? null,
       bowlingStyle: d.bowlingStyle ?? null,
+      specialization: d.specialization ?? null,
       age: d.age ?? null,
       photoUrl: d.photoUrl ?? null,
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
       achievements: d.achievements ?? null,
-      status: "available",
+      mobileNumber: d.mobileNumber ?? null,
+      cricheroUrl: d.cricheroUrl ?? null,
+      availabilityDates: d.availabilityDates ?? null,
+      retainedPrice: d.retainedPrice ?? null,
+      status: (d.status ?? "available") as "available" | "sold" | "unsold" | "retained",
     })
     .returning();
   res.status(201).json(playerToJson(player));
+});
+
+// Bulk create players
+router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    players: z.array(playerInputSchema).min(1).max(500),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  let created = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const pd of parsed.data.players) {
+    try {
+      await db.insert(playersTable).values({
+        tournamentId: tid,
+        categoryId: pd.categoryId ?? null,
+        name: pd.name,
+        city: pd.city ?? null,
+        role: pd.role ?? null,
+        battingStyle: pd.battingStyle ?? null,
+        bowlingStyle: pd.bowlingStyle ?? null,
+        specialization: pd.specialization ?? null,
+        age: pd.age ?? null,
+        photoUrl: pd.photoUrl ?? null,
+        basePrice: pd.basePrice,
+        jerseyNumber: pd.jerseyNumber ?? null,
+        achievements: pd.achievements ?? null,
+        mobileNumber: pd.mobileNumber ?? null,
+        cricheroUrl: pd.cricheroUrl ?? null,
+        availabilityDates: pd.availabilityDates ?? null,
+        retainedPrice: pd.retainedPrice ?? null,
+        status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+      });
+      created++;
+    } catch (err) {
+      failed++;
+      errors.push(`${pd.name}: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  }
+
+  res.json({ created, failed, errors });
 });
 
 router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
@@ -100,11 +164,16 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     role: z.string().optional(),
     battingStyle: z.string().optional(),
     bowlingStyle: z.string().optional(),
+    specialization: z.string().optional(),
     age: z.number().int().optional(),
     photoUrl: z.string().optional(),
     basePrice: z.number().int().optional(),
     jerseyNumber: z.string().optional(),
     achievements: z.string().optional(),
+    mobileNumber: z.string().optional(),
+    cricheroUrl: z.string().optional(),
+    availabilityDates: z.string().optional(),
+    retainedPrice: z.number().int().nullable().optional(),
     status: z.string().optional(),
     teamId: z.number().int().nullable().optional(),
   });
@@ -118,17 +187,22 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.role !== undefined) updates.role = d.role;
   if (d.battingStyle !== undefined) updates.battingStyle = d.battingStyle;
   if (d.bowlingStyle !== undefined) updates.bowlingStyle = d.bowlingStyle;
+  if (d.specialization !== undefined) updates.specialization = d.specialization;
   if (d.age !== undefined) updates.age = d.age;
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
   if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
+  if (d.mobileNumber !== undefined) updates.mobileNumber = d.mobileNumber;
+  if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;
+  if (d.availabilityDates !== undefined) updates.availabilityDates = d.availabilityDates;
+  if (d.retainedPrice !== undefined) updates.retainedPrice = d.retainedPrice;
   if (d.status !== undefined) updates.status = d.status;
   if (d.teamId !== undefined) updates.teamId = d.teamId;
   const [player] = await db
     .update(playersTable)
-    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
     .set(updates)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
     .returning();
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
   res.json(playerToJson(player));

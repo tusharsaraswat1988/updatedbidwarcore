@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useListPlayers,
@@ -7,6 +7,7 @@ import {
   useCreatePlayer,
   useUpdatePlayer,
   useDeletePlayer,
+  useBulkCreatePlayers,
   getListPlayersQueryKey,
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
@@ -21,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -40,27 +41,39 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
     role: player?.role || "batsman",
     battingStyle: player?.battingStyle || "",
     bowlingStyle: player?.bowlingStyle || "",
+    specialization: player?.specialization || "",
     age: player?.age ? String(player.age) : "",
     photoUrl: player?.photoUrl || "",
     basePrice: player?.basePrice || 100000,
     jerseyNumber: player?.jerseyNumber || "",
     achievements: player?.achievements || "",
+    mobileNumber: player?.mobileNumber || "",
+    cricheroUrl: player?.cricheroUrl || "",
+    availabilityDates: player?.availabilityDates || "",
+    retainedPrice: player?.retainedPrice ? String(player.retainedPrice) : "",
+    status: player?.status || "available",
     categoryId: player?.categoryId ? String(player.categoryId) : (categories[0]?.id ? String(categories[0].id) : ""),
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const data = {
+    const data: any = {
       name: form.name,
       city: form.city || undefined,
       role: form.role,
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
+      specialization: form.specialization || undefined,
       age: form.age ? parseInt(form.age) : undefined,
       photoUrl: form.photoUrl || undefined,
       basePrice: parseInt(String(form.basePrice)) || 0,
       jerseyNumber: form.jerseyNumber || undefined,
       achievements: form.achievements || undefined,
+      mobileNumber: form.mobileNumber || undefined,
+      cricheroUrl: form.cricheroUrl || undefined,
+      availabilityDates: form.availabilityDates || undefined,
+      retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
+      status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
     };
     if (player) {
@@ -72,16 +85,18 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
     onClose();
   }
 
+  const f = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Player Name *</Label>
-          <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="Full name" />
+          <Input value={form.name} onChange={e => f("name", e.target.value)} required placeholder="Full name" />
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
-          <Select value={form.categoryId} onValueChange={v => setForm(f => ({ ...f, categoryId: v }))}>
+          <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
             <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
             <SelectContent className="dark">
               {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
@@ -92,11 +107,11 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>City</Label>
-          <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Mumbai" />
+          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
         </div>
         <div className="space-y-2">
           <Label>Role</Label>
-          <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+          <Select value={form.role} onValueChange={v => f("role", v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent className="dark">
               {["batsman","bowler","all-rounder","wicketkeeper","midfielder","forward","defender","goalkeeper","other"].map(r => (
@@ -109,37 +124,81 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Base Price (₹) *</Label>
-          <Input type="number" value={form.basePrice} onChange={e => setForm(f => ({ ...f, basePrice: e.target.value }))} required />
+          <Input type="number" value={form.basePrice} onChange={e => f("basePrice", e.target.value)} required />
         </div>
         <div className="space-y-2">
           <Label>Age</Label>
-          <Input type="number" value={form.age} onChange={e => setForm(f => ({ ...f, age: e.target.value }))} placeholder="25" />
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Batting Style</Label>
-          <Input value={form.battingStyle} onChange={e => setForm(f => ({ ...f, battingStyle: e.target.value }))} placeholder="Right-hand" />
+          <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
         </div>
         <div className="space-y-2">
           <Label>Bowling Style</Label>
-          <Input value={form.bowlingStyle} onChange={e => setForm(f => ({ ...f, bowlingStyle: e.target.value }))} placeholder="Right-arm fast" />
+          <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
+          <Label>Specialization</Label>
+          <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+        </div>
+        <div className="space-y-2">
           <Label>Jersey No.</Label>
-          <Input value={form.jerseyNumber} onChange={e => setForm(f => ({ ...f, jerseyNumber: e.target.value }))} placeholder="7" />
+          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Mobile Number</Label>
+          <Input value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} placeholder="+91 98765 43210" />
         </div>
         <div className="space-y-2">
           <Label>Photo URL</Label>
-          <Input value={form.photoUrl} onChange={e => setForm(f => ({ ...f, photoUrl: e.target.value }))} placeholder="https://..." />
+          <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="https://..." />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Achievements</Label>
-        <Input value={form.achievements} onChange={e => setForm(f => ({ ...f, achievements: e.target.value }))} placeholder="Player of the Season 2024..." />
+        <Label>Availability Dates</Label>
+        <Input value={form.availabilityDates} onChange={e => f("availabilityDates", e.target.value)} placeholder="18, 19, 20 March 2025" />
       </div>
+      <div className="space-y-2">
+        <Label>Crichero URL</Label>
+        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." />
+      </div>
+      <div className="space-y-2">
+        <Label>Achievements</Label>
+        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of the Season 2024..." />
+      </div>
+
+      {/* Retained player section */}
+      <div className="pt-2 border-t border-border">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Retained Player (Optional)</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={v => f("status", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent className="dark">
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="retained">Retained (Pre-sold)</SelectItem>
+                <SelectItem value="sold">Sold</SelectItem>
+                <SelectItem value="unsold">Unsold</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.status === "retained" && (
+            <div className="space-y-2">
+              <Label>Retained Price (₹)</Label>
+              <Input type="number" value={form.retainedPrice} onChange={e => f("retainedPrice", e.target.value)} placeholder="e.g. 1000000" />
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1" disabled={createPlayer.isPending || updatePlayer.isPending}>
           {player ? "Update Player" : "Add Player"}
@@ -150,10 +209,151 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
   );
 }
 
+function BulkUploadDialog({ tournamentId, categories, onClose }: {
+  tournamentId: number;
+  categories: any[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const bulkCreate = useBulkCreatePlayers();
+  const [csv, setCsv] = useState("");
+  const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,availabilityDates,cricheroUrl";
+
+  function downloadTemplate() {
+    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,18-20 March,https://crichero.com/rohit";
+    const blob = new Blob([content], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "players_template.csv";
+    a.click();
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setCsv(ev.target?.result as string || "");
+    reader.readAsText(file);
+  }
+
+  function parseCsv(raw: string): any[] {
+    const lines = raw.trim().split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+    return lines.slice(1).map(line => {
+      const vals = line.split(",").map(v => v.trim());
+      const row: Record<string, any> = {};
+      headers.forEach((h, i) => { row[h] = vals[i] || ""; });
+      return {
+        name: row["name"] || "Unknown",
+        basePrice: parseInt(row["baseprice"] || row["base_price"] || "100000") || 100000,
+        role: row["role"] || undefined,
+        city: row["city"] || undefined,
+        age: row["age"] ? parseInt(row["age"]) : undefined,
+        battingStyle: row["battingstyle"] || row["batting_style"] || undefined,
+        bowlingStyle: row["bowlingstyle"] || row["bowling_style"] || undefined,
+        specialization: row["specialization"] || undefined,
+        jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
+        achievements: row["achievements"] || undefined,
+        mobileNumber: row["mobilenumber"] || row["mobile_number"] || row["mobile"] || undefined,
+        availabilityDates: row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
+        cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
+      };
+    });
+  }
+
+  async function handleUpload() {
+    const players = parseCsv(csv);
+    if (!players.length) return;
+    const res = await bulkCreate.mutateAsync({ tournamentId, data: { players } });
+    setResult({ created: res.created, failed: res.failed, errors: res.errors ?? [] });
+    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+  }
+
+  const parsed = csv ? parseCsv(csv) : [];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Upload a CSV file with player details. One player per row.</p>
+        </div>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
+          <Download className="w-3.5 h-3.5" /> Template
+        </Button>
+      </div>
+
+      {!result && (
+        <>
+          <div
+            className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+            <p className="font-semibold text-sm">Click to upload CSV</p>
+            <p className="text-xs text-muted-foreground mt-1">or paste CSV data below</p>
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+          </div>
+          <textarea
+            className="w-full h-36 bg-card border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder={`Paste CSV here:\n${TEMPLATE_HEADERS}\nPlayer Name,100000,batsman,...`}
+            value={csv}
+            onChange={e => setCsv(e.target.value)}
+          />
+          {parsed.length > 0 && (
+            <div className="bg-card/50 border border-border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground mb-1">{parsed.length} player(s) ready to upload:</p>
+              <div className="flex flex-wrap gap-1">
+                {parsed.slice(0, 10).map((p, i) => (
+                  <span key={i} className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">{p.name}</span>
+                ))}
+                {parsed.length > 10 && <span className="text-xs text-muted-foreground">+{parsed.length - 10} more</span>}
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button
+              className="flex-1"
+              disabled={parsed.length === 0 || bulkCreate.isPending}
+              onClick={handleUpload}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {bulkCreate.isPending ? "Uploading..." : `Upload ${parsed.length} Players`}
+            </Button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+        </>
+      )}
+
+      {result && (
+        <div className="space-y-4">
+          <div className={`p-4 rounded-lg border ${result.failed === 0 ? "border-green-500/40 bg-green-500/10" : "border-yellow-500/40 bg-yellow-500/10"}`}>
+            <p className="font-bold text-lg">{result.created} players uploaded successfully</p>
+            {result.failed > 0 && (
+              <p className="text-sm text-destructive mt-1">{result.failed} failed</p>
+            )}
+            {result.errors.length > 0 && (
+              <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+                {result.errors.map((e, i) => <li key={i}>· {e}</li>)}
+              </ul>
+            )}
+          </div>
+          <Button className="w-full" onClick={onClose}>Done</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const statusColors: Record<string, string> = {
   available: "bg-blue-500/20 text-blue-400 border-blue-500/20",
   sold: "bg-green-500/20 text-green-400 border-green-500/20",
   unsold: "bg-red-500/20 text-red-400 border-red-500/20",
+  retained: "bg-purple-500/20 text-purple-400 border-purple-500/20",
 };
 
 export default function Players() {
@@ -172,6 +372,7 @@ export default function Players() {
   });
   const deletePlayer = useDeletePlayer();
   const [open, setOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -186,44 +387,67 @@ export default function Players() {
     const matchesTab = tab === "all" || p.status === tab;
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.city || "").toLowerCase().includes(search.toLowerCase()) ||
-      (p.role || "").toLowerCase().includes(search.toLowerCase());
+      (p.role || "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.mobileNumber || "").includes(search);
     return matchesTab && matchesSearch;
   });
 
   const catMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
   const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
+  const retainedCount = (players || []).filter(p => p.status === "retained").length;
 
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">Players</h1>
-            <p className="text-muted-foreground mt-2">{players?.length || 0} players registered.</p>
+            <p className="text-muted-foreground mt-2">
+              {players?.length || 0} players registered
+              {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
+            </p>
           </div>
-          <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                <Plus className="w-5 h-5" /> Add Player
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg dark">
-              <DialogHeader>
-                <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
-              </DialogHeader>
-              <PlayerForm
-                tournamentId={tournamentId}
-                player={editing}
-                categories={categories || []}
-                onClose={() => { setOpen(false); setEditing(null); }}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              onClick={() => setBulkOpen(true)}
+            >
+              <Upload className="w-4 h-4" /> Bulk Upload
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              onClick={() => window.open(`/tournament/${tournamentId}/register`, "_blank")}
+            >
+              <ExternalLink className="w-4 h-4" /> Reg. Link
+            </Button>
+            <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
+                  <Plus className="w-5 h-5" /> Add Player
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg dark">
+                <DialogHeader>
+                  <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
+                </DialogHeader>
+                <PlayerForm
+                  tournamentId={tournamentId}
+                  player={editing}
+                  categories={categories || []}
+                  onClose={() => { setOpen(false); setEditing(null); }}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <Input
-            placeholder="Search players..."
+            placeholder="Search by name, city, role, or mobile..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="max-w-sm"
@@ -232,6 +456,7 @@ export default function Players() {
             <TabsList className="bg-card">
               <TabsTrigger value="all">All ({players?.length || 0})</TabsTrigger>
               <TabsTrigger value="available">Available</TabsTrigger>
+              <TabsTrigger value="retained">Retained</TabsTrigger>
               <TabsTrigger value="sold">Sold</TabsTrigger>
               <TabsTrigger value="unsold">Unsold</TabsTrigger>
             </TabsList>
@@ -273,19 +498,38 @@ export default function Players() {
                             {cat.name}
                           </Badge>
                         )}
+                        {player.mobileNumber && (
+                          <span className="text-xs text-muted-foreground font-mono">{player.mobileNumber}</span>
+                        )}
                       </div>
-                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                         {player.city && <span>{player.city}</span>}
                         {player.role && <span className="capitalize">· {player.role}</span>}
                         {player.age && <span>· Age {player.age}</span>}
+                        {player.battingStyle && <span>· {player.battingStyle}</span>}
+                        {player.availabilityDates && <span className="text-blue-400">· Avail: {player.availabilityDates}</span>}
                         {team && (
                           <span className="font-semibold" style={{ color: team.color || "#fff" }}>· {team.name}</span>
                         )}
                       </div>
+                      {player.cricheroUrl && (
+                        <a href={player.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline mt-0.5 inline-block">
+                          Crichero Profile
+                        </a>
+                      )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="font-mono font-bold text-primary">{formatIndianRupee(player.soldPrice || player.basePrice)}</p>
-                      <p className="text-xs text-muted-foreground">{player.soldPrice ? "sold" : "base"}</p>
+                      {player.status === "retained" ? (
+                        <>
+                          <p className="font-mono font-bold text-purple-400">{player.retainedPrice ? `₹${(player.retainedPrice/100000).toFixed(1)}L` : "Retained"}</p>
+                          <p className="text-xs text-muted-foreground">retained</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-mono font-bold text-primary">{formatIndianRupee(player.soldPrice || player.basePrice)}</p>
+                          <p className="text-xs text-muted-foreground">{player.soldPrice ? "sold" : "base"}</p>
+                        </>
+                      )}
                     </div>
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(player); setOpen(true); }}>
@@ -308,6 +552,22 @@ export default function Players() {
           </div>
         )}
       </div>
+
+      {/* Bulk Upload Dialog */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-xl dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" /> Bulk Player Upload
+            </DialogTitle>
+          </DialogHeader>
+          <BulkUploadDialog
+            tournamentId={tournamentId}
+            categories={categories || []}
+            onClose={() => setBulkOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

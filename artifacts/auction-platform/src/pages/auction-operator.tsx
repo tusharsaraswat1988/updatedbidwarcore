@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
@@ -10,8 +10,11 @@ import {
   useNextPlayer,
   usePlaceBid,
   useSellPlayer,
+  useManualSell,
   useMarkUnsold,
   useUndoLastAction,
+  useReAuctionPlayer,
+  useResetTrialAuction,
   getGetAuctionStateQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
@@ -24,10 +27,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
-  Shuffle, User, Trophy, Clock, Gavel,
+  Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
+  Settings2, RefreshCw,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -36,17 +44,17 @@ export default function AuctionOperator() {
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
 
-  // Real-time SSE connection
+  const [manualSellOpen, setManualSellOpen] = useState(false);
+  const [manualTeamId, setManualTeamId] = useState("");
+  const [manualAmount, setManualAmount] = useState("");
+  const [reAuctionTab, setReAuctionTab] = useState<"queue" | "sold" | "unsold">("queue");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   useAuctionSocket(tournamentId);
 
   const { data: state } = useGetAuctionState(tournamentId, {
-    query: {
-      queryKey: getGetAuctionStateQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: 5000, // fallback polling only
-    },
+    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
   });
-
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -54,11 +62,7 @@ export default function AuctionOperator() {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: bids } = useListBids(tournamentId, {
-    query: {
-      queryKey: getListBidsQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: 5000,
-    },
+    query: { queryKey: getListBidsQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
   });
 
   const startAuction = useStartAuction();
@@ -66,13 +70,17 @@ export default function AuctionOperator() {
   const nextPlayer = useNextPlayer();
   const placeBid = usePlaceBid();
   const sellPlayer = useSellPlayer();
+  const manualSellMut = useManualSell();
   const markUnsold = useMarkUnsold();
   const undoAction = useUndoLastAction();
+  const reAuction = useReAuctionPlayer();
+  const resetTrial = useResetTrialAuction();
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
     qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
   }, [qc, tournamentId]);
 
   async function handleNextPlayer(mode: "sequential" | "random", playerId?: number) {
@@ -102,12 +110,45 @@ export default function AuctionOperator() {
     invalidate();
   }
 
+  async function handleManualSell() {
+    if (!manualTeamId || !manualAmount) return;
+    await manualSellMut.mutateAsync({
+      tournamentId,
+      data: { teamId: parseInt(manualTeamId), amount: parseInt(manualAmount) || 0 },
+    });
+    setManualSellOpen(false);
+    setManualTeamId("");
+    setManualAmount("");
+    invalidate();
+  }
+
+  async function handleReAuction(playerId: number, startFromBase: boolean) {
+    await reAuction.mutateAsync({ tournamentId, data: { playerId, startFromBase } });
+    invalidate();
+  }
+
+  async function handleResetTrial() {
+    await resetTrial.mutateAsync({ tournamentId });
+    setShowResetConfirm(false);
+    invalidate();
+  }
+
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
   const hasPlayer = !!state?.currentPlayer;
   const hasBid = !!state?.currentBidTeamId;
   const available = (players || []).filter(p => p.status === "available");
+  const soldPlayers = (players || []).filter(p => p.status === "sold");
+  const unsoldPlayers = (players || []).filter(p => p.status === "unsold");
+  const retainedPlayers = (players || []).filter(p => p.status === "retained");
   const increment = state?.bidIncrement ?? 50000;
+  const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
+
+  const rightPanelPlayers = reAuctionTab === "queue"
+    ? available
+    : reAuctionTab === "sold"
+    ? soldPlayers
+    : unsoldPlayers;
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -128,6 +169,7 @@ export default function AuctionOperator() {
                 {state?.status?.toUpperCase() || "IDLE"}
               </span>
               {" · "}{state?.soldPlayersCount || 0} Sold · {state?.unsoldPlayersCount || 0} Unsold · {state?.remainingPlayersCount || 0} Remaining
+              {retainedPlayers.length > 0 && <span> · <span className="text-purple-400">{retainedPlayers.length} Retained</span></span>}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -151,13 +193,22 @@ export default function AuctionOperator() {
               </Button>
             )}
             <Button variant="outline" className="gap-2" onClick={() => handleNextPlayer("sequential")} disabled={nextPlayer.isPending}>
-              <SkipForward className="w-4 h-4" /> Next Player
+              <SkipForward className="w-4 h-4" /> Next
             </Button>
             <Button variant="outline" className="gap-2" onClick={() => handleNextPlayer("random")} disabled={nextPlayer.isPending}>
               <Shuffle className="w-4 h-4" /> Random
             </Button>
             <Button variant="ghost" size="icon" onClick={handleUndo} disabled={undoAction.isPending} title="Undo last action">
               <Undo2 className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+              title="Reset for live auction"
+              onClick={() => setShowResetConfirm(true)}
+            >
+              <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -189,9 +240,19 @@ export default function AuctionOperator() {
                           {state?.currentPlayer?.city && <Badge variant="secondary">{state.currentPlayer.city}</Badge>}
                           {state?.currentPlayer?.battingStyle && <Badge variant="secondary" className="text-xs">{state.currentPlayer.battingStyle}</Badge>}
                           {state?.currentPlayer?.jerseyNumber && <Badge variant="outline" className="font-mono">#{state.currentPlayer.jerseyNumber}</Badge>}
+                          {state?.currentPlayer?.availabilityDates && (
+                            <Badge variant="outline" className="text-xs text-blue-400 border-blue-500/30">
+                              Avail: {state.currentPlayer.availabilityDates}
+                            </Badge>
+                          )}
                         </div>
                         {state?.currentPlayer?.achievements && (
                           <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{state.currentPlayer.achievements}</p>
+                        )}
+                        {state?.currentPlayer?.cricheroUrl && (
+                          <a href={state.currentPlayer.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline mt-1 inline-block">
+                            Crichero Profile
+                          </a>
                         )}
                       </div>
                     </CardContent>
@@ -203,14 +264,14 @@ export default function AuctionOperator() {
                     <div className="text-center text-muted-foreground">
                       <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
                       <p className="font-medium">No player selected</p>
-                      <p className="text-sm mt-1">Click "Next Player" or "Random" to begin</p>
+                      <p className="text-sm mt-1">Click "Next" or "Random" to begin</p>
                     </div>
                   </Card>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Bid Display + SOLD/UNSOLD */}
+            {/* Bid Display + SOLD/UNSOLD/Manual */}
             <Card className="border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -241,7 +302,7 @@ export default function AuctionOperator() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-6 flex-wrap">
                   <Button
                     size="lg"
                     className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold text-lg h-14 gap-2 shadow-[0_0_20px_rgba(34,197,94,0.4)]"
@@ -258,6 +319,19 @@ export default function AuctionOperator() {
                     onClick={handleUnsold}
                   >
                     <XCircle className="w-5 h-5" /> UNSOLD
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 h-14 gap-2 px-5"
+                    disabled={!hasPlayer}
+                    onClick={() => {
+                      setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0));
+                      setManualTeamId("");
+                      setManualSellOpen(true);
+                    }}
+                  >
+                    <Settings2 className="w-4 h-4" /> Manual Sell
                   </Button>
                 </div>
               </CardContent>
@@ -292,12 +366,16 @@ export default function AuctionOperator() {
                           <div className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
                         )}
                         <div className="flex items-center gap-2 mb-2">
-                          <div
-                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
-                            style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}
-                          >
-                            {team.shortCode}
-                          </div>
+                          {team.logoUrl ? (
+                            <img src={team.logoUrl} alt={team.name} className="w-6 h-6 rounded object-contain" />
+                          ) : (
+                            <div
+                              className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
+                              style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}
+                            >
+                              {team.shortCode}
+                            </div>
+                          )}
                           <span className="text-sm font-bold truncate">{team.name}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">{formatShortIndianRupee(purseLeft)} left</p>
@@ -320,11 +398,11 @@ export default function AuctionOperator() {
 
             <Card className="border-border">
               <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-3">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <p className="text-sm font-semibold">Bid History</p>
                 </div>
-                <ScrollArea className="h-52">
+                <ScrollArea className="h-40">
                   <div className="space-y-2 pr-2">
                     {(bids || []).slice(0, 20).map(bid => (
                       <div key={bid.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
@@ -344,31 +422,67 @@ export default function AuctionOperator() {
               </CardContent>
             </Card>
 
+            {/* Player Queue + Re-auction tabs */}
             <Card className="border-border">
               <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Trophy className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold">Queue ({available.length})</p>
+                <div className="flex gap-1 mb-3 rounded-lg bg-muted/30 p-1">
+                  {(["queue", "sold", "unsold"] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setReAuctionTab(tab)}
+                      className={`flex-1 text-xs py-1.5 px-2 rounded-md font-semibold transition-all capitalize ${
+                        reAuctionTab === tab ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {tab === "queue" ? `Queue (${available.length})` : tab === "sold" ? `Sold (${soldPlayers.length})` : `Unsold (${unsoldPlayers.length})`}
+                    </button>
+                  ))}
                 </div>
                 <ScrollArea className="h-52">
                   <div className="space-y-1 pr-2">
-                    {available.slice(0, 25).map(player => (
-                      <button
-                        key={player.id}
-                        disabled={!isActive || nextPlayer.isPending}
-                        onClick={() => handleNextPlayer("sequential", player.id)}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left hover:bg-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm font-medium truncate">{player.name}</span>
+                    {rightPanelPlayers.slice(0, 30).map(player => {
+                      const team = player.teamId ? teamMap[player.teamId] : null;
+                      const isQueue = reAuctionTab === "queue";
+                      return (
+                        <div
+                          key={player.id}
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-accent transition-all"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium truncate block">{player.name}</span>
+                              {team && <span className="text-[10px] text-muted-foreground">{team.name}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            <span className="text-xs text-muted-foreground font-mono">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
+                            {isQueue ? (
+                              <button
+                                disabled={!isActive || nextPlayer.isPending}
+                                onClick={() => handleNextPlayer("sequential", player.id)}
+                                className="text-xs px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                Select
+                              </button>
+                            ) : (
+                              <button
+                                disabled={reAuction.isPending}
+                                onClick={() => handleReAuction(player.id, true)}
+                                className="text-xs px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Re-bid
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-xs text-muted-foreground font-mono flex-shrink-0 ml-2">
-                          {formatShortIndianRupee(player.basePrice)}
-                        </span>
-                      </button>
-                    ))}
-                    {available.length === 0 && <p className="text-center text-muted-foreground text-sm py-4">All players processed</p>}
+                      );
+                    })}
+                    {rightPanelPlayers.length === 0 && (
+                      <p className="text-center text-muted-foreground text-sm py-4">
+                        {reAuctionTab === "queue" ? "All players processed" : `No ${reAuctionTab} players`}
+                      </p>
+                    )}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -376,6 +490,85 @@ export default function AuctionOperator() {
           </div>
         </div>
       </div>
+
+      {/* Manual Sell Dialog */}
+      <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="w-5 h-5" /> Manual Sell
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sell <strong className="text-foreground">{state?.currentPlayer?.name}</strong> directly to a team at a set price.
+            </p>
+            <div className="space-y-2">
+              <Label>Team</Label>
+              <Select value={manualTeamId} onValueChange={setManualTeamId}>
+                <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
+                <SelectContent className="dark">
+                  {(teams || []).map(t => (
+                    <SelectItem key={t.id} value={String(t.id)}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color || "#666" }} />
+                        {t.name} — {formatShortIndianRupee(t.purse - t.purseUsed)} left
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Amount (₹)</Label>
+              <Input
+                type="number"
+                value={manualAmount}
+                onChange={e => setManualAmount(e.target.value)}
+                placeholder="e.g. 500000"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-500"
+                disabled={!manualTeamId || !manualAmount || manualSellMut.isPending}
+                onClick={handleManualSell}
+              >
+                Confirm Sell
+              </Button>
+              <Button variant="outline" onClick={() => setManualSellOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Trial Confirm Dialog */}
+      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-400">
+              <AlertTriangle className="w-5 h-5" /> Reset for Live Auction
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will reset ALL sold/unsold players back to "available" and clear all trial bids.
+              Retained players will NOT be affected.
+            </p>
+            <p className="text-xs text-orange-400 font-semibold">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <Button
+                className="flex-1 bg-orange-600 hover:bg-orange-500 text-white"
+                disabled={resetTrial.isPending}
+                onClick={handleResetTrial}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Yes, Reset All
+              </Button>
+              <Button variant="outline" onClick={() => setShowResetConfirm(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

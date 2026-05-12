@@ -9,6 +9,9 @@ export const tournamentsTable = pgTable("tournaments", {
   venue: text("venue"),
   auctionDate: text("auction_date"),
   organizerName: text("organizer_name"),
+  organizerMobile: text("organizer_mobile"),
+  logoUrl: text("logo_url"),
+  sponsorLogos: text("sponsor_logos"), // JSON array of { url, name }
   basePurse: integer("base_purse").notNull().default(10000000),
   minBid: integer("min_bid").notNull().default(100000),
   bidIncrement: integer("bid_increment").notNull().default(100000),
