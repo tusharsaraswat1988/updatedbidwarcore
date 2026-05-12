@@ -34,12 +34,14 @@ export function useOrganizerAuth(tournamentId: number) {
 
 export function useAdminAuth() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [adminLevel, setAdminLevel] = useState<"master" | "data_entry" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const check = useCallback(async () => {
     setIsLoading(true);
-    const ok = await checkAdminAuth();
-    setIsLoggedIn(ok);
+    const result = await checkAdminAuth();
+    setIsLoggedIn(result.isAdmin);
+    setAdminLevel(result.adminLevel);
     setIsLoading(false);
   }, []);
 
@@ -47,14 +49,18 @@ export function useAdminAuth() {
 
   const login = useCallback(async (password: string) => {
     const result = await loginAdmin(password);
-    if (result.success) setIsLoggedIn(true);
+    if (result.success) {
+      setIsLoggedIn(true);
+      setAdminLevel(result.adminLevel ?? null);
+    }
     return result;
   }, []);
 
   const logout = useCallback(async () => {
     await logoutAdmin();
     setIsLoggedIn(false);
+    setAdminLevel(null);
   }, []);
 
-  return { isLoggedIn, isLoading, login, logout };
+  return { isLoggedIn, adminLevel, isMaster: adminLevel === "master", isLoading, login, logout };
 }

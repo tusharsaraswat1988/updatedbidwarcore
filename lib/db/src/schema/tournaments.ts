@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -27,6 +27,12 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
   playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
   status: text("status").notNull().default("setup"),
+  // Super admin controls
+  licenseStatus: text("license_status").notNull().default("trial"),
+  licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),
+  licenseGrantedBy: text("license_granted_by"),
+  adminLocked: boolean("admin_locked").notNull().default(false),
+  adminLockedAt: timestamp("admin_locked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

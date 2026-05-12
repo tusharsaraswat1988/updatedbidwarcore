@@ -237,6 +237,17 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
+  // License and lock checks
+  if (tournament?.licenseStatus !== "live") {
+    res.status(403).json({ error: "This tournament is in trial mode. The super admin must grant a license before the auction can go live." });
+    return;
+  }
+  if (tournament?.adminLocked) {
+    res.status(403).json({ error: "This tournament has been locked by the admin. No further auction operations are allowed." });
+    return;
+  }
+
   const timerSecs = tournament?.timerSeconds ?? 30;
 
   // On resume: restore the remaining timer that was frozen on pause

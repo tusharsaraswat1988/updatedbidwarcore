@@ -11,6 +11,7 @@ const scryptAsync = promisify(scrypt);
 declare module "express-session" {
   interface SessionData {
     isAdmin?: boolean;
+    adminLevel?: "master" | "data_entry";
     organizer?: Record<string, true>;
     organizerAccountId?: number;
   }
@@ -49,20 +50,47 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   }
 }
 
-// ─── Admin ───────────────────────────────────────────────────────────────────
+function isMasterAdmin(req: import("express").Request): boolean {
+  return !!req.session.isAdmin && req.session.adminLevel === "master";
+}
+
+function isAnyAdmin(req: import("express").Request): boolean {
+  return !!req.session.isAdmin;
+}
+
+// ─── Admin Login ──────────────────────────────────────────────────────────────
 
 router.post("/auth/admin/login", (req, res) => {
-  const pw = process.env.ADMIN_PASSWORD;
-  if (!pw) {
-    res.status(503).json({ error: "Admin login not configured. Set the ADMIN_PASSWORD environment variable." });
+  const masterPw = process.env.ADMIN_PASSWORD;
+  const dataPw = process.env.ADMIN_DATA_PASSWORD;
+
+  if (!masterPw && !dataPw) {
+    res.status(503).json({ error: "Admin login not configured. Set ADMIN_PASSWORD or ADMIN_DATA_PASSWORD." });
     return;
   }
+
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  if (!safeCompare(body.data.password, pw)) { res.status(401).json({ error: "Incorrect password" }); return; }
-  req.session.isAdmin = true;
-  if (!req.session.organizer) req.session.organizer = {};
-  res.json({ success: true });
+
+  const { password } = body.data;
+
+  if (masterPw && safeCompare(password, masterPw)) {
+    req.session.isAdmin = true;
+    req.session.adminLevel = "master";
+    if (!req.session.organizer) req.session.organizer = {};
+    res.json({ success: true, adminLevel: "master" });
+    return;
+  }
+
+  if (dataPw && safeCompare(password, dataPw)) {
+    req.session.isAdmin = true;
+    req.session.adminLevel = "data_entry";
+    if (!req.session.organizer) req.session.organizer = {};
+    res.json({ success: true, adminLevel: "data_entry" });
+    return;
+  }
+
+  res.status(401).json({ error: "Incorrect password" });
 });
 
 router.post("/auth/admin/logout", (req, res) => {
@@ -70,7 +98,11 @@ router.post("/auth/admin/logout", (req, res) => {
 });
 
 router.get("/auth/admin/me", (req, res) => {
-  res.json({ isAdmin: !!req.session.isAdmin });
+  if (!req.session.isAdmin) {
+    res.json({ isAdmin: false, adminLevel: null });
+    return;
+  }
+  res.json({ isAdmin: true, adminLevel: req.session.adminLevel ?? "master" });
 });
 
 // ─── Organizer (per tournament) ───────────────────────────────────────────────
@@ -81,9 +113,21 @@ router.post("/auth/organizer/:tournamentId/login", async (req, res) => {
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const adminPw = process.env.ADMIN_PASSWORD;
-  if (adminPw && safeCompare(body.data.password, adminPw)) {
+  const masterPw = process.env.ADMIN_PASSWORD;
+  const dataPw = process.env.ADMIN_DATA_PASSWORD;
+
+  if (masterPw && safeCompare(body.data.password, masterPw)) {
     req.session.isAdmin = true;
+    req.session.adminLevel = "master";
+    if (!req.session.organizer) req.session.organizer = {};
+    req.session.organizer[String(tid)] = true;
+    res.json({ success: true });
+    return;
+  }
+
+  if (dataPw && safeCompare(body.data.password, dataPw)) {
+    req.session.isAdmin = true;
+    req.session.adminLevel = "data_entry";
     if (!req.session.organizer) req.session.organizer = {};
     req.session.organizer[String(tid)] = true;
     res.json({ success: true });
@@ -130,6 +174,280 @@ router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
   if (!body.success) { res.status(400).json({ error: "Password must be at least 4 characters" }); return; }
   await db.update(tournamentsTable).set({ organizerPassword: body.data.password }).where(eq(tournamentsTable.id, tid));
   res.json({ success: true });
+});
+
+// ─── Admin: List all tournaments ──────────────────────────────────────────────
+
+router.get("/auth/admin/tournaments", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
+  res.json(tournaments.map(t => ({
+    id: t.id,
+    name: t.name,
+    sport: t.sport,
+    status: t.status,
+    licenseStatus: t.licenseStatus,
+    adminLocked: t.adminLocked,
+    organizerName: t.organizerName,
+    organizerMobile: t.organizerMobile,
+    organizerEmail: t.organizerEmail,
+    hasPassword: !!t.organizerPassword,
+    createdAt: t.createdAt.toISOString(),
+  })));
+});
+
+// ─── Admin: Create tournament ─────────────────────────────────────────────────
+
+router.post("/auth/admin/tournaments", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const schema = z.object({
+    name: z.string().min(1),
+    sport: z.string().default("cricket"),
+    venue: z.string().optional(),
+    auctionDate: z.string().optional(),
+    organizerName: z.string().optional(),
+    organizerMobile: z.string().optional(),
+    organizerEmail: z.string().optional(),
+    organizerPassword: z.string().optional(),
+    basePurse: z.number().int().optional(),
+    minBid: z.number().int().optional(),
+    timerSeconds: z.number().int().optional(),
+    bidTimerSeconds: z.number().int().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const d = parsed.data;
+  const [t] = await db.insert(tournamentsTable).values({
+    name: d.name,
+    sport: d.sport,
+    venue: d.venue,
+    auctionDate: d.auctionDate,
+    organizerName: d.organizerName,
+    organizerMobile: d.organizerMobile,
+    organizerEmail: d.organizerEmail,
+    organizerPassword: d.organizerPassword,
+    basePurse: d.basePurse ?? 10000000,
+    minBid: d.minBid ?? 100000,
+    timerSeconds: d.timerSeconds ?? 30,
+    bidTimerSeconds: d.bidTimerSeconds ?? 15,
+  }).returning();
+  res.json({ success: true, id: t.id });
+});
+
+// ─── Admin: Delete tournament ─────────────────────────────────────────────────
+
+router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const { teamsTable, playersTable, bidsTable, auctionSessionsTable, categoriesTable } = await import("@workspace/db");
+  // Delete in dependency order
+  await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
+  await db.delete(auctionSessionsTable).where(eq(auctionSessionsTable.tournamentId, tid));
+  await db.delete(playersTable).where(eq(playersTable.tournamentId, tid));
+  await db.delete(teamsTable).where(eq(teamsTable.tournamentId, tid));
+  await db.delete(categoriesTable).where(eq(categoriesTable.tournamentId, tid));
+  const [deleted] = await db.delete(tournamentsTable).where(eq(tournamentsTable.id, tid)).returning();
+  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Admin: Grant license (master only) ───────────────────────────────────────
+
+router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Only the master admin can grant licenses" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [t] = await db.update(tournamentsTable)
+    .set({ licenseStatus: "live", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+  if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Admin: Revoke license (master only) ──────────────────────────────────────
+
+router.post("/auth/admin/tournaments/:tournamentId/revoke-license", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Only the master admin can revoke licenses" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [t] = await db.update(tournamentsTable)
+    .set({ licenseStatus: "trial", licenseGrantedAt: null, licenseGrantedBy: null })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+  if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Admin: Lock (mark completed) — both levels ───────────────────────────────
+
+router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [t] = await db.update(tournamentsTable)
+    .set({ adminLocked: true, adminLockedAt: new Date(), status: "completed" })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+  if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Admin: Unlock — both levels ──────────────────────────────────────────────
+
+router.post("/auth/admin/tournaments/:tournamentId/unlock", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [t] = await db.update(tournamentsTable)
+    .set({ adminLocked: false, adminLockedAt: null })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+  if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Admin: Get full tournament detail ────────────────────────────────────────
+
+router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const { teamsTable, playersTable, bidsTable, categoriesTable } = await import("@workspace/db");
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid));
+  const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tid));
+  const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid));
+
+  const { desc } = await import("drizzle-orm");
+  const recentBids = await db.select().from(bidsTable)
+    .where(eq(bidsTable.tournamentId, tid))
+    .orderBy(desc(bidsTable.timestamp))
+    .limit(50);
+
+  const bidDetails = await Promise.all(recentBids.map(async bid => {
+    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
+    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
+    return {
+      id: bid.id,
+      amount: bid.amount,
+      timestamp: bid.timestamp.toISOString(),
+      playerName: player?.name ?? null,
+      teamName: team?.name ?? null,
+      teamColor: team?.color ?? null,
+    };
+  }));
+
+  res.json({
+    tournament: {
+      id: tournament.id,
+      name: tournament.name,
+      sport: tournament.sport,
+      venue: tournament.venue,
+      auctionDate: tournament.auctionDate,
+      organizerName: tournament.organizerName,
+      organizerMobile: tournament.organizerMobile,
+      organizerEmail: tournament.organizerEmail,
+      status: tournament.status,
+      licenseStatus: tournament.licenseStatus,
+      adminLocked: tournament.adminLocked,
+      licenseGrantedAt: tournament.licenseGrantedAt?.toISOString() ?? null,
+      adminLockedAt: tournament.adminLockedAt?.toISOString() ?? null,
+      basePurse: tournament.basePurse,
+      minBid: tournament.minBid,
+      timerSeconds: tournament.timerSeconds,
+      bidTimerSeconds: tournament.bidTimerSeconds,
+      playerSelectionMode: tournament.playerSelectionMode,
+      bidTiers: tournament.bidTiers,
+      hasPassword: !!tournament.organizerPassword,
+      createdAt: tournament.createdAt.toISOString(),
+    },
+    teams: teams.map(t => ({
+      id: t.id,
+      name: t.name,
+      shortCode: t.shortCode,
+      ownerName: t.ownerName,
+      color: t.color,
+      logoUrl: t.logoUrl,
+      purse: t.purse,
+      purseUsed: t.purseUsed,
+    })),
+    players: players.map(p => ({
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      status: p.status,
+      basePrice: p.basePrice,
+      soldPrice: p.soldPrice,
+      teamId: p.teamId,
+      categoryId: p.categoryId,
+    })),
+    categories: categories.map(c => ({
+      id: c.id,
+      name: c.name,
+      minBid: c.minBid,
+    })),
+    playerCounts: {
+      total: players.length,
+      available: players.filter(p => p.status === "available").length,
+      sold: players.filter(p => p.status === "sold").length,
+      unsold: players.filter(p => p.status === "unsold").length,
+      retained: players.filter(p => (p.status as string) === "retained").length,
+    },
+    recentBids: bidDetails,
+  });
+});
+
+// ─── Admin: Update tournament ─────────────────────────────────────────────────
+
+router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const schema = z.object({
+    name: z.string().optional(),
+    sport: z.string().optional(),
+    venue: z.string().optional(),
+    auctionDate: z.string().optional(),
+    organizerName: z.string().optional(),
+    organizerMobile: z.string().optional(),
+    organizerEmail: z.string().optional(),
+    organizerPassword: z.string().optional(),
+    basePurse: z.number().int().optional(),
+    minBid: z.number().int().optional(),
+    bidTimerSeconds: z.number().int().optional(),
+    timerSeconds: z.number().int().optional(),
+    playerSelectionMode: z.string().optional(),
+    status: z.string().optional(),
+    bidTiers: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const updates: Record<string, unknown> = {};
+  const d = parsed.data;
+  if (d.name !== undefined) updates.name = d.name;
+  if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
+  if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
+  if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
+  if (d.organizerPassword !== undefined) updates.organizerPassword = d.organizerPassword;
+  if (d.venue !== undefined) updates.venue = d.venue;
+  if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
+  if (d.status !== undefined) updates.status = d.status;
+  if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
+  if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
+  if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
+  if (d.minBid !== undefined) updates.minBid = d.minBid;
+  if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
+  if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
+  const [tournament] = await db.update(tournamentsTable).set(updates).where(eq(tournamentsTable.id, tid)).returning();
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true, id: tournament.id });
 });
 
 // ─── Organizer Account (portal) ──────────────────────────────────────────────
@@ -225,128 +543,6 @@ router.get("/auth/organizer-account/me", async (req, res) => {
 router.post("/auth/organizer-account/logout", (req, res) => {
   req.session.organizerAccountId = undefined;
   res.json({ success: true });
-});
-
-// ─── List all tournaments (admin only, includes password status + mobile) ──────
-
-router.get("/auth/admin/tournaments", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(401).json({ error: "Not authorised" }); return; }
-  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
-  res.json(tournaments.map(t => ({
-    id: t.id,
-    name: t.name,
-    sport: t.sport,
-    status: t.status,
-    organizerName: t.organizerName,
-    organizerMobile: t.organizerMobile,
-    organizerEmail: t.organizerEmail,
-    hasPassword: !!t.organizerPassword,
-    createdAt: t.createdAt.toISOString(),
-  })));
-});
-
-// ─── Admin: get full tournament detail (teams + players + recent bids) ─────────
-
-router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(401).json({ error: "Not authorised" }); return; }
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-  const { teamsTable, playersTable, bidsTable } = await import("@workspace/db");
-
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-
-  const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid));
-  const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tid));
-
-  const { desc } = await import("drizzle-orm");
-  const recentBids = await db.select().from(bidsTable)
-    .where(eq(bidsTable.tournamentId, tid))
-    .orderBy(desc(bidsTable.timestamp))
-    .limit(20);
-
-  const bidDetails = await Promise.all(recentBids.map(async bid => {
-    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
-    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
-    return {
-      id: bid.id,
-      amount: bid.amount,
-      timestamp: bid.timestamp.toISOString(),
-      playerName: player?.name ?? null,
-      teamName: team?.name ?? null,
-      teamColor: team?.color ?? null,
-    };
-  }));
-
-  res.json({
-    tournament: {
-      id: tournament.id,
-      name: tournament.name,
-      sport: tournament.sport,
-      venue: tournament.venue,
-      auctionDate: tournament.auctionDate,
-      organizerName: tournament.organizerName,
-      organizerMobile: tournament.organizerMobile,
-      organizerEmail: tournament.organizerEmail,
-      status: tournament.status,
-      basePurse: tournament.basePurse,
-      timerSeconds: tournament.timerSeconds,
-      bidTimerSeconds: tournament.bidTimerSeconds,
-    },
-    teams: teams.map(t => ({
-      id: t.id,
-      name: t.name,
-      shortCode: t.shortCode,
-      ownerName: t.ownerName,
-      color: t.color,
-      purse: t.purse,
-      purseUsed: t.purseUsed,
-    })),
-    playerCounts: {
-      total: players.length,
-      available: players.filter(p => p.status === "available").length,
-      sold: players.filter(p => p.status === "sold").length,
-      unsold: players.filter(p => p.status === "unsold").length,
-      retained: players.filter(p => p.status === "retained").length,
-    },
-    recentBids: bidDetails,
-  });
-});
-
-// ─── Admin: update tournament ─────────────────────────────────────────────────
-
-router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(401).json({ error: "Not authorised" }); return; }
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const schema = z.object({
-    name: z.string().optional(),
-    organizerName: z.string().optional(),
-    organizerMobile: z.string().optional(),
-    organizerEmail: z.string().optional(),
-    organizerPassword: z.string().optional(),
-    venue: z.string().optional(),
-    status: z.string().optional(),
-    bidTimerSeconds: z.number().int().optional(),
-    timerSeconds: z.number().int().optional(),
-  });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const updates: Record<string, unknown> = {};
-  const d = parsed.data;
-  if (d.name !== undefined) updates.name = d.name;
-  if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
-  if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
-  if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
-  if (d.organizerPassword !== undefined) updates.organizerPassword = d.organizerPassword;
-  if (d.venue !== undefined) updates.venue = d.venue;
-  if (d.status !== undefined) updates.status = d.status;
-  if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
-  if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
-  const [tournament] = await db.update(tournamentsTable).set(updates).where(eq(tournamentsTable.id, tid)).returning();
-  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ success: true, id: tournament.id });
 });
 
 export default router;

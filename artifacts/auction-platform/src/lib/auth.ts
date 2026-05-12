@@ -45,16 +45,16 @@ export async function setOrganizerPassword(tournamentId: number, password: strin
   } catch { return { success: false, error: "Network error" }; }
 }
 
-export async function checkAdminAuth(): Promise<boolean> {
+export async function checkAdminAuth(): Promise<{ isAdmin: boolean; adminLevel: "master" | "data_entry" | null }> {
   try {
     const r = await apiFetch("/auth/admin/me");
-    if (!r.ok) return false;
+    if (!r.ok) return { isAdmin: false, adminLevel: null };
     const data = await r.json();
-    return !!data.isAdmin;
-  } catch { return false; }
+    return { isAdmin: !!data.isAdmin, adminLevel: data.adminLevel ?? null };
+  } catch { return { isAdmin: false, adminLevel: null }; }
 }
 
-export async function loginAdmin(password: string): Promise<{ success: boolean; error?: string }> {
+export async function loginAdmin(password: string): Promise<{ success: boolean; adminLevel?: "master" | "data_entry"; error?: string }> {
   try {
     const r = await apiFetch("/auth/admin/login", {
       method: "POST",
@@ -62,7 +62,7 @@ export async function loginAdmin(password: string): Promise<{ success: boolean; 
     });
     const data = await r.json();
     if (!r.ok) return { success: false, error: data.error || "Login failed" };
-    return { success: true };
+    return { success: true, adminLevel: data.adminLevel };
   } catch { return { success: false, error: "Network error" }; }
 }
 
@@ -70,11 +70,16 @@ export async function logoutAdmin(): Promise<void> {
   try { await apiFetch("/auth/admin/logout", { method: "POST" }); } catch { }
 }
 
-export async function listAdminTournaments(): Promise<Array<{
+// ─── Admin tournament list ────────────────────────────────────────────────────
+
+export type AdminTournamentRow = {
   id: number; name: string; sport: string; status: string;
+  licenseStatus: string; adminLocked: boolean;
   organizerName: string | null; organizerMobile: string | null;
   organizerEmail: string | null; hasPassword: boolean; createdAt: string;
-}>> {
+};
+
+export async function listAdminTournaments(): Promise<AdminTournamentRow[]> {
   try {
     const r = await apiFetch("/auth/admin/tournaments");
     if (!r.ok) return [];
@@ -82,27 +87,39 @@ export async function listAdminTournaments(): Promise<Array<{
   } catch { return []; }
 }
 
-export async function fetchAdminTournamentDetail(tournamentId: number): Promise<null | {
-  tournament: {
-    id: number; name: string; sport: string; venue: string | null;
-    auctionDate: string | null; organizerName: string | null;
-    organizerMobile: string | null; organizerEmail: string | null;
-    status: string; basePurse: number; timerSeconds: number; bidTimerSeconds: number;
-  };
-  teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; purse: number; purseUsed: number }>;
-  playerCounts: { total: number; available: number; sold: number; unsold: number; retained: number };
-  recentBids: Array<{ id: number; amount: number; timestamp: string; playerName: string | null; teamName: string | null; teamColor: string | null }>;
-}> {
+// ─── Admin tournament CRUD ────────────────────────────────────────────────────
+
+export async function createAdminTournament(data: {
+  name: string; sport: string; venue?: string; auctionDate?: string;
+  organizerName?: string; organizerMobile?: string; organizerEmail?: string;
+  organizerPassword?: string; basePurse?: number; minBid?: number;
+  timerSeconds?: number; bidTimerSeconds?: number;
+}): Promise<{ success: boolean; id?: number; error?: string }> {
   try {
-    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/detail`);
-    if (!r.ok) return null;
-    return r.json();
-  } catch { return null; }
+    const r = await apiFetch("/auth/admin/tournaments", { method: "POST", body: JSON.stringify(data) });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Create failed" };
+    return { success: true, id: d.id };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function deleteAdminTournament(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Delete failed" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
 }
 
 export async function updateAdminTournament(
   tournamentId: number,
-  data: Partial<{ name: string; organizerName: string; organizerMobile: string; organizerEmail: string; organizerPassword: string; venue: string; status: string; timerSeconds: number; bidTimerSeconds: number }>
+  data: Partial<{
+    name: string; sport: string; organizerName: string; organizerMobile: string;
+    organizerEmail: string; organizerPassword: string; venue: string; auctionDate: string;
+    status: string; timerSeconds: number; bidTimerSeconds: number;
+    basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
+  }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}`, {
@@ -113,6 +130,72 @@ export async function updateAdminTournament(
     if (!r.ok) return { success: false, error: d.error || "Update failed" };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
+}
+
+// ─── Admin license / lock ─────────────────────────────────────────────────────
+
+export async function grantLicense(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/grant-license`, { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function revokeLicense(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/revoke-license`, { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function lockTournament(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/lock`, { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function unlockTournament(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/unlock`, { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+// ─── Admin tournament detail ──────────────────────────────────────────────────
+
+export type AdminTournamentDetail = {
+  tournament: {
+    id: number; name: string; sport: string; venue: string | null;
+    auctionDate: string | null; organizerName: string | null;
+    organizerMobile: string | null; organizerEmail: string | null;
+    status: string; licenseStatus: string; adminLocked: boolean;
+    licenseGrantedAt: string | null; adminLockedAt: string | null;
+    basePurse: number; minBid: number; timerSeconds: number;
+    bidTimerSeconds: number; playerSelectionMode: string;
+    bidTiers: string | null; hasPassword: boolean; createdAt: string;
+  };
+  teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
+  players: Array<{ id: number; name: string; role: string | null; status: string; basePrice: number; soldPrice: number | null; teamId: number | null; categoryId: number | null }>;
+  categories: Array<{ id: number; name: string; minBid: number }>;
+  playerCounts: { total: number; available: number; sold: number; unsold: number; retained: number };
+  recentBids: Array<{ id: number; amount: number; timestamp: string; playerName: string | null; teamName: string | null; teamColor: string | null }>;
+};
+
+export async function fetchAdminTournamentDetail(tournamentId: number): Promise<AdminTournamentDetail | null> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/detail`);
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
 }
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
