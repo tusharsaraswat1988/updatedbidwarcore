@@ -881,7 +881,16 @@ export default function DisplayView() {
                           {timeLeft}
                         </motion.span>
                       </AnimatePresence>
-                      <span className="text-xl font-bold uppercase tracking-widest">sec</span>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-xl font-bold uppercase tracking-widest">sec</span>
+                        <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
+                          state.currentBidTeamId
+                            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                            : "bg-green-500/20 text-green-400 border-green-500/30"
+                        }`}>
+                          {state.currentBidTeamId ? "BID TIMER" : "START TIMER"}
+                        </span>
+                      </div>
                     </div>
                   )}
 
