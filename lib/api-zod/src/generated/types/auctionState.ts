@@ -7,6 +7,7 @@
  */
 import type { AuctionStateStatus } from "./auctionStateStatus";
 import type { Player } from "./player";
+import type { WheelItem } from "./wheelItem";
 
 export interface AuctionState {
   tournamentId: number;
@@ -30,4 +31,8 @@ export interface AuctionState {
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
+  fortuneWheelActive?: boolean;
+  wheelItems?: WheelItem[];
+  /** @nullable */
+  wheelWinner?: string | null;
 }

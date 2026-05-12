@@ -703,6 +703,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/fortune-wheel:
+    post:
+      operationId: syncFortuneWheel
+      tags: [auction]
+      summary: Sync fortune wheel state (active, items, winner) to all displays
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FortuneWheelSync"
+      responses:
+        "200":
+          description: State broadcast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/start-timer:
     post:
       operationId: startTimer
@@ -1271,6 +1296,27 @@ components:
           type: string
           enum: [sequential, random, manual]
 
+    WheelItem:
+      type: object
+      required: [label, color]
+      properties:
+        label:
+          type: string
+        color:
+          type: string
+
+    FortuneWheelSync:
+      type: object
+      properties:
+        active:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WheelItem"
+        winner:
+          type: ["string", "null"]
+
     AuctionState:
       type: object
       required: [tournamentId, status]
@@ -1305,6 +1351,14 @@ components:
           type: integer
         remainingPlayersCount:
           type: integer
+        fortuneWheelActive:
+          type: boolean
+        wheelItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/WheelItem"
+        wheelWinner:
+          type: ["string", "null"]
 
     TournamentSummary:
       type: object

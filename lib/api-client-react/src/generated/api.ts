@@ -26,6 +26,7 @@ import type {
   CategoryBreakdown,
   CategoryInput,
   CategoryUpdate,
+  FortuneWheelSync,
   HealthStatus,
   ManualSellInput,
   NextPlayerInput,
@@ -2806,6 +2807,93 @@ export const useResetTrialAuction = <
   TContext
 > => {
   return useMutation(getResetTrialAuctionMutationOptions(options));
+};
+
+/**
+ * @summary Sync fortune wheel state (active, items, winner) to all displays
+ */
+export const getSyncFortuneWheelUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/fortune-wheel`;
+};
+
+export const syncFortuneWheel = async (
+  tournamentId: number,
+  fortuneWheelSync: FortuneWheelSync,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSyncFortuneWheelUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fortuneWheelSync),
+  });
+};
+
+export const getSyncFortuneWheelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncFortuneWheel>>,
+    TError,
+    { tournamentId: number; data: BodyType<FortuneWheelSync> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncFortuneWheel>>,
+  TError,
+  { tournamentId: number; data: BodyType<FortuneWheelSync> },
+  TContext
+> => {
+  const mutationKey = ["syncFortuneWheel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncFortuneWheel>>,
+    { tournamentId: number; data: BodyType<FortuneWheelSync> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return syncFortuneWheel(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncFortuneWheelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncFortuneWheel>>
+>;
+export type SyncFortuneWheelMutationBody = BodyType<FortuneWheelSync>;
+export type SyncFortuneWheelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sync fortune wheel state (active, items, winner) to all displays
+ */
+export const useSyncFortuneWheel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncFortuneWheel>>,
+    TError,
+    { tournamentId: number; data: BodyType<FortuneWheelSync> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncFortuneWheel>>,
+  TError,
+  { tournamentId: number; data: BodyType<FortuneWheelSync> },
+  TContext
+> => {
+  return useMutation(getSyncFortuneWheelMutationOptions(options));
 };
 
 /**

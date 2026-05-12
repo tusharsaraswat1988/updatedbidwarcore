@@ -11,8 +11,180 @@ import {
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Calendar, Timer } from "lucide-react";
+import { User, Trophy, Calendar, Timer, Dices } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+
+type WheelItem = { label: string; color: string };
+
+function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation: number) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !items.length) return;
+  const { width, height } = canvas;
+  const cx = width / 2, cy = height / 2;
+  const r = Math.min(cx, cy) - 12;
+  const arc = (2 * Math.PI) / items.length;
+  ctx.clearRect(0, 0, width, height);
+  items.forEach((item, i) => {
+    const start = rotation + i * arc, end = start + arc;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = item.color;
+    ctx.fill();
+    ctx.strokeStyle = "#0a0a0a";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + arc / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${Math.min(18, 160 / items.length)}px system-ui`;
+    ctx.shadowColor = "rgba(0,0,0,0.7)";
+    ctx.shadowBlur = 6;
+    const maxLen = 14;
+    const label = item.label.length > maxLen ? item.label.slice(0, maxLen) + "…" : item.label;
+    ctx.fillText(label, r - 18, 6);
+    ctx.restore();
+  });
+  ctx.beginPath();
+  ctx.arc(cx, cy, 30, 0, 2 * Math.PI);
+  ctx.fillStyle = "#09090b";
+  ctx.fill();
+  ctx.strokeStyle = "#555";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: string | null | undefined }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const rotRef = useRef(0);
+  const [localWinner, setLocalWinner] = useState<{ label: string; color: string } | null>(null);
+  const [spinning, setSpinning] = useState(false);
+  const prevWinnerRef = useRef<string | null | undefined>(undefined);
+
+  // Draw idle slow spin until winner arrives
+  useEffect(() => {
+    if (winner || spinning) return;
+    let running = true;
+    function animate() {
+      if (!running) return;
+      rotRef.current += 0.003;
+      if (canvasRef.current && items.length) {
+        drawWheelCanvas(canvasRef.current, items, rotRef.current);
+      }
+      animRef.current = requestAnimationFrame(animate);
+    }
+    animRef.current = requestAnimationFrame(animate);
+    return () => { running = false; cancelAnimationFrame(animRef.current); };
+  }, [items, winner, spinning]);
+
+  // Trigger spin animation when winner changes from null/undefined to a value
+  useEffect(() => {
+    if (winner === prevWinnerRef.current) return;
+    prevWinnerRef.current = winner;
+    if (!winner || !items.length) {
+      setLocalWinner(null);
+      return;
+    }
+    // Find the winner item
+    const winnerItem = items.find(i => i.label === winner) || { label: winner, color: "#EAB308" };
+    const winnerIdx = items.findIndex(i => i.label === winner);
+    if (winnerIdx < 0) { setLocalWinner(winnerItem); return; }
+
+    // Spin to land on winner
+    setSpinning(true);
+    setLocalWinner(null);
+    cancelAnimationFrame(animRef.current);
+
+    const arc = (2 * Math.PI) / items.length;
+    const sliceCenter = winnerIdx * arc + arc / 2;
+    const target = rotRef.current + 6 * Math.PI + ((2 * Math.PI - sliceCenter) % (2 * Math.PI));
+    const duration = 3500;
+    const startTime = performance.now();
+    const startRot = rotRef.current;
+
+    function animate(now: number) {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 4);
+      rotRef.current = startRot + (target - startRot) * ease;
+      if (canvasRef.current) drawWheelCanvas(canvasRef.current, items, rotRef.current);
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        setSpinning(false);
+        setLocalWinner(winnerItem);
+      }
+    }
+    animRef.current = requestAnimationFrame(animate);
+  }, [winner, items]);
+
+  // Draw static wheel when items change (no animation running)
+  useEffect(() => {
+    if (canvasRef.current && items.length) {
+      drawWheelCanvas(canvasRef.current, items, rotRef.current);
+    }
+  }, [items]);
+
+  const size = Math.min(typeof window !== "undefined" ? window.innerHeight * 0.75 : 600, 700);
+
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none"
+      style={{ background: "radial-gradient(ellipse at center, #1a1a2e 0%, #09090b 100%)" }}>
+      {/* Title */}
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-4 mb-6"
+      >
+        <Dices className="w-10 h-10 text-primary" />
+        <h1 className="font-display font-black text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>
+          FORTUNE WHEEL
+        </h1>
+        <Dices className="w-10 h-10 text-primary" />
+      </motion.div>
+
+      {/* Wheel + pointer */}
+      <div className="relative flex-shrink-0">
+        <div className="absolute top-1/2 -right-5 -translate-y-1/2 z-10">
+          <div className="w-0 h-0 border-t-[16px] border-b-[16px] border-r-[36px] border-t-transparent border-b-transparent border-r-primary drop-shadow-lg" />
+        </div>
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          className="rounded-full"
+          style={{ filter: "drop-shadow(0 0 60px rgba(234,179,8,0.4))" }}
+        />
+      </div>
+
+      {/* Winner banner */}
+      <AnimatePresence>
+        {localWinner && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0, y: 40 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
+            className="mt-8 text-center px-12 py-6 rounded-3xl border-4"
+            style={{
+              borderColor: localWinner.color,
+              background: `${localWinner.color}22`,
+              boxShadow: `0 0 80px ${localWinner.color}55`,
+            }}
+          >
+            <p className="text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">Winner</p>
+            <p className="font-display font-black text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>
+              {localWinner.label}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function SoldStamp() {
   return (
@@ -154,7 +326,7 @@ export default function DisplayView() {
         }
       `}</style>
       <div
-        className="min-h-screen flex flex-col select-none"
+        className="min-h-screen flex flex-col select-none relative"
         style={{
           background: `radial-gradient(ellipse at 30% 20%, ${teamColor}18 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, ${teamColor}12 0%, transparent 55%), #09090b`,
           transition: "background 0.8s ease",
@@ -421,6 +593,25 @@ export default function DisplayView() {
 
         {/* Sponsor Logos Ticker */}
         <SponsorTicker logos={sponsorLogos} />
+
+        {/* Fortune Wheel Overlay — covers everything when active */}
+        <AnimatePresence>
+          {state?.fortuneWheelActive && (
+            <motion.div
+              key="fortune-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+            >
+              <FortuneWheelOverlay
+                items={state.wheelItems ?? []}
+                winner={state.wheelWinner}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </FullscreenLayout>
   );

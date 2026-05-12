@@ -320,6 +320,18 @@ export interface NextPlayerInput {
   mode?: NextPlayerInputMode;
 }
 
+export interface WheelItem {
+  label: string;
+  color: string;
+}
+
+export interface FortuneWheelSync {
+  active?: boolean;
+  items?: WheelItem[];
+  /** @nullable */
+  winner?: string | null;
+}
+
 export type AuctionStateStatus =
   (typeof AuctionStateStatus)[keyof typeof AuctionStateStatus];
 
@@ -352,6 +364,10 @@ export interface AuctionState {
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
+  fortuneWheelActive?: boolean;
+  wheelItems?: WheelItem[];
+  /** @nullable */
+  wheelWinner?: string | null;
 }
 
 export interface TournamentSummary {

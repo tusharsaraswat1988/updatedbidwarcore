@@ -109,6 +109,11 @@ async function buildAuctionState(tournamentId: number) {
   const unsoldCount = allPlayers.filter((p) => p.status === "unsold").length;
   const availableCount = allPlayers.filter((p) => p.status === "available").length;
 
+  let wheelItems: { label: string; color: string }[] = [];
+  try {
+    if (session.wheelItemsJson) wheelItems = JSON.parse(session.wheelItemsJson);
+  } catch { /* ignore */ }
+
   return {
     tournamentId,
     status: session.status,
@@ -124,6 +129,9 @@ async function buildAuctionState(tournamentId: number) {
     soldPlayersCount: soldCount,
     unsoldPlayersCount: unsoldCount,
     remainingPlayersCount: availableCount,
+    fortuneWheelActive: session.fortuneWheelActive,
+    wheelItems,
+    wheelWinner: session.wheelWinner,
   };
 }
 
@@ -585,6 +593,30 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   }
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
+});
+
+// POST fortune wheel sync (active, items, winner)
+router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({
+    active: z.boolean().optional(),
+    items: z.array(z.object({ label: z.string(), color: z.string() })).optional(),
+    winner: z.string().nullable().optional(),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  await getOrCreateSession(tid);
+  const patch: Record<string, unknown> = {};
+  if (body.data.active !== undefined) patch.fortuneWheelActive = body.data.active;
+  if (body.data.items !== undefined) patch.wheelItemsJson = JSON.stringify(body.data.items);
+  if ("winner" in body.data) patch.wheelWinner = body.data.winner ?? null;
+  if (Object.keys(patch).length > 0) {
+    await db
+      .update(auctionSessionsTable)
+      .set(patch)
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  }
+  res.json(await broadcastState(tid));
 });
 
 // POST start timer

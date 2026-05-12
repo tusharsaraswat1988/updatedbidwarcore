@@ -1,18 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import {
   useListTeams,
   useListPlayers,
   getListTeamsQueryKey,
   getListPlayersQueryKey,
+  useSyncFortuneWheel,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dices, Plus, X, RotateCcw, Trophy } from "lucide-react";
+import { Dices, Plus, X, RotateCcw, Trophy, Radio } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type WheelItem = { id: string; label: string; color: string };
@@ -37,7 +37,6 @@ function drawWheel(canvas: HTMLCanvasElement, items: WheelItem[], rotation: numb
     const start = rotation + i * arc;
     const end = start + arc;
 
-    // Slice
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, start, end);
@@ -48,7 +47,6 @@ function drawWheel(canvas: HTMLCanvasElement, items: WheelItem[], rotation: numb
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Text
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(start + arc / 2);
@@ -63,7 +61,6 @@ function drawWheel(canvas: HTMLCanvasElement, items: WheelItem[], rotation: numb
     ctx.restore();
   });
 
-  // Center circle
   ctx.beginPath();
   ctx.arc(cx, cy, 24, 0, 2 * Math.PI);
   ctx.fillStyle = "#09090b";
@@ -80,26 +77,48 @@ export default function FortuneWheel() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: players } = useListPlayers(tournamentId, {
+  useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
+
+  const syncMut = useSyncFortuneWheel();
 
   const [items, setItems] = useState<WheelItem[]>([]);
   const [customLabel, setCustomLabel] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState<WheelItem | null>(null);
   const [rotation, setRotation] = useState(0);
+  const [broadcasting, setBroadcasting] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+
+  const syncItems = useCallback((newItems: WheelItem[]) => {
+    if (!broadcasting) return;
+    syncMut.mutate({
+      tournamentId,
+      data: { items: newItems.map(({ label, color }) => ({ label, color })) },
+    });
+  }, [broadcasting, tournamentId]);
+
+  // On mount: activate fortune wheel on all displays
+  useEffect(() => {
+    syncMut.mutate({ tournamentId, data: { active: true, winner: null } });
+    return () => {
+      // On unmount: deactivate
+      syncMut.mutate({ tournamentId, data: { active: false, winner: null } });
+    };
+  }, [tournamentId]);
 
   // Load teams as default entries
   useEffect(() => {
     if (teams && items.length === 0) {
-      setItems(teams.map((t, i) => ({
+      const newItems = teams.map((t, i) => ({
         id: String(t.id),
         label: t.name,
         color: t.color || COLORS[i % COLORS.length],
-      })));
+      }));
+      setItems(newItems);
+      syncItems(newItems);
     }
   }, [teams]);
 
@@ -111,33 +130,42 @@ export default function FortuneWheel() {
 
   function addCustom() {
     if (!customLabel.trim()) return;
-    setItems(prev => [
-      ...prev,
-      { id: Date.now().toString(), label: customLabel.trim(), color: COLORS[prev.length % COLORS.length] },
-    ]);
+    const newItems = [
+      ...items,
+      { id: Date.now().toString(), label: customLabel.trim(), color: COLORS[items.length % COLORS.length] },
+    ];
+    setItems(newItems);
     setCustomLabel("");
+    syncItems(newItems);
   }
 
   function removeItem(id: string) {
-    setItems(prev => prev.filter(i => i.id !== id));
+    const newItems = items.filter(i => i.id !== id);
+    setItems(newItems);
+    syncItems(newItems);
   }
 
   function loadTeams() {
     if (!teams) return;
-    setItems(teams.map((t, i) => ({
+    const newItems = teams.map((t, i) => ({
       id: String(t.id),
       label: t.name,
       color: t.color || COLORS[i % COLORS.length],
-    })));
+    }));
+    setItems(newItems);
     setWinner(null);
+    syncItems(newItems);
+    // Clear winner on display
+    syncMut.mutate({ tournamentId, data: { winner: null } });
   }
 
   function spin() {
     if (spinning || items.length < 2) return;
     setSpinning(true);
     setWinner(null);
+    syncMut.mutate({ tournamentId, data: { winner: null } });
 
-    const extraSpins = 5 + Math.floor(Math.random() * 5); // 5-10 full rotations
+    const extraSpins = 5 + Math.floor(Math.random() * 5);
     const targetAngle = rotation + extraSpins * 2 * Math.PI + Math.random() * 2 * Math.PI;
     const duration = 4000;
     const startTime = performance.now();
@@ -156,12 +184,16 @@ export default function FortuneWheel() {
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
-        // Determine winner
         const arc = (2 * Math.PI) / items.length;
         const normalised = (((-current) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
         const idx = Math.floor(normalised / arc) % items.length;
-        setWinner(items[idx]);
+        const won = items[idx];
+        setWinner(won);
         setSpinning(false);
+        // Broadcast winner to display
+        if (broadcasting) {
+          syncMut.mutate({ tournamentId, data: { winner: won.label } });
+        }
       }
     }
 
@@ -171,18 +203,28 @@ export default function FortuneWheel() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
-            <Dices className="w-8 h-8 text-primary" /> Fortune Wheel
-          </h1>
-          <p className="text-muted-foreground mt-2">Tiebreaker spin — for fair random draws between teams or players.</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
+              <Dices className="w-8 h-8 text-primary" /> Fortune Wheel
+            </h1>
+            <p className="text-muted-foreground mt-2">Tiebreaker spin — for fair random draws between teams or players.</p>
+          </div>
+          <Button
+            variant={broadcasting ? "default" : "outline"}
+            size="sm"
+            className={`gap-2 mt-1 ${broadcasting ? "bg-red-600 hover:bg-red-500 text-white" : ""}`}
+            onClick={() => setBroadcasting(b => !b)}
+          >
+            <Radio className="w-4 h-4" />
+            {broadcasting ? "Broadcasting to LED" : "Not Broadcasting"}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Wheel */}
           <div className="flex flex-col items-center gap-6">
             <div className="relative">
-              {/* Pointer */}
               <div className="absolute top-1/2 -right-4 -translate-y-1/2 z-10">
                 <div className="w-0 h-0 border-t-[12px] border-b-[12px] border-r-[28px] border-t-transparent border-b-transparent border-r-primary" />
               </div>
@@ -204,7 +246,11 @@ export default function FortuneWheel() {
                 <Dices className="w-5 h-5" />
                 {spinning ? "Spinning..." : "SPIN"}
               </Button>
-              <Button variant="outline" size="lg" onClick={() => { setWinner(null); setRotation(0); }}>
+              <Button variant="outline" size="lg" onClick={() => {
+                setWinner(null);
+                setRotation(0);
+                syncMut.mutate({ tournamentId, data: { winner: null } });
+              }}>
                 <RotateCcw className="w-5 h-5" />
               </Button>
             </div>
@@ -253,7 +299,7 @@ export default function FortuneWheel() {
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {items.map((item, i) => (
+                  {items.map((item) => (
                     <div key={item.id} className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-card/50 border border-border/50">
                       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                       <span className="text-sm flex-1 truncate">{item.label}</span>
@@ -276,10 +322,11 @@ export default function FortuneWheel() {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">How to use</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>· Load all teams automatically with "Load Teams"</li>
-                  <li>· Remove teams that are not in the tiebreaker</li>
-                  <li>· Add custom entries for any situation</li>
-                  <li>· Press SPIN — the result is purely random</li>
+                  <li>· Opening this page activates the fortune wheel on all LED displays</li>
+                  <li>· Load teams automatically with "Load Teams"</li>
+                  <li>· Remove teams not in the tiebreaker</li>
+                  <li>· Press SPIN — the winner shows on all screens</li>
+                  <li>· Leaving this page returns displays to auction view</li>
                 </ul>
               </CardContent>
             </Card>

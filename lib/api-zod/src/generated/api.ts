@@ -578,6 +578,16 @@ export const GetAuctionStateResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -627,6 +637,16 @@ export const StartAuctionResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -676,6 +696,16 @@ export const PauseAuctionResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -730,6 +760,16 @@ export const NextPlayerResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -784,6 +824,16 @@ export const PlaceBidResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -833,6 +883,16 @@ export const SellPlayerResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -887,6 +947,16 @@ export const ManualSellResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -936,6 +1006,16 @@ export const MarkUnsoldResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -990,6 +1070,16 @@ export const ReAuctionPlayerResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -1039,6 +1129,16 @@ export const UndoLastActionResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -1088,6 +1188,88 @@ export const ResetTrialAuctionResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+});
+
+/**
+ * @summary Sync fortune wheel state (active, items, winner) to all displays
+ */
+export const SyncFortuneWheelParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SyncFortuneWheelBody = zod.object({
+  active: zod.boolean().optional(),
+  items: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  winner: zod.string().nullish(),
+});
+
+export const SyncFortuneWheelResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
@@ -1147,6 +1329,16 @@ export const StartTimerResponse = zod.object({
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
 });
 
 /**
