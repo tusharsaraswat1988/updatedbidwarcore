@@ -644,10 +644,16 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
 
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-  if (myTournaments.length >= organizer.maxTournaments) {
+  // Pending (trial) users can create unlimited tournaments — restriction is at auction time (max 2 teams).
+  // Only enforce the slot cap for fully-licensed (active) organizers.
+  if (organizer.licenseStatus === "active" && myTournaments.length >= organizer.maxTournaments) {
     res.status(403).json({
       error: `Your current plan allows up to ${organizer.maxTournaments} tournament(s). Please contact admin to upgrade your license.`,
     });
+    return;
+  }
+  if (organizer.licenseStatus === "suspended") {
+    res.status(403).json({ error: "Your account has been suspended. Please contact support." });
     return;
   }
 

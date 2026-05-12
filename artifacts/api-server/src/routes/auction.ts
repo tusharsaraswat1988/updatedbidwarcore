@@ -240,8 +240,13 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
 
   // License and lock checks
   if (tournament?.licenseStatus !== "live") {
-    res.status(403).json({ error: "This tournament is in trial mode. The super admin must grant a license before the auction can go live." });
-    return;
+    // Trial mode: allow auction practice with a maximum of 2 teams
+    const teamRows = await db.select({ id: teamsTable.id }).from(teamsTable).where(eq(teamsTable.tournamentId, tid));
+    if (teamRows.length > 2) {
+      res.status(403).json({ error: "Trial mode allows a maximum of 2 teams. Contact admin to activate your license for a full auction." });
+      return;
+    }
+    // Allow trial auction to proceed (display will show TRIAL watermark)
   }
   if (tournament?.adminLocked) {
     res.status(403).json({ error: "This tournament has been locked by the admin. No further auction operations are allowed." });

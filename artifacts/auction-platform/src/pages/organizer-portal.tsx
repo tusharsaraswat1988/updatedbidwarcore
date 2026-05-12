@@ -38,7 +38,7 @@ function LicenseStatusBanner({ organizer }: { organizer: OrganizerInfo }) {
         <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-green-400">License Active</p>
-          <p className="text-xs text-muted-foreground">You can create up to {organizer.maxTournaments} tournament(s).</p>
+          <p className="text-xs text-muted-foreground">You can create up to {organizer.maxTournaments} tournament(s) and run full live auctions.</p>
         </div>
         <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">ACTIVE</Badge>
       </div>
@@ -59,9 +59,9 @@ function LicenseStatusBanner({ organizer }: { organizer: OrganizerInfo }) {
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
       <Clock className="w-5 h-5 text-amber-400 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-amber-400">License Pending Approval</p>
+        <p className="text-sm font-semibold text-amber-400">Trial Mode — License Pending</p>
         <p className="text-xs text-muted-foreground">
-          Admin will activate your license shortly. You can still use Trial mode (2 teams) meanwhile.
+          Create tournaments, add players, and practice the full auction flow. Auctions are limited to 2 teams until your license is activated.
         </p>
       </div>
       <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">TRIAL</Badge>
@@ -402,7 +402,12 @@ function OrganizerDashboard({
   const [, navigate] = useLocation();
   const [createOpen, setCreateOpen] = useState(false);
 
-  const canCreate = organizer.licenseStatus !== "suspended" && tournaments.length < organizer.maxTournaments;
+  // Trial (pending) users: unlimited tournaments, capped at 2 teams per auction.
+  // Active users: capped by maxTournaments. Suspended: cannot create.
+  const canCreate =
+    organizer.licenseStatus === "suspended" ? false
+    : organizer.licenseStatus === "active" ? tournaments.length < organizer.maxTournaments
+    : true; // pending/trial — unlimited
 
   const statusColor: Record<string, string> = {
     setup: "text-muted-foreground",
@@ -452,7 +457,13 @@ function OrganizerDashboard({
             <p className="text-xs text-muted-foreground mt-1">Tournaments</p>
           </div>
           <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            <p className="text-2xl font-display font-black text-foreground">{organizer.maxTournaments}</p>
+            {organizer.licenseStatus === "active" ? (
+              <p className="text-2xl font-display font-black text-foreground">{organizer.maxTournaments}</p>
+            ) : organizer.licenseStatus === "pending" ? (
+              <p className="text-lg font-display font-black text-amber-400">Trial</p>
+            ) : (
+              <p className="text-lg font-display font-black text-red-400">—</p>
+            )}
             <p className="text-xs text-muted-foreground mt-1">Allowed</p>
           </div>
           <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
@@ -474,13 +485,17 @@ function OrganizerDashboard({
               className="gap-1.5"
               onClick={() => setCreateOpen(true)}
               disabled={!canCreate}
-              title={!canCreate ? (organizer.licenseStatus === "suspended" ? "Account suspended" : `You've reached your limit of ${organizer.maxTournaments} tournament(s)`) : ""}
+              title={
+                organizer.licenseStatus === "suspended" ? "Account suspended"
+                : organizer.licenseStatus === "active" && !canCreate ? `You've reached your limit of ${organizer.maxTournaments} tournament(s)`
+                : ""
+              }
             >
               <Plus className="w-4 h-4" /> New Tournament
             </Button>
           </div>
 
-          {!canCreate && organizer.licenseStatus !== "suspended" && (
+          {organizer.licenseStatus === "active" && !canCreate && (
             <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/20 border border-border text-sm text-muted-foreground">
               <ShieldCheck className="w-4 h-4 flex-shrink-0" />
               You've used all {organizer.maxTournaments} tournament slot(s). Contact admin to upgrade your license.
