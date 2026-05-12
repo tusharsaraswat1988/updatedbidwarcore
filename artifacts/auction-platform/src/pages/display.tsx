@@ -37,23 +37,27 @@ function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) 
   const current = logos[idx];
 
   return (
-    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Powered by</p>
+    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
       <div
-        className="h-12 flex items-center justify-end transition-opacity duration-300"
-        style={{ opacity: visible ? 1 : 0, minWidth: 80 }}
+        className="flex items-center justify-end transition-opacity duration-300"
+        style={{ opacity: visible ? 1 : 0, minWidth: 140 }}
       >
         <img
           key={current.url}
           src={current.url}
           alt={current.name || "Sponsor"}
-          className="h-10 max-w-[120px] object-contain"
-          style={{ filter: "brightness(1.1)" }}
+          className="h-16 max-w-[220px] object-contain"
+          style={{ filter: "brightness(1.15) drop-shadow(0 0 8px rgba(255,255,255,0.15))" }}
           onError={e => (e.currentTarget.style.display = "none")}
         />
       </div>
+      {current.name && (
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80 text-right">
+          {current.name}
+        </p>
+      )}
       {logos.length > 1 && (
-        <div className="flex gap-1">
+        <div className="flex gap-1 justify-end">
           {logos.map((_, i) => (
             <div
               key={i}

@@ -120,7 +120,11 @@ export default function TournamentHub() {
       logoUrl: tournament.logoUrl || "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
-      bidIncrement: String(tournament.bidIncrement ?? ""),
+      bidTier1UpTo: String((tournament as any).bidTier1UpTo ?? "100000"),
+      bidTier1Increment: String((tournament as any).bidTier1Increment ?? "25000"),
+      bidTier2UpTo: String((tournament as any).bidTier2UpTo ?? "200000"),
+      bidTier2Increment: String((tournament as any).bidTier2Increment ?? "50000"),
+      bidTier3Increment: String((tournament as any).bidTier3Increment ?? "100000"),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
       playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
@@ -149,7 +153,11 @@ export default function TournamentHub() {
         sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
         minBid: Number(editForm.minBid) || undefined,
-        bidIncrement: Number(editForm.bidIncrement) || undefined,
+        bidTier1UpTo: Number(editForm.bidTier1UpTo) || undefined,
+        bidTier1Increment: Number(editForm.bidTier1Increment) || undefined,
+        bidTier2UpTo: Number(editForm.bidTier2UpTo) || undefined,
+        bidTier2Increment: Number(editForm.bidTier2Increment) || undefined,
+        bidTier3Increment: Number(editForm.bidTier3Increment) || undefined,
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
         playerSelectionMode: editForm.playerSelectionMode as string || undefined,
@@ -442,7 +450,7 @@ export default function TournamentHub() {
                     <Label>Sponsor Logos</Label>
                     <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
                   </div>
-                  <div className="grid grid-cols-3 gap-4 border-t border-border pt-4">
+                  <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
                     <div className="space-y-2">
                       <Label>Base Purse (₹)</Label>
                       <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
@@ -451,10 +459,39 @@ export default function TournamentHub() {
                       <Label>Min Bid (₹)</Label>
                       <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Bid Increment (₹)</Label>
-                      <Input type="number" value={editForm.bidIncrement as number || 0} onChange={e => setEditForm(f => ({ ...f, bidIncrement: e.target.value }))} />
+                  </div>
+                  <div className="space-y-3 border-t border-border pt-4">
+                    <div>
+                      <Label className="text-sm font-semibold">Bid Increment Tiers</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Increment amount changes as bid value grows.</p>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Tier 1 — up to (₹)</Label>
+                        <Input type="number" value={editForm.bidTier1UpTo as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier1UpTo: e.target.value }))} placeholder="100000" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Tier 1 — increment (₹)</Label>
+                        <Input type="number" value={editForm.bidTier1Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier1Increment: e.target.value }))} placeholder="25000" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Tier 2 — up to (₹)</Label>
+                        <Input type="number" value={editForm.bidTier2UpTo as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier2UpTo: e.target.value }))} placeholder="200000" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Tier 2 — increment (₹)</Label>
+                        <Input type="number" value={editForm.bidTier2Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier2Increment: e.target.value }))} placeholder="50000" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Tier 3 — above Tier 2 threshold, increment (₹)</Label>
+                      <Input type="number" value={editForm.bidTier3Increment as string || ""} onChange={e => setEditForm(f => ({ ...f, bidTier3Increment: e.target.value }))} placeholder="100000" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5">
+                      Example with defaults: ₹25K increments up to ₹1L, ₹50K up to ₹2L, then ₹1L per bid.
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

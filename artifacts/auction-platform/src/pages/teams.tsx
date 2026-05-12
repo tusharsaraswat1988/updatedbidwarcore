@@ -19,6 +19,28 @@ import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRoun
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function compressImageToDataUrl(file: File, maxPx = 256, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/webp", quality));
+      };
+      img.onerror = reject;
+      img.src = ev.target!.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function TeamForm({ tournamentId, team, onClose }: { tournamentId: number; team?: any; onClose: () => void }) {
   const qc = useQueryClient();
   const createTeam = useCreateTeam();
@@ -30,7 +52,21 @@ function TeamForm({ tournamentId, team, onClose }: { tournamentId: number; team?
     ownerMobile: team?.ownerMobile || "",
     color: team?.color || "#3B82F6",
     purse: team?.purse || 10000000,
+    logoUrl: team?.logoUrl || "",
   });
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const dataUrl = await compressImageToDataUrl(file);
+      setForm(f => ({ ...f, logoUrl: dataUrl }));
+    } finally {
+      setLogoUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,8 +114,28 @@ function TeamForm({ tournamentId, team, onClose }: { tournamentId: number; team?
           <Input type="number" value={form.purse} onChange={e => setForm(f => ({ ...f, purse: parseInt(e.target.value) || 0 }))} required />
         </div>
       </div>
+      <div className="space-y-2">
+        <Label>Team Logo</Label>
+        <div className="flex items-center gap-3">
+          {form.logoUrl && (
+            <img src={form.logoUrl} alt="Logo" className="w-12 h-12 object-contain rounded border border-border flex-shrink-0" onError={e => (e.currentTarget.style.display = "none")} />
+          )}
+          <div className="flex-1 space-y-1.5">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors">
+                {logoUploading ? "Uploading..." : "Upload Logo"}
+              </span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} disabled={logoUploading} />
+            </label>
+            <p className="text-[10px] text-muted-foreground">PNG, JPG, SVG — auto-compressed to 256px</p>
+          </div>
+          {form.logoUrl && (
+            <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}>Remove</button>
+          )}
+        </div>
+      </div>
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1" disabled={createTeam.isPending || updateTeam.isPending}>
+        <Button type="submit" className="flex-1" disabled={createTeam.isPending || updateTeam.isPending || logoUploading}>
           {team ? "Update Team" : "Add Team"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

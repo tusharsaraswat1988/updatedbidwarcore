@@ -1012,6 +1012,16 @@ components:
           type: integer
         bidIncrement:
           type: integer
+        bidTier1UpTo:
+          type: integer
+        bidTier1Increment:
+          type: integer
+        bidTier2UpTo:
+          type: integer
+        bidTier2Increment:
+          type: integer
+        bidTier3Increment:
+          type: integer
         timerSeconds:
           type: integer
         bidTimerSeconds:
@@ -1052,6 +1062,16 @@ components:
           type: integer
         bidIncrement:
           type: integer
+        bidTier1UpTo:
+          type: integer
+        bidTier1Increment:
+          type: integer
+        bidTier2UpTo:
+          type: integer
+        bidTier2Increment:
+          type: integer
+        bidTier3Increment:
+          type: integer
         timerSeconds:
           type: integer
         bidTimerSeconds:
@@ -1084,6 +1104,16 @@ components:
         minBid:
           type: integer
         bidIncrement:
+          type: integer
+        bidTier1UpTo:
+          type: integer
+        bidTier1Increment:
+          type: integer
+        bidTier2UpTo:
+          type: integer
+        bidTier2Increment:
+          type: integer
+        bidTier3Increment:
           type: integer
         timerSeconds:
           type: integer
@@ -1482,6 +1512,8 @@ components:
         bidIncrement:
           type: integer
         timerSeconds:
+          type: ["integer", "null"]
+        bidTimerSeconds:
           type: ["integer", "null"]
         timerEndsAt:
           type: ["string", "null"]

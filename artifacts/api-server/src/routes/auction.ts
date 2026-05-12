@@ -6,7 +6,6 @@ import {
   teamsTable,
   bidsTable,
   tournamentsTable,
-  categoriesTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -64,11 +63,48 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   createdAt: p.createdAt.toISOString(),
 });
 
+function computeTieredIncrement(currentBid: number, t: {
+  bidTier1UpTo: number; bidTier1Increment: number;
+  bidTier2UpTo: number; bidTier2Increment: number;
+  bidTier3Increment: number;
+}) {
+  if (currentBid < t.bidTier1UpTo) return t.bidTier1Increment;
+  if (currentBid < t.bidTier2UpTo) return t.bidTier2Increment;
+  return t.bidTier3Increment;
+}
+
 async function buildAuctionState(tournamentId: number) {
   const session = await getOrCreateSession(tournamentId);
 
+  // Always fetch fresh tournament data (timer, tiers) — never rely on stale session values
+  const [tournamentRow] = await db
+    .select({
+      playerSelectionMode: tournamentsTable.playerSelectionMode,
+      timerSeconds: tournamentsTable.timerSeconds,
+      bidTimerSeconds: tournamentsTable.bidTimerSeconds,
+      bidTier1UpTo: tournamentsTable.bidTier1UpTo,
+      bidTier1Increment: tournamentsTable.bidTier1Increment,
+      bidTier2UpTo: tournamentsTable.bidTier2UpTo,
+      bidTier2Increment: tournamentsTable.bidTier2Increment,
+      bidTier3Increment: tournamentsTable.bidTier3Increment,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  const timerSeconds = tournamentRow?.timerSeconds ?? 30;
+  const bidTimerSeconds = tournamentRow?.bidTimerSeconds ?? 15;
+
   let currentPlayer = null;
-  let bidIncrement = 50000;
+  // Default bidIncrement from tiered system at base (0 bid = tier 1 increment)
+  let bidIncrement = tournamentRow
+    ? computeTieredIncrement(session.currentBid ?? 0, {
+        bidTier1UpTo: tournamentRow.bidTier1UpTo,
+        bidTier1Increment: tournamentRow.bidTier1Increment,
+        bidTier2UpTo: tournamentRow.bidTier2UpTo,
+        bidTier2Increment: tournamentRow.bidTier2Increment,
+        bidTier3Increment: tournamentRow.bidTier3Increment,
+      })
+    : 50000;
 
   if (session.currentPlayerId) {
     const [p] = await db
@@ -77,13 +113,6 @@ async function buildAuctionState(tournamentId: number) {
       .where(eq(playersTable.id, session.currentPlayerId));
     if (p) {
       currentPlayer = playerToJson(p);
-      if (p.categoryId) {
-        const [cat] = await db
-          .select()
-          .from(categoriesTable)
-          .where(eq(categoriesTable.id, p.categoryId));
-        if (cat?.bidIncrement) bidIncrement = cat.bidIncrement;
-      }
     }
   }
 
@@ -119,11 +148,6 @@ async function buildAuctionState(tournamentId: number) {
     if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds);
   } catch { /* ignore */ }
 
-  const [tournamentRow] = await db
-    .select({ playerSelectionMode: tournamentsTable.playerSelectionMode })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId));
-
   return {
     tournamentId,
     status: session.status,
@@ -133,7 +157,8 @@ async function buildAuctionState(tournamentId: number) {
     currentBidTeamName,
     currentBidTeamColor,
     bidIncrement,
-    timerSeconds: session.timerSeconds,
+    timerSeconds,
+    bidTimerSeconds,
     timerEndsAt: session.timerEndsAt,
     lastAction: session.lastAction,
     soldPlayersCount: soldCount,

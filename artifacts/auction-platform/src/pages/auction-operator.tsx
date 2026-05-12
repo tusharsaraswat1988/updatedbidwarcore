@@ -185,11 +185,10 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  // Sync timerSecs input with tournament setting on first load
+  // Sync timerSecs input whenever tournament timer setting changes
   useEffect(() => {
     if (state?.timerSeconds) setTimerSecs(String(state.timerSeconds));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!state]);
+  }, [state?.timerSeconds]);
 
   // Client-side countdown from server timerEndsAt
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
