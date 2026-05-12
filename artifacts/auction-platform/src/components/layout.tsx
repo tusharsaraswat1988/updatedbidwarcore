@@ -2,14 +2,35 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
-  Settings, Activity, BarChart3, ChevronLeft,
-  Link2, Shuffle
+  Settings, Activity, BarChart3,
+  Link2, Shuffle, LogOut, ShieldCheck
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import { useOrganizerAuth } from "@/hooks/use-auth";
 
 interface LayoutProps {
   children: ReactNode;
   tournamentId?: number;
+}
+
+function LogoutButton({ tournamentId }: { tournamentId: number }) {
+  const { logout } = useOrganizerAuth(tournamentId);
+  const [, navigate] = useLocation();
+
+  async function handleLogout() {
+    await logout();
+    navigate(`/tournament/${tournamentId}/login`);
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors text-sm font-medium"
+    >
+      <LogOut className="w-4 h-4" />
+      <span>Sign Out</span>
+    </button>
+  );
 }
 
 export function AppLayout({ children, tournamentId }: LayoutProps) {
@@ -35,6 +56,10 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
             <Link href="/" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               <LayoutDashboard className="w-5 h-5" />
               <span className="font-medium">All Tournaments</span>
+            </Link>
+            <Link href="/admin" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/admin' ? 'bg-amber-500/10 text-amber-400' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+              <ShieldCheck className="w-5 h-5" />
+              <span className="font-medium">Super Admin</span>
             </Link>
           </nav>
 
@@ -98,6 +123,13 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
             </>
           )}
         </div>
+
+        {/* Sign out at bottom */}
+        {tournamentId && (
+          <div className="border-t border-border p-3">
+            <LogoutButton tournamentId={tournamentId} />
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}

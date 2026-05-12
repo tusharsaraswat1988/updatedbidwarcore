@@ -10,6 +10,7 @@ import {
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { setOrganizerPassword } from "@/lib/auth";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  Gavel, Monitor, Trophy, ExternalLink, Pencil, Link2, Dices,
+  Gavel, Monitor, Trophy, ExternalLink, Pencil, Link2, Dices, KeyRound,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -33,6 +34,7 @@ export default function TournamentHub() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
+  const [orgPassword, setOrgPassword] = useState("");
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -62,6 +64,7 @@ export default function TournamentHub() {
       bidIncrement: String(tournament.bidIncrement ?? ""),
       timerSeconds: String(tournament.timerSeconds ?? ""),
     });
+    setOrgPassword("");
     setEditOpen(true);
   }
 
@@ -83,6 +86,9 @@ export default function TournamentHub() {
         timerSeconds: Number(editForm.timerSeconds) || undefined,
       },
     });
+    if (orgPassword.trim()) {
+      await setOrganizerPassword(tournamentId, orgPassword.trim());
+    }
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
     setEditOpen(false);
   }
@@ -342,6 +348,21 @@ export default function TournamentHub() {
                 <Label>Timer (seconds)</Label>
                 <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} />
               </div>
+            </div>
+            <div className="space-y-2 border-t border-border pt-4">
+              <Label className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-primary" />
+                Organizer Login Password
+              </Label>
+              <Input
+                type="password"
+                value={orgPassword}
+                onChange={e => setOrgPassword(e.target.value)}
+                placeholder="Leave blank to keep existing password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used by organizers to sign in at <code className="text-primary">/tournament/{tournamentId}/login</code>
+              </p>
             </div>
             <div className="flex gap-3 pt-2">
               <Button className="flex-1" onClick={handleSave} disabled={updateTournament.isPending}>

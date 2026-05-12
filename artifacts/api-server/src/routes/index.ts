@@ -6,9 +6,11 @@ import categoriesRouter from "./categories";
 import playersRouter from "./players";
 import auctionRouter from "./auction";
 import analyticsRouter from "./analytics";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
+router.use(authRouter);
 router.use(healthRouter);
 router.use(tournamentsRouter);
 router.use(teamsRouter);

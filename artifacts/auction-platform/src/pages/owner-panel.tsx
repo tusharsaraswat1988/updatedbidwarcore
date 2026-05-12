@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
@@ -260,6 +260,17 @@ export default function OwnerPanel() {
               {isActive && <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
               {state?.status?.toUpperCase() || "IDLE"}
             </div>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem(`owner_verified_${teamId}`);
+                setVerified(false);
+              }}
+              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
           </div>
         </div>
 
