@@ -121,14 +121,6 @@ export default function OrganizerLogin() {
             </form>
           </div>
 
-          <div className="text-center">
-            <button
-              onClick={() => navigate("/admin/login")}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Admin? Sign in here
-            </button>
-          </div>
         </motion.div>
       </div>
     </FullscreenLayout>

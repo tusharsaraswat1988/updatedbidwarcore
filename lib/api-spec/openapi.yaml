@@ -665,6 +665,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/re-auction-unsold:
+    post:
+      operationId: reAuctionAllUnsold
+      tags: [auction]
+      summary: Reset all unsold players back to available for another auction round
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: All unsold players reset to available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/undo:
     post:
       operationId: undoLastAction

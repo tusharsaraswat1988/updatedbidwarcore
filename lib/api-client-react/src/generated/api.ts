@@ -2646,6 +2646,90 @@ export const useReAuctionPlayer = <
 };
 
 /**
+ * @summary Reset all unsold players back to available for another auction round
+ */
+export const getReAuctionAllUnsoldUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/re-auction-unsold`;
+};
+
+export const reAuctionAllUnsold = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getReAuctionAllUnsoldUrl(tournamentId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReAuctionAllUnsoldMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reAuctionAllUnsold>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reAuctionAllUnsold>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  const mutationKey = ["reAuctionAllUnsold"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reAuctionAllUnsold>>,
+    { tournamentId: number }
+  > = (props) => {
+    const { tournamentId } = props ?? {};
+
+    return reAuctionAllUnsold(tournamentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReAuctionAllUnsoldMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reAuctionAllUnsold>>
+>;
+
+export type ReAuctionAllUnsoldMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset all unsold players back to available for another auction round
+ */
+export const useReAuctionAllUnsold = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reAuctionAllUnsold>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reAuctionAllUnsold>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  return useMutation(getReAuctionAllUnsoldMutationOptions(options));
+};
+
+/**
  * @summary Undo the last auction action
  */
 export const getUndoLastActionUrl = (tournamentId: number) => {

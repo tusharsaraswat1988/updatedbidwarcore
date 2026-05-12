@@ -531,6 +531,36 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
+// POST re-auction all unsold — reset all unsold players back to available for another round
+router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const unsoldPlayers = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.status, "unsold")));
+
+  if (unsoldPlayers.length === 0) {
+    res.status(400).json({ error: "No unsold players to re-auction" });
+    return;
+  }
+
+  for (const p of unsoldPlayers) {
+    await db
+      .update(playersTable)
+      .set({ status: "available" })
+      .where(eq(playersTable.id, p.id));
+  }
+
+  await db
+    .update(auctionSessionsTable)
+    .set({ lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue` })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  res.json(await broadcastState(tid, ["players"]));
+});
+
 // POST reset trial auction — reset all non-retained players to available, clear bids
 router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
