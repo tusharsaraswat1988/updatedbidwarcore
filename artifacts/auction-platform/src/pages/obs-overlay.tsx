@@ -54,7 +54,7 @@ function HexPhoto({ src, color, size = 180 }: { src?: string | null; color: stri
 }
 
 // ─── Countdown ring ───────────────────────────────────────────────────────────
-function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null; timerSeconds?: number | null }) {
+function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
   const [remaining, setRemaining] = useState(0);
   // Capture the full duration at the moment timerEndsAt arrives so the ring
   // always starts at 100% regardless of what the tournament default is.
@@ -458,7 +458,7 @@ export default function ObsOverlay() {
               {isActive && state?.timerEndsAt && (
                 <>
                   <div style={{ width: 1, height: 90, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
-                  <CountdownRing timerEndsAt={state.timerEndsAt} timerSeconds={state.timerSeconds} />
+                  <CountdownRing timerEndsAt={state.timerEndsAt} />
                 </>
               )}
             </div>
