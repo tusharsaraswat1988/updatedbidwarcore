@@ -760,6 +760,12 @@ export const GetAuctionStateResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -824,6 +830,12 @@ export const StartAuctionResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -888,6 +900,12 @@ export const PauseAuctionResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -957,6 +975,12 @@ export const NextPlayerResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1026,6 +1050,12 @@ export const PlaceBidResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1090,6 +1120,12 @@ export const SellPlayerResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1159,6 +1195,12 @@ export const ManualSellResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1223,6 +1265,12 @@ export const MarkUnsoldResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1292,6 +1340,12 @@ export const ReAuctionPlayerResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1356,6 +1410,12 @@ export const ReAuctionAllUnsoldResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1420,6 +1480,12 @@ export const UndoLastActionResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1484,6 +1550,12 @@ export const ResetTrialAuctionResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1552,6 +1624,12 @@ export const SetTeamPurseViewResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1645,6 +1723,12 @@ export const SyncFortuneWheelResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1713,6 +1797,12 @@ export const SetCategoryFilterResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
@@ -1787,6 +1877,12 @@ export const StartTimerResponse = zod.object({
   timerSeconds: zod.number().nullish(),
   bidTimerSeconds: zod.number().nullish(),
   timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
   lastAction: zod.string().nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),

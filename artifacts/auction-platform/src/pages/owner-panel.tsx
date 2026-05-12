@@ -340,11 +340,11 @@ export default function OwnerPanel() {
               }
               {timeLeft > 0 && (
                 <span className={`ml-auto text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                  state?.currentBidTeamId
+                  state?.timerType === "bid"
                     ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
                     : "bg-green-500/20 text-green-400 border-green-500/30"
                 }`}>
-                  {state?.currentBidTeamId ? "BID" : "START"}
+                  {state?.timerType === "bid" ? "BID" : "START"}
                 </span>
               )}
             </div>

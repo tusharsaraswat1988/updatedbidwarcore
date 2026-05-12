@@ -185,13 +185,12 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  // Seed the timer input once from the tournament setting (never overwrite after that,
-  // so the operator can freely type a custom value without it being clobbered by polls).
-  const timerSecsInitialized = useRef(false);
+  // Seed the timer input from the tournament's configured default the first time it
+  // arrives, but never overwrite again once the operator has manually typed a value.
+  const timerSecsUserEdited = useRef(false);
   useEffect(() => {
-    if (!timerSecsInitialized.current && state?.timerSeconds) {
+    if (!timerSecsUserEdited.current && state?.timerSeconds) {
       setTimerSecs(String(state.timerSeconds));
-      timerSecsInitialized.current = true;
     }
   }, [state?.timerSeconds]);
 
@@ -489,11 +488,11 @@ export default function AuctionOperator() {
                         {`${timeLeft}s`}
                       </span>
                       <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                        hasBid
+                        state?.timerType === "bid"
                           ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
                           : "bg-green-500/20 text-green-400 border-green-500/30"
                       }`}>
-                        {hasBid ? "BID TIMER" : "START TIMER"}
+                        {state?.timerType === "bid" ? "BID TIMER" : "START TIMER"}
                       </span>
                     </>
                   ) : timeLeft === 0 ? (
@@ -507,7 +506,7 @@ export default function AuctionOperator() {
                     <Input
                       type="number"
                       value={timerSecs}
-                      onChange={e => setTimerSecs(e.target.value)}
+                      onChange={e => { timerSecsUserEdited.current = true; setTimerSecs(e.target.value); }}
                       className="w-16 h-8 text-center text-sm"
                       min={5}
                       max={300}

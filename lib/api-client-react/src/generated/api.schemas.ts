@@ -400,6 +400,19 @@ export const AuctionStateStatus = {
   completed: "completed",
 } as const;
 
+/**
+ * Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.
+ * @nullable
+ */
+export type AuctionStateTimerType =
+  | (typeof AuctionStateTimerType)[keyof typeof AuctionStateTimerType]
+  | null;
+
+export const AuctionStateTimerType = {
+  start: "start",
+  bid: "bid",
+} as const;
+
 export type AuctionStatePlayerSelectionMode =
   (typeof AuctionStatePlayerSelectionMode)[keyof typeof AuctionStatePlayerSelectionMode];
 
@@ -430,6 +443,11 @@ export interface AuctionState {
   bidTimerSeconds?: number | null;
   /** @nullable */
   timerEndsAt?: string | null;
+  /**
+   * Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.
+   * @nullable
+   */
+  timerType?: AuctionStateTimerType;
   /** @nullable */
   lastAction?: string | null;
   soldPlayersCount?: number;

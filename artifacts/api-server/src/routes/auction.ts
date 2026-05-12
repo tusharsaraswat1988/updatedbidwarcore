@@ -181,6 +181,12 @@ async function buildAuctionState(tournamentId: number) {
     timerSeconds,
     bidTimerSeconds,
     timerEndsAt: session.timerEndsAt,
+    // Authoritative timer mode: set by the route that last updated timerEndsAt.
+    // 'start' = operator manually started the countdown,
+    // 'bid'   = a bid was placed and the bid countdown was set.
+    timerType: session.timerEndsAt
+      ? (session.currentBidTeamId ? "bid" : "start")
+      : null,
     lastAction: session.lastAction,
     soldPlayersCount: soldCount,
     unsoldPlayersCount: unsoldCount,

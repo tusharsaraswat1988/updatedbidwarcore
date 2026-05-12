@@ -1573,6 +1573,10 @@ components:
           type: ["integer", "null"]
         timerEndsAt:
           type: ["string", "null"]
+        timerType:
+          type: ["string", "null"]
+          enum: ["start", "bid", null]
+          description: Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.
         lastAction:
           type: ["string", "null"]
         soldPlayersCount:
