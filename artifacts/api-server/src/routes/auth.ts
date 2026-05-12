@@ -58,6 +58,17 @@ function isAnyAdmin(req: import("express").Request): boolean {
   return !!req.session.isAdmin;
 }
 
+const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
+  id: o.id,
+  name: o.name,
+  email: o.email,
+  mobile: o.mobile,
+  licenseStatus: o.licenseStatus,
+  maxTournaments: o.maxTournaments,
+  notes: o.notes,
+  createdAt: o.createdAt.toISOString(),
+});
+
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 
 router.post("/auth/admin/login", (req, res) => {
@@ -188,6 +199,7 @@ router.get("/auth/admin/tournaments", async (req, res) => {
     status: t.status,
     licenseStatus: t.licenseStatus,
     adminLocked: t.adminLocked,
+    organizerId: t.organizerId,
     organizerName: t.organizerName,
     organizerMobile: t.organizerMobile,
     organizerEmail: t.organizerEmail,
@@ -205,6 +217,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     sport: z.string().default("cricket"),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    organizerId: z.number().int().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
@@ -222,6 +235,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     sport: d.sport,
     venue: d.venue,
     auctionDate: d.auctionDate,
+    organizerId: d.organizerId ?? null,
     organizerName: d.organizerName,
     organizerMobile: d.organizerMobile,
     organizerEmail: d.organizerEmail,
@@ -241,7 +255,6 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const { teamsTable, playersTable, bidsTable, auctionSessionsTable, categoriesTable } = await import("@workspace/db");
-  // Delete in dependency order
   await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
   await db.delete(auctionSessionsTable).where(eq(auctionSessionsTable.tournamentId, tid));
   await db.delete(playersTable).where(eq(playersTable.tournamentId, tid));
@@ -280,7 +293,7 @@ router.post("/auth/admin/tournaments/:tournamentId/revoke-license", async (req, 
   res.json({ success: true });
 });
 
-// ─── Admin: Lock (mark completed) — both levels ───────────────────────────────
+// ─── Admin: Lock / Unlock ─────────────────────────────────────────────────────
 
 router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
@@ -294,8 +307,6 @@ router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Admin: Unlock — both levels ──────────────────────────────────────────────
-
 router.post("/auth/admin/tournaments/:tournamentId/unlock", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
@@ -308,7 +319,7 @@ router.post("/auth/admin/tournaments/:tournamentId/unlock", async (req, res) => 
   res.json({ success: true });
 });
 
-// ─── Admin: Get full tournament detail ────────────────────────────────────────
+// ─── Admin: Full tournament detail ────────────────────────────────────────────
 
 router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
@@ -350,6 +361,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       sport: tournament.sport,
       venue: tournament.venue,
       auctionDate: tournament.auctionDate,
+      organizerId: tournament.organizerId,
       organizerName: tournament.organizerName,
       organizerMobile: tournament.organizerMobile,
       organizerEmail: tournament.organizerEmail,
@@ -414,6 +426,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     sport: z.string().optional(),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    organizerId: z.number().int().nullable().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
@@ -432,6 +445,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const d = parsed.data;
   if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
@@ -450,39 +464,110 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   res.json({ success: true, id: tournament.id });
 });
 
-// ─── Organizer Account (portal) ──────────────────────────────────────────────
+// ─── Admin: List all organizer accounts ──────────────────────────────────────
+
+router.get("/auth/admin/organizers", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const organizers = await db.select().from(organizersTable).orderBy(organizersTable.createdAt);
+  const tournaments = await db.select().from(tournamentsTable);
+  const result = organizers.map(o => ({
+    ...organizerToJson(o),
+    tournamentCount: tournaments.filter(t => t.organizerId === o.id).length,
+  }));
+  res.json(result);
+});
+
+// ─── Admin: Update organizer account ─────────────────────────────────────────
+
+router.patch("/auth/admin/organizers/:id", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    name: z.string().optional(),
+    email: z.string().optional(),
+    mobile: z.string().optional(),
+    newPassword: z.string().min(6).optional(),
+    licenseStatus: z.enum(["pending", "active", "suspended"]).optional(),
+    maxTournaments: z.number().int().min(0).optional(),
+    notes: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const d = parsed.data;
+
+  const updates: Record<string, unknown> = {};
+  if (d.name !== undefined) updates.name = d.name;
+  if (d.email !== undefined) updates.email = d.email;
+  if (d.mobile !== undefined) updates.mobile = d.mobile;
+  if (d.licenseStatus !== undefined) updates.licenseStatus = d.licenseStatus;
+  if (d.maxTournaments !== undefined) updates.maxTournaments = d.maxTournaments;
+  if (d.notes !== undefined) updates.notes = d.notes;
+  if (d.newPassword) updates.passwordHash = await hashPassword(d.newPassword);
+
+  const [updated] = await db.update(organizersTable).set(updates).where(eq(organizersTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
+// ─── Admin: Delete organizer account ─────────────────────────────────────────
+
+router.delete("/auth/admin/organizers/:id", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Only the master admin can delete organizer accounts" }); return; }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.update(tournamentsTable).set({ organizerId: null }).where(eq(tournamentsTable.organizerId, id));
+  const [deleted] = await db.delete(organizersTable).where(eq(organizersTable.id, id)).returning();
+  if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ success: true });
+});
+
+// ─── Organizer Account (self-service portal) ──────────────────────────────────
 
 router.post("/auth/organizer-account/signup", async (req, res) => {
   const body = z.object({
     name: z.string().min(1),
-    email: z.string().email(),
     mobile: z.string().min(7),
+    email: z.string().email().optional(),
     password: z.string().min(6),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Invalid input. Name, valid email, mobile, and password (min 6 chars) required." }); return; }
+  if (!body.success) { res.status(400).json({ error: "Name, mobile number, and password (min 6 chars) are required." }); return; }
 
-  const { name, email, mobile, password } = body.data;
+  const { name, mobile, email, password } = body.data;
 
-  const existing = await db.select().from(organizersTable).where(
-    or(eq(organizersTable.email, email), eq(organizersTable.mobile, mobile))
-  );
-  if (existing.length > 0) {
-    res.status(409).json({ error: "An account with this email or mobile already exists." });
+  const mobileExists = await db.select().from(organizersTable).where(eq(organizersTable.mobile, mobile));
+  if (mobileExists.length > 0) {
+    res.status(409).json({ error: "An account with this mobile number already exists." });
     return;
+  }
+  if (email) {
+    const emailExists = await db.select().from(organizersTable).where(eq(organizersTable.email, email));
+    if (emailExists.length > 0) {
+      res.status(409).json({ error: "An account with this email already exists." });
+      return;
+    }
   }
 
   const passwordHash = await hashPassword(password);
-  const [organizer] = await db.insert(organizersTable).values({ name, email, mobile, passwordHash }).returning();
+  const [organizer] = await db.insert(organizersTable).values({
+    name,
+    mobile,
+    email: email ?? null,
+    passwordHash,
+    licenseStatus: "pending",
+    maxTournaments: 1,
+  }).returning();
 
   req.session.organizerAccountId = organizer.id;
-
-  const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerEmail, email));
   if (!req.session.organizer) req.session.organizer = {};
-  for (const t of tournaments) {
+
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  for (const t of myTournaments) {
     req.session.organizer[String(t.id)] = true;
   }
 
-  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name, email: organizer.email, mobile: organizer.mobile } });
+  res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 router.post("/auth/organizer-account/login", async (req, res) => {
@@ -494,24 +579,25 @@ router.post("/auth/organizer-account/login", async (req, res) => {
 
   const { identifier, password } = body.data;
 
-  const [organizer] = await db.select().from(organizersTable).where(
-    or(eq(organizersTable.email, identifier), eq(organizersTable.mobile, identifier))
+  const rows = await db.select().from(organizersTable).where(
+    or(eq(organizersTable.mobile, identifier), eq(organizersTable.email, identifier))
   );
+  const organizer = rows[0];
 
-  if (!organizer) { res.status(401).json({ error: "No account found with that email or mobile." }); return; }
+  if (!organizer) { res.status(401).json({ error: "No account found with that mobile or email." }); return; }
 
   const valid = await verifyPassword(password, organizer.passwordHash);
   if (!valid) { res.status(401).json({ error: "Incorrect password." }); return; }
 
   req.session.organizerAccountId = organizer.id;
-
-  const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerEmail, organizer.email));
   if (!req.session.organizer) req.session.organizer = {};
-  for (const t of tournaments) {
+
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  for (const t of myTournaments) {
     req.session.organizer[String(t.id)] = true;
   }
 
-  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name, email: organizer.email, mobile: organizer.mobile } });
+  res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 router.get("/auth/organizer-account/me", async (req, res) => {
@@ -525,17 +611,19 @@ router.get("/auth/organizer-account/me", async (req, res) => {
     res.json({ loggedIn: false });
     return;
   }
-  const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerEmail, organizer.email));
+  const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
   res.json({
     loggedIn: true,
-    organizer: { id: organizer.id, name: organizer.name, email: organizer.email, mobile: organizer.mobile },
+    organizer: organizerToJson(organizer),
     tournaments: tournaments.map(t => ({
       id: t.id,
       name: t.name,
       sport: t.sport,
       status: t.status,
+      licenseStatus: t.licenseStatus,
       venue: t.venue,
       auctionDate: t.auctionDate,
+      createdAt: t.createdAt.toISOString(),
     })),
   });
 });
@@ -543,6 +631,60 @@ router.get("/auth/organizer-account/me", async (req, res) => {
 router.post("/auth/organizer-account/logout", (req, res) => {
   req.session.organizerAccountId = undefined;
   res.json({ success: true });
+});
+
+// ─── Organizer Account: Create tournament ─────────────────────────────────────
+
+router.post("/auth/organizer-account/tournaments", async (req, res) => {
+  if (!req.session.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.session.organizerAccountId));
+  if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
+
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  if (myTournaments.length >= organizer.maxTournaments) {
+    res.status(403).json({
+      error: `Your current plan allows up to ${organizer.maxTournaments} tournament(s). Please contact admin to upgrade your license.`,
+    });
+    return;
+  }
+
+  const schema = z.object({
+    name: z.string().min(1),
+    sport: z.string().default("cricket"),
+    venue: z.string().optional(),
+    auctionDate: z.string().optional(),
+    basePurse: z.number().int().optional(),
+    minBid: z.number().int().optional(),
+    organizerPassword: z.string().min(4).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const d = parsed.data;
+
+  const [tournament] = await db.insert(tournamentsTable).values({
+    organizerId: organizer.id,
+    name: d.name,
+    sport: d.sport,
+    venue: d.venue ?? null,
+    auctionDate: d.auctionDate ?? null,
+    organizerName: organizer.name,
+    organizerMobile: organizer.mobile,
+    organizerEmail: organizer.email ?? null,
+    organizerPassword: d.organizerPassword ?? null,
+    basePurse: d.basePurse ?? 10000000,
+    minBid: d.minBid ?? 100000,
+    timerSeconds: 30,
+    bidTimerSeconds: 15,
+    licenseStatus: organizer.licenseStatus === "active" ? "live" : "trial",
+  }).returning();
+
+  if (!req.session.organizer) req.session.organizer = {};
+  req.session.organizer[String(tournament.id)] = true;
+
+  res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name } });
 });
 
 export default router;

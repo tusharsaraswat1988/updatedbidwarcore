@@ -5,6 +5,7 @@ import {
   loginOrganizerAccount,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
+  createOrganizerTournament,
 } from "@/lib/auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,23 +14,193 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   UserCircle2, LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck,
-  Mail, Phone, Lock, User, Gavel,
+  Phone, Lock, User, Gavel, Plus, AlertTriangle, Clock, CheckCircle2,
+  XCircle, Eye, EyeOff, ArrowLeft,
 } from "lucide-react";
 
-type View = "login" | "signup" | "dashboard";
-type OrganizerInfo = { id: number; name: string; email: string; mobile: string };
-type Tournament = { id: number; name: string; sport: string; status: string; venue: string | null; auctionDate: string | null };
+type OrganizerInfo = {
+  id: number; name: string; email: string | null; mobile: string;
+  licenseStatus: string; maxTournaments: number;
+};
+type Tournament = {
+  id: number; name: string; sport: string; status: string;
+  licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string;
+};
 
-function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournaments: Tournament[]) => void }) {
-  const [view, setView] = useState<"login" | "signup">("login");
+function LicenseStatusBanner({ organizer }: { organizer: OrganizerInfo }) {
+  if (organizer.licenseStatus === "active") {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20">
+        <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-green-400">License Active</p>
+          <p className="text-xs text-muted-foreground">You can create up to {organizer.maxTournaments} tournament(s).</p>
+        </div>
+        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">ACTIVE</Badge>
+      </div>
+    );
+  }
+  if (organizer.licenseStatus === "suspended") {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+        <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-red-400">Account Suspended</p>
+          <p className="text-xs text-muted-foreground">Contact support to resolve this.</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+      <Clock className="w-5 h-5 text-amber-400 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-400">License Pending Approval</p>
+        <p className="text-xs text-muted-foreground">
+          Admin will activate your license shortly. You can still use Trial mode (2 teams) meanwhile.
+        </p>
+      </div>
+      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">TRIAL</Badge>
+    </div>
+  );
+}
+
+function CreateTournamentModal({
+  open, onClose, onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    sport: "cricket",
+    venue: "",
+    auctionDate: "",
+    basePurse: "1000000",
+    organizerPassword: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { setError("Tournament name is required."); return; }
+    setLoading(true);
+    setError("");
+    const r = await createOrganizerTournament({
+      name: form.name.trim(),
+      sport: form.sport,
+      venue: form.venue.trim() || undefined,
+      auctionDate: form.auctionDate || undefined,
+      basePurse: parseInt(form.basePurse) || 1000000,
+      organizerPassword: form.organizerPassword.trim() || undefined,
+    });
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
+    onCreated();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md dark">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Gavel className="w-4 h-4 text-primary" /> Create Tournament
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label>Tournament Name *</Label>
+            <Input
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Rotary Cricket League 2025"
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Sport</Label>
+              <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cricket">Cricket</SelectItem>
+                  <SelectItem value="football">Football</SelectItem>
+                  <SelectItem value="kabaddi">Kabaddi</SelectItem>
+                  <SelectItem value="basketball">Basketball</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Auction Date</Label>
+              <Input
+                type="date"
+                value={form.auctionDate}
+                onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Venue</Label>
+            <Input
+              value={form.venue}
+              onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+              placeholder="Stadium name or city"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Total Purse per Team (₹)</Label>
+              <Input
+                type="number"
+                value={form.basePurse}
+                onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
+                placeholder="1000000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Operator Password</Label>
+              <Input
+                type="password"
+                value={form.organizerPassword}
+                onChange={e => setForm(f => ({ ...f, organizerPassword: e.target.value }))}
+                placeholder="Min 4 chars"
+              />
+            </div>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-destructive text-sm">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+            </div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" className="flex-1" disabled={loading}>
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Create Tournament
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+  const [view, setView] = useState<"login" | "signup">("login");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [, navigate] = useLocation();
+
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ name: "", email: "", mobile: "", password: "", confirmPassword: "" });
+  const [signupForm, setSignupForm] = useState({ name: "", mobile: "", email: "", password: "", confirmPassword: "" });
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,13 +216,13 @@ function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournam
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
-    const { name, email, mobile, password, confirmPassword } = signupForm;
-    if (!name || !email || !mobile || !password) { setError("All fields are required."); return; }
+    const { name, mobile, email, password, confirmPassword } = signupForm;
+    if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true);
     setError("");
-    const r = await signupOrganizerAccount({ name, email, mobile, password });
+    const r = await signupOrganizerAccount({ name, mobile, email: email || undefined, password });
     setLoading(false);
     if (!r.success) { setError(r.error || "Signup failed"); return; }
     const me = await checkOrganizerAccountAuth();
@@ -60,14 +231,25 @@ function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournam
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
+      </div>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md space-y-8"
+        transition={{ duration: 0.5 }}
+        className="relative w-full max-w-sm space-y-6"
       >
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm mb-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to home
+        </button>
+
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
-            <Gavel className="w-8 h-8 text-primary" />
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
+            <Gavel className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-display font-black text-3xl text-white">BidWar</h1>
           <p className="text-muted-foreground text-sm">Organizer Portal</p>
@@ -102,28 +284,38 @@ function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournam
                 >
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-sm">
-                      <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email or Mobile
+                      <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile or Email
                     </Label>
                     <Input
                       value={loginForm.identifier}
                       onChange={e => setLoginForm(f => ({ ...f, identifier: e.target.value }))}
-                      placeholder="name@example.com or +91 98765 43210"
+                      placeholder="+91 98765 43210 or email"
                       autoComplete="username"
+                      inputMode="tel"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-sm">
                       <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
                     </Label>
-                    <Input
-                      type="password"
-                      value={loginForm.password}
-                      onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                    />
+                    <div className="relative">
+                      <Input
+                        type={showPw ? "text" : "password"}
+                        value={loginForm.password}
+                        onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="Enter your password"
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      >
+                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                  {error && <p className="text-destructive text-sm">{error}</p>}
+                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Sign In
@@ -139,68 +331,56 @@ function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournam
                   className="space-y-4"
                 >
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm">
-                      <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
-                    </Label>
+                    <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
                     <Input
                       value={signupForm.name}
                       onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
                       placeholder="Your full name"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm">
-                        <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
-                      </Label>
-                      <Input
-                        type="email"
-                        value={signupForm.email}
-                        onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
-                        placeholder="name@example.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm">
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile
-                      </Label>
-                      <Input
-                        value={signupForm.mobile}
-                        onChange={e => setSignupForm(f => ({ ...f, mobile: e.target.value }))}
-                        placeholder="+91 98765 43210"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number * (primary ID)</Label>
+                    <Input
+                      value={signupForm.mobile}
+                      onChange={e => setSignupForm(f => ({ ...f, mobile: e.target.value }))}
+                      placeholder="+91 98765 43210"
+                      inputMode="tel"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Email (optional)</Label>
+                    <Input
+                      type="email"
+                      value={signupForm.email}
+                      onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="name@example.com"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm">
-                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
-                      </Label>
+                      <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
                       <Input
                         type="password"
                         value={signupForm.password}
                         onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                        placeholder="Min 6 characters"
+                        placeholder="Min 6 chars"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm">Confirm Password</Label>
+                      <Label className="text-sm">Confirm</Label>
                       <Input
                         type="password"
                         value={signupForm.confirmPassword}
                         onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                        placeholder="Repeat password"
+                        placeholder="Repeat"
                       />
                     </div>
                   </div>
-                  {error && <p className="text-destructive text-sm">{error}</p>}
+                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Create Account
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Your tournaments must have your email set by the admin to appear here.
-                  </p>
                 </motion.form>
               )}
             </AnimatePresence>
@@ -211,11 +391,8 @@ function AuthForm({ onSuccess }: { onSuccess: (organizer: OrganizerInfo, tournam
   );
 }
 
-function Dashboard({
-  organizer,
-  tournaments,
-  onLogout,
-  onRefresh,
+function OrganizerDashboard({
+  organizer, tournaments, onLogout, onRefresh,
 }: {
   organizer: OrganizerInfo;
   tournaments: Tournament[];
@@ -223,6 +400,9 @@ function Dashboard({
   onRefresh: () => void;
 }) {
   const [, navigate] = useLocation();
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const canCreate = organizer.licenseStatus !== "suspended" && tournaments.length < organizer.maxTournaments;
 
   const statusColor: Record<string, string> = {
     setup: "text-muted-foreground",
@@ -232,44 +412,90 @@ function Dashboard({
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] p-6">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#09090b]">
+      {/* Header */}
+      <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
+        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-              <UserCircle2 className="w-6 h-6 text-primary" />
+            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Gavel className="w-4.5 h-4.5 text-primary" />
             </div>
             <div>
-              <h1 className="font-display font-black text-xl text-white">{organizer.name}</h1>
-              <p className="text-xs text-muted-foreground">{organizer.email} · {organizer.mobile}</p>
+              <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
+              <p className="text-xs text-muted-foreground">{organizer.mobile}{organizer.email ? ` · ${organizer.email}` : ""}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-7" onClick={onRefresh}>
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-8" onClick={onRefresh}>
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="gap-1.5 text-xs h-7 text-destructive hover:text-destructive"
+              className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
               onClick={onLogout}
             >
               <LogOut className="w-3 h-3" /> Sign Out
             </Button>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+        {/* License Status */}
+        <LicenseStatusBanner organizer={organizer} />
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-2xl font-display font-black text-primary">{tournaments.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Tournaments</p>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-2xl font-display font-black text-foreground">{organizer.maxTournaments}</p>
+            <p className="text-xs text-muted-foreground mt-1">Allowed</p>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-2xl font-display font-black text-foreground">
+              {tournaments.filter(t => t.status === "active").length}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Active</p>
+          </div>
+        </div>
+
+        {/* Tournaments Section */}
         <div>
-          <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary" /> Your Tournaments
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-display font-bold flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" /> Your Tournaments
+            </h2>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCreateOpen(true)}
+              disabled={!canCreate}
+              title={!canCreate ? (organizer.licenseStatus === "suspended" ? "Account suspended" : `You've reached your limit of ${organizer.maxTournaments} tournament(s)`) : ""}
+            >
+              <Plus className="w-4 h-4" /> New Tournament
+            </Button>
+          </div>
+
+          {!canCreate && organizer.licenseStatus !== "suspended" && (
+            <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/20 border border-border text-sm text-muted-foreground">
+              <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+              You've used all {organizer.maxTournaments} tournament slot(s). Contact admin to upgrade your license.
+            </div>
+          )}
 
           {tournaments.length === 0 ? (
-            <Card className="border-border/50 bg-card/30">
-              <CardContent className="py-12 text-center text-muted-foreground text-sm">
-                <Trophy className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="font-medium mb-1">No tournaments linked yet</p>
-                <p className="text-xs">Ask your admin to set your email on your tournaments.</p>
+            <Card className="border-border/50 bg-card/20">
+              <CardContent className="py-16 text-center">
+                <Trophy className="w-12 h-12 mx-auto mb-4 opacity-20 text-muted-foreground" />
+                <p className="font-semibold text-foreground mb-1">No tournaments yet</p>
+                <p className="text-sm text-muted-foreground mb-4">Create your first tournament to get started.</p>
+                <Button onClick={() => setCreateOpen(true)} disabled={!canCreate} size="sm">
+                  <Plus className="w-4 h-4 mr-2" /> Create Tournament
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -279,7 +505,7 @@ function Dashboard({
                   key={t.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06 }}
+                  transition={{ delay: i * 0.05 }}
                 >
                   <Card className="border-border/50 bg-card/30 hover:bg-card/50 transition-colors">
                     <CardContent className="p-5 flex items-center gap-4">
@@ -287,15 +513,19 @@ function Dashboard({
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-base">{t.name}</span>
                           <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] uppercase ${statusColor[t.status] || ""}`}
-                          >
+                          <span className={`text-[10px] font-bold uppercase ${statusColor[t.status] || "text-muted-foreground"}`}>
                             {t.status}
-                          </Badge>
+                          </span>
+                          {t.licenseStatus === "live" ? (
+                            <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1">
+                              <ShieldCheck className="w-2.5 h-2.5" /> Licensed
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">Trial</Badge>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || "No details set"}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                         </p>
                       </div>
                       <Button
@@ -314,17 +544,24 @@ function Dashboard({
           )}
         </div>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Use your tournament password to manage it at{" "}
-          <code className="text-primary">/tournament/:id/login</code>
-        </p>
+        <div className="text-center text-xs text-muted-foreground space-y-1">
+          <p>Need help? Contact us on WhatsApp for license activation and support.</p>
+        </div>
       </div>
+
+      <CreateTournamentModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => {
+          setCreateOpen(false);
+          onRefresh();
+        }}
+      />
     </div>
   );
 }
 
 export default function OrganizerPortal() {
-  const [, navigate] = useLocation();
   const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [checking, setChecking] = useState(true);
@@ -369,7 +606,7 @@ export default function OrganizerPortal() {
       <AnimatePresence mode="wait">
         {organizer ? (
           <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <Dashboard
+            <OrganizerDashboard
               organizer={organizer}
               tournaments={tournaments}
               onLogout={handleLogout}

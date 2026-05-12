@@ -4,7 +4,8 @@ import {
   listAdminTournaments, grantLicense, revokeLicense, lockTournament,
   unlockTournament, fetchAdminTournamentDetail, updateAdminTournament,
   createAdminTournament, deleteAdminTournament, setOrganizerPassword,
-  AdminTournamentRow, AdminTournamentDetail,
+  listAdminOrganizers, updateAdminOrganizer, deleteAdminOrganizer,
+  AdminTournamentRow, AdminTournamentDetail, AdminOrganizerRow,
 } from "@/lib/auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -714,6 +715,417 @@ function DetailPanel({
   );
 }
 
+// ─── Organizers Panel ─────────────────────────────────────────────────────────
+
+function OrganizerLicenseBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    active: "bg-green-500/15 text-green-400 border-green-500/30",
+    pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    suspended: "bg-red-500/15 text-red-400 border-red-500/30",
+  };
+  return (
+    <Badge className={`text-[10px] capitalize ${map[status] || "bg-muted/20 text-muted-foreground"}`}>
+      {status}
+    </Badge>
+  );
+}
+
+function OrganizerDetailPanel({
+  org, isMaster, onClose, onRefresh,
+}: {
+  org: AdminOrganizerRow; isMaster: boolean; onClose: () => void; onRefresh: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [form, setForm] = useState({
+    name: org.name,
+    email: org.email || "",
+    mobile: org.mobile,
+    licenseStatus: org.licenseStatus as "pending" | "active" | "suspended",
+    maxTournaments: String(org.maxTournaments),
+    notes: org.notes || "",
+    newPassword: "",
+  });
+
+  function flash(text: string, ok = true) {
+    setMsg({ text, ok });
+    setTimeout(() => setMsg(null), 3000);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    const payload: Parameters<typeof updateAdminOrganizer>[1] = {
+      name: form.name || undefined,
+      email: form.email || undefined,
+      mobile: form.mobile || undefined,
+      licenseStatus: form.licenseStatus,
+      maxTournaments: Number(form.maxTournaments) || 1,
+      notes: form.notes || undefined,
+      newPassword: form.newPassword || undefined,
+    };
+    const r = await updateAdminOrganizer(org.id, payload);
+    setSaving(false);
+    if (r.success) { flash("Saved"); setEditing(false); onRefresh(); }
+    else flash(r.error || "Save failed", false);
+  }
+
+  function f(k: keyof typeof form) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm(p => ({ ...p, [k]: e.target.value }));
+  }
+
+  return (
+    <div className="flex-1 flex flex-col border-l border-border/40 bg-card/30 min-w-0">
+      {/* Header */}
+      <div className="p-4 border-b border-border/40 flex items-start justify-between gap-3 flex-shrink-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-display font-bold text-base truncate">{org.name}</span>
+            <OrganizerLicenseBadge status={org.licenseStatus} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{org.mobile} · {org.tournamentCount} tournament{org.tournamentCount !== 1 ? "s" : ""}</p>
+        </div>
+        <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={onClose}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Action bar */}
+      <div className="px-4 py-2.5 border-b border-border/40 flex items-center gap-2 flex-wrap flex-shrink-0 bg-muted/10">
+        {!editing ? (
+          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => setEditing(true)}>
+            <Pencil className="w-3 h-3" /> Edit
+          </Button>
+        ) : (
+          <>
+            <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={handleSave} disabled={saving}>
+              {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)}>Cancel</Button>
+          </>
+        )}
+        <Button
+          size="sm" variant="ghost"
+          className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10 ml-auto"
+          onClick={() => setConfirmDelete(true)}
+        >
+          <Trash2 className="w-3 h-3" /> Delete
+        </Button>
+      </div>
+
+      {/* Flash */}
+      <AnimatePresence>
+        {msg && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={`mx-4 mt-3 rounded px-3 py-2 text-sm flex-shrink-0 ${msg.ok ? "bg-green-500/10 text-green-400" : "bg-destructive/10 text-destructive"}`}
+          >
+            {msg.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ScrollArea className="flex-1 px-4 pb-4">
+        <div className="mt-4 space-y-5">
+          {editing ? (
+            <>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Organizer Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <Input className="h-8 text-sm" value={form.name} onChange={f("name")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3"/>Mobile</Label>
+                  <Input className="h-8 text-sm" value={form.mobile} onChange={f("mobile")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3"/>Email</Label>
+                  <Input className="h-8 text-sm" value={form.email} onChange={f("email")} placeholder="(optional)" />
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">License</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Select
+                    value={form.licenseStatus}
+                    onValueChange={v => setForm(p => ({ ...p, licenseStatus: v as typeof p.licenseStatus }))}
+                  >
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Max Tournaments</Label>
+                  <Input type="number" className="h-8 text-sm" value={form.maxTournaments} onChange={f("maxTournaments")} min="0" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Internal Notes</Label>
+                <textarea
+                  className="w-full h-20 bg-card border border-border rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={form.notes}
+                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Any internal notes..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1"><KeyRound className="w-3 h-3"/>New Password (leave blank to keep current)</Label>
+                <Input type="password" className="h-8 text-sm" value={form.newPassword} onChange={f("newPassword")} placeholder="Set new password" />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Info</p>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                {[
+                  ["Name", org.name],
+                  ["Mobile", org.mobile],
+                  ["Email", org.email || "—"],
+                  ["License", org.licenseStatus],
+                  ["Max Tournaments", String(org.maxTournaments)],
+                  ["Tournaments Created", String(org.tournamentCount)],
+                  ["Member Since", new Date(org.createdAt).toLocaleDateString("en-IN")],
+                  ["Notes", org.notes || "—"],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-start gap-2">
+                    <span className="text-muted-foreground text-xs w-32 flex-shrink-0">{k}</span>
+                    <span className="font-medium text-xs break-words">{v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick license actions */}
+              {isMaster && (
+                <div className="pt-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quick Actions</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {org.licenseStatus !== "active" && (
+                      <Button
+                        size="sm" variant="outline"
+                        className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
+                        onClick={async () => {
+                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "active" });
+                          if (r.success) { flash("License activated"); onRefresh(); }
+                          else flash(r.error || "Failed", false);
+                        }}
+                      >
+                        <BadgeCheck className="w-3 h-3" /> Activate
+                      </Button>
+                    )}
+                    {org.licenseStatus !== "suspended" && (
+                      <Button
+                        size="sm" variant="outline"
+                        className="h-7 gap-1.5 text-xs border-red-500/40 text-red-400 hover:bg-red-500/10"
+                        onClick={async () => {
+                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "suspended" });
+                          if (r.success) { flash("Account suspended"); onRefresh(); }
+                          else flash(r.error || "Failed", false);
+                        }}
+                      >
+                        <Lock className="w-3 h-3" /> Suspend
+                      </Button>
+                    )}
+                    {org.licenseStatus !== "pending" && (
+                      <Button
+                        size="sm" variant="outline"
+                        className="h-7 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                        onClick={async () => {
+                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "pending" });
+                          if (r.success) { flash("Set to pending"); onRefresh(); }
+                          else flash(r.error || "Failed", false);
+                        }}
+                      >
+                        <AlertTriangle className="w-3 h-3" /> Set Pending
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Confirm delete */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <Dialog open onOpenChange={() => setConfirmDelete(false)}>
+            <DialogContent className="dark max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <Trash2 className="w-5 h-5" /> Delete Organizer Account
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Permanently delete <strong className="text-foreground">{org.name}</strong>? This does not delete their tournaments.
+              </p>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    setConfirmDelete(false);
+                    const r = await deleteAdminOrganizer(org.id);
+                    if (r.success) { onClose(); onRefresh(); }
+                    else flash(r.error || "Delete failed", false);
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
+  const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [licenseFilter, setLicenseFilter] = useState<string>("all");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const data = await listAdminOrganizers();
+    setOrganizers(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = organizers.filter(o => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q || o.name.toLowerCase().includes(q) || o.mobile.includes(q) || (o.email || "").toLowerCase().includes(q);
+    const matchesFilter = licenseFilter === "all" || o.licenseStatus === licenseFilter;
+    return matchesSearch && matchesFilter;
+  });
+
+  const selected = selectedId ? organizers.find(o => o.id === selectedId) ?? null : null;
+
+  return (
+    <div className="flex-1 flex min-h-0">
+      {/* Left list */}
+      <div className={`flex flex-col ${selected ? "w-96 flex-shrink-0" : "flex-1"} border-r border-border/40 min-h-0`}>
+        {/* Toolbar */}
+        <div className="p-3 border-b border-border/40 flex items-center gap-2 flex-shrink-0">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search organizers..."
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+          <Select value={licenseFilter} onValueChange={setLicenseFilter}>
+            <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={load} title="Refresh">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+
+        {/* Stats row */}
+        <div className="px-3 py-2 flex items-center gap-4 text-[10px] text-muted-foreground border-b border-border/30 flex-shrink-0">
+          <span>{organizers.length} accounts</span>
+          <span className="flex items-center gap-1"><BadgeCheck className="w-3 h-3 text-green-400"/>{organizers.filter(o => o.licenseStatus === "active").length} active</span>
+          <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-amber-400"/>{organizers.filter(o => o.licenseStatus === "pending").length} pending</span>
+          <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-red-400"/>{organizers.filter(o => o.licenseStatus === "suspended").length} suspended</span>
+        </div>
+
+        {/* List */}
+        <ScrollArea className="flex-1">
+          {loading ? (
+            <div className="p-4 space-y-2">
+              {[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm">
+              {search || licenseFilter !== "all" ? "No organizers match your filter." : "No organizer accounts yet."}
+            </div>
+          ) : (
+            <div className="divide-y divide-border/30">
+              {filtered.map((o, i) => (
+                <motion.button
+                  key={o.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  onClick={() => setSelectedId(prev => prev === o.id ? null : o.id)}
+                  className={`w-full text-left px-4 py-3 hover:bg-muted/10 transition-colors ${selectedId === o.id ? "bg-primary/5 border-l-2 border-primary" : ""}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-sm truncate">{o.name}</span>
+                        <OrganizerLicenseBadge status={o.licenseStatus} />
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground font-mono">{o.mobile}</span>
+                        {o.email && <span className="text-[10px] text-muted-foreground truncate">{o.email}</span>}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {o.tournamentCount}/{o.maxTournaments} tournaments · Joined {new Date(o.createdAt).toLocaleDateString("en-IN")}
+                      </p>
+                    </div>
+                    <ChevronRight className={`w-4 h-4 text-muted-foreground/40 flex-shrink-0 mt-1 transition-transform ${selectedId === o.id ? "rotate-90" : ""}`} />
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+
+      {/* Right detail */}
+      <AnimatePresence>
+        {selected !== null && (
+          <motion.div
+            key={selected.id}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            className="flex-1 flex min-h-0"
+          >
+            <OrganizerDetailPanel
+              org={selected}
+              isMaster={isMaster}
+              onClose={() => setSelectedId(null)}
+              onRefresh={async () => { await load(); if (selectedId) { const fresh = await listAdminOrganizers(); const o = fresh.find(x => x.id === selectedId); if (!o) setSelectedId(null); } }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {selectedId === null && !loading && organizers.length > 0 && (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm gap-2">
+          <Users className="w-5 h-5" />
+          Select an organizer to manage their account
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -724,6 +1136,7 @@ export default function AdminDashboard() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [, navigate] = useState<null>(null);
+  const [adminTab, setAdminTab] = useState<"tournaments" | "organizers">("tournaments");
 
   async function load() {
     setLoading(true);
@@ -810,7 +1223,30 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Body: split panel */}
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-border/40 bg-muted/5 flex-shrink-0">
+          <Button
+            size="sm"
+            variant={adminTab === "tournaments" ? "default" : "ghost"}
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setAdminTab("tournaments")}
+          >
+            <Trophy className="w-3.5 h-3.5" /> Tournaments
+          </Button>
+          <Button
+            size="sm"
+            variant={adminTab === "organizers" ? "default" : "ghost"}
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setAdminTab("organizers")}
+          >
+            <Users className="w-3.5 h-3.5" /> Organizers
+          </Button>
+        </div>
+
+        {/* Body */}
+        {adminTab === "organizers" ? (
+          <OrganizersPanel isMaster={isMaster} />
+        ) : (
         <div className="flex-1 flex min-h-0">
           {/* Left: tournament list */}
           <div className={`flex flex-col ${selectedId ? "w-96 flex-shrink-0" : "flex-1"} border-r border-border/40 min-h-0`}>
@@ -919,6 +1355,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Create tournament modal */}

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const tournamentsTable = pgTable("tournaments", {
   id: serial("id").primaryKey(),
+  organizerId: integer("organizer_id"),
   name: text("name").notNull(),
   sport: text("sport").notNull().default("cricket"),
   venue: text("venue"),

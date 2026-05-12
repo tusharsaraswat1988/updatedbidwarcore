@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import NotFound from "@/pages/not-found";
 
+import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import NewTournament from "@/pages/tournament-new";
 import TournamentHub from "@/pages/tournament-hub";
@@ -37,7 +38,8 @@ function Router() {
   return (
     <Switch>
       {/* Public routes */}
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={Landing} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/tournament/new" component={NewTournament} />
       <Route path="/tournament/:id/login" component={OrganizerLogin} />
       <Route path="/tournament/:id/display" component={DisplayView} />

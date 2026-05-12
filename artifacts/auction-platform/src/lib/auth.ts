@@ -201,8 +201,8 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
 export async function signupOrganizerAccount(data: {
-  name: string; email: string; mobile: string; password: string;
-}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string; mobile: string } }> {
+  name: string; email?: string; mobile: string; password: string;
+}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/signup", {
       method: "POST",
@@ -217,7 +217,7 @@ export async function signupOrganizerAccount(data: {
 export async function loginOrganizerAccount(
   identifier: string,
   password: string
-): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string; mobile: string } }> {
+): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/login", {
       method: "POST",
@@ -231,8 +231,8 @@ export async function loginOrganizerAccount(
 
 export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
-  organizer?: { id: number; name: string; email: string; mobile: string };
-  tournaments?: Array<{ id: number; name: string; sport: string; status: string; venue: string | null; auctionDate: string | null }>;
+  organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number };
+  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/me");
@@ -243,4 +243,62 @@ export async function checkOrganizerAccountAuth(): Promise<{
 
 export async function logoutOrganizerAccount(): Promise<void> {
   try { await apiFetch("/auth/organizer-account/logout", { method: "POST" }); } catch { }
+}
+
+export async function createOrganizerTournament(data: {
+  name: string; sport?: string; venue?: string; auctionDate?: string;
+  basePurse?: number; organizerPassword?: string;
+}): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string } }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/tournaments", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Create failed" };
+    return { success: true, tournament: d.tournament };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+// ─── Admin: Organizer account management ──────────────────────────────────────
+
+export type AdminOrganizerRow = {
+  id: number; name: string; email: string | null; mobile: string;
+  licenseStatus: string; maxTournaments: number; notes: string | null;
+  tournamentCount: number; createdAt: string;
+};
+
+export async function listAdminOrganizers(): Promise<AdminOrganizerRow[]> {
+  try {
+    const r = await apiFetch("/auth/admin/organizers");
+    if (!r.ok) return [];
+    return r.json();
+  } catch { return []; }
+}
+
+export async function updateAdminOrganizer(
+  id: number,
+  data: Partial<{
+    name: string; email: string; mobile: string; newPassword: string;
+    licenseStatus: "pending" | "active" | "suspended"; maxTournaments: number; notes: string;
+  }>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/organizers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Update failed" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function deleteAdminOrganizer(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/organizers/${id}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Delete failed" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
 }
