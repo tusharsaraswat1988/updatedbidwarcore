@@ -16,6 +16,57 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 type WheelItem = { label: string; color: string };
 
+/** Rotating sponsor logo carousel — top-right corner of LED display */
+function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (logos.length <= 1) return;
+    const id = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % logos.length);
+        setVisible(true);
+      }, 350);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [logos.length]);
+
+  if (!logos.length) return null;
+  const current = logos[idx];
+
+  return (
+    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Powered by</p>
+      <div
+        className="h-12 flex items-center justify-end transition-opacity duration-300"
+        style={{ opacity: visible ? 1 : 0, minWidth: 80 }}
+      >
+        <img
+          key={current.url}
+          src={current.url}
+          alt={current.name || "Sponsor"}
+          className="h-10 max-w-[120px] object-contain"
+          style={{ filter: "brightness(1.1)" }}
+          onError={e => (e.currentTarget.style.display = "none")}
+        />
+      </div>
+      {logos.length > 1 && (
+        <div className="flex gap-1">
+          {logos.map((_, i) => (
+            <div
+              key={i}
+              className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+              style={{ backgroundColor: i === idx ? "#eab308" : "#ffffff30" }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function playSoldAudio() {
   try {
     const ctx = new AudioContext();
@@ -677,6 +728,11 @@ export default function DisplayView() {
               {" · "}
               <span className="text-muted-foreground">{state?.remainingPlayersCount || 0}</span> Left
             </div>
+            {sponsorLogos.length > 0 && (
+              <div className="border-l border-border/40 pl-6">
+                <SponsorCarousel logos={sponsorLogos} />
+              </div>
+            )}
           </div>
         </div>
 
