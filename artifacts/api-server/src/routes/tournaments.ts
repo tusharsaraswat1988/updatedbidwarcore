@@ -14,12 +14,14 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   auctionDate: t.auctionDate,
   organizerName: t.organizerName,
   organizerMobile: t.organizerMobile,
+  organizerEmail: t.organizerEmail,
   logoUrl: t.logoUrl,
   sponsorLogos: t.sponsorLogos,
   basePurse: t.basePurse,
   minBid: t.minBid,
   bidIncrement: t.bidIncrement,
   timerSeconds: t.timerSeconds,
+  bidTimerSeconds: t.bidTimerSeconds,
   status: t.status,
   createdAt: t.createdAt.toISOString(),
 });
@@ -31,12 +33,14 @@ const tournamentInputSchema = z.object({
   auctionDate: z.string().optional(),
   organizerName: z.string().optional(),
   organizerMobile: z.string().optional(),
+  organizerEmail: z.string().optional(),
   logoUrl: z.string().optional(),
   sponsorLogos: z.string().optional(),
   basePurse: z.number().int().optional(),
   minBid: z.number().int().optional(),
   bidIncrement: z.number().int().optional(),
   timerSeconds: z.number().int().optional(),
+  bidTimerSeconds: z.number().int().optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -57,12 +61,14 @@ router.post("/tournaments", async (req, res) => {
       auctionDate: d.auctionDate ?? null,
       organizerName: d.organizerName ?? null,
       organizerMobile: d.organizerMobile ?? null,
+      organizerEmail: d.organizerEmail ?? null,
       logoUrl: d.logoUrl ?? null,
       sponsorLogos: d.sponsorLogos ?? null,
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,
       timerSeconds: d.timerSeconds ?? 30,
+      bidTimerSeconds: d.bidTimerSeconds ?? 15,
       status: "setup",
     })
     .returning();
@@ -87,12 +93,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     auctionDate: z.string().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
+    organizerEmail: z.string().optional(),
     logoUrl: z.string().optional(),
     sponsorLogos: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
     bidIncrement: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
+    bidTimerSeconds: z.number().int().optional(),
     status: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -105,12 +113,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
+  if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
   if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
   if (d.sponsorLogos !== undefined) updates.sponsorLogos = d.sponsorLogos;
   if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
   if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
+  if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
   if (d.status !== undefined) updates.status = d.status;
   const [tournament] = await db
     .update(tournamentsTable)

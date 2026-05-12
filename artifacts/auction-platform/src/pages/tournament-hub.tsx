@@ -19,12 +19,69 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
   Gavel, Monitor, Trophy, ExternalLink, Pencil, Link2, Dices, KeyRound,
+  Building2, Timer, PlusCircle, Trash2, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type SponsorLogo = { url: string; name: string };
+
+function SponsorLogosEditor({
+  logos,
+  onChange,
+}: {
+  logos: SponsorLogo[];
+  onChange: (logos: SponsorLogo[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {logos.map((logo, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            className="flex-1 h-8 text-sm"
+            value={logo.url}
+            onChange={e => {
+              const next = [...logos];
+              next[i] = { ...next[i], url: e.target.value };
+              onChange(next);
+            }}
+            placeholder="Logo URL (https://...)"
+          />
+          <Input
+            className="w-28 h-8 text-sm"
+            value={logo.name}
+            onChange={e => {
+              const next = [...logos];
+              next[i] = { ...next[i], name: e.target.value };
+              onChange(next);
+            }}
+            placeholder="Sponsor name"
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={() => onChange(logos.filter((_, j) => j !== i))}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5 h-8 text-xs"
+        onClick={() => onChange([...logos, { url: "", name: "" }])}
+      >
+        <PlusCircle className="w-3.5 h-3.5" /> Add Sponsor Logo
+      </Button>
+    </div>
+  );
+}
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -33,7 +90,9 @@ export default function TournamentHub() {
   const qc = useQueryClient();
 
   const [editOpen, setEditOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<"identity" | "auction">("identity");
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
+  const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [orgPassword, setOrgPassword] = useState("");
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
@@ -57,18 +116,25 @@ export default function TournamentHub() {
       auctionDate: tournament.auctionDate || "",
       organizerName: tournament.organizerName || "",
       organizerMobile: tournament.organizerMobile || "",
+      organizerEmail: (tournament as any).organizerEmail || "",
       logoUrl: tournament.logoUrl || "",
-      sponsorLogos: tournament.sponsorLogos || "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
       bidIncrement: String(tournament.bidIncrement ?? ""),
-      timerSeconds: String(tournament.timerSeconds ?? ""),
+      timerSeconds: String(tournament.timerSeconds ?? "30"),
+      bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
     });
+    try {
+      const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
+      setSponsorLogos(Array.isArray(parsed) ? parsed : []);
+    } catch { setSponsorLogos([]); }
     setOrgPassword("");
+    setActiveSection("identity");
     setEditOpen(true);
   }
 
   async function handleSave() {
+    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
     await updateTournament.mutateAsync({
       tournamentId,
       data: {
@@ -79,12 +145,13 @@ export default function TournamentHub() {
         organizerName: editForm.organizerName as string || undefined,
         organizerMobile: editForm.organizerMobile as string || undefined,
         logoUrl: editForm.logoUrl as string || undefined,
-        sponsorLogos: editForm.sponsorLogos as string || undefined,
+        sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
         minBid: Number(editForm.minBid) || undefined,
         bidIncrement: Number(editForm.bidIncrement) || undefined,
         timerSeconds: Number(editForm.timerSeconds) || undefined,
-      },
+        bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+      } as any,
     });
     if (orgPassword.trim()) {
       await setOrganizerPassword(tournamentId, orgPassword.trim());
@@ -269,107 +336,150 @@ export default function TournamentHub() {
         </div>
       </div>
 
-      {/* Edit Tournament Dialog */}
+      {/* Edit Tournament Dialog — Two Sections */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl dark max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl dark max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-5 h-5" /> Edit Tournament
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tournament Name</Label>
-                <Input value={editForm.name as string || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Sport</Label>
-                <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="dark">
-                    {["cricket","football","kabaddi","badminton","volleyball","esports","other"].map(s => (
-                      <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+
+          {/* Section Tabs */}
+          <div className="flex rounded-lg bg-muted/20 p-1 border border-border/50 gap-1">
+            <button
+              onClick={() => setActiveSection("identity")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-all ${activeSection === "identity" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Building2 className="w-4 h-4" /> Tournament Identity
+            </button>
+            <button
+              onClick={() => setActiveSection("auction")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-all ${activeSection === "auction" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Gavel className="w-4 h-4" /> Auction Settings
+            </button>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="space-y-4 pr-1">
+              {activeSection === "identity" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tournament Name</Label>
+                      <Input value={editForm.name as string || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sport</Label>
+                      <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent className="dark">
+                          {["cricket","football","kabaddi","badminton","volleyball","esports","other"].map(s => (
+                            <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Venue</Label>
+                      <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Auction Date</Label>
+                      <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Organizer Name</Label>
+                      <Input value={editForm.organizerName as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerName: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Organizer Mobile</Label>
+                      <Input value={editForm.organizerMobile as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerMobile: e.target.value }))} placeholder="+91 98765 43210" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Organizer Email</Label>
+                    <Input
+                      type="email"
+                      value={editForm.organizerEmail as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, organizerEmail: e.target.value }))}
+                      placeholder="name@example.com — links to organizer account"
+                    />
+                    <p className="text-xs text-muted-foreground">If this email matches an organizer account, they'll see this tournament in their portal.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tournament Logo URL</Label>
+                    <Input value={editForm.logoUrl as string || ""} onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))} placeholder="https://..." />
+                    {editForm.logoUrl && (
+                      <img src={editForm.logoUrl as string} alt="Logo preview" className="h-10 w-10 object-contain rounded mt-1" onError={e => (e.currentTarget.style.display = "none")} />
+                    )}
+                  </div>
+                  <div className="space-y-2 border-t border-border pt-4">
+                    <Label className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4 text-primary" /> Organizer Login Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={orgPassword}
+                      onChange={e => setOrgPassword(e.target.value)}
+                      placeholder="Leave blank to keep existing password"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used by organizers to sign in at <code className="text-primary">/tournament/{tournamentId}/login</code>
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Sponsor Logos</Label>
+                    <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 border-t border-border pt-4">
+                    <div className="space-y-2">
+                      <Label>Base Purse (₹)</Label>
+                      <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Min Bid (₹)</Label>
+                      <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bid Increment (₹)</Label>
+                      <Input type="number" value={editForm.bidIncrement as number || 0} onChange={e => setEditForm(f => ({ ...f, bidIncrement: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <Timer className="w-3.5 h-3.5 text-muted-foreground" /> First Bid Timer (seconds)
+                      </Label>
+                      <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
+                      <p className="text-xs text-muted-foreground">Timer when a new player is presented (no bids yet)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <Timer className="w-3.5 h-3.5 text-primary" /> Subsequent Bid Timer (seconds)
+                      </Label>
+                      <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
+                      <p className="text-xs text-muted-foreground">Auto-starts after each bid — locks owner panel bidding on expiry</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Venue</Label>
-                <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
-              </div>
-              <div className="space-y-2">
-                <Label>Auction Date</Label>
-                <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Organizer Name</Label>
-                <Input value={editForm.organizerName as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerName: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Organizer Mobile</Label>
-                <Input value={editForm.organizerMobile as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerMobile: e.target.value }))} placeholder="+91 98765 43210" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Logo URL</Label>
-                <Input value={editForm.logoUrl as string || ""} onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))} placeholder="https://..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Sponsor Logos (JSON)</Label>
-                <Input
-                  value={editForm.sponsorLogos as string || ""}
-                  onChange={e => setEditForm(f => ({ ...f, sponsorLogos: e.target.value }))}
-                  placeholder='[{"url":"https://...","name":"Sponsor"}]'
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Base Purse (₹)</Label>
-                <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Min Bid (₹)</Label>
-                <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Bid Increment (₹)</Label>
-                <Input type="number" value={editForm.bidIncrement as number || 0} onChange={e => setEditForm(f => ({ ...f, bidIncrement: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Timer (seconds)</Label>
-                <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} />
-              </div>
-            </div>
-            <div className="space-y-2 border-t border-border pt-4">
-              <Label className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-primary" />
-                Organizer Login Password
-              </Label>
-              <Input
-                type="password"
-                value={orgPassword}
-                onChange={e => setOrgPassword(e.target.value)}
-                placeholder="Leave blank to keep existing password"
-              />
-              <p className="text-xs text-muted-foreground">
-                Used by organizers to sign in at <code className="text-primary">/tournament/{tournamentId}/login</code>
-              </p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button className="flex-1" onClick={handleSave} disabled={updateTournament.isPending}>
-                Save Changes
-              </Button>
-              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            </div>
+          </ScrollArea>
+
+          <div className="flex gap-3 pt-2 border-t border-border">
+            <Button className="flex-1" onClick={handleSave} disabled={updateTournament.isPending}>
+              Save Changes
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -22,6 +22,7 @@ import OrganizerLogin from "@/pages/organizer-login";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin";
 import ObsOverlay from "@/pages/obs-overlay";
+import OrganizerPortal from "@/pages/organizer-portal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/organizer" component={OrganizerPortal} />
 
       {/* Organizer-protected routes */}
       <Route path="/tournament/:id">

@@ -5,6 +5,7 @@ import {
   useListTeams,
   useListPlayers,
   useListBids,
+  useListCategories,
   useStartAuction,
   usePauseAuction,
   useNextPlayer,
@@ -17,10 +18,12 @@ import {
   useResetTrialAuction,
   useStartTimer,
   useSetTeamPurseView,
+  useSetCategoryFilter,
   getGetAuctionStateQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
   getListPlayersQueryKey,
+  getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
@@ -37,7 +40,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
-  Settings2, RefreshCw, Timer, LayoutGrid,
+  Settings2, RefreshCw, Timer, LayoutGrid, Tag, X, Filter,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -52,6 +55,8 @@ export default function AuctionOperator() {
   const [reAuctionTab, setReAuctionTab] = useState<"queue" | "sold" | "unsold">("queue");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [timerSecs, setTimerSecs] = useState("30");
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
+  const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
 
   useAuctionSocket(tournamentId);
 
@@ -67,6 +72,9 @@ export default function AuctionOperator() {
   const { data: bids } = useListBids(tournamentId, {
     query: { queryKey: getListBidsQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
   });
+  const { data: categories } = useListCategories(tournamentId, {
+    query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
+  });
 
   const startAuction = useStartAuction();
   const pauseAuction = usePauseAuction();
@@ -80,6 +88,7 @@ export default function AuctionOperator() {
   const resetTrial = useResetTrialAuction();
   const startTimerMut = useStartTimer();
   const setTeamPurseView = useSetTeamPurseView();
+  const setCategoryFilter = useSetCategoryFilter();
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
@@ -144,6 +153,26 @@ export default function AuctionOperator() {
     invalidate();
   }
 
+  function openCategoryFilter() {
+    const current: number[] = (state?.activeCategoryIds as number[] | null) ?? [];
+    setPendingCategoryIds(current);
+    setCategoryFilterOpen(true);
+  }
+
+  async function applyCategoryFilter() {
+    await setCategoryFilter.mutateAsync({
+      tournamentId,
+      data: { categoryIds: pendingCategoryIds.length > 0 ? pendingCategoryIds : null } as any,
+    });
+    setCategoryFilterOpen(false);
+    invalidate();
+  }
+
+  async function clearCategoryFilter() {
+    await setCategoryFilter.mutateAsync({ tournamentId, data: { categoryIds: null } as any });
+    invalidate();
+  }
+
   // Client-side countdown from server timerEndsAt
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   useEffect(() => {
@@ -167,12 +196,19 @@ export default function AuctionOperator() {
   const retainedPlayers = (players || []).filter(p => p.status === "retained");
   const increment = state?.bidIncrement ?? 50000;
   const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
+  const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
+  const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
 
   const rightPanelPlayers = reAuctionTab === "queue"
     ? available
     : reAuctionTab === "sold"
     ? soldPlayers
     : unsoldPlayers;
+
+  // Filter queue by active categories if set
+  const filteredQueue = activeCategoryIds && activeCategoryIds.length > 0
+    ? available.filter(p => p.categoryId && activeCategoryIds.includes(p.categoryId))
+    : available;
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -239,6 +275,31 @@ export default function AuctionOperator() {
               <LayoutGrid className="w-4 h-4" />
               {state?.teamPurseViewActive ? "Hide Purses" : "Show Purses"}
             </Button>
+            {/* Category Filter Button */}
+            <Button
+              variant={activeCategoryIds && activeCategoryIds.length > 0 ? "default" : "outline"}
+              size="sm"
+              className={`gap-2 ${activeCategoryIds && activeCategoryIds.length > 0 ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)] border-blue-600" : "border-border text-muted-foreground hover:text-foreground"}`}
+              title="Filter next-player by category"
+              onClick={openCategoryFilter}
+            >
+              <Tag className="w-4 h-4" />
+              {activeCategoryIds && activeCategoryIds.length > 0
+                ? `${activeCategoryIds.length} Categor${activeCategoryIds.length === 1 ? "y" : "ies"}`
+                : "Category"}
+            </Button>
+            {activeCategoryIds && activeCategoryIds.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                title="Clear category filter"
+                onClick={clearCategoryFilter}
+                disabled={setCategoryFilter.isPending}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
@@ -250,6 +311,29 @@ export default function AuctionOperator() {
             </Button>
           </div>
         </div>
+
+        {/* Active Category Filter Banner */}
+        {activeCategoryIds && activeCategoryIds.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-sm">
+            <Filter className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <span className="text-blue-400 font-medium">Next player filtered to:</span>
+            <div className="flex gap-1.5 flex-wrap">
+              {activeCategoryIds.map(id => {
+                const cat = categoryMap[id];
+                return (
+                  <span
+                    key={id}
+                    className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{ backgroundColor: `${cat?.colorCode || "#3b82f6"}22`, color: cat?.colorCode || "#60a5fa", border: `1px solid ${cat?.colorCode || "#3b82f6"}44` }}
+                  >
+                    {cat?.name || `#${id}`}
+                  </span>
+                );
+              })}
+            </div>
+            <span className="text-blue-400/60 text-xs ml-auto">{filteredQueue.length} players available in these categories</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Player + Bid + Teams */}
@@ -278,6 +362,16 @@ export default function AuctionOperator() {
                           {state?.currentPlayer?.city && <Badge variant="secondary">{state.currentPlayer.city}</Badge>}
                           {state?.currentPlayer?.battingStyle && <Badge variant="secondary" className="text-xs">{state.currentPlayer.battingStyle}</Badge>}
                           {state?.currentPlayer?.jerseyNumber && <Badge variant="outline" className="font-mono">#{state.currentPlayer.jerseyNumber}</Badge>}
+                          {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-semibold"
+                              style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined, borderColor: `${categoryMap[state.currentPlayer.categoryId].colorCode}44` || undefined }}
+                            >
+                              <Tag className="w-3 h-3 mr-1" />
+                              {categoryMap[state.currentPlayer.categoryId].name}
+                            </Badge>
+                          )}
                           {state?.currentPlayer?.availabilityDates && (
                             <Badge variant="outline" className="text-xs text-blue-400 border-blue-500/30">
                               Avail: {state.currentPlayer.availabilityDates}
@@ -303,6 +397,9 @@ export default function AuctionOperator() {
                       <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
                       <p className="font-medium">No player selected</p>
                       <p className="text-sm mt-1">Click "Next" or "Random" to begin</p>
+                      {activeCategoryIds && activeCategoryIds.length > 0 && (
+                        <p className="text-xs text-blue-400 mt-1">{filteredQueue.length} players in selected categories</p>
+                      )}
                     </div>
                   </Card>
                 </motion.div>
@@ -344,8 +441,8 @@ export default function AuctionOperator() {
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
                   <Timer className={`w-4 h-4 flex-shrink-0 ${timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : "text-muted-foreground"}`} />
                   {timeLeft !== null ? (
-                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-foreground"}`}>
-                      {timeLeft}s
+                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 0 ? "text-red-500" : timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-foreground"}`}>
+                      {timeLeft <= 0 ? "EXPIRED" : `${timeLeft}s`}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">No timer running</span>
@@ -418,14 +515,15 @@ export default function AuctionOperator() {
                     const purseLeft = team.purse - (team.purseUsed || 0);
                     const isLeading = state?.currentBidTeamId === team.id;
                     const nextBid = (state?.currentBid || 0) + increment;
-                    const canBid = isActive && hasPlayer && purseLeft >= nextBid && !!team.isBiddingEnabled;
+                    // Issue 4: Block bid button for leading team even in operator panel
+                    const canBid = isActive && hasPlayer && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading;
                     return (
                       <button
                         key={team.id}
                         disabled={!canBid || placeBid.isPending}
                         onClick={() => handleBid(team.id)}
                         className={`relative p-4 rounded-xl border-2 font-bold text-left transition-all ${
-                          isLeading ? "scale-[1.02]" : "border-border"
+                          isLeading ? "scale-[1.02] cursor-not-allowed" : "border-border"
                         } ${!canBid ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
                         style={{
                           borderColor: isLeading ? team.color || "#fff" : undefined,
@@ -433,7 +531,10 @@ export default function AuctionOperator() {
                         }}
                       >
                         {isLeading && (
-                          <div className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                          <div className="absolute top-2 right-2 flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                            <span className="text-[10px] font-bold" style={{ color: team.color || "#fff" }}>LEAD</span>
+                          </div>
                         )}
                         <div className="flex items-center gap-2 mb-2">
                           {team.logoUrl ? (
@@ -504,15 +605,18 @@ export default function AuctionOperator() {
                         reAuctionTab === tab ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {tab === "queue" ? `Queue (${available.length})` : tab === "sold" ? `Sold (${soldPlayers.length})` : `Unsold (${unsoldPlayers.length})`}
+                      {tab === "queue"
+                        ? `Queue (${activeCategoryIds && activeCategoryIds.length > 0 ? filteredQueue.length : available.length}${activeCategoryIds && activeCategoryIds.length > 0 ? `/${available.length}` : ""})`
+                        : tab === "sold" ? `Sold (${soldPlayers.length})` : `Unsold (${unsoldPlayers.length})`}
                     </button>
                   ))}
                 </div>
                 <ScrollArea className="h-52">
                   <div className="space-y-1 pr-2">
-                    {rightPanelPlayers.slice(0, 30).map(player => {
+                    {(reAuctionTab === "queue" ? (activeCategoryIds && activeCategoryIds.length > 0 ? filteredQueue : available) : rightPanelPlayers).slice(0, 30).map(player => {
                       const team = player.teamId ? teamMap[player.teamId] : null;
                       const isQueue = reAuctionTab === "queue";
+                      const cat = player.categoryId ? categoryMap[player.categoryId] : null;
                       return (
                         <div
                           key={player.id}
@@ -522,7 +626,14 @@ export default function AuctionOperator() {
                             <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                             <div className="min-w-0">
                               <span className="text-sm font-medium truncate block">{player.name}</span>
-                              {team && <span className="text-[10px] text-muted-foreground">{team.name}</span>}
+                              <div className="flex items-center gap-1.5">
+                                {team && <span className="text-[10px] text-muted-foreground">{team.name}</span>}
+                                {cat && (
+                                  <span className="text-[10px] font-semibold px-1 rounded" style={{ color: cat.colorCode || "#888", backgroundColor: `${cat.colorCode}15` || "#88888815" }}>
+                                    {cat.name}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
@@ -548,9 +659,13 @@ export default function AuctionOperator() {
                         </div>
                       );
                     })}
-                    {rightPanelPlayers.length === 0 && (
+                    {(reAuctionTab === "queue" ? filteredQueue : rightPanelPlayers).length === 0 && (
                       <p className="text-center text-muted-foreground text-sm py-4">
-                        {reAuctionTab === "queue" ? "All players processed" : `No ${reAuctionTab} players`}
+                        {reAuctionTab === "queue"
+                          ? activeCategoryIds && activeCategoryIds.length > 0
+                            ? "No players available in selected categories"
+                            : "All players processed"
+                          : `No ${reAuctionTab} players`}
                       </p>
                     )}
                   </div>
@@ -560,6 +675,68 @@ export default function AuctionOperator() {
           </div>
         </div>
       </div>
+
+      {/* Category Filter Dialog */}
+      <Dialog open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-blue-400" /> Category Filter
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select which categories are eligible for the next player selection. Leave all unchecked to include all categories.
+            </p>
+            <div className="space-y-2">
+              {(categories || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(cat => {
+                const isSelected = pendingCategoryIds.includes(cat.id);
+                const playersInCat = available.filter(p => p.categoryId === cat.id).length;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setPendingCategoryIds(prev =>
+                        prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                      );
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left ${
+                      isSelected ? "border-blue-500/60 bg-blue-500/10" : "border-border bg-card/50 hover:bg-card"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: cat.colorCode || "#888" }}
+                      />
+                      <div>
+                        <span className="text-sm font-semibold">{cat.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{playersInCat} available</span>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "bg-blue-500 border-blue-500" : "border-border"}`}>
+                      {isSelected && <CheckCircle className="w-3 h-3 text-white" style={{ strokeWidth: 3 }} />}
+                    </div>
+                  </button>
+                );
+              })}
+              {(!categories || categories.length === 0) && (
+                <p className="text-center text-muted-foreground text-sm py-4">No categories configured</p>
+              )}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-500"
+                onClick={applyCategoryFilter}
+                disabled={setCategoryFilter.isPending}
+              >
+                {pendingCategoryIds.length > 0 ? `Apply (${pendingCategoryIds.length} selected)` : "Apply — All Categories"}
+              </Button>
+              <Button variant="outline" onClick={() => setCategoryFilterOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manual Sell Dialog */}
       <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>

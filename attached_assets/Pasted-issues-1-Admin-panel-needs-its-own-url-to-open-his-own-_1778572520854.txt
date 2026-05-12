@@ -1,0 +1,15 @@
+issues - 
+
+1. Admin panel needs its own url to open his own page. it should not come under any other panel. Also it needs dats of all the tournaments under bidwar. in his panel, there is a need of searching tournament by, tournament name, id, operator number. and then clicking on a tournament, it showns team, player, tournament datas, also logs of what is happening in auctions, a places where super admin edit any form of data if needed. but for everything done, a log has to be created. they dont need panel for live scree, auction running and related datas. Also a granting license button only then organizer can start auction. else he can only do trials with 2 teams.
+
+2. In edit tournament page, there is a column of base purse, it means the total purse size of each team that will be created. logo and sponsor url can be multiple entry, also uploading option is only needed everywhere not url option. create two setion in tournament settings. First one has name, logo of tournament, mob, organization name(not ornanisr name), total purse size per team .And another section : has Mulitple sponsor logo adding, base price, changing default audio file for sold, base value of each player if not mentioned in player profile, indise this section, bid increment has to have its own section, bid increase by 10000 till 2 lakh, then by 30000 till 5 lakh then 60000 till end.
+Also timed section has to be propely logically set, in timer section, there are two part, first starting a timer will have a 30 second, next all timer will have 15 second. and one timer goes off, bidding options from team owners url should be locked. so this timer will be different for different organizer, we need to implement it properly.
+
+3. Organiser Panel should have a url, where first organizer has to signuo for the first time, or he is already registered before he need to use his mobile number, email id, password to open his panel. all his old tournament data can also be seen there, but it wont be able to edit it. 
+
+4. Multiple bid by same team during auction should be strictly locked from all source of bidding. 
+
+5. category rules are still undefined. There is an issue in category option.
+Currect category system tell the player as icon, platinum, gold etc. this is good. but some time organiser wants that a specific category player auctions starts first, or group of category players auction stars first and then as per needed in next part. THIS IS NOT DEFINED.
+eG. - We divied all player on basis of age category. like 25yrs to 30 yrs, 31 yrs to 40 yrs, 40+.
+and then when an auction starts, we can define initally that all players will be displayed, or specific category or group of category. Implement this rule over everywhere.

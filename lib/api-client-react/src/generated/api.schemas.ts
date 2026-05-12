@@ -39,6 +39,7 @@ export interface Tournament {
   minBid?: number;
   bidIncrement?: number;
   timerSeconds?: number;
+  bidTimerSeconds?: number;
   status: TournamentStatus;
   createdAt: string;
 }
@@ -69,6 +70,7 @@ export interface TournamentInput {
   minBid?: number;
   bidIncrement?: number;
   timerSeconds?: number;
+  bidTimerSeconds?: number;
 }
 
 export interface TournamentUpdate {
@@ -84,6 +86,7 @@ export interface TournamentUpdate {
   minBid?: number;
   bidIncrement?: number;
   timerSeconds?: number;
+  bidTimerSeconds?: number;
   status?: string;
 }
 
@@ -375,6 +378,7 @@ export interface AuctionState {
   /** @nullable */
   wheelWinner?: string | null;
   teamPurseViewActive?: boolean;
+  activeCategoryIds?: number[] | null;
 }
 
 export interface TournamentSummary {
@@ -448,4 +452,8 @@ export type VerifyOwnerAccessBody = {
 
 export type VerifyOwnerAccess200 = {
   valid: boolean;
+};
+
+export type SetCategoryFilterBody = {
+  categoryIds?: number[] | null;
 };

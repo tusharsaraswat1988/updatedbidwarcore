@@ -31,6 +31,7 @@ export const ListTournamentsResponseItem = zod.object({
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
+  bidTimerSeconds: zod.number().optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -60,6 +61,7 @@ export const CreateTournamentBody = zod.object({
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
+  bidTimerSeconds: zod.number().optional(),
 });
 
 /**
@@ -83,6 +85,7 @@ export const GetTournamentResponse = zod.object({
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
+  bidTimerSeconds: zod.number().optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -107,6 +110,7 @@ export const UpdateTournamentBody = zod.object({
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
+  bidTimerSeconds: zod.number().optional(),
   status: zod.string().optional(),
 });
 
@@ -124,6 +128,7 @@ export const UpdateTournamentResponse = zod.object({
   minBid: zod.number().optional(),
   bidIncrement: zod.number().optional(),
   timerSeconds: zod.number().optional(),
+  bidTimerSeconds: zod.number().optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
   createdAt: zod.string(),
 });
@@ -597,6 +602,7 @@ export const GetAuctionStateResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -657,6 +663,7 @@ export const StartAuctionResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -717,6 +724,7 @@ export const PauseAuctionResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -782,6 +790,7 @@ export const NextPlayerResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -847,6 +856,7 @@ export const PlaceBidResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -907,6 +917,7 @@ export const SellPlayerResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -972,6 +983,7 @@ export const ManualSellResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1032,6 +1044,7 @@ export const MarkUnsoldResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1097,6 +1110,7 @@ export const ReAuctionPlayerResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1157,6 +1171,7 @@ export const UndoLastActionResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1217,6 +1232,7 @@ export const ResetTrialAuctionResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1281,6 +1297,7 @@ export const SetTeamPurseViewResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1370,6 +1387,72 @@ export const SyncFortuneWheelResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+});
+
+/**
+ * @summary Set active category filter for next-player selection
+ */
+export const SetCategoryFilterParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SetCategoryFilterBody = zod.object({
+  categoryIds: zod.array(zod.number()).nullish(),
+});
+
+export const SetCategoryFilterResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -1440,6 +1523,7 @@ export const StartTimerResponse = zod.object({
     .optional(),
   wheelWinner: zod.string().nullish(),
   teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
 });
 
 /**

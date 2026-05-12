@@ -795,6 +795,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/category-filter:
+    post:
+      operationId: setCategoryFilter
+      tags: [auction]
+      summary: Set active category filter for next-player selection
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryIds:
+                  type: array
+                  items:
+                    type: integer
+                  nullable: true
+      responses:
+        "200":
+          description: Updated auction state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/start-timer:
     post:
       operationId: startTimer
@@ -964,6 +995,8 @@ components:
           type: integer
         timerSeconds:
           type: integer
+        bidTimerSeconds:
+          type: integer
         status:
           type: string
           enum: [setup, active, paused, completed]
@@ -999,6 +1032,8 @@ components:
           type: integer
         timerSeconds:
           type: integer
+        bidTimerSeconds:
+          type: integer
 
     TournamentUpdate:
       type: object
@@ -1026,6 +1061,8 @@ components:
         bidIncrement:
           type: integer
         timerSeconds:
+          type: integer
+        bidTimerSeconds:
           type: integer
         status:
           type: string
@@ -1438,6 +1475,11 @@ components:
           type: ["string", "null"]
         teamPurseViewActive:
           type: boolean
+        activeCategoryIds:
+          type: array
+          items:
+            type: integer
+          nullable: true
 
     TournamentSummary:
       type: object

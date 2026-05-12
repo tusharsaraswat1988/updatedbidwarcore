@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
@@ -141,7 +141,6 @@ export default function OwnerPanel() {
     },
   });
 
-  // Check session storage for prior verification
   useEffect(() => {
     if (!team) return;
     if (!team.accessCode) {
@@ -153,14 +152,13 @@ export default function OwnerPanel() {
     setChecking(false);
   }, [team, teamId]);
 
-  // Real-time SSE connection
   useAuctionSocket(tournamentId);
 
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 5000,
+      refetchInterval: 3000,
     },
   });
 
@@ -174,7 +172,22 @@ export default function OwnerPanel() {
 
   const placeBid = usePlaceBid();
   const [isBidding, setIsBidding] = useState(false);
-  const [bidFeedback, setBidFeedback] = useState<"success" | "error" | null>(null);
+  const [bidFeedback, setBidFeedback] = useState<"success" | "error" | "leading" | null>(null);
+
+  // Issue 2: Client-side timer tracking for owner panel bid lock
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
+    const update = () => {
+      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
+      setTimeLeft(diff > 0 ? diff : 0);
+    };
+    update();
+    const id = setInterval(update, 250);
+    return () => clearInterval(id);
+  }, [state?.timerEndsAt]);
+
+  const timerExpired = state?.timerEndsAt !== null && state?.timerEndsAt !== undefined && timeLeft !== null && timeLeft <= 0;
 
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive = state?.status === "active";
@@ -183,7 +196,7 @@ export default function OwnerPanel() {
   const purseRemaining = teamPurse?.purseRemaining ?? (team ? team.purse - (team.purseUsed || 0) : 0);
   const increment = state?.bidIncrement ?? 50000;
   const nextBidAmount = (state?.currentBid || 0) + increment;
-  const canBid = isActive && hasPlayer && !isLeading && purseRemaining >= nextBidAmount && (team?.isBiddingEnabled ?? true);
+  const canBid = isActive && hasPlayer && !isLeading && purseRemaining >= nextBidAmount && (team?.isBiddingEnabled ?? true) && !timerExpired;
 
   async function handleBid() {
     if (!canBid || isBidding) return;
@@ -193,8 +206,12 @@ export default function OwnerPanel() {
       qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
       setBidFeedback("success");
       setTimeout(() => setBidFeedback(null), 1500);
-    } catch {
-      setBidFeedback("error");
+    } catch (err: any) {
+      if (err?.response?.data?.error?.includes("already the highest bidder")) {
+        setBidFeedback("leading");
+      } else {
+        setBidFeedback("error");
+      }
       setTimeout(() => setBidFeedback(null), 1500);
     } finally {
       setIsBidding(false);
@@ -277,178 +294,190 @@ export default function OwnerPanel() {
         {/* Purse Stats */}
         <div className="grid grid-cols-3 gap-3 px-6 pt-5">
           <div className="p-4 rounded-2xl border border-border bg-card/50">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Purse Left</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Purse Left</span>
             </div>
-            <p className="text-xl font-display font-black" style={{ color: teamColor }}>
+            <p className="font-display font-black text-xl" style={{ color: teamColor }}>
               {formatShortIndianRupee(purseRemaining)}
             </p>
           </div>
           <div className="p-4 rounded-2xl border border-border bg-card/50">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Users className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Players</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Trophy className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Spent</span>
             </div>
-            <p className="text-xl font-display font-black text-foreground">
-              {teamPurse?.playersBought || 0}
+            <p className="font-display font-black text-xl text-foreground">
+              {formatShortIndianRupee(teamPurse?.purseUsed ?? (team.purseUsed || 0))}
             </p>
           </div>
           <div className="p-4 rounded-2xl border border-border bg-card/50">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Trophy className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Sold</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Players</span>
             </div>
-            <p className="text-xl font-display font-black text-foreground">
-              {state?.soldPlayersCount || 0}
+            <p className="font-display font-black text-xl text-foreground">
+              {teamPurse?.playersBought ?? 0}
             </p>
           </div>
         </div>
 
-        {/* Current Player Area */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 space-y-5">
+        {/* Timer indicator */}
+        {state?.timerEndsAt && timeLeft !== null && (
+          <div className="px-6 pt-3">
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
+              timeLeft <= 0
+                ? "bg-red-500/20 border border-red-500/30 text-red-400"
+                : timeLeft <= 5
+                ? "bg-orange-500/20 border border-orange-500/30 text-orange-400"
+                : "bg-card/50 border border-border text-muted-foreground"
+            }`}>
+              <Timer className={`w-4 h-4 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
+              {timeLeft <= 0
+                ? "Timer expired — bidding locked"
+                : `Time remaining: ${timeLeft}s`
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Current Player */}
+        <div className="flex-1 flex flex-col px-6 pt-5 pb-6 gap-5">
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <motion.div
                 key={state?.currentPlayer?.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                className="w-full max-w-sm text-center space-y-4"
+                exit={{ opacity: 0, y: -20 }}
+                className="flex items-center gap-4 p-5 rounded-2xl border border-border/60 bg-card/40"
               >
-                {/* Player Photo */}
-                <div
-                  className="w-28 h-32 mx-auto rounded-2xl border-2 overflow-hidden flex items-center justify-center transition-all duration-500"
-                  style={{ borderColor: isLeading ? teamColor : "#333", boxShadow: isLeading ? `0 0 30px ${teamColor}55` : undefined }}
-                >
+                <div className="w-20 h-24 rounded-xl bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
                   {state?.currentPlayer?.photoUrl ? (
                     <img src={state.currentPlayer.photoUrl} alt={state.currentPlayer.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-card flex items-center justify-center">
-                      <User className="w-10 h-10 text-muted-foreground opacity-30" />
-                    </div>
+                    <User className="w-9 h-9 text-muted-foreground" />
                   )}
                 </div>
-
                 <div>
-                  <h2 className="text-3xl font-display font-black">{state?.currentPlayer?.name}</h2>
-                  <p className="text-muted-foreground text-sm capitalize mt-1">
-                    {[state?.currentPlayer?.role, state?.currentPlayer?.city].filter(Boolean).join(" · ")}
+                  <h2 className="font-display font-bold text-2xl leading-none">{state?.currentPlayer?.name}</h2>
+                  {state?.currentPlayer?.role && (
+                    <p className="text-sm text-muted-foreground capitalize mt-1">{state.currentPlayer.role}</p>
+                  )}
+                  {state?.currentPlayer?.city && (
+                    <p className="text-xs text-muted-foreground">{state.currentPlayer.city}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Base: {formatIndianRupee(state?.currentPlayer?.basePrice)}
                   </p>
                 </div>
-
-                {/* Bid Display */}
-                <div className="py-5 px-6 rounded-2xl border border-border bg-card/50 space-y-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Bid</p>
-                    <AnimatePresence mode="wait">
-                      <motion.p
-                        key={state?.currentBid}
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="text-4xl font-display font-black text-primary"
-                      >
-                        {formatIndianRupee(state?.currentBid || 0)}
-                      </motion.p>
-                    </AnimatePresence>
-                    {state?.currentBidTeamName && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Leading: <span className="font-bold text-foreground">{state.currentBidTeamName}</span>
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground border-t border-border pt-3">
-                    Base: {formatIndianRupee(state?.currentPlayer?.basePrice)} · Increment: {formatIndianRupee(increment)}
-                  </div>
-                </div>
-
-                {/* Leading Badge */}
-                <AnimatePresence>
-                  {isLeading && (
-                    <motion.div
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm"
-                      style={{ backgroundColor: `${teamColor}33`, color: teamColor, border: `2px solid ${teamColor}` }}
-                    >
-                      <Trophy className="w-4 h-4" />
-                      YOU ARE LEADING!
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </motion.div>
             ) : (
-              <div className="text-center text-muted-foreground space-y-4">
-                <motion.div animate={{ opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }}>
-                  <Trophy className="w-14 h-14 mx-auto opacity-30" style={{ color: teamColor }} />
-                </motion.div>
-                <p className="text-xl font-semibold">
-                  {state?.status === "completed"
-                    ? "Auction Complete"
-                    : state?.status === "paused"
-                    ? "Auction Paused"
-                    : "Waiting..."}
-                </p>
-                {state?.lastAction && (
-                  <p className="text-sm max-w-xs mx-auto">{state.lastAction}</p>
-                )}
-              </div>
+              <motion.div
+                key="no-player"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-border/50 bg-card/20"
+              >
+                <div className="text-center text-muted-foreground">
+                  <User className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">Waiting for next player...</p>
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
-        </div>
 
-        {/* Big Bid Button */}
-        <div className="px-6 pb-10 pt-2">
-          <motion.button
-            onClick={handleBid}
-            disabled={!canBid || isBidding}
-            whileTap={canBid ? { scale: 0.93 } : {}}
-            className={`w-full py-9 rounded-3xl font-display font-black tracking-wide transition-all duration-150 ${
-              bidFeedback === "success"
-                ? "text-white text-4xl"
-                : bidFeedback === "error"
-                ? "bg-destructive text-white text-3xl"
-                : !canBid
-                ? "bg-border/30 text-muted-foreground text-3xl cursor-not-allowed opacity-50"
-                : "text-black text-4xl"
-            }`}
-            style={canBid && !bidFeedback ? {
-              backgroundColor: teamColor,
-              boxShadow: `0 0 80px ${teamColor}66, 0 20px 50px ${teamColor}44`,
-            } : bidFeedback === "success" ? {
-              backgroundColor: "#22c55e",
-              boxShadow: "0 0 60px rgba(34,197,94,0.5)",
-            } : {}}
-          >
-            {bidFeedback === "success"
-              ? "BID PLACED!"
-              : bidFeedback === "error"
-              ? "BID FAILED"
-              : isBidding
-              ? "BIDDING..."
-              : !canBid && isLeading
-              ? "YOU'RE LEADING"
-              : !canBid && !isActive
-              ? "AUCTION NOT LIVE"
-              : !canBid
-              ? "CANNOT BID"
-              : `BID ${formatShortIndianRupee(nextBidAmount)}`}
-          </motion.button>
-          {canBid && (
-            <p className="text-center text-xs text-muted-foreground mt-3">
-              Purse remaining after bid: {formatShortIndianRupee(purseRemaining - nextBidAmount)}
+          {/* Bid Amount */}
+          <div className="text-center space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {isLeading ? "Your Bid — Leading" : "Current Bid"}
             </p>
-          )}
-          {!canBid && !isLeading && isActive && hasPlayer && (
-            <p className="text-center text-xs text-destructive mt-3">
-              {!team?.isBiddingEnabled
-                ? "Bidding is disabled for your team"
-                : purseRemaining < nextBidAmount
-                ? `Need ${formatShortIndianRupee(nextBidAmount)} but only ${formatShortIndianRupee(purseRemaining)} left`
-                : ""}
-            </p>
-          )}
+            <motion.p
+              key={state?.currentBid}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-6xl font-display font-black"
+              style={{ color: isLeading ? teamColor : "white", textShadow: isLeading ? `0 0 40px ${teamColor}66` : "0 0 30px rgba(255,255,255,0.1)" }}
+            >
+              {formatIndianRupee(state?.currentBid || 0)}
+            </motion.p>
+            {hasPlayer && !isLeading && state?.currentBidTeamName && (
+              <p className="text-xs text-muted-foreground">
+                Leading: <span className="font-semibold text-foreground">{state.currentBidTeamName}</span>
+              </p>
+            )}
+          </div>
+
+          {/* BID BUTTON */}
+          <div className="space-y-3">
+            <AnimatePresence mode="wait">
+              {isLeading ? (
+                <motion.div
+                  key="leading"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-full py-8 rounded-3xl border-4 flex flex-col items-center justify-center gap-3"
+                  style={{ borderColor: `${teamColor}88`, backgroundColor: `${teamColor}15` }}
+                >
+                  <Trophy className="w-12 h-12" style={{ color: teamColor }} />
+                  <div className="text-center">
+                    <p className="font-display font-black text-2xl" style={{ color: teamColor }}>HIGHEST BIDDER</p>
+                    <p className="text-sm text-muted-foreground mt-1">Waiting for other teams...</p>
+                  </div>
+                </motion.div>
+              ) : timerExpired && hasPlayer ? (
+                <motion.div
+                  key="expired"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="w-full py-8 rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-3"
+                >
+                  <AlertTriangle className="w-10 h-10 text-red-400" />
+                  <div className="text-center">
+                    <p className="font-display font-black text-xl text-red-400">BIDDING CLOSED</p>
+                    <p className="text-sm text-muted-foreground mt-1">Timer expired — awaiting operator</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="bid-button"
+                  onClick={handleBid}
+                  disabled={!canBid || isBidding}
+                  whileTap={canBid ? { scale: 0.96 } : {}}
+                  animate={bidFeedback === "success" ? { scale: [1, 1.05, 1] } : {}}
+                  className="w-full py-10 rounded-3xl font-display font-black text-4xl text-black disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  style={{
+                    backgroundColor: canBid ? teamColor : "#374151",
+                    boxShadow: canBid ? `0 0 60px ${teamColor}44, 0 8px 32px rgba(0,0,0,0.5)` : "none",
+                    color: canBid ? "black" : "#6b7280",
+                  }}
+                >
+                  {isBidding ? (
+                    <RefreshCw className="w-10 h-10 animate-spin mx-auto" />
+                  ) : bidFeedback === "success" ? (
+                    "BID PLACED!"
+                  ) : (
+                    <>
+                      BID
+                      <span className="block text-lg font-bold mt-1 opacity-80">
+                        {formatIndianRupee(nextBidAmount)}
+                      </span>
+                    </>
+                  )}
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            {bidFeedback === "error" && (
+              <p className="text-center text-destructive text-sm">Bid failed. Please try again.</p>
+            )}
+
+            {!canBid && !isLeading && !timerExpired && hasPlayer && (
+              <p className="text-center text-xs text-muted-foreground">
+                {!isActive ? "Auction not active" : !team.isBiddingEnabled ? "Bidding disabled for your team" : `Need ${formatShortIndianRupee(nextBidAmount - purseRemaining)} more purse`}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </FullscreenLayout>

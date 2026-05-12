@@ -34,6 +34,7 @@ import type {
   PlayerInput,
   PlayerUpdate,
   ReAuctionInput,
+  SetCategoryFilterBody,
   SetTeamPurseViewBody,
   Team,
   TeamInput,
@@ -3098,6 +3099,93 @@ export const useSyncFortuneWheel = <
   TContext
 > => {
   return useMutation(getSyncFortuneWheelMutationOptions(options));
+};
+
+/**
+ * @summary Set active category filter for next-player selection
+ */
+export const getSetCategoryFilterUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/category-filter`;
+};
+
+export const setCategoryFilter = async (
+  tournamentId: number,
+  setCategoryFilterBody: SetCategoryFilterBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetCategoryFilterUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setCategoryFilterBody),
+  });
+};
+
+export const getSetCategoryFilterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCategoryFilter>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetCategoryFilterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setCategoryFilter>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetCategoryFilterBody> },
+  TContext
+> => {
+  const mutationKey = ["setCategoryFilter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setCategoryFilter>>,
+    { tournamentId: number; data: BodyType<SetCategoryFilterBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setCategoryFilter(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetCategoryFilterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setCategoryFilter>>
+>;
+export type SetCategoryFilterMutationBody = BodyType<SetCategoryFilterBody>;
+export type SetCategoryFilterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set active category filter for next-player selection
+ */
+export const useSetCategoryFilter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCategoryFilter>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetCategoryFilterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setCategoryFilter>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetCategoryFilterBody> },
+  TContext
+> => {
+  return useMutation(getSetCategoryFilterMutationOptions(options));
 };
 
 /**
