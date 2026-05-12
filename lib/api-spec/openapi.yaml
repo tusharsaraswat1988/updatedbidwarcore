@@ -703,6 +703,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/start-timer:
+    post:
+      operationId: startTimer
+      tags: [auction]
+      summary: Start or reset the bid countdown timer
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimerInput"
+      responses:
+        "200":
+          description: Timer started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/bids:
     get:
       operationId: listBids
@@ -1347,6 +1372,15 @@ components:
           type: ["string", "null"]
         role:
           type: ["string", "null"]
+
+    TimerInput:
+      type: object
+      required: [seconds]
+      properties:
+        seconds:
+          type: integer
+          minimum: 5
+          maximum: 300
 
     CategoryBreakdown:
       type: object

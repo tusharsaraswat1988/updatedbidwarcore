@@ -2,7 +2,8 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
-  Settings, Activity, BarChart3, ChevronLeft 
+  Settings, Activity, BarChart3, ChevronLeft,
+  Link2, Shuffle
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
@@ -76,6 +77,14 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
                 <Link href={`/tournament/${tournamentId}/display`} target="_blank" className="flex items-center gap-3 px-3 py-2 mt-2 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
                   <LayoutDashboard className="w-5 h-5" />
                   <span>Open LED Display</span>
+                </Link>
+                <Link href={`/tournament/${tournamentId}/fortune-wheel`} target="_blank" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/fortune-wheel` ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                  <Shuffle className="w-5 h-5" />
+                  <span>Fortune Wheel</span>
+                </Link>
+                <Link href={`/tournament/${tournamentId}/links`} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/links` ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                  <Link2 className="w-5 h-5" />
+                  <span>Share Links</span>
                 </Link>
               </nav>
             </>

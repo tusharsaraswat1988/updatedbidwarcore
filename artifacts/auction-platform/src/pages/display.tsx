@@ -11,7 +11,7 @@ import {
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Calendar } from "lucide-react";
+import { User, Trophy, Calendar, Timer } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function SoldStamp() {
@@ -110,6 +110,19 @@ export default function DisplayView() {
       prevPlayerIdRef.current = null;
     }
   }, [state?.currentPlayer?.id]);
+
+  // Countdown timer
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
+    const update = () => {
+      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
+      setTimeLeft(diff > 0 ? diff : 0);
+    };
+    update();
+    const id = setInterval(update, 250);
+    return () => clearInterval(id);
+  }, [state?.timerEndsAt]);
 
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
@@ -294,6 +307,25 @@ export default function DisplayView() {
                   ) : (
                     <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border/50 text-muted-foreground">
                       <span className="text-lg font-semibold">Waiting for first bid...</span>
+                    </div>
+                  )}
+
+                  {timeLeft !== null && (
+                    <div className={`flex items-center gap-3 ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-muted-foreground"}`}>
+                      <Timer className={`w-6 h-6 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={timeLeft}
+                          initial={{ scale: 1.3, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className={`text-6xl md:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
+                        >
+                          {timeLeft}
+                        </motion.span>
+                      </AnimatePresence>
+                      <span className="text-xl font-bold uppercase tracking-widest">sec</span>
                     </div>
                   )}
 

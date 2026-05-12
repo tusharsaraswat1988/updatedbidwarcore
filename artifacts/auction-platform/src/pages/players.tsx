@@ -35,6 +35,29 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
   const qc = useQueryClient();
   const createPlayer = useCreatePlayer();
   const updatePlayer = useUpdatePlayer();
+  const photoFileRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 400;
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        f("photoUrl", canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }
+
   const [form, setForm] = useState({
     name: player?.name || "",
     city: player?.city || "",
@@ -157,8 +180,22 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
           <Input value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} placeholder="+91 98765 43210" />
         </div>
         <div className="space-y-2">
-          <Label>Photo URL</Label>
-          <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="https://..." />
+          <Label>Player Photo</Label>
+          <div className="flex gap-2 items-start">
+            {form.photoUrl && (
+              <img src={form.photoUrl} alt="Preview" className="w-10 h-10 rounded-lg object-cover border border-border flex-shrink-0" />
+            )}
+            <div className="flex-1 space-y-1.5">
+              <div
+                className="border border-dashed border-border rounded-lg px-3 py-2 text-xs text-center text-muted-foreground cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => photoFileRef.current?.click()}
+              >
+                Click to upload photo
+                <input ref={photoFileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
+              </div>
+              <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="or paste image URL..." className="text-xs h-7" />
+            </div>
+          </div>
         </div>
       </div>
       <div className="space-y-2">
@@ -435,6 +472,7 @@ export default function Players() {
                   <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
                 </DialogHeader>
                 <PlayerForm
+                  key={editing?.id ?? "new"}
                   tournamentId={tournamentId}
                   player={editing}
                   categories={categories || []}

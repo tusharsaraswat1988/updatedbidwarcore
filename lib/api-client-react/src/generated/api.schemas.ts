@@ -395,6 +395,14 @@ export interface TopBidEntry {
   role?: string | null;
 }
 
+export interface TimerInput {
+  /**
+   * @minimum 5
+   * @maximum 300
+   */
+  seconds: number;
+}
+
 export interface CategoryBreakdown {
   categoryId: number;
   categoryName: string;

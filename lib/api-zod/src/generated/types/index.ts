@@ -30,6 +30,7 @@ export * from "./team";
 export * from "./teamInput";
 export * from "./teamPurse";
 export * from "./teamUpdate";
+export * from "./timerInput";
 export * from "./topBidEntry";
 export * from "./tournament";
 export * from "./tournamentInput";

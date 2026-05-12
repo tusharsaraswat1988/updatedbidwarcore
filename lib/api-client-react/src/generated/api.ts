@@ -37,6 +37,7 @@ import type {
   TeamInput,
   TeamPurse,
   TeamUpdate,
+  TimerInput,
   TopBidEntry,
   Tournament,
   TournamentInput,
@@ -2805,6 +2806,93 @@ export const useResetTrialAuction = <
   TContext
 > => {
   return useMutation(getResetTrialAuctionMutationOptions(options));
+};
+
+/**
+ * @summary Start or reset the bid countdown timer
+ */
+export const getStartTimerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/start-timer`;
+};
+
+export const startTimer = async (
+  tournamentId: number,
+  timerInput: TimerInput,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getStartTimerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(timerInput),
+  });
+};
+
+export const getStartTimerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startTimer>>,
+    TError,
+    { tournamentId: number; data: BodyType<TimerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startTimer>>,
+  TError,
+  { tournamentId: number; data: BodyType<TimerInput> },
+  TContext
+> => {
+  const mutationKey = ["startTimer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startTimer>>,
+    { tournamentId: number; data: BodyType<TimerInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return startTimer(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartTimerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startTimer>>
+>;
+export type StartTimerMutationBody = BodyType<TimerInput>;
+export type StartTimerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Start or reset the bid countdown timer
+ */
+export const useStartTimer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startTimer>>,
+    TError,
+    { tournamentId: number; data: BodyType<TimerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startTimer>>,
+  TError,
+  { tournamentId: number; data: BodyType<TimerInput> },
+  TContext
+> => {
+  return useMutation(getStartTimerMutationOptions(options));
 };
 
 /**

@@ -587,6 +587,21 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
+// POST start timer
+router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({ seconds: z.number().int().min(5).max(300) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  await getOrCreateSession(tid);
+  const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
+  await db
+    .update(auctionSessionsTable)
+    .set({ timerEndsAt: endsAt })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  res.json(await broadcastState(tid));
+});
+
 // GET bid history
 router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);

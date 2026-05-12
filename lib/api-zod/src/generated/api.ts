@@ -1091,6 +1091,65 @@ export const ResetTrialAuctionResponse = zod.object({
 });
 
 /**
+ * @summary Start or reset the bid countdown timer
+ */
+export const StartTimerParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const startTimerBodySecondsMin = 5;
+export const startTimerBodySecondsMax = 300;
+
+export const StartTimerBody = zod.object({
+  seconds: zod
+    .number()
+    .min(startTimerBodySecondsMin)
+    .max(startTimerBodySecondsMax),
+});
+
+export const StartTimerResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+});
+
+/**
  * @summary Get bid history for a tournament
  */
 export const ListBidsParams = zod.object({

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
@@ -15,6 +15,7 @@ import {
   useUndoLastAction,
   useReAuctionPlayer,
   useResetTrialAuction,
+  useStartTimer,
   getGetAuctionStateQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
@@ -35,7 +36,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
-  Settings2, RefreshCw,
+  Settings2, RefreshCw, Timer,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -49,6 +50,7 @@ export default function AuctionOperator() {
   const [manualAmount, setManualAmount] = useState("");
   const [reAuctionTab, setReAuctionTab] = useState<"queue" | "sold" | "unsold">("queue");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [timerSecs, setTimerSecs] = useState("30");
 
   useAuctionSocket(tournamentId);
 
@@ -75,6 +77,7 @@ export default function AuctionOperator() {
   const undoAction = useUndoLastAction();
   const reAuction = useReAuctionPlayer();
   const resetTrial = useResetTrialAuction();
+  const startTimerMut = useStartTimer();
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
@@ -132,6 +135,25 @@ export default function AuctionOperator() {
     setShowResetConfirm(false);
     invalidate();
   }
+
+  async function handleStartTimer() {
+    const secs = parseInt(timerSecs) || 30;
+    await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
+    invalidate();
+  }
+
+  // Client-side countdown from server timerEndsAt
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
+    const update = () => {
+      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
+      setTimeLeft(diff > 0 ? diff : 0);
+    };
+    update();
+    const id = setInterval(update, 250);
+    return () => clearInterval(id);
+  }, [state?.timerEndsAt]);
 
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
@@ -302,7 +324,39 @@ export default function AuctionOperator() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-3 mt-6 flex-wrap">
+                {/* Timer */}
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
+                  <Timer className={`w-4 h-4 flex-shrink-0 ${timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : "text-muted-foreground"}`} />
+                  {timeLeft !== null ? (
+                    <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-foreground"}`}>
+                      {timeLeft}s
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No timer running</span>
+                  )}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Input
+                      type="number"
+                      value={timerSecs}
+                      onChange={e => setTimerSecs(e.target.value)}
+                      className="w-16 h-8 text-center text-sm"
+                      min={5}
+                      max={300}
+                    />
+                    <span className="text-xs text-muted-foreground">sec</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+                      onClick={handleStartTimer}
+                      disabled={!hasPlayer || startTimerMut.isPending}
+                    >
+                      <Timer className="w-3.5 h-3.5" /> Start
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4 flex-wrap">
                   <Button
                     size="lg"
                     className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold text-lg h-14 gap-2 shadow-[0_0_20px_rgba(34,197,94,0.4)]"
