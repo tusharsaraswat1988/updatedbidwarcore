@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, Shuffle, LogOut, ShieldCheck
+  Link2, Shuffle, LogOut
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -56,10 +56,6 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
             <Link href="/" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               <LayoutDashboard className="w-5 h-5" />
               <span className="font-medium">All Tournaments</span>
-            </Link>
-            <Link href="/admin" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/admin' ? 'bg-amber-500/10 text-amber-400' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-              <ShieldCheck className="w-5 h-5" />
-              <span className="font-medium">Super Admin</span>
             </Link>
           </nav>
 
