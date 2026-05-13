@@ -329,8 +329,8 @@ function DetailPanel({
 
       {/* Action bar */}
       <div className="px-4 py-2.5 border-b border-border/40 flex items-center gap-2 flex-wrap flex-shrink-0 bg-muted/10">
-        {/* License status buttons */}
-        {t.licenseStatus !== "trial" && (
+        {/* License status buttons (master admin only) */}
+        {isMaster && t.licenseStatus !== "trial" && (
           <Button
             size="sm" variant="outline"
             className="h-7 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
@@ -341,7 +341,7 @@ function DetailPanel({
             Set Trial
           </Button>
         )}
-        {t.licenseStatus !== "live" && (
+        {isMaster && t.licenseStatus !== "live" && (
           <Button
             size="sm" variant="outline"
             className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
@@ -352,7 +352,7 @@ function DetailPanel({
             Set Live
           </Button>
         )}
-        {t.licenseStatus !== "completed" && (
+        {isMaster && t.licenseStatus !== "completed" && (
           <Button
             size="sm" variant="outline"
             className="h-7 gap-1.5 text-xs border-blue-500/40 text-blue-400 hover:bg-blue-500/10"

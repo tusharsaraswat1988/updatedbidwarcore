@@ -912,10 +912,15 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
     return;
   }
   const tournamentId = Number(req.params.id);
+  if (isNaN(tournamentId)) { res.status(400).json({ error: "Invalid tournament ID" }); return; }
+
   const body = z.object({
     status: z.enum(["trial", "live", "completed"]),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Status must be trial, live, or completed" }); return; }
+
+  const existing = await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  if (existing.length === 0) { res.status(404).json({ error: "Tournament not found" }); return; }
 
   await db.update(tournamentsTable)
     .set({
