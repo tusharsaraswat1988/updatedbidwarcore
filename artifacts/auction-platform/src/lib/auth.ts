@@ -104,6 +104,23 @@ export async function createAdminTournament(data: {
   } catch { return { success: false, error: "Network error" }; }
 }
 
+export async function resetTournamentAsAdmin(
+  tournamentId: number,
+  password: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/tournaments/${tournamentId}/auction/reset-trial`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      return { success: false, error: d.error || "Reset failed" };
+    }
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
 export async function deleteAdminTournament(tournamentId: number): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}`, { method: "DELETE" });
@@ -198,7 +215,9 @@ export type AdminTournamentDetail = {
     licenseGrantedAt: string | null; adminLockedAt: string | null;
     basePurse: number; minBid: number; timerSeconds: number;
     bidTimerSeconds: number; playerSelectionMode: string;
-    bidTiers: string | null; hasPassword: boolean; createdAt: string;
+    bidTiers: string | null; hasPassword: boolean;
+    resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
+    createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
   players: Array<{ id: number; name: string; role: string | null; status: string; basePrice: number; soldPrice: number | null; teamId: number | null; categoryId: number | null }>;

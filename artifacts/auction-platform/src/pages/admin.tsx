@@ -4,6 +4,7 @@ import {
   listAdminTournaments, lockTournament,
   unlockTournament, fetchAdminTournamentDetail, updateAdminTournament,
   createAdminTournament, deleteAdminTournament, setOrganizerPassword,
+  resetTournamentAsAdmin,
   setTournamentLicenseStatus, linkOrganizerToTournament,
   listAdminOrganizers, updateAdminOrganizer, deleteAdminOrganizer,
   AdminTournamentRow, AdminTournamentDetail, AdminOrganizerRow,
@@ -209,6 +210,10 @@ function DetailPanel({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [settingPw, setSettingPw] = useState(false);
@@ -428,10 +433,24 @@ function DetailPanel({
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)}>Cancel</Button>
           </>
         )}
+        {/* Reset Auction (master admin only) */}
+        {isMaster && (
+          <Button
+            size="sm" variant="outline"
+            className="h-7 gap-1.5 text-xs border-red-500/40 text-red-400 hover:bg-red-500/10 ml-auto"
+            onClick={() => { setResetPassword(""); setResetError(null); setConfirmReset(true); }}
+            title={`Reset auction data (reset count: ${t.resetCount ?? 0})`}
+          >
+            <RefreshCw className="w-3 h-3" /> Reset Auction
+            {(t.resetCount ?? 0) > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-red-500/20 text-[10px] font-semibold">{t.resetCount}×</span>
+            )}
+          </Button>
+        )}
         {/* Delete */}
         <Button
           size="sm" variant="ghost"
-          className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10 ml-auto"
+          className={`h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10 ${isMaster ? "" : "ml-auto"}`}
           onClick={() => setConfirmDelete(true)}
         >
           <Trash2 className="w-3 h-3" /> Delete
@@ -768,6 +787,73 @@ function DetailPanel({
           </TabsContent>
         </ScrollArea>
       </Tabs>
+
+      {/* Confirm reset (super admin) */}
+      <AnimatePresence>
+        {confirmReset && (
+          <Dialog open onOpenChange={() => setConfirmReset(false)}>
+            <DialogContent className="dark max-w-md border-red-500/40">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-400">
+                  <RefreshCw className="w-5 h-5" /> Reset Auction Data
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-red-300">The following will be permanently erased:</p>
+                  <ul className="text-xs text-red-200/80 space-y-1 list-disc list-inside">
+                    <li>Every sold / unsold result — all players reset to "Available"</li>
+                    <li>All bid records for this tournament</li>
+                    <li>All purse usage for every team (back to full purse)</li>
+                  </ul>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Retained players and reserved purse amounts will <strong className="text-foreground">not</strong> be affected.
+                  {(t.resetCount ?? 0) > 0 && (
+                    <> This tournament has already been reset <strong className="text-foreground">{t.resetCount}</strong> time(s).</>
+                  )}
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Super admin password</Label>
+                  <Input
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => { setResetPassword(e.target.value); setResetError(null); }}
+                    placeholder="Confirm with super admin password"
+                    autoComplete="current-password"
+                  />
+                </div>
+                {resetError && <p className="text-xs text-red-400">{resetError}</p>}
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button>
+                <Button
+                  className="bg-red-700 hover:bg-red-600 text-white"
+                  disabled={resetting || !resetPassword.trim()}
+                  onClick={async () => {
+                    setResetting(true);
+                    setResetError(null);
+                    const r = await resetTournamentAsAdmin(tournamentId, resetPassword);
+                    setResetting(false);
+                    if (r.success) {
+                      setConfirmReset(false);
+                      setResetPassword("");
+                      flash("Auction data reset", true);
+                      load();
+                      onRefresh();
+                    } else {
+                      setResetError(r.error || "Reset failed");
+                    }
+                  }}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${resetting ? "animate-spin" : ""}`} />
+                  Yes, reset everything
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </AnimatePresence>
 
       {/* Confirm delete */}
       <AnimatePresence>

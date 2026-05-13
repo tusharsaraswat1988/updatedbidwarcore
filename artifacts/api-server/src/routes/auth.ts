@@ -378,6 +378,9 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       playerSelectionMode: tournament.playerSelectionMode,
       bidTiers: tournament.bidTiers,
       hasPassword: !!tournament.organizerPassword,
+      resetCount: tournament.resetCount ?? 0,
+      lastResetAt: tournament.lastResetAt ? tournament.lastResetAt.toISOString() : null,
+      lastResetBy: tournament.lastResetBy ?? null,
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
