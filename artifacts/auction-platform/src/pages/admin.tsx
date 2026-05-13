@@ -4,7 +4,7 @@ import {
   listAdminTournaments, lockTournament,
   unlockTournament, fetchAdminTournamentDetail, updateAdminTournament,
   createAdminTournament, deleteAdminTournament, setOrganizerPassword,
-  setTournamentLicenseStatus,
+  setTournamentLicenseStatus, linkOrganizerToTournament,
   listAdminOrganizers, updateAdminOrganizer, deleteAdminOrganizer,
   AdminTournamentRow, AdminTournamentDetail, AdminOrganizerRow,
 } from "@/lib/auth";
@@ -212,11 +212,15 @@ function DetailPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newPw, setNewPw] = useState("");
   const [settingPw, setSettingPw] = useState(false);
+  const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
+  const [linking, setLinking] = useState(false);
+  const [selectedLinkId, setSelectedLinkId] = useState<string>("__none__");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const d = await fetchAdminTournamentDetail(tournamentId);
+    const [d, orgs] = await Promise.all([fetchAdminTournamentDetail(tournamentId), listAdminOrganizers()]);
     setData(d);
+    setOrganizers(orgs);
     if (d) {
       setEditForm({
         name: d.tournament.name,
@@ -233,6 +237,7 @@ function DetailPanel({
         bidTimerSeconds: d.tournament.bidTimerSeconds,
         playerSelectionMode: d.tournament.playerSelectionMode,
       });
+      setSelectedLinkId(d.tournament.organizerId !== null ? String(d.tournament.organizerId) : "__none__");
     }
     setLoading(false);
   }, [tournamentId]);
@@ -263,8 +268,29 @@ function DetailPanel({
     if (ef.playerSelectionMode) payload.playerSelectionMode = ef.playerSelectionMode as string;
     const r = await updateAdminTournament(tournamentId, payload as Parameters<typeof updateAdminTournament>[1]);
     setSaving(false);
-    if (r.success) { flash("Saved successfully"); setEditing(false); await load(); onRefresh(); }
-    else flash(r.error || "Save failed", false);
+    if (r.success) {
+      if (r.linkedOrganizerId) {
+        flash(`Saved — linked to organizer account: ${r.linkedOrganizerName ?? `#${r.linkedOrganizerId}`}`);
+      } else {
+        flash("Saved successfully");
+      }
+      setEditing(false);
+      await load();
+      onRefresh();
+    } else flash(r.error || "Save failed", false);
+  }
+
+  async function handleLinkOrganizer() {
+    setLinking(true);
+    const orgId = selectedLinkId === "__none__" ? null : parseInt(selectedLinkId);
+    const r = await linkOrganizerToTournament(tournamentId, orgId);
+    setLinking(false);
+    if (r.success) {
+      if (orgId !== null) flash(`Tournament linked to organizer: ${r.linkedOrganizerName ?? `#${orgId}`}`);
+      else flash("Organizer account unlinked");
+      await load();
+      onRefresh();
+    } else flash(r.error || "Link failed", false);
   }
 
   async function doAction(label: string, fn: () => Promise<{ success: boolean; error?: string }>) {
@@ -577,6 +603,50 @@ function DetailPanel({
                         <span className="font-medium text-xs truncate">{v}</span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Linked organizer account */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><UserCheck className="w-3.5 h-3.5"/>Linked Organizer Account</p>
+                  {t.organizerId ? (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]">
+                        <Check className="w-3 h-3" /> Linked
+                      </Badge>
+                      <span className="text-xs text-foreground">
+                        {organizers.find(o => o.id === t.organizerId)?.name ?? `Account #${t.organizerId}`}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {organizers.find(o => o.id === t.organizerId)?.mobile ?? ""}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 gap-1 text-[10px]">
+                        <AlertTriangle className="w-3 h-3" /> Unlinked
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">No organizer account linked</span>
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-center">
+                    <Select value={selectedLinkId} onValueChange={setSelectedLinkId}>
+                      <SelectTrigger className="h-8 text-sm flex-1">
+                        <SelectValue placeholder="Select organizer account..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None (unlink)</SelectItem>
+                        {organizers.map(o => (
+                          <SelectItem key={o.id} value={String(o.id)}>
+                            {o.name}{o.mobile ? ` · ${o.mobile}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleLinkOrganizer} disabled={linking}>
+                      {linking ? <RefreshCw className="w-3 h-3 animate-spin" /> : <UserCheck className="w-3 h-3" />}
+                      {selectedLinkId === "__none__" ? "Unlink" : "Link"}
+                    </Button>
                   </div>
                 </div>
 
@@ -1250,6 +1320,10 @@ export default function AdminDashboard() {
                             <StatusBadge status={t.status} />
                             <LicenseBadge status={t.licenseStatus} />
                             {t.adminLocked && <LockBadge locked />}
+                            {t.organizerId
+                              ? <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-0.5 text-[9px] h-4 px-1"><UserCheck className="w-2.5 h-2.5"/>Linked</Badge>
+                              : <Badge className="bg-muted/20 text-muted-foreground border-border/40 gap-0.5 text-[9px] h-4 px-1">Unlinked</Badge>
+                            }
                           </div>
                           {t.organizerName && (
                             <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">

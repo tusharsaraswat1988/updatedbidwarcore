@@ -460,9 +460,43 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
+
+  // Auto-link organizer account by mobile or email when those fields are set
+  let autoLinkedOrganizer: { id: number; name: string } | null = null;
+  if (d.organizerId === undefined) {
+    if (d.organizerMobile !== undefined && d.organizerMobile.trim()) {
+      const rows = await db.select().from(organizersTable).where(eq(organizersTable.mobile, d.organizerMobile.trim()));
+      if (rows[0]) { updates.organizerId = rows[0].id; autoLinkedOrganizer = { id: rows[0].id, name: rows[0].name }; }
+    } else if (d.organizerEmail !== undefined && d.organizerEmail.trim()) {
+      const rows = await db.select().from(organizersTable).where(eq(organizersTable.email, d.organizerEmail.trim()));
+      if (rows[0]) { updates.organizerId = rows[0].id; autoLinkedOrganizer = { id: rows[0].id, name: rows[0].name }; }
+    }
+  }
+
   const [tournament] = await db.update(tournamentsTable).set(updates).where(eq(tournamentsTable.id, tid)).returning();
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ success: true, id: tournament.id });
+  res.json({ success: true, id: tournament.id, linkedOrganizerId: autoLinkedOrganizer?.id ?? null, linkedOrganizerName: autoLinkedOrganizer?.name ?? null });
+});
+
+// ─── Admin: Explicitly link/unlink organizer to tournament ────────────────────
+
+router.post("/auth/admin/tournaments/:tournamentId/link-organizer", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({ organizerId: z.number().int().nullable() }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const [tournament] = await db.update(tournamentsTable)
+    .set({ organizerId: body.data.organizerId })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  let linkedOrganizer: { id: number; name: string } | null = null;
+  if (body.data.organizerId !== null) {
+    const rows = await db.select().from(organizersTable).where(eq(organizersTable.id, body.data.organizerId));
+    if (rows[0]) linkedOrganizer = { id: rows[0].id, name: rows[0].name };
+  }
+  res.json({ success: true, id: tournament.id, linkedOrganizerId: linkedOrganizer?.id ?? null, linkedOrganizerName: linkedOrganizer?.name ?? null });
 });
 
 // ─── Admin: List all organizer accounts ──────────────────────────────────────

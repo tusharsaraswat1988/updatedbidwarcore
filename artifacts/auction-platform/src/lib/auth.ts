@@ -75,6 +75,7 @@ export async function logoutAdmin(): Promise<void> {
 export type AdminTournamentRow = {
   id: number; name: string; sport: string; status: string;
   licenseStatus: string; adminLocked: boolean;
+  organizerId: number | null;
   organizerName: string | null; organizerMobile: string | null;
   organizerEmail: string | null; hasPassword: boolean; createdAt: string;
 };
@@ -120,7 +121,7 @@ export async function updateAdminTournament(
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
   }>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}`, {
       method: "PATCH",
@@ -128,7 +129,22 @@ export async function updateAdminTournament(
     });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Update failed" };
-    return { success: true };
+    return { success: true, linkedOrganizerId: d.linkedOrganizerId ?? null, linkedOrganizerName: d.linkedOrganizerName ?? null };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function linkOrganizerToTournament(
+  tournamentId: number,
+  organizerId: number | null
+): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/link-organizer`, {
+      method: "POST",
+      body: JSON.stringify({ organizerId }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Link failed" };
+    return { success: true, linkedOrganizerId: d.linkedOrganizerId ?? null, linkedOrganizerName: d.linkedOrganizerName ?? null };
   } catch { return { success: false, error: "Network error" }; }
 }
 
@@ -175,7 +191,8 @@ export async function unlockTournament(tournamentId: number): Promise<{ success:
 export type AdminTournamentDetail = {
   tournament: {
     id: number; name: string; sport: string; venue: string | null;
-    auctionDate: string | null; organizerName: string | null;
+    auctionDate: string | null; organizerId: number | null;
+    organizerName: string | null;
     organizerMobile: string | null; organizerEmail: string | null;
     status: string; licenseStatus: string; adminLocked: boolean;
     licenseGrantedAt: string | null; adminLockedAt: string | null;
