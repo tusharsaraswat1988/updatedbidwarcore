@@ -214,6 +214,7 @@ async function buildAuctionState(tournamentId: number) {
     wheelItems,
     wheelWinner: session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
+    displayOverlay: session.displayOverlay,
     activeCategoryIds,
     playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
     licenseStatus,
@@ -955,16 +956,20 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
-// POST toggle team purse view
-router.post("/tournaments/:tournamentId/auction/team-purse-view", async (req, res) => {
+// POST set LED display overlay mode (off | team | player | top5)
+router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const body = z.object({ active: z.boolean() }).safeParse(req.body);
+  const body = z.object({ mode: z.enum(["off", "team", "player", "top5"]) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
+  const overlay = body.data.mode === "off" ? null : body.data.mode;
   await db
     .update(auctionSessionsTable)
-    .set({ teamPurseViewActive: body.data.active })
+    .set({
+      displayOverlay: overlay,
+      teamPurseViewActive: overlay !== null,
+    })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });

@@ -1,0 +1,208 @@
+## SHOW PURSE TAB – COMPLETE REDESIGN REQUIRED
+
+The current “Show Purse” screen UI is not structured properly for live auction presentation.
+
+Need to completely redesign this feature into a professional live-auction information system similar to IPL auction style screens.
+
+Instead of a single purse display layout, create 3 toggle modes inside Operator Panel.
+
+---
+
+# Required Feature:
+
+Add 3 toggle buttons in Operator Panel:
+
+1. TEAM VIEW
+2. PLAYER VIEW
+3. TOP 5 BUYS
+
+Operator can switch instantly between these modes during live auction.
+
+All views must:
+
+* Update in real-time
+* Be LED screen friendly
+* Be responsive
+* Have animated transitions
+* Work smoothly in fullscreen broadcast mode
+
+---
+
+# TOGGLE 1 – TEAM VIEW
+
+Purpose:
+Show overall team-wise auction status.
+
+Reference Style:
+IPL Auction purse status screens.
+
+---
+
+## TEAM VIEW Must Show:
+
+For EACH team:
+
+* Team Logo
+* Team Name
+* Owner Name
+* Total Purse
+* Remaining Purse
+* Total Players Bought
+* Remaining Slots / Due to Buy
+* Overseas Slots (optional future-ready)
+* Purse Usage %
+* Team Color Theme
+
+---
+
+## UI Requirements:
+
+* Professional table/card hybrid layout
+* Dark premium sports-auction theme
+* Smooth animated updates when purse changes
+* Highlight team when they place a bid
+* Responsive for LED screens and TVs
+* Compact but readable from distance
+
+---
+
+# TOGGLE 2 – PLAYER VIEW
+
+Purpose:
+Show player-wise auction information.
+
+This should act like a live auction database screen.
+
+---
+
+## PLAYER VIEW Must Include:
+
+For each player:
+
+* Player Photo
+* Player Name
+* Category
+* Role
+* Base Price
+* Sold Price
+* Sold To Team
+* Status:
+
+  * Sold
+  * Unsold
+  * Remaining
+* Availability Status
+* Auction Sequence Number
+
+---
+
+## FILTERS REQUIRED:
+
+Operator should be able to filter by:
+
+* Category wise
+* Team wise
+* Sold players
+* Unsold players
+* Remaining players
+* Availability wise
+
+---
+
+## UI Requirements:
+
+* Grid or modern table layout
+* Smooth animations
+* Real-time updates after every sale
+* Easy readability for audience
+* Responsive on LED and fullscreen displays
+
+---
+
+# TOGGLE 3 – TOP 5 BUYS
+
+Purpose:
+Show top 5 highest purchases till current point of auction.
+
+Reference:
+IPL “Top 5 Buys” graphics.
+
+---
+
+## TOP 5 BUYS Must Show:
+
+For each player:
+
+* Player Photo
+* Player Name
+* Team Logo
+* Team Name
+* Sold Price
+* Rank (#1 to #5)
+
+---
+
+## UI Requirements:
+
+* Unique premium broadcast-style UI
+* Animated ranking transitions
+* Auto-update whenever a new top purchase happens
+* Large readable pricing display
+* Sports broadcast graphics feel
+
+---
+
+# IMPORTANT REAL-TIME LOGIC
+
+All 3 modes must:
+
+* Update instantly after every bid/sale
+* Sync across:
+
+  * Operator Panel
+  * LED Display
+  * Viewer Screen
+  * Broadcast Screens
+
+Use:
+
+* WebSocket / Socket.IO real-time synchronization
+
+Avoid:
+
+* Manual refresh
+* Delayed rendering
+* Polling-based updates
+
+---
+
+# OPERATOR FLOW
+
+Inside Operator Panel:
+
+* “Show Purse” button opens display controls
+* Operator can switch between:
+
+  * Team View
+  * Player View
+  * Top 5 Buys
+
+Switching should happen instantly on all connected display screens.
+
+---
+
+# DESIGN DIRECTION
+
+Need overall style similar to:
+
+* IPL Auction Broadcast Graphics
+* Sports TV Graphics
+* Professional Live Auction Displays
+
+Focus on:
+
+* Visibility from distance
+* Clean layout
+* Dynamic animations
+* Premium sports-event feel
+* Fast readability during live auction

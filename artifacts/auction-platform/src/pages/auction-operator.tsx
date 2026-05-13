@@ -18,7 +18,7 @@ import {
   useReAuctionAllUnsold,
   useResetTrialAuction,
   useStartTimer,
-  useSetTeamPurseView,
+  useSetDisplayOverlay,
   useSetCategoryFilter,
   useDeferPlayer,
   getGetAuctionStateQueryKey,
@@ -43,7 +43,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, RefreshCw, Timer, LayoutGrid, Tag, X, Filter, Search,
-  Hourglass, Monitor, Users, ExternalLink,
+  Hourglass, Monitor, Users, ExternalLink, Crown, ListOrdered,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -93,7 +93,7 @@ export default function AuctionOperator() {
   const reAuctionAllUnsoldMut = useReAuctionAllUnsold();
   const resetTrial = useResetTrialAuction();
   const startTimerMut = useStartTimer();
-  const setTeamPurseView = useSetTeamPurseView();
+  const setDisplayOverlay = useSetDisplayOverlay();
   const setCategoryFilter = useSetCategoryFilter();
   const deferPlayerMut = useDeferPlayer();
 
@@ -316,20 +316,52 @@ export default function AuctionOperator() {
             <Button variant="ghost" size="icon" onClick={handleUndo} disabled={undoAction.isPending} title="Undo last action">
               <Undo2 className="w-5 h-5" />
             </Button>
-            <Button
-              variant={state?.teamPurseViewActive ? "default" : "outline"}
-              size="sm"
-              className={`gap-2 ${state?.teamPurseViewActive ? "bg-primary text-black shadow-[0_0_15px_rgba(234,179,8,0.4)]" : "border-border text-muted-foreground hover:text-foreground"}`}
-              title="Show/hide team purse view on LED"
-              onClick={async () => {
-                await setTeamPurseView.mutateAsync({ tournamentId, data: { active: !state?.teamPurseViewActive } });
-                invalidate();
-              }}
-              disabled={setTeamPurseView.isPending}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              {state?.teamPurseViewActive ? "Hide Purses" : "Show Purses"}
-            </Button>
+            {/* LED Display Overlay Mode Selector */}
+            <div className="flex items-center gap-1 px-1 py-1 rounded-lg border border-border bg-card/50">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">LED</span>
+              {([
+                { mode: "team" as const, label: "Team", icon: LayoutGrid, color: "rgba(234,179,8,0.4)", bg: "bg-primary text-black" },
+                { mode: "player" as const, label: "Player", icon: Users, color: "rgba(59,130,246,0.4)", bg: "bg-blue-600 text-white" },
+                { mode: "top5" as const, label: "Top 5", icon: Crown, color: "rgba(168,85,247,0.4)", bg: "bg-purple-600 text-white" },
+              ]).map(({ mode, label, icon: Icon, color, bg }) => {
+                const active = state?.displayOverlay === mode;
+                return (
+                  <Button
+                    key={mode}
+                    variant={active ? "default" : "ghost"}
+                    size="sm"
+                    className={`gap-1.5 h-8 px-2.5 ${active ? `${bg} shadow-[0_0_15px_${color}]` : "text-muted-foreground hover:text-foreground"}`}
+                    title={`${active ? "Hide" : "Show"} ${label} View on LED`}
+                    onClick={async () => {
+                      await setDisplayOverlay.mutateAsync({
+                        tournamentId,
+                        data: { mode: active ? "off" : mode },
+                      });
+                      invalidate();
+                    }}
+                    disabled={setDisplayOverlay.isPending}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </Button>
+                );
+              })}
+              {state?.displayOverlay && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                  title="Hide overlay"
+                  onClick={async () => {
+                    await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+                    invalidate();
+                  }}
+                  disabled={setDisplayOverlay.isPending}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
             {/* Category Filter Button */}
             <Button
               variant={activeCategoryIds && activeCategoryIds.length > 0 ? "default" : "outline"}

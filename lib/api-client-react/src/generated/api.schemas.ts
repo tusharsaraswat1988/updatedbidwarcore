@@ -414,6 +414,20 @@ export const AuctionStateTimerType = {
   bid: "bid",
 } as const;
 
+/**
+ * Active LED overlay mode. null/absent means no overlay.
+ * @nullable
+ */
+export type AuctionStateDisplayOverlay =
+  | (typeof AuctionStateDisplayOverlay)[keyof typeof AuctionStateDisplayOverlay]
+  | null;
+
+export const AuctionStateDisplayOverlay = {
+  team: "team",
+  player: "player",
+  top5: "top5",
+} as const;
+
 export type AuctionStatePlayerSelectionMode =
   (typeof AuctionStatePlayerSelectionMode)[keyof typeof AuctionStatePlayerSelectionMode];
 
@@ -469,6 +483,11 @@ export interface AuctionState {
   /** @nullable */
   wheelWinner?: string | null;
   teamPurseViewActive?: boolean;
+  /**
+   * Active LED overlay mode. null/absent means no overlay.
+   * @nullable
+   */
+  displayOverlay?: AuctionStateDisplayOverlay;
   activeCategoryIds?: number[] | null;
   playerSelectionMode?: AuctionStatePlayerSelectionMode;
   licenseStatus?: AuctionStateLicenseStatus;
@@ -495,6 +514,7 @@ export interface TeamPurse {
   teamId: number;
   teamName: string;
   shortCode: string;
+  ownerName: string;
   /** @nullable */
   color: string | null;
   /** @nullable */
@@ -582,8 +602,18 @@ export interface CategoryBreakdown {
   totalSpent?: number;
 }
 
-export type SetTeamPurseViewBody = {
-  active: boolean;
+export type SetDisplayOverlayBodyMode =
+  (typeof SetDisplayOverlayBodyMode)[keyof typeof SetDisplayOverlayBodyMode];
+
+export const SetDisplayOverlayBodyMode = {
+  off: "off",
+  team: "team",
+  player: "player",
+  top5: "top5",
+} as const;
+
+export type SetDisplayOverlayBody = {
+  mode: SetDisplayOverlayBodyMode;
 };
 
 export type VerifyOwnerAccessBody = {

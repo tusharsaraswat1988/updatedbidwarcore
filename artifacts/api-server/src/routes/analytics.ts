@@ -90,6 +90,7 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       teamId: team.id,
       teamName: team.name,
       shortCode: team.shortCode,
+      ownerName: team.ownerName,
       color: team.color,
       logoUrl: team.logoUrl,
       purse: team.purse,

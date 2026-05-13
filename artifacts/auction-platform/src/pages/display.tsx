@@ -4,14 +4,18 @@ import {
   useGetAuctionState,
   useGetTeamPurses,
   useGetTournament,
+  useListPlayers,
+  useListCategories,
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getGetTournamentQueryKey,
+  getListPlayersQueryKey,
+  getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Calendar, Timer, Dices, Wallet } from "lucide-react";
+import { User, Trophy, Calendar, Timer, Dices, Wallet, Crown, Users as UsersIcon } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 type WheelItem = { label: string; color: string };
@@ -290,85 +294,408 @@ function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
   );
 }
 
-/** Full-screen overlay showing all team purse statuses */
-function TeamPurseOverlay({ purses, currentBidTeamId }: {
-  purses: Array<{ teamId: number; teamName: string; shortCode: string; color: string | null | undefined; logoUrl?: string | null; purse: number; purseUsed: number; purseRemaining: number; playersBought: number }>;
+type PurseRow = {
+  teamId: number; teamName: string; shortCode: string; ownerName?: string;
+  color: string | null | undefined; logoUrl?: string | null;
+  purse: number; purseUsed: number; purseRemaining: number; playersBought: number;
+};
+
+type PlayerLite = {
+  id: number; name: string; city?: string | null; role?: string | null;
+  photoUrl?: string | null; basePrice: number; soldPrice?: number | null;
+  status: string; teamId?: number | null; categoryId?: number | null;
+};
+
+type CategoryLite = { id: number; name: string };
+
+/** Overlay 1 — IPL-style TEAM PURSE STATUS table */
+function TeamViewOverlay({ purses, currentBidTeamId, tournamentName }: {
+  purses: PurseRow[];
   currentBidTeamId?: number | null;
+  tournamentName?: string;
 }) {
   return (
-    <div className="absolute inset-0 z-40 flex flex-col select-none"
-      style={{ background: "radial-gradient(ellipse at center, #0f172a 0%, #09090b 100%)" }}>
-      <div className="flex items-center justify-center gap-4 pt-8 pb-6">
-        <Wallet className="w-8 h-8 text-primary" />
-        <h1 className="font-display font-black text-4xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.4)" }}>
-          TEAM PURSE STATUS
-        </h1>
-        <Wallet className="w-8 h-8 text-primary" />
+    <div className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
+      style={{
+        background: "radial-gradient(ellipse at top, #1e1b4b 0%, #020617 60%, #000 100%)",
+      }}>
+      {/* subtle pattern */}
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+
+      <div className="relative flex items-center justify-center gap-4 pt-6 pb-4 flex-shrink-0">
+        <Wallet className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+        <div className="text-center">
+          <h1 className="font-display font-black text-3xl md:text-5xl lg:text-6xl tracking-tight text-primary"
+            style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>
+            TEAM PURSE STATUS
+          </h1>
+          {tournamentName && (
+            <p className="text-xs md:text-sm font-bold uppercase tracking-[0.3em] text-white/60 mt-1">{tournamentName}</p>
+          )}
+        </div>
+        <Wallet className="w-8 h-8 md:w-10 md:h-10 text-primary" />
       </div>
-      <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-6 pb-8 overflow-y-auto">
-        {purses.map(team => {
-          const pctUsed = Math.min(100, team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0);
-          const isLeading = currentBidTeamId === team.teamId;
-          const color = team.color || "#F59E0B";
-          return (
-            <motion.div
-              key={team.teamId}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: isLeading ? 1.03 : 1 }}
-              transition={{ type: "spring", duration: 0.4 }}
-              className="flex flex-col rounded-3xl border-2 p-5 gap-3 relative overflow-hidden"
-              style={{
-                borderColor: isLeading ? color : `${color}44`,
-                backgroundColor: `${color}10`,
-                boxShadow: isLeading ? `0 0 40px ${color}55, inset 0 0 30px ${color}15` : `0 0 10px ${color}18`,
-              }}
-            >
-              {isLeading && (
-                <div className="absolute inset-0 animate-pulse" style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}20 0%, transparent 70%)` }} />
-              )}
-              <div className="flex items-center gap-3 relative">
-                {team.logoUrl ? (
-                  <img src={team.logoUrl} alt={team.teamName} className="w-12 h-12 rounded-xl object-contain" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }} />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-lg"
-                    style={{ backgroundColor: `${color}30`, color, border: `2px solid ${color}55` }}>
-                    {team.shortCode}
+
+      <div className="relative flex-1 px-4 md:px-8 pb-6 overflow-hidden">
+        <div className="h-full rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm flex flex-col">
+          {/* Table head */}
+          <div className="grid grid-cols-12 gap-2 px-4 md:px-6 py-3 border-b border-white/15 text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/60">
+            <div className="col-span-4 md:col-span-3">Team</div>
+            <div className="col-span-3 md:col-span-2 hidden md:block">Owner</div>
+            <div className="col-span-2 text-right">Total</div>
+            <div className="col-span-3 md:col-span-2 text-right">Remaining</div>
+            <div className="col-span-2 md:col-span-1 text-center">Bought</div>
+            <div className="col-span-1 md:col-span-2 text-right hidden md:block">Used</div>
+          </div>
+          {/* Rows */}
+          <div className="flex-1 overflow-y-auto">
+            {purses.map((team, i) => {
+              const pctUsed = Math.min(100, team.purse > 0 ? (team.purseUsed / team.purse) * 100 : 0);
+              const isLeading = currentBidTeamId === team.teamId;
+              const color = team.color || "#F59E0B";
+              return (
+                <motion.div
+                  key={team.teamId}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.04 }}
+                  className="grid grid-cols-12 gap-2 px-4 md:px-6 py-3 md:py-4 items-center border-b border-white/5 relative"
+                  style={{
+                    backgroundColor: isLeading ? `${color}22` : i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+                    boxShadow: isLeading ? `inset 4px 0 0 ${color}, inset 0 0 30px ${color}22` : undefined,
+                  }}
+                >
+                  {/* Team */}
+                  <div className="col-span-4 md:col-span-3 flex items-center gap-2 md:gap-3 min-w-0">
+                    {team.logoUrl ? (
+                      <img src={team.logoUrl} alt={team.teamName} className="w-9 h-9 md:w-12 md:h-12 rounded-lg object-contain flex-shrink-0"
+                        style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.7))" }} />
+                    ) : (
+                      <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg flex items-center justify-center font-display font-black text-xs md:text-base flex-shrink-0"
+                        style={{ backgroundColor: `${color}30`, color, border: `2px solid ${color}66` }}>
+                        {team.shortCode}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-display font-black text-sm md:text-lg leading-tight truncate text-white">
+                        {team.teamName}
+                      </p>
+                      <p className="text-[10px] md:text-xs font-bold tabular-nums" style={{ color: `${color}cc` }}>{team.shortCode}</p>
+                    </div>
+                    {isLeading && (
+                      <div className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
+                    )}
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-display font-black text-base leading-tight truncate" style={{ color: isLeading ? color : "#fff" }}>
-                    {team.teamName}
-                  </p>
-                  <p className="text-xs font-bold" style={{ color: `${color}99` }}>{team.shortCode}</p>
-                </div>
-                {isLeading && (
-                  <div className="w-3 h-3 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: color }} />
-                )}
-              </div>
-              <div className="relative">
-                <p className="text-2xl font-display font-black tabular-nums" style={{ color, textShadow: `0 0 20px ${color}66` }}>
-                  {formatShortIndianRupee(team.purseRemaining)}
-                </p>
-                <p className="text-xs text-muted-foreground">Remaining</p>
-              </div>
-              <div className="space-y-1.5 relative">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{team.playersBought} players</span>
-                  <span>{Math.round(pctUsed)}% used</span>
-                </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
+                  {/* Owner */}
+                  <div className="col-span-3 md:col-span-2 hidden md:block min-w-0">
+                    <p className="text-sm font-semibold text-white/80 truncate">{team.ownerName || "—"}</p>
+                  </div>
+                  {/* Total */}
+                  <div className="col-span-2 text-right">
+                    <p className="text-sm md:text-lg font-display font-black tabular-nums text-white/70">{formatShortIndianRupee(team.purse)}</p>
+                  </div>
+                  {/* Remaining */}
+                  <div className="col-span-3 md:col-span-2 text-right">
+                    <p className="text-base md:text-2xl font-display font-black tabular-nums" style={{ color, textShadow: `0 0 20px ${color}77` }}>
+                      {formatShortIndianRupee(team.purseRemaining)}
+                    </p>
+                  </div>
+                  {/* Bought */}
+                  <div className="col-span-2 md:col-span-1 text-center">
+                    <p className="text-base md:text-2xl font-display font-black tabular-nums text-white">{team.playersBought}</p>
+                  </div>
+                  {/* Used % bar */}
+                  <div className="col-span-1 md:col-span-2 hidden md:block">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pctUsed}%` }}
+                          transition={{ duration: 0.8, delay: 0.2 + i * 0.04 }}
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold tabular-nums w-10 text-right" style={{ color }}>{Math.round(pctUsed)}%</span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Overlay 2 — Player-wise live registry table */
+function PlayerViewOverlay({ players, purses, categories, tournamentName }: {
+  players: PlayerLite[];
+  purses: PurseRow[];
+  categories: CategoryLite[];
+  tournamentName?: string;
+}) {
+  const teamMap = new Map(purses.map(t => [t.teamId, t]));
+  const catMap = new Map(categories.map(c => [c.id, c.name]));
+  const sorted = [...players].sort((a, b) => a.id - b.id);
+
+  const counts = {
+    sold: players.filter(p => p.status === "sold").length,
+    unsold: players.filter(p => p.status === "unsold").length,
+    available: players.filter(p => p.status === "available").length,
+    retained: players.filter(p => p.status === "retained").length,
+  };
+
+  const statusStyle = (s: string) => {
+    switch (s) {
+      case "sold": return { bg: "bg-emerald-500/20", border: "border-emerald-400", text: "text-emerald-300", label: "SOLD" };
+      case "unsold": return { bg: "bg-red-500/20", border: "border-red-400", text: "text-red-300", label: "UNSOLD" };
+      case "retained": return { bg: "bg-purple-500/20", border: "border-purple-400", text: "text-purple-300", label: "RETAINED" };
+      default: return { bg: "bg-white/10", border: "border-white/30", text: "text-white/70", label: "AVAILABLE" };
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
+      style={{ background: "radial-gradient(ellipse at top, #082f49 0%, #020617 60%, #000 100%)" }}>
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+
+      <div className="relative flex flex-col md:flex-row items-center justify-between gap-3 px-6 pt-6 pb-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <UsersIcon className="w-8 h-8 md:w-10 md:h-10 text-blue-400" />
+          <div>
+            <h1 className="font-display font-black text-3xl md:text-5xl tracking-tight text-blue-300"
+              style={{ textShadow: "0 0 40px rgba(59,130,246,0.5)" }}>
+              PLAYER REGISTRY
+            </h1>
+            {tournamentName && (
+              <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] text-white/60 mt-0.5">{tournamentName}</p>
+            )}
+          </div>
+        </div>
+        {/* Stat chips */}
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <div className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-xs md:text-sm font-bold text-emerald-300">
+            SOLD <span className="tabular-nums ml-1">{counts.sold}</span>
+          </div>
+          <div className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-400/40 text-xs md:text-sm font-bold text-red-300">
+            UNSOLD <span className="tabular-nums ml-1">{counts.unsold}</span>
+          </div>
+          <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/20 text-xs md:text-sm font-bold text-white/70">
+            REMAINING <span className="tabular-nums ml-1">{counts.available}</span>
+          </div>
+          {counts.retained > 0 && (
+            <div className="px-3 py-1.5 rounded-lg bg-purple-500/15 border border-purple-400/40 text-xs md:text-sm font-bold text-purple-300">
+              RETAINED <span className="tabular-nums ml-1">{counts.retained}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="relative flex-1 px-4 md:px-6 pb-6 overflow-hidden">
+        <div className="h-full rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm flex flex-col">
+          <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-white/15 text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/60">
+            <div className="col-span-1 text-center">#</div>
+            <div className="col-span-4 md:col-span-3">Player</div>
+            <div className="col-span-2 hidden md:block">Category</div>
+            <div className="col-span-1 hidden md:block">Role</div>
+            <div className="col-span-2 text-right">Base</div>
+            <div className="col-span-2 text-right">Sold</div>
+            <div className="col-span-3 md:col-span-1">Team</div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <AnimatePresence initial={false}>
+              {sorted.map((p, i) => {
+                const team = p.teamId ? teamMap.get(p.teamId) : null;
+                const color = team?.color || "#64748b";
+                const cat = p.categoryId ? catMap.get(p.categoryId) : null;
+                const status = statusStyle(p.status);
+                return (
                   <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pctUsed}%` }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }}
-                  />
+                    key={p.id}
+                    initial={false}
+                    className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center border-b border-white/5"
+                    style={{
+                      backgroundColor: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+                    }}
+                  >
+                    <div className="col-span-1 text-center text-xs md:text-sm font-display font-black tabular-nums text-white/40">
+                      {String(i + 1).padStart(3, "0")}
+                    </div>
+                    <div className="col-span-4 md:col-span-3 flex items-center gap-2 md:gap-3 min-w-0">
+                      {p.photoUrl ? (
+                        <img src={p.photoUrl} alt={p.name} className="w-8 h-8 md:w-11 md:h-11 rounded-full object-cover flex-shrink-0 border-2 border-white/20" />
+                      ) : (
+                        <div className="w-8 h-8 md:w-11 md:h-11 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 md:w-5 md:h-5 text-white/40" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-display font-bold text-sm md:text-base leading-tight truncate text-white">{p.name}</p>
+                        {p.city && <p className="text-[10px] md:text-xs text-white/50 truncate">{p.city}</p>}
+                      </div>
+                    </div>
+                    <div className="col-span-2 hidden md:block min-w-0">
+                      <span className="text-xs md:text-sm font-semibold text-white/70 truncate">{cat || "—"}</span>
+                    </div>
+                    <div className="col-span-1 hidden md:block min-w-0">
+                      <span className="text-xs text-white/60 truncate">{p.role || "—"}</span>
+                    </div>
+                    <div className="col-span-2 text-right">
+                      <p className="text-xs md:text-sm font-display font-bold tabular-nums text-white/70">{formatShortIndianRupee(p.basePrice)}</p>
+                    </div>
+                    <div className="col-span-2 text-right">
+                      {p.soldPrice ? (
+                        <p className="text-sm md:text-lg font-display font-black tabular-nums text-emerald-300">{formatShortIndianRupee(p.soldPrice)}</p>
+                      ) : (
+                        <span className="text-xs text-white/30">—</span>
+                      )}
+                    </div>
+                    <div className="col-span-3 md:col-span-1 flex items-center gap-1.5 min-w-0">
+                      {team ? (
+                        <>
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-xs md:text-sm font-bold truncate" style={{ color }}>{team.shortCode}</span>
+                        </>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-black tracking-wider border ${status.bg} ${status.border} ${status.text}`}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Overlay 3 — TOP 5 BUYS broadcast graphic */
+function Top5BuysOverlay({ players, purses, tournamentName }: {
+  players: PlayerLite[];
+  purses: PurseRow[];
+  tournamentName?: string;
+}) {
+  const teamMap = new Map(purses.map(t => [t.teamId, t]));
+  const top5 = players
+    .filter(p => p.status === "sold" && (p.soldPrice ?? 0) > 0)
+    .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0) || a.id - b.id)
+    .slice(0, 5);
+
+  return (
+    <div className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
+      style={{ background: "radial-gradient(ellipse at top, #1e1b4b 0%, #0f0a1f 50%, #000 100%)" }}>
+      <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
+        style={{ backgroundImage: "radial-gradient(circle, #a855f7 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+
+      {/* Header */}
+      <div className="relative flex items-center justify-center gap-4 pt-6 md:pt-8 pb-4 flex-shrink-0">
+        <Crown className="w-10 h-10 md:w-14 md:h-14 text-yellow-400" style={{ filter: "drop-shadow(0 0 20px rgba(250,204,21,0.6))" }} />
+        <div className="text-center">
+          <h1 className="font-display font-black text-4xl md:text-7xl lg:text-8xl tracking-tight"
+            style={{
+              background: "linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #fde047 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              textShadow: "0 0 60px rgba(250,204,21,0.4)",
+            }}>
+            TOP 5 BUYS
+          </h1>
+          {tournamentName && (
+            <p className="text-xs md:text-sm font-bold uppercase tracking-[0.4em] text-white/60 mt-1">{tournamentName} AUCTION</p>
+          )}
+        </div>
+        <Crown className="w-10 h-10 md:w-14 md:h-14 text-yellow-400" style={{ filter: "drop-shadow(0 0 20px rgba(250,204,21,0.6))" }} />
+      </div>
+
+      {/* List */}
+      <div className="relative flex-1 flex flex-col gap-2 md:gap-3 px-4 md:px-12 py-4 overflow-hidden">
+        {top5.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-center text-white/40">
+            <div>
+              <Trophy className="w-16 h-16 mx-auto mb-3 opacity-50" />
+              <p className="text-2xl font-display font-bold">No sales recorded yet</p>
+              <p className="text-sm mt-1">Top buys will appear here as the auction progresses</p>
+            </div>
+          </div>
+        ) : (
+          top5.map((p, idx) => {
+            const team = p.teamId ? teamMap.get(p.teamId) : null;
+            const color = team?.color || "#7c3aed";
+            const rank = idx + 1;
+            return (
+              <motion.div
+                key={p.id}
+                layout
+                initial={{ opacity: 0, x: -60 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ type: "spring", stiffness: 100, damping: 15, delay: idx * 0.08 }}
+                className="relative flex items-center rounded-2xl overflow-hidden flex-1 min-h-0"
+                style={{
+                  background: `linear-gradient(90deg, ${color}ee 0%, ${color}cc 60%, ${color}66 100%)`,
+                  boxShadow: `0 0 30px ${color}66, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                  border: `2px solid ${color}`,
+                }}
+              >
+                {/* Rank badge */}
+                <div className="flex items-center justify-center w-16 md:w-24 h-full flex-shrink-0 bg-black/40 border-r-2 border-white/20">
+                  <span className="font-display font-black text-4xl md:text-6xl text-white tabular-nums"
+                    style={{ textShadow: "0 0 20px rgba(0,0,0,0.6)" }}>
+                    {rank}
+                  </span>
                 </div>
-              </div>
-            </motion.div>
-          );
-        })}
+
+                {/* Team logo */}
+                <div className="flex items-center justify-center px-3 md:px-5 flex-shrink-0">
+                  {team?.logoUrl ? (
+                    <img src={team.logoUrl} alt={team.shortCode} className="w-12 h-12 md:w-20 md:h-20 object-contain"
+                      style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.7))" }} />
+                  ) : (
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl bg-white/15 border-2 border-white/40 flex items-center justify-center font-display font-black text-sm md:text-2xl text-white">
+                      {team?.shortCode || "—"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Name + price */}
+                <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4 pr-3 md:pr-6">
+                  <div className="min-w-0">
+                    <p className="font-display font-black text-xl md:text-4xl lg:text-5xl text-white leading-none uppercase truncate"
+                      style={{ textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}>
+                      {p.name}
+                    </p>
+                    {team && (
+                      <p className="text-xs md:text-sm font-bold text-white/80 uppercase tracking-widest mt-1 truncate">{team.teamName}</p>
+                    )}
+                  </div>
+                  <p className="font-display font-black text-2xl md:text-5xl lg:text-6xl text-white tabular-nums whitespace-nowrap"
+                    style={{ textShadow: "0 0 30px rgba(255,255,255,0.4), 0 4px 8px rgba(0,0,0,0.6)" }}>
+                    {formatShortIndianRupee(p.soldPrice ?? 0)}
+                  </p>
+                </div>
+
+                {/* Player photo */}
+                <div className="hidden md:flex items-end justify-end h-full w-32 lg:w-44 flex-shrink-0 relative overflow-hidden">
+                  {p.photoUrl ? (
+                    <img src={p.photoUrl} alt={p.name} className="h-full w-full object-cover object-top"
+                      style={{ maskImage: "linear-gradient(90deg, transparent 0%, #000 40%)", WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 40%)" }} />
+                  ) : (
+                    <div className="h-full w-full flex items-end justify-center bg-black/20">
+                      <User className="w-20 h-20 text-white/20" />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })
+        )}
       </div>
     </div>
   );
@@ -622,6 +949,23 @@ export default function DisplayView() {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
       refetchInterval: 8000,
+    },
+  });
+
+  const overlayMode = state?.displayOverlay ?? null;
+
+  const { data: allPlayers } = useListPlayers(tournamentId, {
+    query: {
+      queryKey: getListPlayersQueryKey(tournamentId),
+      enabled: !!tournamentId && (overlayMode === "player" || overlayMode === "top5"),
+      refetchInterval: 4000,
+    },
+  });
+
+  const { data: allCategories } = useListCategories(tournamentId, {
+    query: {
+      queryKey: getListCategoriesQueryKey(tournamentId),
+      enabled: !!tournamentId && overlayMode === "player",
     },
   });
 
@@ -1006,18 +1350,55 @@ export default function DisplayView() {
         {/* Sponsor Logos Ticker */}
         <SponsorTicker logos={sponsorLogos} />
 
-        {/* Team Purse View Overlay */}
-        <AnimatePresence>
-          {state?.teamPurseViewActive && stripPurses.length > 0 && (
+        {/* LED Display Overlays — Team / Player / Top 5 */}
+        <AnimatePresence mode="wait">
+          {overlayMode === "team" && stripPurses.length > 0 && (
             <motion.div
-              key="purse-overlay"
+              key="overlay-team"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="absolute inset-0"
+            >
+              <TeamViewOverlay
+                purses={stripPurses}
+                currentBidTeamId={state?.currentBidTeamId}
+                tournamentName={tournament?.name}
+              />
+            </motion.div>
+          )}
+          {overlayMode === "player" && (
+            <motion.div
+              key="overlay-player"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="absolute inset-0"
+            >
+              <PlayerViewOverlay
+                players={allPlayers ?? []}
+                purses={stripPurses}
+                categories={allCategories ?? []}
+                tournamentName={tournament?.name}
+              />
+            </motion.div>
+          )}
+          {overlayMode === "top5" && (
+            <motion.div
+              key="overlay-top5"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.5 }}
               className="absolute inset-0"
             >
-              <TeamPurseOverlay purses={stripPurses} currentBidTeamId={state?.currentBidTeamId} />
+              <Top5BuysOverlay
+                players={allPlayers ?? []}
+                purses={stripPurses}
+                tournamentName={tournament?.name}
+              />
             </motion.div>
           )}
         </AnimatePresence>

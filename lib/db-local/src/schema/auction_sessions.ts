@@ -14,6 +14,7 @@ export const auctionSessionsTable = sqliteTable("auction_sessions", {
   breakEndsAt: text("break_ends_at"),
   fortuneWheelActive: integer("fortune_wheel_active", { mode: "boolean" }).notNull().default(false),
   teamPurseViewActive: integer("team_purse_view_active", { mode: "boolean" }).notNull().default(false),
+  displayOverlay: text("display_overlay"),
   wheelItemsJson: text("wheel_items_json"),
   wheelWinner: text("wheel_winner"),
   activeCategoryIds: text("active_category_ids"),

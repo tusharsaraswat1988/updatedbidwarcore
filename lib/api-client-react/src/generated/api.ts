@@ -37,7 +37,7 @@ import type {
   PlayerUpdate,
   ReAuctionInput,
   SetCategoryFilterBody,
-  SetTeamPurseViewBody,
+  SetDisplayOverlayBody,
   Team,
   TeamInput,
   TeamPurse,
@@ -3083,43 +3083,43 @@ export const useResetTrialAuction = <
 };
 
 /**
- * @summary Toggle team purse view on LED displays
+ * @summary Set the LED display overlay mode (team/player/top5/off)
  */
-export const getSetTeamPurseViewUrl = (tournamentId: number) => {
-  return `/api/tournaments/${tournamentId}/auction/team-purse-view`;
+export const getSetDisplayOverlayUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/display-overlay`;
 };
 
-export const setTeamPurseView = async (
+export const setDisplayOverlay = async (
   tournamentId: number,
-  setTeamPurseViewBody: SetTeamPurseViewBody,
+  setDisplayOverlayBody: SetDisplayOverlayBody,
   options?: RequestInit,
 ): Promise<AuctionState> => {
-  return customFetch<AuctionState>(getSetTeamPurseViewUrl(tournamentId), {
+  return customFetch<AuctionState>(getSetDisplayOverlayUrl(tournamentId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(setTeamPurseViewBody),
+    body: JSON.stringify(setDisplayOverlayBody),
   });
 };
 
-export const getSetTeamPurseViewMutationOptions = <
+export const getSetDisplayOverlayMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof setTeamPurseView>>,
+    Awaited<ReturnType<typeof setDisplayOverlay>>,
     TError,
-    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+    { tournamentId: number; data: BodyType<SetDisplayOverlayBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof setTeamPurseView>>,
+  Awaited<ReturnType<typeof setDisplayOverlay>>,
   TError,
-  { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+  { tournamentId: number; data: BodyType<SetDisplayOverlayBody> },
   TContext
 > => {
-  const mutationKey = ["setTeamPurseView"];
+  const mutationKey = ["setDisplayOverlay"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -3129,44 +3129,44 @@ export const getSetTeamPurseViewMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof setTeamPurseView>>,
-    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> }
+    Awaited<ReturnType<typeof setDisplayOverlay>>,
+    { tournamentId: number; data: BodyType<SetDisplayOverlayBody> }
   > = (props) => {
     const { tournamentId, data } = props ?? {};
 
-    return setTeamPurseView(tournamentId, data, requestOptions);
+    return setDisplayOverlay(tournamentId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type SetTeamPurseViewMutationResult = NonNullable<
-  Awaited<ReturnType<typeof setTeamPurseView>>
+export type SetDisplayOverlayMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setDisplayOverlay>>
 >;
-export type SetTeamPurseViewMutationBody = BodyType<SetTeamPurseViewBody>;
-export type SetTeamPurseViewMutationError = ErrorType<unknown>;
+export type SetDisplayOverlayMutationBody = BodyType<SetDisplayOverlayBody>;
+export type SetDisplayOverlayMutationError = ErrorType<unknown>;
 
 /**
- * @summary Toggle team purse view on LED displays
+ * @summary Set the LED display overlay mode (team/player/top5/off)
  */
-export const useSetTeamPurseView = <
+export const useSetDisplayOverlay = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof setTeamPurseView>>,
+    Awaited<ReturnType<typeof setDisplayOverlay>>,
     TError,
-    { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+    { tournamentId: number; data: BodyType<SetDisplayOverlayBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof setTeamPurseView>>,
+  Awaited<ReturnType<typeof setDisplayOverlay>>,
   TError,
-  { tournamentId: number; data: BodyType<SetTeamPurseViewBody> },
+  { tournamentId: number; data: BodyType<SetDisplayOverlayBody> },
   TContext
 > => {
-  return useMutation(getSetTeamPurseViewMutationOptions(options));
+  return useMutation(getSetDisplayOverlayMutationOptions(options));
 };
 
 /**

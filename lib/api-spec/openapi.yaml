@@ -770,11 +770,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
-  /tournaments/{tournamentId}/auction/team-purse-view:
+  /tournaments/{tournamentId}/auction/display-overlay:
     post:
-      operationId: setTeamPurseView
+      operationId: setDisplayOverlay
       tags: [auction]
-      summary: Toggle team purse view on LED displays
+      summary: Set the LED display overlay mode (team/player/top5/off)
       parameters:
         - name: tournamentId
           in: path
@@ -787,10 +787,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [active]
+              required: [mode]
               properties:
-                active:
-                  type: boolean
+                mode:
+                  type: string
+                  enum: [off, team, player, top5]
       responses:
         "200":
           description: State updated
@@ -1618,6 +1619,10 @@ components:
           type: ["string", "null"]
         teamPurseViewActive:
           type: boolean
+        displayOverlay:
+          type: ["string", "null"]
+          enum: [team, player, top5, null]
+          description: Active LED overlay mode. null/absent means no overlay.
         activeCategoryIds:
           type: array
           items:
@@ -1667,13 +1672,15 @@ components:
 
     TeamPurse:
       type: object
-      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought]
+      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName]
       properties:
         teamId:
           type: integer
         teamName:
           type: string
         shortCode:
+          type: string
+        ownerName:
           type: string
         color:
           type: ["string", "null"]
