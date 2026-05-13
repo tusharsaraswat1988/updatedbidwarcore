@@ -954,7 +954,6 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [licenseFilter, setLicenseFilter] = useState<string>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -967,9 +966,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
 
   const filtered = organizers.filter(o => {
     const q = search.trim().toLowerCase();
-    const matchesSearch = !q || o.name.toLowerCase().includes(q) || (o.mobile ?? "").includes(q) || (o.email || "").toLowerCase().includes(q);
-    const matchesFilter = licenseFilter === "all" || o.licenseStatus === licenseFilter;
-    return matchesSearch && matchesFilter;
+    return !q || o.name.toLowerCase().includes(q) || (o.mobile ?? "").includes(q) || (o.email || "").toLowerCase().includes(q);
   });
 
   const selected = selectedId ? organizers.find(o => o.id === selectedId) ?? null : null;
@@ -989,15 +986,6 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
               className="pl-8 h-8 text-sm"
             />
           </div>
-          <Select value={licenseFilter} onValueChange={setLicenseFilter}>
-            <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={load} title="Refresh">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
@@ -1005,10 +993,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
 
         {/* Stats row */}
         <div className="px-3 py-2 flex items-center gap-4 text-[10px] text-muted-foreground border-b border-border/30 flex-shrink-0">
-          <span>{organizers.length} accounts</span>
-          <span className="flex items-center gap-1"><BadgeCheck className="w-3 h-3 text-green-400"/>{organizers.filter(o => o.licenseStatus === "active").length} active</span>
-          <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-amber-400"/>{organizers.filter(o => o.licenseStatus === "pending").length} pending</span>
-          <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-red-400"/>{organizers.filter(o => o.licenseStatus === "suspended").length} suspended</span>
+          <span>{organizers.length} organizer{organizers.length !== 1 ? "s" : ""}</span>
         </div>
 
         {/* List */}
@@ -1019,7 +1004,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
             </div>
           ) : filtered.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              {search || licenseFilter !== "all" ? "No organizers match your filter." : "No organizer accounts yet."}
+              {search ? "No organizers match your search." : "No organizer accounts yet."}
             </div>
           ) : (
             <div className="divide-y divide-border/30">
@@ -1034,16 +1019,13 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-sm truncate">{o.name}</span>
-                        <OrganizerLicenseBadge status={o.licenseStatus} />
-                      </div>
+                      <span className="font-semibold text-sm truncate block">{o.name}</span>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-[10px] text-muted-foreground font-mono">{o.mobile}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">{o.mobile ?? "—"}</span>
                         {o.email && <span className="text-[10px] text-muted-foreground truncate">{o.email}</span>}
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {o.tournamentCount}/{o.maxTournaments} tournaments · Joined {new Date(o.createdAt).toLocaleDateString("en-IN")}
+                        {o.tournamentCount} tournament{o.tournamentCount !== 1 ? "s" : ""} · Joined {new Date(o.createdAt).toLocaleDateString("en-IN")}
                       </p>
                     </div>
                     <ChevronRight className={`w-4 h-4 text-muted-foreground/40 flex-shrink-0 mt-1 transition-transform ${selectedId === o.id ? "rotate-90" : ""}`} />

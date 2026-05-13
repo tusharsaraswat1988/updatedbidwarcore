@@ -907,8 +907,8 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 // ─── Admin: Set tournament license status ─────────────────────────────────────
 
 router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) => {
-  if (!req.session.adminLevel || !["master", "data_entry"].includes(req.session.adminLevel)) {
-    res.status(401).json({ error: "Unauthorized" });
+  if (req.session.adminLevel !== "master") {
+    res.status(403).json({ error: "Super admin access required" });
     return;
   }
   const tournamentId = Number(req.params.id);
