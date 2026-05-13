@@ -10,8 +10,8 @@ import {
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { setOrganizerPassword } from "@/lib/auth";
 import { AppLayout } from "@/components/layout";
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +22,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  Gavel, Monitor, Trophy, ExternalLink, Link2, Dices, KeyRound,
-  Building2, Timer, PlusCircle, Trash2, ChevronDown, Download,
+  Gavel, Monitor, Trophy, ExternalLink, Link2, Dices,
+  Building2, Timer, PlusCircle, Trash2, Download,
   Settings, Megaphone, ShieldAlert, Image as ImageIcon, X, RotateCcw,
-  Calendar as CalendarIcon, AlertTriangle, ChevronUp,
+  Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -98,15 +98,14 @@ export default function TournamentHub() {
   const [origForm, setOrigForm] = useState<Record<string, string | number>>({});
   const [origSponsorLogos, setOrigSponsorLogos] = useState<SponsorLogo[]>([]);
   const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
-  const [organizerOpen, setOrganizerOpen] = useState(false);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
     { upTo: 100000, increment: 25000 },
     { upTo: 200000, increment: 50000 },
     { increment: 100000 },
   ]);
-  const [orgPassword, setOrgPassword] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
+  const [logoEditorOpen, setLogoEditorOpen] = useState(false);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -127,9 +126,6 @@ export default function TournamentHub() {
       sport: tournament.sport,
       venue: tournament.venue || "",
       auctionDate: tournament.auctionDate || "",
-      organizerName: tournament.organizerName || "",
-      organizerMobile: tournament.organizerMobile || "",
-      organizerEmail: (tournament as any).organizerEmail || "",
       logoUrl: tournament.logoUrl || "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
@@ -169,8 +165,6 @@ export default function TournamentHub() {
     setSponsorLogos(initialSponsors);
     setOrigSponsorLogos(initialSponsors);
 
-    setOrgPassword("");
-    setOrganizerOpen(false);
     setActiveSection("identity");
     setEditOpen(true);
   }
@@ -184,11 +178,7 @@ export default function TournamentHub() {
         venue: origForm.venue,
         auctionDate: origForm.auctionDate,
         logoUrl: origForm.logoUrl,
-        organizerName: origForm.organizerName,
-        organizerMobile: origForm.organizerMobile,
-        organizerEmail: origForm.organizerEmail,
       }));
-      setOrgPassword("");
     } else if (activeSection === "auction") {
       setEditForm(f => ({
         ...f,
@@ -233,9 +223,6 @@ export default function TournamentHub() {
         sport: editForm.sport as string,
         venue: editForm.venue as string || undefined,
         auctionDate: editForm.auctionDate as string || undefined,
-        organizerName: editForm.organizerName as string || undefined,
-        organizerMobile: editForm.organizerMobile as string || undefined,
-        organizerEmail: editForm.organizerEmail as string || undefined,
         logoUrl: editForm.logoUrl as string || undefined,
         sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
@@ -246,9 +233,6 @@ export default function TournamentHub() {
         playerSelectionMode: editForm.playerSelectionMode as string || undefined,
       } as any,
     });
-    if (orgPassword.trim()) {
-      await setOrganizerPassword(tournamentId, orgPassword.trim());
-    }
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
     setEditOpen(false);
   }
@@ -495,27 +479,38 @@ export default function TournamentHub() {
                     </div>
                     <div className="flex-1 space-y-2 min-w-0">
                       <Label className="text-sm font-semibold">Tournament Logo</Label>
-                      <Input
-                        value={editForm.logoUrl as string || ""}
-                        onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))}
-                        placeholder="https://..."
-                        className="h-9"
-                      />
-                      <div className="flex items-center gap-2">
-                        {editForm.logoUrl ? (
+                      <p className="text-xs text-muted-foreground">Upload, crop, auto-enhance or remove the background — output is auto-compressed for the LED display.</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5"
+                          onClick={() => setLogoEditorOpen(true)}
+                        >
+                          {editForm.logoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
+                        </Button>
+                        {editForm.logoUrl && (
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
                             onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}
                           >
                             <X className="w-3.5 h-3.5" /> Remove
                           </Button>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Paste an image URL — preview appears on the left.</p>
                         )}
                       </div>
+                      <details className="text-xs">
+                        <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Or paste an image URL</summary>
+                        <Input
+                          value={editForm.logoUrl as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))}
+                          placeholder="https://..."
+                          className="h-8 mt-2"
+                        />
+                      </details>
                     </div>
                   </div>
 
@@ -547,61 +542,9 @@ export default function TournamentHub() {
                     </div>
                   </div>
 
-                  {/* Organizer account — collapsed by default */}
-                  <div className="border border-border/60 rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setOrganizerOpen(o => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-muted/20 hover:bg-muted/30 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <KeyRound className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm font-semibold">Organizer Account & Login</span>
-                        <span className="text-[10px] text-muted-foreground">(optional)</span>
-                      </div>
-                      {organizerOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                    </button>
-                    {organizerOpen && (
-                      <div className="p-4 space-y-4 border-t border-border/60">
-                        <p className="text-xs text-muted-foreground">
-                          Used to auto-link this tournament to an organizer account in their portal. Mobile is matched first, then email.
-                        </p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Organizer Name</Label>
-                            <Input value={editForm.organizerName as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerName: e.target.value }))} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Organizer Mobile</Label>
-                            <Input value={editForm.organizerMobile as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerMobile: e.target.value }))} placeholder="+91 98765 43210" />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Organizer Email</Label>
-                          <Input
-                            type="email"
-                            value={editForm.organizerEmail as string || ""}
-                            onChange={e => setEditForm(f => ({ ...f, organizerEmail: e.target.value }))}
-                            placeholder="name@example.com"
-                          />
-                        </div>
-                        <div className="space-y-2 border-t border-border pt-4">
-                          <Label className="flex items-center gap-2 text-sm">
-                            <KeyRound className="w-4 h-4 text-primary" /> Login Password
-                          </Label>
-                          <Input
-                            type="password"
-                            value={orgPassword}
-                            onChange={e => setOrgPassword(e.target.value)}
-                            placeholder="Leave blank to keep existing password"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Sign-in URL: <code className="text-primary">/tournament/{tournamentId}/login</code>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-[11px] text-muted-foreground border-t border-border/40 pt-3">
+                    Organizer account, login password and contact details are managed from the super-admin panel — they no longer live in this dialog.
+                  </p>
                 </>
               )}
 
@@ -829,6 +772,15 @@ export default function TournamentHub() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ImageEditorDialog
+        open={logoEditorOpen}
+        onClose={() => setLogoEditorOpen(false)}
+        initialUrl={editForm.logoUrl as string || undefined}
+        aspect={1}
+        title="Tournament Logo"
+        onSave={dataUrl => setEditForm(f => ({ ...f, logoUrl: dataUrl }))}
+      />
     </AppLayout>
   );
 }
