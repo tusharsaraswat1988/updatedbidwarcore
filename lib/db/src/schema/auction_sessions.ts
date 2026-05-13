@@ -16,6 +16,7 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   isBreak: boolean("is_break").notNull().default(false),
   breakEndsAt: text("break_ends_at"),
   fortuneWheelActive: boolean("fortune_wheel_active").notNull().default(false),
+  wheelSpinning: boolean("wheel_spinning").notNull().default(false),
   teamPurseViewActive: boolean("team_purse_view_active").notNull().default(false),
   wheelItemsJson: text("wheel_items_json"),
   wheelWinner: text("wheel_winner"),

@@ -771,6 +771,7 @@ export const GetAuctionStateResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -850,6 +851,7 @@ export const StartAuctionResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -929,6 +931,7 @@ export const PauseAuctionResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1013,6 +1016,7 @@ export const NextPlayerResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1097,6 +1101,7 @@ export const PlaceBidResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1176,6 +1181,7 @@ export const SellPlayerResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1260,6 +1266,7 @@ export const ManualSellResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1339,6 +1346,7 @@ export const MarkUnsoldResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1423,6 +1431,7 @@ export const ReAuctionPlayerResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1502,6 +1511,7 @@ export const ReAuctionAllUnsoldResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1581,6 +1591,7 @@ export const UndoLastActionResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1660,6 +1671,7 @@ export const ResetTrialAuctionResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1743,6 +1755,7 @@ export const SetTeamPurseViewResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1791,6 +1804,7 @@ export const SyncFortuneWheelParams = zod.object({
 
 export const SyncFortuneWheelBody = zod.object({
   active: zod.boolean().optional(),
+  spinning: zod.boolean().optional(),
   items: zod
     .array(
       zod.object({
@@ -1851,6 +1865,7 @@ export const SyncFortuneWheelResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -1934,6 +1949,7 @@ export const SetCategoryFilterResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -2023,6 +2039,7 @@ export const StartTimerResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({
@@ -2102,6 +2119,7 @@ export const DeferPlayerResponse = zod.object({
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
   fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
   wheelItems: zod
     .array(
       zod.object({

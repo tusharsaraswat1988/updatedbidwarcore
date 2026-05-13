@@ -385,6 +385,7 @@ export interface WheelItem {
 
 export interface FortuneWheelSync {
   active?: boolean;
+  spinning?: boolean;
   items?: WheelItem[];
   /** @nullable */
   winner?: string | null;
@@ -463,6 +464,7 @@ export interface AuctionState {
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
   fortuneWheelActive?: boolean;
+  wheelSpinning?: boolean;
   wheelItems?: WheelItem[];
   /** @nullable */
   wheelWinner?: string | null;

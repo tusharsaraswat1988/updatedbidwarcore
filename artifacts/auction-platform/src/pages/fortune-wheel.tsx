@@ -90,7 +90,23 @@ export default function FortuneWheel() {
   const [rotation, setRotation] = useState(0);
   const [broadcasting, setBroadcasting] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number>(0);
+  const [canvasSize, setCanvasSize] = useState(360);
+
+  // Responsive canvas size
+  useEffect(() => {
+    function updateSize() {
+      if (canvasContainerRef.current) {
+        const w = canvasContainerRef.current.clientWidth;
+        setCanvasSize(Math.min(w, 420));
+      }
+    }
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    if (canvasContainerRef.current) ro.observe(canvasContainerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const syncItems = useCallback((newItems: WheelItem[]) => {
     if (!broadcasting) return;
@@ -104,7 +120,6 @@ export default function FortuneWheel() {
   useEffect(() => {
     syncMut.mutate({ tournamentId, data: { active: true, winner: null } });
     return () => {
-      // On unmount: deactivate
       syncMut.mutate({ tournamentId, data: { active: false, winner: null } });
     };
   }, [tournamentId]);
@@ -126,7 +141,20 @@ export default function FortuneWheel() {
     if (canvasRef.current) {
       drawWheel(canvasRef.current, items, rotation);
     }
-  }, [items, rotation]);
+  }, [items, rotation, canvasSize]);
+
+  function toggleBroadcasting() {
+    const next = !broadcasting;
+    setBroadcasting(next);
+    if (next) {
+      // Turning ON — reactivate display
+      syncMut.mutate({ tournamentId, data: { active: true, winner: winner ? winner.label : null } });
+      syncItems(items);
+    } else {
+      // Turning OFF — immediately hide on display
+      syncMut.mutate({ tournamentId, data: { active: false, winner: null, spinning: false } });
+    }
+  }
 
   function addCustom() {
     if (!customLabel.trim()) return;
@@ -163,7 +191,11 @@ export default function FortuneWheel() {
     if (spinning || items.length < 2) return;
     setSpinning(true);
     setWinner(null);
-    syncMut.mutate({ tournamentId, data: { winner: null } });
+
+    // Immediately broadcast spin start to all displays so they animate simultaneously
+    if (broadcasting) {
+      syncMut.mutate({ tournamentId, data: { spinning: true } });
+    }
 
     const extraSpins = 5 + Math.floor(Math.random() * 5);
     const targetAngle = rotation + extraSpins * 2 * Math.PI + Math.random() * 2 * Math.PI;
@@ -190,9 +222,9 @@ export default function FortuneWheel() {
         const won = items[idx];
         setWinner(won);
         setSpinning(false);
-        // Broadcast winner to display
+        // Broadcast winner to display — display will snap to winner
         if (broadcasting) {
-          syncMut.mutate({ tournamentId, data: { winner: won.label } });
+          syncMut.mutate({ tournamentId, data: { spinning: false, winner: won.label } });
         }
       }
     }
@@ -203,7 +235,7 @@ export default function FortuneWheel() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
               <Dices className="w-8 h-8 text-primary" /> Fortune Wheel
@@ -214,7 +246,7 @@ export default function FortuneWheel() {
             variant={broadcasting ? "default" : "outline"}
             size="sm"
             className={`gap-2 mt-1 ${broadcasting ? "bg-red-600 hover:bg-red-500 text-white" : ""}`}
-            onClick={() => setBroadcasting(b => !b)}
+            onClick={toggleBroadcasting}
           >
             <Radio className="w-4 h-4" />
             {broadcasting ? "Broadcasting to LED" : "Not Broadcasting"}
@@ -223,15 +255,15 @@ export default function FortuneWheel() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Wheel */}
-          <div className="flex flex-col items-center gap-6">
-            <div className="relative">
+          <div className="flex flex-col items-center gap-6" ref={canvasContainerRef}>
+            <div className="relative w-full flex justify-center">
               <div className="absolute top-1/2 -right-4 -translate-y-1/2 z-10">
                 <div className="w-0 h-0 border-t-[12px] border-b-[12px] border-r-[28px] border-t-transparent border-b-transparent border-r-primary" />
               </div>
               <canvas
                 ref={canvasRef}
-                width={380}
-                height={380}
+                width={canvasSize}
+                height={canvasSize}
                 className="rounded-full"
                 style={{ filter: "drop-shadow(0 0 40px rgba(234,179,8,0.3))" }}
               />
@@ -249,7 +281,7 @@ export default function FortuneWheel() {
               <Button variant="outline" size="lg" onClick={() => {
                 setWinner(null);
                 setRotation(0);
-                syncMut.mutate({ tournamentId, data: { winner: null } });
+                syncMut.mutate({ tournamentId, data: { winner: null, spinning: false } });
               }}>
                 <RotateCcw className="w-5 h-5" />
               </Button>
@@ -325,7 +357,7 @@ export default function FortuneWheel() {
                   <li>· Opening this page activates the fortune wheel on all LED displays</li>
                   <li>· Load teams automatically with "Load Teams"</li>
                   <li>· Remove teams not in the tiebreaker</li>
-                  <li>· Press SPIN — the winner shows on all screens</li>
+                  <li>· Press SPIN — all screens animate simultaneously</li>
                   <li>· Leaving this page returns displays to auction view</li>
                 </ul>
               </CardContent>

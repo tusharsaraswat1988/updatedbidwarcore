@@ -1555,6 +1555,8 @@ components:
       properties:
         active:
           type: boolean
+        spinning:
+          type: boolean
         items:
           type: array
           items:
@@ -1605,6 +1607,8 @@ components:
         remainingPlayersCount:
           type: integer
         fortuneWheelActive:
+          type: boolean
+        wheelSpinning:
           type: boolean
         wheelItems:
           type: array

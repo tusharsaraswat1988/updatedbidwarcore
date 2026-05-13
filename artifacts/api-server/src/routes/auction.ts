@@ -210,6 +210,7 @@ async function buildAuctionState(tournamentId: number) {
     unsoldPlayersCount: unsoldCount,
     remainingPlayersCount: availableCount,
     fortuneWheelActive: session.fortuneWheelActive,
+    wheelSpinning: session.wheelSpinning,
     wheelItems,
     wheelWinner: session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
@@ -974,6 +975,7 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const body = z.object({
     active: z.boolean().optional(),
+    spinning: z.boolean().optional(),
     items: z.array(z.object({ label: z.string(), color: z.string() })).optional(),
     winner: z.string().nullable().optional(),
   }).safeParse(req.body);
@@ -981,8 +983,12 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
   await getOrCreateSession(tid);
   const patch: Record<string, unknown> = {};
   if (body.data.active !== undefined) patch.fortuneWheelActive = body.data.active;
+  if (body.data.spinning !== undefined) patch.wheelSpinning = body.data.spinning;
   if (body.data.items !== undefined) patch.wheelItemsJson = JSON.stringify(body.data.items);
   if ("winner" in body.data) patch.wheelWinner = body.data.winner ?? null;
+  // When spin starts, clear winner; when deactivating, reset spin state
+  if (body.data.spinning === true) patch.wheelWinner = null;
+  if (body.data.active === false) { patch.wheelSpinning = false; patch.wheelWinner = null; }
   if (Object.keys(patch).length > 0) {
     await db
       .update(auctionSessionsTable)

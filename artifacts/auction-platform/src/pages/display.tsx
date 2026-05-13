@@ -156,27 +156,48 @@ function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation
   ctx.stroke();
 }
 
-function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: string | null | undefined }) {
+function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
+  items: WheelItem[];
+  winner: string | null | undefined;
+  wheelSpinning?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const rotRef = useRef(0);
+  const speedRef = useRef(0.003); // current rotation speed per frame
   const [localWinner, setLocalWinner] = useState<{ label: string; color: string } | null>(null);
-  const [spinning, setSpinning] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "spinning" | "landing">("idle");
   const prevWinnerRef = useRef<string | null | undefined>(undefined);
+  const prevSpinningRef = useRef<boolean | undefined>(undefined);
 
+  // Phase 1 — idle slow drift OR fast spinning (no winner yet)
   useEffect(() => {
-    if (winner || spinning) return;
+    if (phase === "landing") return;
     let running = true;
+    const targetSpeed = wheelSpinning ? 0.05 : 0.003;
     function animate() {
       if (!running) return;
-      rotRef.current += 0.003;
+      // Smoothly accelerate/decelerate to target speed
+      speedRef.current += (targetSpeed - speedRef.current) * 0.04;
+      rotRef.current += speedRef.current;
       if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
       animRef.current = requestAnimationFrame(animate);
     }
     animRef.current = requestAnimationFrame(animate);
     return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, [items, winner, spinning]);
+  }, [items, phase, wheelSpinning]);
 
+  // Track when spinning starts — switch to spinning phase, clear local winner
+  useEffect(() => {
+    if (prevSpinningRef.current === wheelSpinning) return;
+    prevSpinningRef.current = wheelSpinning;
+    if (wheelSpinning) {
+      setPhase("spinning");
+      setLocalWinner(null);
+    }
+  }, [wheelSpinning]);
+
+  // Phase 2 — winner arrives: decelerate and land on winning slice
   useEffect(() => {
     if (winner === prevWinnerRef.current) return;
     prevWinnerRef.current = winner;
@@ -184,22 +205,34 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
     const winnerItem = items.find(i => i.label === winner) || { label: winner, color: "#EAB308" };
     const winnerIdx = items.findIndex(i => i.label === winner);
     if (winnerIdx < 0) { setLocalWinner(winnerItem); return; }
-    setSpinning(true);
-    setLocalWinner(null);
+
+    // Cancel the free-spin loop and start landing animation
     cancelAnimationFrame(animRef.current);
+    setPhase("landing");
+    setLocalWinner(null);
+
     const arc = (2 * Math.PI) / items.length;
+    // Target: winning slice center is at the pointer (right side = 0 rad)
     const sliceCenter = winnerIdx * arc + arc / 2;
-    const target = rotRef.current + 6 * Math.PI + ((2 * Math.PI - sliceCenter) % (2 * Math.PI));
-    const duration = 3500;
+    const currentNorm = ((rotRef.current % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const distToTarget = (((2 * Math.PI - sliceCenter) - currentNorm) + 2 * Math.PI) % (2 * Math.PI);
+    // Add 3 extra full rotations so it doesn't snap instantly
+    const target = rotRef.current + 3 * 2 * Math.PI + distToTarget;
+    const duration = 3000;
     const startTime = performance.now();
     const startRot = rotRef.current;
+
     function animate(now: number) {
       const progress = Math.min((now - startTime) / duration, 1);
       const ease = 1 - Math.pow(1 - progress, 4);
       rotRef.current = startRot + (target - startRot) * ease;
       if (canvasRef.current) drawWheelCanvas(canvasRef.current, items, rotRef.current);
-      if (progress < 1) { animRef.current = requestAnimationFrame(animate); }
-      else { setSpinning(false); setLocalWinner(winnerItem); }
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      } else {
+        setPhase("idle");
+        setLocalWinner(winnerItem);
+      }
     }
     animRef.current = requestAnimationFrame(animate);
   }, [winner, items]);
@@ -208,16 +241,33 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
     if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
   }, [items]);
 
-  const size = Math.min(typeof window !== "undefined" ? window.innerHeight * 0.75 : 600, 700);
+  // Responsive canvas size — fill 70vh, cap at 700
+  const size = typeof window !== "undefined" ? Math.min(window.innerHeight * 0.68, 700) : 600;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none"
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden"
       style={{ background: "radial-gradient(ellipse at center, #1a1a2e 0%, #09090b 100%)" }}>
-      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center gap-4 mb-6">
-        <Dices className="w-10 h-10 text-primary" />
-        <h1 className="font-display font-black text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>FORTUNE WHEEL</h1>
-        <Dices className="w-10 h-10 text-primary" />
+      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center gap-3 mb-4 flex-shrink-0">
+        <Dices className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+        <h1 className="font-display font-black text-3xl md:text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>FORTUNE WHEEL</h1>
+        <Dices className="w-8 h-8 md:w-10 md:h-10 text-primary" />
       </motion.div>
+
+      {/* Spinning indicator */}
+      <AnimatePresence>
+        {phase === "spinning" && !localWinner && (
+          <motion.p
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: [0.5, 1, 0.5], y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ opacity: { duration: 0.8, repeat: Infinity }, y: { duration: 0.3 } }}
+            className="text-primary font-bold uppercase tracking-[0.3em] text-sm mb-3 flex-shrink-0"
+          >
+            Spinning...
+          </motion.p>
+        )}
+      </AnimatePresence>
+
       <div className="relative flex-shrink-0">
         <div className="absolute top-1/2 -right-5 -translate-y-1/2 z-10">
           <div className="w-0 h-0 border-t-[16px] border-b-[16px] border-r-[36px] border-t-transparent border-b-transparent border-r-primary drop-shadow-lg" />
@@ -228,11 +278,11 @@ function FortuneWheelOverlay({ items, winner }: { items: WheelItem[]; winner: st
         {localWinner && (
           <motion.div initial={{ scale: 0, opacity: 0, y: 40 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
-            className="mt-8 text-center px-12 py-6 rounded-3xl border-4"
+            className="mt-6 text-center px-8 md:px-12 py-4 md:py-6 rounded-3xl border-4 flex-shrink-0"
             style={{ borderColor: localWinner.color, background: `${localWinner.color}22`, boxShadow: `0 0 80px ${localWinner.color}55` }}
           >
-            <p className="text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">Winner</p>
-            <p className="font-display font-black text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>{localWinner.label}</p>
+            <p className="text-base md:text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">Winner</p>
+            <p className="font-display font-black text-5xl md:text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>{localWinner.label}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -701,44 +751,44 @@ export default function DisplayView() {
         }}
       >
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-8 py-4 border-b border-border/40 bg-black/30 backdrop-blur-sm flex-shrink-0">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 border-b border-border/40 bg-black/30 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             {tournament?.logoUrl ? (
-              <img src={tournament.logoUrl} alt={tournament.name} className="h-12 w-12 object-contain rounded-lg" />
+              <img src={tournament.logoUrl} alt={tournament.name} className="h-8 w-8 md:h-12 md:w-12 object-contain rounded-lg flex-shrink-0" />
             ) : (
-              <Trophy className="w-8 h-8 text-primary" />
+              <Trophy className="w-6 h-6 md:w-8 md:h-8 text-primary flex-shrink-0" />
             )}
-            <div>
-              <div className="font-display font-black text-2xl tracking-tight text-white leading-none">
+            <div className="min-w-0">
+              <div className="font-display font-black text-base md:text-2xl tracking-tight text-white leading-none truncate">
                 {tournament?.name || "BIDWAR"}
               </div>
               {tournament?.organizerName && (
-                <div className="text-xs text-muted-foreground tracking-widest uppercase">{tournament.organizerName}</div>
+                <div className="text-[10px] md:text-xs text-muted-foreground tracking-widest uppercase truncate hidden sm:block">{tournament.organizerName}</div>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 md:gap-6 flex-shrink-0">
             {tournament?.auctionDate && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>{tournament.auctionDate}</span>
               </div>
             )}
-            <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${
+            <div className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-4 py-1 md:py-1.5 rounded-full border ${
               isActive ? "bg-green-500/20 border-green-500/40 text-green-400" :
               isPaused ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-400" :
               "bg-border/30 border-border text-muted-foreground"
             }`}>
-              {isActive && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
-              <span className="text-xs font-bold uppercase tracking-widest">{state?.status || "IDLE"}</span>
+              {isActive && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse" />}
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest">{state?.status || "IDLE"}</span>
             </div>
-            <div className="text-xs text-muted-foreground font-mono tabular-nums">
+            <div className="text-xs text-muted-foreground font-mono tabular-nums hidden sm:block">
               <span className="text-green-400 font-bold">{state?.soldPlayersCount || 0}</span> Sold
               {" · "}
               <span className="text-muted-foreground">{state?.remainingPlayersCount || 0}</span> Left
             </div>
             {sponsorLogos.length > 0 && (
-              <div className="border-l border-border/40 pl-6">
+              <div className="border-l border-border/40 pl-3 md:pl-6 hidden md:block">
                 <SponsorCarousel logos={sponsorLogos} />
               </div>
             )}
@@ -756,8 +806,8 @@ export default function DisplayView() {
           </AnimatePresence>
 
           {state?.currentPlayer ? (
-            <div className="w-full max-w-5xl">
-              <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="w-full max-w-6xl">
+              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 lg:gap-16">
                 {/* Player Photo */}
                 <motion.div
                   key={state.currentPlayer.id}
@@ -767,7 +817,7 @@ export default function DisplayView() {
                   className="flex-shrink-0"
                 >
                   <div
-                    className="w-52 h-64 md:w-72 md:h-80 rounded-3xl border-4 overflow-hidden flex items-center justify-center relative"
+                    className="w-40 h-52 sm:w-52 sm:h-64 md:w-64 md:h-[21rem] lg:w-72 lg:h-80 xl:w-80 xl:h-[26rem] rounded-3xl border-4 overflow-hidden flex items-center justify-center relative"
                     style={{
                       borderColor: teamColor,
                       boxShadow: `0 0 60px ${teamColor}55, 0 0 120px ${teamColor}22`,
@@ -806,11 +856,11 @@ export default function DisplayView() {
                 >
                   <div>
                     {playerSpecs.length > 0 && (
-                      <p className="text-sm font-mono text-muted-foreground uppercase tracking-widest mb-2">
+                      <p className="text-xs md:text-sm font-mono text-muted-foreground uppercase tracking-widest mb-2">
                         {playerSpecs.join(" · ")}
                       </p>
                     )}
-                    <h1 className="text-6xl md:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
                       {state.currentPlayer.name}
                     </h1>
                     {state.currentPlayer.availabilityDates && (
@@ -830,7 +880,7 @@ export default function DisplayView() {
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 1.2, opacity: 0 }}
                         transition={{ type: "spring", bounce: 0.5 }}
-                        className="text-7xl md:text-8xl font-display font-black leading-none"
+                        className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
                         style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
                       >
                         {formatIndianRupee(state.currentBid || 0)}
@@ -861,7 +911,7 @@ export default function DisplayView() {
                       ) : (
                         <div className="w-4 h-4 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: teamColor }} />
                       )}
-                      <span className="text-3xl font-display font-black" style={{ color: teamColor }}>
+                      <span className="text-xl md:text-3xl font-display font-black" style={{ color: teamColor }}>
                         {state.currentBidTeamName}
                       </span>
                     </motion.div>
@@ -882,7 +932,7 @@ export default function DisplayView() {
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.15 }}
-                            className={`text-6xl md:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
+                            className={`text-5xl md:text-6xl lg:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
                           >
                             {timeLeft}
                           </motion.span>
@@ -983,7 +1033,7 @@ export default function DisplayView() {
               transition={{ duration: 0.5 }}
               className="absolute inset-0"
             >
-              <FortuneWheelOverlay items={state.wheelItems ?? []} winner={state.wheelWinner} />
+              <FortuneWheelOverlay items={state.wheelItems ?? []} winner={state.wheelWinner} wheelSpinning={state.wheelSpinning} />
             </motion.div>
           )}
         </AnimatePresence>
