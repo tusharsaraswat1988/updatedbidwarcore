@@ -1,0 +1,499 @@
+Create a COMPLETE ADVANCED REPORT MANAGEMENT SYSTEM for the auction software.
+
+IMPORTANT:
+This feature must FIRST be developed inside the SUPER ADMIN PANEL only.
+DO NOT directly integrate into operator panel yet.
+
+Architecture should be future-ready so that later:
+- Super Admin can control reports globally
+- Operator panel can inherit report settings from Super Admin
+- Different tournaments can use different report templates/settings
+
+====================================================
+MAIN GOAL
+====================================================
+
+Build a professional REPORT CENTER MODULE for the sports auction platform.
+
+This module should support:
+1. Pre-Auction Reports
+2. Live Auction Reports
+3. Post-Auction Reports
+4. Tournament Planning Reports
+5. Team Strategy Reports
+6. Analytics & Statistics Reports
+7. Dynamic PDF/Excel Export System
+
+This should work for:
+- Cricket auctions
+- Football auctions
+- Kabaddi auctions
+- Multi-sport future support
+
+System must support:
+- 1000+ players
+- 100+ teams
+- Multi-day auctions
+- Large tournament scale
+
+====================================================
+PHASE 1 IMPLEMENTATION
+SUPER ADMIN PANEL ONLY
+====================================================
+
+Create a new sidebar menu:
+
+REPORT CENTER
+
+Inside it create sections:
+
+1. Report Templates
+2. Report Builder
+3. Export Settings
+4. PDF Branding
+5. Analytics Settings
+6. Tournament Planning
+7. Team Strategy Engine
+8. Contact & Directory Reports
+9. Dynamic Fields Manager
+10. Permission Control
+11. Report Preview Center
+
+====================================================
+1. REPORT TEMPLATE SYSTEM
+====================================================
+
+Create professional reusable report templates.
+
+Templates should support:
+
+- Classic Table
+- IPL Style
+- Card Layout
+- Sponsor Heavy
+- Compact
+- Landscape
+- Portrait
+- Dark Theme
+- Minimal Theme
+- Premium Franchise Theme
+
+Each template should allow:
+- Logo placement
+- Sponsor banner
+- Header/footer
+- Watermark
+- Page numbering
+- QR codes
+- Dynamic colors
+- Team branding
+- Tournament branding
+
+====================================================
+2. DYNAMIC REPORT BUILDER
+====================================================
+
+Create drag-and-drop style report builder.
+
+Admin can:
+- Add/remove columns
+- Reorder fields
+- Save layouts
+- Create custom templates
+
+Support ALL POSSIBLE FIELDS.
+
+====================================================
+PLAYER FIELDS
+====================================================
+
+Include support for:
+
+Basic:
+- Player ID
+- Player Number
+- Name
+- Mobile Number
+- Alternate Number
+- Email
+- Photo
+- Age
+- DOB
+- Gender
+- City
+- State
+- Country
+
+Sports:
+- Role
+- Batting Style
+- Bowling Style
+- Specialty
+- Experience
+- Previous Team
+- Current Team
+- Jersey Number
+- Fitness Status
+- Availability Status
+
+Auction:
+- Base Price
+- Sold Price
+- Current Bid
+- Retention Status
+- Unsold Status
+- Auction Status
+- Category
+- Subcategory
+- Points
+- Wallet/Purse Impact
+
+Tournament:
+- Matches Played
+- Runs
+- Wickets
+- Strike Rate
+- Economy
+- MVP
+- Ranking
+- Rating
+
+Social:
+- Instagram
+- Facebook
+- YouTube
+- Sponsor
+
+Advanced:
+- Notes
+- Internal Tags
+- Scout Remarks
+- Team Owner Remarks
+- Priority Status
+- Watchlist Status
+
+====================================================
+TEAM FIELDS
+====================================================
+
+- Team Name
+- Team Logo
+- Owner Name
+- Captain
+- Vice Captain
+- Coach
+- Manager
+- Team Purse
+- Remaining Purse
+- Total Players
+- Team Strength
+- Avg Age
+- Category Balance
+- Contact Details
+- Jersey Color
+- Home Ground
+
+====================================================
+TOURNAMENT FIELDS
+====================================================
+
+- Tournament Name
+- Season
+- Venue
+- Match Dates
+- Group
+- Pool
+- Fixture
+- Sponsor
+- Organizer
+
+====================================================
+3. PRE-AUCTION REPORTS
+====================================================
+
+Create these reports:
+
+1. Master Player Catalogue
+2. Category Wise Player List
+3. City Wise Player List
+4. Age Wise Report
+5. Role Wise Report
+6. Base Price Analysis
+7. Previous Auction Analysis
+8. New Player Report
+9. Experienced Player Report
+10. Player Contact Directory
+11. Team Strategy Planner
+12. Budget Planning Report
+13. Team Requirement Report
+14. Group Balancing Report
+
+====================================================
+4. LIVE AUCTION REPORTS
+====================================================
+
+Create:
+
+1. Live Purse Tracker
+2. Sold Player Report
+3. Unsold Player Report
+4. Re-Auction Candidate Report
+5. Team Remaining Slots Report
+6. Category Completion Report
+7. Highest Bid Report
+8. Live Auction Summary
+9. Bidding War Analysis
+10. Operator Intelligence Alerts
+
+====================================================
+5. POST-AUCTION REPORTS
+====================================================
+
+Create:
+
+1. Team Squad Sheet
+2. Full Team Booklet
+3. Team Contact Sheet
+4. Tournament Team Summary
+5. Full Auction Summary
+6. Financial Summary
+7. Category Spend Analysis
+8. Team Strength Analysis
+9. Smart Spending Analysis
+10. Auction Statistics Dashboard
+
+====================================================
+6. TOURNAMENT PLANNING ENGINE
+====================================================
+
+Create advanced planning system.
+
+Features:
+- Team balancing score
+- Auto group balancing
+- Strength comparison
+- Budget efficiency
+- AI-based fairness indicator
+- Suggested group generation
+
+Organiser should be able to:
+- Avoid strongest teams in same group
+- Create balanced tournament pools
+- Compare teams visually
+
+====================================================
+7. TEAM STRATEGY ENGINE
+====================================================
+
+VERY IMPORTANT FEATURE.
+
+Each team should later get:
+- Watchlist
+- Priority players
+- Budget calculator
+- Remaining role analysis
+- Suggested player recommendations
+- Purse planning
+- Required category suggestions
+
+For now build backend structure in Super Admin.
+
+====================================================
+8. CONTACT DIRECTORY SYSTEM
+====================================================
+
+Create exportable directory system.
+
+Features:
+- Mobile number exports
+- WhatsApp click integration ready
+- Team-wise contacts
+- Category-wise contacts
+- Unsold player contacts
+
+Export:
+- PDF
+- Excel
+- CSV
+
+====================================================
+9. EXPORT ENGINE
+====================================================
+
+Export support:
+- PDF
+- Excel
+- CSV
+- Print Layout
+
+PDF Features:
+- Auto pagination
+- Header/footer
+- Watermark
+- QR Code
+- Multi-page support
+- Large dataset optimization
+
+Handle:
+- 1000+ players without crash
+- Lazy loading
+- Pagination
+- Virtual rendering
+
+====================================================
+10. REPORT FILTER SYSTEM
+====================================================
+
+Create universal advanced filter system.
+
+Support:
+- Category filter
+- Team filter
+- City filter
+- Age filter
+- Sold/Unsold
+- Price range
+- Role
+- Experience
+- Availability
+- Team strength
+- Group
+
+Include:
+- Multi-select filters
+- Search
+- Saved filters
+- Quick presets
+
+====================================================
+11. ANALYTICS DASHBOARD
+====================================================
+
+Create visual analytics:
+- Team spending graph
+- Category spending graph
+- Purse utilization
+- Avg player value
+- Most expensive player
+- Cheapest player
+- Role-wise inflation
+- Team composition charts
+
+====================================================
+12. UI/UX REQUIREMENTS
+====================================================
+
+IMPORTANT:
+Current report popup UI is outdated.
+
+Replace with:
+FULL SCREEN MODERN REPORT CENTER
+
+Requirements:
+- Modern responsive design
+- Sidebar navigation
+- Card-based layout
+- Fast loading
+- Search everywhere
+- Export buttons visible
+- Mobile responsive
+- Tablet responsive
+
+Use:
+- Clean modern admin UI
+- Professional spacing
+- Sticky filters
+- Scrollable tables
+- Virtualized rendering
+
+====================================================
+13. DATABASE & ARCHITECTURE
+====================================================
+
+VERY IMPORTANT.
+
+Build scalable backend architecture.
+
+Need:
+- Reusable report engine
+- Dynamic field mapping
+- Template storage
+- Export queue system
+- Async PDF generation
+- Future operator panel compatibility
+
+Create:
+- Report templates table
+- Report fields table
+- Export logs
+- Saved filter presets
+- Branding settings
+- Analytics cache
+
+====================================================
+14. FUTURE READY REQUIREMENTS
+====================================================
+
+Code should support future:
+- Operator panel integration
+- Team owner dashboard
+- Mobile app reports
+- WhatsApp sharing
+- AI recommendations
+- Public share links
+- Multi-language support
+
+====================================================
+15. IMPORTANT DEVELOPMENT RULES
+====================================================
+
+- Do NOT break existing auction functionality
+- Maintain modular architecture
+- Avoid duplicate code
+- Remove unused APIs/components
+- Create reusable components
+- Use scalable folder structure
+- Add proper loading states
+- Add empty states
+- Add error handling
+- Optimize for large data
+
+====================================================
+16. IMPLEMENTATION ORDER
+====================================================
+
+STEP 1:
+Backend architecture
+
+STEP 2:
+Database schema
+
+STEP 3:
+Report engine
+
+STEP 4:
+Template engine
+
+STEP 5:
+Export engine
+
+STEP 6:
+Analytics system
+
+STEP 7:
+UI implementation
+
+STEP 8:
+Optimization
+
+====================================================
+17. FINAL EXPECTATION
+====================================================
+
+The final system should feel like:
+- Professional franchise auction software
+- IPL-level reporting system
+- Tournament intelligence platform
+- Not just a simple PDF generator
+
+System should become one of the strongest USP features of the platform.
