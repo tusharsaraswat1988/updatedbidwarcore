@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { useRoute } from "wouter";
 import {
   useListPlayers,
@@ -22,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -35,28 +36,7 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
   const qc = useQueryClient();
   const createPlayer = useCreatePlayer();
   const updatePlayer = useUpdatePlayer();
-  const photoFileRef = useRef<HTMLInputElement>(null);
-
-  function handlePhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const dataUrl = ev.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX = 400;
-        const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
-        canvas.width = Math.round(img.width * ratio);
-        canvas.height = Math.round(img.height * ratio);
-        canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        f("photoUrl", canvas.toDataURL("image/jpeg", 0.75));
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  }
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
 
   const [form, setForm] = useState({
     name: player?.name || "",
@@ -182,20 +162,55 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
         <div className="space-y-2">
           <Label>Player Photo</Label>
           <div className="flex gap-2 items-start">
-            {form.photoUrl && (
-              <img src={form.photoUrl} alt="Preview" className="w-10 h-10 rounded-lg object-cover border border-border flex-shrink-0" />
-            )}
+            <div className="w-12 h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {form.photoUrl ? (
+                <img
+                  src={form.photoUrl}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+              ) : (
+                <User className="w-5 h-5 text-muted-foreground/40" />
+              )}
+            </div>
             <div className="flex-1 space-y-1.5">
-              <div
-                className="border border-dashed border-border rounded-lg px-3 py-2 text-xs text-center text-muted-foreground cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => photoFileRef.current?.click()}
-              >
-                Click to upload photo
-                <input ref={photoFileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setPhotoEditorOpen(true)}
+                >
+                  {form.photoUrl ? <><Pencil className="w-3 h-3" /> Edit Photo</> : <><Upload className="w-3 h-3" /> Upload Photo</>}
+                </Button>
+                {form.photoUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                    onClick={() => f("photoUrl", "")}
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </Button>
+                )}
               </div>
-              <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="or paste image URL..." className="text-xs h-7" />
+              <details className="text-xs">
+                <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Or paste an image URL</summary>
+                <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="https://..." className="text-xs h-7 mt-1.5" />
+              </details>
             </div>
           </div>
+          <ImageEditorDialog
+            open={photoEditorOpen}
+            onClose={() => setPhotoEditorOpen(false)}
+            initialUrl={form.photoUrl || undefined}
+            aspect={1}
+            title="Player Photo"
+            onSave={dataUrl => f("photoUrl", dataUrl)}
+          />
         </div>
       </div>
       <div className="space-y-2">
