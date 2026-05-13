@@ -13,6 +13,7 @@ import Teams from "@/pages/teams";
 import Categories from "@/pages/categories";
 import Players from "@/pages/players";
 import AuctionOperator from "@/pages/auction-operator";
+import AuctionReset from "@/pages/auction-reset";
 import DisplayView from "@/pages/display";
 import OwnerPanel from "@/pages/owner-panel";
 import Reports from "@/pages/reports";
@@ -79,6 +80,12 @@ function Router() {
         {(params) => {
           const tid = parseInt(params?.id || "0");
           return <OrganizerGuard tournamentId={tid}><AuctionOperator /></OrganizerGuard>;
+        }}
+      </Route>
+      <Route path="/tournament/:id/reset">
+        {(params) => {
+          const tid = parseInt(params?.id || "0");
+          return <OrganizerGuard tournamentId={tid}><AuctionReset /></OrganizerGuard>;
         }}
       </Route>
       <Route path="/tournament/:id/reports">

@@ -34,6 +34,9 @@ export const tournamentsTable = pgTable("tournaments", {
   licenseGrantedBy: text("license_granted_by"),
   adminLocked: boolean("admin_locked").notNull().default(false),
   adminLockedAt: timestamp("admin_locked_at", { withTimezone: true }),
+  resetCount: integer("reset_count").notNull().default(0),
+  lastResetAt: timestamp("last_reset_at", { withTimezone: true }),
+  lastResetBy: text("last_reset_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

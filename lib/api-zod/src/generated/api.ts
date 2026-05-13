@@ -40,6 +40,9 @@ export const ListTournamentsResponseItem = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  resetCount: zod.number().optional(),
+  lastResetAt: zod.string().nullish(),
+  lastResetBy: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -108,6 +111,9 @@ export const GetTournamentResponse = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  resetCount: zod.number().optional(),
+  lastResetAt: zod.string().nullish(),
+  lastResetBy: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -165,6 +171,9 @@ export const UpdateTournamentResponse = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  resetCount: zod.number().optional(),
+  lastResetAt: zod.string().nullish(),
+  lastResetBy: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -210,6 +219,9 @@ export const ExportTournamentForLocalResponse = zod.object({
       .enum(["sequential", "random", "manual"])
       .optional(),
     status: zod.enum(["setup", "active", "paused", "completed"]),
+    resetCount: zod.number().optional(),
+    lastResetAt: zod.string().nullish(),
+    lastResetBy: zod.string().nullish(),
     createdAt: zod.string(),
   }),
   teams: zod.array(
@@ -1792,10 +1804,14 @@ export const UndoLastActionResponse = zod.object({
 });
 
 /**
- * @summary Reset all players back to available (clears trial bids)
+ * @summary Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
  */
 export const ResetTrialAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
+});
+
+export const ResetTrialAuctionBody = zod.object({
+  password: zod.string(),
 });
 
 export const ResetTrialAuctionResponse = zod.object({

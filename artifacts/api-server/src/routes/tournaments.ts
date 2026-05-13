@@ -31,6 +31,9 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTimerSeconds: t.bidTimerSeconds,
   playerSelectionMode: t.playerSelectionMode,
   status: t.status,
+  resetCount: t.resetCount ?? 0,
+  lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
+  lastResetBy: t.lastResetBy ?? null,
   createdAt: t.createdAt.toISOString(),
 });
 

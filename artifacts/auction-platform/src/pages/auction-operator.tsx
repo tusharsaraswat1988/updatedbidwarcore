@@ -16,7 +16,6 @@ import {
   useUndoLastAction,
   useReAuctionPlayer,
   useReAuctionAllUnsold,
-  useResetTrialAuction,
   useStartTimer,
   useSetDisplayOverlay,
   useSetDisplayPlayerFilter,
@@ -57,7 +56,6 @@ export default function AuctionOperator() {
   const [manualTeamId, setManualTeamId] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [reAuctionTab, setReAuctionTab] = useState<"queue" | "sold" | "unsold">("queue");
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showBatchReAuctionConfirm, setShowBatchReAuctionConfirm] = useState(false);
   const [timerSecs, setTimerSecs] = useState("30");
   const [playerSearch, setPlayerSearch] = useState("");
@@ -92,7 +90,6 @@ export default function AuctionOperator() {
   const undoAction = useUndoLastAction();
   const reAuction = useReAuctionPlayer();
   const reAuctionAllUnsoldMut = useReAuctionAllUnsold();
-  const resetTrial = useResetTrialAuction();
   const startTimerMut = useStartTimer();
   const setDisplayOverlay = useSetDisplayOverlay();
   const setDisplayPlayerFilterMut = useSetDisplayPlayerFilter();
@@ -151,11 +148,6 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  async function handleResetTrial() {
-    await resetTrial.mutateAsync({ tournamentId });
-    setShowResetConfirm(false);
-    invalidate();
-  }
 
   async function handleStartTimer() {
     const secs = parseInt(timerSecs) || 30;
@@ -472,15 +464,6 @@ export default function AuctionOperator() {
                 <X className="w-4 h-4" />
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/60"
-              title="Reset all player data for live auction"
-              onClick={() => setShowResetConfirm(true)}
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Reset
-            </Button>
           </div>
         </div>
 
@@ -1089,44 +1072,6 @@ export default function AuctionOperator() {
                 Confirm Sell
               </Button>
               <Button variant="outline" onClick={() => setManualSellOpen(false)}>Cancel</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reset Trial Confirm Dialog */}
-      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <DialogContent className="max-w-md dark border-red-500/40">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-400 text-lg">
-              <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0" />
-              Reset ALL Auction Data
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4 space-y-2">
-              <p className="text-sm font-semibold text-red-300">The following will be permanently erased:</p>
-              <ul className="text-sm text-red-200/80 space-y-1 list-disc list-inside">
-                <li>Every sold / unsold result — all players reset to "Available"</li>
-                <li>All bid records for this tournament</li>
-                <li>All purse usage for every team (back to full purse)</li>
-              </ul>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Retained players and their reserved purse amounts will <span className="font-semibold text-foreground">not</span> be affected.
-            </p>
-            <p className="text-xs font-bold text-red-500 uppercase tracking-wide">
-              This action cannot be undone.
-            </p>
-            <div className="flex gap-3 pt-1">
-              <Button
-                className="flex-1 bg-red-700 hover:bg-red-600 text-white border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-                disabled={resetTrial.isPending}
-                onClick={handleResetTrial}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" /> Yes, Reset Everything
-              </Button>
-              <Button variant="outline" onClick={() => setShowResetConfirm(false)}>Cancel</Button>
             </div>
           </div>
         </DialogContent>

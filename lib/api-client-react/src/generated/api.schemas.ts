@@ -58,6 +58,11 @@ export interface Tournament {
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
+  resetCount?: number;
+  /** @nullable */
+  lastResetAt?: string | null;
+  /** @nullable */
+  lastResetBy?: string | null;
   createdAt: string;
 }
 
@@ -621,6 +626,10 @@ export interface CategoryBreakdown {
   available: number;
   totalSpent?: number;
 }
+
+export type ResetTrialAuctionBody = {
+  password: string;
+};
 
 export type SetDisplayOverlayBodyMode =
   (typeof SetDisplayOverlayBodyMode)[keyof typeof SetDisplayOverlayBodyMode];

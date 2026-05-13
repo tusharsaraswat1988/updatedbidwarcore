@@ -746,9 +746,54 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
 });
 
 // POST reset trial auction — reset all non-retained players to available, clear bids
+// First reset (resetCount === 0) requires the tournament's organizer/operator password.
+// Any subsequent reset requires the master super admin password (ADMIN_PASSWORD).
 router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const body = z.object({ password: z.string().min(1) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Password is required" }); return; }
+  const submittedPw = body.data.password;
+
+  const safeCompare = (a: string, b: string) => {
+    if (a.length !== b.length) return false;
+    let r = 0;
+    for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return r === 0;
+  };
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const masterPw = process.env.ADMIN_PASSWORD || "";
+  const isMasterMatch = !!masterPw && safeCompare(submittedPw, masterPw);
+  const isOperatorMatch = !!tournament.organizerPassword && safeCompare(submittedPw, tournament.organizerPassword);
+  const previousResetCount = tournament.resetCount ?? 0;
+
+  let resetActor: "operator" | "super_admin";
+  if (previousResetCount === 0) {
+    // First reset — operator OR super admin both allowed
+    if (isOperatorMatch) {
+      resetActor = "operator";
+    } else if (isMasterMatch) {
+      resetActor = "super_admin";
+    } else {
+      res.status(401).json({ error: "Incorrect operator password" });
+      return;
+    }
+  } else {
+    // Already reset before — only super admin can do it again
+    if (isMasterMatch) {
+      resetActor = "super_admin";
+    } else if (isOperatorMatch) {
+      res.status(403).json({ error: "This tournament has already been reset once. Only the super admin can reset it again." });
+      return;
+    } else {
+      res.status(401).json({ error: "Incorrect super admin password" });
+      return;
+    }
+  }
 
   const allPlayers = await db
     .select()
@@ -797,7 +842,15 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
-  await db.update(tournamentsTable).set({ status: "setup" }).where(eq(tournamentsTable.id, tid));
+  await db
+    .update(tournamentsTable)
+    .set({
+      status: "setup",
+      resetCount: previousResetCount + 1,
+      lastResetAt: new Date(),
+      lastResetBy: resetActor,
+    })
+    .where(eq(tournamentsTable.id, tid));
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });

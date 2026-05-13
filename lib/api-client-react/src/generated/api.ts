@@ -37,6 +37,7 @@ import type {
   PlayerInput,
   PlayerUpdate,
   ReAuctionInput,
+  ResetTrialAuctionBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
   Team,
@@ -3000,7 +3001,7 @@ export const useUndoLastAction = <
 };
 
 /**
- * @summary Reset all players back to available (clears trial bids)
+ * @summary Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
  */
 export const getResetTrialAuctionUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/reset-trial`;
@@ -3008,29 +3009,32 @@ export const getResetTrialAuctionUrl = (tournamentId: number) => {
 
 export const resetTrialAuction = async (
   tournamentId: number,
+  resetTrialAuctionBody: ResetTrialAuctionBody,
   options?: RequestInit,
 ): Promise<AuctionState> => {
   return customFetch<AuctionState>(getResetTrialAuctionUrl(tournamentId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resetTrialAuctionBody),
   });
 };
 
 export const getResetTrialAuctionMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof resetTrialAuction>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<ResetTrialAuctionBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof resetTrialAuction>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<ResetTrialAuctionBody> },
   TContext
 > => {
   const mutationKey = ["resetTrialAuction"];
@@ -3044,11 +3048,11 @@ export const getResetTrialAuctionMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof resetTrialAuction>>,
-    { tournamentId: number }
+    { tournamentId: number; data: BodyType<ResetTrialAuctionBody> }
   > = (props) => {
-    const { tournamentId } = props ?? {};
+    const { tournamentId, data } = props ?? {};
 
-    return resetTrialAuction(tournamentId, requestOptions);
+    return resetTrialAuction(tournamentId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3057,27 +3061,27 @@ export const getResetTrialAuctionMutationOptions = <
 export type ResetTrialAuctionMutationResult = NonNullable<
   Awaited<ReturnType<typeof resetTrialAuction>>
 >;
-
-export type ResetTrialAuctionMutationError = ErrorType<unknown>;
+export type ResetTrialAuctionMutationBody = BodyType<ResetTrialAuctionBody>;
+export type ResetTrialAuctionMutationError = ErrorType<void>;
 
 /**
- * @summary Reset all players back to available (clears trial bids)
+ * @summary Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
  */
 export const useResetTrialAuction = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof resetTrialAuction>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<ResetTrialAuctionBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof resetTrialAuction>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<ResetTrialAuctionBody> },
   TContext
 > => {
   return useMutation(getResetTrialAuctionMutationOptions(options));

@@ -755,13 +755,23 @@ paths:
     post:
       operationId: resetTrialAuction
       tags: [auction]
-      summary: Reset all players back to available (clears trial bids)
+      summary: Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
       parameters:
         - name: tournamentId
           in: path
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
       responses:
         "200":
           description: Reset complete
@@ -769,6 +779,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuctionState"
+        "401":
+          description: Wrong password
+        "403":
+          description: Subsequent reset requires super admin password
 
   /tournaments/{tournamentId}/auction/display-overlay:
     post:
@@ -1127,6 +1141,12 @@ components:
         status:
           type: string
           enum: [setup, active, paused, completed]
+        resetCount:
+          type: integer
+        lastResetAt:
+          type: ["string", "null"]
+        lastResetBy:
+          type: ["string", "null"]
         createdAt:
           type: string
 

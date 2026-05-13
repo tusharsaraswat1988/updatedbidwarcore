@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, Shuffle, LogOut
+  Link2, Shuffle, LogOut, RefreshCw
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -114,6 +114,10 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
                 <Link href={`/tournament/${tournamentId}/links`} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/links` ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
                   <Link2 className="w-5 h-5" />
                   <span>Share Links</span>
+                </Link>
+                <Link href={`/tournament/${tournamentId}/reset`} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === `/tournament/${tournamentId}/reset` ? 'bg-red-500/15 text-red-300' : 'text-muted-foreground hover:bg-red-500/10 hover:text-red-300'}`}>
+                  <RefreshCw className="w-5 h-5" />
+                  <span>Reset Auction</span>
                 </Link>
               </nav>
             </>
