@@ -422,6 +422,15 @@ export const AuctionStatePlayerSelectionMode = {
   manual: "manual",
 } as const;
 
+export type AuctionStateLicenseStatus =
+  (typeof AuctionStateLicenseStatus)[keyof typeof AuctionStateLicenseStatus];
+
+export const AuctionStateLicenseStatus = {
+  trial: "trial",
+  live: "live",
+  completed: "completed",
+} as const;
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -460,6 +469,11 @@ export interface AuctionState {
   teamPurseViewActive?: boolean;
   activeCategoryIds?: number[] | null;
   playerSelectionMode?: AuctionStatePlayerSelectionMode;
+  licenseStatus?: AuctionStateLicenseStatus;
+  /** First 2 team IDs eligible to bid in trial mode */
+  trialTeamIds?: number[] | null;
+  /** Player IDs deferred to the back of the queue */
+  deferredPlayerIds?: number[] | null;
 }
 
 export interface TournamentSummary {

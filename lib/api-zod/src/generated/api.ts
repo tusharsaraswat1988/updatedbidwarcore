@@ -783,6 +783,15 @@ export const GetAuctionStateResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -853,6 +862,15 @@ export const StartAuctionResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -923,6 +941,15 @@ export const PauseAuctionResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -998,6 +1025,15 @@ export const NextPlayerResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1073,6 +1109,15 @@ export const PlaceBidResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1143,6 +1188,15 @@ export const SellPlayerResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1218,6 +1272,15 @@ export const ManualSellResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1288,6 +1351,15 @@ export const MarkUnsoldResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1363,6 +1435,15 @@ export const ReAuctionPlayerResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1433,6 +1514,15 @@ export const ReAuctionAllUnsoldResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1503,6 +1593,15 @@ export const UndoLastActionResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1573,6 +1672,15 @@ export const ResetTrialAuctionResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1647,6 +1755,15 @@ export const SetTeamPurseViewResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1746,6 +1863,15 @@ export const SyncFortuneWheelResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1820,6 +1946,15 @@ export const SetCategoryFilterResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**
@@ -1900,6 +2035,94 @@ export const StartTimerResponse = zod.object({
   teamPurseViewActive: zod.boolean().optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
+});
+
+/**
+ * @summary Defer the current player to the back of the queue and auto-advance to next
+ */
+export const DeferPlayerParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const DeferPlayerResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  currentBidTeamLogoUrl: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  bidTimerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
 });
 
 /**

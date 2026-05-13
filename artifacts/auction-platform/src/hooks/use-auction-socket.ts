@@ -39,6 +39,11 @@ export function useAuctionSocket(tournamentId: number) {
               qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
             }
           }
+
+          // Tournament settings changed (e.g. playerSelectionMode) — refetch auction state
+          if (msg.type === "settings_changed") {
+            qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+          }
         } catch {
           // ignore malformed messages
         }

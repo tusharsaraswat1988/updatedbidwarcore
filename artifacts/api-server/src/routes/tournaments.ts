@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { broadcastToTournament } from "../lib/broadcast";
 
 const router = Router();
 
@@ -116,6 +117,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidTiers: z.string().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
+    playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
     status: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -142,6 +144,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
   if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
+  if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.status !== undefined) updates.status = d.status;
   const [tournament] = await db
     .update(tournamentsTable)
@@ -149,6 +152,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     .where(eq(tournamentsTable.id, id))
     .returning();
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  // Broadcast settings change so connected operator panels refresh immediately
+  broadcastToTournament(id, { type: "settings_changed" });
   res.json(tournamentToJson(tournament));
 });
 

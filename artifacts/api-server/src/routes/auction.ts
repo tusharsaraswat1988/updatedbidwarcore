@@ -7,7 +7,7 @@ import {
   bidsTable,
   tournamentsTable,
 } from "@workspace/db";
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
@@ -106,6 +106,7 @@ async function buildAuctionState(tournamentId: number) {
       bidTier2Increment: tournamentsTable.bidTier2Increment,
       bidTier3Increment: tournamentsTable.bidTier3Increment,
       bidTiers: tournamentsTable.bidTiers,
+      licenseStatus: tournamentsTable.licenseStatus,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
@@ -168,6 +169,26 @@ async function buildAuctionState(tournamentId: number) {
     if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds);
   } catch { /* ignore */ }
 
+  // Trial mode: expose first 2 team IDs that are eligible to bid
+  const licenseStatus = tournamentRow?.licenseStatus ?? "trial";
+  const isTrialMode = licenseStatus !== "live";
+  let trialTeamIds: number[] | null = null;
+  if (isTrialMode) {
+    const trialTeams = await db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(eq(teamsTable.tournamentId, tournamentId))
+      .orderBy(asc(teamsTable.id))
+      .limit(2);
+    trialTeamIds = trialTeams.map(t => t.id);
+  }
+
+  // Parse deferred player IDs
+  let deferredPlayerIds: number[] = [];
+  try {
+    if (session.deferredPlayerIds) deferredPlayerIds = JSON.parse(session.deferredPlayerIds);
+  } catch { /* ignore */ }
+
   return {
     tournamentId,
     status: session.status,
@@ -194,6 +215,9 @@ async function buildAuctionState(tournamentId: number) {
     teamPurseViewActive: session.teamPurseViewActive,
     activeCategoryIds,
     playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+    licenseStatus,
+    trialTeamIds,
+    deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
   };
 }
 
@@ -242,16 +266,7 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
-  // License and lock checks
-  if (tournament?.licenseStatus !== "live") {
-    // Trial mode: allow auction practice with a maximum of 2 teams
-    const teamRows = await db.select({ id: teamsTable.id }).from(teamsTable).where(eq(teamsTable.tournamentId, tid));
-    if (teamRows.length > 2) {
-      res.status(403).json({ error: "Trial mode allows a maximum of 2 teams. Contact admin to activate your license for a full auction." });
-      return;
-    }
-    // Allow trial auction to proceed (display will show TRIAL watermark)
-  }
+  // License and lock checks — trial mode always allowed; only block completed/locked
   if (tournament?.adminLocked) {
     res.status(403).json({ error: "This tournament has been locked by the admin. No further auction operations are allowed." });
     return;
@@ -316,25 +331,56 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds);
   } catch { /* ignore */ }
 
+  // Parse deferred player IDs (bring-later queue)
+  let deferredIds: number[] = [];
+  try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
+
+  // Trial mode: restrict pool to first 10 players by ID
+  const isTrialMode = tournament?.licenseStatus !== "live";
+  let trialPlayerIds: number[] | null = null;
+  if (isTrialMode) {
+    const first10 = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid))
+      .orderBy(asc(playersTable.id))
+      .limit(10);
+    trialPlayerIds = first10.map(p => p.id);
+  }
+
   let selectedPlayerId: number | null = null;
+  let newDeferredIds = deferredIds;
 
   if (playerId) {
+    // Manual selection — operator picked a specific player
     selectedPlayerId = playerId;
-  } else if (mode === "random") {
-    const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
-    const available = activeCatIds && activeCatIds.length > 0
-      ? await db.select().from(playersTable).where(and(...baseConditions, inArray(playersTable.categoryId, activeCatIds)))
-      : await db.select().from(playersTable).where(and(...baseConditions));
-    if (available.length > 0) {
-      selectedPlayerId = available[Math.floor(Math.random() * available.length)].id;
+    if (deferredIds.includes(playerId)) {
+      newDeferredIds = deferredIds.filter(id => id !== playerId);
     }
   } else {
+    // Build base conditions
     const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
-    const query = db.select().from(playersTable).orderBy(asc(playersTable.id)).limit(1);
-    const [next] = activeCatIds && activeCatIds.length > 0
-      ? await query.where(and(...baseConditions, inArray(playersTable.categoryId, activeCatIds)))
-      : await query.where(and(...baseConditions));
-    if (next) selectedPlayerId = next.id;
+    if (activeCatIds && activeCatIds.length > 0) baseConditions.push(inArray(playersTable.categoryId, activeCatIds));
+    if (trialPlayerIds && trialPlayerIds.length > 0) baseConditions.push(inArray(playersTable.id, trialPlayerIds));
+
+    const allAvailable = await db.select().from(playersTable).where(and(...baseConditions));
+
+    // Non-deferred players come first; fall back to deferred only when pool is empty
+    const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
+    const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
+
+    if (pool.length > 0) {
+      if (mode === "random") {
+        selectedPlayerId = pool[Math.floor(Math.random() * pool.length)].id;
+      } else {
+        // Sequential: lowest ID first
+        selectedPlayerId = pool.reduce((a, b) => a.id < b.id ? a : b).id;
+      }
+      // If selected player came from the deferred list, remove them from it
+      if (selectedPlayerId !== null && deferredIds.includes(selectedPlayerId)) {
+        newDeferredIds = deferredIds.filter(id => id !== selectedPlayerId);
+      }
+    }
   }
 
   if (!selectedPlayerId) {
@@ -346,6 +392,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
         currentBid: null,
         currentBidTeamId: null,
         timerEndsAt: null,
+        deferredPlayerIds: null,
         lastAction: "Auction completed — all players processed",
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -369,6 +416,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       timerSeconds: timerSecs,
       timerEndsAt: null,
       pausedTimeRemaining: null,
+      deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
@@ -387,6 +435,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
 
   const { teamId, amount } = parsed.data;
   const session = await getOrCreateSession(tid);
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No player currently up for bid" }); return; }
   if (session.status !== "active") { res.status(400).json({ error: "Auction is not active" }); return; }
@@ -396,7 +445,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   }
   if (amount <= (session.currentBid ?? 0)) { res.status(400).json({ error: "Bid must be higher than current bid" }); return; }
 
-  // Issue 4: Double-bid prevention — same team can't bid if already leading
+  // Double-bid prevention — same team can't bid if already leading
   if (session.currentBidTeamId === teamId) {
     res.status(409).json({ error: "Your team is already the highest bidder" });
     return;
@@ -405,11 +454,24 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }
   if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
+
+  // Trial mode: only the first 2 teams (by ID) may bid
+  if (tournament?.licenseStatus !== "live") {
+    const trialTeams = await db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(eq(teamsTable.tournamentId, tid))
+      .orderBy(asc(teamsTable.id))
+      .limit(2);
+    if (!trialTeams.some(t => t.id === teamId)) {
+      res.status(403).json({ error: "Trial mode: only the first 2 teams can bid. Contact admin to activate your license for a full auction." });
+      return;
+    }
+  }
+
   const purseRemaining = team.purse - team.purseUsed;
   if (amount > purseRemaining) { res.status(400).json({ error: "Insufficient purse" }); return; }
 
-  // Issue 2: Auto-start bid timer (subsequent bid timer from tournament settings)
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
   const newTimerEndsAt = new Date(Date.now() + bidTimerSecs * 1000).toISOString();
 
@@ -723,6 +785,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       currentBid: null,
       currentBidTeamId: null,
       timerEndsAt: null,
+      deferredPlayerIds: null,
       soldPlayersCount: 0,
       unsoldPlayersCount: 0,
       lastAction: "Reset complete — ready for live auction",
@@ -732,6 +795,119 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   await db.update(tournamentsTable).set({ status: "setup" }).where(eq(tournamentsTable.id, tid));
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
+});
+
+// POST defer current player — send to back of queue, auto-advance to next
+router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const session = await getOrCreateSession(tid);
+  if (!session.currentPlayerId) {
+    res.status(400).json({ error: "No player currently on the block" });
+    return;
+  }
+
+  const deferredId = session.currentPlayerId;
+
+  // Get deferred player name for lastAction log
+  const [deferredPlayer] = await db
+    .select({ name: playersTable.name })
+    .from(playersTable)
+    .where(eq(playersTable.id, deferredId));
+
+  // Add current player to deferred list (avoid duplicates)
+  let deferredIds: number[] = [];
+  try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
+  if (!deferredIds.includes(deferredId)) deferredIds.push(deferredId);
+
+  // Fetch tournament settings
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  const timerSecs = tournament?.timerSeconds ?? 30;
+  const selMode = tournament?.playerSelectionMode ?? "sequential";
+  const isTrialMode = tournament?.licenseStatus !== "live";
+
+  // Parse active category filter
+  let activeCatIds: number[] | null = null;
+  try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
+
+  // Trial mode: restrict pool to first 10 players by ID
+  let trialPlayerIds: number[] | null = null;
+  if (isTrialMode) {
+    const first10 = await db
+      .select({ id: playersTable.id })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid))
+      .orderBy(asc(playersTable.id))
+      .limit(10);
+    trialPlayerIds = first10.map(p => p.id);
+  }
+
+  // Build available pool (excluding just-deferred player)
+  const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
+  if (activeCatIds && activeCatIds.length > 0) baseConditions.push(inArray(playersTable.categoryId, activeCatIds));
+  if (trialPlayerIds && trialPlayerIds.length > 0) baseConditions.push(inArray(playersTable.id, trialPlayerIds));
+
+  const allAvailable = await db.select().from(playersTable).where(and(...baseConditions));
+  const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
+  const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
+
+  let selectedPlayerId: number | null = null;
+  let newDeferredIds = deferredIds;
+
+  if (pool.length > 0) {
+    const effectiveMode = selMode === "manual" ? "sequential" : selMode;
+    if (effectiveMode === "random") {
+      selectedPlayerId = pool[Math.floor(Math.random() * pool.length)].id;
+    } else {
+      selectedPlayerId = pool.reduce((a, b) => a.id < b.id ? a : b).id;
+    }
+    // If next player was from the deferred list, remove them
+    if (selectedPlayerId !== null && deferredIds.includes(selectedPlayerId)) {
+      newDeferredIds = deferredIds.filter(id => id !== selectedPlayerId);
+    }
+  }
+
+  if (!selectedPlayerId) {
+    // No more players available — auction complete
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        deferredPlayerIds: null,
+        lastAction: "Auction completed — all players processed",
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    res.json(await broadcastState(tid, ["players"]));
+    return;
+  }
+
+  const [selectedPlayer] = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.id, selectedPlayerId));
+
+  await db
+    .update(auctionSessionsTable)
+    .set({
+      status: "active",
+      currentPlayerId: selectedPlayerId,
+      currentBid: selectedPlayer.basePrice,
+      currentBidTeamId: null,
+      timerSeconds: timerSecs,
+      timerEndsAt: null,
+      pausedTimeRemaining: null,
+      deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
+      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
+    })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  res.json(await broadcastState(tid, ["players"]));
 });
 
 // POST undo last action

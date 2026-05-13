@@ -3545,6 +3545,90 @@ export const useStartTimer = <
 };
 
 /**
+ * @summary Defer the current player to the back of the queue and auto-advance to next
+ */
+export const getDeferPlayerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/defer-player`;
+};
+
+export const deferPlayer = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getDeferPlayerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDeferPlayerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deferPlayer>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deferPlayer>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  const mutationKey = ["deferPlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deferPlayer>>,
+    { tournamentId: number }
+  > = (props) => {
+    const { tournamentId } = props ?? {};
+
+    return deferPlayer(tournamentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeferPlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deferPlayer>>
+>;
+
+export type DeferPlayerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Defer the current player to the back of the queue and auto-advance to next
+ */
+export const useDeferPlayer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deferPlayer>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deferPlayer>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  return useMutation(getDeferPlayerMutationOptions(options));
+};
+
+/**
  * @summary Get bid history for a tournament
  */
 export const getListBidsUrl = (tournamentId: number) => {

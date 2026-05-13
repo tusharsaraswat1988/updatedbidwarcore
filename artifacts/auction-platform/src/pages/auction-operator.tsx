@@ -20,6 +20,7 @@ import {
   useStartTimer,
   useSetTeamPurseView,
   useSetCategoryFilter,
+  useDeferPlayer,
   getGetAuctionStateQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
@@ -42,6 +43,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, RefreshCw, Timer, LayoutGrid, Tag, X, Filter, Search,
+  Hourglass, Monitor, Users, ExternalLink,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -93,6 +95,7 @@ export default function AuctionOperator() {
   const startTimerMut = useStartTimer();
   const setTeamPurseView = useSetTeamPurseView();
   const setCategoryFilter = useSetCategoryFilter();
+  const deferPlayerMut = useDeferPlayer();
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
@@ -159,6 +162,11 @@ export default function AuctionOperator() {
     invalidate();
   }
 
+  async function handleDeferPlayer() {
+    await deferPlayerMut.mutateAsync({ tournamentId });
+    invalidate();
+  }
+
   async function handleBatchReAuction() {
     await reAuctionAllUnsoldMut.mutateAsync({ tournamentId });
     setShowBatchReAuctionConfirm(false);
@@ -221,6 +229,10 @@ export default function AuctionOperator() {
   const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
   const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
   const selectionMode = (state as any)?.playerSelectionMode ?? "sequential";
+  const licenseStatus: string = (state as any)?.licenseStatus ?? "trial";
+  const isTrialMode = licenseStatus !== "live";
+  const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
+  const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
 
   const searchLower = playerSearch.trim().toLowerCase();
   const filterBySearch = <T extends { name: string; jerseyNumber?: string | null }>(list: T[]): T[] =>
@@ -272,7 +284,8 @@ export default function AuctionOperator() {
                 onClick={async () => { await startAuction.mutateAsync({ tournamentId }); invalidate(); }}
                 disabled={startAuction.isPending}
               >
-                <Play className="w-5 h-5" /> {isPaused ? "Resume" : "Start Auction"}
+                <Play className="w-5 h-5" />
+                {isPaused ? "Resume" : isTrialMode ? "Start Auction (Trial Mode)" : "Start Auction"}
               </Button>
             ) : (
               <Button
@@ -353,6 +366,60 @@ export default function AuctionOperator() {
             </Button>
           </div>
         </div>
+
+        {/* Trial / Live Mode Banner */}
+        {state && (
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border flex-wrap ${
+            isTrialMode
+              ? "bg-amber-500/10 border-amber-500/30"
+              : "bg-green-500/10 border-green-500/30"
+          }`}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex-shrink-0 ${
+              isTrialMode ? "bg-amber-500/20 text-amber-400" : "bg-green-500/20 text-green-400"
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse inline-block" />
+              {isTrialMode ? "Trial Mode" : "Live Mode"}
+            </div>
+            {isTrialMode ? (
+              <>
+                <span className="text-xs text-amber-300/80">
+                  Restricted to first 2 teams and first 10 players. Activate your license for full access.
+                </span>
+                <div className="flex gap-2 ml-auto flex-wrap">
+                  <a
+                    href={`/tournament/${tournamentId}/display`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                  >
+                    <Monitor className="w-3 h-3" /> Display Panel
+                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                  </a>
+                  <a
+                    href={`/tournament/${tournamentId}/hub`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                  >
+                    <LayoutGrid className="w-3 h-3" /> Auction Hub
+                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                  </a>
+                  <a
+                    href={`/tournament/${tournamentId}/teams`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                  >
+                    <Users className="w-3 h-3" /> Teams / Players
+                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                  </a>
+                </div>
+              </>
+            ) : (
+              <span className="text-xs text-green-300/80">Full auction mode — all teams and players enabled.</span>
+            )}
+          </div>
+        )}
 
         {/* Active Category Filter Banner */}
         {activeCategoryIds && activeCategoryIds.length > 0 && (
@@ -549,6 +616,16 @@ export default function AuctionOperator() {
                   <Button
                     size="lg"
                     variant="outline"
+                    className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 h-14 gap-2 px-5"
+                    disabled={!hasPlayer || deferPlayerMut.isPending}
+                    onClick={handleDeferPlayer}
+                    title="Skip this player for now — they return at the back of the queue"
+                  >
+                    <Hourglass className="w-4 h-4" /> Bring Later
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
                     className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 h-14 gap-2 px-5"
                     disabled={!hasPlayer}
                     onClick={() => {
@@ -574,7 +651,8 @@ export default function AuctionOperator() {
                     const purseLeft = team.purse - (team.purseUsed || 0);
                     const isLeading = state?.currentBidTeamId === team.id;
                     const nextBid = (state?.currentBid || 0) + increment;
-                    const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading;
+                    const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
+                    const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
                     return (
                       <button
                         key={team.id}
@@ -592,6 +670,11 @@ export default function AuctionOperator() {
                           <div className="absolute top-2 right-2 flex items-center gap-1">
                             <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
                             <span className="text-[10px] font-bold" style={{ color: team.color || "#fff" }}>LEAD</span>
+                          </div>
+                        )}
+                        {isTrialRestricted && (
+                          <div className="absolute inset-0 rounded-xl bg-background/50 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">Trial Restricted</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 mb-2">
@@ -735,6 +818,9 @@ export default function AuctionOperator() {
                                     <span className="text-muted-foreground font-mono mr-1">#{player.jerseyNumber}</span>
                                   )}
                                   {player.name}
+                                  {reAuctionTab === "queue" && deferredPlayerIds?.includes(player.id) && (
+                                    <Hourglass className="w-3 h-3 text-amber-400 inline-block ml-1.5 opacity-80" />
+                                  )}
                                 </span>
                                 <div className="flex items-center gap-1.5">
                                   {team && <span className="text-[10px] text-muted-foreground">{team.name}</span>}
