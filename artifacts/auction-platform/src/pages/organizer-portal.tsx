@@ -299,6 +299,7 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   google_cancelled: "Google sign-in was cancelled.",
   google_token_failed: "Google sign-in failed. Please try again.",
   google_failed: "Google sign-in failed. Please try again.",
+  google_state_mismatch: "Sign-in session expired or invalid. Please try again.",
   not_configured: "Google login is not configured yet.",
   no_email: "Your Google account did not provide an email address.",
 };

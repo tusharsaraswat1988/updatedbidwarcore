@@ -14,6 +14,7 @@ declare module "express-session" {
     adminLevel?: "master" | "data_entry";
     organizer?: Record<string, true>;
     organizerAccountId?: number;
+    googleOAuthState?: string;
   }
 }
 
@@ -801,19 +802,34 @@ router.get("/auth/google", (req, res) => {
   const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
   const domain = domains[0]?.trim() ?? "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
+
+  // Generate and store a random state token to prevent login CSRF
+  const state = randomBytes(32).toString("hex");
+  req.session.googleOAuthState = state;
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
     prompt: "select_account",
+    state,
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
 router.get("/auth/google/callback", async (req, res) => {
   const code = req.query.code as string | undefined;
+  const returnedState = req.query.state as string | undefined;
   if (!code) { res.redirect("/organizer?error=google_cancelled"); return; }
+
+  // Validate state to prevent login CSRF attacks
+  const expectedState = req.session.googleOAuthState;
+  req.session.googleOAuthState = undefined;
+  if (!expectedState || !returnedState || !safeCompare(expectedState, returnedState)) {
+    res.redirect("/organizer?error=google_state_mismatch");
+    return;
+  }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
