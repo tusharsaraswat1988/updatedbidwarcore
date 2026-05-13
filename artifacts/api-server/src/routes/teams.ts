@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { teamsTable } from "@workspace/db";
+import { teamsTable, tournamentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -47,22 +47,30 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     ownerMobile: z.string().optional(),
     color: z.string().optional(),
     logoUrl: z.string().optional(),
-    purse: z.number().int().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  // Check for duplicate short code within this tournament
+  const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
+  if (existing.length > 0) { res.status(400).json({ error: `Short code "${d.shortCode.toUpperCase()}" is already used by another team` }); return; }
+
+  // Auto-fetch purse from tournament base purse
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
   const [team] = await db
     .insert(teamsTable)
     .values({
       tournamentId: tid,
       name: d.name,
-      shortCode: d.shortCode,
+      shortCode: d.shortCode.toUpperCase(),
       ownerName: d.ownerName,
       ownerMobile: d.ownerMobile ?? null,
       color: d.color ?? "#3B82F6",
       logoUrl: d.logoUrl ?? null,
-      purse: d.purse ?? 10000000,
+      purse: tournament.basePurse,
       purseUsed: 0,
       isBiddingEnabled: true,
       accessCode: genAccessCode(),
