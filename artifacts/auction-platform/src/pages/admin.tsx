@@ -266,11 +266,14 @@ function DetailPanel({
     if (ef.timerSeconds) payload.timerSeconds = Number(ef.timerSeconds);
     if (ef.bidTimerSeconds) payload.bidTimerSeconds = Number(ef.bidTimerSeconds);
     if (ef.playerSelectionMode) payload.playerSelectionMode = ef.playerSelectionMode as string;
+    const contactFieldsChanged = ef.organizerMobile !== undefined || ef.organizerEmail !== undefined;
     const r = await updateAdminTournament(tournamentId, payload as Parameters<typeof updateAdminTournament>[1]);
     setSaving(false);
     if (r.success) {
       if (r.linkedOrganizerId) {
         flash(`Saved — linked to organizer account: ${r.linkedOrganizerName ?? `#${r.linkedOrganizerId}`}`);
+      } else if (contactFieldsChanged && (ef.organizerMobile || ef.organizerEmail)) {
+        flash("Saved — no matching organizer account found for that mobile/email. Create one in the Organizers tab then link manually.", false);
       } else {
         flash("Saved successfully");
       }
