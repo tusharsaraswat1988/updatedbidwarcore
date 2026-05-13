@@ -245,9 +245,23 @@ export async function logoutOrganizerAccount(): Promise<void> {
   try { await apiFetch("/auth/organizer-account/logout", { method: "POST" }); } catch { }
 }
 
+export async function updateOrganizerProfile(data: {
+  mobile: string;
+}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Update failed" };
+    return { success: true, organizer: d.organizer };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; venue?: string; auctionDate?: string;
-  basePurse?: number; organizerPassword?: string;
+  basePurse?: number;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {
@@ -299,6 +313,21 @@ export async function deleteAdminOrganizer(id: number): Promise<{ success: boole
     const r = await apiFetch(`/auth/admin/organizers/${id}`, { method: "DELETE" });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Delete failed" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function setTournamentLicenseStatus(
+  tournamentId: number,
+  status: "trial" | "live" | "completed"
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/set-license-status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }

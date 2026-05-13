@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
 import {
-  listAdminTournaments, grantLicense, revokeLicense, lockTournament,
+  listAdminTournaments, lockTournament,
   unlockTournament, fetchAdminTournamentDetail, updateAdminTournament,
   createAdminTournament, deleteAdminTournament, setOrganizerPassword,
+  setTournamentLicenseStatus,
   listAdminOrganizers, updateAdminOrganizer, deleteAdminOrganizer,
   AdminTournamentRow, AdminTournamentDetail, AdminOrganizerRow,
 } from "@/lib/auth";
@@ -33,7 +34,14 @@ function LicenseBadge({ status }: { status: string }) {
   if (status === "live") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]">
-        <BadgeCheck className="w-3 h-3" /> Licensed
+        <BadgeCheck className="w-3 h-3" /> Live
+      </Badge>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 gap-1 text-[10px]">
+        <Check className="w-3 h-3" /> Completed
       </Badge>
     );
   }
@@ -302,7 +310,6 @@ function DetailPanel({
 
   const t = data.tournament;
   const isLocked = t.adminLocked;
-  const isLive = t.licenseStatus === "live";
 
   return (
     <div className="flex-1 flex flex-col border-l border-border/40 bg-card/30 min-w-0">
@@ -322,27 +329,38 @@ function DetailPanel({
 
       {/* Action bar */}
       <div className="px-4 py-2.5 border-b border-border/40 flex items-center gap-2 flex-wrap flex-shrink-0 bg-muted/10">
-        {/* License (master only) */}
-        {isMaster && !isLive && (
-          <Button
-            size="sm" variant="outline"
-            className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
-            disabled={actionLoading === "Grant License"}
-            onClick={() => doAction("Grant License", () => grantLicense(tournamentId))}
-          >
-            {actionLoading === "Grant License" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
-            Grant License
-          </Button>
-        )}
-        {isMaster && isLive && (
+        {/* License status buttons */}
+        {t.licenseStatus !== "trial" && (
           <Button
             size="sm" variant="outline"
             className="h-7 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-            disabled={actionLoading === "Revoke License"}
-            onClick={() => doAction("Revoke License", () => revokeLicense(tournamentId))}
+            disabled={actionLoading === "Set Trial"}
+            onClick={() => doAction("Set Trial", () => setTournamentLicenseStatus(tournamentId, "trial"))}
           >
-            {actionLoading === "Revoke License" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
-            Revoke License
+            {actionLoading === "Set Trial" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+            Set Trial
+          </Button>
+        )}
+        {t.licenseStatus !== "live" && (
+          <Button
+            size="sm" variant="outline"
+            className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
+            disabled={actionLoading === "Set Live"}
+            onClick={() => doAction("Set Live", () => setTournamentLicenseStatus(tournamentId, "live"))}
+          >
+            {actionLoading === "Set Live" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
+            Set Live
+          </Button>
+        )}
+        {t.licenseStatus !== "completed" && (
+          <Button
+            size="sm" variant="outline"
+            className="h-7 gap-1.5 text-xs border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+            disabled={actionLoading === "Set Completed"}
+            onClick={() => doAction("Set Completed", () => setTournamentLicenseStatus(tournamentId, "completed"))}
+          >
+            {actionLoading === "Set Completed" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            Set Completed
           </Button>
         )}
         {/* Lock / Unlock */}
@@ -743,8 +761,6 @@ function OrganizerDetailPanel({
     name: org.name,
     email: org.email || "",
     mobile: org.mobile,
-    licenseStatus: org.licenseStatus as "pending" | "active" | "suspended",
-    maxTournaments: String(org.maxTournaments),
     notes: org.notes || "",
     newPassword: "",
   });
@@ -759,9 +775,7 @@ function OrganizerDetailPanel({
     const payload: Parameters<typeof updateAdminOrganizer>[1] = {
       name: form.name || undefined,
       email: form.email || undefined,
-      mobile: form.mobile || undefined,
-      licenseStatus: form.licenseStatus,
-      maxTournaments: Number(form.maxTournaments) || 1,
+      mobile: (form.mobile ?? undefined) || undefined,
       notes: form.notes || undefined,
       newPassword: form.newPassword || undefined,
     };
@@ -847,27 +861,6 @@ function OrganizerDetailPanel({
                   <Input className="h-8 text-sm" value={form.email} onChange={f("email")} placeholder="(optional)" />
                 </div>
               </div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">License</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Status</Label>
-                  <Select
-                    value={form.licenseStatus}
-                    onValueChange={v => setForm(p => ({ ...p, licenseStatus: v as typeof p.licenseStatus }))}
-                  >
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Max Tournaments</Label>
-                  <Input type="number" className="h-8 text-sm" value={form.maxTournaments} onChange={f("maxTournaments")} min="0" />
-                </div>
-              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Internal Notes</Label>
                 <textarea
@@ -888,11 +881,9 @@ function OrganizerDetailPanel({
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
                 {[
                   ["Name", org.name],
-                  ["Mobile", org.mobile],
+                  ["Mobile", org.mobile ?? "—"],
                   ["Email", org.email || "—"],
-                  ["License", org.licenseStatus],
-                  ["Max Tournaments", String(org.maxTournaments)],
-                  ["Tournaments Created", String(org.tournamentCount)],
+                  ["Tournaments", String(org.tournamentCount)],
                   ["Member Since", new Date(org.createdAt).toLocaleDateString("en-IN")],
                   ["Notes", org.notes || "—"],
                 ].map(([k, v]) => (
@@ -903,53 +894,21 @@ function OrganizerDetailPanel({
                 ))}
               </div>
 
-              {/* Quick license actions */}
               {isMaster && (
                 <div className="pt-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Quick Actions</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Actions</p>
                   <div className="flex gap-2 flex-wrap">
-                    {org.licenseStatus !== "active" && (
-                      <Button
-                        size="sm" variant="outline"
-                        className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
-                        onClick={async () => {
-                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "active" });
-                          if (r.success) { flash("License activated"); onRefresh(); }
-                          else flash(r.error || "Failed", false);
-                        }}
-                      >
-                        <BadgeCheck className="w-3 h-3" /> Activate
-                      </Button>
-                    )}
-                    {org.licenseStatus !== "suspended" && (
-                      <Button
-                        size="sm" variant="outline"
-                        className="h-7 gap-1.5 text-xs border-red-500/40 text-red-400 hover:bg-red-500/10"
-                        onClick={async () => {
-                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "suspended" });
-                          if (r.success) { flash("Account suspended"); onRefresh(); }
-                          else flash(r.error || "Failed", false);
-                        }}
-                      >
-                        <Lock className="w-3 h-3" /> Suspend
-                      </Button>
-                    )}
-                    {org.licenseStatus !== "pending" && (
-                      <Button
-                        size="sm" variant="outline"
-                        className="h-7 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                        onClick={async () => {
-                          const r = await updateAdminOrganizer(org.id, { licenseStatus: "pending" });
-                          if (r.success) { flash("Set to pending"); onRefresh(); }
-                          else flash(r.error || "Failed", false);
-                        }}
-                      >
-                        <AlertTriangle className="w-3 h-3" /> Set Pending
-                      </Button>
-                    )}
+                    <Button
+                      size="sm" variant="outline"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={() => setEditing(true)}
+                    >
+                      <Pencil className="w-3 h-3" /> Edit Details
+                    </Button>
                   </div>
                 </div>
               )}
+
             </>
           )}
         </div>

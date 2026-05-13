@@ -648,20 +648,6 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.session.organizerAccountId));
   if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
 
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-  // Pending (trial) users can create unlimited tournaments — restriction is at auction time (max 2 teams).
-  // Only enforce the slot cap for fully-licensed (active) organizers.
-  if (organizer.licenseStatus === "active" && myTournaments.length >= organizer.maxTournaments) {
-    res.status(403).json({
-      error: `Your current plan allows up to ${organizer.maxTournaments} tournament(s). Please contact admin to upgrade your license.`,
-    });
-    return;
-  }
-  if (organizer.licenseStatus === "suspended") {
-    res.status(403).json({ error: "Your account has been suspended. Please contact support." });
-    return;
-  }
-
   const schema = z.object({
     name: z.string().min(1),
     sport: z.string().default("cricket"),
@@ -669,7 +655,6 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     auctionDate: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
-    organizerPassword: z.string().min(4).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -684,12 +669,11 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerName: organizer.name,
     organizerMobile: organizer.mobile,
     organizerEmail: organizer.email ?? null,
-    organizerPassword: d.organizerPassword ?? null,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
     timerSeconds: 30,
     bidTimerSeconds: 15,
-    licenseStatus: organizer.licenseStatus === "active" ? "live" : "trial",
+    licenseStatus: "trial",
   }).returning();
 
   if (!req.session.organizer) req.session.organizer = {};
@@ -885,11 +869,63 @@ router.get("/auth/google/callback", async (req, res) => {
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
     for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
 
-    res.redirect("/organizer");
+    const destination = organizer.mobile ? "/organizer" : "/organizer?require_mobile=1";
+    res.redirect(destination);
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     res.redirect("/organizer?error=google_failed");
   }
+});
+
+// ─── Organizer Account: Update profile (mobile) ───────────────────────────────
+
+router.patch("/auth/organizer-account/profile", async (req, res) => {
+  if (!req.session.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const body = z.object({
+    mobile: z.string().min(7),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "A valid mobile number is required." }); return; }
+
+  const mobileExists = await db.select().from(organizersTable)
+    .where(eq(organizersTable.mobile, body.data.mobile));
+  if (mobileExists.length > 0 && mobileExists[0].id !== req.session.organizerAccountId) {
+    res.status(409).json({ error: "This mobile number is already registered to another account." });
+    return;
+  }
+
+  const [updated] = await db.update(organizersTable)
+    .set({ mobile: body.data.mobile })
+    .where(eq(organizersTable.id, req.session.organizerAccountId))
+    .returning();
+
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
+// ─── Admin: Set tournament license status ─────────────────────────────────────
+
+router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) => {
+  if (!req.session.adminLevel || !["master", "data_entry"].includes(req.session.adminLevel)) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const tournamentId = Number(req.params.id);
+  const body = z.object({
+    status: z.enum(["trial", "live", "completed"]),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Status must be trial, live, or completed" }); return; }
+
+  await db.update(tournamentsTable)
+    .set({
+      licenseStatus: body.data.status,
+      licenseGrantedAt: body.data.status === "live" ? new Date() : undefined,
+      licenseGrantedBy: body.data.status === "live" ? (req.session.adminLevel ?? undefined) : undefined,
+    })
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  res.json({ success: true });
 });
 
 export default router;

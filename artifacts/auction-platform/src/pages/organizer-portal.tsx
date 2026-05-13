@@ -6,6 +6,7 @@ import {
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
+  updateOrganizerProfile,
   sendOtp,
   verifyOtpAndReset,
 } from "@/lib/auth";
@@ -19,9 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  UserCircle2, LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck,
-  Phone, Lock, User, Gavel, Plus, AlertTriangle, Clock, CheckCircle2,
-  XCircle, Eye, EyeOff, ArrowLeft, MessageSquare, KeyRound,
+  LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
+  Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
+  Eye, EyeOff, ArrowLeft, MessageSquare, KeyRound, CheckCheck,
 } from "lucide-react";
 
 type OrganizerInfo = {
@@ -33,43 +34,29 @@ type Tournament = {
   licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string;
 };
 
-function LicenseStatusBanner({ organizer }: { organizer: OrganizerInfo }) {
-  if (organizer.licenseStatus === "active") {
+// ─── Tournament License Badge ─────────────────────────────────────────────────
+
+function TournamentLicenseBadge({ status }: { status: string }) {
+  if (status === "live") {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20">
-        <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-green-400">License Active</p>
-          <p className="text-xs text-muted-foreground">You can create up to {organizer.maxTournaments} tournament(s) and run full live auctions.</p>
-        </div>
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">ACTIVE</Badge>
-      </div>
+      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1">
+        <ShieldCheck className="w-2.5 h-2.5" /> Live
+      </Badge>
     );
   }
-  if (organizer.licenseStatus === "suspended") {
+  if (status === "completed") {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
-        <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-red-400">Account Suspended</p>
-          <p className="text-xs text-muted-foreground">Contact support to resolve this.</p>
-        </div>
-      </div>
+      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1">
+        <CheckCheck className="w-2.5 h-2.5" /> Completed
+      </Badge>
     );
   }
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-      <Clock className="w-5 h-5 text-amber-400 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-amber-400">Trial Mode — License Pending</p>
-        <p className="text-xs text-muted-foreground">
-          Create tournaments, add players, and practice the full auction flow. Auctions are limited to 2 teams until your license is activated.
-        </p>
-      </div>
-      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">TRIAL</Badge>
-    </div>
+    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">Trial</Badge>
   );
 }
+
+// ─── Create Tournament Modal ──────────────────────────────────────────────────
 
 function CreateTournamentModal({
   open, onClose, onCreated,
@@ -84,7 +71,6 @@ function CreateTournamentModal({
     venue: "",
     auctionDate: "",
     basePurse: "1000000",
-    organizerPassword: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -100,7 +86,6 @@ function CreateTournamentModal({
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
       basePurse: parseInt(form.basePurse) || 1000000,
-      organizerPassword: form.organizerPassword.trim() || undefined,
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
@@ -112,7 +97,7 @@ function CreateTournamentModal({
       <DialogContent className="max-w-md dark">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Gavel className="w-4 h-4 text-primary" /> Create Tournament
+            <Gavel className="w-4 h-4 text-primary" /> New Tournament
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
@@ -156,25 +141,14 @@ function CreateTournamentModal({
               placeholder="Stadium name or city"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Total Purse per Team (₹)</Label>
-              <Input
-                type="number"
-                value={form.basePurse}
-                onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-                placeholder="1000000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Operator Password</Label>
-              <Input
-                type="password"
-                value={form.organizerPassword}
-                onChange={e => setForm(f => ({ ...f, organizerPassword: e.target.value }))}
-                placeholder="Min 4 chars"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Total Purse per Team (₹)</Label>
+            <Input
+              type="number"
+              value={form.basePurse}
+              onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
+              placeholder="1000000"
+            />
           </div>
           {error && (
             <div className="flex items-center gap-2 text-destructive text-sm">
@@ -193,6 +167,82 @@ function CreateTournamentModal({
     </Dialog>
   );
 }
+
+// ─── Complete Profile Form (Google sign-in, no mobile yet) ────────────────────
+
+function CompleteProfileForm({
+  onComplete,
+}: {
+  onComplete: (org: OrganizerInfo) => void;
+}) {
+  const [mobile, setMobile] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mobile.trim()) { setError("Mobile number is required."); return; }
+    setLoading(true);
+    setError("");
+    const r = await updateOrganizerProfile({ mobile: mobile.trim() });
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Failed to save."); return; }
+    if (r.organizer) onComplete(r.organizer);
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
+      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative w-full max-w-sm space-y-6"
+      >
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
+            <Phone className="w-7 h-7 text-primary" />
+          </div>
+          <h1 className="font-display font-black text-2xl text-white">One more step</h1>
+          <p className="text-muted-foreground text-sm">
+            Add your mobile number to complete your profile. This is used as your primary contact.
+          </p>
+        </div>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number *
+                </Label>
+                <Input
+                  value={mobile}
+                  onChange={e => setMobile(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  inputMode="tel"
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <p className="text-destructive text-sm flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />{error}
+                </p>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                Save & Continue
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Forgot Password Flow ─────────────────────────────────────────────────────
 
 function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
   const [step, setStep] = useState<"mobile" | "code">("mobile");
@@ -278,6 +328,8 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
   );
 }
 
+// ─── Google Sign-In Button ────────────────────────────────────────────────────
+
 function GoogleSignInButton() {
   return (
     <a
@@ -295,6 +347,8 @@ function GoogleSignInButton() {
   );
 }
 
+// ─── Google Error Messages ────────────────────────────────────────────────────
+
 const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   google_cancelled: "Google sign-in was cancelled.",
   google_token_failed: "Google sign-in failed. Please try again.",
@@ -303,6 +357,8 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   not_configured: "Google login is not configured yet.",
   no_email: "Your Google account did not provide an email address.",
 };
+
+// ─── Auth Form ────────────────────────────────────────────────────────────────
 
 function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
@@ -528,6 +584,8 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
   );
 }
 
+// ─── Organizer Dashboard ──────────────────────────────────────────────────────
+
 function OrganizerDashboard({
   organizer, tournaments, onLogout, onRefresh,
 }: {
@@ -538,13 +596,16 @@ function OrganizerDashboard({
 }) {
   const [, navigate] = useLocation();
   const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
-  // Trial (pending) users: unlimited tournaments, capped at 2 teams per auction.
-  // Active users: capped by maxTournaments. Suspended: cannot create.
-  const canCreate =
-    organizer.licenseStatus === "suspended" ? false
-    : organizer.licenseStatus === "active" ? tournaments.length < organizer.maxTournaments
-    : true; // pending/trial — unlimited
+  const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "live");
+  const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
+
+  const filteredTournaments = tournaments.filter(t => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return t.name.toLowerCase().includes(q) || t.sport.toLowerCase().includes(q) || (t.venue || "").toLowerCase().includes(q);
+  });
 
   const statusColor: Record<string, string> = {
     setup: "text-muted-foreground",
@@ -557,10 +618,10 @@ function OrganizerDashboard({
     <div className="min-h-screen bg-[#09090b]">
       {/* Header */}
       <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-              <Gavel className="w-4.5 h-4.5 text-primary" />
+              <Gavel className="w-4 h-4 text-primary" />
             </div>
             <div>
               <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
@@ -583,61 +644,44 @@ function OrganizerDashboard({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-        {/* License Status */}
-        <LicenseStatusBanner organizer={organizer} />
-
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
             <p className="text-2xl font-display font-black text-primary">{tournaments.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Tournaments</p>
+            <p className="text-xs text-muted-foreground mt-1">Total</p>
           </div>
           <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            {organizer.licenseStatus === "active" ? (
-              <p className="text-2xl font-display font-black text-foreground">{organizer.maxTournaments}</p>
-            ) : organizer.licenseStatus === "pending" ? (
-              <p className="text-lg font-display font-black text-amber-400">Trial</p>
-            ) : (
-              <p className="text-lg font-display font-black text-red-400">—</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Allowed</p>
-          </div>
-          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
-            <p className="text-2xl font-display font-black text-foreground">
-              {tournaments.filter(t => t.status === "active").length}
-            </p>
+            <p className="text-2xl font-display font-black text-green-400">{activeTournaments.length}</p>
             <p className="text-xs text-muted-foreground mt-1">Active</p>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
+            <p className="text-2xl font-display font-black text-blue-400">{completedTournaments.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Completed</p>
           </div>
         </div>
 
         {/* Tournaments Section */}
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="text-lg font-display font-bold flex items-center gap-2">
               <Trophy className="w-5 h-5 text-primary" /> Your Tournaments
             </h2>
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setCreateOpen(true)}
-              disabled={!canCreate}
-              title={
-                organizer.licenseStatus === "suspended" ? "Account suspended"
-                : organizer.licenseStatus === "active" && !canCreate ? `You've reached your limit of ${organizer.maxTournaments} tournament(s)`
-                : ""
-              }
-            >
-              <Plus className="w-4 h-4" /> New Tournament
-            </Button>
-          </div>
-
-          {organizer.licenseStatus === "active" && !canCreate && (
-            <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/20 border border-border text-sm text-muted-foreground">
-              <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-              You've used all {organizer.maxTournaments} tournament slot(s). Contact admin to upgrade your license.
+            <div className="flex items-center gap-2 flex-1 min-w-0 max-w-xs">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="pl-8 h-8 text-sm"
+                />
+              </div>
+              <Button size="sm" className="gap-1.5 shrink-0 h-8" onClick={() => setCreateOpen(true)}>
+                <Plus className="w-4 h-4" /> New
+              </Button>
             </div>
-          )}
+          </div>
 
           {tournaments.length === 0 ? (
             <Card className="border-border/50 bg-card/20">
@@ -645,59 +689,55 @@ function OrganizerDashboard({
                 <Trophy className="w-12 h-12 mx-auto mb-4 opacity-20 text-muted-foreground" />
                 <p className="font-semibold text-foreground mb-1">No tournaments yet</p>
                 <p className="text-sm text-muted-foreground mb-4">Create your first tournament to get started.</p>
-                <Button onClick={() => setCreateOpen(true)} disabled={!canCreate} size="sm">
+                <Button onClick={() => setCreateOpen(true)} size="sm">
                   <Plus className="w-4 h-4 mr-2" /> Create Tournament
                 </Button>
               </CardContent>
             </Card>
+          ) : filteredTournaments.length === 0 ? (
+            <Card className="border-border/50 bg-card/20">
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground text-sm">No tournaments match your search.</p>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="space-y-3">
-              {tournaments.map((t, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTournaments.map((t, i) => (
                 <motion.div
                   key={t.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: i * 0.04 }}
                 >
-                  <Card className="border-border/50 bg-card/30 hover:bg-card/50 transition-colors">
-                    <CardContent className="p-5 flex items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-base">{t.name}</span>
-                          <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                          <span className={`text-[10px] font-bold uppercase ${statusColor[t.status] || "text-muted-foreground"}`}>
-                            {t.status}
-                          </span>
-                          {t.licenseStatus === "live" ? (
-                            <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1">
-                              <ShieldCheck className="w-2.5 h-2.5" /> Licensed
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">Trial</Badge>
-                          )}
+                  <button
+                    className="w-full text-left"
+                    onClick={() => navigate(`/tournament/${t.id}/login`)}
+                  >
+                    <Card className="border-border/50 bg-card/30 hover:bg-card/60 hover:border-border transition-all cursor-pointer h-full">
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
+                            <TournamentLicenseBadge status={t.licenseStatus} />
+                          </div>
+                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <div>
+                          <p className="font-bold text-base leading-snug">{t.name}</p>
+                          <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
+                            {t.status}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
                           {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                         </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="gap-1.5 shrink-0"
-                        onClick={() => navigate(`/tournament/${t.id}/login`)}
-                      >
-                        <Gavel className="w-3.5 h-3.5" /> Manage
-                        <ExternalLink className="w-3 h-3 opacity-60" />
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </button>
                 </motion.div>
               ))}
             </div>
           )}
-        </div>
-
-        <div className="text-center text-xs text-muted-foreground space-y-1">
-          <p>Need help? Contact us on WhatsApp for license activation and support.</p>
         </div>
       </div>
 
@@ -713,10 +753,13 @@ function OrganizerDashboard({
   );
 }
 
+// ─── Main Export ──────────────────────────────────────────────────────────────
+
 export default function OrganizerPortal() {
   const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [checking, setChecking] = useState(true);
+  const [needsMobile, setNeedsMobile] = useState(false);
   const search = useSearch();
 
   async function refresh() {
@@ -724,24 +767,27 @@ export default function OrganizerPortal() {
     if (me.loggedIn && me.organizer) {
       setOrganizer(me.organizer);
       setTournaments(me.tournaments ?? []);
+      if (!me.organizer.mobile) {
+        setNeedsMobile(true);
+      }
     } else {
       setOrganizer(null);
       setTournaments([]);
+      setNeedsMobile(false);
     }
     setChecking(false);
   }
 
   const [googleError, setGoogleError] = useState("");
 
-  // Handle Google OAuth redirect (?login=success or ?error=...)
   useEffect(() => {
     const params = new URLSearchParams(search);
     const err = params.get("error");
     if (err) {
       setGoogleError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
       window.history.replaceState({}, "", "/organizer");
-    } else if (params.get("login") === "success") {
-      refresh();
+    } else if (params.get("require_mobile") === "1") {
+      setNeedsMobile(true);
       window.history.replaceState({}, "", "/organizer");
     }
   }, []);
@@ -752,11 +798,18 @@ export default function OrganizerPortal() {
     await logoutOrganizerAccount();
     setOrganizer(null);
     setTournaments([]);
+    setNeedsMobile(false);
   }
 
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
     setOrganizer(org);
     setTournaments(tours);
+    if (!org.mobile) setNeedsMobile(true);
+  }
+
+  function handleProfileComplete(org: OrganizerInfo) {
+    setOrganizer(org);
+    setNeedsMobile(false);
   }
 
   if (checking) {
@@ -772,7 +825,11 @@ export default function OrganizerPortal() {
   return (
     <FullscreenLayout>
       <AnimatePresence mode="wait">
-        {organizer ? (
+        {organizer && needsMobile ? (
+          <motion.div key="complete-profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <CompleteProfileForm onComplete={handleProfileComplete} />
+          </motion.div>
+        ) : organizer ? (
           <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <OrganizerDashboard
               organizer={organizer}
