@@ -840,7 +840,7 @@ function OrganizerDetailPanel({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3"/>Mobile</Label>
-                  <Input className="h-8 text-sm" value={form.mobile} onChange={f("mobile")} />
+                  <Input className="h-8 text-sm" value={form.mobile ?? ""} onChange={f("mobile")} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3"/>Email</Label>
@@ -1008,7 +1008,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
 
   const filtered = organizers.filter(o => {
     const q = search.trim().toLowerCase();
-    const matchesSearch = !q || o.name.toLowerCase().includes(q) || o.mobile.includes(q) || (o.email || "").toLowerCase().includes(q);
+    const matchesSearch = !q || o.name.toLowerCase().includes(q) || (o.mobile ?? "").includes(q) || (o.email || "").toLowerCase().includes(q);
     const matchesFilter = licenseFilter === "all" || o.licenseStatus === licenseFilter;
     return matchesSearch && matchesFilter;
   });

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 type OrganizerInfo = {
-  id: number; name: string; email: string | null; mobile: string;
+  id: number; name: string; email: string | null; mobile: string | null;
   licenseStatus: string; maxTournaments: number;
 };
 type Tournament = {
@@ -295,10 +295,18 @@ function GoogleSignInButton() {
   );
 }
 
-function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
+  google_cancelled: "Google sign-in was cancelled.",
+  google_token_failed: "Google sign-in failed. Please try again.",
+  google_failed: "Google sign-in failed. Please try again.",
+  not_configured: "Google login is not configured yet.",
+  no_email: "Your Google account did not provide an email address.",
+};
+
+function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError ?? "");
   const [showPw, setShowPw] = useState(false);
   const [, navigate] = useLocation();
 
@@ -504,6 +512,11 @@ function AuthForm({ onSuccess }: { onSuccess: (o: OrganizerInfo, t: Tournament[]
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Create Account
                   </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                  </div>
+                  <GoogleSignInButton />
                 </motion.form>
               )}
             </AnimatePresence>
@@ -550,7 +563,7 @@ function OrganizerDashboard({
             </div>
             <div>
               <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
-              <p className="text-xs text-muted-foreground">{organizer.mobile}{organizer.email ? ` · ${organizer.email}` : ""}</p>
+              <p className="text-xs text-muted-foreground">{organizer.mobile ?? organizer.email ?? ""}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -717,14 +730,20 @@ export default function OrganizerPortal() {
     setChecking(false);
   }
 
+  const [googleError, setGoogleError] = useState("");
+
   // Handle Google OAuth redirect (?login=success or ?error=...)
   useEffect(() => {
     const params = new URLSearchParams(search);
-    if (params.get("login") === "success") {
+    const err = params.get("error");
+    if (err) {
+      setGoogleError(GOOGLE_ERROR_MESSAGES[err] ?? "Google sign-in failed. Please try again.");
+      window.history.replaceState({}, "", "/organizer");
+    } else if (params.get("login") === "success") {
       refresh();
       window.history.replaceState({}, "", "/organizer");
     }
-  }, [search]);
+  }, []);
 
   useEffect(() => { refresh(); }, []);
 
@@ -763,7 +782,7 @@ export default function OrganizerPortal() {
           </motion.div>
         ) : (
           <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <AuthForm onSuccess={handleAuthSuccess} />
+            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} />
           </motion.div>
         )}
       </AnimatePresence>

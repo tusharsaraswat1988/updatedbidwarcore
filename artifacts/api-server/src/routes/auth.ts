@@ -585,6 +585,10 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   const organizer = rows[0];
 
   if (!organizer) { res.status(401).json({ error: "No account found with that mobile or email." }); return; }
+  if (!organizer.passwordHash) {
+    res.status(401).json({ error: "This account uses Google Sign-In. Please use the 'Continue with Google' button." });
+    return;
+  }
 
   const valid = await verifyPassword(password, organizer.passwordHash);
   if (!valid) { res.status(401).json({ error: "Incorrect password." }); return; }
@@ -794,14 +798,14 @@ router.post("/auth/organizer-account/otp/verify", async (req, res) => {
 router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
-  const domain = process.env.REPLIT_DEV_DOMAIN ?? "";
+  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+  const domain = domains[0]?.trim() ?? "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
-    access_type: "offline",
     prompt: "select_account",
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
@@ -813,12 +817,12 @@ router.get("/auth/google/callback", async (req, res) => {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const domain = process.env.REPLIT_DEV_DOMAIN ?? "";
+  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+  const domain = domains[0]?.trim() ?? "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
   if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
 
   try {
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -827,28 +831,37 @@ router.get("/auth/google/callback", async (req, res) => {
     const tokens = await tokenRes.json() as { access_token?: string; error?: string };
     if (!tokens.access_token) { res.redirect("/organizer?error=google_token_failed"); return; }
 
-    // Get user info
     const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     const gUser = await userRes.json() as { email?: string; name?: string; id?: string };
-    if (!gUser.email) { res.redirect("/organizer?error=no_email"); return; }
+    if (!gUser.email || !gUser.id) { res.redirect("/organizer?error=no_email"); return; }
 
-    // Find or create organizer by email
-    let rows = await db.select().from(organizersTable).where(eq(organizersTable.email, gUser.email));
-    let organizer = rows[0];
+    // 1. Try to find by googleId (returning user)
+    let [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.googleId, gUser.id));
 
     if (!organizer) {
-      // Auto-create account — mobile will be empty (they can fill it later)
-      const [created] = await db.insert(organizersTable).values({
-        name: gUser.name ?? gUser.email.split("@")[0],
-        email: gUser.email,
-        mobile: `google_${gUser.id ?? Date.now()}`,
-        passwordHash: await hashPassword(Math.random().toString(36)),
-        licenseStatus: "pending",
-        maxTournaments: 1,
-      }).returning();
-      organizer = created;
+      // 2. Try to link to existing account by email
+      const [existing] = await db.select().from(organizersTable).where(eq(organizersTable.email, gUser.email));
+      if (existing) {
+        // Link google ID to this existing account
+        const [linked] = await db.update(organizersTable)
+          .set({ googleId: gUser.id, googleEmail: gUser.email })
+          .where(eq(organizersTable.id, existing.id))
+          .returning();
+        organizer = linked;
+      } else {
+        // 3. Create new Google-only account (no mobile, no password)
+        const [created] = await db.insert(organizersTable).values({
+          name: gUser.name ?? gUser.email.split("@")[0],
+          email: gUser.email,
+          googleId: gUser.id,
+          googleEmail: gUser.email,
+          licenseStatus: "pending",
+          maxTournaments: 1,
+        }).returning();
+        organizer = created;
+      }
     }
 
     req.session.organizerAccountId = organizer.id;
@@ -856,8 +869,9 @@ router.get("/auth/google/callback", async (req, res) => {
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
     for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
 
-    res.redirect("/organizer?login=success");
-  } catch {
+    res.redirect("/organizer");
+  } catch (err) {
+    req.log.error({ err }, "Google OAuth callback error");
     res.redirect("/organizer?error=google_failed");
   }
 });

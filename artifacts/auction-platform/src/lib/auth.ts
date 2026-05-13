@@ -202,7 +202,7 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 export async function signupOrganizerAccount(data: {
   name: string; email?: string; mobile: string; password: string;
-}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number } }> {
+}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/signup", {
       method: "POST",
@@ -217,7 +217,7 @@ export async function signupOrganizerAccount(data: {
 export async function loginOrganizerAccount(
   identifier: string,
   password: string
-): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number } }> {
+): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/login", {
       method: "POST",
@@ -231,7 +231,7 @@ export async function loginOrganizerAccount(
 
 export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
-  organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number };
+  organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
   tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
@@ -263,7 +263,7 @@ export async function createOrganizerTournament(data: {
 // ─── Admin: Organizer account management ──────────────────────────────────────
 
 export type AdminOrganizerRow = {
-  id: number; name: string; email: string | null; mobile: string;
+  id: number; name: string; email: string | null; mobile: string | null;
   licenseStatus: string; maxTournaments: number; notes: string | null;
   tournamentCount: number; createdAt: string;
 };
@@ -319,7 +319,7 @@ export async function sendOtp(mobile: string): Promise<{ success: boolean; error
 
 export async function verifyOtpAndReset(mobile: string, code: string, newPassword: string): Promise<{
   success: boolean; error?: string;
-  organizer?: { id: number; name: string; email: string | null; mobile: string; licenseStatus: string; maxTournaments: number };
+  organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/otp/verify", {
