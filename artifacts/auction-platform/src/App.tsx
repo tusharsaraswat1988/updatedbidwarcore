@@ -23,6 +23,7 @@ import PlayerRegister from "@/pages/player-register";
 import OrganizerLogin from "@/pages/organizer-login";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin";
+import AdminReports from "@/pages/admin-reports";
 import ObsOverlay from "@/pages/obs-overlay";
 import OrganizerPortal from "@/pages/organizer-portal";
 
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/reports" component={AdminReports} />
       <Route path="/organizer" component={OrganizerPortal} />
 
       {/* Organizer-protected routes */}

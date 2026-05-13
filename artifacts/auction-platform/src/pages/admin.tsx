@@ -15,8 +15,9 @@ import {
   ShieldCheck, Trophy, LogOut, KeyRound, Check, X, RefreshCw, Search,
   Users, Wallet, Gavel, Clock, Pencil, Phone, Mail, Timer, Lock, Unlock,
   BadgeCheck, AlertTriangle, Plus, Trash2, ChevronRight, Building2,
-  Shield, Database, Star, UserCheck,
+  Shield, Database, Star, UserCheck, FileBarChart,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1235,7 +1236,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [, navigate] = useState<null>(null);
+  const [, navigate] = useLocation();
   const [adminTab, setAdminTab] = useState<"tournaments" | "organizers">("tournaments");
 
   async function load() {
@@ -1317,6 +1318,9 @@ export default function AdminDashboard() {
               <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-red-400"/>Lock when auction ends</span>
               <span className="flex items-center gap-1"><BadgeCheck className="w-3 h-3 text-green-400"/>Licensed = can go live</span>
             </div>
+            <Button size="sm" variant="outline" className="gap-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => navigate("/admin/reports")}>
+              <FileBarChart className="w-4 h-4" /> Report Center
+            </Button>
             <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
               <LogOut className="w-4 h-4" /> Sign Out
             </Button>
