@@ -166,80 +166,140 @@ function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
   wheelSpinning?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
   const rotRef = useRef(0);
-  const speedRef = useRef(0.003); // current rotation speed per frame
+  const speedRef = useRef(0.005);
+  // State machine driven entirely via refs to avoid React effect-cleanup races
+  // between fast-spin and landing animations. A single RAF loop reads stateRef.
+  type AnimState =
+    | { mode: "idle" }
+    | { mode: "spin" }
+    | { mode: "land"; startRot: number; targetRot: number; startTime: number; duration: number };
+  const stateRef = useRef<AnimState>({ mode: "idle" });
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
   const [localWinner, setLocalWinner] = useState<{ label: string; color: string } | null>(null);
-  const [phase, setPhase] = useState<"idle" | "spinning" | "landing">("idle");
-  const prevWinnerRef = useRef<string | null | undefined>(undefined);
-  const prevSpinningRef = useRef<boolean | undefined>(undefined);
+  const [showSpinning, setShowSpinning] = useState(false);
+  // Track which (winner, items.length) we have already kicked a landing for,
+  // so we don't restart the landing animation on every items poll update.
+  const landedForRef = useRef<{ winner: string | null | undefined; itemsLen: number }>({ winner: undefined, itemsLen: 0 });
 
-  // Phase 1 — idle slow drift OR fast spinning (no winner yet)
+  // Single, persistent RAF loop. Never cancelled by state changes — the loop
+  // simply reads stateRef each frame, so spin → land transitions are race-free.
   useEffect(() => {
-    if (phase === "landing") return;
-    let running = true;
-    const targetSpeed = wheelSpinning ? 0.05 : 0.003;
-    function animate() {
-      if (!running) return;
-      // Smoothly accelerate/decelerate to target speed
-      speedRef.current += (targetSpeed - speedRef.current) * 0.04;
-      rotRef.current += speedRef.current;
-      if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
-      animRef.current = requestAnimationFrame(animate);
+    let alive = true;
+    let raf = 0;
+    function tick(now: number) {
+      if (!alive) return;
+      const s = stateRef.current;
+      if (s.mode === "idle") {
+        speedRef.current += (0.003 - speedRef.current) * 0.04;
+        rotRef.current += speedRef.current;
+      } else if (s.mode === "spin") {
+        // Fast spin — matches operator's perceived speed (~0.25 rad/frame)
+        speedRef.current += (0.28 - speedRef.current) * 0.08;
+        rotRef.current += speedRef.current;
+      } else if (s.mode === "land") {
+        const progress = Math.min((now - s.startTime) / s.duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 4);
+        rotRef.current = s.startRot + (s.targetRot - s.startRot) * ease;
+        if (progress >= 1) {
+          stateRef.current = { mode: "idle" };
+          speedRef.current = 0.003;
+          setShowSpinning(false);
+          const winLabel = (s as { winnerLabel?: string }).winnerLabel;
+          if (winLabel) {
+            const w = itemsRef.current.find(i => i.label === winLabel);
+            setLocalWinner(w ? { label: w.label, color: w.color } : { label: winLabel, color: "#EAB308" });
+          }
+        }
+      }
+      if (canvasRef.current && itemsRef.current.length) {
+        drawWheelCanvas(canvasRef.current, itemsRef.current, rotRef.current);
+      }
+      raf = requestAnimationFrame(tick);
     }
-    animRef.current = requestAnimationFrame(animate);
-    return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, [items, phase, wheelSpinning]);
+    raf = requestAnimationFrame(tick);
+    return () => { alive = false; cancelAnimationFrame(raf); };
+  }, []);
 
-  // Track when spinning starts — switch to spinning phase, clear local winner
+  // Single authoritative state-transition effect with explicit precedence:
+  //   wheelSpinning === true                 -> spin (clear any prior winner)
+  //   wheelSpinning === false && winner      -> land on winner (if items ready)
+  //   wheelSpinning === false && !winner     -> idle
+  // Tracking landedForRef avoids restarting landing every poll while the
+  // winner field stays the same.
   useEffect(() => {
-    if (prevSpinningRef.current === wheelSpinning) return;
-    prevSpinningRef.current = wheelSpinning;
     if (wheelSpinning) {
-      setPhase("spinning");
+      // Active spin — always trump any stale winner. Reset landing tracker so
+      // when the winner arrives next, we'll start the landing animation.
+      stateRef.current = { mode: "spin" };
+      landedForRef.current = { winner: undefined, itemsLen: 0 };
       setLocalWinner(null);
+      setShowSpinning(true);
+      return;
     }
-  }, [wheelSpinning]);
 
-  // Phase 2 — winner arrives: decelerate and land on winning slice
-  useEffect(() => {
-    if (winner === prevWinnerRef.current) return;
-    prevWinnerRef.current = winner;
-    if (!winner || !items.length) { setLocalWinner(null); return; }
-    const winnerItem = items.find(i => i.label === winner) || { label: winner, color: "#EAB308" };
+    // wheelSpinning === false (or undefined)
+    if (!winner) {
+      // No winner and not spinning — make sure we're idle
+      if (stateRef.current.mode !== "land") {
+        stateRef.current = { mode: "idle" };
+      }
+      landedForRef.current = { winner: null, itemsLen: 0 };
+      setLocalWinner(null);
+      setShowSpinning(false);
+      return;
+    }
+
+    // wheelSpinning === false && winner is set
+    if (!items.length) {
+      // Winner arrived before items hydrated — show fallback card immediately,
+      // and try again once items load (effect deps include items).
+      setLocalWinner({ label: winner, color: "#EAB308" });
+      setShowSpinning(false);
+      return;
+    }
+
+    // Already landed (or landing) for this winner+items pair? do nothing.
+    if (
+      landedForRef.current.winner === winner &&
+      landedForRef.current.itemsLen === items.length
+    ) {
+      return;
+    }
+    landedForRef.current = { winner, itemsLen: items.length };
+
     const winnerIdx = items.findIndex(i => i.label === winner);
-    if (winnerIdx < 0) { setLocalWinner(winnerItem); return; }
+    if (winnerIdx < 0) {
+      // Winner label not in current items — skip animation, just show card
+      stateRef.current = { mode: "idle" };
+      setLocalWinner({ label: winner, color: "#EAB308" });
+      setShowSpinning(false);
+      return;
+    }
 
-    // Cancel the free-spin loop and start landing animation
-    cancelAnimationFrame(animRef.current);
-    setPhase("landing");
-    setLocalWinner(null);
-
+    // Pointer is at the right side (angle = 0). Slice i center is at
+    // r + i*arc + arc/2. To put it at angle 0 (mod 2π), we need
+    // r ≡ -(i*arc + arc/2) (mod 2π).
     const arc = (2 * Math.PI) / items.length;
-    // Target: winning slice center is at the pointer (right side = 0 rad)
     const sliceCenter = winnerIdx * arc + arc / 2;
     const currentNorm = ((rotRef.current % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const distToTarget = (((2 * Math.PI - sliceCenter) - currentNorm) + 2 * Math.PI) % (2 * Math.PI);
-    // Add 3 extra full rotations so it doesn't snap instantly
-    const target = rotRef.current + 3 * 2 * Math.PI + distToTarget;
-    const duration = 3000;
-    const startTime = performance.now();
-    const startRot = rotRef.current;
+    const targetNorm = ((2 * Math.PI - sliceCenter) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const distToTarget = ((targetNorm - currentNorm) + 2 * Math.PI) % (2 * Math.PI);
+    const target = rotRef.current + 4 * 2 * Math.PI + distToTarget;
 
-    function animate(now: number) {
-      const progress = Math.min((now - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 4);
-      rotRef.current = startRot + (target - startRot) * ease;
-      if (canvasRef.current) drawWheelCanvas(canvasRef.current, items, rotRef.current);
-      if (progress < 1) {
-        animRef.current = requestAnimationFrame(animate);
-      } else {
-        setPhase("idle");
-        setLocalWinner(winnerItem);
-      }
-    }
-    animRef.current = requestAnimationFrame(animate);
-  }, [winner, items]);
+    stateRef.current = {
+      mode: "land",
+      startRot: rotRef.current,
+      targetRot: target,
+      startTime: performance.now(),
+      duration: 3000,
+      ...({ winnerLabel: winner } as object),
+    } as AnimState;
+    setLocalWinner(null);
+    setShowSpinning(true);
+  }, [wheelSpinning, winner, items]);
 
   useEffect(() => {
     if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
@@ -259,7 +319,7 @@ function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
 
       {/* Spinning indicator */}
       <AnimatePresence>
-        {phase === "spinning" && !localWinner && (
+        {showSpinning && !localWinner && (
           <motion.p
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: [0.5, 1, 0.5], y: 0 }}
