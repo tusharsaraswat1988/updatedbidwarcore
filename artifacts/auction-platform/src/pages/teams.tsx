@@ -17,31 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function compressImageToDataUrl(file: File, maxPx = 256, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/webp", quality));
-      };
-      img.onerror = reject;
-      img.src = ev.target!.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -88,7 +67,7 @@ function TeamForm({
     logoUrl: team?.logoUrl || "",
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
-  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [error, setError] = useState("");
 
   const takenCodes = new Set(
@@ -104,18 +83,6 @@ function TeamForm({
   }, [form.name, isNew, shortCodeManuallyEdited]);
 
   const shortCodeDuplicate = takenCodes.has(form.shortCode.toUpperCase());
-
-  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLogoUploading(true);
-    try {
-      const dataUrl = await compressImageToDataUrl(file);
-      setForm(f => ({ ...f, logoUrl: dataUrl }));
-    } finally {
-      setLogoUploading(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -241,27 +208,65 @@ function TeamForm({
 
       <div className="space-y-2">
         <Label>Team Logo</Label>
-        <div className="flex items-center gap-3">
-          {form.logoUrl && (
-            <img src={form.logoUrl} alt="Logo" className="w-12 h-12 object-contain rounded border border-border flex-shrink-0" onError={e => (e.currentTarget.style.display = "none")} />
-          )}
-          <div className="flex-1 space-y-1.5">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors">
-                {logoUploading ? "Uploading..." : "Upload Logo"}
-              </span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleLogoFile} disabled={logoUploading} />
-            </label>
-            <p className="text-[10px] text-muted-foreground">PNG, JPG, SVG — auto-compressed to 256px</p>
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+            {form.logoUrl ? (
+              <img
+                src={form.logoUrl}
+                alt="Logo"
+                className="w-full h-full object-contain"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
+            )}
           </div>
-          {form.logoUrl && (
-            <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}>Remove</button>
-          )}
+          <div className="flex-1 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                onClick={() => setLogoEditorOpen(true)}
+              >
+                {form.logoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Logo</> : <><Upload className="w-3.5 h-3.5" /> Upload Logo</>}
+              </Button>
+              {form.logoUrl && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                  onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}
+                >
+                  <X className="w-3.5 h-3.5" /> Remove
+                </Button>
+              )}
+            </div>
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Or paste an image URL</summary>
+              <Input
+                value={form.logoUrl}
+                onChange={e => setForm(f => ({ ...f, logoUrl: e.target.value }))}
+                placeholder="https://..."
+                className="h-8 mt-1.5"
+              />
+            </details>
+          </div>
         </div>
+        <ImageEditorDialog
+          open={logoEditorOpen}
+          onClose={() => setLogoEditorOpen(false)}
+          initialUrl={form.logoUrl || undefined}
+          aspect={1}
+          title="Team Logo"
+          onSave={dataUrl => setForm(f => ({ ...f, logoUrl: dataUrl }))}
+        />
       </div>
 
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1" disabled={createTeam.isPending || updateTeam.isPending || logoUploading || shortCodeDuplicate}>
+        <Button type="submit" className="flex-1" disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate}>
           {team ? "Update Team" : "Add Team"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
