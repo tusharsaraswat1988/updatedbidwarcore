@@ -31,6 +31,8 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTimerSeconds: t.bidTimerSeconds,
   playerSelectionMode: t.playerSelectionMode,
   status: t.status,
+  registrationDeadline: t.registrationDeadline ?? null,
+  registrationLimit: t.registrationLimit ?? null,
   resetCount: t.resetCount ?? 0,
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
@@ -122,6 +124,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidTimerSeconds: z.number().int().optional(),
     playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
     status: z.string().optional(),
+    registrationDeadline: z.string().nullable().optional(),
+    registrationLimit: z.number().int().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -149,6 +153,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.status !== undefined) updates.status = d.status;
+  if (d.registrationDeadline !== undefined)
+    updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
+  if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

@@ -28,6 +28,9 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
   playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
   status: text("status").notNull().default("setup"),
+  // Player registration link controls
+  registrationDeadline: text("registration_deadline"),
+  registrationLimit: integer("registration_limit"),
   // Super admin controls
   licenseStatus: text("license_status").notNull().default("trial"),
   licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),

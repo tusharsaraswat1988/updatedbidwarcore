@@ -1,8 +1,39 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { playersTable, teamsTable, tournamentsTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
+
+async function computeRegistrationStatus(tid: number) {
+  const [tournament] = await db
+    .select({
+      deadline: tournamentsTable.registrationDeadline,
+      limit: tournamentsTable.registrationLimit,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!tournament) return null;
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tid));
+  const deadline = tournament.deadline ?? null;
+  const limit = tournament.limit ?? null;
+  let reason: string | null = null;
+  let open = true;
+  if (deadline) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today > deadline) {
+      open = false;
+      reason = "deadline_passed";
+    }
+  }
+  if (open && limit !== null && count >= limit) {
+    open = false;
+    reason = "limit_reached";
+  }
+  return { open, reason, currentCount: count, limit, deadline };
+}
 
 const router = Router();
 
@@ -89,6 +120,51 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
       status: (d.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+    })
+    .returning();
+  res.status(201).json(playerToJson(player));
+});
+
+// Public: get registration status (deadline + limit)
+router.get("/tournaments/:tournamentId/registration-status", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const status = await computeRegistrationStatus(tid);
+  if (!status) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(status);
+});
+
+// Public: register a player (enforces deadline + limit)
+router.post("/tournaments/:tournamentId/register", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const status = await computeRegistrationStatus(tid);
+  if (!status) { res.status(404).json({ error: "Not found" }); return; }
+  if (!status.open) { res.status(403).json(status); return; }
+  const parsed = playerInputSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
+  const d = parsed.data;
+  const [player] = await db
+    .insert(playersTable)
+    .values({
+      tournamentId: tid,
+      categoryId: d.categoryId ?? null,
+      name: d.name,
+      city: d.city ?? null,
+      role: d.role ?? null,
+      battingStyle: d.battingStyle ?? null,
+      bowlingStyle: d.bowlingStyle ?? null,
+      specialization: d.specialization ?? null,
+      age: d.age ?? null,
+      photoUrl: d.photoUrl ?? null,
+      basePrice: d.basePrice,
+      jerseyNumber: d.jerseyNumber ?? null,
+      achievements: d.achievements ?? null,
+      mobileNumber: d.mobileNumber ?? null,
+      cricheroUrl: d.cricheroUrl ?? null,
+      availabilityDates: d.availabilityDates ?? null,
+      retainedPrice: d.retainedPrice ?? null,
+      status: "available" as const,
     })
     .returning();
   res.status(201).json(playerToJson(player));

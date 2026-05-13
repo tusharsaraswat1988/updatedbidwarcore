@@ -37,6 +37,7 @@ import type {
   PlayerInput,
   PlayerUpdate,
   ReAuctionInput,
+  RegistrationStatus,
   ResetTrialAuctionBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
@@ -1702,6 +1703,188 @@ export const useCreatePlayer = <
   TContext
 > => {
   return useMutation(getCreatePlayerMutationOptions(options));
+};
+
+/**
+ * @summary Get whether public player registration is currently open
+ */
+export const getGetRegistrationStatusUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/registration-status`;
+};
+
+export const getRegistrationStatus = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<RegistrationStatus> => {
+  return customFetch<RegistrationStatus>(
+    getGetRegistrationStatusUrl(tournamentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetRegistrationStatusQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/registration-status`] as const;
+};
+
+export const getGetRegistrationStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRegistrationStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegistrationStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRegistrationStatusQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRegistrationStatus>>
+  > = ({ signal }) =>
+    getRegistrationStatus(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRegistrationStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRegistrationStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRegistrationStatus>>
+>;
+export type GetRegistrationStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get whether public player registration is currently open
+ */
+
+export function useGetRegistrationStatus<
+  TData = Awaited<ReturnType<typeof getRegistrationStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegistrationStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRegistrationStatusQueryOptions(
+    tournamentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Public self-registration of a player (enforces deadline + limit)
+ */
+export const getRegisterPlayerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/register`;
+};
+
+export const registerPlayer = async (
+  tournamentId: number,
+  playerInput: PlayerInput,
+  options?: RequestInit,
+): Promise<Player> => {
+  return customFetch<Player>(getRegisterPlayerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(playerInput),
+  });
+};
+
+export const getRegisterPlayerMutationOptions = <
+  TError = ErrorType<RegistrationStatus>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPlayer>>,
+    TError,
+    { tournamentId: number; data: BodyType<PlayerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerPlayer>>,
+  TError,
+  { tournamentId: number; data: BodyType<PlayerInput> },
+  TContext
+> => {
+  const mutationKey = ["registerPlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerPlayer>>,
+    { tournamentId: number; data: BodyType<PlayerInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return registerPlayer(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterPlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerPlayer>>
+>;
+export type RegisterPlayerMutationBody = BodyType<PlayerInput>;
+export type RegisterPlayerMutationError = ErrorType<RegistrationStatus>;
+
+/**
+ * @summary Public self-registration of a player (enforces deadline + limit)
+ */
+export const useRegisterPlayer = <
+  TError = ErrorType<RegistrationStatus>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPlayer>>,
+    TError,
+    { tournamentId: number; data: BodyType<PlayerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerPlayer>>,
+  TError,
+  { tournamentId: number; data: BodyType<PlayerInput> },
+  TContext
+> => {
+  return useMutation(getRegisterPlayerMutationOptions(options));
 };
 
 /**

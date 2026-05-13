@@ -40,6 +40,8 @@ export const ListTournamentsResponseItem = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  registrationDeadline: zod.string().nullish(),
+  registrationLimit: zod.number().nullish(),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -111,6 +113,8 @@ export const GetTournamentResponse = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  registrationDeadline: zod.string().nullish(),
+  registrationLimit: zod.number().nullish(),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -146,6 +150,8 @@ export const UpdateTournamentBody = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.string().optional(),
+  registrationDeadline: zod.string().nullish(),
+  registrationLimit: zod.number().nullish(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -171,6 +177,8 @@ export const UpdateTournamentResponse = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   status: zod.enum(["setup", "active", "paused", "completed"]),
+  registrationDeadline: zod.string().nullish(),
+  registrationLimit: zod.number().nullish(),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -219,6 +227,8 @@ export const ExportTournamentForLocalResponse = zod.object({
       .enum(["sequential", "random", "manual"])
       .optional(),
     status: zod.enum(["setup", "active", "paused", "completed"]),
+    registrationDeadline: zod.string().nullish(),
+    registrationLimit: zod.number().nullish(),
     resetCount: zod.number().optional(),
     lastResetAt: zod.string().nullish(),
     lastResetBy: zod.string().nullish(),
@@ -546,6 +556,68 @@ export const CreatePlayerParams = zod.object({
 });
 
 export const CreatePlayerBody = zod.object({
+  categoryId: zod.number().optional(),
+  name: zod.string(),
+  city: zod.string().optional(),
+  role: zod
+    .enum([
+      "batsman",
+      "bowler",
+      "all-rounder",
+      "wicketkeeper",
+      "midfielder",
+      "forward",
+      "defender",
+      "goalkeeper",
+      "smash",
+      "service",
+      "libero",
+      "other",
+    ])
+    .optional(),
+  battingStyle: zod.string().optional(),
+  bowlingStyle: zod.string().optional(),
+  specialization: zod.string().optional(),
+  age: zod.number().optional(),
+  photoUrl: zod.string().optional(),
+  basePrice: zod.number(),
+  jerseyNumber: zod.string().optional(),
+  achievements: zod.string().optional(),
+  mobileNumber: zod.string().optional(),
+  cricheroUrl: zod.string().optional(),
+  availabilityDates: zod.string().optional(),
+  retainedPrice: zod.number().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Get whether public player registration is currently open
+ */
+export const GetRegistrationStatusParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const GetRegistrationStatusResponse = zod.object({
+  open: zod.boolean(),
+  reason: zod
+    .string()
+    .nullish()
+    .describe(
+      'One of \"deadline_passed\", \"limit_reached\", or null when open',
+    ),
+  currentCount: zod.number(),
+  limit: zod.number().nullish(),
+  deadline: zod.string().nullish(),
+});
+
+/**
+ * @summary Public self-registration of a player (enforces deadline + limit)
+ */
+export const RegisterPlayerParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const RegisterPlayerBody = zod.object({
   categoryId: zod.number().optional(),
   name: zod.string(),
   city: zod.string().optional(),

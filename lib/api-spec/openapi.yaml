@@ -420,6 +420,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/Player"
 
+  /tournaments/{tournamentId}/registration-status:
+    get:
+      operationId: getRegistrationStatus
+      tags: [players]
+      summary: Get whether public player registration is currently open
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationStatus"
+
+  /tournaments/{tournamentId}/register:
+    post:
+      operationId: registerPlayer
+      tags: [players]
+      summary: Public self-registration of a player (enforces deadline + limit)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerInput"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "403":
+          description: Registration closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationStatus"
+
   /tournaments/{tournamentId}/players/bulk:
     post:
       operationId: bulkCreatePlayers
@@ -1141,6 +1191,10 @@ components:
         status:
           type: string
           enum: [setup, active, paused, completed]
+        registrationDeadline:
+          type: ["string", "null"]
+        registrationLimit:
+          type: ["integer", "null"]
         resetCount:
           type: integer
         lastResetAt:
@@ -1243,6 +1297,10 @@ components:
           enum: [sequential, random, manual]
         status:
           type: string
+        registrationDeadline:
+          type: ["string", "null"]
+        registrationLimit:
+          type: ["integer", "null"]
 
     # Team schemas
     Team:
@@ -1705,6 +1763,22 @@ components:
             type: integer
           nullable: true
           description: Player IDs deferred to the back of the queue
+
+    RegistrationStatus:
+      type: object
+      required: [open, currentCount]
+      properties:
+        open:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+          description: One of "deadline_passed", "limit_reached", or null when open
+        currentCount:
+          type: integer
+        limit:
+          type: ["integer", "null"]
+        deadline:
+          type: ["string", "null"]
 
     TournamentSummary:
       type: object

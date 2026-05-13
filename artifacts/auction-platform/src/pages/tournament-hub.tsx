@@ -132,6 +132,8 @@ export default function TournamentHub() {
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
       playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
+      registrationDeadline: (tournament as any).registrationDeadline || "",
+      registrationLimit: (tournament as any).registrationLimit != null ? String((tournament as any).registrationLimit) : "",
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
@@ -178,6 +180,8 @@ export default function TournamentHub() {
         venue: origForm.venue,
         auctionDate: origForm.auctionDate,
         logoUrl: origForm.logoUrl,
+        registrationDeadline: origForm.registrationDeadline,
+        registrationLimit: origForm.registrationLimit,
       }));
     } else if (activeSection === "auction") {
       setEditForm(f => ({
@@ -231,6 +235,10 @@ export default function TournamentHub() {
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
         playerSelectionMode: editForm.playerSelectionMode as string || undefined,
+        registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
+        registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
+          ? Number(editForm.registrationLimit) || null
+          : null,
       } as any,
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -539,6 +547,40 @@ export default function TournamentHub() {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
                       <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                    </div>
+                  </div>
+
+                  {/* Player Registration Limits */}
+                  <div className="border-t border-border/60 pt-4 space-y-3">
+                    <div>
+                      <Label className="text-sm font-semibold">Player Registration Link — Limits</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Control the public self-registration form. Leave a field blank for no limit.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1.5">
+                          <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last Date to Register
+                        </Label>
+                        <Input
+                          type="date"
+                          value={editForm.registrationDeadline as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Max Registrations</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editForm.registrationLimit as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
+                          placeholder="e.g. 100"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
+                      </div>
                     </div>
                   </div>
 

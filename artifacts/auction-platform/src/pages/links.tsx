@@ -2,13 +2,15 @@ import { useRoute } from "wouter";
 import {
   useListTeams,
   useGetTournament,
+  useGetRegistrationStatus,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
+  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Users, Link2, Copy, ExternalLink, UserSquare2, ClipboardList } from "lucide-react";
+import { Monitor, Users, Link2, Copy, ExternalLink, UserSquare2, ClipboardList, CalendarX, Lock, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,8 +49,27 @@ export default function LinksPage() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: regStatus } = useGetRegistrationStatus(tournamentId, {
+    query: {
+      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: 15000,
+    },
+  });
 
   const base = typeof window !== "undefined" ? window.location.origin : "";
+
+  function fmtDate(d: string | null | undefined) {
+    if (!d) return "";
+    try {
+      return new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    } catch { return d; }
+  }
+  const regParts: string[] = [];
+  if (regStatus?.deadline) regParts.push(`closes ${fmtDate(regStatus.deadline)}`);
+  if (regStatus?.limit != null) regParts.push(`${regStatus.currentCount}/${regStatus.limit} registered`);
+  else if (regStatus) regParts.push(`${regStatus.currentCount} registered`);
+  const regSuffix = regParts.length ? ` — ${regParts.join(", ")}` : "";
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -107,8 +128,25 @@ export default function LinksPage() {
             <LinkRow
               label="Player Registration Form"
               url={`${base}/tournament/${tournamentId}/register`}
-              description="Send this link to players to self-register. They fill their own details."
+              description={`Send this link to players to self-register. They fill their own details.${regSuffix}`}
             />
+            {regStatus && (
+              <div className="-mt-3 mb-1 ml-0">
+                {regStatus.open ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
+                    <CheckCircle2 className="w-3 h-3" /> Open for registration
+                  </span>
+                ) : regStatus.reason === "deadline_passed" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <Lock className="w-3 h-3" /> Closed — limit reached
+                  </span>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

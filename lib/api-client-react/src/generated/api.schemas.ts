@@ -58,6 +58,10 @@ export interface Tournament {
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
+  /** @nullable */
+  registrationDeadline?: string | null;
+  /** @nullable */
+  registrationLimit?: number | null;
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -142,6 +146,10 @@ export interface TournamentUpdate {
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
   status?: string;
+  /** @nullable */
+  registrationDeadline?: string | null;
+  /** @nullable */
+  registrationLimit?: number | null;
 }
 
 export interface Team {
@@ -520,6 +528,20 @@ export interface AuctionState {
   trialTeamIds?: number[] | null;
   /** Player IDs deferred to the back of the queue */
   deferredPlayerIds?: number[] | null;
+}
+
+export interface RegistrationStatus {
+  open: boolean;
+  /**
+   * One of "deadline_passed", "limit_reached", or null when open
+   * @nullable
+   */
+  reason?: string | null;
+  currentCount: number;
+  /** @nullable */
+  limit?: number | null;
+  /** @nullable */
+  deadline?: string | null;
 }
 
 export interface TournamentSummary {

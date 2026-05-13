@@ -3,9 +3,11 @@ import { useRoute } from "wouter";
 import {
   useGetTournament,
   useListCategories,
-  useCreatePlayer,
+  useRegisterPlayer,
+  useGetRegistrationStatus,
   getGetTournamentQueryKey,
   getListCategoriesQueryKey,
+  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { FullscreenLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,13 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User } from "lucide-react";
+import { Trophy, CheckCircle2, User, Lock, CalendarX, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function PlayerRegister() {
   const [, params] = useRoute("/tournament/:id/register");
   const tournamentId = parseInt(params?.id || "0");
   const [submitted, setSubmitted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     mobileNumber: "",
@@ -43,31 +46,67 @@ export default function PlayerRegister() {
   const { data: categories } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const createPlayer = useCreatePlayer();
+  const { data: status, refetch: refetchStatus } = useGetRegistrationStatus(tournamentId, {
+    query: {
+      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: 30000,
+    },
+  });
+  const registerPlayer = useRegisterPlayer();
+
+  const isClosed = status && !status.open;
+  const closedReason = status?.reason;
+  const remaining = status?.limit != null ? Math.max(0, status.limit - status.currentCount) : null;
+
+  function formatDeadline(d: string | null | undefined) {
+    if (!d) return "";
+    try {
+      return new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
+        day: "numeric", month: "long", year: "numeric",
+      });
+    } catch { return d; }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await createPlayer.mutateAsync({
-      tournamentId,
-      data: {
-        name: form.name,
-        mobileNumber: form.mobileNumber || undefined,
-        city: form.city || undefined,
-        role: form.role as any,
-        battingStyle: form.battingStyle || undefined,
-        bowlingStyle: form.bowlingStyle || undefined,
-        specialization: form.specialization || undefined,
-        age: form.age ? parseInt(form.age) : undefined,
-        jerseyNumber: form.jerseyNumber || undefined,
-        achievements: form.achievements || undefined,
-        availabilityDates: form.availabilityDates || undefined,
-        cricheroUrl: form.cricheroUrl || undefined,
-        categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
-        photoUrl: form.photoUrl || undefined,
-        basePrice: 100000, // Default, organizer can adjust
-      },
-    });
-    setSubmitted(true);
+    setErrorMsg(null);
+    try {
+      await registerPlayer.mutateAsync({
+        tournamentId,
+        data: {
+          name: form.name,
+          mobileNumber: form.mobileNumber || undefined,
+          city: form.city || undefined,
+          role: form.role as any,
+          battingStyle: form.battingStyle || undefined,
+          bowlingStyle: form.bowlingStyle || undefined,
+          specialization: form.specialization || undefined,
+          age: form.age ? parseInt(form.age) : undefined,
+          jerseyNumber: form.jerseyNumber || undefined,
+          achievements: form.achievements || undefined,
+          availabilityDates: form.availabilityDates || undefined,
+          cricheroUrl: form.cricheroUrl || undefined,
+          categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
+          photoUrl: form.photoUrl || undefined,
+          basePrice: 100000,
+        },
+      });
+      setSubmitted(true);
+      refetchStatus();
+    } catch (err: any) {
+      const data = err?.data;
+      if (data && typeof data === "object" && data.reason) {
+        setErrorMsg(
+          data.reason === "deadline_passed"
+            ? "Registration closed: the deadline has passed."
+            : "Registration closed: the player limit has been reached.",
+        );
+        refetchStatus();
+      } else {
+        setErrorMsg(err?.message || "Submission failed. Please try again.");
+      }
+    }
   }
 
   const f = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
@@ -90,7 +129,28 @@ export default function PlayerRegister() {
           </div>
 
           <AnimatePresence mode="wait">
-            {submitted ? (
+            {isClosed ? (
+              <motion.div key="closed" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                <Card className="border-destructive/40 bg-destructive/10">
+                  <CardContent className="p-10 text-center">
+                    {closedReason === "deadline_passed" ? (
+                      <CalendarX className="w-16 h-16 text-destructive mx-auto mb-4" />
+                    ) : (
+                      <Lock className="w-16 h-16 text-destructive mx-auto mb-4" />
+                    )}
+                    <h2 className="text-2xl font-bold text-destructive mb-2">Registration Closed</h2>
+                    <p className="text-muted-foreground">
+                      {closedReason === "deadline_passed"
+                        ? <>The registration window closed on <span className="font-semibold text-foreground">{formatDeadline(status?.deadline)}</span>.</>
+                        : <>This tournament has reached its limit of <span className="font-semibold text-foreground">{status?.limit}</span> registered players.</>}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Please contact the tournament organizer for more details.
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : submitted ? (
               <motion.div
                 key="success"
                 initial={{ scale: 0.8, opacity: 0 }}
@@ -107,7 +167,7 @@ export default function PlayerRegister() {
                     <Button
                       className="mt-6"
                       variant="outline"
-                      onClick={() => { setSubmitted(false); setForm({ name: "", mobileNumber: "", city: "", role: "batsman", battingStyle: "", bowlingStyle: "", specialization: "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "" }); }}
+                      onClick={() => { setSubmitted(false); setErrorMsg(null); setForm({ name: "", mobileNumber: "", city: "", role: "batsman", battingStyle: "", bowlingStyle: "", specialization: "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "" }); }}
                     >
                       Register Another Player
                     </Button>
@@ -116,6 +176,22 @@ export default function PlayerRegister() {
               </motion.div>
             ) : (
               <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                {/* Status banner: deadline + slots remaining */}
+                {status && (status.deadline || status.limit != null) && (
+                  <div className="mb-4 flex flex-wrap items-center justify-center gap-3 text-xs">
+                    {status.deadline && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                        <CalendarX className="w-3.5 h-3.5" /> Closes on {formatDeadline(status.deadline)}
+                      </span>
+                    )}
+                    {status.limit != null && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300">
+                        <Users className="w-3.5 h-3.5" /> {remaining} of {status.limit} slots left
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <Card className="border-border">
                   <CardContent className="p-6">
                     <form onSubmit={handleSubmit} className="space-y-5">
@@ -123,6 +199,12 @@ export default function PlayerRegister() {
                         <User className="w-5 h-5 text-primary" />
                         <h2 className="font-bold text-lg">Your Details</h2>
                       </div>
+
+                      {errorMsg && (
+                        <div className="p-3 rounded-md border border-destructive/40 bg-destructive/10 text-sm text-destructive">
+                          {errorMsg}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 col-span-2">
@@ -217,9 +299,9 @@ export default function PlayerRegister() {
                         type="submit"
                         size="lg"
                         className="w-full h-12 text-base font-bold"
-                        disabled={createPlayer.isPending}
+                        disabled={registerPlayer.isPending}
                       >
-                        {createPlayer.isPending ? "Submitting..." : "Submit Registration"}
+                        {registerPlayer.isPending ? "Submitting..." : "Submit Registration"}
                       </Button>
                     </form>
                   </CardContent>
