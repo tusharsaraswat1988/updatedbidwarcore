@@ -755,6 +755,8 @@ function OrganizerDashboard({
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
+const DASHBOARD_POLL_INTERVAL_MS = 30_000;
+
 export default function OrganizerPortal() {
   const [organizer, setOrganizer] = useState<OrganizerInfo | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -793,6 +795,12 @@ export default function OrganizerPortal() {
   }, []);
 
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    if (!organizer) return;
+    const id = setInterval(() => { refresh(); }, DASHBOARD_POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [organizer]);
 
   async function handleLogout() {
     await logoutOrganizerAccount();
