@@ -44,19 +44,19 @@ function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) 
     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
       <div
         className="flex items-center justify-end transition-opacity duration-300"
-        style={{ opacity: visible ? 1 : 0, minWidth: 140 }}
+        style={{ opacity: visible ? 1 : 0, minWidth: 180 }}
       >
         <img
           key={current.url}
           src={current.url}
           alt={current.name || "Sponsor"}
-          className="h-16 max-w-[220px] object-contain"
-          style={{ filter: "brightness(1.15) drop-shadow(0 0 8px rgba(255,255,255,0.15))" }}
+          className="h-24 max-w-[330px] object-contain"
+          style={{ filter: "brightness(1.25) drop-shadow(0 0 12px rgba(255,255,255,0.25))" }}
           onError={e => (e.currentTarget.style.display = "none")}
         />
       </div>
       {current.name && (
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80 text-right">
+        <p className="text-sm font-bold uppercase tracking-[0.15em] text-white/90 text-right">
           {current.name}
         </p>
       )}
@@ -876,8 +876,8 @@ function TeamPurseStrip({ purses, currentBidTeamId }: {
 }) {
   if (!purses.length) return null;
   return (
-    <div className="border-t border-border/30 bg-black/50 backdrop-blur-sm">
-      <div className="flex items-stretch divide-x divide-border/20">
+    <div className="border-t-2 border-border/40 bg-black/70 backdrop-blur-sm flex-shrink-0">
+      <div className="flex items-stretch divide-x divide-border/30">
         {purses.map(team => {
           const isLeading = currentBidTeamId === team.teamId;
           const color = team.color || "#F59E0B";
@@ -885,12 +885,12 @@ function TeamPurseStrip({ purses, currentBidTeamId }: {
           return (
             <motion.div
               key={team.teamId}
-              animate={isLeading ? { scale: 1.02 } : { scale: 1 }}
+              animate={isLeading ? { scale: 1.01 } : { scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="flex-1 flex flex-col gap-1 px-4 py-3 relative min-w-0 overflow-hidden"
+              className="flex-1 flex flex-col gap-1.5 px-3 py-3 relative min-w-0 overflow-hidden"
               style={{
-                backgroundColor: isLeading ? `${color}18` : "transparent",
-                boxShadow: isLeading ? `inset 0 0 0 2px ${color}55, 0 0 30px ${color}33` : undefined,
+                backgroundColor: isLeading ? `${color}22` : "transparent",
+                boxShadow: isLeading ? `inset 0 0 0 2px ${color}66, 0 0 30px ${color}33` : undefined,
               }}
             >
               {/* Glow pulse when leading */}
@@ -904,41 +904,42 @@ function TeamPurseStrip({ purses, currentBidTeamId }: {
               )}
 
               {/* Color accent bar */}
-              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: color, boxShadow: isLeading ? `0 0 8px ${color}` : undefined }} />
+              <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: color, boxShadow: isLeading ? `0 0 10px ${color}` : undefined }} />
 
               {/* Team identity */}
-              <div className="flex items-center gap-2 relative">
+              <div className="flex items-center gap-2 relative mt-0.5">
                 {team.logoUrl ? (
-                  <img src={team.logoUrl} alt={team.teamName} className="w-7 h-7 object-contain rounded flex-shrink-0" />
+                  <img src={team.logoUrl} alt={team.teamName} className="w-10 h-10 object-contain rounded-md flex-shrink-0"
+                    style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.6))" }} />
                 ) : (
-                  <div className="w-7 h-7 rounded flex items-center justify-center text-[10px] font-display font-black flex-shrink-0"
-                    style={{ backgroundColor: `${color}25`, color }}>
-                    {team.shortCode}
+                  <div className="w-10 h-10 rounded-md flex items-center justify-center text-xs font-display font-black flex-shrink-0"
+                    style={{ backgroundColor: `${color}30`, color, border: `1px solid ${color}50` }}>
+                    {team.shortCode.slice(0, 3)}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold leading-tight truncate" style={{ color: isLeading ? color : "#e5e7eb" }}>
+                  <p className="text-sm font-display font-black leading-tight truncate" style={{ color: isLeading ? color : "#f3f4f6" }}>
                     {team.shortCode}
                   </p>
-                  <p className="text-[9px] text-muted-foreground leading-tight truncate">{team.teamName}</p>
+                  <p className="text-[10px] text-white/60 leading-tight truncate font-medium">{team.teamName}</p>
                 </div>
                 {isLeading && (
-                  <motion.div className="w-2 h-2 rounded-full flex-shrink-0" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
-                    style={{ backgroundColor: color }} />
+                  <motion.div className="w-2.5 h-2.5 rounded-full flex-shrink-0" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
+                    style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
                 )}
               </div>
 
-              {/* Purse remaining */}
-              <p className="text-base font-display font-black leading-none tabular-nums relative" style={{ color, textShadow: isLeading ? `0 0 15px ${color}` : undefined }}>
+              {/* Purse remaining — large and prominent */}
+              <p className="text-xl md:text-2xl font-display font-black leading-none tabular-nums relative" style={{ color, textShadow: isLeading ? `0 0 20px ${color}` : `0 0 8px ${color}66` }}>
                 {formatShortIndianRupee(team.purseRemaining)}
               </p>
 
               {/* Progress bar + count */}
               <div className="relative space-y-1">
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pctUsed}%`, backgroundColor: color, boxShadow: isLeading ? `0 0 6px ${color}` : undefined }} />
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${color}22` }}>
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pctUsed}%`, backgroundColor: color, boxShadow: isLeading ? `0 0 8px ${color}` : undefined }} />
                 </div>
-                <p className="text-[9px] text-muted-foreground">{team.playersBought}P · {Math.round(pctUsed)}% used</p>
+                <p className="text-[10px] font-semibold text-white/60">{team.playersBought}P · {Math.round(pctUsed)}% used</p>
               </div>
             </motion.div>
           );
@@ -1123,22 +1124,23 @@ export default function DisplayView() {
         }
       `}</style>
       <div
-        className="min-h-screen flex flex-col select-none relative"
+        className="h-screen flex flex-col select-none relative overflow-hidden"
         style={{
           background: `radial-gradient(ellipse at 30% 20%, ${teamColor}18 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, ${teamColor}12 0%, transparent 55%), #09090b`,
           transition: "background 0.8s ease",
         }}
       >
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 border-b border-border/40 bg-black/30 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="relative flex items-center justify-between px-4 md:px-8 py-2 border-b border-border/40 bg-black/40 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
+          {/* Left: tournament identity */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {tournament?.logoUrl ? (
-              <img src={tournament.logoUrl} alt={tournament.name} className="h-8 w-8 md:h-12 md:w-12 object-contain rounded-lg flex-shrink-0" />
+              <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 md:h-14 md:w-14 object-contain rounded-lg flex-shrink-0" />
             ) : (
-              <Trophy className="w-6 h-6 md:w-8 md:h-8 text-primary flex-shrink-0" />
+              <Trophy className="w-8 h-8 md:w-10 md:h-10 text-primary flex-shrink-0" />
             )}
             <div className="min-w-0">
-              <div className="font-display font-black text-base md:text-2xl tracking-tight text-white leading-none truncate">
+              <div className="font-display font-black text-base md:text-xl tracking-tight text-white leading-none truncate">
                 {tournament?.name || "BIDWAR"}
               </div>
               {tournament?.organizerName && (
@@ -1146,7 +1148,17 @@ export default function DisplayView() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 md:gap-6 flex-shrink-0">
+
+          {/* Center: BidWar brand — always visible */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 flex-shrink-0 pointer-events-none">
+            <div className="flex items-center gap-2 px-4 py-1 rounded-full bg-primary/10 border border-primary/30">
+              <Dices className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+              <span className="font-display font-black text-base md:text-lg tracking-widest text-primary uppercase">BidWar</span>
+            </div>
+          </div>
+
+          {/* Right: status + stats + sponsor */}
+          <div className="flex items-center gap-2 md:gap-5 flex-shrink-0 flex-1 justify-end">
             {tournament?.auctionDate && (
               <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="w-3.5 h-3.5" />
@@ -1167,7 +1179,7 @@ export default function DisplayView() {
               <span className="text-muted-foreground">{state?.remainingPlayersCount || 0}</span> Left
             </div>
             {sponsorLogos.length > 0 && (
-              <div className="border-l border-border/40 pl-3 md:pl-6 hidden md:block">
+              <div className="border-l border-border/40 pl-3 md:pl-5 hidden md:block">
                 <SponsorCarousel logos={sponsorLogos} />
               </div>
             )}
@@ -1175,7 +1187,7 @@ export default function DisplayView() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 relative overflow-hidden min-h-0">
           {/* SOLD animations — stamp then card */}
           <AnimatePresence>
             {soldPhase === "stamp" && <SoldStamp key="stamp" />}
@@ -1381,9 +1393,6 @@ export default function DisplayView() {
 
         {/* Full-width Bottom Team Strip */}
         <TeamPurseStrip purses={stripPurses} currentBidTeamId={state?.currentBidTeamId} />
-
-        {/* Sponsor Logos Ticker */}
-        <SponsorTicker logos={sponsorLogos} />
 
         {/* LED Display Overlays — Team / Player / Top 5 */}
         <AnimatePresence mode="wait">
