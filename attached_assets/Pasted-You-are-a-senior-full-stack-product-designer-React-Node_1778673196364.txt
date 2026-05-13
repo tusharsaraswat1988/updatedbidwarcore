@@ -1,0 +1,289 @@
+You are a senior full-stack product designer + React/Node/PostgreSQL engineer.
+
+Project Context:
+This is a multi-sport live auction platform built on Replit. Current module: Tournament Edit / Settings Modal. The system is used by real auction operators during live auctions with 100–800+ players and multiple teams. Focus on speed, usability, scalability, operator safety, and professional auction workflow.
+
+Your task is to redesign and improve the “Edit Tournament / Settings” module and related operator functionality WITHOUT breaking existing functionality.
+
+-----------------------------------
+CORE PROBLEMS TO FIX
+-----------------------------------
+
+1. Current settings modal is not scrollable properly.
+2. Current layout is cluttered and difficult during live operation.
+3. Pencil icon is unclear.
+4. Tournament settings are mixed together.
+5. Some unnecessary fields exist.
+6. Missing tournament control options.
+7. Missing reset/recovery controls.
+8. Image upload UX is poor.
+9. No operator-safe confirmation flows.
+10. Large auction usability is weak.
+
+-----------------------------------
+UI/UX REDESIGN REQUIREMENTS
+-----------------------------------
+
+A) SETTINGS ENTRY
+- Replace small pencil icon with:
+  ⚙ Tournament Settings
+- Make it prominent and operator friendly.
+- Add hover effect + tooltip.
+
+-----------------------------------
+B) SETTINGS MODAL BEHAVIOR
+-----------------------------------
+
+- Modal must:
+  - be fully scrollable vertically
+  - work on laptop + tablet
+  - maintain sticky header
+  - maintain sticky footer action buttons
+  - prevent content overflow
+  - support long forms gracefully
+
+- Use:
+  max-height: 90vh
+  overflow-y: auto
+
+- Add:
+  Save Changes
+  Cancel
+  Reset Section
+
+Sticky footer should always remain visible.
+
+-----------------------------------
+C) DIVIDE SETTINGS INTO 4 TABS
+-----------------------------------
+
+Create tab-based layout.
+
+TAB 1 → Tournament Identity
+TAB 2 → Auction Settings
+TAB 3 → Broadcast & Branding
+TAB 4 → Recovery & Advanced Controls
+
+Use clean modern tabs with icons.
+
+-----------------------------------
+TAB 1 — TOURNAMENT IDENTITY
+-----------------------------------
+
+KEEP:
+- Tournament Name
+- Sport Type
+- Venue
+- Auction Date
+- Tournament Logo Upload
+
+REMOVE:
+- Organizer Name
+- Organizer Mobile
+- Organizer Password Section
+
+KEEP Organizer Email ONLY if logically required for ownership mapping.
+
+Tournament logo should support:
+- Upload image
+- Preview
+- Replace image
+- Remove image
+
+-----------------------------------
+TAB 2 — AUCTION SETTINGS
+-----------------------------------
+
+KEEP:
+- Base Purse Value
+- Minimum Bid Value
+- Bid Increment Tiers
+- First Bid Timer
+- Subsequent Bid Timer
+- Player Selection Mode
+
+ADD:
+1. Player Sequence Mode
+   OPTIONS:
+   - Sequential
+   - Random
+   - Category Wise
+   - Manual Queue
+
+2. Unsold Player Re-Auction Controls
+   - Enable Re-Auction
+   - Auto Add Unsold to Pool
+   - Manual Re-Add Option
+   - Operator Confirmation Required
+
+3. Confirmation Warnings
+   Before:
+   - Mark Unsold
+   - Delete Player
+   - Reset Auction
+   - End Auction
+
+4. Countdown Sound Settings
+   - Enable Last 5 Second Sound
+   - Upload custom countdown audio
+
+5. Sold Sound
+   - Upload sold audio
+   - Volume slider
+
+-----------------------------------
+TAB 3 — BROADCAST & BRANDING
+-----------------------------------
+
+Add complete sponsor and branding controls.
+
+FEATURES:
+- Sponsor Logo Upload
+- Multiple Sponsors
+- Drag reorder sponsors
+- Banner Upload
+- Live ticker text
+- Sponsor rotation interval
+- LED display branding controls
+
+Add:
+- Image preview
+- Remove button
+- File validation
+- Compression
+
+-----------------------------------
+TAB 4 — RECOVERY & ADVANCED CONTROLS
+-----------------------------------
+
+VERY IMPORTANT.
+
+Add operator-safe recovery tools.
+
+SECTIONS:
+
+1. Tournament Reset Controls
+   OPTIONS:
+   - Reset Live Screen
+   - Reset Current Bid
+   - Reset Current Player
+   - Reset Entire Auction
+   - Resume Previous State
+
+2. Auction Recovery
+   - Auto-save every 5 seconds
+   - Recover last session after refresh/crash
+   - Show last backup timestamp
+
+3. Emergency Controls
+   - Pause Auction
+   - Lock Team Bidding
+   - Disable Owner Access
+   - Force Timer Stop
+
+4. Re-Auction Management
+   - Separate unsold player pool
+   - Re-auction queue
+   - Manual drag/drop queue management
+
+-----------------------------------
+IMAGE UPLOAD IMPROVEMENTS
+-----------------------------------
+
+Wherever image upload exists in software:
+(Player image, sponsor logo, team logo, banners, etc.)
+
+After upload provide:
+- Crop Tool
+- Auto Enhance
+- Remove Background
+- Resize & compress
+- Preview before save
+
+Implement using lightweight libraries compatible with Replit.
+
+Recommended:
+- react-easy-crop
+- browser-image-compression
+- remove.bg API OR local background removal fallback
+
+-----------------------------------
+LARGE AUCTION SCALABILITY
+-----------------------------------
+
+Optimize for:
+- 800+ players
+- 30+ teams
+- 2-day auctions
+
+Implement:
+- Virtual scrolling
+- Lazy loading
+- Search filters
+- Category filters
+- Sticky action controls
+
+-----------------------------------
+IMPORTANT OPERATOR UX RULES
+-----------------------------------
+
+- No accidental destructive actions
+- Confirmation modals mandatory
+- Large buttons for live use
+- Dark theme optimized
+- Fast keyboard operation
+- Responsive
+- Minimal clicks during auction
+
+Keyboard Shortcuts:
+- Space → Start/Pause Timer
+- Enter → Confirm Bid
+- N → Next Player
+- U → Mark Unsold
+- S → Mark Sold
+
+-----------------------------------
+TECHNICAL REQUIREMENTS
+-----------------------------------
+
+Frontend:
+- React
+- Tailwind
+- ShadCN preferred
+- Modular components
+- Reusable form architecture
+
+Backend:
+- Maintain existing APIs
+- Add migrations safely
+- Preserve existing tournament data
+
+Database:
+- Add new fields safely
+- Backward compatible
+
+Performance:
+- No full page refresh
+- Use optimistic UI updates
+- Avoid heavy re-renders
+
+-----------------------------------
+DELIVERABLES REQUIRED
+-----------------------------------
+
+1. Redesigned settings modal UI
+2. New tab architecture
+3. Scrollable responsive modal
+4. Recovery system
+5. Unsold player management system
+6. Improved image upload system
+7. Safe reset flows
+8. Keyboard shortcuts
+9. Responsive operator-first UX
+10. Clean production-ready code
+
+IMPORTANT:
+Do NOT remove existing working functionality.
+Refactor carefully.
+Maintain backward compatibility.
+Focus heavily on operator usability during live auctions.

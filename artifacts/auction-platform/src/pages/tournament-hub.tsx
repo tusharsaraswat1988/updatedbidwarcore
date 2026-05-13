@@ -19,12 +19,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  Gavel, Monitor, Trophy, ExternalLink, Pencil, Link2, Dices, KeyRound,
-  Building2, Timer, PlusCircle, Trash2, ChevronDown, ChevronRight, Download,
+  Gavel, Monitor, Trophy, ExternalLink, Link2, Dices, KeyRound,
+  Building2, Timer, PlusCircle, Trash2, ChevronDown, Download,
+  Settings, Megaphone, ShieldAlert, Image as ImageIcon, X, RotateCcw,
+  Calendar as CalendarIcon, AlertTriangle, ChevronUp,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -90,8 +91,14 @@ export default function TournamentHub() {
   const qc = useQueryClient();
 
   const [editOpen, setEditOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<"identity" | "auction">("identity");
+  type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
+  const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
+  // Snapshot of values when the dialog was opened — used by "Reset Section"
+  const [origForm, setOrigForm] = useState<Record<string, string | number>>({});
+  const [origSponsorLogos, setOrigSponsorLogos] = useState<SponsorLogo[]>([]);
+  const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
+  const [organizerOpen, setOrganizerOpen] = useState(false);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
     { upTo: 100000, increment: 25000 },
@@ -115,7 +122,7 @@ export default function TournamentHub() {
 
   function openEdit() {
     if (!tournament) return;
-    setEditForm({
+    const initialForm = {
       name: tournament.name,
       sport: tournament.sport,
       venue: tournament.venue || "",
@@ -129,32 +136,72 @@ export default function TournamentHub() {
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
       playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
-    });
+    };
+    setEditForm(initialForm);
+    setOrigForm(initialForm);
     // Load bidTiers from JSON column, fall back to legacy 5-column values
+    let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
       const rawTiers = (tournament as any).bidTiers;
       if (rawTiers) {
         const parsed = JSON.parse(rawTiers);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setBidTiers(parsed);
+          initialTiers = parsed;
         } else { throw new Error("empty"); }
       } else {
-        setBidTiers([
+        initialTiers = [
           { upTo: (tournament as any).bidTier1UpTo ?? 100000, increment: (tournament as any).bidTier1Increment ?? 25000 },
           { upTo: (tournament as any).bidTier2UpTo ?? 200000, increment: (tournament as any).bidTier2Increment ?? 50000 },
           { increment: (tournament as any).bidTier3Increment ?? 100000 },
-        ]);
+        ];
       }
     } catch {
-      setBidTiers([{ upTo: 100000, increment: 25000 }, { upTo: 200000, increment: 50000 }, { increment: 100000 }]);
+      initialTiers = [{ upTo: 100000, increment: 25000 }, { upTo: 200000, increment: 50000 }, { increment: 100000 }];
     }
+    setBidTiers(initialTiers);
+    setOrigBidTiers(initialTiers);
+
+    let initialSponsors: SponsorLogo[];
     try {
       const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
-      setSponsorLogos(Array.isArray(parsed) ? parsed : []);
-    } catch { setSponsorLogos([]); }
+      initialSponsors = Array.isArray(parsed) ? parsed : [];
+    } catch { initialSponsors = []; }
+    setSponsorLogos(initialSponsors);
+    setOrigSponsorLogos(initialSponsors);
+
     setOrgPassword("");
+    setOrganizerOpen(false);
     setActiveSection("identity");
     setEditOpen(true);
+  }
+
+  function resetCurrentTab() {
+    if (activeSection === "identity") {
+      setEditForm(f => ({
+        ...f,
+        name: origForm.name,
+        sport: origForm.sport,
+        venue: origForm.venue,
+        auctionDate: origForm.auctionDate,
+        logoUrl: origForm.logoUrl,
+        organizerName: origForm.organizerName,
+        organizerMobile: origForm.organizerMobile,
+        organizerEmail: origForm.organizerEmail,
+      }));
+      setOrgPassword("");
+    } else if (activeSection === "auction") {
+      setEditForm(f => ({
+        ...f,
+        basePurse: origForm.basePurse,
+        minBid: origForm.minBid,
+        timerSeconds: origForm.timerSeconds,
+        bidTimerSeconds: origForm.bidTimerSeconds,
+        playerSelectionMode: origForm.playerSelectionMode,
+      }));
+      setBidTiers(origBidTiers);
+    } else if (activeSection === "broadcast") {
+      setSponsorLogos(origSponsorLogos);
+    }
   }
 
   async function handleExportForLocal() {
@@ -188,6 +235,7 @@ export default function TournamentHub() {
         auctionDate: editForm.auctionDate as string || undefined,
         organizerName: editForm.organizerName as string || undefined,
         organizerMobile: editForm.organizerMobile as string || undefined,
+        organizerEmail: editForm.organizerEmail as string || undefined,
         logoUrl: editForm.logoUrl as string || undefined,
         sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
@@ -230,13 +278,6 @@ export default function TournamentHub() {
               <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
                 {tournament?.status}
               </span>
-              <button
-                onClick={openEdit}
-                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-                title="Edit tournament"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
             </div>
             <p className="text-muted-foreground mt-2 font-mono text-sm">
               {tournament?.sport?.toUpperCase()}
@@ -288,6 +329,13 @@ export default function TournamentHub() {
               disabled={exportLoading}
             >
               <Download className="w-4 h-4" /> {exportLoading ? "Exporting..." : "Export for Local"}
+            </Button>
+            <Button
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md hover:shadow-lg transition-all"
+              onClick={openEdit}
+              title="Open tournament settings (identity, auction rules, broadcast, recovery)"
+            >
+              <Settings className="w-4 h-4" /> Tournament Settings
             </Button>
           </div>
         </div>
@@ -389,35 +437,88 @@ export default function TournamentHub() {
         </div>
       </div>
 
-      {/* Edit Tournament Dialog — Two Sections */}
+      {/* Tournament Settings Dialog — 4 tabs (Identity / Auction / Broadcast / Recovery) */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl dark max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-5 h-5" /> Edit Tournament
+        <DialogContent className="max-w-3xl dark p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
+          {/* Sticky header */}
+          <DialogHeader className="px-6 pt-5 pb-4 border-b border-border bg-card/50 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Settings className="w-5 h-5 text-primary" /> Tournament Settings
             </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">Configure identity, auction rules, broadcast branding and recovery — all changes apply on Save.</p>
           </DialogHeader>
 
-          {/* Section Tabs */}
-          <div className="flex rounded-lg bg-muted/20 p-1 border border-border/50 gap-1">
-            <button
-              onClick={() => setActiveSection("identity")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-all ${activeSection === "identity" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Building2 className="w-4 h-4" /> Tournament Identity
-            </button>
-            <button
-              onClick={() => setActiveSection("auction")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold rounded-md transition-all ${activeSection === "auction" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Gavel className="w-4 h-4" /> Auction Settings
-            </button>
+          {/* Sticky tab strip */}
+          <div className="flex border-b border-border bg-background/50 flex-shrink-0 overflow-x-auto">
+            {[
+              { id: "identity" as const, label: "Identity", icon: Building2 },
+              { id: "auction" as const, label: "Auction", icon: Gavel },
+              { id: "broadcast" as const, label: "Broadcast", icon: Megaphone },
+              { id: "recovery" as const, label: "Recovery", icon: ShieldAlert },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const active = activeSection === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSection(tab.id)}
+                  className={`flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-all border-b-2 ${
+                    active
+                      ? "text-primary border-primary bg-primary/5"
+                      : "text-muted-foreground border-transparent hover:text-foreground hover:bg-accent/40"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" /> {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 pr-1">
-              {activeSection === "identity" ? (
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0">
+            <div className="space-y-5">
+              {activeSection === "identity" && (
                 <>
+                  {/* Tournament Logo — prominent at top */}
+                  <div className="flex items-start gap-4 p-4 rounded-lg border border-border/60 bg-muted/10">
+                    <div className="w-20 h-20 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {editForm.logoUrl ? (
+                        <img
+                          src={editForm.logoUrl as string}
+                          alt="Logo preview"
+                          className="w-full h-full object-contain"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <Label className="text-sm font-semibold">Tournament Logo</Label>
+                      <Input
+                        value={editForm.logoUrl as string || ""}
+                        onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))}
+                        placeholder="https://..."
+                        className="h-9"
+                      />
+                      <div className="flex items-center gap-2">
+                        {editForm.logoUrl ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                            onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}
+                          >
+                            <X className="w-3.5 h-3.5" /> Remove
+                          </Button>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Paste an image URL — preview appears on the left.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Tournament Name</Label>
@@ -437,63 +538,76 @@ export default function TournamentHub() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Venue</Label>
+                      <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Venue</Label>
                       <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Auction Date</Label>
+                      <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
                       <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Organizer Name</Label>
-                      <Input value={editForm.organizerName as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerName: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Organizer Mobile</Label>
-                      <Input value={editForm.organizerMobile as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerMobile: e.target.value }))} placeholder="+91 98765 43210" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Organizer Email</Label>
-                    <Input
-                      type="email"
-                      value={editForm.organizerEmail as string || ""}
-                      onChange={e => setEditForm(f => ({ ...f, organizerEmail: e.target.value }))}
-                      placeholder="name@example.com — links to organizer account"
-                    />
-                    <p className="text-xs text-muted-foreground">If this email matches an organizer account, they'll see this tournament in their portal.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tournament Logo URL</Label>
-                    <Input value={editForm.logoUrl as string || ""} onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))} placeholder="https://..." />
-                    {editForm.logoUrl && (
-                      <img src={editForm.logoUrl as string} alt="Logo preview" className="h-10 w-10 object-contain rounded mt-1" onError={e => (e.currentTarget.style.display = "none")} />
+
+                  {/* Organizer account — collapsed by default */}
+                  <div className="border border-border/60 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setOrganizerOpen(o => !o)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-muted/20 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <KeyRound className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">Organizer Account & Login</span>
+                        <span className="text-[10px] text-muted-foreground">(optional)</span>
+                      </div>
+                      {organizerOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                    {organizerOpen && (
+                      <div className="p-4 space-y-4 border-t border-border/60">
+                        <p className="text-xs text-muted-foreground">
+                          Used to auto-link this tournament to an organizer account in their portal. Mobile is matched first, then email.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Organizer Name</Label>
+                            <Input value={editForm.organizerName as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerName: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Organizer Mobile</Label>
+                            <Input value={editForm.organizerMobile as string || ""} onChange={e => setEditForm(f => ({ ...f, organizerMobile: e.target.value }))} placeholder="+91 98765 43210" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Organizer Email</Label>
+                          <Input
+                            type="email"
+                            value={editForm.organizerEmail as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, organizerEmail: e.target.value }))}
+                            placeholder="name@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2 border-t border-border pt-4">
+                          <Label className="flex items-center gap-2 text-sm">
+                            <KeyRound className="w-4 h-4 text-primary" /> Login Password
+                          </Label>
+                          <Input
+                            type="password"
+                            value={orgPassword}
+                            onChange={e => setOrgPassword(e.target.value)}
+                            placeholder="Leave blank to keep existing password"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Sign-in URL: <code className="text-primary">/tournament/{tournamentId}/login</code>
+                          </p>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <div className="space-y-2 border-t border-border pt-4">
-                    <Label className="flex items-center gap-2">
-                      <KeyRound className="w-4 h-4 text-primary" /> Organizer Login Password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={orgPassword}
-                      onChange={e => setOrgPassword(e.target.value)}
-                      placeholder="Leave blank to keep existing password"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Used by organizers to sign in at <code className="text-primary">/tournament/{tournamentId}/login</code>
-                    </p>
-                  </div>
                 </>
-              ) : (
+              )}
+
+              {activeSection === "auction" && (
                 <>
-                  <div className="space-y-2">
-                    <Label>Sponsor Logos</Label>
-                    <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Base Purse (₹)</Label>
                       <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
@@ -554,7 +668,6 @@ export default function TournamentHub() {
                             onClick={() => setBidTiers(t => {
                               const next = t.filter((_, j) => j !== i);
                               if (next.length === 0) return t;
-                              // Ensure last tier has no upTo
                               const last = { ...next[next.length - 1] };
                               delete last.upTo;
                               return [...next.slice(0, -1), last];
@@ -566,7 +679,7 @@ export default function TournamentHub() {
                       );
                     })}
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-1.5">
                         <Timer className="w-3.5 h-3.5 text-muted-foreground" /> First Bid Timer (seconds)
@@ -603,14 +716,116 @@ export default function TournamentHub() {
                   </div>
                 </>
               )}
-            </div>
-          </ScrollArea>
 
-          <div className="flex gap-3 pt-2 border-t border-border">
-            <Button className="flex-1" onClick={handleSave} disabled={updateTournament.isPending}>
-              Save Changes
+              {activeSection === "broadcast" && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <Label className="text-sm font-semibold flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-muted-foreground" /> Sponsor Logos
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Logos rotate in the LED display top-right corner every 2 seconds.</p>
+                    <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
+                  </div>
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <Megaphone className="w-5 h-5 text-muted-foreground/50 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-muted-foreground">More broadcast controls coming soon</p>
+                          <p className="text-xs text-muted-foreground">Live ticker text, banner uploads, sponsor rotation interval and LED display branding presets are planned for the next release.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeSection === "recovery" && (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-semibold flex items-center gap-1.5">
+                        <RotateCcw className="w-4 h-4 text-muted-foreground" /> Auction Reset
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">Reset the live auction state — clears bids, returns all sold players to the pool, restores team purses.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive h-auto py-3"
+                      onClick={() => {
+                        setEditOpen(false);
+                        navigate(`/tournament/${tournamentId}/reset`);
+                      }}
+                    >
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-semibold">Open Auction Reset Page</span>
+                        <span className="text-[11px] text-muted-foreground font-normal">Password-protected — operator gets one free reset, super admin override available.</span>
+                      </div>
+                    </Button>
+                  </div>
+
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <Gavel className="w-4 h-4 text-muted-foreground" /> Operator Recovery
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Pause the auction or jump to the operator panel to undo the last bid.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        className="gap-2 h-auto py-3"
+                        onClick={() => { setEditOpen(false); navigate(`/tournament/${tournamentId}/auction`); }}
+                      >
+                        <Gavel className="w-4 h-4" />
+                        <span className="text-sm">Operator Panel</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-2 h-auto py-3"
+                        onClick={() => { setEditOpen(false); window.open(`/tournament/${tournamentId}/display`, "_blank"); }}
+                      >
+                        <Monitor className="w-4 h-4" />
+                        <span className="text-sm">Reload LED Display</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border pt-4">
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldAlert className="w-5 h-5 text-muted-foreground/50 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-muted-foreground">Advanced recovery coming soon</p>
+                          <p className="text-xs text-muted-foreground">Auto-save snapshots every 5 seconds, crash recovery, lock team bidding, force timer stop and re-auction queue management are planned for the next release.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Sticky footer */}
+          <div className="flex items-center gap-2 px-6 py-4 border-t border-border bg-card/50 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={resetCurrentTab}
+              disabled={activeSection === "recovery"}
+              title="Discard unsaved changes in this tab"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Reset Section
             </Button>
+            <div className="flex-1" />
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={updateTournament.isPending} className="min-w-[140px]">
+              {updateTournament.isPending ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
