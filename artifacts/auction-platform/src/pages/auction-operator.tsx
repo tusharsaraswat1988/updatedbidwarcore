@@ -19,6 +19,7 @@ import {
   useResetTrialAuction,
   useStartTimer,
   useSetDisplayOverlay,
+  useSetDisplayPlayerFilter,
   useSetCategoryFilter,
   useDeferPlayer,
   getGetAuctionStateQueryKey,
@@ -94,6 +95,7 @@ export default function AuctionOperator() {
   const resetTrial = useResetTrialAuction();
   const startTimerMut = useStartTimer();
   const setDisplayOverlay = useSetDisplayOverlay();
+  const setDisplayPlayerFilterMut = useSetDisplayPlayerFilter();
   const setCategoryFilter = useSetCategoryFilter();
   const deferPlayerMut = useDeferPlayer();
 
@@ -362,6 +364,89 @@ export default function AuctionOperator() {
                 </Button>
               )}
             </div>
+            {/* Player View Filter Controls — only when Player View is active on LED */}
+            {state?.displayOverlay === "player" && (() => {
+              const filter = state?.displayPlayerFilter ?? { status: "all" as const, categoryId: null, teamId: null };
+              const updateFilter = async (patch: Partial<typeof filter>) => {
+                await setDisplayPlayerFilterMut.mutateAsync({
+                  tournamentId,
+                  data: {
+                    status: patch.status ?? filter.status,
+                    categoryId: patch.categoryId !== undefined ? patch.categoryId : filter.categoryId,
+                    teamId: patch.teamId !== undefined ? patch.teamId : filter.teamId,
+                  },
+                });
+                invalidate();
+              };
+              const statuses = [
+                { v: "all" as const, label: "All" },
+                { v: "sold" as const, label: "Sold" },
+                { v: "unsold" as const, label: "Unsold" },
+                { v: "available" as const, label: "Remaining" },
+                { v: "retained" as const, label: "Retained" },
+              ];
+              return (
+                <div className="flex items-center gap-1 px-1 py-1 rounded-lg border border-blue-500/40 bg-blue-500/5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 px-2">Filter</span>
+                  {statuses.map(s => {
+                    const active = filter.status === s.v;
+                    return (
+                      <Button
+                        key={s.v}
+                        variant={active ? "default" : "ghost"}
+                        size="sm"
+                        className={`h-8 px-2.5 text-xs ${active ? "bg-blue-600 text-white hover:bg-blue-500" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => updateFilter({ status: s.v })}
+                        disabled={setDisplayPlayerFilterMut.isPending}
+                      >
+                        {s.label}
+                      </Button>
+                    );
+                  })}
+                  <div className="w-px h-5 bg-border mx-1" />
+                  <Select
+                    value={filter.categoryId ? String(filter.categoryId) : "all"}
+                    onValueChange={(v) => updateFilter({ categoryId: v === "all" ? null : parseInt(v) })}
+                  >
+                    <SelectTrigger className="h-8 w-[130px] text-xs border-border bg-card/50">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {(categories || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={filter.teamId ? String(filter.teamId) : "all"}
+                    onValueChange={(v) => updateFilter({ teamId: v === "all" ? null : parseInt(v) })}
+                  >
+                    <SelectTrigger className="h-8 w-[130px] text-xs border-border bg-card/50">
+                      <SelectValue placeholder="Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Teams</SelectItem>
+                      {(teams || []).map(t => (
+                        <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(filter.status !== "all" || filter.categoryId || filter.teamId) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                      title="Clear filters"
+                      onClick={() => updateFilter({ status: "all", categoryId: null, teamId: null })}
+                      disabled={setDisplayPlayerFilterMut.isPending}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
             {/* Category Filter Button */}
             <Button
               variant={activeCategoryIds && activeCategoryIds.length > 0 ? "default" : "outline"}

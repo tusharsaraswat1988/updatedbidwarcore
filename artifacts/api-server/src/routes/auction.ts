@@ -215,6 +215,9 @@ async function buildAuctionState(tournamentId: number) {
     wheelWinner: session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
     displayOverlay: session.displayOverlay,
+    displayPlayerFilter: session.displayPlayerFilter
+      ? (() => { try { return JSON.parse(session.displayPlayerFilter as string); } catch { return undefined; } })()
+      : undefined,
     activeCategoryIds,
     playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
     licenseStatus,
@@ -970,6 +973,29 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
       displayOverlay: overlay,
       teamPurseViewActive: overlay !== null,
     })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  res.json(await broadcastState(tid));
+});
+
+// POST set Player View filter (status/category/team) shown on LED display
+router.post("/tournaments/:tournamentId/auction/display-player-filter", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const body = z.object({
+    status: z.enum(["all", "sold", "unsold", "available", "retained"]),
+    categoryId: z.number().int().nullable().optional(),
+    teamId: z.number().int().nullable().optional(),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  await getOrCreateSession(tid);
+  const filter = {
+    status: body.data.status,
+    categoryId: body.data.categoryId ?? null,
+    teamId: body.data.teamId ?? null,
+  };
+  await db
+    .update(auctionSessionsTable)
+    .set({ displayPlayerFilter: JSON.stringify(filter) })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });

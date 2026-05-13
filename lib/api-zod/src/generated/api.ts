@@ -791,6 +791,13 @@ export const GetAuctionStateResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -880,6 +887,13 @@ export const StartAuctionResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -969,6 +983,13 @@ export const PauseAuctionResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1063,6 +1084,13 @@ export const NextPlayerResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1157,6 +1185,13 @@ export const PlaceBidResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1246,6 +1281,13 @@ export const SellPlayerResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1340,6 +1382,13 @@ export const ManualSellResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1429,6 +1478,13 @@ export const MarkUnsoldResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1523,6 +1579,13 @@ export const ReAuctionPlayerResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1612,6 +1675,13 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1701,6 +1771,13 @@ export const UndoLastActionResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1790,6 +1867,13 @@ export const ResetTrialAuctionResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -1883,6 +1967,115 @@ export const SetDisplayOverlayResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
+});
+
+/**
+ * @summary Set filters for LED Player View overlay (status/category/team)
+ */
+export const SetDisplayPlayerFilterParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const SetDisplayPlayerFilterBody = zod.object({
+  status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+  categoryId: zod.number().nullish(),
+  teamId: zod.number().nullish(),
+});
+
+export const SetDisplayPlayerFilterResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  currentBidTeamLogoUrl: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  bidTimerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  displayOverlay: zod
+    .union([
+      zod.literal("team"),
+      zod.literal("player"),
+      zod.literal("top5"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -2002,6 +2195,13 @@ export const SyncFortuneWheelResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -2095,6 +2295,13 @@ export const SetCategoryFilterResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -2194,6 +2401,13 @@ export const StartTimerResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
@@ -2283,6 +2497,13 @@ export const DeferPlayerResponse = zod.object({
     ])
     .nullish()
     .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
   activeCategoryIds: zod.array(zod.number()).nullish(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),

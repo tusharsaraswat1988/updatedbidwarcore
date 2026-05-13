@@ -383,6 +383,25 @@ export interface WheelItem {
   color: string;
 }
 
+export type DisplayPlayerFilterStatus =
+  (typeof DisplayPlayerFilterStatus)[keyof typeof DisplayPlayerFilterStatus];
+
+export const DisplayPlayerFilterStatus = {
+  all: "all",
+  sold: "sold",
+  unsold: "unsold",
+  available: "available",
+  retained: "retained",
+} as const;
+
+export interface DisplayPlayerFilter {
+  status: DisplayPlayerFilterStatus;
+  /** @nullable */
+  categoryId?: number | null;
+  /** @nullable */
+  teamId?: number | null;
+}
+
 export interface FortuneWheelSync {
   active?: boolean;
   spinning?: boolean;
@@ -488,6 +507,7 @@ export interface AuctionState {
    * @nullable
    */
   displayOverlay?: AuctionStateDisplayOverlay;
+  displayPlayerFilter?: DisplayPlayerFilter;
   activeCategoryIds?: number[] | null;
   playerSelectionMode?: AuctionStatePlayerSelectionMode;
   licenseStatus?: AuctionStateLicenseStatus;

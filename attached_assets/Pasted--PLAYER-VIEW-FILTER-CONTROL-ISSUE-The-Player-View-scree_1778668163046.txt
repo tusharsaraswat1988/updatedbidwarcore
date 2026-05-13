@@ -1,0 +1,131 @@
+## PLAYER VIEW – FILTER CONTROL ISSUE
+
+The Player View screen has been created successfully, but an important functionality is missing.
+
+Currently:
+
+* Player registry display is working.
+* Sold / Unsold / Remaining counters are visible.
+* Player table UI is working properly.
+
+But there is NO actual filtering control available from Operator Panel.
+
+---
+
+# Required Fix
+
+Need proper FILTER CONTROLS inside Operator Panel for Player View mode.
+
+Operator should be able to control what is displayed on the LED / Display Screen directly from Operator Panel.
+
+---
+
+# Required Filter Options
+
+Add filter buttons/dropdowns in Operator Panel when “Player View” mode is active.
+
+---
+
+## STATUS FILTERS
+
+Operator should be able to show:
+
+* All Players
+* Sold Players
+* Unsold Players
+* Remaining / Available Players
+
+Example:
+
+* Click “Sold” → only sold players appear on display screen.
+* Click “Unsold” → only unsold players appear.
+* Click “Remaining” → only remaining players appear.
+
+---
+
+# CATEGORY FILTERS
+
+Need category-wise filtering.
+
+Example:
+
+* 40+
+* 30–39
+* Bowlers
+* Batsmen
+* All-Rounders
+* Wicket Keepers
+* Any custom auction categories
+
+Operator selects category → only matching players appear on display screen.
+
+---
+
+# TEAM-WISE FILTER (Optional but Recommended)
+
+Operator can filter:
+
+* Players bought by a specific team.
+
+Example:
+
+* Show only players purchased by Royal Tigers.
+
+---
+
+# DISPLAY LOGIC
+
+Important:
+Filters should NOT work only locally inside Operator Panel.
+
+Instead:
+
+* Whatever filter operator selects,
+* The LED Display / Viewer Screen should also instantly update accordingly.
+
+---
+
+# REAL-TIME REQUIREMENT
+
+Use real-time synchronization:
+
+* WebSocket / Socket.IO events
+
+When operator changes filter:
+
+* Display screen updates instantly
+* No page refresh
+* No manual reload
+
+---
+
+# UI REQUIREMENT
+
+Inside Operator Panel, add:
+
+* Filter buttons
+* Dropdown selectors
+* Active filter indicator
+
+Keep UI:
+
+* Compact
+* Fast to use during live auction
+* Responsive
+
+---
+
+# EXPECTED FLOW
+
+Example:
+
+1. Operator selects “Player View”
+2. Operator clicks “Unsold”
+3. LED screen instantly shows only unsold players
+
+OR
+
+1. Operator selects category “40+”
+2. Display instantly filters and shows only 40+ players
+
+This complete filter control system is currently missing and needs implementation.

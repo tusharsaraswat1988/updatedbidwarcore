@@ -26,6 +26,7 @@ import type {
   CategoryBreakdown,
   CategoryInput,
   CategoryUpdate,
+  DisplayPlayerFilter,
   FortuneWheelSync,
   HealthStatus,
   LocalSyncPayload,
@@ -3167,6 +3168,93 @@ export const useSetDisplayOverlay = <
   TContext
 > => {
   return useMutation(getSetDisplayOverlayMutationOptions(options));
+};
+
+/**
+ * @summary Set filters for LED Player View overlay (status/category/team)
+ */
+export const getSetDisplayPlayerFilterUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/display-player-filter`;
+};
+
+export const setDisplayPlayerFilter = async (
+  tournamentId: number,
+  displayPlayerFilter: DisplayPlayerFilter,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetDisplayPlayerFilterUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(displayPlayerFilter),
+  });
+};
+
+export const getSetDisplayPlayerFilterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDisplayPlayerFilter>>,
+    TError,
+    { tournamentId: number; data: BodyType<DisplayPlayerFilter> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setDisplayPlayerFilter>>,
+  TError,
+  { tournamentId: number; data: BodyType<DisplayPlayerFilter> },
+  TContext
+> => {
+  const mutationKey = ["setDisplayPlayerFilter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setDisplayPlayerFilter>>,
+    { tournamentId: number; data: BodyType<DisplayPlayerFilter> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setDisplayPlayerFilter(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetDisplayPlayerFilterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setDisplayPlayerFilter>>
+>;
+export type SetDisplayPlayerFilterMutationBody = BodyType<DisplayPlayerFilter>;
+export type SetDisplayPlayerFilterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set filters for LED Player View overlay (status/category/team)
+ */
+export const useSetDisplayPlayerFilter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDisplayPlayerFilter>>,
+    TError,
+    { tournamentId: number; data: BodyType<DisplayPlayerFilter> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setDisplayPlayerFilter>>,
+  TError,
+  { tournamentId: number; data: BodyType<DisplayPlayerFilter> },
+  TContext
+> => {
+  return useMutation(getSetDisplayPlayerFilterMutationOptions(options));
 };
 
 /**

@@ -800,6 +800,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/display-player-filter:
+    post:
+      operationId: setDisplayPlayerFilter
+      tags: [auction]
+      summary: Set filters for LED Player View overlay (status/category/team)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisplayPlayerFilter"
+      responses:
+        "200":
+          description: State updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/teams/{teamId}/verify-access:
     post:
       operationId: verifyOwnerAccess
@@ -1551,6 +1576,18 @@ components:
         color:
           type: string
 
+    DisplayPlayerFilter:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [all, sold, unsold, available, retained]
+        categoryId:
+          type: ["integer", "null"]
+        teamId:
+          type: ["integer", "null"]
+
     FortuneWheelSync:
       type: object
       properties:
@@ -1623,6 +1660,8 @@ components:
           type: ["string", "null"]
           enum: [team, player, top5, null]
           description: Active LED overlay mode. null/absent means no overlay.
+        displayPlayerFilter:
+          $ref: "#/components/schemas/DisplayPlayerFilter"
         activeCategoryIds:
           type: array
           items:

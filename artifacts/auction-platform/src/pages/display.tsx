@@ -431,15 +431,28 @@ function TeamViewOverlay({ purses, currentBidTeamId, tournamentName }: {
 }
 
 /** Overlay 2 — Player-wise live registry table */
-function PlayerViewOverlay({ players, purses, categories, tournamentName }: {
+function PlayerViewOverlay({ players, purses, categories, tournamentName, filter }: {
   players: PlayerLite[];
   purses: PurseRow[];
   categories: CategoryLite[];
   tournamentName?: string;
+  filter?: { status: string; categoryId?: number | null; teamId?: number | null } | null;
 }) {
   const teamMap = new Map(purses.map(t => [t.teamId, t]));
   const catMap = new Map(categories.map(c => [c.id, c.name]));
-  const sorted = [...players].sort((a, b) => a.id - b.id);
+
+  const f = {
+    status: filter?.status ?? "all",
+    categoryId: filter?.categoryId ?? null,
+    teamId: filter?.teamId ?? null,
+  };
+  const filtered = players.filter(p => {
+    if (f.status !== "all" && p.status !== f.status) return false;
+    if (f.categoryId && p.categoryId !== f.categoryId) return false;
+    if (f.teamId && p.teamId !== f.teamId) return false;
+    return true;
+  });
+  const sorted = [...filtered].sort((a, b) => a.id - b.id);
 
   const counts = {
     sold: players.filter(p => p.status === "sold").length,
@@ -447,6 +460,17 @@ function PlayerViewOverlay({ players, purses, categories, tournamentName }: {
     available: players.filter(p => p.status === "available").length,
     retained: players.filter(p => p.status === "retained").length,
   };
+
+  const activeFilterLabels: string[] = [];
+  if (f.status !== "all") activeFilterLabels.push(f.status.toUpperCase());
+  if (f.categoryId) {
+    const cn = catMap.get(f.categoryId);
+    if (cn) activeFilterLabels.push(cn.toUpperCase());
+  }
+  if (f.teamId) {
+    const tn = teamMap.get(f.teamId)?.teamName;
+    if (tn) activeFilterLabels.push(tn.toUpperCase());
+  }
 
   const statusStyle = (s: string) => {
     switch (s) {
@@ -473,6 +497,17 @@ function PlayerViewOverlay({ players, purses, categories, tournamentName }: {
             </h1>
             {tournamentName && (
               <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] text-white/60 mt-0.5">{tournamentName}</p>
+            )}
+            {activeFilterLabels.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-blue-400/70">Filter:</span>
+                {activeFilterLabels.map((lbl, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-md bg-blue-500/20 border border-blue-400/40 text-[10px] md:text-xs font-bold text-blue-200">
+                    {lbl}
+                  </span>
+                ))}
+                <span className="text-[10px] md:text-xs text-white/50 ml-1">({sorted.length})</span>
+              </div>
             )}
           </div>
         </div>
@@ -1382,6 +1417,7 @@ export default function DisplayView() {
                 purses={stripPurses}
                 categories={allCategories ?? []}
                 tournamentName={tournament?.name}
+                filter={state?.displayPlayerFilter ?? null}
               />
             </motion.div>
           )}
