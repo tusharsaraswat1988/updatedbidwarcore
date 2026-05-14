@@ -11,6 +11,8 @@ import { useOrganizerAuth } from "@/hooks/use-auth";
 interface LayoutProps {
   children: ReactNode;
   tournamentId?: number;
+  /** Remove the default p-8 / max-w-7xl wrapper so the child can own its own layout (e.g. the fullscreen operator panel). */
+  noPadding?: boolean;
 }
 
 function LogoutButton({ tournamentId }: { tournamentId: number }) {
@@ -33,7 +35,7 @@ function LogoutButton({ tournamentId }: { tournamentId: number }) {
   );
 }
 
-export function AppLayout({ children, tournamentId }: LayoutProps) {
+export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
@@ -133,13 +135,19 @@ export function AppLayout({ children, tournamentId }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-background relative">
+      <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-background to-background pointer-events-none" />
-        <div className="flex-1 overflow-y-auto z-0 relative">
-          <div className="p-8 max-w-7xl mx-auto">
+        {noPadding ? (
+          <div className="flex-1 overflow-hidden z-0 relative flex flex-col min-h-0">
             {children}
           </div>
-        </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto z-0 relative">
+            <div className="p-8 max-w-7xl mx-auto">
+              {children}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

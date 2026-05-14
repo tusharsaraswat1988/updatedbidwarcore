@@ -1,0 +1,148 @@
+This is not a normal admin dashboard.
+
+This is a live cricket auction operator console designed for real-world fast auction operations during league events.
+
+The UI must prioritize:
+- operator speed
+- low cognitive load
+- fast actions
+- no page scrolling
+- clear visual hierarchy
+- broadcast-grade experience
+
+Current auction workflow:
+
+1. Operator clicks NEXT PLAYER
+2. Next player loads automatically
+3. Timer auto-starts immediately
+4. Live bidding happens
+5. After timer expires, operator decides:
+   - SOLD
+   - UNSOLD
+   - MANUAL ENTRY
+
+IMPORTANT:
+Manual Entry is only for offline/manual bidding situations and should not be a primary action during normal auction flow.
+
+---------------------------------------------------
+LAYOUT REQUIREMENTS
+---------------------------------------------------
+
+KEEP THE EXISTING LEFT SIDEBAR.
+Do NOT remove it.
+
+Sidebar should contain:
+- Hub
+- Teams
+- Players
+- Categories
+- Reports
+- Operator Panel
+- LED Display
+- Fortune Wheel
+- Share Links
+- Reset Auction
+
+Sidebar should:
+- stay fixed
+- compact width
+- no scrolling
+- premium dark styling
+
+---------------------------------------------------
+MAIN LAYOUT
+---------------------------------------------------
+
+Use a 3-column professional operator layout.
+
+LEFT PANEL:
+- Player Queue
+- Search
+- Category filters
+- Deferred players
+- Queue list
+
+Only this queue section may internally scroll.
+
+CENTER PANEL:
+This is the main auction control area.
+
+Structure should be:
+
+1. Current Player Card
+2. Current Bid Display
+3. Timer Display
+4. Large NEXT PLAYER button
+5. SOLD / UNSOLD / MANUAL ENTRY action buttons
+
+NEXT PLAYER must become the biggest and most important CTA in the UI.
+
+RIGHT PANEL:
+- Teams & Purse
+- Last Actions
+- Bid History
+
+Only inner sections may scroll.
+The full page must NEVER vertically scroll.
+
+Use full-screen responsive layout.
+
+---------------------------------------------------
+FUNCTIONAL BEHAVIOR
+---------------------------------------------------
+
+1. Clicking NEXT PLAYER should:
+- load next player
+- automatically start timer
+- enable bidding
+
+2. SOLD and UNSOLD buttons:
+- must remain disabled while timer is active
+- become enabled only after timer expires
+
+3. MANUAL ENTRY:
+- should appear only in manual bidding mode
+- should not visually dominate the layout
+
+4. Team bidding section:
+- must have fixed height
+- use compact responsive team tiles
+- must not push layout downward
+
+5. Entire operator panel:
+- must fit properly within screen height
+- no body/page scrolling
+- only internal containers can scroll
+
+---------------------------------------------------
+UI DESIGN REQUIREMENTS
+---------------------------------------------------
+
+Design style:
+- premium dark theme
+- sports broadcast inspired
+- professional auction system
+- modern glow effects
+- smooth motion animations
+- compact spacing
+- strong action hierarchy
+
+Avoid:
+- giant empty areas
+- oversized cards
+- scattered controls
+- generic admin dashboard appearance
+
+The UI should feel like an international live cricket auction operating system.
+
+IMPORTANT:
+Do NOT break existing backend logic, APIs, auction state flow, or socket functionality.
+
+Only refactor:
+- layout
+- interaction flow
+- UI hierarchy
+- responsiveness
+- operator experience
+
+Use the attached mockup image as the visual direction and design reference.

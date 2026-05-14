@@ -35,7 +35,6 @@ import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,8 +43,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
-  Settings2, RefreshCw, Timer, LayoutGrid, Tag, X, Filter, Search,
-  Hourglass, Monitor, Users, ExternalLink, Crown, ListOrdered,
+  Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
+  Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -63,6 +62,7 @@ export default function AuctionOperator() {
   const [playerSearch, setPlayerSearch] = useState("");
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   useAuctionSocket(tournamentId);
 
@@ -150,9 +150,15 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-
   async function handleStartTimer() {
     const secs = parseInt(timerSecs) || 30;
+    const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
+    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+    invalidate();
+  }
+
+  async function handleExtendTimer() {
+    const secs = (parseInt(timerSecs) || 30) + 30;
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
     qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     invalidate();
@@ -189,8 +195,6 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  // Seed the timer input from the tournament's configured default the first time it
-  // arrives, but never overwrite again once the operator has manually typed a value.
   const timerSecsUserEdited = useRef(false);
   useEffect(() => {
     if (!timerSecsUserEdited.current && state?.timerSeconds) {
@@ -198,11 +202,6 @@ export default function AuctionOperator() {
     }
   }, [state?.timerSeconds]);
 
-  // Server-authoritative timer: no client-side interval at parent level.
-  // The visible countdown ticks inside <ServerCountdown /> (isolated subtree).
-  // For parent gating (canBid, START button label, sell/unsold enablement) we
-  // only need to know WHEN the timer has crossed zero — a single setTimeout
-  // via useTimerExpired() flips one boolean once, no per-tick rerenders.
   const timerExpired = useTimerExpired(state?.timerEndsAt);
 
   const isActive = state?.status === "active";
@@ -233,726 +232,765 @@ export default function AuctionOperator() {
         )
       : list;
 
-  const rightPanelPlayers = reAuctionTab === "queue"
-    ? available
-    : reAuctionTab === "sold"
-    ? soldPlayers
-    : unsoldPlayers;
-
-  // Filter queue by active categories if set
+  // Category-filtered available queue
   const filteredQueue = activeCategoryIds && activeCategoryIds.length > 0
     ? available.filter(p => p.categoryId && activeCategoryIds.includes(p.categoryId))
     : available;
 
+  // Role-filtered queue for left panel
+  const roleFilteredQueue = roleFilter === "all"
+    ? filteredQueue
+    : filteredQueue.filter(p => {
+        const r = (p.role || "").toLowerCase();
+        if (roleFilter === "bat") return r === "bat" || r === "batsman" || r.includes("bat");
+        if (roleFilter === "bowl") return r === "bowl" || r === "bowler" || r.includes("bowl");
+        if (roleFilter === "ar") return r === "ar" || r.includes("all") || r === "all-rounder";
+        if (roleFilter === "wk") return r === "wk" || r.includes("wicket") || r.includes("keeper");
+        return r === roleFilter;
+      });
+
+  const roleCounts = {
+    bat: filteredQueue.filter(p => { const r = (p.role || "").toLowerCase(); return r === "bat" || r === "batsman" || r.includes("bat"); }).length,
+    bowl: filteredQueue.filter(p => { const r = (p.role || "").toLowerCase(); return r === "bowl" || r === "bowler" || r.includes("bowl"); }).length,
+    ar: filteredQueue.filter(p => { const r = (p.role || "").toLowerCase(); return r === "ar" || r.includes("all") || r === "all-rounder"; }).length,
+    wk: filteredQueue.filter(p => { const r = (p.role || "").toLowerCase(); return r === "wk" || r.includes("wicket") || r.includes("keeper"); }).length,
+  };
+
+  const leftPanelList = filterBySearch(
+    reAuctionTab === "queue" ? roleFilteredQueue
+    : reAuctionTab === "sold" ? soldPlayers
+    : unsoldPlayers
+  );
+
+  // LED overlay helpers
+  const ledOverlayButtons = [
+    { mode: "team" as const, label: "Team", icon: LayoutGrid, bg: "bg-primary text-black" },
+    { mode: "player" as const, label: "Player", icon: Users, bg: "bg-blue-600 text-white" },
+    { mode: "top5" as const, label: "Top5", icon: Crown, bg: "bg-purple-600 text-white" },
+  ];
+
   return (
-    <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <Gavel className="w-7 h-7 text-primary" />
-              Operator Panel
-              <span className="inline-flex items-center gap-1.5 text-xs font-normal px-2 py-1 rounded-full bg-green-500/20 text-green-400">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
-                Live
-              </span>
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              <span className={`font-bold ${isActive ? "text-green-400" : isPaused ? "text-yellow-400" : "text-muted-foreground"}`}>
-                {state?.status?.toUpperCase() || "IDLE"}
-              </span>
-              {" · "}{state?.soldPlayersCount || 0} Sold · {state?.unsoldPlayersCount || 0} Unsold · {state?.remainingPlayersCount || 0} Remaining
-              {retainedPlayers.length > 0 && <span> · <span className="text-purple-400">{retainedPlayers.length} Retained</span></span>}
-            </p>
+    <AppLayout tournamentId={tournamentId} noPadding>
+      <div className="flex flex-col h-full overflow-hidden">
+
+        {/* ─── TOP STATUS BAR ─────────────────────────────────────────────── */}
+        <div className="flex-shrink-0 h-11 border-b border-border bg-card/70 backdrop-blur flex items-center gap-3 px-3 z-10">
+          {/* Auction status */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
+              isActive ? "bg-green-500/15 border-green-500/40 text-green-400"
+              : isPaused ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
+              : "bg-border/50 border-border text-muted-foreground"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full bg-current ${isActive ? "animate-pulse" : ""}`} />
+              {state?.status?.toUpperCase() || "IDLE"}
+            </span>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {!isActive ? (
-              <Button
-                size="lg"
-                className="bg-green-600 hover:bg-green-500 text-white gap-2 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
-                onClick={async () => { await startAuction.mutateAsync({ tournamentId }); invalidate(); }}
-                disabled={startAuction.isPending}
-              >
-                <Play className="w-5 h-5" />
-                {isPaused ? "Resume" : isTrialMode ? "Start Auction (Trial Mode)" : "Start Auction"}
-              </Button>
-            ) : (
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 gap-2"
-                onClick={async () => { await pauseAuction.mutateAsync({ tournamentId }); invalidate(); }}
-              >
-                <Pause className="w-5 h-5" /> Pause
-              </Button>
+
+          {/* Stats */}
+          <div className="flex items-center gap-3 text-xs flex-shrink-0">
+            <span className="text-muted-foreground">SOLD <span className="text-green-400 font-bold">{state?.soldPlayersCount || 0}</span></span>
+            <span className="text-muted-foreground">UNSOLD <span className="text-red-400 font-bold">{state?.unsoldPlayersCount || 0}</span></span>
+            <span className="text-muted-foreground">LEFT <span className="text-foreground font-bold">{state?.remainingPlayersCount || 0}</span></span>
+            {retainedPlayers.length > 0 && (
+              <span className="text-muted-foreground">RET <span className="text-purple-400 font-bold">{retainedPlayers.length}</span></span>
             )}
-            {selectionMode !== "manual" && (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
-                disabled={nextPlayer.isPending}
-              >
-                {selectionMode === "random" ? <Shuffle className="w-4 h-4" /> : <SkipForward className="w-4 h-4" />}
-                Next {selectionMode === "random" ? "(Random)" : "(Sequential)"}
-              </Button>
-            )}
-            {selectionMode === "manual" && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground">
-                <Settings2 className="w-3.5 h-3.5" /> Manual mode — pick from queue
-              </div>
-            )}
-            <Button variant="ghost" size="icon" onClick={handleUndo} disabled={undoAction.isPending} title="Undo last action">
-              <Undo2 className="w-5 h-5" />
+          </div>
+
+          <div className="h-4 w-px bg-border flex-shrink-0" />
+
+          {/* Start / Pause */}
+          {!isActive ? (
+            <Button
+              size="sm"
+              className="h-7 gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs px-3 flex-shrink-0"
+              onClick={async () => { await startAuction.mutateAsync({ tournamentId }); invalidate(); }}
+              disabled={startAuction.isPending}
+            >
+              <Play className="w-3 h-3" />
+              {isPaused ? "Resume" : isTrialMode ? "Start (Trial)" : "Start Auction"}
             </Button>
-            {/* LED Display Overlay Mode Selector */}
-            <div className="flex items-center gap-1 px-1 py-1 rounded-lg border border-border bg-card/50">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">LED</span>
-              {([
-                { mode: "team" as const, label: "Team", icon: LayoutGrid, color: "rgba(234,179,8,0.4)", bg: "bg-primary text-black" },
-                { mode: "player" as const, label: "Player", icon: Users, color: "rgba(59,130,246,0.4)", bg: "bg-blue-600 text-white" },
-                { mode: "top5" as const, label: "Top 5", icon: Crown, color: "rgba(168,85,247,0.4)", bg: "bg-purple-600 text-white" },
-              ]).map(({ mode, label, icon: Icon, color, bg }) => {
-                const active = state?.displayOverlay === mode;
-                return (
-                  <Button
-                    key={mode}
-                    variant={active ? "default" : "ghost"}
-                    size="sm"
-                    className={`gap-1.5 h-8 px-2.5 ${active ? `${bg} shadow-[0_0_15px_${color}]` : "text-muted-foreground hover:text-foreground"}`}
-                    title={`${active ? "Hide" : "Show"} ${label} View on LED`}
-                    onClick={async () => {
-                      await setDisplayOverlay.mutateAsync({
-                        tournamentId,
-                        data: { mode: active ? "off" : mode },
-                      });
-                      invalidate();
-                    }}
-                    disabled={setDisplayOverlay.isPending}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </Button>
-                );
-              })}
-              {state?.displayOverlay && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-red-400"
-                  title="Hide overlay"
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 text-xs px-3 flex-shrink-0"
+              onClick={async () => { await pauseAuction.mutateAsync({ tournamentId }); invalidate(); }}
+            >
+              <Pause className="w-3 h-3" /> Pause
+            </Button>
+          )}
+
+          {/* Undo */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={handleUndo}
+            disabled={undoAction.isPending}
+            title="Undo Last Action"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </Button>
+
+          <div className="flex-1 min-w-0" />
+
+          {/* Trial badge */}
+          {isTrialMode && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 flex-shrink-0">
+              Trial Mode
+            </span>
+          )}
+
+          {/* LED overlay controls */}
+          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg border border-border bg-card/50 flex-shrink-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1.5">LED</span>
+            {ledOverlayButtons.map(({ mode, label, icon: Icon, bg }) => {
+              const active = state?.displayOverlay === mode;
+              return (
+                <button
+                  key={mode}
+                  title={`${active ? "Hide" : "Show"} ${label} overlay on LED`}
                   onClick={async () => {
-                    await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+                    await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } });
                     invalidate();
                   }}
                   disabled={setDisplayOverlay.isPending}
+                  className={`flex items-center gap-1 h-6 px-2 rounded text-[10px] font-bold transition-all ${
+                    active ? `${bg} shadow-sm` : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </div>
-            {/* Player View Filter Controls — only when Player View is active on LED */}
-            {state?.displayOverlay === "player" && (() => {
-              const filter = state?.displayPlayerFilter ?? { status: "all" as const, categoryId: null, teamId: null };
-              const updateFilter = async (patch: Partial<typeof filter>) => {
-                await setDisplayPlayerFilterMut.mutateAsync({
-                  tournamentId,
-                  data: {
-                    status: patch.status ?? filter.status,
-                    categoryId: patch.categoryId !== undefined ? patch.categoryId : filter.categoryId,
-                    teamId: patch.teamId !== undefined ? patch.teamId : filter.teamId,
-                  },
-                });
-                invalidate();
-              };
-              const statuses = [
-                { v: "all" as const, label: "All" },
-                { v: "sold" as const, label: "Sold" },
-                { v: "unsold" as const, label: "Unsold" },
-                { v: "available" as const, label: "Remaining" },
-                { v: "retained" as const, label: "Retained" },
-              ];
-              return (
-                <div className="flex items-center gap-1 px-1 py-1 rounded-lg border border-blue-500/40 bg-blue-500/5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 px-2">Filter</span>
-                  {statuses.map(s => {
-                    const active = filter.status === s.v;
-                    return (
-                      <Button
-                        key={s.v}
-                        variant={active ? "default" : "ghost"}
-                        size="sm"
-                        className={`h-8 px-2.5 text-xs ${active ? "bg-blue-600 text-white hover:bg-blue-500" : "text-muted-foreground hover:text-foreground"}`}
-                        onClick={() => updateFilter({ status: s.v })}
-                        disabled={setDisplayPlayerFilterMut.isPending}
-                      >
-                        {s.label}
-                      </Button>
-                    );
-                  })}
-                  <div className="w-px h-5 bg-border mx-1" />
-                  <Select
-                    value={filter.categoryId ? String(filter.categoryId) : "all"}
-                    onValueChange={(v) => updateFilter({ categoryId: v === "all" ? null : parseInt(v) })}
-                  >
-                    <SelectTrigger className="h-8 w-[130px] text-xs border-border bg-card/50">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {(categories || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filter.teamId ? String(filter.teamId) : "all"}
-                    onValueChange={(v) => updateFilter({ teamId: v === "all" ? null : parseInt(v) })}
-                  >
-                    <SelectTrigger className="h-8 w-[130px] text-xs border-border bg-card/50">
-                      <SelectValue placeholder="Team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Teams</SelectItem>
-                      {(teams || []).map(t => (
-                        <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(filter.status !== "all" || filter.categoryId || filter.teamId) && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-400"
-                      title="Clear filters"
-                      onClick={() => updateFilter({ status: "all", categoryId: null, teamId: null })}
-                      disabled={setDisplayPlayerFilterMut.isPending}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
+                  <Icon className="w-3 h-3" /> {label}
+                </button>
               );
-            })()}
-            {/* Category Filter Button */}
-            <Button
-              variant={activeCategoryIds && activeCategoryIds.length > 0 ? "default" : "outline"}
-              size="sm"
-              className={`gap-2 ${activeCategoryIds && activeCategoryIds.length > 0 ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)] border-blue-600" : "border-border text-muted-foreground hover:text-foreground"}`}
-              title="Filter next-player by category"
-              onClick={openCategoryFilter}
-            >
-              <Tag className="w-4 h-4" />
-              {activeCategoryIds && activeCategoryIds.length > 0
-                ? `${activeCategoryIds.length} Categor${activeCategoryIds.length === 1 ? "y" : "ies"}`
-                : "Category"}
-            </Button>
-            {activeCategoryIds && activeCategoryIds.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                title="Clear category filter"
-                onClick={clearCategoryFilter}
-                disabled={setCategoryFilter.isPending}
+            })}
+            {state?.displayOverlay && (
+              <button
+                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-400 transition-colors"
+                onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } }); invalidate(); }}
               >
-                <X className="w-4 h-4" />
-              </Button>
+                <X className="w-3 h-3" />
+              </button>
             )}
           </div>
+
+          {/* Open Display */}
+          <a href={`/tournament/${tournamentId}/display`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs px-2.5">
+              <Monitor className="w-3 h-3" /> Open Display
+              <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+            </Button>
+          </a>
         </div>
 
-        {/* Trial / Live Mode Banner */}
-        {state && (
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border flex-wrap ${
-            isTrialMode
-              ? "bg-amber-500/10 border-amber-500/30"
-              : "bg-green-500/10 border-green-500/30"
-          }`}>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex-shrink-0 ${
-              isTrialMode ? "bg-amber-500/20 text-amber-400" : "bg-green-500/20 text-green-400"
-            }`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse inline-block" />
-              {isTrialMode ? "Trial Mode" : "Live Mode"}
-            </div>
-            {isTrialMode ? (
-              <>
-                <span className="text-xs text-amber-300/80">
-                  Restricted to first 2 teams and first 10 players. Activate your license for full access.
-                </span>
-                <div className="flex gap-2 ml-auto flex-wrap">
-                  <a
-                    href={`/tournament/${tournamentId}/display`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-                  >
-                    <Monitor className="w-3 h-3" /> Display Panel
-                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                  </a>
-                  <a
-                    href={`/tournament/${tournamentId}/hub`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-                  >
-                    <LayoutGrid className="w-3 h-3" /> Auction Hub
-                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                  </a>
-                  <a
-                    href={`/tournament/${tournamentId}/teams`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-2.5 py-1 rounded border border-border hover:bg-card text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-                  >
-                    <Users className="w-3 h-3" /> Teams / Players
-                    <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                  </a>
-                </div>
-              </>
-            ) : (
-              <span className="text-xs text-green-300/80">Full auction mode — all teams and players enabled.</span>
-            )}
-          </div>
-        )}
+        {/* ─── 3-COLUMN MAIN AREA ─────────────────────────────────────────── */}
+        <div className="flex-1 grid grid-cols-[260px_1fr_284px] min-h-0 overflow-hidden">
 
-        {/* Active Category Filter Banner */}
-        {activeCategoryIds && activeCategoryIds.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-sm">
-            <Filter className="w-4 h-4 text-blue-400 flex-shrink-0" />
-            <span className="text-blue-400 font-medium">Next player filtered to:</span>
-            <div className="flex gap-1.5 flex-wrap">
-              {activeCategoryIds.map(id => {
-                const cat = categoryMap[id];
-                return (
-                  <span
-                    key={id}
-                    className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ backgroundColor: `${cat?.colorCode || "#3b82f6"}22`, color: cat?.colorCode || "#60a5fa", border: `1px solid ${cat?.colorCode || "#3b82f6"}44` }}
-                  >
-                    {cat?.name || `#${id}`}
+          {/* ═══════════════════ LEFT: PLAYER QUEUE ═══════════════════════ */}
+          <aside className="border-r border-border flex flex-col min-h-0 overflow-hidden bg-card/20">
+
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <ListOrdered className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  Player Queue
+                  <span className="ml-1.5 text-muted-foreground font-normal">
+                    ({reAuctionTab === "queue" ? filteredQueue.length : reAuctionTab === "sold" ? soldPlayers.length : unsoldPlayers.length})
                   </span>
-                );
-              })}
-            </div>
-            <span className="text-blue-400/60 text-xs ml-auto">{filteredQueue.length} players available in these categories</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Player + Bid + Teams */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Current Player */}
-            <AnimatePresence mode="wait">
-              {hasPlayer ? (
-                <motion.div
-                  key={state?.currentPlayer?.id}
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  title="Category filter"
+                  onClick={openCategoryFilter}
+                  className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${
+                    activeCategoryIds && activeCategoryIds.length > 0
+                      ? "text-blue-400 bg-blue-500/15"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <Card className="border-primary/30 bg-gradient-to-br from-card to-card/50 overflow-hidden">
-                    <CardContent className="p-6 flex items-start gap-6">
-                      <div className="w-24 h-28 rounded-xl bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
-                        {state?.currentPlayer?.photoUrl ? (
-                          <img src={state.currentPlayer.photoUrl} alt={state.currentPlayer.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <User className="w-10 h-10 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h2 className="text-3xl font-display font-bold leading-none">{state?.currentPlayer?.name}</h2>
-                        <div className="flex gap-2 mt-2 flex-wrap">
-                          {state?.currentPlayer?.role && <Badge variant="outline" className="capitalize">{state.currentPlayer.role}</Badge>}
-                          {state?.currentPlayer?.city && <Badge variant="secondary">{state.currentPlayer.city}</Badge>}
-                          {state?.currentPlayer?.battingStyle && <Badge variant="secondary" className="text-xs">{state.currentPlayer.battingStyle}</Badge>}
-                          {state?.currentPlayer?.jerseyNumber && <Badge variant="outline" className="font-mono">#{state.currentPlayer.jerseyNumber}</Badge>}
-                          {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-semibold"
-                              style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined, borderColor: `${categoryMap[state.currentPlayer.categoryId].colorCode}44` || undefined }}
-                            >
-                              <Tag className="w-3 h-3 mr-1" />
-                              {categoryMap[state.currentPlayer.categoryId].name}
-                            </Badge>
+                  <Filter className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  title="Random player"
+                  disabled={!isActive || nextPlayer.isPending}
+                  onClick={() => handleNextPlayer("random")}
+                  className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tab switcher: Queue / Sold / Unsold */}
+            <div className="flex gap-0.5 px-2 py-1.5 border-b border-border flex-shrink-0 bg-card/30">
+              {(["queue", "sold", "unsold"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => { setReAuctionTab(tab); setPlayerSearch(""); setRoleFilter("all"); }}
+                  className={`flex-1 text-[10px] py-1 px-1 rounded font-semibold capitalize transition-all ${
+                    reAuctionTab === tab
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab === "queue" ? `Queue (${filteredQueue.length})` : tab === "sold" ? `Sold (${soldPlayers.length})` : `Unsold (${unsoldPlayers.length})`}
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div className="px-2 py-1.5 flex-shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                <input
+                  value={playerSearch}
+                  onChange={e => setPlayerSearch(e.target.value)}
+                  placeholder="Search player..."
+                  className="w-full h-7 pl-6 pr-6 bg-background/60 border border-border rounded text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+                {playerSearch && (
+                  <button onClick={() => setPlayerSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Role filter tabs — only shown for queue tab */}
+            {reAuctionTab === "queue" && (
+              <div className="flex gap-0.5 px-2 pb-1.5 flex-shrink-0 flex-wrap">
+                {([
+                  { key: "all", label: `All (${filteredQueue.length})` },
+                  { key: "bat", label: `BAT (${roleCounts.bat})` },
+                  { key: "bowl", label: `BOWL (${roleCounts.bowl})` },
+                  { key: "ar", label: `AR (${roleCounts.ar})` },
+                  ...(roleCounts.wk > 0 ? [{ key: "wk", label: `WK (${roleCounts.wk})` }] : []),
+                ] as { key: string; label: string }[]).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setRoleFilter(key)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide transition-all ${
+                      roleFilter === key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground bg-muted/30 hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Active category filter label */}
+            {activeCategoryIds && activeCategoryIds.length > 0 && (
+              <div className="px-2 pb-1 flex-shrink-0 flex items-center gap-1 flex-wrap">
+                <span className="text-[9px] text-blue-400 font-semibold">CAT:</span>
+                {activeCategoryIds.map(id => (
+                  <span key={id} className="text-[9px] px-1 rounded" style={{ color: categoryMap[id]?.colorCode || "#60a5fa", backgroundColor: `${categoryMap[id]?.colorCode || "#60a5fa"}15` }}>
+                    {categoryMap[id]?.name || `#${id}`}
+                  </span>
+                ))}
+                <button onClick={clearCategoryFilter} className="text-[9px] text-muted-foreground hover:text-red-400 ml-0.5">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Batch re-auction button */}
+            {reAuctionTab === "unsold" && available.length === 0 && unsoldPlayers.length > 0 && (
+              <div className="px-2 pb-1.5 flex-shrink-0">
+                <button
+                  onClick={() => setShowBatchReAuctionConfirm(true)}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all"
+                >
+                  <RotateCcw className="w-3 h-3" /> Re-auction all {unsoldPlayers.length} unsold
+                </button>
+              </div>
+            )}
+
+            {/* Scrollable player list */}
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-0.5 p-2">
+                {leftPanelList.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-xs py-6">
+                    {playerSearch ? "No matches" : reAuctionTab === "queue" ? "Queue empty" : `No ${reAuctionTab} players`}
+                  </p>
+                ) : leftPanelList.slice(0, 80).map((player, idx) => {
+                  const cat = player.categoryId ? categoryMap[player.categoryId] : null;
+                  const isQueue = reAuctionTab === "queue";
+                  const isCurrentPlayer = state?.currentPlayer?.id === player.id;
+                  const team = player.teamId ? teamMap[player.teamId] : null;
+                  return (
+                    <div
+                      key={player.id}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all ${
+                        isCurrentPlayer ? "bg-primary/10 border border-primary/30" : "hover:bg-accent/50"
+                      }`}
+                    >
+                      <span className="text-[10px] text-muted-foreground font-mono w-5 text-right flex-shrink-0">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {player.jerseyNumber && (
+                            <span className="text-[9px] text-muted-foreground font-mono flex-shrink-0">#{player.jerseyNumber}</span>
                           )}
-                          {state?.currentPlayer?.availabilityDates && (
-                            <Badge variant="outline" className="text-xs text-blue-400 border-blue-500/30">
-                              Avail: {state.currentPlayer.availabilityDates}
-                            </Badge>
+                          <span className="text-xs font-medium truncate">{player.name}</span>
+                          {isQueue && deferredPlayerIds?.includes(player.id) && (
+                            <Hourglass className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 opacity-70" />
                           )}
                         </div>
-                        {state?.currentPlayer?.achievements && (
-                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{state.currentPlayer.achievements}</p>
-                        )}
-                        {state?.currentPlayer?.cricheroUrl && (
-                          <a href={state.currentPlayer.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline mt-1 inline-block">
-                            Crichero Profile
-                          </a>
+                        <div className="flex items-center gap-1">
+                          {player.role && (
+                            <span className="text-[9px] font-bold uppercase text-muted-foreground">{player.role}</span>
+                          )}
+                          {cat && (
+                            <span className="text-[9px] font-semibold" style={{ color: cat.colorCode || "#888" }}>{cat.name}</span>
+                          )}
+                          {team && !isQueue && (
+                            <span className="text-[9px] text-muted-foreground truncate">{team.name}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-[9px] font-mono text-muted-foreground">
+                          {formatShortIndianRupee(player.soldPrice || player.basePrice)}
+                        </span>
+                        {isQueue ? (
+                          <button
+                            disabled={!isActive || nextPlayer.isPending}
+                            onClick={() => handleNextPlayer("sequential", player.id)}
+                            className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
+                          >
+                            Go
+                          </button>
+                        ) : (
+                          <button
+                            disabled={reAuction.isPending}
+                            onClick={() => handleReAuction(player.id, true)}
+                            className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold flex items-center gap-0.5 transition-all"
+                          >
+                            <RotateCcw className="w-2 h-2" /> Re
+                          </button>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ) : (
-                <motion.div key="no-player" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <Card className="border-dashed border-2 border-border h-40 flex items-center justify-center">
-                    <div className="text-center text-muted-foreground">
-                      <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                      <p className="font-medium">No player selected</p>
-                      <p className="text-sm mt-1">Click "Next" or "Random" to begin</p>
-                      {activeCategoryIds && activeCategoryIds.length > 0 && (
-                        <p className="text-xs text-blue-400 mt-1">{filteredQueue.length} players in selected categories</p>
-                      )}
                     </div>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </aside>
 
-            {/* Bid Display + SOLD/UNSOLD/Manual */}
-            <Card className="border-border">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                      Current Bid <span className="normal-case font-normal">(+{formatShortIndianRupee(increment)} per raise)</span>
+          {/* ══════════════════ CENTER: AUCTION CONTROL ════════════════════ */}
+          <main className="flex flex-col min-h-0 overflow-hidden">
+
+            {/* Sub-header: timer control row */}
+            <div className="flex-shrink-0 h-10 border-b border-border bg-card/30 flex items-center gap-2 px-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-shrink-0">Timer</span>
+              <ServerCountdown
+                variant="operator"
+                timerEndsAt={state?.timerEndsAt}
+                timerType={state?.timerType}
+                fallback={
+                  <span className="text-xs text-muted-foreground">{hasPlayer ? "Ready to bid" : "No player"}</span>
+                }
+              />
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Input
+                  type="number"
+                  value={timerSecs}
+                  onChange={e => { timerSecsUserEdited.current = true; setTimerSecs(e.target.value); }}
+                  className="w-14 h-7 text-center text-xs"
+                  min={5} max={300}
+                />
+                <span className="text-[10px] text-muted-foreground flex-shrink-0">sec</span>
+                <Button
+                  size="sm"
+                  disabled={!hasPlayer || startTimerMut.isPending}
+                  onClick={handleStartTimer}
+                  className={`h-7 px-3 text-xs gap-1 font-bold ${
+                    hasPlayer && !timerActive
+                      ? "bg-primary text-black hover:bg-primary/90 shadow-[0_0_12px_rgba(234,179,8,0.4)]"
+                      : "bg-transparent border border-primary/40 text-primary hover:bg-primary/10"
+                  }`}
+                >
+                  <Timer className="w-3 h-3" />
+                  {timerActive ? "Restart" : "START BIDDING"}
+                </Button>
+                {timerActive && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs gap-1 border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+                    onClick={handleExtendTimer}
+                    disabled={startTimerMut.isPending}
+                    title="Add 30s to timer"
+                  >
+                    +30s
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable control area */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="px-5 py-3 space-y-3 max-w-3xl mx-auto">
+
+                {/* ── Current Player Card ── */}
+                <AnimatePresence mode="wait">
+                  {hasPlayer ? (
+                    <motion.div
+                      key={state?.currentPlayer?.id}
+                      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.25 }}
+                      className="rounded-xl border border-primary/25 bg-gradient-to-r from-card to-card/60 overflow-hidden"
+                    >
+                      <div className="flex items-stretch gap-0">
+                        {/* Photo */}
+                        <div className="w-20 h-24 flex-shrink-0 bg-muted/30 flex items-center justify-center overflow-hidden">
+                          {state?.currentPlayer?.photoUrl ? (
+                            <img src={state.currentPlayer.photoUrl} alt={state.currentPlayer.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-9 h-9 text-muted-foreground opacity-30" />
+                          )}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 px-4 py-3 min-w-0">
+                          <div className="flex items-start gap-2 justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                {state?.currentPlayer?.role?.toUpperCase() || "PLAYER"}
+                                {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
+                                  <span className="ml-2" style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined }}>
+                                    · {categoryMap[state.currentPlayer.categoryId].name}
+                                  </span>
+                                )}
+                              </p>
+                              <h2 className="text-2xl font-display font-bold leading-tight mt-0.5 truncate">
+                                {state?.currentPlayer?.name}
+                              </h2>
+                            </div>
+                            {state?.currentPlayer?.jerseyNumber && (
+                              <span className="text-2xl font-display font-black text-primary/40 flex-shrink-0 leading-none">
+                                #{state.currentPlayer.jerseyNumber}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                            {state?.currentPlayer?.age && (
+                              <span className="text-[10px] text-muted-foreground">Age <span className="text-foreground font-semibold">{state.currentPlayer.age}</span></span>
+                            )}
+                            {state?.currentPlayer?.city && (
+                              <span className="text-[10px] text-muted-foreground">{state.currentPlayer.city}</span>
+                            )}
+                            {state?.currentPlayer?.battingStyle && (
+                              <span className="text-[10px] text-muted-foreground">{state.currentPlayer.battingStyle}</span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">Base <span className="text-foreground font-semibold">{formatShortIndianRupee(state?.currentPlayer?.basePrice)}</span></span>
+                            {state?.currentPlayer?.availabilityDates && (
+                              <span className="text-[10px] text-blue-400">Avail: {state.currentPlayer.availabilityDates}</span>
+                            )}
+                          </div>
+                          {state?.currentPlayer?.achievements && (
+                            <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{state.currentPlayer.achievements}</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="no-player"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className="rounded-xl border-2 border-dashed border-border h-24 flex items-center justify-center"
+                    >
+                      <div className="text-center text-muted-foreground">
+                        <User className="w-7 h-7 mx-auto mb-1 opacity-30" />
+                        <p className="text-sm font-medium">No player on block</p>
+                        <p className="text-xs mt-0.5 opacity-60">Select from queue or click Next Player</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* ── Current Bid + Leading Team ── */}
+                <div className="rounded-xl border border-border bg-card/50 p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+                      Current Bid <span className="normal-case font-normal opacity-70">(+{formatShortIndianRupee(increment)}/raise)</span>
                     </p>
                     <motion.p
                       key={state?.currentBid}
-                      initial={{ scale: 0.8, opacity: 0 }}
+                      initial={{ scale: 0.85, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="text-5xl font-display font-bold text-primary"
-                      style={{ textShadow: "0 0 30px rgba(234,179,8,0.5)" }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                      className="text-4xl font-display font-black text-primary leading-none"
+                      style={{ textShadow: "0 0 24px rgba(234,179,8,0.4)" }}
                     >
                       {formatIndianRupee(state?.currentBid || 0)}
                     </motion.p>
                     {hasPlayer && (
-                      <p className="text-xs text-muted-foreground mt-1">Base: {formatIndianRupee(state?.currentPlayer?.basePrice)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Base: {formatIndianRupee(state?.currentPlayer?.basePrice)}
+                      </p>
                     )}
                   </div>
-                  {hasBid && (
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Leading</p>
+                  {hasBid ? (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Leading</p>
                       <div className="flex items-center gap-2 justify-end">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: state?.currentBidTeamColor || "#fff" }} />
-                        <span className="font-bold text-xl">{state?.currentBidTeamName}</span>
+                        <div
+                          className="w-2.5 h-2.5 rounded-full animate-pulse"
+                          style={{ backgroundColor: state?.currentBidTeamColor || "#fff" }}
+                        />
+                        <span className="font-bold text-base leading-tight" style={{ color: state?.currentBidTeamColor || "inherit" }}>
+                          {state?.currentBidTeamName}
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
-                {/* Timer — countdown ticks inside ServerCountdown (isolated rerender) */}
-                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
-                  <ServerCountdown
-                    variant="operator"
-                    timerEndsAt={state?.timerEndsAt}
-                    timerType={state?.timerType}
-                    fallback={
-                      <>
-                        <Timer className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                        <span className="text-xs font-semibold text-muted-foreground">
-                          {hasPlayer ? "Press START to open bidding" : "No player selected"}
-                        </span>
-                      </>
-                    }
-                  />
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Input
-                      type="number"
-                      value={timerSecs}
-                      onChange={e => { timerSecsUserEdited.current = true; setTimerSecs(e.target.value); }}
-                      className="w-16 h-8 text-center text-sm"
-                      min={5}
-                      max={300}
-                    />
-                    <span className="text-xs text-muted-foreground">sec</span>
-                    <Button
-                      size="sm"
-                      disabled={!hasPlayer || startTimerMut.isPending}
-                      onClick={handleStartTimer}
-                      className={`h-8 gap-1.5 font-bold ${
-                        hasPlayer && !timerActive
-                          ? "bg-primary text-black hover:bg-primary/90 shadow-[0_0_16px_rgba(234,179,8,0.5)]"
-                          : "bg-transparent border border-primary/40 text-primary hover:bg-primary/10"
-                      }`}
-                    >
-                      <Timer className="w-3.5 h-3.5" />
-                      {hasPlayer && !timerActive ? "START BIDDING" : "Restart"}
-                    </Button>
-                  </div>
+                  ) : hasPlayer ? (
+                    <div className="text-right flex-shrink-0 opacity-40">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">No bid yet</p>
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="flex gap-3 mt-4 flex-wrap">
-                  <Button
-                    size="lg"
-                    className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold text-lg h-14 gap-2 shadow-[0_0_20px_rgba(34,197,94,0.4)]"
+                {/* ── SOLD / UNSOLD / Bring Later / Manual ── */}
+                <div className="grid grid-cols-4 gap-2">
+                  <button
                     disabled={!hasBid || sellPlayer.isPending}
                     onClick={handleSell}
+                    className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-green-600/15 border-green-600/60 text-green-400 hover:bg-green-600/25 enabled:hover:scale-[1.02] enabled:shadow-[0_0_16px_rgba(34,197,94,0.3)]"
                   >
-                    <CheckCircle className="w-5 h-5" /> SOLD
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="flex-1 border-destructive/50 text-destructive hover:bg-destructive/10 font-bold text-lg h-14 gap-2"
+                    <CheckCircle className="w-5 h-5" />
+                    SOLD
+                  </button>
+                  <button
                     disabled={!hasPlayer || markUnsold.isPending}
                     onClick={handleUnsold}
+                    className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-red-600/10 border-red-600/50 text-red-400 hover:bg-red-600/20 enabled:hover:scale-[1.02]"
                   >
-                    <XCircle className="w-5 h-5" /> UNSOLD
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10 h-14 gap-2 px-5"
+                    <XCircle className="w-5 h-5" />
+                    UNSOLD
+                  </button>
+                  <button
                     disabled={!hasPlayer || deferPlayerMut.isPending}
                     onClick={handleDeferPlayer}
-                    title="Skip this player for now — they return at the back of the queue"
+                    className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/15 enabled:hover:scale-[1.02]"
+                    title="Defer to back of queue"
                   >
-                    <Hourglass className="w-4 h-4" /> Bring Later
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 h-14 gap-2 px-5"
+                    <Hourglass className="w-5 h-5" />
+                    DEFER
+                  </button>
+                  <button
                     disabled={!hasPlayer}
                     onClick={() => {
                       setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0));
                       setManualTeamId("");
                       setManualSellOpen(true);
                     }}
+                    className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-blue-500/10 border-blue-500/40 text-blue-400 hover:bg-blue-500/15 enabled:hover:scale-[1.02]"
                   >
-                    <Settings2 className="w-4 h-4" /> Manual Sell
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Team Bid Buttons */}
-            {teams && teams.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Quick Bid by Team — next bid: {formatIndianRupee((state?.currentBid || 0) + increment)}
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {teams.map(team => {
-                    const purseLeft = team.purse - (team.purseUsed || 0);
-                    const isLeading = state?.currentBidTeamId === team.id;
-                    const nextBid = (state?.currentBid || 0) + increment;
-                    const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                    const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
-                    return (
-                      <button
-                        key={team.id}
-                        disabled={!canBid || placeBid.isPending}
-                        onClick={() => handleBid(team.id)}
-                        className={`relative p-4 rounded-xl border-2 font-bold text-left transition-all ${
-                          isLeading ? "scale-[1.02] cursor-not-allowed" : "border-border"
-                        } ${!canBid ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
-                        style={{
-                          borderColor: isLeading ? team.color || "#fff" : undefined,
-                          boxShadow: isLeading ? `0 0 20px ${team.color}44` : undefined,
-                        }}
-                      >
-                        {isLeading && (
-                          <div className="absolute top-2 right-2 flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
-                            <span className="text-[10px] font-bold" style={{ color: team.color || "#fff" }}>LEAD</span>
-                          </div>
-                        )}
-                        {isTrialRestricted && (
-                          <div className="absolute inset-0 rounded-xl bg-background/50 flex items-center justify-center">
-                            <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">Trial Restricted</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 mb-2">
-                          {team.logoUrl ? (
-                            <img src={team.logoUrl} alt={team.name} className="w-6 h-6 rounded object-contain" />
-                          ) : (
-                            <div
-                              className="w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold"
-                              style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}
-                            >
-                              {team.shortCode}
-                            </div>
-                          )}
-                          <span className="text-sm font-bold truncate">{team.name}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{formatShortIndianRupee(purseLeft)} left</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right: History + Queue */}
-          <div className="space-y-4">
-            {state?.lastAction && (
-              <div className="px-4 py-3 bg-card border border-border rounded-lg">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Last Action</p>
-                <p className="text-sm font-medium">{state.lastAction}</p>
-              </div>
-            )}
-
-            <Card className="border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm font-semibold">Bid History</p>
-                </div>
-                <ScrollArea className="h-40">
-                  <div className="space-y-2 pr-2">
-                    {(bids || []).slice(0, 20).map(bid => (
-                      <div key={bid.id} className="flex items-center justify-between text-sm py-1.5 border-b border-border/50 last:border-0">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: bid.teamColor || "#666" }} />
-                          <span className="truncate text-xs text-muted-foreground">{bid.playerName}</span>
-                        </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className="font-mono font-semibold text-xs text-primary">{formatShortIndianRupee(bid.amount)}</p>
-                          <p className="text-[10px] text-muted-foreground">{bid.teamName}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {!bids?.length && <p className="text-center text-muted-foreground text-sm py-4">No bids yet</p>}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {/* Player Queue + Re-auction tabs */}
-            <Card className="border-border">
-              <CardContent className="p-4">
-                {/* Tab switcher */}
-                <div className="flex gap-1 mb-3 rounded-lg bg-muted/30 p-1">
-                  {(["queue", "sold", "unsold"] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => { setReAuctionTab(tab); setPlayerSearch(""); }}
-                      className={`flex-1 text-xs py-1.5 px-2 rounded-md font-semibold transition-all capitalize ${
-                        reAuctionTab === tab ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {tab === "queue"
-                        ? `Queue (${activeCategoryIds && activeCategoryIds.length > 0 ? filteredQueue.length : available.length}${activeCategoryIds && activeCategoryIds.length > 0 ? `/${available.length}` : ""})`
-                        : tab === "sold" ? `Sold (${soldPlayers.length})` : `Unsold (${unsoldPlayers.length})`}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Search */}
-                <div className="relative mb-2">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                  <Input
-                    value={playerSearch}
-                    onChange={e => setPlayerSearch(e.target.value)}
-                    placeholder="Search by name or number…"
-                    className="h-8 pl-8 text-xs"
-                  />
-                  {playerSearch && (
-                    <button onClick={() => setPlayerSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Batch re-auction button for unsold tab when queue is empty */}
-                {reAuctionTab === "unsold" && available.length === 0 && unsoldPlayers.length > 0 && (
-                  <button
-                    onClick={() => setShowBatchReAuctionConfirm(true)}
-                    className="w-full mb-2 flex items-center justify-center gap-2 py-2 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-semibold transition-all"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Re-auction all {unsoldPlayers.length} unsold players
+                    <Settings2 className="w-5 h-5" />
+                    MANUAL
                   </button>
+                </div>
+
+                {/* ── NEXT PLAYER — primary CTA ── */}
+                <button
+                  disabled={!isActive || nextPlayer.isPending}
+                  onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
+                  className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-display font-black text-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-primary/90 to-primary text-black hover:from-primary hover:to-primary/90 enabled:shadow-[0_0_30px_rgba(234,179,8,0.45)] enabled:hover:scale-[1.01] enabled:hover:shadow-[0_0_40px_rgba(234,179,8,0.55)]"
+                >
+                  {selectionMode === "random" ? <Shuffle className="w-6 h-6" /> : <SkipForward className="w-6 h-6" />}
+                  NEXT PLAYER
+                  {nextPlayer.isPending ? (
+                    <span className="text-sm font-normal opacity-60">Loading...</span>
+                  ) : selectionMode === "random" ? (
+                    <span className="text-sm font-normal opacity-60">(Random)</span>
+                  ) : (
+                    <span className="text-sm font-normal opacity-60 font-mono">N</span>
+                  )}
+                </button>
+
+                {/* ── Quick Bid Team Grid ── */}
+                {teams && teams.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                      Quick Bid · Next: <span className="text-primary font-mono">{formatShortIndianRupee((state?.currentBid || 0) + increment)}</span>
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {teams.map(team => {
+                        const purseLeft = team.purse - (team.purseUsed || 0);
+                        const isLeading = state?.currentBidTeamId === team.id;
+                        const nextBid = (state?.currentBid || 0) + increment;
+                        const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
+                        const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
+                        return (
+                          <button
+                            key={team.id}
+                            disabled={!canBid || placeBid.isPending}
+                            onClick={() => handleBid(team.id)}
+                            className={`relative p-3 rounded-xl border-2 text-left transition-all ${
+                              isLeading ? "scale-[1.01]" : "border-border"
+                            } ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}
+                            style={{
+                              borderColor: isLeading ? team.color || "#fff" : undefined,
+                              boxShadow: isLeading ? `0 0 16px ${team.color}44` : undefined,
+                            }}
+                          >
+                            {isLeading && (
+                              <div className="absolute top-1.5 right-2 flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                                <span className="text-[9px] font-bold" style={{ color: team.color || "#fff" }}>LEAD</span>
+                              </div>
+                            )}
+                            {isTrialRestricted && (
+                              <div className="absolute inset-0 rounded-xl bg-background/60 flex items-center justify-center">
+                                <span className="text-[9px] font-bold text-amber-400/70 uppercase">Trial</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 mb-1">
+                              {team.logoUrl ? (
+                                <img src={team.logoUrl} alt={team.name} className="w-5 h-5 rounded object-contain flex-shrink-0" />
+                              ) : (
+                                <div
+                                  className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-mono font-bold flex-shrink-0"
+                                  style={{ backgroundColor: `${team.color}33`, color: team.color || "#fff" }}
+                                >
+                                  {team.shortCode?.slice(0, 2)}
+                                </div>
+                              )}
+                              <span className="text-xs font-bold truncate">{team.shortCode || team.name}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">{formatShortIndianRupee(purseLeft)} left</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
-                <ScrollArea className="h-48">
-                  <div className="space-y-1 pr-2">
-                    {(() => {
-                      const baseList = reAuctionTab === "queue"
-                        ? (activeCategoryIds && activeCategoryIds.length > 0 ? filteredQueue : available)
-                        : rightPanelPlayers;
-                      const filtered = filterBySearch(baseList);
-                      if (filtered.length === 0) {
-                        return (
-                          <p className="text-center text-muted-foreground text-sm py-4">
-                            {playerSearch
-                              ? "No players match your search"
-                              : reAuctionTab === "queue"
-                                ? activeCategoryIds && activeCategoryIds.length > 0
-                                  ? "No players available in selected categories"
-                                  : "All players processed"
-                                : `No ${reAuctionTab} players`}
-                          </p>
-                        );
-                      }
-                      return filtered.slice(0, 50).map(player => {
-                        const team = player.teamId ? teamMap[player.teamId] : null;
-                        const isQueue = reAuctionTab === "queue";
-                        const cat = player.categoryId ? categoryMap[player.categoryId] : null;
-                        return (
-                          <div
-                            key={player.id}
-                            className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-accent transition-all"
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                              <div className="min-w-0">
-                                <span className="text-sm font-medium truncate block">
-                                  {player.jerseyNumber != null && (
-                                    <span className="text-muted-foreground font-mono mr-1">#{player.jerseyNumber}</span>
-                                  )}
-                                  {player.name}
-                                  {reAuctionTab === "queue" && deferredPlayerIds?.includes(player.id) && (
-                                    <Hourglass className="w-3 h-3 text-amber-400 inline-block ml-1.5 opacity-80" />
-                                  )}
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                  {team && <span className="text-[10px] text-muted-foreground">{team.name}</span>}
-                                  {cat && (
-                                    <span className="text-[10px] font-semibold px-1 rounded" style={{ color: cat.colorCode || "#888", backgroundColor: `${cat.colorCode}15` || "#88888815" }}>
-                                      {cat.name}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                              <span className="text-xs text-muted-foreground font-mono">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
-                              {isQueue ? (
-                                <button
-                                  disabled={!isActive || nextPlayer.isPending}
-                                  onClick={() => handleNextPlayer("sequential", player.id)}
-                                  className="text-xs px-2 py-1 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  Select
-                                </button>
-                              ) : (
-                                <button
-                                  disabled={reAuction.isPending}
-                                  onClick={() => handleReAuction(player.id, true)}
-                                  className="text-xs px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
-                                >
-                                  <RotateCcw className="w-3 h-3" /> Re-bid
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+              </div>
+            </div>
+          </main>
 
-      {/* Category Filter Dialog */}
+          {/* ══════════════════ RIGHT: TEAMS + HISTORY ═════════════════════ */}
+          <aside className="border-l border-border flex flex-col min-h-0 overflow-hidden bg-card/20">
+
+            {/* Teams & Purse */}
+            <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "52%" }}>
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Teams &amp; Purse</span>
+                </div>
+                <a
+                  href={`/tournament/${tournamentId}/teams`}
+                  className="text-[9px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5"
+                >
+                  All <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              </div>
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="p-2 grid grid-cols-2 gap-1.5">
+                  {(teams || []).map(team => {
+                    const purseLeft = team.purse - (team.purseUsed || 0);
+                    const isLeading = state?.currentBidTeamId === team.id;
+                    const usedPct = Math.min(100, Math.round(((team.purseUsed || 0) / team.purse) * 100));
+                    return (
+                      <div
+                        key={team.id}
+                        className={`rounded-lg p-2 border transition-all ${
+                          isLeading ? "border-2 scale-[1.02]" : "border-border"
+                        }`}
+                        style={{
+                          borderColor: isLeading ? team.color || "#fff" : undefined,
+                          boxShadow: isLeading ? `0 0 12px ${team.color}33` : undefined,
+                          backgroundColor: `${team.color || "#888"}08`,
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {team.logoUrl ? (
+                            <img src={team.logoUrl} alt={team.name} className="w-5 h-5 rounded object-contain flex-shrink-0" />
+                          ) : (
+                            <div
+                              className="w-5 h-5 rounded text-[8px] font-mono font-black flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: `${team.color}25`, color: team.color || "#fff" }}
+                            >
+                              {team.shortCode?.slice(0, 3) || "T"}
+                            </div>
+                          )}
+                          <span className="text-[10px] font-bold truncate">{team.shortCode || team.name}</span>
+                          {isLeading && (
+                            <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: team.color || "#fff" }} />
+                          )}
+                        </div>
+                        <p className="text-xs font-mono font-bold" style={{ color: team.color || "inherit" }}>
+                          {formatShortIndianRupee(purseLeft)}
+                        </p>
+                        {/* Purse bar */}
+                        <div className="mt-1 h-1 bg-muted/50 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!teams?.length && (
+                    <p className="col-span-2 text-center text-xs text-muted-foreground py-4">No teams</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* Last Actions / Bid History */}
+            <div className="flex-1 flex flex-col min-h-0 border-t border-border overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Last Actions</span>
+                </div>
+              </div>
+              {state?.lastAction && (
+                <div className="px-3 py-1.5 bg-primary/5 border-b border-primary/15 flex-shrink-0">
+                  <p className="text-[10px] text-primary/80 font-medium truncate">{state.lastAction}</p>
+                </div>
+              )}
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="space-y-0 p-2">
+                  {(bids || []).slice(0, 30).map(bid => (
+                    <div
+                      key={bid.id}
+                      className="flex items-center justify-between py-1.5 px-1 border-b border-border/40 last:border-0 gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: bid.teamColor || "#666" }} />
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-muted-foreground truncate">{bid.playerName}</p>
+                          <p className="text-[9px] text-muted-foreground/60 truncate">{bid.teamName}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono font-semibold text-primary flex-shrink-0">
+                        {formatShortIndianRupee(bid.amount)}
+                      </span>
+                    </div>
+                  ))}
+                  {!bids?.length && (
+                    <p className="text-center text-xs text-muted-foreground py-6">No bids yet</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </aside>
+
+        </div>{/* end 3-col grid */}
+      </div>{/* end flex col */}
+
+      {/* ─── DIALOGS (unchanged) ─────────────────────────────────────────── */}
+
+      {/* Category Filter */}
       <Dialog open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
@@ -981,10 +1019,7 @@ export default function AuctionOperator() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: cat.colorCode || "#888" }}
-                      />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.colorCode || "#888" }} />
                       <div>
                         <span className="text-sm font-semibold">{cat.name}</span>
                         <span className="text-xs text-muted-foreground ml-2">{playersInCat} available</span>
@@ -1014,7 +1049,7 @@ export default function AuctionOperator() {
         </DialogContent>
       </Dialog>
 
-      {/* Manual Sell Dialog */}
+      {/* Manual Sell */}
       <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
@@ -1065,7 +1100,7 @@ export default function AuctionOperator() {
         </DialogContent>
       </Dialog>
 
-      {/* Batch Re-auction Confirm Dialog */}
+      {/* Batch Re-auction Confirm */}
       <Dialog open={showBatchReAuctionConfirm} onOpenChange={setShowBatchReAuctionConfirm}>
         <DialogContent className="max-w-sm dark border-orange-500/30">
           <DialogHeader>
@@ -1095,6 +1130,7 @@ export default function AuctionOperator() {
           </div>
         </DialogContent>
       </Dialog>
+
     </AppLayout>
   );
 }
