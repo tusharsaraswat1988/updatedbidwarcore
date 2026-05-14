@@ -7,6 +7,7 @@ import {
   categoriesTable,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { computeAllTeamPurseProtections } from "../lib/purse-protection";
 
 const router = Router();
 
@@ -84,8 +85,11 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid));
 
+  const protections = await computeAllTeamPurseProtections(tid, teams);
+
   const result = teams.map((team) => {
     const playersBought = players.filter((p) => p.teamId === team.id && p.status === "sold").length;
+    const p = protections.get(team.id);
     return {
       teamId: team.id,
       teamName: team.name,
@@ -97,6 +101,10 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       purseUsed: team.purseUsed,
       purseRemaining: team.purse - team.purseUsed,
       playersBought,
+      reservePurse: p?.reservePurse ?? 0,
+      spendablePurse: p?.spendablePurse ?? (team.purse - team.purseUsed),
+      slotsRequired: p?.slotsRequired ?? 0,
+      lowestBasePrice: p?.lowestBasePrice ?? 0,
     };
   });
 

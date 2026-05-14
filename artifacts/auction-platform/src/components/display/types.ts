@@ -26,6 +26,9 @@ export type PurseRow = {
   purseUsed: number;
   purseRemaining: number;
   playersBought: number;
+  reservePurse?: number;
+  spendablePurse?: number;
+  slotsRequired?: number;
 };
 
 export type PlayerLite = {

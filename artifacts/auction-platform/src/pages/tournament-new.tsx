@@ -23,6 +23,7 @@ const formSchema = z.object({
   minBid: z.coerce.number().min(0).optional(),
   bidIncrement: z.coerce.number().min(0).optional(),
   timerSeconds: z.coerce.number().min(5).max(120).optional(),
+  minimumSquadSize: z.coerce.number().min(0).max(100).optional(),
 });
 
 export default function NewTournament() {
@@ -42,6 +43,7 @@ export default function NewTournament() {
       minBid: 10000,
       bidIncrement: 5000,
       timerSeconds: 15,
+      minimumSquadSize: 0,
     },
   });
 
@@ -222,6 +224,22 @@ export default function NewTournament() {
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="minimumSquadSize"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Minimum Squad Size</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={0} max={100} {...field} />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Teams must fill this many slots. Budget is reserved for unfilled slots. Set 0 to disable.
+                          </p>
                           <FormMessage />
                         </FormItem>
                       )}

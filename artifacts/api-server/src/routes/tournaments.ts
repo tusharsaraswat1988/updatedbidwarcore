@@ -36,6 +36,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   resetCount: t.resetCount ?? 0,
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
+  minimumSquadSize: t.minimumSquadSize ?? 0,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -56,6 +57,7 @@ const tournamentInputSchema = z.object({
   timerSeconds: z.number().int().optional(),
   bidTimerSeconds: z.number().int().optional(),
   playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
+  minimumSquadSize: z.number().int().min(0).optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -84,6 +86,7 @@ router.post("/tournaments", async (req, res) => {
       bidIncrement: d.bidIncrement ?? 100000,
       timerSeconds: d.timerSeconds ?? 30,
       bidTimerSeconds: d.bidTimerSeconds ?? 15,
+      minimumSquadSize: d.minimumSquadSize ?? 0,
       status: "setup",
     })
     .returning();
@@ -126,6 +129,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     status: z.string().optional(),
     registrationDeadline: z.string().nullable().optional(),
     registrationLimit: z.number().int().nullable().optional(),
+    minimumSquadSize: z.number().int().min(0).nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -156,6 +160,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.registrationDeadline !== undefined)
     updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
+  if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

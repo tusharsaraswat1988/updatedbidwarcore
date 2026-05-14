@@ -16,7 +16,7 @@ import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
@@ -189,9 +189,12 @@ export default function OwnerPanel() {
   const timerActive = !!state?.timerEndsAt && !expired;
   const teamPurse = allPurses?.find(t => t.teamId === teamId);
   const purseRemaining = teamPurse?.purseRemaining ?? (team ? team.purse - (team.purseUsed || 0) : 0);
+  const reservePurse = teamPurse?.reservePurse ?? 0;
+  const spendablePurse = teamPurse?.spendablePurse ?? purseRemaining;
+  const slotsRequired = teamPurse?.slotsRequired ?? 0;
   const increment = state?.bidIncrement ?? 50000;
   const nextBidAmount = (state?.currentBid || 0) + increment;
-  const canBid = isActive && hasPlayer && timerActive && !isLeading && purseRemaining >= nextBidAmount && (team?.isBiddingEnabled ?? true);
+  const canBid = isActive && hasPlayer && timerActive && !isLeading && spendablePurse >= nextBidAmount && (team?.isBiddingEnabled ?? true);
 
   async function handleBid() {
     if (!canBid || isBidding) return;
@@ -291,11 +294,16 @@ export default function OwnerPanel() {
           <div className="p-4 rounded-2xl border border-border bg-card/50">
             <div className="flex items-center gap-2 mb-2">
               <Wallet className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Purse Left</span>
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Spendable</span>
             </div>
             <p className="font-display font-black text-xl" style={{ color: teamColor }}>
-              {formatShortIndianRupee(purseRemaining)}
+              {formatShortIndianRupee(spendablePurse)}
             </p>
+            {reservePurse > 0 && (
+              <p className="text-[10px] text-amber-400/80 mt-0.5 font-medium">
+                +{formatShortIndianRupee(reservePurse)} reserved
+              </p>
+            )}
           </div>
           <div className="p-4 rounded-2xl border border-border bg-card/50">
             <div className="flex items-center gap-2 mb-2">
@@ -316,6 +324,21 @@ export default function OwnerPanel() {
             </p>
           </div>
         </div>
+
+        {/* Reserve purse banner */}
+        {reservePurse > 0 && (
+          <div className="mx-6 mt-3 flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/25 bg-amber-500/8">
+            <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-amber-400">
+                {formatShortIndianRupee(reservePurse)} reserved — {slotsRequired} squad slot{slotsRequired !== 1 ? "s" : ""} still needed
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                This amount is protected to ensure your minimum squad is filled.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Timer indicator — ticks inside ServerCountdown (isolated rerender) */}
         {state?.timerEndsAt && (
@@ -461,7 +484,11 @@ export default function OwnerPanel() {
 
             {!canBid && !isLeading && !timerExpired && hasPlayer && (
               <p className="text-center text-xs text-muted-foreground">
-                {!isActive ? "Auction not active" : !team.isBiddingEnabled ? "Bidding disabled for your team" : `Need ${formatShortIndianRupee(nextBidAmount - purseRemaining)} more purse`}
+                {!isActive ? "Auction not active"
+                  : !team.isBiddingEnabled ? "Bidding disabled for your team"
+                  : reservePurse > 0 && spendablePurse < nextBidAmount
+                  ? `${formatShortIndianRupee(reservePurse)} reserved for ${slotsRequired} squad slot${slotsRequired !== 1 ? "s" : ""}`
+                  : `Need ${formatShortIndianRupee(nextBidAmount - spendablePurse)} more purse`}
               </p>
             )}
           </div>

@@ -10,6 +10,7 @@ import {
 import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
+import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import {
   logBidEvent,
@@ -506,8 +507,16 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     }
   }
 
-  const purseRemaining = team.purse - team.purseUsed;
-  if (amount > purseRemaining) { res.status(400).json({ error: "Insufficient purse" }); return; }
+  const { spendablePurse, reservePurse, slotsRequired } = await computeTeamPurseProtection(tid, teamId, {
+    team: { purse: team.purse, purseUsed: team.purseUsed },
+  });
+  if (amount > spendablePurse) {
+    const msg = reservePurse > 0
+      ? `Insufficient spendable purse — ₹${reservePurse.toLocaleString("en-IN")} reserved for ${slotsRequired} minimum squad slot${slotsRequired !== 1 ? "s" : ""}`
+      : "Insufficient purse";
+    res.status(400).json({ error: msg });
+    return;
+  }
 
   const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
   const newTimerEndsAt = new Date(Date.now() + bidTimerSecs * 1000).toISOString();

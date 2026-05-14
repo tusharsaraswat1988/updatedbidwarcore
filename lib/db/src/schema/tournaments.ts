@@ -40,6 +40,7 @@ export const tournamentsTable = pgTable("tournaments", {
   resetCount: integer("reset_count").notNull().default(0),
   lastResetAt: timestamp("last_reset_at", { withTimezone: true }),
   lastResetBy: text("last_reset_by"),
+  minimumSquadSize: integer("minimum_squad_size").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

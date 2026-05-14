@@ -45,6 +45,7 @@ export const ListTournamentsResponseItem = zod.object({
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
+  minimumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -81,6 +82,7 @@ export const CreateTournamentBody = zod.object({
   timerSeconds: zod.number().optional(),
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  minimumSquadSize: zod.number().optional(),
 });
 
 /**
@@ -118,6 +120,7 @@ export const GetTournamentResponse = zod.object({
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
+  minimumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -152,6 +155,7 @@ export const UpdateTournamentBody = zod.object({
   status: zod.string().optional(),
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
+  minimumSquadSize: zod.number().optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -182,6 +186,7 @@ export const UpdateTournamentResponse = zod.object({
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
+  minimumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -232,6 +237,7 @@ export const ExportTournamentForLocalResponse = zod.object({
     resetCount: zod.number().optional(),
     lastResetAt: zod.string().nullish(),
     lastResetBy: zod.string().nullish(),
+    minimumSquadSize: zod.number().optional(),
     createdAt: zod.string(),
   }),
   teams: zod.array(
@@ -2758,6 +2764,10 @@ export const GetTeamPursesResponseItem = zod.object({
   purseUsed: zod.number(),
   purseRemaining: zod.number(),
   playersBought: zod.number(),
+  reservePurse: zod.number(),
+  spendablePurse: zod.number(),
+  slotsRequired: zod.number(),
+  lowestBasePrice: zod.number(),
 });
 export const GetTeamPursesResponse = zod.array(GetTeamPursesResponseItem);
 

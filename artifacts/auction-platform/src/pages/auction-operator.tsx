@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
+  useGetTeamPurses,
   useListTeams,
   useListPlayers,
   useListBids,
@@ -23,6 +24,7 @@ import {
   useSetCategoryFilter,
   useDeferPlayer,
   getGetAuctionStateQueryKey,
+  getGetTeamPursesQueryKey,
   getListBidsQueryKey,
   getListTeamsQueryKey,
   getListPlayersQueryKey,
@@ -45,7 +47,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
-  Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink,
+  Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -83,6 +85,9 @@ export default function AuctionOperator() {
   });
   const { data: categories } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
+    query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
   });
 
   const startAuction = useStartAuction();
@@ -876,11 +881,14 @@ export default function AuctionOperator() {
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {teams.map(team => {
-                        const purseLeft = team.purse - (team.purseUsed || 0);
+                        const purseData = teamPurses?.find(p => p.teamId === team.id);
+                        const spendable = purseData?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
+                        const reserved = purseData?.reservePurse ?? 0;
+                        const slotsNeeded = purseData?.slotsRequired ?? 0;
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid = (state?.currentBid || 0) + increment;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                        const canBid = isActive && hasPlayer && timerActive && purseLeft >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
+                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
                         return (
                           <button
                             key={team.id}
@@ -918,7 +926,14 @@ export default function AuctionOperator() {
                               )}
                               <span className="text-xs font-bold truncate">{team.shortCode || team.name}</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">{formatShortIndianRupee(purseLeft)} left</p>
+                            <div className="flex items-center gap-1">
+                              <p className="text-[10px] text-muted-foreground">{formatShortIndianRupee(spendable)} spendable</p>
+                              {reserved > 0 && (
+                                <span title={`${formatShortIndianRupee(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0">
+                                  <ShieldAlert className="w-2.5 h-2.5 text-amber-400/70" />
+                                </span>
+                              )}
+                            </div>
                           </button>
                         );
                       })}
@@ -950,7 +965,11 @@ export default function AuctionOperator() {
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-2 grid grid-cols-2 gap-1.5">
                   {(teams || []).map(team => {
+                    const purseData = teamPurses?.find(p => p.teamId === team.id);
                     const purseLeft = team.purse - (team.purseUsed || 0);
+                    const spendable = purseData?.spendablePurse ?? purseLeft;
+                    const reserved = purseData?.reservePurse ?? 0;
+                    const slotsNeeded = purseData?.slotsRequired ?? 0;
                     const isLeading = state?.currentBidTeamId === team.id;
                     const usedPct = Math.min(100, Math.round(((team.purseUsed || 0) / team.purse) * 100));
                     return (
@@ -980,10 +999,18 @@ export default function AuctionOperator() {
                           {isLeading && (
                             <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: team.color || "#fff" }} />
                           )}
+                          {reserved > 0 && (
+                            <span title={`${formatShortIndianRupee(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0 ml-auto">
+                              <ShieldAlert className="w-2.5 h-2.5 text-amber-400/60" />
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs font-mono font-bold" style={{ color: team.color || "inherit" }}>
-                          {formatShortIndianRupee(purseLeft)}
+                          {formatShortIndianRupee(spendable)}
                         </p>
+                        {reserved > 0 && (
+                          <p className="text-[9px] text-amber-400/60 font-mono leading-tight">+{formatShortIndianRupee(reserved)} rsv</p>
+                        )}
                         {/* Purse bar */}
                         <div className="mt-1 h-1 bg-muted/50 rounded-full overflow-hidden">
                           <div
