@@ -66,6 +66,7 @@ export default function AuctionOperator() {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [mobilePanel, setMobilePanel] = useState<"queue" | "control" | "teams">("control");
   // Per-team bid debounce: maps teamId → timestamp of last bid click
   const bidDebounce = useRef<Map<number, number>>(new Map());
 
@@ -317,7 +318,7 @@ export default function AuctionOperator() {
       <div className="flex flex-col h-full overflow-hidden">
 
         {/* ─── TOP STATUS BAR ─────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 h-11 border-b border-border bg-card/70 backdrop-blur flex items-center gap-3 px-3 z-10">
+        <div className="flex-shrink-0 border-b border-border bg-card/70 backdrop-blur flex items-center gap-2 px-3 py-1.5 flex-wrap z-10 min-h-11">
           {/* Auction status */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
@@ -331,12 +332,12 @@ export default function AuctionOperator() {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-3 text-xs flex-shrink-0">
+          <div className="flex items-center gap-2 text-xs flex-shrink-0">
             <span className="text-muted-foreground">SOLD <span className="text-green-400 font-bold">{state?.soldPlayersCount || 0}</span></span>
-            <span className="text-muted-foreground">UNSOLD <span className="text-red-400 font-bold">{state?.unsoldPlayersCount || 0}</span></span>
+            <span className="text-muted-foreground hidden sm:inline">UNSOLD <span className="text-red-400 font-bold">{state?.unsoldPlayersCount || 0}</span></span>
             <span className="text-muted-foreground">LEFT <span className="text-foreground font-bold">{state?.remainingPlayersCount || 0}</span></span>
             {retainedPlayers.length > 0 && (
-              <span className="text-muted-foreground">RET <span className="text-purple-400 font-bold">{retainedPlayers.length}</span></span>
+              <span className="text-muted-foreground hidden sm:inline">RET <span className="text-purple-400 font-bold">{retainedPlayers.length}</span></span>
             )}
           </div>
 
@@ -387,7 +388,7 @@ export default function AuctionOperator() {
 
           {/* LED overlay controls */}
           <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg border border-border bg-card/50 flex-shrink-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1.5">LED</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1 hidden sm:inline">LED</span>
             {ledOverlayButtons.map(({ mode, label, icon: Icon, bg }) => {
               const active = state?.displayOverlay === mode;
               return (
@@ -399,17 +400,18 @@ export default function AuctionOperator() {
                     invalidate();
                   }}
                   disabled={setDisplayOverlay.isPending}
-                  className={`flex items-center gap-1 h-6 px-2 rounded text-[10px] font-bold transition-all ${
+                  className={`flex items-center gap-1 h-7 px-1.5 sm:px-2 rounded text-[10px] font-bold transition-all ${
                     active ? `${bg} shadow-sm` : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Icon className="w-3 h-3" /> {label}
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{label}</span>
                 </button>
               );
             })}
             {state?.displayOverlay && (
               <button
-                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-red-400 transition-colors"
+                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-red-400 transition-colors"
                 onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } }); invalidate(); }}
               >
                 <X className="w-3 h-3" />
@@ -419,18 +421,19 @@ export default function AuctionOperator() {
 
           {/* Open Display */}
           <a href={`/tournament/${tournamentId}/display`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs px-2.5">
-              <Monitor className="w-3 h-3" /> Open Display
-              <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs px-2 sm:px-2.5">
+              <Monitor className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Open Display</span>
+              <ExternalLink className="w-2.5 h-2.5 opacity-50 hidden sm:inline" />
             </Button>
           </a>
         </div>
 
         {/* ─── 3-COLUMN MAIN AREA ─────────────────────────────────────────── */}
-        <div className="flex-1 grid grid-cols-[260px_1fr_284px] min-h-0 overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_284px] min-h-0 overflow-hidden">
 
           {/* ═══════════════════ LEFT: PLAYER QUEUE ═══════════════════════ */}
-          <aside className="border-r border-border flex flex-col min-h-0 overflow-hidden bg-card/20">
+          <aside className={`border-r border-border flex-col min-h-0 overflow-hidden bg-card/20 ${mobilePanel === "queue" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Panel header */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-border flex-shrink-0">
@@ -626,7 +629,7 @@ export default function AuctionOperator() {
           </aside>
 
           {/* ══════════════════ CENTER: AUCTION CONTROL ════════════════════ */}
-          <main className="flex flex-col min-h-0 overflow-hidden">
+          <main className={`flex-col min-h-0 overflow-hidden ${mobilePanel === "control" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Sub-header: timer control row */}
             <div className="flex-shrink-0 h-10 border-b border-border bg-card/30 flex items-center gap-2 px-4">
@@ -946,7 +949,7 @@ export default function AuctionOperator() {
           </main>
 
           {/* ══════════════════ RIGHT: TEAMS + HISTORY ═════════════════════ */}
-          <aside className="border-l border-border flex flex-col min-h-0 overflow-hidden bg-card/20">
+          <aside className={`border-l border-border flex-col min-h-0 overflow-hidden bg-card/20 ${mobilePanel === "teams" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Teams & Purse */}
             <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "52%" }}>
@@ -1069,6 +1072,39 @@ export default function AuctionOperator() {
           </aside>
 
         </div>{/* end 3-col grid */}
+
+        {/* ─── MOBILE BOTTOM TAB BAR ──────────────────────────────────────── */}
+        <div className="lg:hidden flex-shrink-0 flex border-t border-border bg-card/90 backdrop-blur">
+          {([
+            { id: "queue" as const, label: "Queue", icon: ListOrdered, badge: filteredQueue.length },
+            { id: "control" as const, label: "Controls", icon: Gavel, badge: null },
+            { id: "teams" as const, label: "Teams", icon: Trophy, badge: teams?.length ?? null },
+          ]).map(({ id, label, icon: Icon, badge }) => (
+            <button
+              key={id}
+              onClick={() => setMobilePanel(id)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold uppercase tracking-wide transition-colors relative ${
+                mobilePanel === id
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {mobilePanel === id && (
+                <span className="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-b-full" />
+              )}
+              <Icon className="w-4 h-4" />
+              <span>{label}</span>
+              {badge !== null && badge > 0 && (
+                <span className={`absolute top-1.5 right-[calc(50%-18px)] text-[9px] font-black px-1 rounded-full min-w-[14px] text-center leading-[14px] ${
+                  mobilePanel === id ? "bg-primary text-black" : "bg-muted text-muted-foreground"
+                }`}>
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
       </div>{/* end flex col */}
 
       {/* ─── DIALOGS (unchanged) ─────────────────────────────────────────── */}
