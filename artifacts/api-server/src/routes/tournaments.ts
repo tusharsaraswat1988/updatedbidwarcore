@@ -38,6 +38,14 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   lastResetBy: t.lastResetBy ?? null,
   minimumSquadSize: t.minimumSquadSize ?? 0,
   maximumSquadSize: t.maximumSquadSize ?? 0,
+  audioEnabled: t.audioEnabled ?? true,
+  masterVolume: t.masterVolume ?? 80,
+  countdownSoundEnabled: t.countdownSoundEnabled ?? true,
+  countdownSoundUrl: t.countdownSoundUrl ?? null,
+  countdownSoundVolume: t.countdownSoundVolume ?? 70,
+  soldSoundEnabled: t.soldSoundEnabled ?? true,
+  soldSoundUrl: t.soldSoundUrl ?? null,
+  soldSoundVolume: t.soldSoundVolume ?? 80,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -60,6 +68,14 @@ const tournamentInputSchema = z.object({
   playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
   minimumSquadSize: z.number().int().min(0).optional(),
   maximumSquadSize: z.number().int().min(0).optional(),
+  audioEnabled: z.boolean().optional(),
+  masterVolume: z.number().int().min(0).max(100).optional(),
+  countdownSoundEnabled: z.boolean().optional(),
+  countdownSoundUrl: z.string().optional(),
+  countdownSoundVolume: z.number().int().min(0).max(100).optional(),
+  soldSoundEnabled: z.boolean().optional(),
+  soldSoundUrl: z.string().optional(),
+  soldSoundVolume: z.number().int().min(0).max(100).optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -134,6 +150,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationLimit: z.number().int().nullable().optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
+    audioEnabled: z.boolean().optional(),
+    masterVolume: z.number().int().min(0).max(100).optional(),
+    countdownSoundEnabled: z.boolean().optional(),
+    countdownSoundUrl: z.string().nullable().optional(),
+    countdownSoundVolume: z.number().int().min(0).max(100).optional(),
+    soldSoundEnabled: z.boolean().optional(),
+    soldSoundUrl: z.string().nullable().optional(),
+    soldSoundVolume: z.number().int().min(0).max(100).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -166,6 +190,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
+  if (d.audioEnabled !== undefined) updates.audioEnabled = d.audioEnabled;
+  if (d.masterVolume !== undefined) updates.masterVolume = d.masterVolume;
+  if (d.countdownSoundEnabled !== undefined) updates.countdownSoundEnabled = d.countdownSoundEnabled;
+  if (d.countdownSoundUrl !== undefined) updates.countdownSoundUrl = d.countdownSoundUrl;
+  if (d.countdownSoundVolume !== undefined) updates.countdownSoundVolume = d.countdownSoundVolume;
+  if (d.soldSoundEnabled !== undefined) updates.soldSoundEnabled = d.soldSoundEnabled;
+  if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl;
+  if (d.soldSoundVolume !== undefined) updates.soldSoundVolume = d.soldSoundVolume;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Volume2 } from "lucide-react";
 import {
   useGetAuctionState,
   useGetTeamPurses,
@@ -21,6 +22,8 @@ import { IdleScreen } from "./idle-screen";
 import { AnimatedEffectsLayer } from "./animated-effects-layer";
 import { OverlayManager } from "./overlay-manager";
 import { useSoldAnimation } from "./use-sold-animation";
+import { useBroadcastAudio } from "./use-broadcast-audio";
+import type { AudioSettings } from "@/lib/audio-manager";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
 
 // Module-level stable empty references. Critical for memo correctness:
@@ -92,6 +95,47 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
 
   // ── Derived state ────────────────────────────────────────────────────
   const { soldPhase, soldRecord } = useSoldAnimation(state);
+
+  // ── Broadcast audio (LED display only) ───────────────────────────────
+  // Settings are memo'd on primitives so the AudioManager only re-initialises
+  // when an actual value changes, not on every auction-state SSE ping.
+  const audioSettings = useMemo<AudioSettings | null>(() => {
+    if (!tournament) return null;
+    const t = tournament as unknown as Record<string, unknown>;
+    return {
+      audioEnabled:          (t.audioEnabled          as boolean)  ?? true,
+      masterVolume:          (t.masterVolume           as number)   ?? 80,
+      countdownSoundEnabled: (t.countdownSoundEnabled  as boolean)  ?? true,
+      countdownSoundUrl:     (t.countdownSoundUrl      as string | null) ?? null,
+      countdownSoundVolume:  (t.countdownSoundVolume   as number)   ?? 70,
+      soldSoundEnabled:      (t.soldSoundEnabled       as boolean)  ?? true,
+      soldSoundUrl:          (t.soldSoundUrl           as string | null) ?? null,
+      soldSoundVolume:       (t.soldSoundVolume        as number)   ?? 80,
+    };
+  }, [
+    (tournament as Record<string, unknown> | undefined)?.audioEnabled,
+    (tournament as Record<string, unknown> | undefined)?.masterVolume,
+    (tournament as Record<string, unknown> | undefined)?.countdownSoundEnabled,
+    (tournament as Record<string, unknown> | undefined)?.countdownSoundUrl,
+    (tournament as Record<string, unknown> | undefined)?.countdownSoundVolume,
+    (tournament as Record<string, unknown> | undefined)?.soldSoundEnabled,
+    (tournament as Record<string, unknown> | undefined)?.soldSoundUrl,
+    (tournament as Record<string, unknown> | undefined)?.soldSoundVolume,
+  ]);
+
+  // Stable key that changes exactly once per sold event for deduplication.
+  // "sold" is a runtime-only status the server emits during live auction;
+  // it is not in the OpenAPI enum so we widen to string for comparison.
+  const soldKey = (state?.status as string) === "sold"
+    ? `${state?.currentBidTeamId ?? 0}_${state?.currentBid ?? 0}_${state?.soldPlayersCount ?? 0}`
+    : "";
+
+  const { isUnlocked } = useBroadcastAudio({
+    status: state?.status,
+    timerEndsAt: state?.timerEndsAt,
+    soldKey,
+    settings: audioSettings,
+  });
 
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
@@ -226,6 +270,14 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
         {/* Bottom team purse strip removed from broadcast — team info is shown on
             demand via the dedicated Team overlay (operator-controlled) to keep the
             live display clean and reduce per-team Framer Motion + box-shadow load. */}
+
+        {/* Audio unlock nudge — fades away after first user interaction */}
+        {audioSettings?.audioEnabled && !isUnlocked && (
+          <div className="absolute bottom-5 right-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm">
+            <Volume2 className="w-3 h-3" />
+            Click anywhere to enable audio
+          </div>
+        )}
 
         <OverlayManager
           overlayMode={overlayMode}

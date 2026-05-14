@@ -47,6 +47,14 @@ export const ListTournamentsResponseItem = zod.object({
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
+  audioEnabled: zod.boolean().optional(),
+  masterVolume: zod.number().optional(),
+  countdownSoundEnabled: zod.boolean().optional(),
+  countdownSoundUrl: zod.string().nullish(),
+  countdownSoundVolume: zod.number().optional(),
+  soldSoundEnabled: zod.boolean().optional(),
+  soldSoundUrl: zod.string().nullish(),
+  soldSoundVolume: zod.number().optional(),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -85,6 +93,14 @@ export const CreateTournamentBody = zod.object({
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
+  audioEnabled: zod.boolean().optional(),
+  masterVolume: zod.number().optional(),
+  countdownSoundEnabled: zod.boolean().optional(),
+  countdownSoundUrl: zod.string().optional(),
+  countdownSoundVolume: zod.number().optional(),
+  soldSoundEnabled: zod.boolean().optional(),
+  soldSoundUrl: zod.string().optional(),
+  soldSoundVolume: zod.number().optional(),
 });
 
 /**
@@ -124,6 +140,14 @@ export const GetTournamentResponse = zod.object({
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
+  audioEnabled: zod.boolean().optional(),
+  masterVolume: zod.number().optional(),
+  countdownSoundEnabled: zod.boolean().optional(),
+  countdownSoundUrl: zod.string().nullish(),
+  countdownSoundVolume: zod.number().optional(),
+  soldSoundEnabled: zod.boolean().optional(),
+  soldSoundUrl: zod.string().nullish(),
+  soldSoundVolume: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -160,6 +184,14 @@ export const UpdateTournamentBody = zod.object({
   registrationLimit: zod.number().nullish(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
+  audioEnabled: zod.boolean().optional(),
+  masterVolume: zod.number().optional(),
+  countdownSoundEnabled: zod.boolean().optional(),
+  countdownSoundUrl: zod.string().nullish(),
+  countdownSoundVolume: zod.number().optional(),
+  soldSoundEnabled: zod.boolean().optional(),
+  soldSoundUrl: zod.string().nullish(),
+  soldSoundVolume: zod.number().optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -192,6 +224,14 @@ export const UpdateTournamentResponse = zod.object({
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
+  audioEnabled: zod.boolean().optional(),
+  masterVolume: zod.number().optional(),
+  countdownSoundEnabled: zod.boolean().optional(),
+  countdownSoundUrl: zod.string().nullish(),
+  countdownSoundVolume: zod.number().optional(),
+  soldSoundEnabled: zod.boolean().optional(),
+  soldSoundUrl: zod.string().nullish(),
+  soldSoundVolume: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -244,6 +284,14 @@ export const ExportTournamentForLocalResponse = zod.object({
     lastResetBy: zod.string().nullish(),
     minimumSquadSize: zod.number().optional(),
     maximumSquadSize: zod.number().optional(),
+    audioEnabled: zod.boolean().optional(),
+    masterVolume: zod.number().optional(),
+    countdownSoundEnabled: zod.boolean().optional(),
+    countdownSoundUrl: zod.string().nullish(),
+    countdownSoundVolume: zod.number().optional(),
+    soldSoundEnabled: zod.boolean().optional(),
+    soldSoundUrl: zod.string().nullish(),
+    soldSoundVolume: zod.number().optional(),
     createdAt: zod.string(),
   }),
   teams: zod.array(

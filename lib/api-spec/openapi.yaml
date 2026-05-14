@@ -1224,6 +1224,22 @@ components:
           type: integer
         maximumSquadSize:
           type: integer
+        audioEnabled:
+          type: boolean
+        masterVolume:
+          type: integer
+        countdownSoundEnabled:
+          type: boolean
+        countdownSoundUrl:
+          type: ["string", "null"]
+        countdownSoundVolume:
+          type: integer
+        soldSoundEnabled:
+          type: boolean
+        soldSoundUrl:
+          type: ["string", "null"]
+        soldSoundVolume:
+          type: integer
         createdAt:
           type: string
 
@@ -1276,6 +1292,22 @@ components:
         minimumSquadSize:
           type: integer
         maximumSquadSize:
+          type: integer
+        audioEnabled:
+          type: boolean
+        masterVolume:
+          type: integer
+        countdownSoundEnabled:
+          type: boolean
+        countdownSoundUrl:
+          type: string
+        countdownSoundVolume:
+          type: integer
+        soldSoundEnabled:
+          type: boolean
+        soldSoundUrl:
+          type: string
+        soldSoundVolume:
           type: integer
 
     TournamentUpdate:
@@ -1331,6 +1363,22 @@ components:
         minimumSquadSize:
           type: integer
         maximumSquadSize:
+          type: integer
+        audioEnabled:
+          type: boolean
+        masterVolume:
+          type: integer
+        countdownSoundEnabled:
+          type: boolean
+        countdownSoundUrl:
+          type: ["string", "null"]
+        countdownSoundVolume:
+          type: integer
+        soldSoundEnabled:
+          type: boolean
+        soldSoundUrl:
+          type: ["string", "null"]
+        soldSoundVolume:
           type: integer
 
     # Team schemas

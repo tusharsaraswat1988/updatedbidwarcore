@@ -69,6 +69,16 @@ export interface Tournament {
   lastResetBy?: string | null;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
+  audioEnabled?: boolean;
+  masterVolume?: number;
+  countdownSoundEnabled?: boolean;
+  /** @nullable */
+  countdownSoundUrl?: string | null;
+  countdownSoundVolume?: number;
+  soldSoundEnabled?: boolean;
+  /** @nullable */
+  soldSoundUrl?: string | null;
+  soldSoundVolume?: number;
   createdAt: string;
 }
 
@@ -117,6 +127,14 @@ export interface TournamentInput {
   playerSelectionMode?: TournamentInputPlayerSelectionMode;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
+  audioEnabled?: boolean;
+  masterVolume?: number;
+  countdownSoundEnabled?: boolean;
+  countdownSoundUrl?: string;
+  countdownSoundVolume?: number;
+  soldSoundEnabled?: boolean;
+  soldSoundUrl?: string;
+  soldSoundVolume?: number;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -156,6 +174,16 @@ export interface TournamentUpdate {
   registrationLimit?: number | null;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
+  audioEnabled?: boolean;
+  masterVolume?: number;
+  countdownSoundEnabled?: boolean;
+  /** @nullable */
+  countdownSoundUrl?: string | null;
+  countdownSoundVolume?: number;
+  soldSoundEnabled?: boolean;
+  /** @nullable */
+  soldSoundUrl?: string | null;
+  soldSoundVolume?: number;
 }
 
 export interface Team {

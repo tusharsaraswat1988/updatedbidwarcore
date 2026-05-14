@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
@@ -26,7 +28,9 @@ import {
   Building2, Timer, PlusCircle, Trash2, Download,
   Settings, Megaphone, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
+  Volume2, VolumeX, Play,
 } from "lucide-react";
+import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type SponsorLogo = { url: string; name: string };
@@ -93,9 +97,11 @@ export default function TournamentHub() {
   const [editOpen, setEditOpen] = useState(false);
   type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
   const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
-  const [editForm, setEditForm] = useState<Record<string, string | number>>({});
+  const [editForm, setEditForm] = useState<Record<string, string | number | boolean>>({});
   // Snapshot of values when the dialog was opened — used by "Reset Section"
-  const [origForm, setOrigForm] = useState<Record<string, string | number>>({});
+  const [origForm, setOrigForm] = useState<Record<string, string | number | boolean>>({});
+  // Lazy audio manager for in-dialog sound previews
+  const audioPreviewRef = useRef<AuctionAudioManager | null>(null);
   const [origSponsorLogos, setOrigSponsorLogos] = useState<SponsorLogo[]>([]);
   const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
@@ -136,6 +142,14 @@ export default function TournamentHub() {
       registrationLimit: (tournament as any).registrationLimit != null ? String((tournament as any).registrationLimit) : "",
       minimumSquadSize: String((tournament as any).minimumSquadSize ?? 0),
       maximumSquadSize: String((tournament as any).maximumSquadSize ?? 0),
+      audioEnabled: (tournament as any).audioEnabled ?? true,
+      masterVolume: String((tournament as any).masterVolume ?? 80),
+      countdownSoundEnabled: (tournament as any).countdownSoundEnabled ?? true,
+      countdownSoundUrl: (tournament as any).countdownSoundUrl ?? "",
+      countdownSoundVolume: String((tournament as any).countdownSoundVolume ?? 70),
+      soldSoundEnabled: (tournament as any).soldSoundEnabled ?? true,
+      soldSoundUrl: (tournament as any).soldSoundUrl ?? "",
+      soldSoundVolume: String((tournament as any).soldSoundVolume ?? 80),
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
@@ -199,7 +213,52 @@ export default function TournamentHub() {
       setBidTiers(origBidTiers);
     } else if (activeSection === "broadcast") {
       setSponsorLogos(origSponsorLogos);
+      setEditForm(f => ({
+        ...f,
+        audioEnabled: origForm.audioEnabled,
+        masterVolume: origForm.masterVolume,
+        countdownSoundEnabled: origForm.countdownSoundEnabled,
+        countdownSoundUrl: origForm.countdownSoundUrl,
+        countdownSoundVolume: origForm.countdownSoundVolume,
+        soldSoundEnabled: origForm.soldSoundEnabled,
+        soldSoundUrl: origForm.soldSoundUrl,
+        soldSoundVolume: origForm.soldSoundVolume,
+      }));
     }
+  }
+
+  async function previewCountdownSound() {
+    if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
+    const mgr = audioPreviewRef.current;
+    await mgr.unlock();
+    mgr.setSettings({
+      audioEnabled: true,
+      masterVolume: 80,
+      countdownSoundEnabled: true,
+      countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+      countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
+      soldSoundEnabled: false,
+      soldSoundUrl: null,
+      soldSoundVolume: 0,
+    });
+    mgr.previewCountdown();
+  }
+
+  async function previewSoldSound() {
+    if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
+    const mgr = audioPreviewRef.current;
+    await mgr.unlock();
+    mgr.setSettings({
+      audioEnabled: true,
+      masterVolume: 80,
+      countdownSoundEnabled: false,
+      countdownSoundUrl: null,
+      countdownSoundVolume: 0,
+      soldSoundEnabled: true,
+      soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+      soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
+    });
+    mgr.previewSold();
   }
 
   async function handleExportForLocal() {
@@ -245,6 +304,14 @@ export default function TournamentHub() {
         registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
           ? Number(editForm.registrationLimit) || null
           : null,
+        audioEnabled: editForm.audioEnabled === true,
+        masterVolume: Number(editForm.masterVolume) || 80,
+        countdownSoundEnabled: editForm.countdownSoundEnabled === true,
+        countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+        countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
+        soldSoundEnabled: editForm.soldSoundEnabled === true,
+        soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+        soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
       } as any,
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -762,16 +829,140 @@ export default function TournamentHub() {
                     <p className="text-xs text-muted-foreground">Logos rotate in the LED display top-right corner every 2 seconds.</p>
                     <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
                   </div>
-                  <div className="border-t border-border pt-4 space-y-3">
-                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
-                      <div className="flex items-start gap-3">
-                        <Megaphone className="w-5 h-5 text-muted-foreground/50 flex-shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-muted-foreground">More broadcast controls coming soon</p>
-                          <p className="text-xs text-muted-foreground">Live ticker text, banner uploads, sponsor rotation interval and LED display branding presets are planned for the next release.</p>
-                        </div>
+                  <div className="border-t border-border pt-4 space-y-4">
+                    {/* Master Audio toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold flex items-center gap-1.5">
+                          {editForm.audioEnabled
+                            ? <Volume2 className="w-4 h-4 text-muted-foreground" />
+                            : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+                          Broadcast Audio
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">Plays on the LED display screen only</p>
                       </div>
+                      <Switch
+                        checked={editForm.audioEnabled === true}
+                        onCheckedChange={(v) => setEditForm(f => ({ ...f, audioEnabled: v }))}
+                      />
                     </div>
+
+                    {editForm.audioEnabled === true && (
+                      <>
+                        {/* Master Volume */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Master Volume</Label>
+                            <span className="text-xs font-medium tabular-nums">{editForm.masterVolume}%</span>
+                          </div>
+                          <Slider
+                            min={0} max={100} step={1}
+                            value={[Number(editForm.masterVolume)]}
+                            onValueChange={([v]) => setEditForm(f => ({ ...f, masterVolume: String(v) }))}
+                          />
+                        </div>
+
+                        {/* Countdown Sound */}
+                        <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium flex items-center gap-1.5">
+                              <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+                              Countdown Sound
+                              <span className="text-[10px] text-muted-foreground font-normal">last 5 seconds</span>
+                            </Label>
+                            <Switch
+                              checked={editForm.countdownSoundEnabled === true}
+                              onCheckedChange={(v) => setEditForm(f => ({ ...f, countdownSoundEnabled: v }))}
+                            />
+                          </div>
+
+                          {editForm.countdownSoundEnabled === true && (
+                            <div className="space-y-2.5">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Custom audio URL</Label>
+                                <Input
+                                  placeholder="Leave empty for built-in digital tick"
+                                  value={editForm.countdownSoundUrl as string}
+                                  onChange={(e) => setEditForm(f => ({ ...f, countdownSoundUrl: e.target.value }))}
+                                  className="h-7 text-xs"
+                                />
+                                <p className="text-[10px] text-muted-foreground">Publicly accessible .mp3 or .ogg — leave blank to use the synthesized default</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[11px] text-muted-foreground">Volume</Label>
+                                    <span className="text-[11px] font-medium tabular-nums">{editForm.countdownSoundVolume}%</span>
+                                  </div>
+                                  <Slider
+                                    min={0} max={100} step={1}
+                                    value={[Number(editForm.countdownSoundVolume)]}
+                                    onValueChange={([v]) => setEditForm(f => ({ ...f, countdownSoundVolume: String(v) }))}
+                                  />
+                                </div>
+                                <Button
+                                  type="button" size="sm" variant="outline"
+                                  className="gap-1.5 h-7 text-xs shrink-0"
+                                  onClick={previewCountdownSound}
+                                >
+                                  <Play className="w-3 h-3" /> Preview
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Sold Sound */}
+                        <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium flex items-center gap-1.5">
+                              <Gavel className="w-3.5 h-3.5 text-muted-foreground" />
+                              Sold Sound
+                              <span className="text-[10px] text-muted-foreground font-normal">on player sold</span>
+                            </Label>
+                            <Switch
+                              checked={editForm.soldSoundEnabled === true}
+                              onCheckedChange={(v) => setEditForm(f => ({ ...f, soldSoundEnabled: v }))}
+                            />
+                          </div>
+
+                          {editForm.soldSoundEnabled === true && (
+                            <div className="space-y-2.5">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Custom audio URL</Label>
+                                <Input
+                                  placeholder="Leave empty for built-in fanfare"
+                                  value={editForm.soldSoundUrl as string}
+                                  onChange={(e) => setEditForm(f => ({ ...f, soldSoundUrl: e.target.value }))}
+                                  className="h-7 text-xs"
+                                />
+                                <p className="text-[10px] text-muted-foreground">Publicly accessible .mp3 or .ogg — leave blank to use the synthesized default</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[11px] text-muted-foreground">Volume</Label>
+                                    <span className="text-[11px] font-medium tabular-nums">{editForm.soldSoundVolume}%</span>
+                                  </div>
+                                  <Slider
+                                    min={0} max={100} step={1}
+                                    value={[Number(editForm.soldSoundVolume)]}
+                                    onValueChange={([v]) => setEditForm(f => ({ ...f, soldSoundVolume: String(v) }))}
+                                  />
+                                </div>
+                                <Button
+                                  type="button" size="sm" variant="outline"
+                                  className="gap-1.5 h-7 text-xs shrink-0"
+                                  onClick={previewSoldSound}
+                                >
+                                  <Play className="w-3 h-3" /> Preview
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </>
               )}
