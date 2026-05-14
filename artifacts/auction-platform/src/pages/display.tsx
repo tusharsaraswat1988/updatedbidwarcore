@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
@@ -21,7 +21,7 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 type WheelItem = { label: string; color: string };
 
 /** Rotating sponsor logo carousel — top-right corner of LED display */
-function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) {
+const SponsorCarousel = memo(function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) {
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -73,7 +73,7 @@ function SponsorCarousel({ logos }: { logos: { url: string; name: string }[] }) 
       )}
     </div>
   );
-}
+});
 
 function playSoldAudio() {
   try {
@@ -160,7 +160,7 @@ function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation
   ctx.stroke();
 }
 
-function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
+const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
   items: WheelItem[];
   winner: string | null | undefined;
   wheelSpinning?: boolean;
@@ -352,7 +352,7 @@ function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
       </AnimatePresence>
     </div>
   );
-}
+});
 
 type PurseRow = {
   teamId: number; teamName: string; shortCode: string; ownerName?: string;
@@ -369,7 +369,7 @@ type PlayerLite = {
 type CategoryLite = { id: number; name: string };
 
 /** Overlay 1 — IPL-style TEAM PURSE STATUS table */
-function TeamViewOverlay({ purses, currentBidTeamId, tournamentName }: {
+const TeamViewOverlay = memo(function TeamViewOverlay({ purses, currentBidTeamId, tournamentName }: {
   purses: PurseRow[];
   currentBidTeamId?: number | null;
   tournamentName?: string;
@@ -488,10 +488,10 @@ function TeamViewOverlay({ purses, currentBidTeamId, tournamentName }: {
       </div>
     </div>
   );
-}
+});
 
 /** Overlay 2 — Player-wise live registry table */
-function PlayerViewOverlay({ players, purses, categories, tournamentName, filter }: {
+const PlayerViewOverlay = memo(function PlayerViewOverlay({ players, purses, categories, tournamentName, filter }: {
   players: PlayerLite[];
   purses: PurseRow[];
   categories: CategoryLite[];
@@ -670,10 +670,10 @@ function PlayerViewOverlay({ players, purses, categories, tournamentName, filter
       </div>
     </div>
   );
-}
+});
 
 /** Overlay 3 — TOP 5 BUYS broadcast graphic */
-function Top5BuysOverlay({ players, purses, tournamentName }: {
+const Top5BuysOverlay = memo(function Top5BuysOverlay({ players, purses, tournamentName }: {
   players: PlayerLite[];
   purses: PurseRow[];
   tournamentName?: string;
@@ -794,9 +794,9 @@ function Top5BuysOverlay({ players, purses, tournamentName }: {
       </div>
     </div>
   );
-}
+});
 
-function SponsorTicker({ logos }: { logos: { url: string; name: string }[] }) {
+const SponsorTicker = memo(function SponsorTicker({ logos }: { logos: { url: string; name: string }[] }) {
   if (!logos.length) return null;
   const doubled = [...logos, ...logos];
   return (
@@ -815,10 +815,10 @@ function SponsorTicker({ logos }: { logos: { url: string; name: string }[] }) {
       </div>
     </div>
   );
-}
+});
 
 /** 1-second SOLD stamp */
-function SoldStamp() {
+const SoldStamp = memo(function SoldStamp() {
   return (
     <motion.div
       initial={{ scale: 3, opacity: 0, rotate: -15 }}
@@ -833,10 +833,10 @@ function SoldStamp() {
       </div>
     </motion.div>
   );
-}
+});
 
 /** Full-screen sold card shown after the stamp, until next player starts */
-function SoldCard({ record }: { record: SoldRecord }) {
+const SoldCard = memo(function SoldCard({ record }: { record: SoldRecord }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -927,9 +927,9 @@ function SoldCard({ record }: { record: SoldRecord }) {
       </motion.p>
     </motion.div>
   );
-}
+});
 
-/** Redesigned full-width bottom team purse strip */
+/** Redesigned full-width bottom team purse strip (kept for reference; no longer rendered in broadcast) */
 function TeamPurseStrip({ purses, currentBidTeamId }: {
   purses: Array<{ teamId: number; teamName: string; shortCode: string; color: string | null | undefined; logoUrl?: string | null; purse: number; purseUsed: number; purseRemaining: number; playersBought: number }>;
   currentBidTeamId?: number | null;
@@ -1009,6 +1009,67 @@ function TeamPurseStrip({ purses, currentBidTeamId }: {
   );
 }
 
+/**
+ * Isolated countdown — owns its own 250ms interval so the rest of the broadcast
+ * tree (player card, bid amount, overlays, sponsor carousel) doesn't rerender
+ * 4×/sec. Re-mounts whenever `timerEndsAt` changes (= server pushed a new timer)
+ * so progress always starts at 100%.
+ */
+const AuctionCountdown = memo(function AuctionCountdown({ timerEndsAt, timerType }: {
+  timerEndsAt: string | null | undefined;
+  timerType?: string | null;
+}) {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const totalRef = useRef<number>(30);
+
+  useEffect(() => {
+    if (!timerEndsAt) { setTimeLeft(null); return; }
+    const fullMs = new Date(timerEndsAt).getTime() - Date.now();
+    totalRef.current = Math.max(1, Math.ceil(fullMs / 1000));
+    const update = () => {
+      const diff = Math.ceil((new Date(timerEndsAt).getTime() - Date.now()) / 1000);
+      setTimeLeft(diff > 0 ? diff : 0);
+    };
+    update();
+    const id = setInterval(update, 250);
+    return () => clearInterval(id);
+  }, [timerEndsAt]);
+
+  if (timeLeft === null) return null;
+  const urgent = timeLeft <= 5;
+  const warn = timeLeft <= 10;
+  const tone = urgent ? "text-red-400" : warn ? "text-orange-400" : "text-muted-foreground";
+  const barColor = urgent ? "bg-red-400" : warn ? "bg-orange-400" : "bg-green-400";
+  const pct = Math.min(100, (timeLeft / totalRef.current) * 100);
+  return (
+    <div className="space-y-2">
+      <div className={`flex items-center gap-3 ${tone}`}>
+        <Timer className={`w-6 h-6 ${urgent ? "animate-pulse" : ""}`} />
+        <span className={`text-5xl md:text-6xl lg:text-7xl font-display font-black tabular-nums leading-none ${urgent ? "animate-pulse" : ""}`}>
+          {timeLeft}
+        </span>
+        <div className="flex flex-col justify-center">
+          <span className="text-xl font-bold uppercase tracking-widest">sec</span>
+          <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
+            timerType === "bid"
+              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+              : "bg-green-500/20 text-green-400 border-green-500/30"
+          }`}>
+            {timerType === "bid" ? "BID TIMER" : "START TIMER"}
+          </span>
+        </div>
+      </div>
+      {/* Progress bar — CSS transition only, no Framer Motion per-tick */}
+      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className={`h-full rounded-full ${barColor} transition-[width] duration-200 ease-linear`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+});
+
 export default function DisplayView() {
   const [, params] = useRoute("/tournament/:id/display");
   const tournamentId = parseInt(params?.id || "0");
@@ -1032,11 +1093,12 @@ export default function DisplayView() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
+  // SSE (useAuctionSocket) pushes state/purses/players invalidations in realtime.
+  // No polling — duplicate data sources cause unnecessary rerenders on the LED display.
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 5000,
     },
   });
 
@@ -1044,7 +1106,6 @@ export default function DisplayView() {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 8000,
     },
   });
 
@@ -1054,7 +1115,6 @@ export default function DisplayView() {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
       enabled: !!tournamentId && (overlayMode === "player" || overlayMode === "top5"),
-      refetchInterval: 4000,
     },
   });
 
@@ -1124,46 +1184,36 @@ export default function DisplayView() {
     }
   }, [state?.currentPlayer?.id]);
 
-  // Countdown timer — derives from server timerEndsAt so all clients agree.
-  // timerTotalRef captures the full duration at the moment timerEndsAt arrives so
-  // the progress bar always starts at 100% regardless of the tournament default setting.
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const timerTotalRef = useRef<number>(30);
-  useEffect(() => {
-    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
-    const fullMs = new Date(state.timerEndsAt).getTime() - Date.now();
-    timerTotalRef.current = Math.max(1, Math.ceil(fullMs / 1000));
-    const update = () => {
-      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
-      setTimeLeft(diff > 0 ? diff : 0);
-    };
-    update();
-    const id = setInterval(update, 250);
-    return () => clearInterval(id);
-  }, [state?.timerEndsAt]);
-
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
 
-  let sponsorLogos: { url: string; name: string }[] = [];
-  if (tournament?.sponsorLogos) {
-    try { sponsorLogos = JSON.parse(tournament.sponsorLogos); } catch { /* ignore */ }
-  }
+  // Memoized derived values so memo'd children get stable prop identity.
+  const sponsorLogos = useMemo<{ url: string; name: string }[]>(() => {
+    if (!tournament?.sponsorLogos) return [];
+    try { return JSON.parse(tournament.sponsorLogos); } catch { return []; }
+  }, [tournament?.sponsorLogos]);
 
-  const playerSpecs = state?.currentPlayer
-    ? [
-        state.currentPlayer.role,
-        state.currentPlayer.battingStyle,
-        state.currentPlayer.bowlingStyle,
-        state.currentPlayer.specialization,
-        state.currentPlayer.city,
-        state.currentPlayer.age ? `Age ${state.currentPlayer.age}` : null,
-      ].filter(Boolean)
-    : [];
+  const playerSpecs = useMemo(() => {
+    if (!state?.currentPlayer) return [];
+    return [
+      state.currentPlayer.role,
+      state.currentPlayer.battingStyle,
+      state.currentPlayer.bowlingStyle,
+      state.currentPlayer.specialization,
+      state.currentPlayer.city,
+      state.currentPlayer.age ? `Age ${state.currentPlayer.age}` : null,
+    ].filter(Boolean);
+  }, [
+    state?.currentPlayer?.role,
+    state?.currentPlayer?.battingStyle,
+    state?.currentPlayer?.bowlingStyle,
+    state?.currentPlayer?.specialization,
+    state?.currentPlayer?.city,
+    state?.currentPlayer?.age,
+  ]);
 
-  // Merge purse data for strip (include teamName/shortCode from state if available)
-  const stripPurses = (teamPurses || []).map(t => ({
+  const stripPurses = useMemo(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,
     teamName: t.teamName,
     shortCode: t.shortCode || t.teamName.slice(0, 4).toUpperCase(),
@@ -1173,7 +1223,7 @@ export default function DisplayView() {
     purseUsed: t.purseUsed,
     purseRemaining: t.purseRemaining,
     playersBought: t.playersBought,
-  }));
+  })), [teamPurses]);
 
   return (
     <FullscreenLayout>
@@ -1372,44 +1422,7 @@ export default function DisplayView() {
                     </div>
                   )}
 
-                  {timeLeft !== null && (
-                    <div className="space-y-2">
-                      <div className={`flex items-center gap-3 ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-muted-foreground"}`}>
-                        <Timer className={`w-6 h-6 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
-                        <AnimatePresence mode="wait">
-                          <motion.span
-                            key={timeLeft}
-                            initial={{ scale: 1.3, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            className={`text-5xl md:text-6xl lg:text-7xl font-display font-black tabular-nums leading-none ${timeLeft <= 5 ? "animate-pulse" : ""}`}
-                          >
-                            {timeLeft}
-                          </motion.span>
-                        </AnimatePresence>
-                        <div className="flex flex-col justify-center">
-                          <span className="text-xl font-bold uppercase tracking-widest">sec</span>
-                          <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
-                            state.timerType === "bid"
-                              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                              : "bg-green-500/20 text-green-400 border-green-500/30"
-                          }`}>
-                            {state.timerType === "bid" ? "BID TIMER" : "START TIMER"}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Progress bar — uses timerTotalRef so it starts at 100% regardless
-                          of tournament default. Same full-duration tracking as the OBS ring. */}
-                      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <motion.div
-                          className={`h-full rounded-full ${timeLeft <= 5 ? "bg-red-400" : timeLeft <= 10 ? "bg-orange-400" : "bg-green-400"}`}
-                          style={{ width: `${Math.min(100, (timeLeft / timerTotalRef.current) * 100)}%` }}
-                          transition={{ duration: 0.25, ease: "linear" }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <AuctionCountdown timerEndsAt={state.timerEndsAt} timerType={state.timerType} />
 
                   <p className="text-sm text-muted-foreground">
                     Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(state.currentPlayer.basePrice)}</span>
@@ -1451,8 +1464,9 @@ export default function DisplayView() {
           )}
         </div>
 
-        {/* Full-width Bottom Team Strip */}
-        <TeamPurseStrip purses={stripPurses} currentBidTeamId={state?.currentBidTeamId} />
+        {/* Bottom team purse strip removed from broadcast — team info is shown on
+            demand via the dedicated Team overlay (operator-controlled) to keep the
+            live display clean and reduce per-team Framer Motion + box-shadow load. */}
 
         {/* LED Display Overlays — Team / Player / Top 5 */}
         <AnimatePresence mode="wait">
