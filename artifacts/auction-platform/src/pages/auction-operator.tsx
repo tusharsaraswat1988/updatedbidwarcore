@@ -596,7 +596,8 @@ export default function AuctionOperator() {
                         </span>
                         {isQueue ? (
                           <button
-                            disabled={!isActive || nextPlayer.isPending}
+                            disabled={!isActive || nextPlayer.isPending || selectionMode !== "manual"}
+                            title={selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : undefined}
                             onClick={() => handleNextPlayer("sequential", player.id)}
                             className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
                           >
