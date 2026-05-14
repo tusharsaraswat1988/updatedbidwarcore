@@ -15,7 +15,7 @@ import {
   ShieldCheck, Trophy, LogOut, KeyRound, Check, X, RefreshCw, Search,
   Users, Wallet, Gavel, Clock, Pencil, Phone, Mail, Timer, Lock, Unlock,
   BadgeCheck, AlertTriangle, Plus, Trash2, ChevronRight, Building2,
-  Shield, Database, Star, UserCheck, FileBarChart,
+  Shield, Database, Star, UserCheck, FileBarChart, Activity,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -1318,6 +1318,9 @@ export default function AdminDashboard() {
               <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-red-400"/>Lock when auction ends</span>
               <span className="flex items-center gap-1"><BadgeCheck className="w-3 h-3 text-green-400"/>Licensed = can go live</span>
             </div>
+            <Button size="sm" variant="outline" className="gap-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10" onClick={() => navigate("/admin/intelligence")}>
+              <Activity className="w-4 h-4" /> Intelligence
+            </Button>
             <Button size="sm" variant="outline" className="gap-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => navigate("/admin/reports")}>
               <FileBarChart className="w-4 h-4" /> Report Center
             </Button>

@@ -24,6 +24,7 @@ import OrganizerLogin from "@/pages/organizer-login";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin";
 import AdminReports from "@/pages/admin-reports";
+import AdminIntelligence from "@/pages/admin-intelligence";
 import ObsOverlay from "@/pages/obs-overlay";
 import OrganizerPortal from "@/pages/organizer-portal";
 
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/reports" component={AdminReports} />
+      <Route path="/admin/intelligence" component={AdminIntelligence} />
       <Route path="/organizer" component={OrganizerPortal} />
 
       {/* Organizer-protected routes */}

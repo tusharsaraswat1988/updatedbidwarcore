@@ -8,6 +8,7 @@ import auctionRouter from "./auction";
 import analyticsRouter from "./analytics";
 import authRouter from "./auth";
 import adminReportsRouter from "./admin-reports";
+import intelligenceRouter from "./intelligence";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(playersRouter);
 router.use(auctionRouter);
 router.use(analyticsRouter);
 router.use(adminReportsRouter);
+router.use(intelligenceRouter);
 
 export default router;
