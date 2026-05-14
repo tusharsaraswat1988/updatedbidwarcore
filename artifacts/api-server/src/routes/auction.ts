@@ -667,7 +667,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       currentBidTeamId: null,
       timerEndsAt: null,
       pausedTimeRemaining: null,
-      lastAction: `SOLD (manual): ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")}`,
+      lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
