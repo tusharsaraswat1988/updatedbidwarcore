@@ -102,6 +102,9 @@ export default function TournamentHub() {
   const [origForm, setOrigForm] = useState<Record<string, string | number | boolean>>({});
   // Lazy audio manager for in-dialog sound previews
   const audioPreviewRef = useRef<AuctionAudioManager | null>(null);
+  // Display names for uploaded audio files (not persisted — UI only)
+  const [countdownFileName, setCountdownFileName] = useState("");
+  const [soldFileName, setSoldFileName] = useState("");
   const [origSponsorLogos, setOrigSponsorLogos] = useState<SponsorLogo[]>([]);
   const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
@@ -153,6 +156,9 @@ export default function TournamentHub() {
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
+    // Restore display names for previously uploaded audio files
+    setCountdownFileName((tournament as any).countdownSoundUrl ? "Custom file uploaded" : "");
+    setSoldFileName((tournament as any).soldSoundUrl ? "Custom file uploaded" : "");
     // Load bidTiers from JSON column, fall back to legacy 5-column values
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
@@ -224,7 +230,28 @@ export default function TournamentHub() {
         soldSoundUrl: origForm.soldSoundUrl,
         soldSoundVolume: origForm.soldSoundVolume,
       }));
+      setCountdownFileName(origForm.countdownSoundUrl ? "Custom file uploaded" : "");
+      setSoldFileName(origForm.soldSoundUrl ? "Custom file uploaded" : "");
     }
+  }
+
+  function handleAudioUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: "countdownSoundUrl" | "soldSoundUrl",
+    setFileName: (n: string) => void,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert("Audio file must be under 8 MB");
+      e.target.value = "";
+      return;
+    }
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setEditForm(f => ({ ...f, [field]: reader.result as string }));
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
   async function previewCountdownSound() {
@@ -878,15 +905,34 @@ export default function TournamentHub() {
 
                           {editForm.countdownSoundEnabled === true && (
                             <div className="space-y-2.5">
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Custom audio URL</Label>
-                                <Input
-                                  placeholder="Leave empty for built-in digital tick"
-                                  value={editForm.countdownSoundUrl as string}
-                                  onChange={(e) => setEditForm(f => ({ ...f, countdownSoundUrl: e.target.value }))}
-                                  className="h-7 text-xs"
-                                />
-                                <p className="text-[10px] text-muted-foreground">Publicly accessible .mp3 or .ogg — leave blank to use the synthesized default</p>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Custom audio file</Label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex-1 cursor-pointer">
+                                    <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                                      <Upload className="w-3 h-3 shrink-0" />
+                                      <span className="truncate">{countdownFileName || "Upload .mp3 / .ogg / .wav"}</span>
+                                    </div>
+                                    <input
+                                      type="file"
+                                      accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac"
+                                      className="hidden"
+                                      onChange={(e) => handleAudioUpload(e, "countdownSoundUrl", setCountdownFileName)}
+                                    />
+                                  </label>
+                                  {editForm.countdownSoundUrl && (
+                                    <Button
+                                      type="button" variant="ghost" size="icon"
+                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                      onClick={() => { setEditForm(f => ({ ...f, countdownSoundUrl: "" })); setCountdownFileName(""); }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {editForm.countdownSoundUrl ? "Custom file loaded — will replace built-in tick" : "No file selected — built-in digital tick will play"}
+                                </p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="flex-1 space-y-1.5">
@@ -928,15 +974,34 @@ export default function TournamentHub() {
 
                           {editForm.soldSoundEnabled === true && (
                             <div className="space-y-2.5">
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Custom audio URL</Label>
-                                <Input
-                                  placeholder="Leave empty for built-in fanfare"
-                                  value={editForm.soldSoundUrl as string}
-                                  onChange={(e) => setEditForm(f => ({ ...f, soldSoundUrl: e.target.value }))}
-                                  className="h-7 text-xs"
-                                />
-                                <p className="text-[10px] text-muted-foreground">Publicly accessible .mp3 or .ogg — leave blank to use the synthesized default</p>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Custom audio file</Label>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex-1 cursor-pointer">
+                                    <div className="flex items-center gap-2 h-7 px-2.5 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                                      <Upload className="w-3 h-3 shrink-0" />
+                                      <span className="truncate">{soldFileName || "Upload .mp3 / .ogg / .wav"}</span>
+                                    </div>
+                                    <input
+                                      type="file"
+                                      accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac"
+                                      className="hidden"
+                                      onChange={(e) => handleAudioUpload(e, "soldSoundUrl", setSoldFileName)}
+                                    />
+                                  </label>
+                                  {editForm.soldSoundUrl && (
+                                    <Button
+                                      type="button" variant="ghost" size="icon"
+                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                      onClick={() => { setEditForm(f => ({ ...f, soldSoundUrl: "" })); setSoldFileName(""); }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {editForm.soldSoundUrl ? "Custom file loaded — will replace built-in fanfare" : "No file selected — built-in fanfare will play"}
+                                </p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="flex-1 space-y-1.5">
