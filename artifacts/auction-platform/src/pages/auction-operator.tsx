@@ -29,6 +29,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useTimerExpired } from "@/hooks/use-timer-expired";
+import { ServerCountdown } from "@/components/server-countdown";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,24 +198,18 @@ export default function AuctionOperator() {
     }
   }, [state?.timerSeconds]);
 
-  // Client-side countdown from server timerEndsAt
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  useEffect(() => {
-    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
-    const update = () => {
-      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
-      setTimeLeft(diff > 0 ? diff : 0);
-    };
-    update();
-    const id = setInterval(update, 250);
-    return () => clearInterval(id);
-  }, [state?.timerEndsAt]);
+  // Server-authoritative timer: no client-side interval at parent level.
+  // The visible countdown ticks inside <ServerCountdown /> (isolated subtree).
+  // For parent gating (canBid, START button label, sell/unsold enablement) we
+  // only need to know WHEN the timer has crossed zero — a single setTimeout
+  // via useTimerExpired() flips one boolean once, no per-tick rerenders.
+  const timerExpired = useTimerExpired(state?.timerEndsAt);
 
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
   const hasPlayer = !!state?.currentPlayer;
   const hasBid = !!state?.currentBidTeamId;
-  const timerActive = !!state?.timerEndsAt && timeLeft !== null && timeLeft > 0;
+  const timerActive = !!state?.timerEndsAt && !timerExpired;
   const available = (players || []).filter(p => p.status === "available");
   const soldPlayers = (players || []).filter(p => p.status === "sold");
   const unsoldPlayers = (players || []).filter(p => p.status === "unsold");
@@ -646,29 +642,21 @@ export default function AuctionOperator() {
                     </div>
                   )}
                 </div>
-                {/* Timer */}
+                {/* Timer — countdown ticks inside ServerCountdown (isolated rerender) */}
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border/50">
-                  <Timer className={`w-4 h-4 flex-shrink-0 ${timerActive && timeLeft !== null && timeLeft <= 5 ? "text-red-400 animate-pulse" : timerActive ? "text-green-400" : "text-muted-foreground"}`} />
-                  {timerActive && timeLeft !== null ? (
-                    <>
-                      <span className={`text-2xl font-display font-black tabular-nums ${timeLeft <= 5 ? "text-red-400" : timeLeft <= 10 ? "text-orange-400" : "text-green-400"}`}>
-                        {`${timeLeft}s`}
-                      </span>
-                      <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                        state?.timerType === "bid"
-                          ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                          : "bg-green-500/20 text-green-400 border-green-500/30"
-                      }`}>
-                        {state?.timerType === "bid" ? "BID TIMER" : "START TIMER"}
-                      </span>
-                    </>
-                  ) : timeLeft === 0 ? (
-                    <span className="text-2xl font-display font-black tabular-nums text-red-500">EXPIRED</span>
-                  ) : (
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {hasPlayer ? "Press START to open bidding" : "No player selected"}
-                    </span>
-                  )}
+                  <ServerCountdown
+                    variant="operator"
+                    timerEndsAt={state?.timerEndsAt}
+                    timerType={state?.timerType}
+                    fallback={
+                      <>
+                        <Timer className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {hasPlayer ? "Press START to open bidding" : "No player selected"}
+                        </span>
+                      </>
+                    }
+                  />
                   <div className="flex items-center gap-2 ml-auto">
                     <Input
                       type="number"

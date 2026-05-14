@@ -12,6 +12,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useTimerExpired } from "@/hooks/use-timer-expired";
+import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle } from "lucide-react";
@@ -174,25 +176,17 @@ export default function OwnerPanel() {
   const [isBidding, setIsBidding] = useState(false);
   const [bidFeedback, setBidFeedback] = useState<"success" | "error" | "leading" | null>(null);
 
-  // Issue 2: Client-side timer tracking for owner panel bid lock
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  useEffect(() => {
-    if (!state?.timerEndsAt) { setTimeLeft(null); return; }
-    const update = () => {
-      const diff = Math.ceil((new Date(state.timerEndsAt!).getTime() - Date.now()) / 1000);
-      setTimeLeft(diff > 0 ? diff : 0);
-    };
-    update();
-    const id = setInterval(update, 250);
-    return () => clearInterval(id);
-  }, [state?.timerEndsAt]);
-
-  const timerExpired = state?.timerEndsAt !== null && state?.timerEndsAt !== undefined && timeLeft !== null && timeLeft <= 0;
+  // Server-authoritative timer: no per-tick parent state. The visible card
+  // ticks inside <ServerCountdown /> (isolated). For canBid gating and the
+  // "BIDDING CLOSED" branch we only need a single boolean that flips when
+  // the timer crosses zero — useTimerExpired() does that with one setTimeout.
+  const expired = useTimerExpired(state?.timerEndsAt);
+  const timerExpired = !!state?.timerEndsAt && expired;
 
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
-  const timerActive = !!state?.timerEndsAt && timeLeft !== null && timeLeft > 0;
+  const timerActive = !!state?.timerEndsAt && !expired;
   const teamPurse = allPurses?.find(t => t.teamId === teamId);
   const purseRemaining = teamPurse?.purseRemaining ?? (team ? team.purse - (team.purseUsed || 0) : 0);
   const increment = state?.bidIncrement ?? 50000;
@@ -323,31 +317,14 @@ export default function OwnerPanel() {
           </div>
         </div>
 
-        {/* Timer indicator */}
-        {state?.timerEndsAt && timeLeft !== null && (
+        {/* Timer indicator — ticks inside ServerCountdown (isolated rerender) */}
+        {state?.timerEndsAt && (
           <div className="px-6 pt-3">
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium ${
-              timeLeft <= 0
-                ? "bg-red-500/20 border border-red-500/30 text-red-400"
-                : timeLeft <= 5
-                ? "bg-orange-500/20 border border-orange-500/30 text-orange-400"
-                : "bg-card/50 border border-border text-muted-foreground"
-            }`}>
-              <Timer className={`w-4 h-4 ${timeLeft <= 5 ? "animate-pulse" : ""}`} />
-              {timeLeft <= 0
-                ? "Timer expired — bidding locked"
-                : `Time remaining: ${timeLeft}s`
-              }
-              {timeLeft > 0 && (
-                <span className={`ml-auto text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                  state?.timerType === "bid"
-                    ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-                    : "bg-green-500/20 text-green-400 border-green-500/30"
-                }`}>
-                  {state?.timerType === "bid" ? "BID" : "START"}
-                </span>
-              )}
-            </div>
+            <ServerCountdown
+              variant="owner"
+              timerEndsAt={state.timerEndsAt}
+              timerType={state.timerType}
+            />
           </div>
         )}
 

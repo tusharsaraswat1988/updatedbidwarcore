@@ -13,6 +13,7 @@ import {
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Trophy, Calendar, Timer, Dices, Wallet, Crown, Users as UsersIcon } from "lucide-react";
@@ -1009,67 +1010,6 @@ function TeamPurseStrip({ purses, currentBidTeamId }: {
   );
 }
 
-/**
- * Isolated countdown — owns its own 250ms interval so the rest of the broadcast
- * tree (player card, bid amount, overlays, sponsor carousel) doesn't rerender
- * 4×/sec. Re-mounts whenever `timerEndsAt` changes (= server pushed a new timer)
- * so progress always starts at 100%.
- */
-const AuctionCountdown = memo(function AuctionCountdown({ timerEndsAt, timerType }: {
-  timerEndsAt: string | null | undefined;
-  timerType?: string | null;
-}) {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const totalRef = useRef<number>(30);
-
-  useEffect(() => {
-    if (!timerEndsAt) { setTimeLeft(null); return; }
-    const fullMs = new Date(timerEndsAt).getTime() - Date.now();
-    totalRef.current = Math.max(1, Math.ceil(fullMs / 1000));
-    const update = () => {
-      const diff = Math.ceil((new Date(timerEndsAt).getTime() - Date.now()) / 1000);
-      setTimeLeft(diff > 0 ? diff : 0);
-    };
-    update();
-    const id = setInterval(update, 250);
-    return () => clearInterval(id);
-  }, [timerEndsAt]);
-
-  if (timeLeft === null) return null;
-  const urgent = timeLeft <= 5;
-  const warn = timeLeft <= 10;
-  const tone = urgent ? "text-red-400" : warn ? "text-orange-400" : "text-muted-foreground";
-  const barColor = urgent ? "bg-red-400" : warn ? "bg-orange-400" : "bg-green-400";
-  const pct = Math.min(100, (timeLeft / totalRef.current) * 100);
-  return (
-    <div className="space-y-2">
-      <div className={`flex items-center gap-3 ${tone}`}>
-        <Timer className={`w-6 h-6 ${urgent ? "animate-pulse" : ""}`} />
-        <span className={`text-5xl md:text-6xl lg:text-7xl font-display font-black tabular-nums leading-none ${urgent ? "animate-pulse" : ""}`}>
-          {timeLeft}
-        </span>
-        <div className="flex flex-col justify-center">
-          <span className="text-xl font-bold uppercase tracking-widest">sec</span>
-          <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border mt-1 ${
-            timerType === "bid"
-              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
-              : "bg-green-500/20 text-green-400 border-green-500/30"
-          }`}>
-            {timerType === "bid" ? "BID TIMER" : "START TIMER"}
-          </span>
-        </div>
-      </div>
-      {/* Progress bar — CSS transition only, no Framer Motion per-tick */}
-      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${barColor} transition-[width] duration-200 ease-linear`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-});
-
 export default function DisplayView() {
   const [, params] = useRoute("/tournament/:id/display");
   const tournamentId = parseInt(params?.id || "0");
@@ -1422,7 +1362,7 @@ export default function DisplayView() {
                     </div>
                   )}
 
-                  <AuctionCountdown timerEndsAt={state.timerEndsAt} timerType={state.timerType} />
+                  <ServerCountdown variant="display" timerEndsAt={state.timerEndsAt} timerType={state.timerType} />
 
                   <p className="text-sm text-muted-foreground">
                     Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(state.currentPlayer.basePrice)}</span>
