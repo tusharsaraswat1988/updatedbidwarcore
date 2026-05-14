@@ -24,6 +24,7 @@ const formSchema = z.object({
   bidIncrement: z.coerce.number().min(0).optional(),
   timerSeconds: z.coerce.number().min(5).max(120).optional(),
   minimumSquadSize: z.coerce.number().min(0).max(100).optional(),
+  maximumSquadSize: z.coerce.number().min(0).max(100).optional(),
 });
 
 export default function NewTournament() {
@@ -44,6 +45,7 @@ export default function NewTournament() {
       bidIncrement: 5000,
       timerSeconds: 15,
       minimumSquadSize: 0,
+      maximumSquadSize: 0,
     },
   });
 
@@ -228,6 +230,17 @@ export default function NewTournament() {
                         </FormItem>
                       )}
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div>
+                    <h3 className="text-lg font-medium">Squad Rules</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Control team size limits and reserve purse protection. Set 0 to disable.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="minimumSquadSize"
@@ -238,7 +251,23 @@ export default function NewTournament() {
                             <Input type="number" min={0} max={100} {...field} />
                           </FormControl>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Teams must fill this many slots. Budget is reserved for unfilled slots. Set 0 to disable.
+                            Reserve purse is held back for each unfilled slot. Teams cannot spend reserved funds.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maximumSquadSize"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maximum Squad Size</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={0} max={100} {...field} />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Hard cap — teams cannot bid once they reach this many players.
                           </p>
                           <FormMessage />
                         </FormItem>

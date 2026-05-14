@@ -507,9 +507,25 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     }
   }
 
-  const { spendablePurse, reservePurse, slotsRequired } = await computeTeamPurseProtection(tid, teamId, {
+  const { spendablePurse, reservePurse, slotsRequired, maximumSquadSize } = await computeTeamPurseProtection(tid, teamId, {
     team: { purse: team.purse, purseUsed: team.purseUsed },
   });
+
+  // Max squad check — count players already on this team
+  if (maximumSquadSize > 0) {
+    const allPlayers = await db
+      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid));
+    const playersBought = allPlayers.filter(
+      (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained")
+    ).length;
+    if (playersBought >= maximumSquadSize) {
+      res.status(400).json({ error: `Maximum squad size reached — this team already has ${playersBought} player${playersBought !== 1 ? "s" : ""} (limit: ${maximumSquadSize})` });
+      return;
+    }
+  }
+
   if (amount > spendablePurse) {
     const msg = reservePurse > 0
       ? `Insufficient spendable purse — ₹${reservePurse.toLocaleString("en-IN")} reserved for ${slotsRequired} minimum squad slot${slotsRequired !== 1 ? "s" : ""}`

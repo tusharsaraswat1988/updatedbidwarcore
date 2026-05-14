@@ -37,6 +37,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
   minimumSquadSize: t.minimumSquadSize ?? 0,
+  maximumSquadSize: t.maximumSquadSize ?? 0,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -58,6 +59,7 @@ const tournamentInputSchema = z.object({
   bidTimerSeconds: z.number().int().optional(),
   playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
   minimumSquadSize: z.number().int().min(0).optional(),
+  maximumSquadSize: z.number().int().min(0).optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -87,6 +89,7 @@ router.post("/tournaments", async (req, res) => {
       timerSeconds: d.timerSeconds ?? 30,
       bidTimerSeconds: d.bidTimerSeconds ?? 15,
       minimumSquadSize: d.minimumSquadSize ?? 0,
+      maximumSquadSize: d.maximumSquadSize ?? 0,
       status: "setup",
     })
     .returning();
@@ -130,6 +133,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationDeadline: z.string().nullable().optional(),
     registrationLimit: z.number().int().nullable().optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
+    maximumSquadSize: z.number().int().min(0).nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -161,6 +165,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
+  if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

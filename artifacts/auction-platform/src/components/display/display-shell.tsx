@@ -137,12 +137,18 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     teamId: t.teamId,
     teamName: t.teamName,
     shortCode: t.shortCode || t.teamName.slice(0, 4).toUpperCase(),
+    ownerName: t.ownerName,
     color: t.color,
     logoUrl: t.logoUrl,
     purse: t.purse,
     purseUsed: t.purseUsed,
     purseRemaining: t.purseRemaining,
     playersBought: t.playersBought,
+    reservePurse: t.reservePurse,
+    spendablePurse: t.spendablePurse,
+    slotsRequired: t.slotsRequired,
+    lowestBasePrice: t.lowestBasePrice,
+    maximumSquadSize: t.maximumSquadSize,
   })), [teamPurses]);
 
   // ── Render ───────────────────────────────────────────────────────────

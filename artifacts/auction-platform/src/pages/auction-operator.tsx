@@ -888,10 +888,13 @@ export default function AuctionOperator() {
                         const spendable = purseData?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
                         const reserved = purseData?.reservePurse ?? 0;
                         const slotsNeeded = purseData?.slotsRequired ?? 0;
+                        const qbPlayersBought = purseData?.playersBought ?? 0;
+                        const qbMaxSquad = purseData?.maximumSquadSize ?? 0;
+                        const qbMaxReached = qbMaxSquad > 0 && qbPlayersBought >= qbMaxSquad;
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid = (state?.currentBid || 0) + increment;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted;
+                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !qbMaxReached;
                         return (
                           <button
                             key={team.id}
@@ -914,6 +917,11 @@ export default function AuctionOperator() {
                             {isTrialRestricted && (
                               <div className="absolute inset-0 rounded-xl bg-background/60 flex items-center justify-center">
                                 <span className="text-[9px] font-bold text-amber-400/70 uppercase">Trial</span>
+                              </div>
+                            )}
+                            {qbMaxReached && !isTrialRestricted && (
+                              <div className="absolute top-1.5 right-2">
+                                <span className="text-[8px] font-bold text-red-400 uppercase">Full</span>
                               </div>
                             )}
                             <div className="flex items-center gap-2 mb-1">
@@ -973,6 +981,9 @@ export default function AuctionOperator() {
                     const spendable = purseData?.spendablePurse ?? purseLeft;
                     const reserved = purseData?.reservePurse ?? 0;
                     const slotsNeeded = purseData?.slotsRequired ?? 0;
+                    const cardPlayersBought = purseData?.playersBought ?? 0;
+                    const cardMaxSquad = purseData?.maximumSquadSize ?? 0;
+                    const cardMaxReached = cardMaxSquad > 0 && cardPlayersBought >= cardMaxSquad;
                     const isLeading = state?.currentBidTeamId === team.id;
                     const usedPct = Math.min(100, Math.round(((team.purseUsed || 0) / team.purse) * 100));
                     return (
@@ -1020,6 +1031,16 @@ export default function AuctionOperator() {
                             className="h-full rounded-full transition-all"
                             style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }}
                           />
+                        </div>
+                        {/* Squad indicator */}
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className={`text-[9px] font-medium ${
+                            cardMaxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : cardPlayersBought > 0 ? "text-green-400/70" : "text-muted-foreground"
+                          }`}>
+                            {cardPlayersBought}{cardMaxSquad > 0 ? `/${cardMaxSquad}` : ""}p
+                          </span>
+                          {slotsNeeded > 0 && <span className="text-[8px] text-amber-400/60">need {slotsNeeded}</span>}
+                          {cardMaxReached && <span className="text-[8px] text-red-400 font-bold">FULL</span>}
                         </div>
                       </div>
                     );

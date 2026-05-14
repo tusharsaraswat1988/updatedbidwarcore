@@ -68,6 +68,7 @@ export interface Tournament {
   /** @nullable */
   lastResetBy?: string | null;
   minimumSquadSize?: number;
+  maximumSquadSize?: number;
   createdAt: string;
 }
 
@@ -115,6 +116,7 @@ export interface TournamentInput {
   bidTimerSeconds?: number;
   playerSelectionMode?: TournamentInputPlayerSelectionMode;
   minimumSquadSize?: number;
+  maximumSquadSize?: number;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -153,6 +155,7 @@ export interface TournamentUpdate {
   /** @nullable */
   registrationLimit?: number | null;
   minimumSquadSize?: number;
+  maximumSquadSize?: number;
 }
 
 export interface Team {
@@ -577,6 +580,7 @@ export interface TeamPurse {
   spendablePurse: number;
   slotsRequired: number;
   lowestBasePrice: number;
+  maximumSquadSize: number;
 }
 
 export interface TopBidEntry {

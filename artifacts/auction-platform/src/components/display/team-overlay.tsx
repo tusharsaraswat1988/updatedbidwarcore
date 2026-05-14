@@ -45,8 +45,8 @@ export const TeamOverlay = memo(function TeamOverlay({ purses, currentBidTeamId,
             <div className="col-span-4 md:col-span-3">Team</div>
             <div className="col-span-3 md:col-span-2 hidden md:block">Owner</div>
             <div className="col-span-2 text-right">Total</div>
-            <div className="col-span-3 md:col-span-2 text-right">Remaining</div>
-            <div className="col-span-2 md:col-span-1 text-center">Bought</div>
+            <div className="col-span-3 md:col-span-2 text-right">Spendable</div>
+            <div className="col-span-2 md:col-span-1 text-center">Squad</div>
             <div className="col-span-1 md:col-span-2 text-right hidden md:block">Used</div>
           </div>
           {/* Rows */}
@@ -96,16 +96,39 @@ export const TeamOverlay = memo(function TeamOverlay({ purses, currentBidTeamId,
                   <div className="col-span-2 text-right">
                     <p className="text-sm md:text-lg font-display font-black tabular-nums text-white/70">{formatShortIndianRupee(team.purse)}</p>
                   </div>
-                  {/* Remaining */}
+                  {/* Spendable */}
                   <div className="col-span-3 md:col-span-2 text-right">
                     <p className="text-base md:text-2xl font-display font-black tabular-nums" style={{ color, textShadow: `0 0 20px ${color}77` }}>
-                      {formatShortIndianRupee(team.purseRemaining)}
+                      {formatShortIndianRupee(team.spendablePurse ?? team.purseRemaining)}
                     </p>
+                    {(team.reservePurse ?? 0) > 0 && (
+                      <p className="text-[9px] md:text-[10px] text-amber-400/70 font-bold leading-none mt-0.5">
+                        +{formatShortIndianRupee(team.reservePurse)} rsv
+                      </p>
+                    )}
                   </div>
-                  {/* Bought */}
-                  <div className="col-span-2 md:col-span-1 text-center">
-                    <p className="text-base md:text-2xl font-display font-black tabular-nums text-white">{team.playersBought}</p>
-                  </div>
+                  {/* Squad */}
+                  {(() => {
+                    const maxSquad = team.maximumSquadSize ?? 0;
+                    const slotsNeeded = team.slotsRequired ?? 0;
+                    const maxReached = maxSquad > 0 && team.playersBought >= maxSquad;
+                    return (
+                      <div className="col-span-2 md:col-span-1 text-center">
+                        <p className={`text-base md:text-xl font-display font-black tabular-nums leading-tight ${
+                          maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : "text-white"
+                        }`}>
+                          {team.playersBought}
+                          {maxSquad > 0 && <span className="text-[10px] md:text-xs opacity-60">/{maxSquad}</span>}
+                        </p>
+                        {slotsNeeded > 0 && (
+                          <p className="text-[8px] md:text-[9px] text-amber-400/80 leading-none mt-0.5">need {slotsNeeded}</p>
+                        )}
+                        {maxReached && (
+                          <p className="text-[8px] md:text-[9px] text-red-400 font-bold leading-none mt-0.5">FULL</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* Used % bar */}
                   <div className="col-span-1 md:col-span-2 hidden md:block">
                     <div className="flex items-center gap-2">

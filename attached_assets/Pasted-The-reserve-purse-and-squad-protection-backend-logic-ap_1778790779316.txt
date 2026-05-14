@@ -1,0 +1,161 @@
+The reserve purse and squad protection backend logic appears implemented, but the frontend visibility and operator clarity are still incomplete.
+
+Current issue:
+operators and owners cannot clearly understand:
+- why reserve purse exists
+- how many mandatory slots remain
+- what their actual spendable purse is
+- why bidding becomes restricted
+
+This feature must become highly visible and understandable across the entire UI.
+
+---------------------------------------------------
+REQUIRED FRONTEND IMPROVEMENTS
+---------------------------------------------------
+
+Add a clearly visible "Squad Rules" section in tournament settings.
+
+Fields:
+- Minimum Squad Size
+- Maximum Squad Size
+- Reserve Purse Protection
+- Dynamic Lowest Base Price Logic
+
+This should appear in:
+- tournament creation
+- tournament edit
+- command hub settings
+
+---------------------------------------------------
+TEAM CARD IMPROVEMENTS
+---------------------------------------------------
+
+Every team card should now visibly show:
+
+- Total Purse
+- Remaining Purse
+- Reserved Purse
+- Spendable Purse
+- Current Squad Count
+- Minimum Required Squad
+- Maximum Allowed Squad
+- Mandatory Slots Remaining
+
+Example:
+
+Purse: ₹82.5L
+Reserved: ₹2.2L
+Spendable: ₹80.3L
+
+Squad: 4 / 12 Min
+Max: 18
+Need 8 more players
+
+---------------------------------------------------
+VISUAL STATUS STATES
+---------------------------------------------------
+
+Add color-based states:
+
+GREEN:
+minimum squad completed
+
+AMBER:
+mandatory players still needed
+
+RED:
+maximum squad reached or bidding blocked
+
+---------------------------------------------------
+SQUAD PROGRESS BARS
+---------------------------------------------------
+
+Add compact visual squad progress indicators.
+
+Examples:
+Minimum Progress:
+6 / 12
+
+Maximum Progress:
+14 / 18
+
+Should be visible in:
+- operator panel
+- owner panel
+- team list
+- LED overlay
+
+---------------------------------------------------
+OWNER PANEL IMPROVEMENTS
+---------------------------------------------------
+
+Add a dedicated "Squad Status" section showing:
+
+- Current Players
+- Mandatory Players Remaining
+- Reserved Purse
+- Spendable Purse
+- Max Squad Limit
+
+This must be easy to understand for franchise owners during live auction.
+
+---------------------------------------------------
+LIVE LED DISPLAY IMPROVEMENTS
+---------------------------------------------------
+
+On live display / LED overlay:
+show compact squad completeness information.
+
+Example:
+
+Mumbai Hawks
+₹82.5L left
+₹2.2L reserved
+
+Squad:
+4 / 12
+
+Keep this visually clean and broadcast-friendly.
+
+---------------------------------------------------
+BID BLOCK EXPLANATIONS
+---------------------------------------------------
+
+If bidding becomes blocked:
+show clear reasons.
+
+Examples:
+- "Reserve purse protection active"
+- "Maximum squad size reached"
+- "Insufficient spendable purse"
+
+Do NOT silently disable actions.
+
+---------------------------------------------------
+DYNAMIC LOWEST BASE VISIBILITY
+---------------------------------------------------
+
+Somewhere in the UI show:
+
+Reserve calculated using:
+Lowest available base price = ₹20,000
+
+This helps operators understand dynamic reserve changes.
+
+---------------------------------------------------
+IMPORTANT
+---------------------------------------------------
+
+This feature should not feel like hidden backend validation.
+
+It should feel:
+- transparent
+- intelligent
+- operator-friendly
+- franchise-friendly
+- professional
+
+The auction team should always understand:
+- how many players they still require
+- how much purse is actually spendable
+- why certain bids are restricted

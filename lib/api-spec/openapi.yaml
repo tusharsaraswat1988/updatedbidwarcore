@@ -1222,6 +1222,8 @@ components:
           type: ["string", "null"]
         minimumSquadSize:
           type: integer
+        maximumSquadSize:
+          type: integer
         createdAt:
           type: string
 
@@ -1272,6 +1274,8 @@ components:
           type: string
           enum: [sequential, random, manual]
         minimumSquadSize:
+          type: integer
+        maximumSquadSize:
           type: integer
 
     TournamentUpdate:
@@ -1325,6 +1329,8 @@ components:
         registrationLimit:
           type: ["integer", "null"]
         minimumSquadSize:
+          type: integer
+        maximumSquadSize:
           type: integer
 
     # Team schemas
@@ -1830,7 +1836,7 @@ components:
 
     TeamPurse:
       type: object
-      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice]
+      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, maximumSquadSize]
       properties:
         teamId:
           type: integer
@@ -1859,6 +1865,8 @@ components:
         slotsRequired:
           type: integer
         lowestBasePrice:
+          type: integer
+        maximumSquadSize:
           type: integer
 
     TopBidEntry:

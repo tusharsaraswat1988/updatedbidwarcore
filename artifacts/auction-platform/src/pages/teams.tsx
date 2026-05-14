@@ -6,8 +6,10 @@ import {
   useUpdateTeam,
   useDeleteTeam,
   useGetTournament,
+  useGetTeamPurses,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
+  getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -17,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
@@ -300,6 +302,9 @@ export default function Teams() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
+    query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
+  });
   const deleteTeam = useDeleteTeam();
   const updateTeam = useUpdateTeam();
   const [open, setOpen] = useState(false);
@@ -405,6 +410,68 @@ export default function Teams() {
                         {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
                       </Badge>
                     </div>
+
+                    {/* Squad Progress */}
+                    {(() => {
+                      const tp = teamPurses?.find(p => p.teamId === team.id);
+                      const bought = tp?.playersBought ?? 0;
+                      const slotsNeeded = tp?.slotsRequired ?? 0;
+                      const maxSquad = tp?.maximumSquadSize ?? 0;
+                      const minSquad = tournament?.minimumSquadSize ?? 0;
+                      const maxReached = maxSquad > 0 && bought >= maxSquad;
+                      const minMet = minSquad === 0 || slotsNeeded === 0;
+                      const hasRules = minSquad > 0 || maxSquad > 0;
+                      if (!hasRules && bought === 0) return null;
+                      return (
+                        <div className="space-y-1.5 pt-2 border-t border-border">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className={`text-xs font-semibold ${
+                                maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"
+                              }`}>
+                                {bought} player{bought !== 1 ? "s" : ""}
+                                {maxSquad > 0 ? ` / ${maxSquad} max` : ""}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {slotsNeeded > 0 && (
+                                <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                                  <ShieldAlert className="w-3 h-3" /> {slotsNeeded} more needed
+                                </span>
+                              )}
+                              {maxReached && (
+                                <span className="text-[10px] text-red-400 font-medium">Squad full</span>
+                              )}
+                              {!maxReached && minMet && minSquad > 0 && (
+                                <span className="text-[10px] text-green-400 font-medium">Min met</span>
+                              )}
+                            </div>
+                          </div>
+                          {maxSquad > 0 && (
+                            <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${maxReached ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400"}`}
+                                style={{ width: `${Math.min(100, maxSquad > 0 ? (bought / maxSquad) * 100 : 0)}%` }}
+                              />
+                            </div>
+                          )}
+                          {tp && tp.reservePurse > 0 && (
+                            <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                              <ShieldAlert className="w-2.5 h-2.5" />
+                              {formatShortIndianRupee(tp.reservePurse)} reserved
+                              {tp.lowestBasePrice > 0 && ` · base price ₹${tp.lowestBasePrice.toLocaleString("en-IN")}/slot`}
+                            </p>
+                          )}
+                          {tp && tp.spendablePurse != null && tp.reservePurse > 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              Spendable: <span className="text-foreground font-semibold">{formatShortIndianRupee(tp.spendablePurse)}</span>
+                              {" "}<span className="text-muted-foreground/60">of {formatShortIndianRupee(team.purse - (team.purseUsed || 0))} remaining</span>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Access Code */}
                     {team.accessCode && (

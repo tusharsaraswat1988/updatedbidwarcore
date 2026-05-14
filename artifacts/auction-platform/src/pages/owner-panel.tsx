@@ -192,9 +192,12 @@ export default function OwnerPanel() {
   const reservePurse = teamPurse?.reservePurse ?? 0;
   const spendablePurse = teamPurse?.spendablePurse ?? purseRemaining;
   const slotsRequired = teamPurse?.slotsRequired ?? 0;
+  const playersBought = teamPurse?.playersBought ?? 0;
+  const maxSquad = teamPurse?.maximumSquadSize ?? 0;
+  const maxSquadReached = maxSquad > 0 && playersBought >= maxSquad;
   const increment = state?.bidIncrement ?? 50000;
   const nextBidAmount = (state?.currentBid || 0) + increment;
-  const canBid = isActive && hasPlayer && timerActive && !isLeading && spendablePurse >= nextBidAmount && (team?.isBiddingEnabled ?? true);
+  const canBid = isActive && hasPlayer && timerActive && !isLeading && spendablePurse >= nextBidAmount && (team?.isBiddingEnabled ?? true) && !maxSquadReached;
 
   async function handleBid() {
     if (!canBid || isBidding) return;
@@ -325,18 +328,52 @@ export default function OwnerPanel() {
           </div>
         </div>
 
-        {/* Reserve purse banner */}
-        {reservePurse > 0 && (
-          <div className="mx-6 mt-3 flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/25 bg-amber-500/8">
-            <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-bold text-amber-400">
-                {formatShortIndianRupee(reservePurse)} reserved — {slotsRequired} squad slot{slotsRequired !== 1 ? "s" : ""} still needed
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                This amount is protected to ensure your minimum squad is filled.
-              </p>
-            </div>
+        {/* Squad status banners */}
+        {(reservePurse > 0 || maxSquadReached || maxSquad > 0) && (
+          <div className="mx-6 mt-3 space-y-2">
+            {reservePurse > 0 && (
+              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-amber-500/25 bg-amber-500/8">
+                <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-400">
+                    {formatShortIndianRupee(reservePurse)} reserved — {slotsRequired} squad slot{slotsRequired !== 1 ? "s" : ""} still needed
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Protected to fill your minimum squad.
+                    {(teamPurse?.lowestBasePrice ?? 0) > 0 && ` Based on ₹${(teamPurse!.lowestBasePrice!).toLocaleString("en-IN")} lowest base price.`}
+                  </p>
+                </div>
+              </div>
+            )}
+            {maxSquadReached && (
+              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-red-500/25 bg-red-500/8">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-400">Maximum squad size reached — bidding blocked</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Your squad has {playersBought} player{playersBought !== 1 ? "s" : ""} — the maximum allowed is {maxSquad}.
+                  </p>
+                </div>
+              </div>
+            )}
+            {maxSquad > 0 && !maxSquadReached && (
+              <div className="px-4 py-2.5 rounded-xl border border-border bg-card/30 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Users className="w-3 h-3" /> Squad capacity
+                  </span>
+                  <span className={`font-bold tabular-nums ${playersBought >= maxSquad * 0.8 ? "text-amber-400" : "text-foreground"}`}>
+                    {playersBought} / {maxSquad}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${playersBought >= maxSquad * 0.8 ? "bg-amber-400" : "bg-primary"}`}
+                    style={{ width: `${Math.min(100, maxSquad > 0 ? (playersBought / maxSquad) * 100 : 0)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -485,6 +522,7 @@ export default function OwnerPanel() {
             {!canBid && !isLeading && !timerExpired && hasPlayer && (
               <p className="text-center text-xs text-muted-foreground">
                 {!isActive ? "Auction not active"
+                  : maxSquadReached ? "Maximum squad size reached"
                   : !team.isBiddingEnabled ? "Bidding disabled for your team"
                   : reservePurse > 0 && spendablePurse < nextBidAmount
                   ? `${formatShortIndianRupee(reservePurse)} reserved for ${slotsRequired} squad slot${slotsRequired !== 1 ? "s" : ""}`

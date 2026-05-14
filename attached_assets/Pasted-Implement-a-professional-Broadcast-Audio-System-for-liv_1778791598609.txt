@@ -1,0 +1,155 @@
+Implement a professional Broadcast Audio System for live auctions.
+
+This system must be designed for:
+- low latency
+- premium live auction atmosphere
+- future broadcast expansion
+
+IMPORTANT:
+Audio playback must happen from the LIVE LED DISPLAY client only.
+
+Do NOT depend on backend-triggered streaming audio playback.
+
+---------------------------------------------------
+REQUIRED AUDIO TYPES
+---------------------------------------------------
+
+1. Countdown Sound
+2. Sold Sound
+
+---------------------------------------------------
+COUNTDOWN SOUND
+---------------------------------------------------
+
+Purpose:
+Create tension during the last 5 seconds of bidding.
+
+Behavior:
+- only trigger during last 5 seconds
+- subtle and professional
+- synchronized with visible timer
+- no loud arcade/game sounds
+
+Recommended style:
+- digital tick
+- auction pulse
+- sports countdown tone
+
+---------------------------------------------------
+SOLD SOUND
+---------------------------------------------------
+
+Purpose:
+Celebrate successful player sale.
+
+Behavior:
+- trigger only after confirmed SOLD state
+- sync with sold animation/stamp
+- premium sports-auction feel
+
+Future-ready:
+support longer sold stingers/music clips.
+
+---------------------------------------------------
+TOURNAMENT SETTINGS INTEGRATION
+---------------------------------------------------
+
+Inside:
+Tournament Settings
+→ Broadcast
+→ Audio
+
+Add separate configurable sections:
+
+1. Countdown Sound
+2. Sold Sound
+
+Each section should support:
+- enable/disable
+- audio file selection
+- volume
+- preview playback
+
+---------------------------------------------------
+IMPORTANT
+---------------------------------------------------
+
+Default audio files may exist initially,
+but the admin must be able to replace them later.
+
+Do NOT hardcode permanent audio assets.
+
+---------------------------------------------------
+PRELOAD REQUIREMENT
+---------------------------------------------------
+
+IMPORTANT:
+
+Audio files must preload locally on the LIVE LED DISPLAY client when the broadcast screen loads.
+
+Do NOT fetch audio repeatedly from backend during live bidding.
+
+Reason:
+- prevent latency
+- prevent playback lag
+- avoid network delays
+- ensure instant playback
+
+---------------------------------------------------
+AUDIO MANAGER REQUIREMENTS
+---------------------------------------------------
+
+Implement proper audio state management.
+
+Requirements:
+- prevent overlapping sounds
+- stop countdown when sold sound triggers
+- avoid duplicate playback
+- handle rapid auction transitions cleanly
+
+---------------------------------------------------
+LIVE DISPLAY RESPONSIBILITY
+---------------------------------------------------
+
+ONLY the broadcast/LED display should play sounds.
+
+Operator panel and owner panel must NOT auto-play auction sounds.
+
+This prevents:
+- audio echo
+- multiple device playback
+- synchronization issues
+
+---------------------------------------------------
+FUTURE EXPANSION SUPPORT
+---------------------------------------------------
+
+Architecture should support future additions:
+- IPL-style sold music
+- sponsor stingers
+- category-specific sounds
+- franchise themes
+- retained player music
+- championship moments
+
+---------------------------------------------------
+BROADCAST CONTROL
+---------------------------------------------------
+
+Add:
+- Broadcast Audio Enable/Disable
+- Master Volume
+- Emergency Mute
+
+---------------------------------------------------
+ENGINEERING REQUIREMENTS
+---------------------------------------------------
+
+- preserve live auction performance
+- no blocking audio operations
+- preload assets efficiently
+- low-latency playback
+- lightweight implementation
+- smooth mobile/browser compatibility
+
+This should feel like a premium live sports auction broadcast system.

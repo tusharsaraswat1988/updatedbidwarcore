@@ -46,6 +46,7 @@ export const ListTournamentsResponseItem = zod.object({
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
+  maximumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -83,6 +84,7 @@ export const CreateTournamentBody = zod.object({
   bidTimerSeconds: zod.number().optional(),
   playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
   minimumSquadSize: zod.number().optional(),
+  maximumSquadSize: zod.number().optional(),
 });
 
 /**
@@ -121,6 +123,7 @@ export const GetTournamentResponse = zod.object({
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
+  maximumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -156,6 +159,7 @@ export const UpdateTournamentBody = zod.object({
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
   minimumSquadSize: zod.number().optional(),
+  maximumSquadSize: zod.number().optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -187,6 +191,7 @@ export const UpdateTournamentResponse = zod.object({
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
+  maximumSquadSize: zod.number().optional(),
   createdAt: zod.string(),
 });
 
@@ -238,6 +243,7 @@ export const ExportTournamentForLocalResponse = zod.object({
     lastResetAt: zod.string().nullish(),
     lastResetBy: zod.string().nullish(),
     minimumSquadSize: zod.number().optional(),
+    maximumSquadSize: zod.number().optional(),
     createdAt: zod.string(),
   }),
   teams: zod.array(
@@ -2768,6 +2774,7 @@ export const GetTeamPursesResponseItem = zod.object({
   spendablePurse: zod.number(),
   slotsRequired: zod.number(),
   lowestBasePrice: zod.number(),
+  maximumSquadSize: zod.number(),
 });
 export const GetTeamPursesResponse = zod.array(GetTeamPursesResponseItem);
 

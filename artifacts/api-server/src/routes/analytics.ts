@@ -105,6 +105,7 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       spendablePurse: p?.spendablePurse ?? (team.purse - team.purseUsed),
       slotsRequired: p?.slotsRequired ?? 0,
       lowestBasePrice: p?.lowestBasePrice ?? 0,
+      maximumSquadSize: p?.maximumSquadSize ?? 0,
     };
   });
 

@@ -134,6 +134,8 @@ export default function TournamentHub() {
       playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
       registrationDeadline: (tournament as any).registrationDeadline || "",
       registrationLimit: (tournament as any).registrationLimit != null ? String((tournament as any).registrationLimit) : "",
+      minimumSquadSize: String((tournament as any).minimumSquadSize ?? 0),
+      maximumSquadSize: String((tournament as any).maximumSquadSize ?? 0),
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
@@ -191,6 +193,8 @@ export default function TournamentHub() {
         timerSeconds: origForm.timerSeconds,
         bidTimerSeconds: origForm.bidTimerSeconds,
         playerSelectionMode: origForm.playerSelectionMode,
+        minimumSquadSize: origForm.minimumSquadSize,
+        maximumSquadSize: origForm.maximumSquadSize,
       }));
       setBidTiers(origBidTiers);
     } else if (activeSection === "broadcast") {
@@ -235,6 +239,8 @@ export default function TournamentHub() {
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
         playerSelectionMode: editForm.playerSelectionMode as string || undefined,
+        minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
+        maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
         registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
         registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
           ? Number(editForm.registrationLimit) || null
@@ -702,6 +708,44 @@ export default function TournamentHub() {
                     <p className="text-xs text-muted-foreground">
                       Controls what "Next Player" does in the operator panel. Manual hides the Next button — operator must select from the queue list.
                     </p>
+                  </div>
+                  <div className="space-y-3 border-t border-border pt-4">
+                    <div>
+                      <Label className="text-sm font-semibold flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400/70" /> Squad Rules
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Reserve purse protection and player count limits. Set 0 to disable each rule.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Minimum Squad Size</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editForm.minimumSquadSize as string ?? "0"}
+                          onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Reserve purse is held for unfilled slots. Calculated using the lowest available base price at auction time.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Maximum Squad Size</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={editForm.maximumSquadSize as string ?? "0"}
+                          onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Hard cap — teams cannot bid once they reach this many players.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

@@ -8,6 +8,7 @@ export interface PurseProtection {
   spendablePurse: number;
   slotsRequired: number;
   lowestBasePrice: number;
+  maximumSquadSize: number;
 }
 
 /**
@@ -25,17 +26,25 @@ export async function computeTeamPurseProtection(
   opts?: {
     allPlayers?: Array<{ id: number; status: string; teamId: number | null; basePrice: number }>;
     minimumSquadSize?: number;
+    maximumSquadSize?: number;
     team?: { purse: number; purseUsed: number };
   }
 ): Promise<PurseProtection> {
-  const minSquadSize =
-    opts?.minimumSquadSize !== undefined
-      ? opts.minimumSquadSize
-      : await db
-          .select({ minimumSquadSize: tournamentsTable.minimumSquadSize })
-          .from(tournamentsTable)
-          .where(eq(tournamentsTable.id, tournamentId))
-          .then(([t]) => t?.minimumSquadSize ?? 0);
+  const tournamentRow = (opts?.minimumSquadSize === undefined || opts?.maximumSquadSize === undefined)
+    ? await db
+        .select({ minimumSquadSize: tournamentsTable.minimumSquadSize, maximumSquadSize: tournamentsTable.maximumSquadSize })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, tournamentId))
+        .then(([t]) => t)
+    : null;
+
+  const minSquadSize = opts?.minimumSquadSize !== undefined
+    ? opts.minimumSquadSize
+    : (tournamentRow?.minimumSquadSize ?? 0);
+
+  const maxSquadSize = opts?.maximumSquadSize !== undefined
+    ? opts.maximumSquadSize
+    : (tournamentRow?.maximumSquadSize ?? 0);
 
   const teamRow =
     opts?.team ??
@@ -46,13 +55,13 @@ export async function computeTeamPurseProtection(
       .then(([t]) => t));
 
   if (!teamRow) {
-    return { purseRemaining: 0, reservePurse: 0, spendablePurse: 0, slotsRequired: 0, lowestBasePrice: 0 };
+    return { purseRemaining: 0, reservePurse: 0, spendablePurse: 0, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
   }
 
   const purseRemaining = teamRow.purse - teamRow.purseUsed;
 
   if (minSquadSize === 0) {
-    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0 };
+    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
   }
 
   const allPlayers =
@@ -69,7 +78,7 @@ export async function computeTeamPurseProtection(
   const slotsRequired = Math.max(0, minSquadSize - playerCount);
 
   if (slotsRequired === 0) {
-    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0 };
+    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
   }
 
   const availablePrices = allPlayers
@@ -80,7 +89,7 @@ export async function computeTeamPurseProtection(
   const reservePurse = slotsRequired * lowestBasePrice;
   const spendablePurse = Math.max(0, purseRemaining - reservePurse);
 
-  return { purseRemaining, reservePurse, spendablePurse, slotsRequired, lowestBasePrice };
+  return { purseRemaining, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, maximumSquadSize: maxSquadSize };
 }
 
 /**
@@ -93,11 +102,12 @@ export async function computeAllTeamPurseProtections(
   teams: Array<{ id: number; purse: number; purseUsed: number }>
 ): Promise<Map<number, PurseProtection>> {
   const [tournamentRow] = await db
-    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize })
+    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize, maximumSquadSize: tournamentsTable.maximumSquadSize })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
 
   const minimumSquadSize = tournamentRow?.minimumSquadSize ?? 0;
+  const maximumSquadSize = tournamentRow?.maximumSquadSize ?? 0;
 
   const allPlayers = await db
     .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice })
@@ -109,6 +119,7 @@ export async function computeAllTeamPurseProtections(
     const protection = await computeTeamPurseProtection(tournamentId, team.id, {
       allPlayers,
       minimumSquadSize,
+      maximumSquadSize,
       team,
     });
     result.set(team.id, protection);
