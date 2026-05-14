@@ -63,6 +63,8 @@ export default function AuctionOperator() {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  // Per-team bid debounce: maps teamId → timestamp of last bid click
+  const bidDebounce = useRef<Map<number, number>>(new Map());
 
   useAuctionSocket(tournamentId);
 
@@ -110,12 +112,40 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  async function handleBid(teamId: number) {
+  function handleBid(teamId: number) {
+    // Per-team 150 ms debounce — prevent double-clicks on the same button only
+    const now = Date.now();
+    if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
+    bidDebounce.current.set(teamId, now);
+
     const increment = state?.bidIncrement ?? 50000;
     const nextBid = (state?.currentBid || 0) + increment;
-    const result = await placeBid.mutateAsync({ tournamentId, data: { teamId, amount: nextBid } });
-    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    invalidate();
+    const bidTeam = teamMap[teamId];
+
+    // Optimistic update — show new bid amount and leading team immediately
+    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        currentBid: nextBid,
+        currentBidTeamId: teamId,
+        currentBidTeamName: bidTeam?.name ?? old.currentBidTeamName,
+        currentBidTeamColor: bidTeam?.color ?? old.currentBidTeamColor,
+      };
+    });
+
+    // Fire mutation in the background — UI is already updated, don't await
+    placeBid
+      .mutateAsync({ tournamentId, data: { teamId, amount: nextBid } })
+      .then(result => {
+        // Authoritative result from server replaces the optimistic state
+        qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+        invalidate();
+      })
+      .catch(() => {
+        // On error revert by re-fetching authoritative state
+        invalidate();
+      });
   }
 
   async function handleSell() {
@@ -828,7 +858,7 @@ export default function AuctionOperator() {
                         return (
                           <button
                             key={team.id}
-                            disabled={!canBid || placeBid.isPending}
+                            disabled={!canBid}
                             onClick={() => handleBid(team.id)}
                             className={`relative p-3 rounded-xl border-2 text-left transition-all ${
                               isLeading ? "scale-[1.01]" : "border-border"
