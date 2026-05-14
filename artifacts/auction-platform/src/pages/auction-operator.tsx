@@ -17,6 +17,7 @@ import {
   useReAuctionPlayer,
   useReAuctionAllUnsold,
   useStartTimer,
+  useStopTimer,
   useSetDisplayOverlay,
   useSetDisplayPlayerFilter,
   useSetCategoryFilter,
@@ -95,6 +96,7 @@ export default function AuctionOperator() {
   const reAuction = useReAuctionPlayer();
   const reAuctionAllUnsoldMut = useReAuctionAllUnsold();
   const startTimerMut = useStartTimer();
+  const stopTimerMut = useStopTimer();
   const setDisplayOverlay = useSetDisplayOverlay();
   const setDisplayPlayerFilterMut = useSetDisplayPlayerFilter();
   const setCategoryFilter = useSetCategoryFilter();
@@ -190,6 +192,12 @@ export default function AuctionOperator() {
   async function handleExtendTimer() {
     const secs = (parseInt(timerSecs) || 30) + 30;
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
+    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+    invalidate();
+  }
+
+  async function handleStopTimer() {
+    const result = await stopTimerMut.mutateAsync({ tournamentId });
     qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     invalidate();
   }
@@ -634,19 +642,6 @@ export default function AuctionOperator() {
                   min={5} max={300}
                 />
                 <span className="text-[10px] text-muted-foreground flex-shrink-0">sec</span>
-                <Button
-                  size="sm"
-                  disabled={!hasPlayer || startTimerMut.isPending}
-                  onClick={handleStartTimer}
-                  className={`h-7 px-3 text-xs gap-1 font-bold ${
-                    hasPlayer && !timerActive
-                      ? "bg-primary text-black hover:bg-primary/90 shadow-[0_0_12px_rgba(234,179,8,0.4)]"
-                      : "bg-transparent border border-primary/40 text-primary hover:bg-primary/10"
-                  }`}
-                >
-                  <Timer className="w-3 h-3" />
-                  {timerActive ? "Restart" : "START BIDDING"}
-                </Button>
                 {timerActive && (
                   <Button
                     size="sm"
@@ -784,40 +779,45 @@ export default function AuctionOperator() {
                   ) : null}
                 </div>
 
-                {/* ── SOLD / UNSOLD / Bring Later / Manual ── */}
+                {/* ── SOLD / UNSOLD / DEFER / MANUAL ──
+                    Locked while the bid timer is running — operator must stop
+                    bidding (or wait for timer to expire) before concluding. */}
                 <div className="grid grid-cols-4 gap-2">
                   <button
-                    disabled={!hasBid || sellPlayer.isPending}
+                    disabled={!hasBid || timerActive || sellPlayer.isPending}
                     onClick={handleSell}
+                    title={timerActive ? "Stop bidding first" : undefined}
                     className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-green-600/15 border-green-600/60 text-green-400 hover:bg-green-600/25 enabled:hover:scale-[1.02] enabled:shadow-[0_0_16px_rgba(34,197,94,0.3)]"
                   >
                     <CheckCircle className="w-5 h-5" />
                     SOLD
                   </button>
                   <button
-                    disabled={!hasPlayer || markUnsold.isPending}
+                    disabled={!hasPlayer || timerActive || markUnsold.isPending}
                     onClick={handleUnsold}
+                    title={timerActive ? "Stop bidding first" : undefined}
                     className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-red-600/10 border-red-600/50 text-red-400 hover:bg-red-600/20 enabled:hover:scale-[1.02]"
                   >
                     <XCircle className="w-5 h-5" />
                     UNSOLD
                   </button>
                   <button
-                    disabled={!hasPlayer || deferPlayerMut.isPending}
+                    disabled={!hasPlayer || timerActive || deferPlayerMut.isPending}
                     onClick={handleDeferPlayer}
+                    title={timerActive ? "Stop bidding first" : "Defer to back of queue"}
                     className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/15 enabled:hover:scale-[1.02]"
-                    title="Defer to back of queue"
                   >
                     <Hourglass className="w-5 h-5" />
                     DEFER
                   </button>
                   <button
-                    disabled={!hasPlayer}
+                    disabled={!hasPlayer || timerActive}
                     onClick={() => {
                       setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0));
                       setManualTeamId("");
                       setManualSellOpen(true);
                     }}
+                    title={timerActive ? "Stop bidding first" : undefined}
                     className="col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed bg-blue-500/10 border-blue-500/40 text-blue-400 hover:bg-blue-500/15 enabled:hover:scale-[1.02]"
                   >
                     <Settings2 className="w-5 h-5" />
@@ -825,22 +825,47 @@ export default function AuctionOperator() {
                   </button>
                 </div>
 
-                {/* ── NEXT PLAYER — primary CTA ── */}
-                <button
-                  disabled={!isActive || nextPlayer.isPending}
-                  onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
-                  className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-display font-black text-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-primary/90 to-primary text-black hover:from-primary hover:to-primary/90 enabled:shadow-[0_0_30px_rgba(234,179,8,0.45)] enabled:hover:scale-[1.01] enabled:hover:shadow-[0_0_40px_rgba(234,179,8,0.55)]"
-                >
-                  {selectionMode === "random" ? <Shuffle className="w-6 h-6" /> : <SkipForward className="w-6 h-6" />}
-                  NEXT PLAYER
-                  {nextPlayer.isPending ? (
-                    <span className="text-sm font-normal opacity-60">Loading...</span>
-                  ) : selectionMode === "random" ? (
-                    <span className="text-sm font-normal opacity-60">(Random)</span>
+                {/* ── NEXT PLAYER (3/5) + START/STOP BIDDING (2/5) ──
+                    NEXT PLAYER is the primary CTA (larger); START/STOP toggles
+                    the bid timer. Concluding actions above are locked while the
+                    timer is active to prevent accidental skips. */}
+                <div className="grid grid-cols-5 gap-2">
+                  <button
+                    disabled={!isActive || timerActive || nextPlayer.isPending}
+                    onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
+                    title={timerActive ? "Stop bidding first" : undefined}
+                    className="col-span-3 flex items-center justify-center gap-3 py-4 rounded-xl font-display font-black text-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-primary/90 to-primary text-black hover:from-primary hover:to-primary/90 enabled:shadow-[0_0_30px_rgba(234,179,8,0.45)] enabled:hover:scale-[1.01] enabled:hover:shadow-[0_0_40px_rgba(234,179,8,0.55)]"
+                  >
+                    {selectionMode === "random" ? <Shuffle className="w-6 h-6" /> : <SkipForward className="w-6 h-6" />}
+                    NEXT PLAYER
+                    {nextPlayer.isPending ? (
+                      <span className="text-sm font-normal opacity-60">Loading...</span>
+                    ) : selectionMode === "random" ? (
+                      <span className="text-sm font-normal opacity-60">(Random)</span>
+                    ) : (
+                      <span className="text-sm font-normal opacity-60 font-mono">N</span>
+                    )}
+                  </button>
+                  {timerActive ? (
+                    <button
+                      onClick={handleStopTimer}
+                      disabled={stopTimerMut.isPending}
+                      className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-display font-black text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-500 enabled:shadow-[0_0_24px_rgba(220,38,38,0.5)] enabled:hover:scale-[1.01]"
+                    >
+                      <Pause className="w-5 h-5" />
+                      STOP BIDDING
+                    </button>
                   ) : (
-                    <span className="text-sm font-normal opacity-60 font-mono">N</span>
+                    <button
+                      onClick={handleStartTimer}
+                      disabled={!hasPlayer || startTimerMut.isPending}
+                      className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-display font-black text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-500 hover:to-emerald-400 enabled:shadow-[0_0_24px_rgba(16,185,129,0.5)] enabled:hover:scale-[1.01]"
+                    >
+                      <Timer className="w-5 h-5" />
+                      START BIDDING
+                    </button>
                   )}
-                </button>
+                </div>
 
                 {/* ── Quick Bid Team Grid ── */}
                 {teams && teams.length > 0 && (

@@ -1115,6 +1115,19 @@ router.post("/tournaments/:tournamentId/auction/category-filter", async (req, re
   res.json(await broadcastState(tid));
 });
 
+// POST stop timer — immediately ends the current bid window
+// (re-enables conclude actions: SOLD / UNSOLD / DEFER / NEXT PLAYER)
+router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await getOrCreateSession(tid);
+  await db
+    .update(auctionSessionsTable)
+    .set({ timerEndsAt: null, timerType: null, pausedTimeRemaining: null })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  res.json(await broadcastState(tid));
+});
+
 // POST start timer
 router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);

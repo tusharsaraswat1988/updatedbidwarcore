@@ -1008,6 +1008,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/stop-timer:
+    post:
+      operationId: stopTimer
+      tags: [auction]
+      summary: Stop the bid countdown timer immediately (re-enables conclude actions)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timer stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/defer-player:
     post:
       operationId: deferPlayer

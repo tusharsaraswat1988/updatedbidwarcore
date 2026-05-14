@@ -3820,6 +3820,90 @@ export const useStartTimer = <
 };
 
 /**
+ * @summary Stop the bid countdown timer immediately (re-enables conclude actions)
+ */
+export const getStopTimerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/stop-timer`;
+};
+
+export const stopTimer = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getStopTimerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStopTimerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopTimer>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof stopTimer>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  const mutationKey = ["stopTimer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof stopTimer>>,
+    { tournamentId: number }
+  > = (props) => {
+    const { tournamentId } = props ?? {};
+
+    return stopTimer(tournamentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StopTimerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof stopTimer>>
+>;
+
+export type StopTimerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Stop the bid countdown timer immediately (re-enables conclude actions)
+ */
+export const useStopTimer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof stopTimer>>,
+    TError,
+    { tournamentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof stopTimer>>,
+  TError,
+  { tournamentId: number },
+  TContext
+> => {
+  return useMutation(getStopTimerMutationOptions(options));
+};
+
+/**
  * @summary Defer the current player to the back of the queue and auto-advance to next
  */
 export const getDeferPlayerUrl = (tournamentId: number) => {
