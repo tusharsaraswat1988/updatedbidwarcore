@@ -1185,15 +1185,15 @@ type TabId = (typeof TABS)[number]["id"];
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminIntelligencePage() {
-  const { isAdmin, loading: authLoading } = useAdminAuth();
+  const { isLoggedIn, isLoading: authLoading } = useAdminAuth();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<TabId>("overview");
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) navigate("/admin");
-  }, [authLoading, isAdmin, navigate]);
+    if (!authLoading && !isLoggedIn) navigate("/admin");
+  }, [authLoading, isLoggedIn, navigate]);
 
   useEffect(() => {
     apiFetch<TournamentRow[]>("/intelligence/tournaments")
