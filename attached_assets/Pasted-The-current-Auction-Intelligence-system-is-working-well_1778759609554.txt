@@ -1,0 +1,276 @@
+The current Auction Intelligence system is working well.
+
+Now evolve it from a basic analytics page into a professional sports auction intelligence platform.
+
+IMPORTANT:
+This is NOT a generic admin analytics dashboard.
+
+The experience should feel like:
+- sports telemetry
+- tactical auction intelligence
+- behavioral analysis
+- live competition insights
+
+Maintain the current premium dark UI style and performance-first architecture.
+
+---------------------------------------------------
+PRIMARY GOAL
+---------------------------------------------------
+
+Transform raw auction metrics into actionable behavioral insights.
+
+Current stats are useful, but admins should immediately understand:
+- what happened
+- why it happened
+- which teams behaved aggressively
+- which players triggered competition
+- what patterns are emerging
+
+---------------------------------------------------
+NEW REQUIRED SECTIONS
+---------------------------------------------------
+
+1. AUCTION REPLAY TIMELINE
+2. BID INTENSITY ANALYSIS
+3. TEAM BEHAVIOR PROFILES
+4. PLAYER DEMAND ANALYTICS
+5. AI OBSERVATION NOTES (non-predictive)
+6. EVENT EXPLORER
+7. CROSS-TOURNAMENT PLAYER HISTORY PREPARATION
+
+---------------------------------------------------
+1. AUCTION REPLAY TIMELINE
+---------------------------------------------------
+
+Create a detailed chronological replay panel.
+
+Show:
+- player entered on block
+- each bid event
+- team entry sequence
+- timer extensions
+- aggressive bid streaks
+- sold/unsold/deferred outcomes
+
+Example:
+19:32:01 → Rohit Patel entered
+19:32:04 → Mumbai Hawks bid ₹5L
+19:32:05 → Delhi Titans countered
+19:32:06 → Hyderabad entered
+19:32:08 → Bid war intensity increased
+19:32:22 → SOLD ₹18L
+
+Requirements:
+- compact timeline UI
+- auto-group rapid bid bursts
+- color-coded event types
+- fast rendering
+- lazy load older events
+
+---------------------------------------------------
+2. BID INTENSITY ANALYSIS
+---------------------------------------------------
+
+Add visual intensity indicators.
+
+For each player show:
+- total bids
+- teams involved
+- auction duration
+- average response speed
+- intensity score
+- escalation curve
+
+Add lightweight visualizations:
+- sparkline intensity bars
+- escalation heat indicators
+- response speed meter
+
+DO NOT use heavy chart libraries yet.
+
+Focus on:
+- readability
+- performance
+- tactical feel
+
+---------------------------------------------------
+3. TEAM BEHAVIOR PROFILES
+---------------------------------------------------
+
+Create team personality analytics.
+
+Examples:
+- aggressive bidders
+- patient bidders
+- late-entry teams
+- purse conservers
+- category-focused teams
+
+Track:
+- avg bid reaction speed
+- avg escalation aggression
+- purse burn rate
+- preferred player categories
+- re-entry frequency
+- bidding persistence
+
+Generate behavior labels dynamically:
+Examples:
+- "Aggressive"
+- "Patient"
+- "Strategic"
+- "Value Hunter"
+- "Late Auction Specialist"
+
+These are observational only.
+Do NOT generate predictive AI decisions yet.
+
+---------------------------------------------------
+4. PLAYER DEMAND ANALYTICS
+---------------------------------------------------
+
+For each player calculate:
+- demand score
+- competition score
+- inflation percentage
+- repeat team interest
+- bid war duration
+- interest consistency
+
+Add:
+- "Most Wanted"
+- "Most Contested"
+- "Fastest Escalation"
+- "Biggest Surprise Sale"
+
+Support future cross-tournament linking using globalPlayerId.
+
+---------------------------------------------------
+5. AI OBSERVATION NOTES
+---------------------------------------------------
+
+Add human-readable observation summaries.
+
+Examples:
+- "Premium batters generated the highest competition."
+- "Teams became conservative after purse dropped below 30%."
+- "Fast bowlers received lower engagement than expected."
+
+IMPORTANT:
+These are observational insights only.
+No recommendations.
+No predictions.
+No ML models yet.
+
+Use rule-based interpretation from collected event data.
+
+---------------------------------------------------
+6. EVENT EXPLORER
+---------------------------------------------------
+
+Create a raw event inspection tool for admins.
+
+Allow:
+- filter by tournament
+- filter by player
+- filter by team
+- filter by event type
+- filter by time range
+
+Show:
+- exact timestamps
+- latency between actions
+- bid sequence
+- raw payload snapshots
+
+This is important for:
+- debugging
+- disputes
+- analytics validation
+- future AI training
+
+---------------------------------------------------
+7. CROSS-TOURNAMENT PREPARATION
+---------------------------------------------------
+
+Start preparing UI architecture for future global player intelligence.
+
+Player pages should eventually support:
+- auction history across tournaments
+- historical sold prices
+- recurring interested teams
+- demand evolution
+- category transitions
+- retention history
+
+Do NOT fully implement historical AI yet.
+Only structure the system properly.
+
+---------------------------------------------------
+FILTERING & CONTROLS
+---------------------------------------------------
+
+Add:
+- tournament selector
+- sport selector
+- category filter
+- time range filter
+- team filter
+- player search
+- event type filter
+
+All filters should update analytics dynamically.
+
+---------------------------------------------------
+PERFORMANCE REQUIREMENTS
+---------------------------------------------------
+
+CRITICAL:
+Auction Intelligence must NEVER affect live auction speed.
+
+Requirements:
+- analytics isolated from live operator flow
+- async aggregation
+- pagination/lazy loading
+- avoid expensive real-time joins
+- cache computed insights
+- preserve low-latency bidding
+
+---------------------------------------------------
+UI REQUIREMENTS
+---------------------------------------------------
+
+Design style:
+- premium sports telemetry UI
+- dark tactical interface
+- compact high-density information
+- modern glow accents
+- responsive layout
+- no oversized empty sections
+
+Should feel inspired by:
+- F1 telemetry
+- esports analytics
+- IPL auction war room systems
+
+NOT:
+- generic SaaS analytics
+- boring corporate BI dashboards
+
+---------------------------------------------------
+DO NOT BUILD YET
+---------------------------------------------------
+
+Do NOT build:
+- AI recommendations
+- machine learning models
+- automated bidding suggestions
+- predictive pricing
+- GPT chat assistant
+
+Current phase is:
+- behavioral observation
+- intelligence infrastructure
+- event interpretation
+- data validation
+- future AI preparation

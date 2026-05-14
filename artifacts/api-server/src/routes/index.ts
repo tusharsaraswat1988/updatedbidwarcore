@@ -9,6 +9,7 @@ import analyticsRouter from "./analytics";
 import authRouter from "./auth";
 import adminReportsRouter from "./admin-reports";
 import intelligenceRouter from "./intelligence";
+import seedDemoRouter from "./seed-demo";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(auctionRouter);
 router.use(analyticsRouter);
 router.use(adminReportsRouter);
 router.use(intelligenceRouter);
+router.use(seedDemoRouter);
 
 export default router;
