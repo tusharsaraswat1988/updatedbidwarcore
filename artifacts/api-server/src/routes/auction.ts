@@ -271,10 +271,21 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
-  // License and lock checks — trial mode always allowed; only block completed/locked
+  // Block if admin-locked, UNLESS a super-admin reset happened AFTER the lock was applied.
+  // A reset (lastResetAt > adminLockedAt) explicitly supersedes the lock and restores the
+  // tournament to a runnable state — treating the stale adminLocked flag as a hard block
+  // would incorrectly prevent valid live auctions from starting.
   if (tournament?.adminLocked) {
-    res.status(403).json({ error: "This tournament has been locked by the admin. No further auction operations are allowed." });
-    return;
+    const lockedAt = tournament.adminLockedAt ? new Date(tournament.adminLockedAt).getTime() : 0;
+    const resetAt = tournament.lastResetAt ? new Date(tournament.lastResetAt).getTime() : 0;
+    if (resetAt <= lockedAt) {
+      res.status(403).json({ error: "This tournament has been locked by the admin. No further auction operations are allowed." });
+      return;
+    }
+    // Reset happened after the lock — clear the stale flag so future starts don't re-evaluate
+    await db.update(tournamentsTable)
+      .set({ adminLocked: false, adminLockedAt: null })
+      .where(eq(tournamentsTable.id, tid));
   }
 
   const timerSecs = tournament?.timerSeconds ?? 30;
@@ -849,6 +860,10 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       resetCount: previousResetCount + 1,
       lastResetAt: new Date(),
       lastResetBy: resetActor,
+      // A reset always clears the admin lock — the act of resetting implies the
+      // tournament is being prepared for another live run.
+      adminLocked: false,
+      adminLockedAt: null,
     })
     .where(eq(tournamentsTable.id, tid));
 
