@@ -4,21 +4,15 @@ import { Calendar } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { AuctionCountdown } from "./auction-countdown";
 
-type CurrentPlayer = {
-  id: number;
-  name: string;
-  basePrice: number;
-  availabilityDates?: string | null;
-  achievements?: string | null;
-};
-
 /**
  * Right column of the main broadcast — player name, specs, current bid,
  * leading team chip, server countdown, base price + increment row.
  *
  * Render isolation:
  *  - Receives flat primitive props so React.memo's shallow compare
- *    catches everything that should rerender it.
+ *    catches everything that should rerender it. The parent passes
+ *    primitives (not the live `currentPlayer` object) because that
+ *    object identity changes on every SSE update.
  *  - The countdown is mounted as <AuctionCountdown/>, whose internal
  *    interval keeps tick rerenders inside that subtree only — they
  *    never propagate to BidDisplay, PlayerCard, or DisplayShell.
@@ -27,7 +21,11 @@ type CurrentPlayer = {
  *    with no spillover to siblings.
  */
 export const BidDisplay = memo(function BidDisplay({
-  player,
+  playerId,
+  playerName,
+  playerBasePrice,
+  playerAvailabilityDates,
+  playerAchievements,
   playerSpecs,
   teamColor,
   currentBid,
@@ -38,7 +36,11 @@ export const BidDisplay = memo(function BidDisplay({
   timerEndsAt,
   timerType,
 }: {
-  player: CurrentPlayer;
+  playerId: number;
+  playerName: string;
+  playerBasePrice: number;
+  playerAvailabilityDates: string | null | undefined;
+  playerAchievements: string | null | undefined;
   playerSpecs: string[];
   teamColor: string;
   currentBid: number | null | undefined;
@@ -51,7 +53,7 @@ export const BidDisplay = memo(function BidDisplay({
 }) {
   return (
     <motion.div
-      key={`info-${player.id}`}
+      key={`info-${playerId}`}
       initial={{ opacity: 0, x: 60 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.1, type: "spring" }}
@@ -64,12 +66,12 @@ export const BidDisplay = memo(function BidDisplay({
           </p>
         )}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
-          {player.name}
+          {playerName}
         </h1>
-        {player.availabilityDates && (
+        {playerAvailabilityDates && (
           <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
-            Available: {player.availabilityDates}
+            Available: {playerAvailabilityDates}
           </p>
         )}
       </div>
@@ -127,12 +129,12 @@ export const BidDisplay = memo(function BidDisplay({
       <AuctionCountdown timerEndsAt={timerEndsAt} timerType={timerType} />
 
       <p className="text-sm text-muted-foreground">
-        Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(player.basePrice)}</span>
+        Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(playerBasePrice)}</span>
         {bidIncrement && (
           <span className="ml-3">· Increment: <span className="font-semibold text-foreground">{formatIndianRupee(bidIncrement)}</span></span>
         )}
-        {player.achievements && (
-          <span className="ml-3 text-yellow-400">· {player.achievements}</span>
+        {playerAchievements && (
+          <span className="ml-3 text-yellow-400">· {playerAchievements}</span>
         )}
       </p>
     </motion.div>

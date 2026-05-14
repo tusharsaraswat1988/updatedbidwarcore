@@ -21,7 +21,15 @@ import { IdleScreen } from "./idle-screen";
 import { AnimatedEffectsLayer } from "./animated-effects-layer";
 import { OverlayManager } from "./overlay-manager";
 import { useSoldAnimation } from "./use-sold-animation";
-import type { PurseRow } from "./types";
+import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
+
+// Module-level stable empty references. Critical for memo correctness:
+// passing `value ?? []` inline creates a fresh array on every render,
+// which would break `React.memo` shallow-compare for downstream leaves
+// like OverlayManager that branch on emptiness only.
+const EMPTY_PLAYERS: PlayerLite[] = [];
+const EMPTY_CATEGORIES: CategoryLite[] = [];
+const EMPTY_WHEEL_ITEMS: WheelItem[] = [];
 
 /**
  * DisplayShell — single owner of realtime auction state for the LED
@@ -115,6 +123,16 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     state?.currentPlayer,
   ]);
 
+  // Stable identity for the optional player filter — `state.displayPlayerFilter`
+  // is a fresh object on every SSE update, but the filter values themselves
+  // rarely change. useMemo on the primitive fields gives OverlayManager a
+  // stable reference until the filter actually mutates.
+  const playerFilter = useMemo<DisplayPlayerFilter>(() => {
+    const f = state?.displayPlayerFilter;
+    if (!f) return null;
+    return { status: f.status, categoryId: f.categoryId ?? null, teamId: f.teamId ?? null };
+  }, [state?.displayPlayerFilter?.status, state?.displayPlayerFilter?.categoryId, state?.displayPlayerFilter?.teamId]);
+
   const stripPurses = useMemo<PurseRow[]>(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,
     teamName: t.teamName,
@@ -156,9 +174,25 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           {state?.currentPlayer ? (
             <div className="w-full max-w-6xl">
               <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 lg:gap-16">
-                <PlayerCard player={state.currentPlayer} teamColor={teamColor} />
+                {/* PlayerCard / BidDisplay get PRIMITIVE props only. `state` and
+                    `state.currentPlayer` are fresh object references on every SSE
+                    update, so passing them as a whole would defeat React.memo's
+                    shallow compare and force these children to rerender on every
+                    bid event. Slicing into primitives confines bid-update
+                    rerenders to BidDisplay (whose primitives actually change). */}
+                <PlayerCard
+                  playerId={state.currentPlayer.id}
+                  name={state.currentPlayer.name}
+                  photoUrl={state.currentPlayer.photoUrl}
+                  jerseyNumber={state.currentPlayer.jerseyNumber}
+                  teamColor={teamColor}
+                />
                 <BidDisplay
-                  player={state.currentPlayer}
+                  playerId={state.currentPlayer.id}
+                  playerName={state.currentPlayer.name}
+                  playerBasePrice={state.currentPlayer.basePrice}
+                  playerAvailabilityDates={state.currentPlayer.availabilityDates}
+                  playerAchievements={state.currentPlayer.achievements}
                   playerSpecs={playerSpecs}
                   teamColor={teamColor}
                   currentBid={state.currentBid}
@@ -192,11 +226,11 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           stripPurses={stripPurses}
           currentBidTeamId={state?.currentBidTeamId}
           tournamentName={tournament?.name ?? null}
-          allPlayers={allPlayers ?? []}
-          allCategories={allCategories ?? []}
-          playerFilter={state?.displayPlayerFilter ?? null}
+          allPlayers={allPlayers ?? EMPTY_PLAYERS}
+          allCategories={allCategories ?? EMPTY_CATEGORIES}
+          playerFilter={playerFilter}
           fortuneWheelActive={state?.fortuneWheelActive}
-          wheelItems={state?.wheelItems ?? []}
+          wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}
         />
