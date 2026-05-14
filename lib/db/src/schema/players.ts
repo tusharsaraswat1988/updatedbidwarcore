@@ -25,6 +25,9 @@ export const playersTable = pgTable("players", {
   cricheroUrl: text("crichero_url"),
   availabilityDates: text("availability_dates"),
   specialization: text("specialization"),
+  // Global identity — links this tournament-scoped player to a cross-tournament
+  // canonical identity in global_players. Null until manually or automatically linked.
+  globalPlayerId: text("global_player_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

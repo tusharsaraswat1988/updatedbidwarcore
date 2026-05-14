@@ -5,3 +5,5 @@ export * from "./players";
 export * from "./bids";
 export * from "./auction_sessions";
 export * from "./organizers";
+export * from "./global_players";
+export * from "./auction_events";

@@ -1,0 +1,144 @@
+We need to start building a long-term Auction Intelligence logging architecture for future AI-based recommendations and analytics.
+
+DO NOT build AI features yet.
+
+Current requirement:
+start collecting structured auction behavioral data from now so it can be used in future AI systems.
+
+---------------------------------------------------
+CORE REQUIREMENT
+---------------------------------------------------
+
+Introduce a persistent global player identity system.
+
+Every player must eventually support:
+- globalPlayerId
+- cross-tournament linking
+- historical auction tracking
+
+Do NOT rely only on tournament-specific player IDs.
+
+Future auctions must be able to identify the same player across multiple tournaments.
+
+---------------------------------------------------
+REQUIRED LOGGING SYSTEM
+---------------------------------------------------
+
+Create backend logging/events architecture for:
+
+1. Bid Events
+2. Team Interest Events
+3. Player Auction Events
+4. Team Strategy Events
+5. Timer Interaction Events
+
+Logs should be stored historically and never overwritten.
+
+---------------------------------------------------
+BID EVENT LOGGING
+---------------------------------------------------
+
+For every bid capture:
+
+- timestamp
+- tournamentId
+- playerId
+- globalPlayerId (future-ready)
+- teamId
+- bidAmount
+- previousBidAmount
+- bidIncrement
+- bidSequenceNumber
+- millisecondsSinceLastBid
+- timerRemainingAtBid
+- whether bid was manual or live
+- whether team became leading bidder
+
+---------------------------------------------------
+PLAYER AUCTION LOGGING
+---------------------------------------------------
+
+For every player auction capture:
+
+- auction start timestamp
+- auction end timestamp
+- sold/unsold/deferred
+- final amount
+- total bids received
+- number of interested teams
+- highest competing teams
+- total auction duration
+- average time between bids
+- category
+- role
+- sport type
+- player attributes snapshot
+
+---------------------------------------------------
+TEAM INTEREST LOGGING
+---------------------------------------------------
+
+Track behavioral interest patterns:
+
+- which categories teams frequently bid on
+- how aggressively teams bid
+- teams that repeatedly target similar player types
+- average purse usage behavior
+- preferred player roles
+- retention patterns
+
+---------------------------------------------------
+FUTURE AI COMPATIBILITY
+---------------------------------------------------
+
+This data will later be used for:
+
+- smart player recommendations
+- missing-role suggestions
+- purse optimization
+- predicted player demand
+- AI assistant for team owners
+- bidding heat analysis
+- player valuation scoring
+
+Examples:
+- "Your team still does not have a wicketkeeper."
+- "This player matches your previous bidding behavior."
+- "Teams similar to yours aggressively targeted this player type."
+
+---------------------------------------------------
+IMPORTANT ENGINEERING REQUIREMENTS
+---------------------------------------------------
+
+1. Logging must not slow live bidding performance.
+
+2. Use async/background logging where possible.
+
+3. Auction flow must remain fast and uninterrupted.
+
+4. Logs should be append-only historical records.
+
+5. Preserve compatibility for future multi-sport expansion.
+
+6. Architecture must support:
+- cricket
+- football
+- kabaddi
+- badminton
+- future sports
+
+---------------------------------------------------
+DO NOT BUILD YET
+---------------------------------------------------
+
+Do NOT build:
+- AI recommendation UI
+- ML models
+- prediction engine
+- analytics dashboard
+
+Only create:
+- scalable data architecture
+- logging pipelines
+- historical event storage
+- future-ready identity linking

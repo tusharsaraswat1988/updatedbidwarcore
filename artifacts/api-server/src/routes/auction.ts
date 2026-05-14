@@ -11,6 +11,12 @@ import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
+import {
+  logBidEvent,
+  logPlayerAuctionStart,
+  logPlayerAuctionEnd,
+  logTimerEvent,
+} from "../lib/auction-logger";
 
 const router = Router();
 
@@ -437,6 +443,21 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
+  // Log player auction start event (fire-and-forget)
+  logPlayerAuctionStart({
+    tournamentId: tid,
+    playerId: selectedPlayer.id,
+    globalPlayerId: (selectedPlayer as any).globalPlayerId ?? null,
+    categoryId: selectedPlayer.categoryId,
+    sport: tournament?.sport ?? "cricket",
+    playerName: selectedPlayer.name,
+    playerRole: selectedPlayer.role,
+    playerAge: selectedPlayer.age,
+    playerCity: selectedPlayer.city,
+    basePrice: selectedPlayer.basePrice,
+    playerSnapshotJson: JSON.stringify(selectedPlayer),
+  });
+
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -503,6 +524,19 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
+  // Log bid event (fire-and-forget — never blocks the response)
+  logBidEvent({
+    tournamentId: tid,
+    playerId: session.currentPlayerId!,
+    globalPlayerId: null,
+    teamId,
+    sport: tournament?.sport ?? "cricket",
+    bidAmount: amount,
+    previousBidAmount: session.currentBid,
+    timerEndsAt: session.timerEndsAt,
+    isManualBid: false,
+  });
+
   res.json(await broadcastState(tid));
 });
 
@@ -556,6 +590,25 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     teamName: team?.name ?? "Team",
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
+  });
+
+  // Log player auction end (fire-and-forget)
+  logPlayerAuctionEnd({
+    tournamentId: tid,
+    playerId,
+    globalPlayerId: (soldPlayer as any)?.globalPlayerId ?? null,
+    categoryId: soldPlayer?.categoryId,
+    sport: tournament?.sport ?? "cricket",
+    playerName: soldPlayer?.name ?? "Player",
+    playerRole: soldPlayer?.role,
+    playerAge: soldPlayer?.age,
+    playerCity: soldPlayer?.city,
+    basePrice: soldPlayer?.basePrice,
+    playerSnapshotJson: JSON.stringify(soldPlayer),
+    outcome: "sold",
+    finalAmount: soldAmount,
+    soldToTeamId: teamId,
+    soldToTeamName: team?.name,
   });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
@@ -617,6 +670,25 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     tournamentName: manualTournament?.name ?? "the tournament",
   });
 
+  // Log player auction end for manual sell (fire-and-forget)
+  logPlayerAuctionEnd({
+    tournamentId: tid,
+    playerId,
+    globalPlayerId: (soldPlayer as any)?.globalPlayerId ?? null,
+    categoryId: soldPlayer?.categoryId,
+    sport: manualTournament?.sport ?? "cricket",
+    playerName: soldPlayer?.name ?? "Player",
+    playerRole: soldPlayer?.role,
+    playerAge: soldPlayer?.age,
+    playerCity: soldPlayer?.city,
+    basePrice: soldPlayer?.basePrice,
+    playerSnapshotJson: JSON.stringify(soldPlayer),
+    outcome: "sold",
+    finalAmount: amount,
+    soldToTeamId: teamId,
+    soldToTeamName: team?.name,
+  });
+
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
@@ -656,6 +728,25 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     mobile: player?.mobileNumber ?? null,
     playerName: player?.name ?? "Player",
     tournamentName: unsoldTournament?.name ?? "the tournament",
+  });
+
+  // Log player auction end as unsold (fire-and-forget)
+  logPlayerAuctionEnd({
+    tournamentId: tid,
+    playerId: player!.id,
+    globalPlayerId: (player as any)?.globalPlayerId ?? null,
+    categoryId: player?.categoryId,
+    sport: unsoldTournament?.sport ?? "cricket",
+    playerName: player?.name ?? "Player",
+    playerRole: player?.role,
+    playerAge: player?.age,
+    playerCity: player?.city,
+    basePrice: player?.basePrice,
+    playerSnapshotJson: JSON.stringify(player),
+    outcome: "unsold",
+    finalAmount: null,
+    soldToTeamId: null,
+    soldToTeamName: null,
   });
 
   res.json(await broadcastState(tid, ["players"]));
@@ -980,6 +1071,38 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
+  // Log player auction as deferred + auction start for next player (fire-and-forget)
+  logPlayerAuctionEnd({
+    tournamentId: tid,
+    playerId: deferredId,
+    globalPlayerId: null,
+    categoryId: null,
+    sport: tournament?.sport ?? "cricket",
+    playerName: deferredPlayer?.name ?? "Player",
+    playerRole: null,
+    playerAge: null,
+    playerCity: null,
+    basePrice: null,
+    playerSnapshotJson: "{}",
+    outcome: "deferred",
+    finalAmount: null,
+    soldToTeamId: null,
+    soldToTeamName: null,
+  });
+  logPlayerAuctionStart({
+    tournamentId: tid,
+    playerId: selectedPlayer.id,
+    globalPlayerId: (selectedPlayer as any).globalPlayerId ?? null,
+    categoryId: selectedPlayer.categoryId,
+    sport: tournament?.sport ?? "cricket",
+    playerName: selectedPlayer.name,
+    playerRole: selectedPlayer.role,
+    playerAge: selectedPlayer.age,
+    playerCity: selectedPlayer.city,
+    basePrice: selectedPlayer.basePrice,
+    playerSnapshotJson: JSON.stringify(selectedPlayer),
+  });
+
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -1120,11 +1243,22 @@ router.post("/tournaments/:tournamentId/auction/category-filter", async (req, re
 router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  await getOrCreateSession(tid);
+  const session = await getOrCreateSession(tid);
   await db
     .update(auctionSessionsTable)
     .set({ timerEndsAt: null, timerType: null, pausedTimeRemaining: null })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  // Log timer stop event (fire-and-forget)
+  logTimerEvent({
+    tournamentId: tid,
+    playerId: session.currentPlayerId,
+    action: "stop",
+    timerType: session.timerType,
+    timerSeconds: 0,
+    triggeredBy: "operator",
+  });
+
   res.json(await broadcastState(tid));
 });
 
@@ -1134,12 +1268,24 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const body = z.object({ seconds: z.number().int().min(5).max(300) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-  await getOrCreateSession(tid);
+  const session = await getOrCreateSession(tid);
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)
     .set({ timerEndsAt: endsAt, timerType: "start" })
     .where(eq(auctionSessionsTable.tournamentId, tid));
+
+  // Log timer start/extend event (fire-and-forget)
+  const action = session.timerEndsAt ? "extend" : "start";
+  logTimerEvent({
+    tournamentId: tid,
+    playerId: session.currentPlayerId,
+    action,
+    timerType: "start",
+    timerSeconds: body.data.seconds,
+    triggeredBy: "operator",
+  });
+
   res.json(await broadcastState(tid));
 });
 
