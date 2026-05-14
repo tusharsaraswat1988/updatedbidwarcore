@@ -10,6 +10,11 @@ import {
   Image as ImageIcon, AlertTriangle,
 } from "lucide-react";
 
+// Module-level flag: true once the AI model has finished downloading in this
+// browser session. After the first successful run the model is in the browser
+// cache, so we skip the "25 MB download" confirmation on subsequent presses.
+let bgModelCached = false;
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -104,6 +109,9 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // When true we show an inline "~25 MB download" confirmation strip before
+  // kicking off background removal for the first time.
+  const [confirmBgRemove, setConfirmBgRemove] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track object URLs we created so we can revoke them on unmount/replace.
   const objectUrlRef = useRef<string | null>(null);
@@ -181,13 +189,23 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
 
   async function handleRemoveBackground() {
     if (!src) return;
+    // First use in this session — confirm before pulling the AI model.
+    if (!bgModelCached) {
+      setConfirmBgRemove(true);
+      return;
+    }
+    await runRemoveBackground();
+  }
+
+  async function runRemoveBackground() {
+    if (!src) return;
+    setConfirmBgRemove(false);
     setError(null);
-    setProcessing("Removing background — first run downloads the AI model (~25 MB), please wait...");
+    setProcessing(bgModelCached ? "Removing background..." : "Downloading AI model (~25 MB) and removing background — please wait...");
     try {
-      // Lazy-load the background removal library; it pulls a large WASM/ONNX
-      // model on first use.
       const mod = await import("@imgly/background-removal");
       const blob = await mod.removeBackground(src);
+      bgModelCached = true;
       setSrcFromBlob(blob);
     } catch (e) {
       setError(
@@ -325,14 +343,23 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
               >
                 <Wand2 className="w-4 h-4" /> Auto Enhance
               </Button>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={handleRemoveBackground}
-                disabled={!src || !!processing}
-              >
-                <Scissors className="w-4 h-4" /> Remove Background
-              </Button>
+              {confirmBgRemove ? (
+                <div className="flex items-center gap-2 p-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-xs text-amber-300 flex-1">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                  <span className="flex-1">First use downloads the ~25 MB AI model (cached after that). Proceed?</span>
+                  <Button size="sm" variant="outline" className="h-7 px-3 border-amber-500/50 text-amber-300 hover:bg-amber-500/20" onClick={runRemoveBackground}>Yes, download</Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-3" onClick={() => setConfirmBgRemove(false)}>Cancel</Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleRemoveBackground}
+                  disabled={!src || !!processing}
+                >
+                  <Scissors className="w-4 h-4" /> Remove Background
+                </Button>
+              )}
             </div>
 
             {error && (

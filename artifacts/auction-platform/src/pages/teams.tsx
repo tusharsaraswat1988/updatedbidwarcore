@@ -338,7 +338,11 @@ export default function Teams() {
                 <Plus className="w-5 h-5" /> Add Team
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg dark">
+            <DialogContent
+              className="max-w-lg dark"
+              onPointerDownOutside={e => e.preventDefault()}
+              onEscapeKeyDown={e => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle>{editing ? "Edit Team" : "Add New Team"}</DialogTitle>
               </DialogHeader>

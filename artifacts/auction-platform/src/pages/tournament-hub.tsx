@@ -431,7 +431,11 @@ export default function TournamentHub() {
 
       {/* Tournament Settings Dialog — 4 tabs (Identity / Auction / Broadcast / Recovery) */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-3xl dark p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogContent
+          className="max-w-3xl dark p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden"
+          onPointerDownOutside={e => e.preventDefault()}
+          onEscapeKeyDown={e => e.preventDefault()}
+        >
           {/* Sticky header */}
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border bg-card/50 flex-shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl">

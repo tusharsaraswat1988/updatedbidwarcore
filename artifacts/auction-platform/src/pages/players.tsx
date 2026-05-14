@@ -482,7 +482,11 @@ export default function Players() {
                   <Plus className="w-5 h-5" /> Add Player
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg dark">
+              <DialogContent
+                className="max-w-lg dark"
+                onPointerDownOutside={e => e.preventDefault()}
+                onEscapeKeyDown={e => e.preventDefault()}
+              >
                 <DialogHeader>
                   <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
                 </DialogHeader>
