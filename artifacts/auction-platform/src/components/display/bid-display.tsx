@@ -1,0 +1,140 @@
+import { memo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Calendar } from "lucide-react";
+import { formatIndianRupee } from "@/lib/format";
+import { AuctionCountdown } from "./auction-countdown";
+
+type CurrentPlayer = {
+  id: number;
+  name: string;
+  basePrice: number;
+  availabilityDates?: string | null;
+  achievements?: string | null;
+};
+
+/**
+ * Right column of the main broadcast — player name, specs, current bid,
+ * leading team chip, server countdown, base price + increment row.
+ *
+ * Render isolation:
+ *  - Receives flat primitive props so React.memo's shallow compare
+ *    catches everything that should rerender it.
+ *  - The countdown is mounted as <AuctionCountdown/>, whose internal
+ *    interval keeps tick rerenders inside that subtree only — they
+ *    never propagate to BidDisplay, PlayerCard, or DisplayShell.
+ *  - The bid pulse (`AnimatePresence mode="wait"` on currentBid) is
+ *    keyed on `currentBid`, so it animates exactly once per bid change
+ *    with no spillover to siblings.
+ */
+export const BidDisplay = memo(function BidDisplay({
+  player,
+  playerSpecs,
+  teamColor,
+  currentBid,
+  currentBidTeamId,
+  currentBidTeamName,
+  currentBidTeamLogoUrl,
+  bidIncrement,
+  timerEndsAt,
+  timerType,
+}: {
+  player: CurrentPlayer;
+  playerSpecs: string[];
+  teamColor: string;
+  currentBid: number | null | undefined;
+  currentBidTeamId: number | null | undefined;
+  currentBidTeamName: string | null | undefined;
+  currentBidTeamLogoUrl: string | null | undefined;
+  bidIncrement: number | null | undefined;
+  timerEndsAt: string | null | undefined;
+  timerType: string | null | undefined;
+}) {
+  return (
+    <motion.div
+      key={`info-${player.id}`}
+      initial={{ opacity: 0, x: 60 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.5, delay: 0.1, type: "spring" }}
+      className="flex-1 text-center md:text-left space-y-4"
+    >
+      <div>
+        {playerSpecs.length > 0 && (
+          <p className="text-xs md:text-sm font-mono text-muted-foreground uppercase tracking-widest mb-2">
+            {playerSpecs.join(" · ")}
+          </p>
+        )}
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
+          {player.name}
+        </h1>
+        {player.availabilityDates && (
+          <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            Available: {player.availabilityDates}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">Current Bid</p>
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={currentBid ?? 0}
+            initial={{ scale: 0.6, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 1.2, opacity: 0 }}
+            transition={{ type: "spring", bounce: 0.5 }}
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
+            style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
+          >
+            {formatIndianRupee(currentBid || 0)}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+
+      {currentBidTeamName ? (
+        <motion.div
+          key={currentBidTeamId ?? 0}
+          initial={{ opacity: 0, y: 20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border-2"
+          style={{
+            borderColor: teamColor,
+            backgroundColor: `${teamColor}18`,
+            boxShadow: `0 0 40px ${teamColor}44`,
+          }}
+        >
+          {currentBidTeamLogoUrl ? (
+            <img
+              src={currentBidTeamLogoUrl}
+              alt={currentBidTeamName}
+              className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
+              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+              onError={e => (e.currentTarget.style.display = "none")}
+            />
+          ) : (
+            <div className="w-4 h-4 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: teamColor }} />
+          )}
+          <span className="text-xl md:text-3xl font-display font-black" style={{ color: teamColor }}>
+            {currentBidTeamName}
+          </span>
+        </motion.div>
+      ) : (
+        <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border/50 text-muted-foreground">
+          <span className="text-lg font-semibold">Waiting for first bid...</span>
+        </div>
+      )}
+
+      <AuctionCountdown timerEndsAt={timerEndsAt} timerType={timerType} />
+
+      <p className="text-sm text-muted-foreground">
+        Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(player.basePrice)}</span>
+        {bidIncrement && (
+          <span className="ml-3">· Increment: <span className="font-semibold text-foreground">{formatIndianRupee(bidIncrement)}</span></span>
+        )}
+        {player.achievements && (
+          <span className="ml-3 text-yellow-400">· {player.achievements}</span>
+        )}
+      </p>
+    </motion.div>
+  );
+});

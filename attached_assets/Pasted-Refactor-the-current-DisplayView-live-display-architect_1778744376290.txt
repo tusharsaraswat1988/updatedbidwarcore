@@ -1,0 +1,106 @@
+Refactor the current DisplayView / live display architecture into modular isolated components WITHOUT changing the current UI design, visuals, animations, layout, or functionality.
+
+IMPORTANT:
+This is a structural/performance refactor only.
+Do NOT redesign the UI.
+Do NOT remove cinematic effects.
+Do NOT break websocket logic.
+Do NOT change auction behavior.
+
+GOALS:
+- improve maintainability
+- reduce rerender propagation
+- isolate realtime updates
+- improve debugging
+- prepare for scalable broadcast architecture
+
+Create a clean folder structure:
+
+/components/display/
+
+Suggested component breakdown:
+
+- DisplayShell.tsx
+- StaticBackground.tsx
+- AuctionHeader.tsx
+- PlayerCard.tsx
+- BidDisplay.tsx
+- AuctionCountdown.tsx
+- SoldAnimation.tsx
+- SponsorCarousel.tsx
+- TeamOverlay.tsx
+- PlayerOverlay.tsx
+- Top5Overlay.tsx
+- FortuneWheelOverlay.tsx
+- OverlayManager.tsx
+- DisplayFooter.tsx
+- AnimatedEffectsLayer.tsx
+
+REFACTOR REQUIREMENTS:
+
+1. Extract each major visual block into separate component files.
+
+2. Use React.memo aggressively for display-only components.
+
+3. Ensure timer updates rerender ONLY AuctionCountdown component.
+
+4. Ensure bid updates rerender ONLY bid-related components.
+
+5. Prevent parent DisplayView rerenders from propagating unnecessarily.
+
+6. Move all expensive calculations into useMemo.
+
+7. Move all stable callbacks into useCallback.
+
+8. Separate:
+   - static layout
+   - realtime state
+   - overlay rendering
+   - animation layers
+
+9. Overlay system must be isolated:
+   - TeamOverlay
+   - PlayerOverlay
+   - Top5Overlay
+   should render independently.
+
+10. FortuneWheelOverlay must remain isolated with its own RAF loop.
+
+11. Do NOT duplicate websocket subscriptions across components.
+
+12. Keep a single source of realtime auction state.
+
+13. Prevent unnecessary remounting of AnimatePresence/motion components.
+
+14. Keep animation behavior visually identical.
+
+15. Preserve all current routes and operator controls.
+
+16. Keep TypeScript types strict and reusable.
+
+17. Avoid prop drilling where possible.
+
+18. Add clear comments explaining:
+   - render isolation
+   - performance-sensitive areas
+   - realtime architecture decisions
+
+19. Create a lightweight DisplayContext or display state layer if necessary, but avoid unnecessary complexity.
+
+20. Ensure future scalability for:
+   - multiple overlays
+   - owner apps
+   - livestream graphics
+   - additional broadcast screens
+
+IMPORTANT PERFORMANCE RULE:
+Static visual layers must never rerender during timer ticks or bid updates unless their own props actually change.
+
+After refactor:
+- summarize component hierarchy
+- explain which components rerender on:
+   a) timer tick
+   b) bid update
+   c) player change
+   d) overlay toggle
+- identify remaining performance bottlenecks if any
