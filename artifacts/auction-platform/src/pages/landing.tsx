@@ -1,40 +1,60 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Radio, Shuffle, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
+  Globe, Cloud, Award, Building2, GraduationCap, ChevronDown,
+  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus,
 } from "lucide-react";
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 const features = [
   {
     icon: Monitor,
     title: "Live Broadcast Display",
-    desc: "Full-screen 1080p LED display with animated player cards, bid counter, and SOLD stamp — broadcast ready.",
+    desc: "Full-screen LED display mode with animated player cards, live bid counter, team purse strip, and SOLD stamp. Plug into any projector or TV — broadcast-ready out of the box.",
   },
   {
     icon: Users,
-    title: "Team Owner View",
-    desc: "Team owners bid live from their phones. Simple one-tap bid button with real-time purse tracking.",
+    title: "Team Owner Bidding Panel",
+    desc: "Every team owner gets a mobile-optimized bidding panel. One-tap bid button, real-time purse tracker, squad overview — bid from any smartphone, no app needed.",
   },
   {
-    icon: Smartphone,
-    title: "Remotely Bid",
-    desc: "Operators manage the entire auction from a tablet. No cables, no clickers — just a browser.",
+    icon: Gavel,
+    title: "Operator Control Dashboard",
+    desc: "Run the entire auction from a tablet. Nominate players, start bid timers, accept quick bids, mark SOLD or UNSOLD, and undo the last action — full control, zero cables.",
   },
   {
     icon: Radio,
-    title: "OBS Camera Overlay",
-    desc: "Transparent overlay for YouTube / Facebook streaming. Hexagon player photo, live bid bar, team ticker.",
+    title: "OBS Streaming Overlay",
+    desc: "Transparent overlay for YouTube and Facebook Live streams. Shows hexagon player photo, live bid bar, and team ticker — turn your auction into a broadcast event.",
+  },
+  {
+    icon: BarChart3,
+    title: "Auction Analytics & Reports",
+    desc: "Post-auction reports with bar charts, purse utilization, top sold players, and team-wise spend breakdown. Export data and share results instantly.",
   },
   {
     icon: Shuffle,
-    title: "Fortune Wheel",
-    desc: "Animated spin wheel for lucky draw tiebreakers between teams. Full-screen, crowd-pleasing.",
+    title: "Fortune Wheel & Tiebreakers",
+    desc: "Animated full-screen spin wheel for lucky draws and tiebreakers. Crowd-pleasing, tournament-ready, and configurable with your team names.",
   },
   {
     icon: Zap,
-    title: "Player Registration",
-    desc: "Players self-register via QR code with photo, stats, and role. Auto-fills your auction roster.",
+    title: "Player Self-Registration",
+    desc: "Players register via a public QR code link — name, photo, role, and stats. Auto-fills your auction roster. No manual data entry for the organizer.",
+  },
+  {
+    icon: Tv,
+    title: "Multi-Screen Support",
+    desc: "Run the operator panel, LED display, and owner panels simultaneously on separate devices. Designed for projectors, smart TVs, laptops, and mobile — all synced in real time.",
+  },
+  {
+    icon: Cloud,
+    title: "Cloud-Based, Any Device",
+    desc: "No software installation. No local server. Everything runs in a browser and syncs live across all connected devices — from any city, any venue.",
   },
 ];
 
@@ -43,7 +63,7 @@ const pricing = [
     label: "Trial",
     price: "Free",
     teams: "2 Teams",
-    desc: "Try BidWar at no cost.",
+    desc: "Run your first auction at zero cost. No credit card required.",
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
@@ -52,7 +72,7 @@ const pricing = [
     label: "Starter",
     price: "₹999",
     teams: "Up to 4 Teams",
-    desc: "Perfect for small club leagues.",
+    desc: "Ideal for small club leagues and community tournaments.",
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
@@ -61,7 +81,7 @@ const pricing = [
     label: "Pro",
     price: "₹1,999",
     teams: "Up to 8 Teams",
-    desc: "District and city-level tournaments.",
+    desc: "Built for district and city-level franchise auctions.",
     highlight: true,
     color: "border-primary bg-primary/5",
     badge: "Most Popular",
@@ -70,7 +90,7 @@ const pricing = [
     label: "Elite",
     price: "₹2,999",
     teams: "Up to 16 Teams",
-    desc: "State-level and franchise leagues.",
+    desc: "State-level leagues and professional franchise tournaments.",
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
@@ -81,26 +101,203 @@ const steps = [
   {
     n: "01",
     title: "Create Your Account",
-    desc: "Register with your mobile number in 30 seconds. No credit card needed to start.",
+    desc: "Sign up with your mobile number in under 30 seconds. Your first 2-team tournament is free — no credit card required.",
   },
   {
     n: "02",
     title: "Set Up Your Tournament",
-    desc: "Add teams, players, categories, and purse values. Import via CSV or let players self-register.",
+    desc: "Add franchises, player categories, purse values, and squad rules. Import via CSV or let players self-register via QR code.",
   },
   {
     n: "03",
     title: "Go Live",
-    desc: "Hit Start Auction. The LED display, owner phones, and OBS overlay all sync in real time.",
+    desc: "Press Start Auction. The LED display, owner mobile panels, and OBS overlay all sync instantly in real time.",
   },
 ];
+
+const useCases = [
+  {
+    icon: Trophy,
+    title: "Cricket Leagues",
+    desc: "T20, T10, and box cricket franchise auctions with IPL-style player categories, purse limits, and live bid counters.",
+  },
+  {
+    icon: Globe,
+    title: "Football Auctions",
+    desc: "Franchise football league drafts with team budgets, player roles, and real-time bidding panels for each team owner.",
+  },
+  {
+    icon: Award,
+    title: "Kabaddi Tournaments",
+    desc: "PKL-inspired kabaddi league auctions with full team management, category-based bidding, and LED display support.",
+  },
+  {
+    icon: GraduationCap,
+    title: "School Championships",
+    desc: "Inter-school and inter-college sports leagues with multi-team auctions, budget controls, and operator-led bidding.",
+  },
+  {
+    icon: Building2,
+    title: "Business Sports Leagues",
+    desc: "Corporate cricket and football leagues with franchise bidding, sponsor branding, and streaming overlay for events.",
+  },
+  {
+    icon: Users,
+    title: "Community Tournaments",
+    desc: "Local club and residential society leagues with simple setup, mobile bidding, and projector display for live audiences.",
+  },
+];
+
+const whyPoints = [
+  {
+    icon: Wifi,
+    title: "Real-Time, Zero Lag",
+    desc: "Bids, timers, and sold events sync across all screens within milliseconds. No refresh needed, no manual updates.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Secure & Reliable",
+    desc: "Role-based access controls, session-level organizer authentication, and audit logs for every bid and operator action.",
+  },
+  {
+    icon: Clock,
+    title: "Setup in Minutes",
+    desc: "From signup to live auction in under 15 minutes. No IT team, no installation, no configuration complexity.",
+  },
+  {
+    icon: Globe,
+    title: "Works Everywhere",
+    desc: "Cloud-based and browser-native. Run your auction from any venue — stadium, hotel, school, or open ground.",
+  },
+];
+
+const galleryItems = [
+  {
+    img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=600&h=380&fit=crop&q=80",
+    caption: "T20 League Franchise Auction",
+    tag: "Cricket",
+    alt: "Cricket stadium aerial view for T20 franchise auction",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=380&fit=crop&q=80",
+    caption: "Live Team Bidding Session",
+    tag: "Football",
+    alt: "Sports team huddle at franchise bidding event",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=380&fit=crop&q=80",
+    caption: "Business League Draft Night",
+    tag: "Business League",
+    alt: "Indoor sports event live auction session",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=380&fit=crop&q=80",
+    caption: "Franchise Auction Night",
+    tag: "Football",
+    alt: "Football league franchise auction event",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=600&h=380&fit=crop&q=80",
+    caption: "Multi-Team Player Draft",
+    tag: "Kabaddi",
+    alt: "Sports field during player draft event",
+  },
+  {
+    img: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=600&h=380&fit=crop&q=80",
+    caption: "Operator Command Center",
+    tag: "Live Auction",
+    alt: "Auction operator dashboard running live player auction",
+  },
+];
+
+const faqs = [
+  {
+    q: "What is sports auction software?",
+    a: "Sports auction software is a digital platform that enables tournament organizers to conduct live player auctions for franchise-based leagues. It manages team rosters, bidding rounds, purse limits, player categories, and real-time bid tracking — replacing manual auction boards with a fully automated, broadcast-ready system.",
+  },
+  {
+    q: "How does cricket auction software work?",
+    a: "The auction operator controls the session from a central dashboard — selecting players, starting bid timers, and accepting bids from team owners. Team owners bid from their phones via a dedicated panel. The LED display shows live action on a projector or TV for the audience. Everything syncs in real time.",
+  },
+  {
+    q: "Can BidWar run IPL-style auctions?",
+    a: "Yes. BidWar is purpose-built for IPL-style franchise auctions. It supports player categories (Platinum, Gold, Silver, Emerging), team purse tracking, reserve prices, configurable bid increments, and a broadcast-quality LED display — the same format used in professional leagues.",
+  },
+  {
+    q: "Does BidWar support projector and LED screens?",
+    a: "Yes. BidWar includes a dedicated full-screen LED Display Mode for large projectors and smart TVs. It features animated player cards, live bid counters, a SOLD stamp animation, team purse strips, and sponsor logo rotation — all in broadcast-quality resolution.",
+  },
+  {
+    q: "Is BidWar cloud-based?",
+    a: "Yes. BidWar is fully cloud-based. The operator dashboard, team owner panels, and LED display all run in a browser — no downloads or installations required. All bid data syncs in real time across all connected devices from any location.",
+  },
+  {
+    q: "Is BidWar suitable for local tournaments?",
+    a: "Absolutely. BidWar scales from 2-team club auctions to 16-team state-level franchise leagues. The free trial plan supports 2 teams at no cost, making it ideal for first-time organizers and small community tournaments.",
+  },
+  {
+    q: "Can multiple team owners bid simultaneously?",
+    a: "Yes. Each team owner gets their own dedicated mobile bidding panel accessible from any smartphone. Multiple owners can see and place bids simultaneously during a live session — the system handles all bids in real time with instant updates for everyone.",
+  },
+  {
+    q: "Does BidWar support YouTube or Facebook Live streaming?",
+    a: "Yes. BidWar includes an OBS-compatible transparent streaming overlay that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
+  },
+];
+
+// ─── FAQ Item Component ────────────────────────────────────────────────────────
+
+function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.05 }}
+      className="border border-border rounded-2xl overflow-hidden"
+    >
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-card/50 transition-colors"
+      >
+        <span className="font-display font-bold text-base text-white leading-snug">{q}</span>
+        <span className="flex-shrink-0">
+          {open
+            ? <ChevronDown className="w-5 h-5 text-primary rotate-180 transition-transform duration-200" />
+            : <Plus className="w-5 h-5 text-primary transition-transform duration-200" />
+          }
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="answer"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden"
+          >
+            <p className="px-5 pb-5 text-muted-foreground text-sm leading-relaxed border-t border-border/50 pt-4">
+              {a}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Landing() {
   const [, navigate] = useLocation();
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
-      {/* Nav */}
+
+      {/* ── Nav ─────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -111,8 +308,9 @@ export default function Landing() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
+            <a href="#use-cases" className="hover:text-white transition-colors">Use Cases</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -131,7 +329,7 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-24 px-6 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 rounded-full blur-[120px]" />
@@ -148,14 +346,15 @@ export default function Landing() {
               India's Live Sports Auction Platform
             </div>
             <h1 className="text-5xl md:text-7xl font-display font-black leading-none tracking-tight">
-              Run Your Cricket{" "}
+              Run Professional{" "}
               <span className="text-primary" style={{ textShadow: "0 0 60px rgba(234,179,8,0.4)" }}>
-                Auction Live
-              </span>
+                Sports Auctions
+              </span>{" "}
+              Live
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Broadcast-quality live auction software for cricket, football, kabaddi and all franchise leagues.
-              LED display, owner mobile bidding, OBS overlay — all in one platform.
+              IPL-grade auction infrastructure for cricket, football, kabaddi and all franchise leagues.
+              Real-time bidding, LED broadcast display, team owner mobile panels — one platform, every screen.
             </p>
           </motion.div>
           <motion.div
@@ -171,7 +370,7 @@ export default function Landing() {
               Start Free <ArrowRight className="w-5 h-5" />
             </button>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/organizer")}
               className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border text-foreground font-semibold text-lg hover:bg-card/50 transition-all flex items-center justify-center gap-2"
             >
               <Gavel className="w-5 h-5 text-muted-foreground" />
@@ -182,11 +381,12 @@ export default function Landing() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="flex items-center justify-center gap-6 text-xs text-muted-foreground"
+            className="flex flex-wrap items-center justify-center gap-6 text-xs text-muted-foreground"
           >
             <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-green-400" /> Free trial — 2 teams</span>
             <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-green-400" /> No setup fee</span>
             <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-green-400" /> Works on any device</span>
+            <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-green-400" /> No app install needed</span>
           </motion.div>
         </div>
 
@@ -202,7 +402,7 @@ export default function Landing() {
               <div className="md:col-span-2 bg-[#09090b] rounded-xl border border-border p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Live Auction</span>
+                  <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Live Auction — Round 3</span>
                 </div>
                 <div>
                   <p className="text-4xl font-display font-black text-primary" style={{ textShadow: "0 0 30px rgba(234,179,8,0.5)" }}>
@@ -211,7 +411,7 @@ export default function Landing() {
                   <p className="text-sm text-muted-foreground mt-1">Current Bid — Mumbai Hawks</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {["MH ₹15L", "RB ₹14L", "CH ₹13L", "GT ₹12L"].map((t, i) => (
+                  {["MH ₹14L", "RB ₹12L", "CH ₹11L", "GT ₹10L"].map((t, i) => (
                     <div key={i} className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${i === 0 ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-card/50 text-muted-foreground"}`}>{t}</div>
                   ))}
                 </div>
@@ -233,14 +433,34 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      {/* Features */}
+      {/* ── Trust Strip ─────────────────────────────────────────────── */}
+      <section className="py-10 px-6 border-y border-border/40 bg-white/[0.015]">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-0 divide-y md:divide-y-0 md:divide-x divide-border/40">
+            {[
+              { icon: Tv, label: "Broadcast-Quality LED Display" },
+              { icon: Smartphone, label: "Mobile Bidding for Team Owners" },
+              { icon: Cloud, label: "100% Cloud-Based Platform" },
+              { icon: Wifi, label: "Real-Time Bid Sync" },
+              { icon: Shield, label: "Operator-Controlled Sessions" },
+            ].map((item, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 py-4 px-4 text-center">
+                <item.icon className="w-5 h-5 text-primary opacity-80" />
+                <p className="text-xs text-muted-foreground font-medium leading-tight">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Features ────────────────────────────────────────────────── */}
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 space-y-4">
-            <div className="text-primary text-xs font-bold uppercase tracking-widest">Features</div>
-            <h2 className="text-4xl md:text-5xl font-display font-black">Everything you need</h2>
+            <div className="text-primary text-xs font-bold uppercase tracking-widest">Platform Features</div>
+            <h2 className="text-4xl md:text-5xl font-display font-black">Everything your auction needs</h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              From player registration to live streaming overlays — BidWar covers every part of your auction day.
+              From player registration to live broadcast overlays — BidWar handles every part of your auction day, start to finish.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -264,12 +484,158 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* ── Use Cases ───────────────────────────────────────────────── */}
+      <section id="use-cases" className="py-24 px-6 border-t border-border/40">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <div className="text-primary text-xs font-bold uppercase tracking-widest">Use Cases</div>
+            <h2 className="text-4xl md:text-5xl font-display font-black">Built for every sport</h2>
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+              Whether it's a local cricket league or a multi-city franchise tournament — BidWar is designed to run it.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {useCases.map((u, i) => (
+              <motion.div
+                key={u.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="p-6 rounded-2xl border border-border bg-card/30 hover:border-primary/30 hover:bg-card/50 transition-all group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                  <u.icon className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="font-display font-bold text-lg mb-2">{u.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{u.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why BidWar ──────────────────────────────────────────────── */}
+      <section className="py-24 px-6 border-t border-border/40">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="text-primary text-xs font-bold uppercase tracking-widest">Why BidWar</div>
+                <h2 className="text-4xl md:text-5xl font-display font-black leading-tight">
+                  Auction infrastructure that performs under pressure
+                </h2>
+                <p className="text-muted-foreground text-lg leading-relaxed">
+                  Real auctions are high-energy, high-stakes events. BidWar is engineered to deliver flawless performance when the room is packed and every second counts.
+                </p>
+              </div>
+              <div className="space-y-5">
+                {whyPoints.map((w, i) => (
+                  <motion.div
+                    key={w.title}
+                    initial={{ opacity: 0, x: -16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-start gap-4"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <w.icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-display font-bold text-base text-white">{w.title}</p>
+                      <p className="text-muted-foreground text-sm mt-1 leading-relaxed">{w.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+            {/* Reuse hero visual */}
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_60px_rgba(234,179,8,0.08)]"
+            >
+              <div className="bg-gradient-to-br from-[#0f0f12] to-[#09090b] p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Auction Live — 8 Teams</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { team: "Mumbai Hawks", purse: "₹62L", status: "leading", color: "#F59E0B" },
+                    { team: "Rajasthan Bulls", purse: "₹78L", status: "active", color: "#3B82F6" },
+                    { team: "Chennai Kings", purse: "₹45L", status: "active", color: "#EF4444" },
+                    { team: "Delhi Stallions", purse: "₹91L", status: "full", color: "#10B981" },
+                  ].map((t, i) => (
+                    <div key={i} className="p-3 rounded-xl border border-white/8 bg-white/[0.03]" style={{ borderLeftColor: `${t.color}60`, borderLeftWidth: 3 }}>
+                      <p className="text-xs font-bold text-white truncate">{t.team}</p>
+                      <p className="text-lg font-display font-black mt-0.5" style={{ color: t.color }}>{t.purse}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize">{t.status}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Current Player</p>
+                  <p className="font-display font-black text-white text-base">Rahul Sharma — All-Rounder</p>
+                  <p className="text-primary font-bold text-lg mt-0.5">₹8,00,000 <span className="text-xs text-muted-foreground font-normal">base</span></p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Gallery / Past Auctions ──────────────────────────────────── */}
+      <section id="gallery" className="py-24 px-6 border-t border-border/40">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <div className="text-primary text-xs font-bold uppercase tracking-widest">Auction Highlights</div>
+            <h2 className="text-4xl md:text-5xl font-display font-black">Events Powered by BidWar</h2>
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+              From school championships to professional franchise leagues — BidWar brings the auction experience to life.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {galleryItems.map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.07 }}
+                className="relative rounded-2xl overflow-hidden border border-border group cursor-default"
+              >
+                <img
+                  src={item.img}
+                  alt={item.alt}
+                  loading="lazy"
+                  className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="inline-block px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                    {item.tag}
+                  </div>
+                  <p className="font-display font-bold text-white text-sm leading-tight">{item.caption}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ────────────────────────────────────────────── */}
       <section id="how-it-works" className="py-24 px-6 border-y border-border/40">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16 space-y-4">
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Process</div>
-            <h2 className="text-4xl md:text-5xl font-display font-black">How it works</h2>
+            <h2 className="text-4xl md:text-5xl font-display font-black">Live in three steps</h2>
+            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+              No technical background needed. If you can run a WhatsApp group, you can run a BidWar auction.
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {steps.map((s, i) => (
@@ -292,13 +658,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* ── Pricing ─────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16 space-y-4">
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Pricing</div>
-            <h2 className="text-4xl md:text-5xl font-display font-black">Simple, per-auction pricing</h2>
-            <p className="text-muted-foreground text-lg">Pay once per tournament. No monthly subscription.</p>
+            <h2 className="text-4xl md:text-5xl font-display font-black">One-time per-tournament pricing</h2>
+            <p className="text-muted-foreground text-lg">Pay once per event. No monthly fees. No recurring charges.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {pricing.map((p, i) => (
@@ -342,12 +708,30 @@ export default function Landing() {
           </div>
           <p className="text-center text-xs text-muted-foreground mt-8 flex items-center justify-center gap-2">
             <Shield className="w-3.5 h-3.5" />
-            License activated by admin after payment. Contact us via WhatsApp for instant activation.
+            License activated after payment. Contact us on WhatsApp for instant activation.
           </p>
         </div>
       </section>
 
-      {/* CTA Banner */}
+      {/* ── FAQ ─────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-24 px-6 border-t border-border/40">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-16 space-y-4">
+            <div className="text-primary text-xs font-bold uppercase tracking-widest">FAQ</div>
+            <h2 className="text-4xl md:text-5xl font-display font-black">Frequently asked questions</h2>
+            <p className="text-muted-foreground text-lg">
+              Everything you need to know about running a live sports auction with BidWar.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {faqs.map((item, i) => (
+              <FaqItem key={i} q={item.q} a={item.a} index={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Banner ──────────────────────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <div className="relative p-12 rounded-3xl border border-primary/20 bg-primary/5 overflow-hidden">
@@ -357,7 +741,8 @@ export default function Landing() {
                 Ready to run your auction?
               </h2>
               <p className="text-muted-foreground text-lg">
-                Create your free account in 30 seconds. First 2-team tournament is always free.
+                Join hundreds of organizers running professional live auctions with BidWar.
+                Start free — no credit card required.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
@@ -367,7 +752,7 @@ export default function Landing() {
                   Create Free Account <ChevronRight className="w-5 h-5" />
                 </button>
                 <a
-                  href="https://wa.me/918388011123"
+                  href="https://wa.me/918707488250"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-8 py-4 rounded-xl border border-border text-foreground font-semibold text-lg hover:bg-card/50 transition-all flex items-center justify-center gap-2"
@@ -380,26 +765,97 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border/40 py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                <Gavel className="w-3.5 h-3.5 text-black" />
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-border/40 pt-14 pb-8 px-6">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Top row */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+
+            {/* Brand */}
+            <div className="space-y-4 md:col-span-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <Gavel className="w-4 h-4 text-black" />
+                </div>
+                <span className="font-display font-black text-xl text-white">BidWar</span>
               </div>
-              <span className="font-display font-black text-lg text-white">BidWar</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                India's live sports auction platform. IPL-grade infrastructure for cricket, football, kabaddi and franchise leagues.
+              </p>
+              <div className="flex items-center gap-3">
+                <a href="https://www.instagram.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
+                  IG
+                </a>
+                <a href="https://www.facebook.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
+                  FB
+                </a>
+                <a href="https://www.youtube.com/@bidwarofficial" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
+                  YT
+                </a>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              India's Live Sports Auction Platform
-            </p>
+
+            {/* Product */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Platform</p>
+              <div className="space-y-2">
+                {[
+                  { label: "Features", href: "#features" },
+                  { label: "Use Cases", href: "#use-cases" },
+                  { label: "Pricing", href: "#pricing" },
+                  { label: "FAQ", href: "#faq" },
+                  { label: "Auction Gallery", href: "#gallery" },
+                ].map(l => (
+                  <a key={l.label} href={l.href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{l.label}</a>
+                ))}
+              </div>
+            </div>
+
+            {/* Legal */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Legal</p>
+              <div className="space-y-2">
+                {[
+                  { label: "Terms & Conditions", href: "/legal/terms" },
+                  { label: "Privacy Policy", href: "/legal/privacy" },
+                  { label: "Acceptable Use", href: "/legal/acceptable-use" },
+                  { label: "Disclaimer", href: "/legal/disclaimer" },
+                  { label: "Refund Policy", href: "/legal/refund" },
+                ].map(l => (
+                  <a key={l.label} href={l.href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{l.label}</a>
+                ))}
+              </div>
+            </div>
+
+            {/* Support */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Support</p>
+              <div className="space-y-3">
+                <a href="mailto:bidwarsupport@gmail.com" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+                  <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                  bidwarsupport@gmail.com
+                </a>
+                <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+                  <Phone className="w-3.5 h-3.5 flex-shrink-0 text-green-400" />
+                  +91 8707488250
+                </a>
+                <a href="https://www.bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+                  <Globe className="w-3.5 h-3.5 flex-shrink-0" />
+                  www.bidwar.in
+                </a>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-border/30 pt-6">
-            <a href="/legal/terms" className="text-xs text-muted-foreground hover:text-white transition-colors">Terms &amp; Conditions</a>
-            <a href="/legal/privacy" className="text-xs text-muted-foreground hover:text-white transition-colors">Privacy Policy</a>
-            <a href="/legal/acceptable-use" className="text-xs text-muted-foreground hover:text-white transition-colors">Acceptable Use</a>
-            <a href="/legal/disclaimer" className="text-xs text-muted-foreground hover:text-white transition-colors">Disclaimer</a>
-            <a href="/legal/refund" className="text-xs text-muted-foreground hover:text-white transition-colors">Refund Policy</a>
+
+          {/* Bottom row */}
+          <div className="border-t border-border/30 pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} BidWar. All rights reserved.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Sports Auction Software · India's Live Auction Platform
+            </p>
           </div>
         </div>
       </footer>

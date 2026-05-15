@@ -1,0 +1,324 @@
+You are redesigning ONLY the CONTENT, SEO structure, metadata, copywriting, and information hierarchy of the existing BidWar homepage.
+
+IMPORTANT:
+
+* KEEP the existing UI design, layout, animations, color scheme, sections, responsiveness, and overall visual structure EXACTLY SAME.
+* DO NOT redesign the frontend visually.
+* DO NOT change component placements unless required for SEO hierarchy.
+* DO NOT make the website look generic.
+* Goal is to transform the current homepage into a PREMIUM GLOBAL SPORTS AUCTION SAAS WEBSITE with strong Indian market positioning and high SEO discoverability.
+
+====================================================
+BRAND DETAILS
+=============
+
+Brand Name: BidWar
+Website: [www.bidwar.in](http://www.bidwar.in)
+
+Instagram: @bidwar.in
+Facebook: @bidwar.in
+YouTube: @bidwarofficial
+
+Support Email:
+[bidwarsupport@gmail.com](mailto:bidwarsupport@gmail.com)
+
+Support Contact:
++91 8707488250
+
+Billing Entity:
+CWP Detailers & Motors
+
+Industry:
+Sports Auction SaaS Platform
+
+Category:
+Digital Sports Auction & Tournament Management Software
+
+Target Audience:
+
+* Cricket tournaments
+* Football tournaments
+* Kabaddi leagues
+* School sports events
+* Business leagues
+* Franchise tournaments
+* Event organizers
+* Sports agencies
+* Sports startups
+* Local leagues
+* Semi-professional leagues
+
+IMPORTANT:
+Do NOT mention proprietor name anywhere on frontend.
+Do NOT mention GST on frontend homepage.
+Do NOT make website look like a local business site.
+It should look like a GLOBAL SPORTS TECH COMPANY.
+
+====================================================
+MAIN GOAL
+=========
+
+Transform homepage content into:
+
+* Professional
+* International
+* Sports-tech focused
+* Investor-grade
+* SEO optimized
+* Conversion optimized
+* Trust-building
+* Premium SaaS positioning
+
+The website should feel like:
+“IPL auction technology meets modern sports SaaS.”
+
+====================================================
+SEO OBJECTIVES
+==============
+
+Implement COMPLETE SEO optimization:
+
+1. Proper H1, H2, H3 hierarchy
+2. Sports auction related keywords
+3. Indian + global discoverability
+4. Meta title optimization
+5. Meta description optimization
+6. Open Graph metadata
+7. Twitter metadata
+8. Schema markup
+9. FAQ schema
+10. Internal SEO structure
+11. Performance-friendly text structure
+12. Proper alt text placeholders
+13. Semantic HTML improvements
+14. Crawl-friendly section naming
+15. Indexing-friendly headings
+
+====================================================
+PRIMARY SEO KEYWORDS
+====================
+
+Naturally integrate keywords like:
+
+* Sports Auction Software
+* Cricket Auction Software
+* IPL Style Auction Software
+* Live Sports Auction Platform
+* Player Auction Software
+* Tournament Auction System
+* Digital Sports Auction Platform
+* Cricket League Auction Software
+* Auction Software India
+* Live Bidding Software
+* Sports Event Management Software
+* Fantasy Auction Software
+* Franchise Auction System
+* Auction Dashboard
+* Real-Time Sports Auction
+* Sports SaaS Platform
+
+Do NOT keyword stuff.
+
+====================================================
+HOMEPAGE CONTENT STRUCTURE
+==========================
+
+Keep current sections but rewrite content professionally.
+
+Homepage should include:
+
+1. HERO SECTION
+   Powerful headline like a global sports tech company.
+
+Tone:
+
+* Premium
+* Fast
+* Competitive
+* Sports-energy
+* Tech-driven
+
+Include:
+
+* CTA buttons
+* Live auction language
+* Real-time bidding references
+* Professional tournament positioning
+
+====================================================
+2. TRUST / SOCIAL PROOF SECTION
+===============================
+
+Add:
+
+* tournament usage style content
+* scalable software messaging
+* multi-screen support
+* live TV/projector support
+* cloud based system
+* operator control
+* franchise management
+
+WITHOUT fake statistics.
+
+====================================================
+3. FEATURES SECTION
+===================
+
+Rewrite features professionally.
+
+Important features to highlight:
+
+* Live bidding
+* Real-time timer
+* Team purse tracking
+* Multi-role access
+* Auction operator dashboard
+* Team owner panel
+* TV display mode
+* Player categories
+* Instant sold updates
+* Cloud access
+* Mobile compatibility
+* Large screen compatibility
+* Multi-tournament handling
+* Admin controls
+* Data management
+* Auction analytics
+
+====================================================
+4. INDUSTRIES / USE CASES
+=========================
+
+Add professional use-case section:
+
+* Cricket Leagues
+* Football Auctions
+* Kabaddi Tournaments
+* School Championships
+* Business Sports Leagues
+* Community Tournaments
+* Franchise Auctions
+* Sports Events
+
+====================================================
+5. WHY BIDWAR SECTION
+=====================
+
+Make BidWar feel like:
+
+* reliable
+* scalable
+* modern
+* broadcast-ready
+* professional
+
+Add content around:
+
+* real-time experience
+* auction atmosphere
+* smooth operations
+* event professionalism
+
+====================================================
+6. FAQ SECTION
+==============
+
+Create SEO-rich FAQ section.
+
+Questions like:
+
+* What is sports auction software?
+* How does cricket auction software work?
+* Can BidWar run IPL-style auctions?
+* Does BidWar support projector screens?
+* Is BidWar cloud based?
+* Can organizers manage multiple teams?
+* Is BidWar suitable for local tournaments?
+* Does BidWar support live bidding?
+
+====================================================
+7. FOOTER IMPROVEMENTS
+======================
+
+Add:
+
+* social handles
+* support email
+* support number
+* legal links placeholders
+* platform category
+* quick navigation
+* copyright structure
+
+====================================================
+IMPORTANT BRAND POSITIONING
+===========================
+
+The final website should feel like:
+
+* A funded sports-tech startup
+* Global sports SaaS company
+* Professional event infrastructure provider
+* Premium sports auction ecosystem
+
+NOT:
+
+* local software company
+* basic tournament app
+* cheap cricket website
+
+====================================================
+CONTENT STYLE
+=============
+
+Tone should be:
+
+* premium
+* modern
+* concise
+* energetic
+* sports-business oriented
+* clean English
+* internationally appealing
+
+Avoid:
+
+* broken English
+* overly local language
+* excessive emojis
+* exaggerated fake claims
+
+====================================================
+TECHNICAL SEO TASKS
+===================
+
+Implement:
+
+* proper title tags
+* canonical tags
+* structured metadata
+* sitemap readiness
+* robots readiness
+* lazy loading readiness
+* semantic section tags
+* accessibility improvements
+
+====================================================
+FINAL OUTPUT REQUIRED
+=====================
+
+Modify ONLY:
+
+* text
+* metadata
+* SEO structure
+* content hierarchy
+* schema
+* headings
+* CTA copy
+* footer data
+
+DO NOT redesign visuals.
+
+Maintain current design aesthetics while transforming the website into a premium international sports auction SaaS homepage.

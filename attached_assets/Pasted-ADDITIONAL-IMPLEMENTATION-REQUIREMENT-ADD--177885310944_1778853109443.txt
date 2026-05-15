@@ -1,0 +1,141 @@
+ADDITIONAL IMPLEMENTATION REQUIREMENT
+
+====================================================
+ADD “PAST AUCTIONS / EVENT GALLERY” SECTION
+===========================================
+
+Create a NEW premium section on homepage for showcasing previous tournaments, auctions, and sports events conducted using BidWar.
+
+IMPORTANT:
+
+* KEEP design language consistent with existing website.
+* Section should feel modern, premium, sports-tech oriented.
+* Use current website theme/colors/cards/animations.
+* DO NOT make it look like a random photo gallery.
+
+====================================================
+SECTION PURPOSE
+===============
+
+This section should:
+
+* build trust
+* create social proof
+* make platform feel actively used
+* increase professionalism
+* improve event credibility
+* help conversion psychologically
+
+====================================================
+SECTION TITLE IDEAS
+===================
+
+Use premium headings like:
+
+* Auction Highlights
+* Events Powered by BidWar
+* Previous Auction Moments
+* Live Auction Experiences
+* Tournament Auction Gallery
+* Inside the Auction Room
+
+Choose the best matching heading.
+
+====================================================
+SECTION DESIGN
+==============
+
+Create:
+
+* responsive grid layout
+* premium image cards
+* hover animations
+* slight dark overlays
+* optional captions
+* lazy loading support
+* mobile responsive carousel/grid
+
+Cards should visually feel like:
+
+* sports auctions
+* projector events
+* live bidding
+* franchise atmosphere
+* tournament operations
+
+====================================================
+DUMMY CONTENT
+=============
+
+For now:
+
+* use high-quality dummy sports auction images
+* cricket auction environment
+* projector bidding setups
+* sports franchise tables
+* auction stage visuals
+* team owner discussions
+* live operator desk
+* player auction atmosphere
+
+DO NOT use:
+
+* watermarked images
+* low-quality stock photos
+* cartoonish graphics
+
+Use realistic professional sports-event style imagery.
+
+====================================================
+CAPTION STYLE
+=============
+
+Each image/card may optionally include:
+
+* tournament name
+* event type
+* auction category
+* city/location placeholder
+
+Example style:
+
+* “Franchise Auction Night”
+* “T20 League Player Auction”
+* “Business League Draft”
+* “Live Team Bidding Session”
+
+====================================================
+SEO OPTIMIZATION
+================
+
+Add:
+
+* image alt tags
+* lazy loading
+* semantic markup
+* crawl-friendly captions
+* optimized section headings
+
+This section should also support image SEO.
+
+====================================================
+FUTURE READY STRUCTURE
+======================
+
+Build this section dynamically so future real auction images can easily be:
+
+* uploaded
+* replaced
+* managed from admin panel/CMS later
+
+Do NOT hardcode everything permanently.
+
+====================================================
+FINAL GOAL
+==========
+
+This section should make visitors instantly feel:
+
+“BidWar is already powering real professional sports auctions.”
+
+while maintaining the premium international sports-tech SaaS identity of the homepage.
