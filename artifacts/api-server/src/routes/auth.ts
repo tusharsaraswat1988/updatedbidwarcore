@@ -821,7 +821,7 @@ router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
   const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
-  const domain = domains[0]?.trim() ?? "";
+  const domain = process.env.APP_DOMAIN ?? domains[0]?.trim() ?? "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
 
   // Generate and store a random state token to prevent login CSRF
@@ -855,7 +855,7 @@ router.get("/auth/google/callback", async (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
-  const domain = domains[0]?.trim() ?? "";
+  const domain = process.env.APP_DOMAIN ?? domains[0]?.trim() ?? "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
   if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
 

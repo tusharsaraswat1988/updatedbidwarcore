@@ -52,5 +52,8 @@ externalPort = 3000
 [userenv.shared]
 TWILIO_WHATSAPP_FROM = "+18382214175"
 
+[userenv.production]
+APP_DOMAIN = "bidwar.in"
+
 [nix]
 channel = "stable-25_05"
