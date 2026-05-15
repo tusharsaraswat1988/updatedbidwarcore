@@ -7,3 +7,4 @@ export * from "./auction_sessions";
 export * from "./organizers";
 export * from "./global_players";
 export * from "./auction_events";
+export * from "./player_import_logs";

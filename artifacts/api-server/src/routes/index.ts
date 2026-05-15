@@ -10,6 +10,7 @@ import authRouter from "./auth";
 import adminReportsRouter from "./admin-reports";
 import intelligenceRouter from "./intelligence";
 import seedDemoRouter from "./seed-demo";
+import globalPlayersRouter from "./global-players";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(analyticsRouter);
 router.use(adminReportsRouter);
 router.use(intelligenceRouter);
 router.use(seedDemoRouter);
+router.use(globalPlayersRouter);
 
 export default router;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable, tournamentsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable } from "@workspace/db";
+import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
 async function computeRegistrationStatus(tid: number) {
@@ -290,6 +290,184 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.delete(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   res.status(204).send();
+});
+
+// ─── Tournament Import — list available source tournaments ────────────────────
+// Returns all tournaments (except current) that have at least one player.
+// If the caller has an organizer account session, results are scoped to that
+// account's tournaments; otherwise all tournaments are shown.
+router.get("/tournaments/:tournamentId/import-sources", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const organizerAccountId = req.session?.organizerAccountId;
+
+  const baseQuery = db
+    .select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      sport: tournamentsTable.sport,
+      auctionDate: tournamentsTable.auctionDate,
+    })
+    .from(tournamentsTable)
+    .$dynamic();
+
+  const sources = await (organizerAccountId
+    ? baseQuery.where(and(ne(tournamentsTable.id, tid), eq(tournamentsTable.organizerId, organizerAccountId)))
+    : baseQuery.where(ne(tournamentsTable.id, tid))
+  ).orderBy(desc(tournamentsTable.createdAt));
+
+  // Attach player counts and filter out empty tournaments
+  const result = await Promise.all(
+    sources.map(async (s) => {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(playersTable)
+        .where(eq(playersTable.tournamentId, s.id));
+      return { ...s, playerCount: Number(count) };
+    }),
+  );
+
+  res.json(result.filter((s) => s.playerCount > 0));
+});
+
+// ─── Tournament Import — list players from a source tournament ────────────────
+// Returns players from sourceTournamentId, marking those that are already
+// in the target tournament as duplicates (by mobile number or name).
+router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const sourceTid = parseInt(String(req.query.sourceTournamentId || "0"));
+  if (isNaN(tid) || isNaN(sourceTid) || sourceTid === 0) {
+    res.status(400).json({ error: "sourceTournamentId is required" });
+    return;
+  }
+
+  const q = String(req.query.q || "").trim();
+
+  // Get existing mobiles and names in target tournament for duplicate detection
+  const existingInTarget = await db
+    .select({ mobile: playersTable.mobileNumber, name: playersTable.name })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tid));
+
+  const mobileSet = new Set(
+    existingInTarget.map((p) => p.mobile).filter((m): m is string => !!m),
+  );
+  const nameSet = new Set(
+    existingInTarget.map((p) => p.name.toLowerCase().trim()),
+  );
+
+  // Build query for source players
+  const conditions = [eq(playersTable.tournamentId, sourceTid)];
+  if (q.length >= 2) {
+    conditions.push(
+      or(
+        sql`${playersTable.name} ILIKE ${"%" + q + "%"}`,
+        sql`${playersTable.mobileNumber} LIKE ${q + "%"}`,
+      ) as ReturnType<typeof eq>,
+    );
+  }
+
+  const sourcePlayers = await db
+    .select()
+    .from(playersTable)
+    .where(and(...conditions))
+    .orderBy(playersTable.name);
+
+  const result = sourcePlayers.map((p) => ({
+    ...playerToJson(p),
+    isDuplicate:
+      (!!p.mobileNumber && mobileSet.has(p.mobileNumber)) ||
+      nameSet.has(p.name.toLowerCase().trim()),
+  }));
+
+  res.json(result);
+});
+
+// ─── Tournament Import — bulk import selected players ─────────────────────────
+// Copies selected players from sourceTournamentId into the target tournament.
+// Skips players whose mobile number already exists in the target.
+// Optionally overrides the category for all imported players.
+router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    sourceTournamentId: z.number().int(),
+    playerIds: z.array(z.number().int()).min(1).max(500),
+    categoryId: z.number().int().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
+
+  const { sourceTournamentId, playerIds, categoryId } = parsed.data;
+
+  // Fetch existing mobiles in target for dedup
+  const existingMobiles = await db
+    .select({ mobile: playersTable.mobileNumber })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.mobileNumber} IS NOT NULL`));
+  const mobileSet = new Set(
+    existingMobiles.map((m) => m.mobile).filter((m): m is string => !!m),
+  );
+
+  // Fetch source players by IDs
+  const sourcePlayers = await db
+    .select()
+    .from(playersTable)
+    .where(
+      and(
+        eq(playersTable.tournamentId, sourceTournamentId),
+        inArray(playersTable.id, playerIds),
+      ),
+    );
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const p of sourcePlayers) {
+    if (p.mobileNumber && mobileSet.has(p.mobileNumber)) {
+      skipped++;
+      continue;
+    }
+
+    await db.insert(playersTable).values({
+      tournamentId: tid,
+      categoryId: categoryId ?? p.categoryId ?? null,
+      name: p.name,
+      city: p.city,
+      role: p.role,
+      battingStyle: p.battingStyle,
+      bowlingStyle: p.bowlingStyle,
+      specialization: p.specialization,
+      age: p.age,
+      photoUrl: p.photoUrl,
+      basePrice: p.basePrice,
+      jerseyNumber: p.jerseyNumber,
+      achievements: p.achievements,
+      mobileNumber: p.mobileNumber,
+      cricheroUrl: p.cricheroUrl,
+      availabilityDates: p.availabilityDates,
+      globalPlayerId: p.globalPlayerId,
+      status: "available" as const,
+      teamId: null,
+    });
+
+    if (p.mobileNumber) mobileSet.add(p.mobileNumber);
+    imported++;
+  }
+
+  // Audit log
+  if (imported > 0) {
+    await db.insert(playerImportLogsTable).values({
+      sourceTournamentId,
+      targetTournamentId: tid,
+      organizerAccountId: req.session?.organizerAccountId ?? null,
+      playerCount: imported,
+    });
+  }
+
+  res.json({ imported, skipped, total: sourcePlayers.length });
 });
 
 export default router;

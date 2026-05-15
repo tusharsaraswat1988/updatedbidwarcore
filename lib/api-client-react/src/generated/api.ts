@@ -28,7 +28,13 @@ import type {
   CategoryUpdate,
   DisplayPlayerFilter,
   FortuneWheelSync,
+  GlobalPlayerSuggestion,
   HealthStatus,
+  ImportCandidatePlayer,
+  ImportPlayersInput,
+  ImportPlayersResult,
+  ImportSource,
+  ListImportCandidatesParams,
   LocalSyncPayload,
   LocalSyncResult,
   ManualSellInput,
@@ -39,6 +45,7 @@ import type {
   ReAuctionInput,
   RegistrationStatus,
   ResetTrialAuctionBody,
+  SearchGlobalPlayersParams,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
   Team,
@@ -4439,3 +4446,407 @@ export function useGetCategoryBreakdown<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Search players across all tournaments for autocomplete / name lookup
+ */
+export const getSearchGlobalPlayersUrl = (
+  params: SearchGlobalPlayersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/global-players/search?${stringifiedParams}`
+    : `/api/global-players/search`;
+};
+
+export const searchGlobalPlayers = async (
+  params: SearchGlobalPlayersParams,
+  options?: RequestInit,
+): Promise<GlobalPlayerSuggestion[]> => {
+  return customFetch<GlobalPlayerSuggestion[]>(
+    getSearchGlobalPlayersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getSearchGlobalPlayersQueryKey = (
+  params?: SearchGlobalPlayersParams,
+) => {
+  return [`/api/global-players/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchGlobalPlayersQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchGlobalPlayers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchGlobalPlayersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchGlobalPlayers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchGlobalPlayersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchGlobalPlayers>>
+  > = ({ signal }) =>
+    searchGlobalPlayers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchGlobalPlayers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchGlobalPlayersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchGlobalPlayers>>
+>;
+export type SearchGlobalPlayersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search players across all tournaments for autocomplete / name lookup
+ */
+
+export function useSearchGlobalPlayers<
+  TData = Awaited<ReturnType<typeof searchGlobalPlayers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchGlobalPlayersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchGlobalPlayers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchGlobalPlayersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List tournaments that can be used as player import sources
+ */
+export const getListImportSourcesUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/import-sources`;
+};
+
+export const listImportSources = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<ImportSource[]> => {
+  return customFetch<ImportSource[]>(getListImportSourcesUrl(tournamentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListImportSourcesQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/import-sources`] as const;
+};
+
+export const getListImportSourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listImportSources>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listImportSources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListImportSourcesQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listImportSources>>
+  > = ({ signal }) =>
+    listImportSources(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listImportSources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListImportSourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listImportSources>>
+>;
+export type ListImportSourcesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List tournaments that can be used as player import sources
+ */
+
+export function useListImportSources<
+  TData = Awaited<ReturnType<typeof listImportSources>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listImportSources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListImportSourcesQueryOptions(tournamentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List players from a source tournament, flagging duplicates in target
+ */
+export const getListImportCandidatesUrl = (
+  tournamentId: number,
+  params: ListImportCandidatesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tournaments/${tournamentId}/import-candidates?${stringifiedParams}`
+    : `/api/tournaments/${tournamentId}/import-candidates`;
+};
+
+export const listImportCandidates = async (
+  tournamentId: number,
+  params: ListImportCandidatesParams,
+  options?: RequestInit,
+): Promise<ImportCandidatePlayer[]> => {
+  return customFetch<ImportCandidatePlayer[]>(
+    getListImportCandidatesUrl(tournamentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListImportCandidatesQueryKey = (
+  tournamentId: number,
+  params?: ListImportCandidatesParams,
+) => {
+  return [
+    `/api/tournaments/${tournamentId}/import-candidates`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListImportCandidatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listImportCandidates>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  params: ListImportCandidatesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listImportCandidates>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListImportCandidatesQueryKey(tournamentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listImportCandidates>>
+  > = ({ signal }) =>
+    listImportCandidates(tournamentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listImportCandidates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListImportCandidatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listImportCandidates>>
+>;
+export type ListImportCandidatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List players from a source tournament, flagging duplicates in target
+ */
+
+export function useListImportCandidates<
+  TData = Awaited<ReturnType<typeof listImportCandidates>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  params: ListImportCandidatesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listImportCandidates>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListImportCandidatesQueryOptions(
+    tournamentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Bulk import selected players from another tournament
+ */
+export const getImportPlayersFromTournamentUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/import-players`;
+};
+
+export const importPlayersFromTournament = async (
+  tournamentId: number,
+  importPlayersInput: ImportPlayersInput,
+  options?: RequestInit,
+): Promise<ImportPlayersResult> => {
+  return customFetch<ImportPlayersResult>(
+    getImportPlayersFromTournamentUrl(tournamentId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(importPlayersInput),
+    },
+  );
+};
+
+export const getImportPlayersFromTournamentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPlayersFromTournament>>,
+    TError,
+    { tournamentId: number; data: BodyType<ImportPlayersInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importPlayersFromTournament>>,
+  TError,
+  { tournamentId: number; data: BodyType<ImportPlayersInput> },
+  TContext
+> => {
+  const mutationKey = ["importPlayersFromTournament"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importPlayersFromTournament>>,
+    { tournamentId: number; data: BodyType<ImportPlayersInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return importPlayersFromTournament(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportPlayersFromTournamentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importPlayersFromTournament>>
+>;
+export type ImportPlayersFromTournamentMutationBody =
+  BodyType<ImportPlayersInput>;
+export type ImportPlayersFromTournamentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk import selected players from another tournament
+ */
+export const useImportPlayersFromTournament = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPlayersFromTournament>>,
+    TError,
+    { tournamentId: number; data: BodyType<ImportPlayersInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importPlayersFromTournament>>,
+  TError,
+  { tournamentId: number; data: BodyType<ImportPlayersInput> },
+  TContext
+> => {
+  return useMutation(getImportPlayersFromTournamentMutationOptions(options));
+};

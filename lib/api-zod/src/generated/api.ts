@@ -2865,3 +2865,109 @@ export const GetCategoryBreakdownResponseItem = zod.object({
 export const GetCategoryBreakdownResponse = zod.array(
   GetCategoryBreakdownResponseItem,
 );
+
+/**
+ * @summary Search players across all tournaments for autocomplete / name lookup
+ */
+export const searchGlobalPlayersQueryLimitDefault = 10;
+
+export const SearchGlobalPlayersQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .describe("Name prefix, mobile prefix, or exact global player ID"),
+  limit: zod.coerce.number().default(searchGlobalPlayersQueryLimitDefault),
+});
+
+export const SearchGlobalPlayersResponseItem = zod.object({
+  id: zod.number(),
+  globalPlayerId: zod.string().nullish(),
+  name: zod.string(),
+  mobileNumber: zod.string().nullish(),
+  city: zod.string().nullish(),
+  age: zod.number().nullish(),
+  role: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  achievements: zod.string().nullish(),
+  jerseyNumber: zod.string().nullish(),
+  cricheroUrl: zod.string().nullish(),
+  availabilityDates: zod.string().nullish(),
+  basePrice: zod.number().optional(),
+  appearanceCount: zod.number(),
+});
+export const SearchGlobalPlayersResponse = zod.array(
+  SearchGlobalPlayersResponseItem,
+);
+
+/**
+ * @summary List tournaments that can be used as player import sources
+ */
+export const ListImportSourcesParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ListImportSourcesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  sport: zod.string(),
+  auctionDate: zod.string().nullish(),
+  playerCount: zod.number(),
+});
+export const ListImportSourcesResponse = zod.array(
+  ListImportSourcesResponseItem,
+);
+
+/**
+ * @summary List players from a source tournament, flagging duplicates in target
+ */
+export const ListImportCandidatesParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ListImportCandidatesQueryParams = zod.object({
+  sourceTournamentId: zod.coerce.number(),
+  q: zod.coerce.string().optional().describe("Optional name\/mobile filter"),
+});
+
+export const ListImportCandidatesResponseItem = zod.object({
+  id: zod.number(),
+  tournamentId: zod.number(),
+  name: zod.string(),
+  role: zod.string().nullish(),
+  city: zod.string().nullish(),
+  age: zod.number().nullish(),
+  mobileNumber: zod.string().nullish(),
+  photoUrl: zod.string().nullish(),
+  categoryId: zod.number().nullish(),
+  basePrice: zod.number(),
+  achievements: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  jerseyNumber: zod.string().nullish(),
+  isDuplicate: zod.boolean(),
+});
+export const ListImportCandidatesResponse = zod.array(
+  ListImportCandidatesResponseItem,
+);
+
+/**
+ * @summary Bulk import selected players from another tournament
+ */
+export const ImportPlayersFromTournamentParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ImportPlayersFromTournamentBody = zod.object({
+  sourceTournamentId: zod.number(),
+  playerIds: zod.array(zod.number()),
+  categoryId: zod.number().optional(),
+});
+
+export const ImportPlayersFromTournamentResponse = zod.object({
+  imported: zod.number(),
+  skipped: zod.number(),
+  total: zod.number(),
+});

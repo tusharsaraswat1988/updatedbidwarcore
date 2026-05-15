@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { useRoute } from "wouter";
 import {
@@ -9,6 +9,13 @@ import {
   useUpdatePlayer,
   useDeletePlayer,
   useBulkCreatePlayers,
+  useSearchGlobalPlayers,
+  getSearchGlobalPlayersQueryKey,
+  useListImportSources,
+  getListImportSourcesQueryKey,
+  useListImportCandidates,
+  getListImportCandidatesQueryKey,
+  useImportPlayersFromTournament,
   getListPlayersQueryKey,
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
@@ -23,9 +30,356 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, DatabaseZap, Loader2 } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// ─── Global Player Search Autocomplete ────────────────────────────────────────
+
+type SuggestionProfile = {
+  id: number;
+  name: string;
+  mobileNumber?: string | null;
+  city?: string | null;
+  age?: number | null;
+  role?: string | null;
+  photoUrl?: string | null;
+  battingStyle?: string | null;
+  bowlingStyle?: string | null;
+  specialization?: string | null;
+  achievements?: string | null;
+  jerseyNumber?: string | null;
+  cricheroUrl?: string | null;
+  availabilityDates?: string | null;
+  basePrice?: number;
+  appearanceCount: number;
+};
+
+function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
+  value: string;
+  onChange: (v: string) => void;
+  onFillFromProfile: (p: SuggestionProfile) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(value), 300);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  const { data: suggestions } = useSearchGlobalPlayers(
+    { q: debouncedQ, limit: 8 },
+    { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ }), enabled: debouncedQ.length >= 2 } },
+  );
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const showDropdown = open && debouncedQ.length >= 2 && (suggestions?.length ?? 0) > 0;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        required
+        placeholder="Full name"
+        autoComplete="off"
+      />
+      {showDropdown && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
+          {suggestions!.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              className="w-full text-left px-3 py-2.5 hover:bg-accent transition-colors flex items-center gap-3 border-b border-border/40 last:border-0"
+              onMouseDown={() => { onFillFromProfile(p as SuggestionProfile); setOpen(false); }}
+            >
+              <div className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {p.photoUrl ? (
+                  <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-muted-foreground/40" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm truncate">{p.name}</span>
+                  {p.role && <span className="text-xs text-muted-foreground capitalize">{p.role}</span>}
+                  {p.appearanceCount > 1 && (
+                    <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                      {p.appearanceCount} tournaments
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 text-xs text-muted-foreground">
+                  {p.city && <span>{p.city}</span>}
+                  {p.mobileNumber && <span className="font-mono">{p.mobileNumber}</span>}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tournament Import Dialog ──────────────────────────────────────────────────
+
+function TournamentImportDialog({ tournamentId, categories, onClose }: {
+  tournamentId: number;
+  categories: any[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [sourceTournamentId, setSourceTournamentId] = useState<number | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [search, setSearch] = useState("");
+  const [overrideCategoryId, setOverrideCategoryId] = useState<string>("");
+  const [result, setResult] = useState<{ imported: number; skipped: number; total: number } | null>(null);
+
+  const importMutation = useImportPlayersFromTournament();
+
+  const { data: sources, isLoading: sourcesLoading } = useListImportSources(tournamentId, {
+    query: { queryKey: getListImportSourcesQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+
+  const { data: candidates, isLoading: candidatesLoading } = useListImportCandidates(
+    tournamentId,
+    { sourceTournamentId: sourceTournamentId ?? 0 },
+    {
+      query: {
+        queryKey: getListImportCandidatesQueryKey(tournamentId, { sourceTournamentId: sourceTournamentId ?? 0 }),
+        enabled: !!sourceTournamentId,
+      },
+    },
+  );
+
+  const filteredCandidates = (candidates || []).filter(p => {
+    if (!search) return true;
+    return p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.mobileNumber || "").includes(search);
+  });
+
+  const nonDupeCount = (candidates || []).filter(p => !p.isDuplicate).length;
+  const dupeCount = (candidates || []).filter(p => p.isDuplicate).length;
+
+  function selectAllNonDupes() {
+    setSelectedIds(new Set((candidates || []).filter(p => !p.isDuplicate).map(p => p.id)));
+  }
+
+  function deselectAll() { setSelectedIds(new Set()); }
+
+  function togglePlayer(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleImport() {
+    if (selectedIds.size === 0 || !sourceTournamentId) return;
+    const res = await importMutation.mutateAsync({
+      tournamentId,
+      data: {
+        sourceTournamentId,
+        playerIds: Array.from(selectedIds),
+        categoryId: overrideCategoryId ? parseInt(overrideCategoryId) : undefined,
+      },
+    });
+    setResult(res);
+    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+  }
+
+  // Result screen
+  if (result) {
+    return (
+      <div className="space-y-5">
+        <div className={`p-5 rounded-lg border ${result.imported > 0 ? "border-green-500/40 bg-green-500/10" : "border-yellow-500/40 bg-yellow-500/10"}`}>
+          <p className="font-bold text-xl">{result.imported} player{result.imported !== 1 ? "s" : ""} imported</p>
+          {result.skipped > 0 && (
+            <p className="text-sm text-muted-foreground mt-1">{result.skipped} skipped — already in tournament</p>
+          )}
+        </div>
+        <Button className="w-full" onClick={onClose}>Done</Button>
+      </div>
+    );
+  }
+
+  // Step 1 — Source selection
+  if (step === 1) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">Select a tournament to import players from.</p>
+        {sourcesLoading ? (
+          <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}</div>
+        ) : (sources || []).length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <DatabaseZap className="w-10 h-10 mx-auto mb-3 opacity-25" />
+            <p className="font-medium">No other tournaments found</p>
+            <p className="text-xs mt-1">Other tournaments with registered players will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+            {(sources || []).map(s => (
+              <button
+                key={s.id}
+                type="button"
+                className="w-full text-left border border-border hover:border-primary/50 hover:bg-accent/40 rounded-lg p-4 transition-all"
+                onClick={() => { setSourceTournamentId(s.id); setSourceName(s.name); setStep(2); }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{s.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                      {s.sport}{s.auctionDate ? ` · ${s.auctionDate}` : ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="font-mono shrink-0">{s.playerCount} players</Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Step 2 — Player selection
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { setStep(1); setSelectedIds(new Set()); setSearch(""); }}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <span className="font-semibold text-sm truncate">{sourceName}</span>
+        <span className="text-muted-foreground text-xs ml-auto shrink-0">{selectedIds.size} selected</span>
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          placeholder="Filter by name or mobile..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 h-8 text-sm"
+        />
+        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={selectAllNonDupes} disabled={nonDupeCount === 0}>
+          All ({nonDupeCount})
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={deselectAll} disabled={selectedIds.size === 0}>
+          Clear
+        </Button>
+      </div>
+
+      {dupeCount > 0 && (
+        <div className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded px-3 py-2">
+          {dupeCount} player{dupeCount !== 1 ? "s" : ""} already in this tournament — shown greyed out
+        </div>
+      )}
+
+      {categories.length > 0 && (
+        <div className="flex items-center gap-3">
+          <Label className="text-xs whitespace-nowrap text-muted-foreground">Override category:</Label>
+          <Select value={overrideCategoryId} onValueChange={setOverrideCategoryId}>
+            <SelectTrigger className="h-7 text-xs flex-1">
+              <SelectValue placeholder="Keep original" />
+            </SelectTrigger>
+            <SelectContent className="dark">
+              <SelectItem value="">Keep original</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="space-y-1.5 max-h-[38vh] overflow-y-auto pr-0.5">
+        {candidatesLoading ? (
+          [1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-13" />)
+        ) : filteredCandidates.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-10">No players found</p>
+        ) : filteredCandidates.map(p => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={p.isDuplicate}
+            className={`w-full text-left rounded-lg px-3 py-2.5 flex items-center gap-3 transition-all border ${
+              p.isDuplicate
+                ? "opacity-40 cursor-not-allowed border-border/30 bg-card/20"
+                : selectedIds.has(p.id)
+                ? "border-primary/60 bg-primary/10"
+                : "border-border hover:border-primary/30 hover:bg-accent/40"
+            }`}
+            onClick={() => !p.isDuplicate && togglePlayer(p.id)}
+          >
+            <div className="w-4 h-4 flex-shrink-0 flex items-center justify-center rounded border border-border bg-card">
+              {selectedIds.has(p.id) && !p.isDuplicate && (
+                <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
+              )}
+              {p.isDuplicate && <X className="w-2.5 h-2.5 text-yellow-500" />}
+            </div>
+            <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {p.photoUrl ? (
+                <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-3.5 h-3.5 text-muted-foreground/40" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm">{p.name}</span>
+                {p.role && <span className="text-xs text-muted-foreground capitalize">{p.role}</span>}
+                {p.isDuplicate && <span className="text-[10px] font-semibold text-yellow-400">Already in tournament</span>}
+              </div>
+              <div className="flex gap-2 text-xs text-muted-foreground">
+                {p.city && <span>{p.city}</span>}
+                {p.mobileNumber && <span className="font-mono">{p.mobileNumber}</span>}
+                {p.age != null && <span>Age {p.age}</span>}
+              </div>
+            </div>
+            <div className="text-right text-xs text-muted-foreground shrink-0">
+              {formatIndianRupee(p.basePrice)}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-3 pt-2 border-t border-border">
+        <Button
+          className="flex-1"
+          disabled={selectedIds.size === 0 || importMutation.isPending}
+          onClick={handleImport}
+        >
+          {importMutation.isPending ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing...</>
+          ) : (
+            <><DatabaseZap className="w-4 h-4 mr-2" /> Import {selectedIds.size} Player{selectedIds.size !== 1 ? "s" : ""}</>
+          )}
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Player Form ───────────────────────────────────────────────────────────────
 
 function PlayerForm({ tournamentId, player, categories, onClose }: {
   tournamentId: number;
@@ -37,6 +391,7 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
   const createPlayer = useCreatePlayer();
   const updatePlayer = useUpdatePlayer();
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
+  const [filledFromProfile, setFilledFromProfile] = useState(false);
 
   const [form, setForm] = useState({
     name: player?.name || "",
@@ -90,12 +445,55 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
 
   const f = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
 
+  function fillFromProfile(p: SuggestionProfile) {
+    setForm(prev => ({
+      ...prev,
+      name: p.name,
+      city: p.city || prev.city,
+      role: p.role || prev.role,
+      age: p.age != null ? String(p.age) : prev.age,
+      photoUrl: p.photoUrl || prev.photoUrl,
+      battingStyle: p.battingStyle || prev.battingStyle,
+      bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
+      specialization: p.specialization || prev.specialization,
+      achievements: p.achievements || prev.achievements,
+      jerseyNumber: p.jerseyNumber || prev.jerseyNumber,
+      cricheroUrl: p.cricheroUrl || prev.cricheroUrl,
+      mobileNumber: p.mobileNumber || prev.mobileNumber,
+      basePrice: p.basePrice || prev.basePrice,
+    }));
+    setFilledFromProfile(true);
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Player Name *</Label>
-          <Input value={form.name} onChange={e => f("name", e.target.value)} required placeholder="Full name" />
+          {player ? (
+            <Input value={form.name} onChange={e => f("name", e.target.value)} required placeholder="Full name" />
+          ) : (
+            <>
+              <GlobalPlayerSearch
+                value={form.name}
+                onChange={v => { f("name", v); setFilledFromProfile(false); }}
+                onFillFromProfile={fillFromProfile}
+              />
+              {filledFromProfile && (
+                <p className="text-xs text-primary flex items-center gap-1">
+                  <DatabaseZap className="w-3 h-3" />
+                  Filled from player history
+                  <button
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setFilledFromProfile(false)}
+                  >
+                    · clear
+                  </button>
+                </p>
+              )}
+            </>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
@@ -261,6 +659,8 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
   );
 }
 
+// ─── Bulk Upload Dialog ────────────────────────────────────────────────────────
+
 function BulkUploadDialog({ tournamentId, categories, onClose }: {
   tournamentId: number;
   categories: any[];
@@ -401,12 +801,16 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
   );
 }
 
+// ─── Status badge colours ──────────────────────────────────────────────────────
+
 const statusColors: Record<string, string> = {
   available: "bg-blue-500/20 text-blue-400 border-blue-500/20",
   sold: "bg-green-500/20 text-green-400 border-green-500/20",
   unsold: "bg-red-500/20 text-red-400 border-red-500/20",
   retained: "bg-purple-500/20 text-purple-400 border-purple-500/20",
 };
+
+// ─── Players Page ──────────────────────────────────────────────────────────────
 
 export default function Players() {
   const [, params] = useRoute("/tournament/:id/players");
@@ -425,6 +829,7 @@ export default function Players() {
   const deletePlayer = useDeletePlayer();
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -459,7 +864,7 @@ export default function Players() {
               {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="lg"
@@ -467,6 +872,14 @@ export default function Players() {
               onClick={() => setBulkOpen(true)}
             >
               <Upload className="w-4 h-4" /> Bulk Upload
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              onClick={() => setImportOpen(true)}
+            >
+              <DatabaseZap className="w-4 h-4" /> Import Players
             </Button>
             <Button
               variant="outline"
@@ -622,6 +1035,22 @@ export default function Players() {
             tournamentId={tournamentId}
             categories={categories || []}
             onClose={() => setBulkOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Players Dialog */}
+      <Dialog open={importOpen} onOpenChange={v => { setImportOpen(v); }}>
+        <DialogContent className="max-w-2xl dark max-h-[92vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DatabaseZap className="w-5 h-5" /> Import Players from Tournament
+            </DialogTitle>
+          </DialogHeader>
+          <TournamentImportDialog
+            tournamentId={tournamentId}
+            categories={categories || []}
+            onClose={() => setImportOpen(false)}
           />
         </DialogContent>
       </Dialog>

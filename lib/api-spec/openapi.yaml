@@ -14,6 +14,7 @@ tags:
   - name: categories
   - name: auction
   - name: analytics
+  - name: global-players
 
 paths:
   /healthz:
@@ -1150,6 +1151,111 @@ paths:
                 items:
                   $ref: "#/components/schemas/CategoryBreakdown"
 
+  # ─── GLOBAL PLAYER DATABASE ───────────────────────────────────────────────────
+  /global-players/search:
+    get:
+      operationId: searchGlobalPlayers
+      tags: [global-players]
+      summary: Search players across all tournaments for autocomplete / name lookup
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: "Name prefix, mobile prefix, or exact global player ID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Matching player suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GlobalPlayerSuggestion"
+
+  /tournaments/{tournamentId}/import-sources:
+    get:
+      operationId: listImportSources
+      tags: [global-players]
+      summary: List tournaments that can be used as player import sources
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Available source tournaments with player counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImportSource"
+
+  /tournaments/{tournamentId}/import-candidates:
+    get:
+      operationId: listImportCandidates
+      tags: [global-players]
+      summary: List players from a source tournament, flagging duplicates in target
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sourceTournamentId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Optional name/mobile filter
+      responses:
+        "200":
+          description: Import candidates with isDuplicate flag
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ImportCandidatePlayer"
+
+  /tournaments/{tournamentId}/import-players:
+    post:
+      operationId: importPlayersFromTournament
+      tags: [global-players]
+      summary: Bulk import selected players from another tournament
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportPlayersInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportPlayersResult"
+
 components:
   schemas:
     HealthStatus:
@@ -2045,4 +2151,120 @@ components:
         available:
           type: integer
         totalSpent:
+          type: integer
+
+    # ─── Global Player Database schemas ───────────────────────────────────────
+    GlobalPlayerSuggestion:
+      type: object
+      required: [id, name, appearanceCount]
+      properties:
+        id:
+          type: integer
+        globalPlayerId:
+          type: ["string", "null"]
+        name:
+          type: string
+        mobileNumber:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        role:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        battingStyle:
+          type: ["string", "null"]
+        bowlingStyle:
+          type: ["string", "null"]
+        specialization:
+          type: ["string", "null"]
+        achievements:
+          type: ["string", "null"]
+        jerseyNumber:
+          type: ["string", "null"]
+        cricheroUrl:
+          type: ["string", "null"]
+        availabilityDates:
+          type: ["string", "null"]
+        basePrice:
+          type: integer
+        appearanceCount:
+          type: integer
+
+    ImportSource:
+      type: object
+      required: [id, name, sport, playerCount]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sport:
+          type: string
+        auctionDate:
+          type: ["string", "null"]
+        playerCount:
+          type: integer
+
+    ImportCandidatePlayer:
+      type: object
+      required: [id, tournamentId, name, basePrice, isDuplicate]
+      properties:
+        id:
+          type: integer
+        tournamentId:
+          type: integer
+        name:
+          type: string
+        role:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        mobileNumber:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        basePrice:
+          type: integer
+        achievements:
+          type: ["string", "null"]
+        battingStyle:
+          type: ["string", "null"]
+        bowlingStyle:
+          type: ["string", "null"]
+        specialization:
+          type: ["string", "null"]
+        jerseyNumber:
+          type: ["string", "null"]
+        isDuplicate:
+          type: boolean
+
+    ImportPlayersInput:
+      type: object
+      required: [sourceTournamentId, playerIds]
+      properties:
+        sourceTournamentId:
+          type: integer
+        playerIds:
+          type: array
+          items:
+            type: integer
+        categoryId:
+          type: integer
+
+    ImportPlayersResult:
+      type: object
+      required: [imported, skipped, total]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        total:
           type: integer

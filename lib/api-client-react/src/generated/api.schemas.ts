@@ -688,6 +688,90 @@ export interface CategoryBreakdown {
   totalSpent?: number;
 }
 
+export interface GlobalPlayerSuggestion {
+  id: number;
+  /** @nullable */
+  globalPlayerId?: string | null;
+  name: string;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  age?: number | null;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  battingStyle?: string | null;
+  /** @nullable */
+  bowlingStyle?: string | null;
+  /** @nullable */
+  specialization?: string | null;
+  /** @nullable */
+  achievements?: string | null;
+  /** @nullable */
+  jerseyNumber?: string | null;
+  /** @nullable */
+  cricheroUrl?: string | null;
+  /** @nullable */
+  availabilityDates?: string | null;
+  basePrice?: number;
+  appearanceCount: number;
+}
+
+export interface ImportSource {
+  id: number;
+  name: string;
+  sport: string;
+  /** @nullable */
+  auctionDate?: string | null;
+  playerCount: number;
+}
+
+export interface ImportCandidatePlayer {
+  id: number;
+  tournamentId: number;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  age?: number | null;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  categoryId?: number | null;
+  basePrice: number;
+  /** @nullable */
+  achievements?: string | null;
+  /** @nullable */
+  battingStyle?: string | null;
+  /** @nullable */
+  bowlingStyle?: string | null;
+  /** @nullable */
+  specialization?: string | null;
+  /** @nullable */
+  jerseyNumber?: string | null;
+  isDuplicate: boolean;
+}
+
+export interface ImportPlayersInput {
+  sourceTournamentId: number;
+  playerIds: number[];
+  categoryId?: number;
+}
+
+export interface ImportPlayersResult {
+  imported: number;
+  skipped: number;
+  total: number;
+}
+
 export type ResetTrialAuctionBody = {
   password: string;
 };
@@ -716,4 +800,20 @@ export type VerifyOwnerAccess200 = {
 
 export type SetCategoryFilterBody = {
   categoryIds?: number[] | null;
+};
+
+export type SearchGlobalPlayersParams = {
+  /**
+   * Name prefix, mobile prefix, or exact global player ID
+   */
+  q: string;
+  limit?: number;
+};
+
+export type ListImportCandidatesParams = {
+  sourceTournamentId: number;
+  /**
+   * Optional name/mobile filter
+   */
+  q?: string;
 };
