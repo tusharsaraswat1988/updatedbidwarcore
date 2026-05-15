@@ -711,7 +711,7 @@ function OrganizerDashboard({
                 >
                   <button
                     className="w-full text-left"
-                    onClick={() => navigate(`/tournament/${t.id}/login`)}
+                    onClick={() => navigate(`/tournament/${t.id}`)}
                   >
                     <Card className="border-border/50 bg-card/30 hover:bg-card/60 hover:border-border transition-all cursor-pointer h-full">
                       <CardContent className="p-5 space-y-3">
