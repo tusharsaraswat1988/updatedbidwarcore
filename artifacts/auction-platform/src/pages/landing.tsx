@@ -389,11 +389,6 @@ export default function Landing() {
             </div>
             <span className="font-display font-black text-lg text-white">BidWar</span>
           </div>
-          <div className="flex items-center gap-8 text-xs text-muted-foreground">
-            <button onClick={() => navigate("/organizer")} className="hover:text-white transition-colors">Organizer Login</button>
-            <button onClick={() => navigate("/dashboard")} className="hover:text-white transition-colors">Operator Dashboard</button>
-            <button onClick={() => navigate("/admin")} className="hover:text-white transition-colors">Admin</button>
-          </div>
           <p className="text-xs text-muted-foreground">
             India's Live Sports Auction Platform
           </p>
