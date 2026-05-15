@@ -1376,7 +1376,7 @@ router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
   cheerRateLimiter.set(ip, now);
 
   const bodySchema = z.object({
-    senderName: z.string().min(1).max(30).trim(),
+    senderName: z.string().trim().min(1).max(30),
     messageIndex: z.number().int().min(0).max(9),
   });
   const parsed = bodySchema.safeParse(req.body);

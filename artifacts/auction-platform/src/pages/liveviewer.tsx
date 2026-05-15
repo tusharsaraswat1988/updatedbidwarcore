@@ -651,7 +651,7 @@ export default function LiveViewerPage() {
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
         if (r.status === 429) showCheerError("Slow down!");
-        else if (r.status === 400) showCheerError(d.error === "Name not allowed" ? "Name not allowed" : "Could not send");
+        else if (r.status === 400) showCheerError(d.error === "Name contains disallowed words" ? "Name not allowed" : "Could not send");
         else if (r.status === 403) showCheerError("Cheers are disabled");
       }
     } catch {}
