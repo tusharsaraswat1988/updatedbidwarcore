@@ -62,6 +62,7 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   createdAt: p.createdAt.toISOString(),
 });
 
+// Public serializer: omits mobileNumber entirely (not set to null)
 const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id,
   tournamentId: p.tournamentId,
@@ -81,7 +82,6 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   status: p.status,
   jerseyNumber: p.jerseyNumber,
   achievements: p.achievements,
-  mobileNumber: null,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
   createdAt: p.createdAt.toISOString(),

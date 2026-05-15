@@ -26,19 +26,18 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   createdAt: t.createdAt.toISOString(),
 });
 
+// Public serializer: omits accessCode and ownerMobile entirely (not set to null)
 const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id,
   tournamentId: t.tournamentId,
   name: t.name,
   shortCode: t.shortCode,
   ownerName: t.ownerName,
-  ownerMobile: null,
   color: t.color,
   logoUrl: t.logoUrl,
   purse: t.purse,
   purseUsed: t.purseUsed,
   isBiddingEnabled: t.isBiddingEnabled,
-  accessCode: null,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -95,6 +94,9 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   res.status(201).json(teamToJson(team));
 });
 
+// GET single team — returns full data (including accessCode) so the owner-panel
+// access-code gate can determine whether a code is required. The teamId is
+// already in the URL, so this is no more exposed than the verify-access endpoint.
 router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);

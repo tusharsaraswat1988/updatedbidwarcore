@@ -10,14 +10,16 @@ import {
   getGetTeamPursesQueryKey,
   useListPlayers,
   getListPlayersQueryKey,
+  useListCategories,
+  getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
-import type { TeamPurse, Player } from "@workspace/api-client-react";
+import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
-// ── Sound utilities ───────────────────────────────────────────────────────────
+// ── Sound utilities (module-level, no hooks) ──────────────────────────────────
 
 type SoundKey = "newPlayer" | "bid" | "sold" | "unsold";
 type SoundSettings = Record<SoundKey, boolean>;
@@ -51,7 +53,7 @@ function playTone(
 
 function playNewPlayerSound(ac: AudioContext) {
   const t = ac.currentTime;
-  [440, 554, 659].forEach((freq, i) => playTone(ac, freq, t + i * 0.13, 0.38, "sine", 0.32));
+  [440, 554, 659].forEach((freq, i) => playTone(ac, freq, t + i * 0.13, 0.38, "sine", 0.3));
 }
 
 function playBidSound(ac: AudioContext) {
@@ -60,8 +62,8 @@ function playBidSound(ac: AudioContext) {
 
 function playSoldSound(ac: AudioContext) {
   const t = ac.currentTime;
-  [523, 659, 784].forEach((freq) => playTone(ac, freq, t, 0.75, "triangle", 0.2));
-  playTone(ac, 1047, t + 0.38, 0.5, "sine", 0.25);
+  [523, 659, 784].forEach((freq) => playTone(ac, freq, t, 0.75, "triangle", 0.19));
+  playTone(ac, 1047, t + 0.38, 0.5, "sine", 0.24);
 }
 
 function playUnsoldSound(ac: AudioContext) {
@@ -77,6 +79,8 @@ function playUnsoldSound(ac: AudioContext) {
   osc.start();
   osc.stop(ac.currentTime + 0.6);
 }
+
+// ── useSoundEngine ────────────────────────────────────────────────────────────
 
 function useSoundEngine() {
   const [settings, setSettings] = useState<SoundSettings>(() => {
@@ -94,16 +98,32 @@ function useSoundEngine() {
 
   function getAC() {
     if (!acRef.current) {
-      acRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      acRef.current = new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )();
     }
-    if (acRef.current.state === "suspended") void acRef.current.resume();
     return acRef.current;
   }
+
+  // Resume AudioContext on any user gesture — required by browser autoplay policy
+  useEffect(() => {
+    function resumeAC() {
+      if (acRef.current?.state === "suspended") void acRef.current.resume();
+    }
+    document.addEventListener("click", resumeAC);
+    document.addEventListener("touchstart", resumeAC);
+    return () => {
+      document.removeEventListener("click", resumeAC);
+      document.removeEventListener("touchstart", resumeAC);
+    };
+  }, []);
 
   const play = useCallback((sound: SoundKey) => {
     if (!settingsRef.current[sound]) return;
     try {
       const ac = getAC();
+      if (ac.state === "suspended") void ac.resume();
       switch (sound) {
         case "newPlayer": playNewPlayerSound(ac); break;
         case "bid":       playBidSound(ac);       break;
@@ -122,6 +142,150 @@ function useSoundEngine() {
   }, []);
 
   return { play, settings, toggle };
+}
+
+// ── TeamSquadSheet — bottom sheet on mobile, centered modal on desktop ─────────
+
+function TeamSquadSheet({
+  team,
+  players,
+  open,
+  onClose,
+}: {
+  team: TeamPurse | null;
+  players: Player[];
+  open: boolean;
+  onClose: () => void;
+}) {
+  const tc = team?.color || "#F59E0B";
+  const squadPlayers = useMemo(
+    () => players.filter((p) => p.teamId === team?.teamId && p.status === "sold"),
+    [players, team?.teamId],
+  );
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/65 backdrop-blur-sm"
+            onClick={onClose}
+          />
+
+          {/* Panel */}
+          <motion.div
+            className="relative z-10 w-full sm:max-w-md bg-[#18181b] border border-border/60 rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+          >
+            {/* Drag handle — mobile only */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+              <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            {/* Header */}
+            <div className="flex-shrink-0 px-5 pb-4 pt-2 sm:pt-5 border-b border-border/50">
+              <div className="flex items-center gap-3 mb-4">
+                {team?.logoUrl ? (
+                  <img src={team.logoUrl} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
+                    style={{ backgroundColor: `${tc}22`, color: tc, border: `2px solid ${tc}44` }}
+                  >
+                    {team?.shortCode?.slice(0, 3) || "?"}
+                  </div>
+                )}
+                <div>
+                  <p className="font-display font-bold text-lg leading-none" style={{ color: tc }}>
+                    {team?.teamName}
+                  </p>
+                  {team?.ownerName && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{team.ownerName}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Purse stats */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
+                  <p className="font-display font-black text-base" style={{ color: tc }}>
+                    {formatShortIndianRupee(team?.purseRemaining ?? 0)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Remaining</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
+                  <p className="font-display font-black text-base text-foreground">
+                    {formatShortIndianRupee(team?.purseUsed ?? 0)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Spent</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
+                  <p className="font-display font-black text-base text-foreground">
+                    {team?.playersBought ?? 0}
+                    {(team?.maximumSquadSize ?? 0) > 0 && (
+                      <span className="text-xs text-muted-foreground font-normal">/{team?.maximumSquadSize}</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Players</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Player list */}
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {squadPlayers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <User className="w-8 h-8 mb-2 opacity-25" />
+                  <p className="text-sm">No players acquired yet</p>
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {squadPlayers.map((player, i) => (
+                    <div
+                      key={player.id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors"
+                    >
+                      <span className="text-xs text-muted-foreground w-5 text-right tabular-nums flex-shrink-0">
+                        {i + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {player.photoUrl ? (
+                          <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-3.5 h-3.5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm leading-none truncate">{player.name}</p>
+                        {player.role && (
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5">{player.role}</p>
+                        )}
+                      </div>
+                      {player.soldPrice ? (
+                        <p className="text-xs font-bold tabular-nums flex-shrink-0" style={{ color: tc }}>
+                          {formatShortIndianRupee(player.soldPrice)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 // ── SoundSettingsDialog ───────────────────────────────────────────────────────
@@ -145,147 +309,225 @@ function SoundSettingsDialog({
             <Volume2 className="w-4 h-4" /> Sound Settings
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-1 pt-1">
-          <p className="text-xs text-muted-foreground pb-3">
-            Click anywhere on the page to enable audio. Uses your browser's Web Audio engine.
+        <div className="pt-1">
+          <p className="text-xs text-muted-foreground pb-4">
+            Tap or click anywhere on the page to enable audio. Uses your browser's Web Audio engine — no downloads required.
           </p>
-          {(Object.keys(SOUND_LABELS) as SoundKey[]).map((key) => (
-            <div
-              key={key}
-              className="flex items-center justify-between py-2.5 border-b border-border/30 last:border-0"
-            >
-              <span className="text-sm">{SOUND_LABELS[key]}</span>
-              <button
-                onClick={() => toggle(key)}
-                aria-label={settings[key] ? "Disable" : "Enable"}
-                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${settings[key] ? "bg-primary" : "bg-muted"}`}
+          <div className="space-y-0.5">
+            {(Object.keys(SOUND_LABELS) as SoundKey[]).map((key) => (
+              <div
+                key={key}
+                className="flex items-center justify-between py-3 border-b border-border/30 last:border-0"
               >
-                <span
-                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${
-                    settings[key] ? "left-[calc(100%-1.375rem)]" : "left-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          ))}
+                <span className="text-sm">{SOUND_LABELS[key]}</span>
+                <button
+                  onClick={() => toggle(key)}
+                  aria-label={settings[key] ? "Disable" : "Enable"}
+                  className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${settings[key] ? "bg-primary" : "bg-muted"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${
+                      settings[key] ? "left-[calc(100%-1.375rem)]" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ── TeamSquadDialog ───────────────────────────────────────────────────────────
+// ── CompletedScreen ───────────────────────────────────────────────────────────
 
-function TeamSquadDialog({
-  team,
+function CompletedScreen({
+  tournament,
   players,
-  open,
-  onClose,
+  teamPurses,
 }: {
-  team: TeamPurse | null;
+  tournament: Tournament | undefined;
   players: Player[];
-  open: boolean;
-  onClose: () => void;
+  teamPurses: TeamPurse[] | undefined;
 }) {
-  const tc = team?.color || "#F59E0B";
-  const squadPlayers = useMemo(
-    () => players.filter((p) => p.teamId === team?.teamId && p.status === "sold"),
-    [players, team?.teamId],
+  const soldPlayers = useMemo(
+    () => players.filter((p) => p.status === "sold" && p.soldPrice),
+    [players],
+  );
+  const totalSpend = useMemo(
+    () => soldPlayers.reduce((sum, p) => sum + (p.soldPrice || 0), 0),
+    [soldPlayers],
+  );
+  const top3 = useMemo(
+    () => [...soldPlayers].sort((a, b) => (b.soldPrice || 0) - (a.soldPrice || 0)).slice(0, 3),
+    [soldPlayers],
+  );
+  const teamStandings = useMemo(
+    () => [...(teamPurses ?? [])].sort((a, b) => (b.purseUsed ?? 0) - (a.purseUsed ?? 0)),
+    [teamPurses],
   );
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] p-0 overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-border/50">
-          <div className="flex items-center gap-3 mb-4">
-            {team?.logoUrl ? (
-              <img src={team.logoUrl} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
-            ) : (
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
-                style={{ backgroundColor: `${tc}22`, color: tc, border: `2px solid ${tc}44` }}
-              >
-                {team?.shortCode?.slice(0, 3) || "?"}
-              </div>
-            )}
-            <div>
-              <DialogTitle className="font-display font-bold text-lg leading-none" style={{ color: tc }}>
-                {team?.teamName}
-              </DialogTitle>
-              {team?.ownerName && (
-                <p className="text-xs text-muted-foreground mt-0.5">{team.ownerName}</p>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-              <p className="font-display font-black text-base" style={{ color: tc }}>
-                {formatShortIndianRupee(team?.purseRemaining ?? 0)}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Remaining</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-              <p className="font-display font-black text-base text-foreground">
-                {formatShortIndianRupee(team?.purseUsed ?? 0)}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Spent</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-              <p className="font-display font-black text-base text-foreground">
-                {team?.playersBought ?? 0}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Players</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#09090b] px-4 py-10 max-w-3xl mx-auto space-y-8">
+      {/* Hero */}
+      <div className="text-center space-y-4 py-6">
+        {tournament?.logoUrl && (
+          <img src={tournament.logoUrl} alt="" className="w-20 h-20 object-contain mx-auto opacity-80 mb-2" />
+        )}
+        <Trophy className="w-14 h-14 text-primary mx-auto" />
+        <div>
+          <h1 className="font-display font-black text-3xl sm:text-4xl text-foreground">
+            Auction Concluded
+          </h1>
+          {tournament?.name && (
+            <p className="text-muted-foreground mt-1.5">{tournament.name}</p>
+          )}
         </div>
+      </div>
 
-        {/* Player list */}
-        <div className="flex-1 overflow-y-auto px-2 py-2">
-          {squadPlayers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <User className="w-8 h-8 mb-2 opacity-25" />
-              <p className="text-sm">No players acquired yet</p>
-            </div>
-          ) : (
-            <div className="space-y-0.5">
-              {squadPlayers.map((player, i) => (
+      {/* Overall stats */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-5 rounded-2xl bg-card/50 border border-border/50 text-center">
+          <p className="font-display font-black text-3xl text-green-400">{soldPlayers.length}</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Players Sold</p>
+        </div>
+        <div className="p-5 rounded-2xl bg-card/50 border border-border/50 text-center">
+          <p className="font-display font-black text-2xl text-primary">{formatShortIndianRupee(totalSpend)}</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Total Spend</p>
+        </div>
+      </div>
+
+      {/* Top 3 bids */}
+      {top3.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-3">Top Bids</p>
+          <div className="space-y-2">
+            {top3.map((player, i) => {
+              const buyingTeam = teamPurses?.find((t) => t.teamId === player.teamId);
+              const tc = buyingTeam?.color || "#F59E0B";
+              const medal = ["#F59E0B", "#94a3b8", "#cd7c3a"][i];
+              return (
                 <div
                   key={player.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-card/60 transition-colors"
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-card/40 border border-border/40"
                 >
-                  <span className="text-xs text-muted-foreground w-5 text-right tabular-nums flex-shrink-0">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-sm flex-shrink-0 text-black"
+                    style={{ backgroundColor: medal }}
+                  >
                     {i + 1}
-                  </span>
-                  <div className="w-8 h-8 rounded-full bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  </div>
+                  <div className="w-10 h-12 rounded-xl overflow-hidden bg-card flex-shrink-0 flex items-center justify-center">
                     {player.photoUrl ? (
                       <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-3.5 h-3.5 text-muted-foreground" />
+                      <User className="w-5 h-5 text-muted-foreground/40" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm leading-none truncate">{player.name}</p>
+                    <p className="font-display font-bold text-base leading-none truncate">{player.name}</p>
                     {player.role && (
                       <p className="text-xs text-muted-foreground capitalize mt-0.5">{player.role}</p>
                     )}
+                    {buyingTeam && (
+                      <p className="text-xs font-semibold mt-0.5" style={{ color: tc }}>
+                        {buyingTeam.shortCode || buyingTeam.teamName}
+                      </p>
+                    )}
                   </div>
-                  {player.soldPrice ? (
-                    <p className="text-xs font-bold tabular-nums flex-shrink-0" style={{ color: tc }}>
-                      {formatShortIndianRupee(player.soldPrice)}
-                    </p>
-                  ) : null}
+                  <p className="font-display font-black text-lg tabular-nums" style={{ color: tc }}>
+                    {formatShortIndianRupee(player.soldPrice!)}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+
+      {/* Team standings */}
+      {teamStandings.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-3">Team Standings</p>
+          <div className="space-y-2">
+            {teamStandings.map((team) => {
+              const tc = team.color || "#F59E0B";
+              const fillPct = team.maximumSquadSize > 0
+                ? Math.min(100, (team.playersBought / team.maximumSquadSize) * 100)
+                : 0;
+              return (
+                <div
+                  key={team.teamId}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-card/40 border border-border/40"
+                >
+                  {team.logoUrl ? (
+                    <img src={team.logoUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-xs flex-shrink-0"
+                      style={{ backgroundColor: `${tc}22`, color: tc }}
+                    >
+                      {(team.shortCode || team.teamName.slice(0, 3)).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-sm truncate">{team.teamName}</p>
+                      <p className="font-display font-black text-sm tabular-nums flex-shrink-0" style={{ color: tc }}>
+                        {formatShortIndianRupee(team.purseUsed)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        {team.playersBought} player{team.playersBought !== 1 ? "s" : ""}
+                        {team.maximumSquadSize > 0 ? ` / ${team.maximumSquadSize}` : ""}
+                      </p>
+                      {team.maximumSquadSize > 0 && (
+                        <div className="flex-1 h-1 bg-muted/30 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${fillPct}%`, backgroundColor: tc }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="text-center pt-4">
+        <p className="text-[10px] text-muted-foreground/35 uppercase tracking-widest">Powered by BidWar</p>
+      </div>
+    </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Idle branded holding screen ───────────────────────────────────────────────
+
+function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
+  return (
+    <div className="py-14 px-6 rounded-2xl bg-card/20 border border-dashed border-border/40 flex flex-col items-center gap-5">
+      {tournament?.logoUrl ? (
+        <img src={tournament.logoUrl} alt="" className="w-20 h-20 object-contain opacity-75 rounded-xl" />
+      ) : (
+        <Radio className="w-14 h-14 text-primary/35" />
+      )}
+      <div className="text-center space-y-1.5">
+        <p className="font-display font-bold text-xl text-foreground">
+          {tournament?.name || "Live Auction"}
+        </p>
+        <p className="text-sm text-muted-foreground">Waiting for the auction to start</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
 export default function LiveViewerPage() {
   const [, params] = useRoute("/tournament/:id/liveviewer");
@@ -295,28 +537,49 @@ export default function LiveViewerPage() {
   useAuctionSocket(tournamentId);
 
   const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 0 },
   });
+
+  const isCompleted = (tournament as { status?: string } | undefined)?.status === "completed";
+
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 2000,
+      refetchInterval: isCompleted ? false : 2000,
+      staleTime: 0,
     },
   });
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 8000,
+      refetchInterval: isCompleted ? false : 8000,
+      staleTime: 0,
     },
   });
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
       enabled: !!tournamentId,
+      staleTime: 0,
     },
   });
+  // Prefetch categories into cache for squad detail enrichment
+  useListCategories(tournamentId, {
+    query: {
+      queryKey: getListCategoriesQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 0,
+    },
+  });
+
+  // ── Page title ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const name = tournament?.name;
+    document.title = name ? `${name} — BidWar Live` : "BidWar Live";
+    return () => { document.title = "BidWar"; };
+  }, [tournament?.name]);
 
   // ── Sound engine ─────────────────────────────────────────────────────────
   const { play, settings: soundSettings, toggle: toggleSound } = useSoundEngine();
@@ -327,16 +590,18 @@ export default function LiveViewerPage() {
   const [soldVisible, setSoldVisible] = useState(false);
 
   // ── Sound event detection ─────────────────────────────────────────────────
-  type StateSnapshot = NonNullable<typeof state>;
-  const prevStateRef = useRef<StateSnapshot | null>(null);
+  const prevStateRef = useRef<AuctionState | null>(null);
   useEffect(() => {
     const prev = prevStateRef.current;
     if (prev != null && state != null) {
       if (prev.currentPlayer?.id !== state.currentPlayer?.id && state.currentPlayer) {
         play("newPlayer");
       }
-      if (prev.currentBid !== state.currentBid && (state.currentBid ?? 0) > 0 &&
-          prev.currentPlayer?.id === state.currentPlayer?.id) {
+      if (
+        prev.currentBid !== state.currentBid &&
+        (state.currentBid ?? 0) > 0 &&
+        prev.currentPlayer?.id === state.currentPlayer?.id
+      ) {
         play("bid");
       }
       if ((prev.status as string) !== "sold" && (state.status as string) === "sold") {
@@ -364,13 +629,16 @@ export default function LiveViewerPage() {
   const hasPlayer = !!state?.currentPlayer;
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
+  const isIdle = !state || state.status === "idle";
   const isSold = (state?.status as string) === "sold";
+  const soldCount = state?.soldPlayersCount ?? 0;
+  const unsoldCount = state?.unsoldPlayersCount ?? 0;
+  const remainingCount = state?.remainingPlayersCount ?? 0;
 
   const selectedTeam = useMemo(
     () => (teamPurses ?? []).find((t) => t.teamId === selectedTeamId) ?? null,
     [teamPurses, selectedTeamId],
   );
-
   const playerList = useMemo(() => players ?? [], [players]);
 
   const playerSpecs = useMemo(() => {
@@ -384,18 +652,14 @@ export default function LiveViewerPage() {
       state.currentPlayer.age ? `Age ${state.currentPlayer.age}` : null,
     ].filter((v): v is string => !!v);
   }, [
+    state?.currentPlayer?.id,
     state?.currentPlayer?.role,
     state?.currentPlayer?.battingStyle,
     state?.currentPlayer?.bowlingStyle,
     state?.currentPlayer?.specialization,
     state?.currentPlayer?.city,
     state?.currentPlayer?.age,
-    state?.currentPlayer?.id,
   ]);
-
-  const soldCount = state?.soldPlayersCount ?? 0;
-  const unsoldCount = state?.unsoldPlayersCount ?? 0;
-  const remainingCount = state?.remainingPlayersCount ?? 0;
 
   const statusLabel = isSold ? "SOLD"
     : (state?.status as string) === "unsold" ? "UNSOLD"
@@ -403,28 +667,33 @@ export default function LiveViewerPage() {
     : isPaused ? "PAUSED"
     : "IDLE";
 
-  const statusRing = (isActive || isSold) ? "bg-green-500/15 text-green-400 border-green-500/30"
-    : isPaused ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+  const statusRing = (isActive || isSold)
+    ? "bg-green-500/15 text-green-400 border-green-500/30"
+    : isPaused
+    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
     : "bg-border/15 text-muted-foreground border-border/30";
 
   const anySound = Object.values(soundSettings).some(Boolean);
 
+  // ── Completed state ───────────────────────────────────────────────────────
+  if (isCompleted) {
+    return (
+      <CompletedScreen
+        tournament={tournament}
+        players={playerList}
+        teamPurses={teamPurses}
+      />
+    );
+  }
+
   return (
-    <div
-      className="min-h-screen bg-[#09090b] relative"
-      onClick={() => {
-        try {
-          const w = window as unknown as { __bwac?: AudioContext };
-          if (w.__bwac?.state === "suspended") void w.__bwac.resume();
-        } catch {}
-      }}
-    >
-      {/* Animated background glow — key on teamColor so it fades in on team change */}
+    <div className="min-h-screen bg-[#09090b] relative">
+      {/* Animated background glow */}
       <AnimatePresence>
         <motion.div
           key={teamColor}
           className="fixed inset-0 pointer-events-none z-0"
-          style={{ background: `radial-gradient(ellipse at 50% 0%, ${teamColor}1a 0%, transparent 55%)` }}
+          style={{ background: `radial-gradient(ellipse at 50% 0%, ${teamColor}1a 0%, transparent 52%)` }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -451,7 +720,7 @@ export default function LiveViewerPage() {
               {statusLabel}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); setSoundSettingsOpen(true); }}
+              onClick={() => setSoundSettingsOpen(true)}
               className="p-2 rounded-lg border border-border/40 hover:border-border text-muted-foreground hover:text-foreground transition-colors"
               title="Sound settings"
             >
@@ -459,6 +728,16 @@ export default function LiveViewerPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Sponsor strip ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-2.5 py-1.5 bg-black/25 border-b border-white/5">
+        {tournament?.logoUrl && (
+          <img src={tournament.logoUrl} alt="" className="w-4 h-4 object-contain opacity-50 rounded" />
+        )}
+        <p className="text-[10px] text-muted-foreground/45 font-medium tracking-wide">
+          {tournament?.name ? `${tournament.name} · ` : ""}Powered by BidWar
+        </p>
       </div>
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
@@ -482,7 +761,13 @@ export default function LiveViewerPage() {
 
         {/* ── Player section ─────────────────────────────────────────── */}
         <AnimatePresence mode="wait">
-          {hasPlayer ? (
+          {isIdle && !hasPlayer ? (
+            // Idle branded holding screen — auction not started yet
+            <motion.div key="idle-branded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-5">
+              <IdleHoldingScreen tournament={tournament} />
+            </motion.div>
+          ) : hasPlayer ? (
+            // Active player card
             <motion.div
               key={state?.currentPlayer?.id}
               initial={{ opacity: 0, y: 14 }}
@@ -492,7 +777,7 @@ export default function LiveViewerPage() {
               className="mb-5 p-4 sm:p-6 rounded-2xl bg-card/50 border border-border/50 backdrop-blur"
             >
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                {/* Photo column */}
+                {/* Photo */}
                 <div className="relative flex-shrink-0">
                   <div
                     className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
@@ -537,7 +822,7 @@ export default function LiveViewerPage() {
                   </AnimatePresence>
                 </div>
 
-                {/* Info column */}
+                {/* Info */}
                 <div className="flex-1 min-w-0 text-center sm:text-left space-y-3">
                   <div>
                     <h2 className="font-display font-black text-2xl sm:text-3xl leading-none">
@@ -610,6 +895,7 @@ export default function LiveViewerPage() {
               </div>
             </motion.div>
           ) : (
+            // Between players (active/paused, no current player)
             <motion.div
               key="no-player"
               initial={{ opacity: 0 }}
@@ -646,10 +932,13 @@ export default function LiveViewerPage() {
                 const isLeading = state?.currentBidTeamId === team.teamId;
                 const tc = team.color || "#F59E0B";
                 const short = team.shortCode || team.teamName.slice(0, 4).toUpperCase();
+                const squadPct = team.maximumSquadSize > 0
+                  ? Math.min(100, (team.playersBought / team.maximumSquadSize) * 100)
+                  : 0;
                 return (
                   <motion.button
                     key={team.teamId}
-                    onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team.teamId); }}
+                    onClick={() => setSelectedTeamId(team.teamId)}
                     whileTap={{ scale: 0.95 }}
                     className="text-left rounded-xl border transition-all cursor-pointer relative overflow-hidden p-3"
                     style={{
@@ -659,7 +948,10 @@ export default function LiveViewerPage() {
                     }}
                   >
                     {/* Color accent bar */}
-                    <div className="absolute top-0 inset-x-0 h-0.5 rounded-t-xl" style={{ backgroundColor: tc }} />
+                    <div
+                      className="absolute top-0 inset-x-0 h-0.5 rounded-t-xl"
+                      style={{ backgroundColor: tc }}
+                    />
 
                     <div className="flex items-center gap-2 mb-2 mt-0.5">
                       {team.logoUrl ? (
@@ -680,15 +972,29 @@ export default function LiveViewerPage() {
                       )}
                     </div>
 
-                    <p className="text-[11px] text-muted-foreground truncate leading-tight">
-                      {team.teamName}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate leading-tight">{team.teamName}</p>
                     <p className="font-display font-black text-sm mt-1.5 tabular-nums" style={{ color: tc }}>
                       {formatShortIndianRupee(team.purseRemaining)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {team.playersBought} player{team.playersBought !== 1 ? "s" : ""}
-                    </p>
+
+                    {/* Squad capacity */}
+                    {team.maximumSquadSize > 0 ? (
+                      <div className="mt-1.5">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
+                          <span>{team.playersBought} / {team.maximumSquadSize}</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${squadPct}%`, backgroundColor: tc }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {team.playersBought} player{team.playersBought !== 1 ? "s" : ""}
+                      </p>
+                    )}
                   </motion.button>
                 );
               })}
@@ -703,8 +1009,8 @@ export default function LiveViewerPage() {
         </div>
       </div>
 
-      {/* ── Dialogs ──────────────────────────────────────────────────── */}
-      <TeamSquadDialog
+      {/* ── Sheets & Dialogs ─────────────────────────────────────────── */}
+      <TeamSquadSheet
         team={selectedTeam}
         players={playerList}
         open={selectedTeamId !== null}
