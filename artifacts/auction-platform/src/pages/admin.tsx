@@ -79,21 +79,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const ADMIN_CHEER_DEFAULTS = [
-  "What a bid! 🔥",
-  "Go go go! 💪",
-  "Excellent pick! 👏",
-  "Bidding war! ⚔️",
-  "Legend! 🏆",
-  "Value pick! 💎",
-  "Wow! 🤩",
-  "Heated auction! 🌡️",
-  "Amazing! 🙌",
-  "On fire! 🔥",
-];
 
 function LicenseBadge({ status }: { status: string }) {
   if (status === "live") {
@@ -471,7 +459,7 @@ function DetailPanel({
   async function handleSaveCheer() {
     if (!data) return;
     setSavingCheer(true);
-    const presetsToSave = cheerPresets.length > 0 ? cheerPresets : ADMIN_CHEER_DEFAULTS;
+    const presetsToSave = cheerPresets.length > 0 ? cheerPresets : DEFAULT_CHEER_PRESETS;
     try {
       const r = await fetch(
         `/api/auth/admin/tournaments/${tournamentId}/cheer-settings`,
@@ -1338,7 +1326,7 @@ function DetailPanel({
 
                     {cheerExpanded && (
                       <div className="space-y-1.5">
-                        {(cheerPresets.length > 0 ? cheerPresets : ADMIN_CHEER_DEFAULTS).map(
+                        {(cheerPresets.length > 0 ? cheerPresets : DEFAULT_CHEER_PRESETS).map(
                           (p, i) => (
                             <div key={i} className="flex items-center gap-2">
                               <span className="text-[10px] text-muted-foreground w-4 flex-shrink-0 text-right">
@@ -1352,7 +1340,7 @@ function DetailPanel({
                                   const base =
                                     cheerPresets.length > 0
                                       ? cheerPresets
-                                      : ADMIN_CHEER_DEFAULTS;
+                                      : DEFAULT_CHEER_PRESETS;
                                   const next = [...base];
                                   next[i] = e.target.value;
                                   setCheerPresets(next);

@@ -1426,7 +1426,7 @@ router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
     return;
   }
 
-  broadcastToTournament(tid, { type: "cheer_message", senderName, message });
+  broadcastToTournament(tid, { type: "cheer_message", senderName, message, messageIndex });
   res.json({ ok: true });
 });
 

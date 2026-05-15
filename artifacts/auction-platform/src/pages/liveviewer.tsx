@@ -20,22 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
-// ── Cheer presets (module-level constant) ─────────────────────────────────────
+import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
 
-const DEFAULT_CHEER_PRESETS = [
-  "What a bid! 🔥",
-  "Go go go! 💪",
-  "Excellent pick! 👏",
-  "Bidding war! ⚔️",
-  "Legend! 🏆",
-  "Value pick! 💎",
-  "Wow! 🤩",
-  "Heated auction! 🌡️",
-  "Amazing! 🙌",
-  "On fire! 🔥",
-];
-
-type CheerEntry = { id: string; senderName: string; message: string };
+type CheerEntry = { id: string; senderName: string; message: string; timestamp: number };
 
 // ── Sound utilities (module-level, no hooks) ──────────────────────────────────
 
@@ -569,11 +556,21 @@ export default function LiveViewerPage() {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           senderName: msg.senderName,
           message: msg.message,
+          timestamp: Date.now(),
         },
       ];
       return next.slice(-8);
     });
   }, []);
+
+  useEffect(() => {
+    if (cheerMessages.length === 0) return;
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - CHEER_MESSAGE_TTL_MS;
+      setCheerMessages((prev) => prev.filter((m) => m.timestamp > cutoff));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cheerMessages.length]);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   useAuctionSocket(tournamentId, handleCheerMessage);
@@ -1341,10 +1338,10 @@ export default function LiveViewerPage() {
             {cheerMessages.map((m) => (
               <motion.div
                 key={m.id}
-                initial={{ opacity: 0, x: 48, scale: 0.9 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 48, scale: 0.85 }}
-                transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                initial={{ opacity: 0, y: 24, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -16, scale: 0.88 }}
+                transition={{ type: "spring", stiffness: 380, damping: 26 }}
                 className="bg-black/75 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 text-xs text-white flex items-center gap-1.5 min-w-0"
               >
                 <span className="font-bold text-amber-400 truncate flex-shrink-0 max-w-[90px]">
