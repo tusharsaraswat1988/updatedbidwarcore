@@ -27,6 +27,7 @@ import AdminReports from "@/pages/admin-reports";
 import AdminIntelligence from "@/pages/admin-intelligence";
 import ObsOverlay from "@/pages/obs-overlay";
 import OrganizerPortal from "@/pages/organizer-portal";
+import LegalPage from "@/pages/legal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/intelligence" component={AdminIntelligence} />
       <Route path="/organizer" component={OrganizerPortal} />
+      <Route path="/legal/:slug" component={LegalPage} />
 
       {/* Organizer-protected routes */}
       <Route path="/tournament/:id">

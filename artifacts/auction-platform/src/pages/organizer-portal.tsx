@@ -503,6 +503,15 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Sign In
                   </Button>
+                  <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                    By continuing, you agree to BidWar{" "}
+                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                    {", "}
+                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                    {", and "}
+                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                    .
+                  </p>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
                     <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
@@ -569,6 +578,15 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     Create Account
                   </Button>
+                  <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                    By continuing, you agree to BidWar{" "}
+                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                    {", "}
+                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                    {", and "}
+                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                    .
+                  </p>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
                     <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>

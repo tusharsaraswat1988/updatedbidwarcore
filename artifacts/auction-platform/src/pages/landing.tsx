@@ -381,17 +381,26 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-12 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Gavel className="w-3.5 h-3.5 text-black" />
+      <footer className="border-t border-border/40 py-10 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                <Gavel className="w-3.5 h-3.5 text-black" />
+              </div>
+              <span className="font-display font-black text-lg text-white">BidWar</span>
             </div>
-            <span className="font-display font-black text-lg text-white">BidWar</span>
+            <p className="text-xs text-muted-foreground">
+              India's Live Sports Auction Platform
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            India's Live Sports Auction Platform
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-border/30 pt-6">
+            <a href="/legal/terms" className="text-xs text-muted-foreground hover:text-white transition-colors">Terms &amp; Conditions</a>
+            <a href="/legal/privacy" className="text-xs text-muted-foreground hover:text-white transition-colors">Privacy Policy</a>
+            <a href="/legal/acceptable-use" className="text-xs text-muted-foreground hover:text-white transition-colors">Acceptable Use</a>
+            <a href="/legal/disclaimer" className="text-xs text-muted-foreground hover:text-white transition-colors">Disclaimer</a>
+            <a href="/legal/refund" className="text-xs text-muted-foreground hover:text-white transition-colors">Refund Policy</a>
+          </div>
         </div>
       </footer>
     </div>
