@@ -1352,6 +1352,12 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
 
 const cheerRateLimiter = new Map<string, number>();
 const CHEER_COOLDOWN_MS = 500;
+setInterval(() => {
+  const cutoff = Date.now() - 30_000;
+  for (const [ip, ts] of cheerRateLimiter) {
+    if (ts < cutoff) cheerRateLimiter.delete(ip);
+  }
+}, 60_000);
 
 router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);

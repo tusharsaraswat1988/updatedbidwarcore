@@ -547,6 +547,7 @@ export default function LiveViewerPage() {
   const [nameInput, setNameInput] = useState("");
   const [cheerCooldown, setCheerCooldown] = useState(false);
   const [pendingPresetIndex, setPendingPresetIndex] = useState<number | null>(null);
+  const [cheerBlockedMsg, setCheerBlockedMsg] = useState<string | null>(null);
 
   const handleCheerMessage = useCallback((msg: CheerMessage) => {
     setCheerMessages((prev) => {
@@ -635,6 +636,27 @@ export default function LiveViewerPage() {
     return DEFAULT_CHEER_PRESETS;
   }, [tournament?.cheerMessagePresets]);
 
+  function showCheerError(msg: string) {
+    setCheerBlockedMsg(msg);
+    setTimeout(() => setCheerBlockedMsg(null), 2500);
+  }
+
+  async function postCheer(senderName: string, idx: number) {
+    try {
+      const r = await fetch(`/api/tournaments/${tournamentId}/cheer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderName, messageIndex: idx }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 429) showCheerError("Slow down!");
+        else if (r.status === 400) showCheerError(d.error === "Name not allowed" ? "Name not allowed" : "Could not send");
+        else if (r.status === 403) showCheerError("Cheers are disabled");
+      }
+    } catch {}
+  }
+
   function sendCheer(idx: number) {
     if (cheerCooldown) return;
     if (!cheerName) {
@@ -645,11 +667,7 @@ export default function LiveViewerPage() {
     }
     setCheerCooldown(true);
     setTimeout(() => setCheerCooldown(false), 500);
-    fetch(`/api/tournaments/${tournamentId}/cheer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senderName: cheerName, messageIndex: idx }),
-    }).catch(() => {});
+    void postCheer(cheerName, idx);
   }
 
   function saveNameAndCheer() {
@@ -663,11 +681,7 @@ export default function LiveViewerPage() {
     if (idx !== null) {
       setCheerCooldown(true);
       setTimeout(() => setCheerCooldown(false), 500);
-      fetch(`/api/tournaments/${tournamentId}/cheer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderName: trimmed, messageIndex: idx }),
-      }).catch(() => {});
+      void postCheer(trimmed, idx);
     }
   }
 
@@ -1357,6 +1371,19 @@ export default function LiveViewerPage() {
       {/* ── Cheer chip bar ────────────────────────────────────────────────── */}
       {cheerEnabled && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-sm border-t border-white/10 px-3 py-2">
+          <AnimatePresence>
+            {cheerBlockedMsg && (
+              <motion.div
+                key="cheer-error"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="text-[11px] text-red-400 text-center mb-1"
+              >
+                {cheerBlockedMsg}
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div
             className="flex gap-2 overflow-x-auto"
             style={{ scrollbarWidth: "none" } as React.CSSProperties}
