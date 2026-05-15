@@ -13,6 +13,7 @@ import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/bro
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
+import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
 import {
   logBidEvent,
   logPlayerAuctionStart,
@@ -1348,19 +1349,6 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
 });
 
 // ── Cheer messages ────────────────────────────────────────────────────────────
-
-const CHEER_DEFAULT_PRESETS = [
-  "What a bid! 🔥",
-  "Go go go! 💪",
-  "Excellent pick! 👏",
-  "Bidding war! ⚔️",
-  "Legend! 🏆",
-  "Value pick! 💎",
-  "Wow! 🤩",
-  "Heated auction! 🌡️",
-  "Amazing! 🙌",
-  "On fire! 🔥",
-];
 
 const cheerRateLimiter = new Map<string, number>();
 const CHEER_COOLDOWN_MS = 500;

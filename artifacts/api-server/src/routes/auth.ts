@@ -381,6 +381,8 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       resetCount: tournament.resetCount ?? 0,
       lastResetAt: tournament.lastResetAt ? tournament.lastResetAt.toISOString() : null,
       lastResetBy: tournament.lastResetBy ?? null,
+      cheerMessagesEnabled: tournament.cheerMessagesEnabled ?? true,
+      cheerMessagePresets: tournament.cheerMessagePresets ?? null,
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
