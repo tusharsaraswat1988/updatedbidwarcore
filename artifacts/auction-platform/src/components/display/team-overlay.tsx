@@ -61,12 +61,9 @@ export const TeamOverlay = memo(function TeamOverlay({
 
         {/* BidWar brand mark — top right */}
         <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-[#FF3C00] flex items-center justify-center shadow-lg"
-            style={{ boxShadow: "0 0 20px rgba(255,60,0,0.5)" }}>
-            <Gavel className="w-5 h-5 md:w-6 md:h-6 text-white" />
-          </div>
+          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-10 md:h-14 w-auto flex-shrink-0" />
           <span className="font-display font-black text-lg md:text-2xl tracking-tight text-white leading-none">
-            BidWar
+            BIDWAR
           </span>
         </div>
       </div>

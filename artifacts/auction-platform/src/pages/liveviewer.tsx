@@ -737,8 +737,8 @@ export default function LiveViewerPage() {
       <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/8">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Radio className="w-4 h-4 text-primary flex-shrink-0" />
-            <span className="font-display font-black text-primary text-sm tracking-wide hidden sm:block">BidWar</span>
+            <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto flex-shrink-0 hidden sm:block" />
+            <span className="font-display font-black text-white text-sm tracking-wide hidden sm:block">BIDWAR</span>
             <span className="text-border/50 hidden sm:block">·</span>
             <p className="font-semibold text-sm truncate text-foreground">
               {tournament?.name || "Auction"}

@@ -416,10 +416,8 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
         </button>
 
         <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
-            <Gavel className="w-7 h-7 text-primary" />
-          </div>
-          <h1 className="font-display font-black text-3xl text-white">BidWar</h1>
+          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-20 w-auto mx-auto" />
+          <h1 className="font-display font-black text-3xl text-white">BIDWAR</h1>
           <p className="text-muted-foreground text-sm">Organizer Portal</p>
         </div>
 

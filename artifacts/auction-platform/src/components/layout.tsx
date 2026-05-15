@@ -45,8 +45,8 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r border-border bg-card flex flex-col z-10">
-        <div className="h-16 flex items-center px-6 border-b border-border">
-          <Trophy className="w-6 h-6 text-primary mr-3" />
+        <div className="h-16 flex items-center px-4 border-b border-border gap-2.5">
+          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-10 w-auto flex-shrink-0" />
           <span className="font-display font-bold text-xl tracking-tight text-white uppercase">BIDWAR</span>
         </div>
 

@@ -56,8 +56,8 @@ export const AuctionHeader = memo(function AuctionHeader({
       {/* Center: BidWar brand — always visible */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 flex-shrink-0 pointer-events-none">
         <div className="flex items-center gap-2 px-4 py-1 rounded-full bg-primary/10 border border-primary/30">
-          <Dices className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
-          <span className="font-display font-black text-base md:text-lg tracking-widest text-primary uppercase">BidWar</span>
+          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 md:h-9 w-auto flex-shrink-0" />
+          <span className="font-display font-black text-base md:text-lg tracking-widest text-white uppercase">BIDWAR</span>
         </div>
       </div>
 
