@@ -1,14 +1,4 @@
-export const DEFAULT_CHEER_PRESETS: string[] = [
-  "What a bid! 🔥",
-  "Go go go! 💪",
-  "Excellent pick! 👏",
-  "Bidding war! ⚔️",
-  "Legend! 🏆",
-  "Value pick! 💎",
-  "Wow! 🤩",
-  "Heated auction! 🌡️",
-  "Amazing! 🙌",
-  "On fire! 🔥",
-];
-
-export const CHEER_MESSAGE_TTL_MS = 8000;
+export {
+  CHEER_DEFAULT_PRESETS as DEFAULT_CHEER_PRESETS,
+  CHEER_MESSAGE_TTL_MS,
+} from "@workspace/cheer-presets";

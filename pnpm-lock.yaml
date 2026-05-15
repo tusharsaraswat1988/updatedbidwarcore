@@ -172,6 +172,9 @@ importers:
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
+      '@workspace/cheer-presets':
+        specifier: workspace:*
+        version: link:../../lib/cheer-presets
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
@@ -377,6 +380,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/cheer-presets':
+        specifier: workspace:*
+        version: link:../../lib/cheer-presets
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2
@@ -699,6 +705,8 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+
+  lib/cheer-presets: {}
 
   lib/db:
     dependencies:

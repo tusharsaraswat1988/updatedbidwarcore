@@ -12,6 +12,7 @@
   "dependencies": {
     "@types/express-session": "^1.19.0",
     "@workspace/api-zod": "workspace:*",
+    "@workspace/cheer-presets": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
