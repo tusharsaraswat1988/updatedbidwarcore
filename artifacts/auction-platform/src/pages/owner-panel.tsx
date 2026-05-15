@@ -145,7 +145,12 @@ export default function OwnerPanel() {
 
   useEffect(() => {
     if (!team) return;
-    if (!team.accessCode) {
+    // Public endpoint returns requiresAccessCode boolean (accessCode is omitted).
+    // Organizer endpoint returns the actual accessCode. Handle both.
+    const needsCode =
+      (team as unknown as { requiresAccessCode?: boolean }).requiresAccessCode ??
+      !!team.accessCode;
+    if (!needsCode) {
       setVerified(true);
     } else {
       const stored = sessionStorage.getItem(`owner_verified_${teamId}`);

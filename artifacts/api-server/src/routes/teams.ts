@@ -26,7 +26,9 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   createdAt: t.createdAt.toISOString(),
 });
 
-// Public serializer: omits accessCode and ownerMobile entirely (not set to null)
+// Public serializer: omits accessCode and ownerMobile entirely (not set to null).
+// Adds requiresAccessCode boolean so the owner-panel gate can work without
+// exposing the actual code value.
 const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id,
   tournamentId: t.tournamentId,
@@ -38,6 +40,7 @@ const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   purse: t.purse,
   purseUsed: t.purseUsed,
   isBiddingEnabled: t.isBiddingEnabled,
+  requiresAccessCode: !!t.accessCode,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -45,7 +48,8 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const isOrganizer = !!req.session?.organizerAccountId;
-  const serializer = isOrganizer ? teamToJson : teamToPublicJson;
+  const serializer: (t: typeof teamsTable.$inferSelect) => Record<string, unknown> =
+    isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
     .select()
     .from(teamsTable)
@@ -94,9 +98,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   res.status(201).json(teamToJson(team));
 });
 
-// GET single team — returns full data (including accessCode) so the owner-panel
-// access-code gate can determine whether a code is required. The teamId is
-// already in the URL, so this is no more exposed than the verify-access endpoint.
+// GET single team — organizers get full data; unauthenticated callers get the
+// public serializer (no accessCode, no ownerMobile) with requiresAccessCode boolean.
 router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
@@ -106,7 +109,8 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(teamToJson(team));
+  const isOrganizer = !!req.session?.organizerAccountId;
+  res.json(isOrganizer ? teamToJson(team) : teamToPublicJson(team));
 });
 
 router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
