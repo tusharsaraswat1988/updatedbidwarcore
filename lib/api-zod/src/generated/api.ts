@@ -55,6 +55,8 @@ export const ListTournamentsResponseItem = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  cheerMessagesEnabled: zod.boolean().optional(),
+  cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -148,6 +150,8 @@ export const GetTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  cheerMessagesEnabled: zod.boolean().optional(),
+  cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -232,6 +236,8 @@ export const UpdateTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  cheerMessagesEnabled: zod.boolean().optional(),
+  cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -292,6 +298,8 @@ export const ExportTournamentForLocalResponse = zod.object({
     soldSoundEnabled: zod.boolean().optional(),
     soldSoundUrl: zod.string().nullish(),
     soldSoundVolume: zod.number().optional(),
+    cheerMessagesEnabled: zod.boolean().optional(),
+    cheerMessagePresets: zod.string().nullish(),
     createdAt: zod.string(),
   }),
   teams: zod.array(
@@ -2780,6 +2788,26 @@ export const ListBidsResponseItem = zod.object({
   teamColor: zod.string().nullish(),
 });
 export const ListBidsResponse = zod.array(ListBidsResponseItem);
+
+/**
+ * @summary Send a live viewer cheer reaction (public, no auth required)
+ */
+export const SendCheerMessageParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const sendCheerMessageBodySenderNameMax = 30;
+
+export const sendCheerMessageBodyMessageIndexMin = 0;
+export const sendCheerMessageBodyMessageIndexMax = 9;
+
+export const SendCheerMessageBody = zod.object({
+  senderName: zod.string().min(1).max(sendCheerMessageBodySenderNameMax),
+  messageIndex: zod
+    .number()
+    .min(sendCheerMessageBodyMessageIndexMin)
+    .max(sendCheerMessageBodyMessageIndexMax),
+});
 
 /**
  * @summary Get high-level auction summary stats

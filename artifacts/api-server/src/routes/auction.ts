@@ -12,6 +12,7 @@ import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
+import { isNameClean } from "../lib/name-filter";
 import {
   logBidEvent,
   logPlayerAuctionStart,
@@ -1344,6 +1345,89 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   );
 
   res.json(result);
+});
+
+// ── Cheer messages ────────────────────────────────────────────────────────────
+
+const CHEER_DEFAULT_PRESETS = [
+  "What a bid! 🔥",
+  "Go go go! 💪",
+  "Excellent pick! 👏",
+  "Bidding war! ⚔️",
+  "Legend! 🏆",
+  "Value pick! 💎",
+  "Wow! 🤩",
+  "Heated auction! 🌡️",
+  "Amazing! 🙌",
+  "On fire! 🔥",
+];
+
+const cheerRateLimiter = new Map<string, number>();
+const CHEER_COOLDOWN_MS = 500;
+
+router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").replace("::ffff:", "");
+  const now = Date.now();
+  const last = cheerRateLimiter.get(ip) ?? 0;
+  if (now - last < CHEER_COOLDOWN_MS) {
+    res.status(429).json({ error: "Too many requests" });
+    return;
+  }
+  cheerRateLimiter.set(ip, now);
+
+  const bodySchema = z.object({
+    senderName: z.string().min(1).max(30).trim(),
+    messageIndex: z.number().int().min(0).max(9),
+  });
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const { senderName, messageIndex } = parsed.data;
+
+  if (!isNameClean(senderName)) {
+    res.status(400).json({ error: "Name contains disallowed words" });
+    return;
+  }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+  if (!tournament.cheerMessagesEnabled) {
+    res.status(403).json({ error: "Cheer messages are disabled for this tournament" });
+    return;
+  }
+
+  let presets: string[] = CHEER_DEFAULT_PRESETS;
+  if (tournament.cheerMessagePresets) {
+    try {
+      const p = JSON.parse(tournament.cheerMessagePresets) as unknown;
+      if (Array.isArray(p) && p.length > 0) presets = p as string[];
+    } catch {
+      // use defaults
+    }
+  }
+
+  const message = presets[messageIndex];
+  if (!message) {
+    res.status(400).json({ error: "Invalid message index" });
+    return;
+  }
+
+  broadcastToTournament(tid, { type: "cheer_message", senderName, message });
+  res.json({ ok: true });
 });
 
 export default router;

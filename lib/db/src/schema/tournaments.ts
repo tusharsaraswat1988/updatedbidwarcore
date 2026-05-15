@@ -50,6 +50,9 @@ export const tournamentsTable = pgTable("tournaments", {
   soldSoundEnabled: boolean("sold_sound_enabled").notNull().default(true),
   soldSoundUrl: text("sold_sound_url"),
   soldSoundVolume: integer("sold_sound_volume").notNull().default(80),
+  // Cheer messages (live viewer interactive reactions)
+  cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
+  cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

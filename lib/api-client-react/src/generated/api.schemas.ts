@@ -79,7 +79,23 @@ export interface Tournament {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
+  cheerMessagesEnabled?: boolean;
+  /** @nullable */
+  cheerMessagePresets?: string | null;
   createdAt: string;
+}
+
+export interface CheerInput {
+  /**
+   * @minLength 1
+   * @maxLength 30
+   */
+  senderName: string;
+  /**
+   * @minimum 0
+   * @maximum 9
+   */
+  messageIndex: number;
 }
 
 export type TournamentInputSport =

@@ -680,6 +680,53 @@ router.post("/auth/admin/reports/:tournamentId/export", requireMasterAdmin, asyn
   res.status(400).json({ error: "Unsupported format" });
 });
 
+// ── Cheer settings (master admin only) ───────────────────────────────────────
+
+router.patch("/auth/admin/tournaments/:tournamentId/cheer-settings", requireMasterAdmin, async (req, res) => {
+  const tid = parseInt(String(req.params.tournamentId));
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const schema = z.object({
+    cheerMessagesEnabled: z.boolean().optional(),
+    cheerMessagePresets: z.array(z.string().max(120)).min(1).max(10).optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.cheerMessagesEnabled !== undefined) {
+    updates.cheerMessagesEnabled = parsed.data.cheerMessagesEnabled;
+  }
+  if (parsed.data.cheerMessagePresets !== undefined) {
+    updates.cheerMessagePresets = JSON.stringify(parsed.data.cheerMessagePresets);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "Nothing to update" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(tournamentsTable)
+    .set(updates)
+    .where(eq(tournamentsTable.id, tid))
+    .returning({ id: tournamentsTable.id });
+
+  if (!updated) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
 // suppress unused-warning helpers
 void desc;
 

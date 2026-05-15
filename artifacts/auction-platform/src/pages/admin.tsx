@@ -52,6 +52,8 @@ import {
   UserCheck,
   FileBarChart,
   Activity,
+  MessageSquare,
+  ChevronDown,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -79,6 +81,19 @@ import {
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const ADMIN_CHEER_DEFAULTS = [
+  "What a bid! 🔥",
+  "Go go go! 💪",
+  "Excellent pick! 👏",
+  "Bidding war! ⚔️",
+  "Legend! 🏆",
+  "Value pick! 💎",
+  "Wow! 🤩",
+  "Heated auction! 🌡️",
+  "Amazing! 🙌",
+  "On fire! 🔥",
+];
 
 function LicenseBadge({ status }: { status: string }) {
   if (status === "live") {
@@ -394,6 +409,11 @@ function DetailPanel({
   const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
   const [linking, setLinking] = useState(false);
   const [selectedLinkId, setSelectedLinkId] = useState<string>("__none__");
+  // Cheer settings
+  const [cheerEnabled, setCheerEnabled] = useState(true);
+  const [cheerPresets, setCheerPresets] = useState<string[]>([]);
+  const [savingCheer, setSavingCheer] = useState(false);
+  const [cheerExpanded, setCheerExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -424,6 +444,17 @@ function DetailPanel({
           ? String(d.tournament.organizerId)
           : "__none__",
       );
+      // Initialize cheer settings
+      setCheerEnabled(d.tournament.cheerMessagesEnabled ?? true);
+      if (d.tournament.cheerMessagePresets) {
+        try {
+          const p = JSON.parse(d.tournament.cheerMessagePresets) as unknown;
+          if (Array.isArray(p) && p.length > 0) setCheerPresets(p as string[]);
+          else setCheerPresets([]);
+        } catch { setCheerPresets([]); }
+      } else {
+        setCheerPresets([]);
+      }
     }
     setLoading(false);
   }, [tournamentId]);
@@ -435,6 +466,32 @@ function DetailPanel({
   function flash(text: string, ok = true) {
     setMsg({ text, ok });
     setTimeout(() => setMsg(null), 3000);
+  }
+
+  async function handleSaveCheer() {
+    if (!data) return;
+    setSavingCheer(true);
+    const presetsToSave = cheerPresets.length > 0 ? cheerPresets : ADMIN_CHEER_DEFAULTS;
+    try {
+      const r = await fetch(
+        `/api/auth/admin/tournaments/${tournamentId}/cheer-settings`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cheerMessagesEnabled: cheerEnabled,
+            cheerMessagePresets: presetsToSave,
+          }),
+        },
+      );
+      if (!r.ok) throw new Error("Failed");
+      flash("Cheer settings saved");
+      void load();
+    } catch {
+      flash("Failed to save cheer settings", false);
+    } finally {
+      setSavingCheer(false);
+    }
   }
 
   async function handleSave() {
@@ -1236,6 +1293,98 @@ function DetailPanel({
                       )}
                       Set
                     </Button>
+                  </div>
+                </div>
+
+                {/* Cheer Messages */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Cheer Messages
+                  </p>
+                  <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-3">
+                    {/* Enable/disable toggle */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">Live viewer cheers</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Allow viewers to send cheer reactions on the live screen
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setCheerEnabled((v) => !v)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${
+                          cheerEnabled ? "bg-green-500" : "bg-muted/50"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
+                            cheerEnabled ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Preset editor */}
+                    <button
+                      className="text-[11px] text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                      onClick={() => setCheerExpanded((v) => !v)}
+                    >
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${cheerExpanded ? "rotate-180" : ""}`}
+                      />
+                      Edit preset messages
+                    </button>
+
+                    {cheerExpanded && (
+                      <div className="space-y-1.5">
+                        {(cheerPresets.length > 0 ? cheerPresets : ADMIN_CHEER_DEFAULTS).map(
+                          (p, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground w-4 flex-shrink-0 text-right">
+                                {i + 1}.
+                              </span>
+                              <Input
+                                className="h-7 text-xs flex-1"
+                                value={p}
+                                maxLength={120}
+                                onChange={(e) => {
+                                  const base =
+                                    cheerPresets.length > 0
+                                      ? cheerPresets
+                                      : ADMIN_CHEER_DEFAULTS;
+                                  const next = [...base];
+                                  next[i] = e.target.value;
+                                  setCheerPresets(next);
+                                }}
+                              />
+                            </div>
+                          ),
+                        )}
+                        <button
+                          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors mt-1"
+                          onClick={() => setCheerPresets([])}
+                        >
+                          Reset to defaults
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={handleSaveCheer}
+                        disabled={savingCheer}
+                      >
+                        {savingCheer ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Check className="w-3 h-3" />
+                        )}
+                        Save Cheer Settings
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -7,7 +7,12 @@ import {
   getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 
-export function useAuctionSocket(tournamentId: number) {
+export type CheerMessage = { senderName: string; message: string };
+
+export function useAuctionSocket(
+  tournamentId: number,
+  onCheerMessage?: (msg: CheerMessage) => void,
+) {
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -44,6 +49,13 @@ export function useAuctionSocket(tournamentId: number) {
           if (msg.type === "settings_changed") {
             qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
           }
+
+          if (msg.type === "cheer_message" && onCheerMessage) {
+            onCheerMessage({
+              senderName: msg.senderName as string,
+              message: msg.message as string,
+            });
+          }
         } catch {
           // ignore malformed messages
         }
@@ -64,5 +76,5 @@ export function useAuctionSocket(tournamentId: number) {
       clearTimeout(retryTimer);
       es?.close();
     };
-  }, [tournamentId, qc]);
+  }, [tournamentId, qc, onCheerMessage]);
 }

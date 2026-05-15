@@ -217,6 +217,7 @@ export type AdminTournamentDetail = {
     bidTimerSeconds: number; playerSelectionMode: string;
     bidTiers: string | null; hasPassword: boolean;
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
+    cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
     createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;

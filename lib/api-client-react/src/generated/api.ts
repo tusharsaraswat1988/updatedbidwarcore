@@ -26,6 +26,7 @@ import type {
   CategoryBreakdown,
   CategoryInput,
   CategoryUpdate,
+  CheerInput,
   DisplayPlayerFilter,
   FortuneWheelSync,
   GlobalPlayerSuggestion,
@@ -4078,6 +4079,93 @@ export function useListBids<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Send a live viewer cheer reaction (public, no auth required)
+ */
+export const getSendCheerMessageUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/cheer`;
+};
+
+export const sendCheerMessage = async (
+  tournamentId: number,
+  cheerInput: CheerInput,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getSendCheerMessageUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(cheerInput),
+  });
+};
+
+export const getSendCheerMessageMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendCheerMessage>>,
+    TError,
+    { tournamentId: number; data: BodyType<CheerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendCheerMessage>>,
+  TError,
+  { tournamentId: number; data: BodyType<CheerInput> },
+  TContext
+> => {
+  const mutationKey = ["sendCheerMessage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendCheerMessage>>,
+    { tournamentId: number; data: BodyType<CheerInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return sendCheerMessage(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendCheerMessageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendCheerMessage>>
+>;
+export type SendCheerMessageMutationBody = BodyType<CheerInput>;
+export type SendCheerMessageMutationError = ErrorType<void>;
+
+/**
+ * @summary Send a live viewer cheer reaction (public, no auth required)
+ */
+export const useSendCheerMessage = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendCheerMessage>>,
+    TError,
+    { tournamentId: number; data: BodyType<CheerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendCheerMessage>>,
+  TError,
+  { tournamentId: number; data: BodyType<CheerInput> },
+  TContext
+> => {
+  return useMutation(getSendCheerMessageMutationOptions(options));
+};
 
 /**
  * @summary Get high-level auction summary stats

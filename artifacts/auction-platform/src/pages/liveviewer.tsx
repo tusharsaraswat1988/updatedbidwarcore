@@ -14,10 +14,28 @@ import {
   getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
-import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+
+// ── Cheer presets (module-level constant) ─────────────────────────────────────
+
+const DEFAULT_CHEER_PRESETS = [
+  "What a bid! 🔥",
+  "Go go go! 💪",
+  "Excellent pick! 👏",
+  "Bidding war! ⚔️",
+  "Legend! 🏆",
+  "Value pick! 💎",
+  "Wow! 🤩",
+  "Heated auction! 🌡️",
+  "Amazing! 🙌",
+  "On fire! 🔥",
+];
+
+type CheerEntry = { id: string; senderName: string; message: string };
 
 // ── Sound utilities (module-level, no hooks) ──────────────────────────────────
 
@@ -533,8 +551,32 @@ export default function LiveViewerPage() {
   const [, params] = useRoute("/tournament/:id/liveviewer");
   const tournamentId = parseInt(params?.id || "0");
 
+  // ── Cheer state (declared early so the socket callback is stable) ─────────
+  const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
+  const [cheerName, setCheerName] = useState<string>(() => {
+    try { return localStorage.getItem("bidwar-viewer-name") ?? ""; } catch { return ""; }
+  });
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [cheerCooldown, setCheerCooldown] = useState(false);
+  const [pendingPresetIndex, setPendingPresetIndex] = useState<number | null>(null);
+
+  const handleCheerMessage = useCallback((msg: CheerMessage) => {
+    setCheerMessages((prev) => {
+      const next = [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          senderName: msg.senderName,
+          message: msg.message,
+        },
+      ];
+      return next.slice(-8);
+    });
+  }, []);
+
   // ── Data ─────────────────────────────────────────────────────────────────
-  useAuctionSocket(tournamentId);
+  useAuctionSocket(tournamentId, handleCheerMessage);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 0 },
@@ -583,6 +625,54 @@ export default function LiveViewerPage() {
 
   // ── Sound engine ─────────────────────────────────────────────────────────
   const { play, settings: soundSettings, toggle: toggleSound } = useSoundEngine();
+
+  // ── Cheer logic ────────────────────────────────────────────────────────────
+  const cheerEnabled = tournament?.cheerMessagesEnabled !== false;
+  const cheerPresets = useMemo<string[]>(() => {
+    const raw = tournament?.cheerMessagePresets;
+    if (!raw) return DEFAULT_CHEER_PRESETS;
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (Array.isArray(p) && p.length > 0) return p as string[];
+    } catch {}
+    return DEFAULT_CHEER_PRESETS;
+  }, [tournament?.cheerMessagePresets]);
+
+  function sendCheer(idx: number) {
+    if (cheerCooldown) return;
+    if (!cheerName) {
+      setPendingPresetIndex(idx);
+      setNameInput("");
+      setShowNameDialog(true);
+      return;
+    }
+    setCheerCooldown(true);
+    setTimeout(() => setCheerCooldown(false), 500);
+    fetch(`/api/tournaments/${tournamentId}/cheer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senderName: cheerName, messageIndex: idx }),
+    }).catch(() => {});
+  }
+
+  function saveNameAndCheer() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    try { localStorage.setItem("bidwar-viewer-name", trimmed); } catch {}
+    setCheerName(trimmed);
+    setShowNameDialog(false);
+    const idx = pendingPresetIndex;
+    setPendingPresetIndex(null);
+    if (idx !== null) {
+      setCheerCooldown(true);
+      setTimeout(() => setCheerCooldown(false), 500);
+      fetch(`/api/tournaments/${tournamentId}/cheer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderName: trimmed, messageIndex: idx }),
+      }).catch(() => {});
+    }
+  }
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
@@ -1223,7 +1313,7 @@ export default function LiveViewerPage() {
           </div>
         )}
 
-        <div className="mt-10 text-center">
+        <div className={`mt-10 text-center ${cheerEnabled ? "pb-16" : ""}`}>
           <p className="text-[10px] text-muted-foreground/35 uppercase tracking-widest">
             Powered by BidWar
           </p>
@@ -1243,6 +1333,91 @@ export default function LiveViewerPage() {
         settings={soundSettings}
         toggle={toggleSound}
       />
+
+      {/* ── Floating cheer strip ──────────────────────────────────────────── */}
+      {cheerEnabled && cheerMessages.length > 0 && (
+        <div className="fixed bottom-[72px] right-3 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-72 max-w-[55vw]">
+          <AnimatePresence mode="popLayout">
+            {cheerMessages.map((m) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, x: 48, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 48, scale: 0.85 }}
+                transition={{ type: "spring", stiffness: 420, damping: 28 }}
+                className="bg-black/75 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 text-xs text-white flex items-center gap-1.5 min-w-0"
+              >
+                <span className="font-bold text-amber-400 truncate flex-shrink-0 max-w-[90px]">
+                  {m.senderName}
+                </span>
+                <span className="truncate text-white/80">{m.message}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── Cheer chip bar ────────────────────────────────────────────────── */}
+      {cheerEnabled && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-sm border-t border-white/10 px-3 py-2">
+          <div
+            className="flex gap-2 overflow-x-auto"
+            style={{ scrollbarWidth: "none" } as React.CSSProperties}
+          >
+            {cheerPresets.map((preset, i) => (
+              <button
+                key={i}
+                onClick={() => sendCheer(i)}
+                disabled={cheerCooldown}
+                className="flex-shrink-0 rounded-full border border-white/20 bg-white/5 hover:bg-white/15 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all px-3 py-1 text-xs text-white/85 whitespace-nowrap"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cheer name dialog ─────────────────────────────────────────────── */}
+      <Dialog
+        open={showNameDialog}
+        onOpenChange={(open) => {
+          if (!open) { setShowNameDialog(false); setPendingPresetIndex(null); }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Enter your display name</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your name will appear alongside your cheer. Max 30 characters.
+          </p>
+          <Input
+            className="mt-3"
+            placeholder="Your name..."
+            maxLength={30}
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") saveNameAndCheer(); }}
+            autoFocus
+          />
+          <div className="flex gap-2 mt-3 justify-end">
+            <button
+              className="text-xs text-muted-foreground px-3 py-1.5 rounded hover:bg-muted/20 transition-colors"
+              onClick={() => { setShowNameDialog(false); setPendingPresetIndex(null); }}
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!nameInput.trim()}
+              className="text-xs bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold px-3 py-1.5 rounded transition-colors"
+              onClick={saveNameAndCheer}
+            >
+              Join Cheer
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
