@@ -47,7 +47,8 @@ const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
 router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const isOrganizer = !!req.session?.organizerAccountId;
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
   const serializer: (t: typeof teamsTable.$inferSelect) => Record<string, unknown> =
     isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
@@ -109,7 +110,8 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
-  const isOrganizer = !!req.session?.organizerAccountId;
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
   res.json(isOrganizer ? teamToJson(team) : teamToPublicJson(team));
 });
 

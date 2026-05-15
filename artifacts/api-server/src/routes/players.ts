@@ -110,7 +110,8 @@ const playerInputSchema = z.object({
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const isOrganizer = !!req.session?.organizerAccountId;
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
   const players = await db
     .select()
@@ -245,7 +246,8 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const isOrganizer = !!req.session?.organizerAccountId;
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
   const [player] = await db
     .select()
     .from(playersTable)
@@ -389,7 +391,8 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .where(and(...conditions))
     .orderBy(playersTable.name);
 
-  const isOrganizer = !!req.session?.organizerAccountId;
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
 
   const result = sourcePlayers.map((p) => ({
