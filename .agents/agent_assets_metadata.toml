@@ -1,0 +1,25 @@
+uploads = []
+
+[[generated]]
+id = "IDymN5IcV-oEqKFz4ucF_"
+uri = "file://attached_assets/bidwar_logo_main.png"
+type = "image"
+title = "BidWar main shield logo"
+
+[[generated]]
+id = "oshf56Tu-ZZhwKjm1psL8"
+uri = "file://attached_assets/bidwar_app_icon.png"
+type = "image"
+title = "BidWar app icon B gavel"
+
+[[outputs]]
+id = "WOOvgEPkxRCW1S_Y1tPAF"
+uri = "file://attached_assets/bidwar_logo_main.png"
+type = "image"
+title = "BidWar Main Logo"
+
+[[outputs]]
+id = "FAILg_B8ehT0xecCIJT5I"
+uri = "file://attached_assets/bidwar_app_icon.png"
+type = "image"
+title = "BidWar App Icon"
