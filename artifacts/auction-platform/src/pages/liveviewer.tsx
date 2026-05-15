@@ -587,7 +587,22 @@ export default function LiveViewerPage() {
   // ── UI state ─────────────────────────────────────────────────────────────
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [soundSettingsOpen, setSoundSettingsOpen] = useState(false);
-  const [soldVisible, setSoldVisible] = useState(false);
+
+  // Stores the last player outcome — persists until the next player is announced
+  const [lastResult, setLastResult] = useState<{
+    playerName: string;
+    photoUrl: string | null;
+    basePrice: number;
+    role: string | null;
+    city: string | null;
+    age: number | null;
+    jerseyNumber: string | null;
+    status: "sold" | "unsold";
+    soldPrice?: number;
+    soldToTeam?: string;
+    soldToTeamColor?: string;
+    soldToTeamLogo?: string | null;
+  } | null>(null);
 
   // ── Sound event detection ─────────────────────────────────────────────────
   const prevStateRef = useRef<AuctionState | null>(null);
@@ -614,15 +629,27 @@ export default function LiveViewerPage() {
     prevStateRef.current = state ?? null;
   }, [state, play]);
 
-  // ── SOLD overlay ──────────────────────────────────────────────────────────
+  // ── Capture last result whenever sold/unsold — persists until next player ──
   useEffect(() => {
-    if ((state?.status as string) === "sold") {
-      setSoldVisible(true);
-      const t = setTimeout(() => setSoldVisible(false), 3500);
-      return () => clearTimeout(t);
+    if (!state) return;
+    const status = state.status as string;
+    if ((status === "sold" || status === "unsold") && state.currentPlayer) {
+      setLastResult({
+        playerName: state.currentPlayer.name,
+        photoUrl: state.currentPlayer.photoUrl ?? null,
+        basePrice: state.currentPlayer.basePrice,
+        role: state.currentPlayer.role ?? null,
+        city: state.currentPlayer.city ?? null,
+        age: state.currentPlayer.age ?? null,
+        jerseyNumber: state.currentPlayer.jerseyNumber ?? null,
+        status: status as "sold" | "unsold",
+        soldPrice: state.currentBid ?? undefined,
+        soldToTeam: state.currentBidTeamName ?? undefined,
+        soldToTeamColor: state.currentBidTeamColor ?? undefined,
+        soldToTeamLogo: (state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl ?? null,
+      });
     }
-    return undefined;
-  }, [state?.status, state?.soldPlayersCount]);
+  }, [state?.status, state?.currentPlayer?.id]);
 
   // ── Derived values ────────────────────────────────────────────────────────
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
@@ -631,6 +658,9 @@ export default function LiveViewerPage() {
   const isPaused = state?.status === "paused";
   const isIdle = !state || state.status === "idle";
   const isSold = (state?.status as string) === "sold";
+  const isUnsold = (state?.status as string) === "unsold";
+  // Show frozen result card when no active player but we have a previous outcome
+  const showFrozenCard = !hasPlayer && !isSold && !isUnsold && !!lastResult;
   const soldCount = state?.soldPlayersCount ?? 0;
   const unsoldCount = state?.unsoldPlayersCount ?? 0;
   const remainingCount = state?.remainingPlayersCount ?? 0;
@@ -662,13 +692,15 @@ export default function LiveViewerPage() {
   ]);
 
   const statusLabel = isSold ? "SOLD"
-    : (state?.status as string) === "unsold" ? "UNSOLD"
+    : isUnsold ? "UNSOLD"
     : isActive ? "LIVE"
     : isPaused ? "PAUSED"
     : "IDLE";
 
   const statusRing = (isActive || isSold)
     ? "bg-green-500/15 text-green-400 border-green-500/30"
+    : isUnsold
+    ? "bg-red-500/15 text-red-400 border-red-500/30"
     : isPaused
     ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
     : "bg-border/15 text-muted-foreground border-border/30";
@@ -740,6 +772,39 @@ export default function LiveViewerPage() {
         </p>
       </div>
 
+      {/* ── Last result ticker ────────────────────────────────────────── */}
+      {lastResult && (
+        <div className="overflow-hidden bg-black/35 border-b border-white/5 py-1.5">
+          <div className="flex animate-marquee" style={{ width: "max-content" }}>
+            {[0, 1].map((i) => (
+              <span key={i} className="inline-flex items-center gap-2.5 px-12 text-[11px] whitespace-nowrap">
+                {lastResult.status === "sold" ? (
+                  <>
+                    <span className="font-bold text-green-400 tracking-wider">SOLD</span>
+                    <span className="text-foreground/80 font-semibold">{lastResult.playerName}</span>
+                    <span className="text-muted-foreground/50">to</span>
+                    <span
+                      className="font-bold"
+                      style={{ color: lastResult.soldToTeamColor || "#F59E0B" }}
+                    >
+                      {lastResult.soldToTeam}
+                    </span>
+                    <span className="text-muted-foreground/50">at</span>
+                    <span className="font-bold text-foreground">{formatIndianRupee(lastResult.soldPrice || 0)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-bold text-red-400 tracking-wider">UNSOLD</span>
+                    <span className="text-foreground/80 font-semibold">{lastResult.playerName}</span>
+                  </>
+                )}
+                <span className="mx-10 text-border/30 select-none">◆</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Scrollable content ─────────────────────────────────────────── */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 pb-12">
 
@@ -761,27 +826,34 @@ export default function LiveViewerPage() {
 
         {/* ── Player section ─────────────────────────────────────────── */}
         <AnimatePresence mode="wait">
-          {isIdle && !hasPlayer ? (
-            // Idle branded holding screen — auction not started yet
-            <motion.div key="idle-branded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-5">
-              <IdleHoldingScreen tournament={tournament} />
-            </motion.div>
-          ) : hasPlayer ? (
-            // Active player card
+          {hasPlayer ? (
+            // ── Active / live player card ──────────────────────────────
             <motion.div
               key={state?.currentPlayer?.id}
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
-              className="mb-5 p-4 sm:p-6 rounded-2xl bg-card/50 border border-border/50 backdrop-blur"
+              className="mb-5 p-4 sm:p-6 rounded-2xl backdrop-blur border transition-colors"
+              style={{
+                backgroundColor: isSold
+                  ? `${teamColor}10`
+                  : isUnsold
+                  ? "rgba(239,68,68,0.06)"
+                  : "rgba(var(--card), 0.5)",
+                borderColor: isSold
+                  ? `${teamColor}45`
+                  : isUnsold
+                  ? "rgba(239,68,68,0.3)"
+                  : "rgba(var(--border), 0.5)",
+              }}
             >
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                 {/* Photo */}
                 <div className="relative flex-shrink-0">
                   <div
                     className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
-                    style={{ borderColor: `${teamColor}55` }}
+                    style={{ borderColor: isSold ? `${teamColor}55` : isUnsold ? "rgba(239,68,68,0.4)" : `${teamColor}55` }}
                   >
                     {state?.currentPlayer?.photoUrl ? (
                       <img
@@ -793,7 +865,7 @@ export default function LiveViewerPage() {
                       <User className="w-14 h-14 text-muted-foreground/25" />
                     )}
                   </div>
-                  {state?.currentPlayer?.jerseyNumber && (
+                  {state?.currentPlayer?.jerseyNumber && !isSold && !isUnsold && (
                     <div
                       className="absolute -top-2 -left-2 w-7 h-7 rounded-full flex items-center justify-center font-display font-black text-xs text-black shadow-lg"
                       style={{ backgroundColor: teamColor }}
@@ -801,10 +873,11 @@ export default function LiveViewerPage() {
                       {state.currentPlayer.jerseyNumber}
                     </div>
                   )}
-                  {/* SOLD stamp */}
+                  {/* SOLD stamp — persistent while status is "sold" */}
                   <AnimatePresence>
-                    {soldVisible && (
+                    {isSold && (
                       <motion.div
+                        key="sold-stamp"
                         initial={{ scale: 3, opacity: 0, rotate: -20 }}
                         animate={{ scale: 1, opacity: 1, rotate: -12 }}
                         exit={{ scale: 1.1, opacity: 0 }}
@@ -816,6 +889,23 @@ export default function LiveViewerPage() {
                           style={{ transform: "rotate(-12deg)" }}
                         >
                           SOLD
+                        </div>
+                      </motion.div>
+                    )}
+                    {isUnsold && (
+                      <motion.div
+                        key="unsold-stamp"
+                        initial={{ scale: 3, opacity: 0, rotate: -20 }}
+                        animate={{ scale: 1, opacity: 1, rotate: -12 }}
+                        exit={{ scale: 1.1, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 360, damping: 22 }}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <div
+                          className="bg-red-700/90 text-white font-display font-black text-xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl"
+                          style={{ transform: "rotate(-12deg)" }}
+                        >
+                          UNSOLD
                         </div>
                       </motion.div>
                     )}
@@ -848,7 +938,7 @@ export default function LiveViewerPage() {
                   {/* Bid amount */}
                   <div>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
-                      Current Bid
+                      {isSold ? "Sold at" : isUnsold ? "Last Bid" : "Current Bid"}
                     </p>
                     <motion.p
                       key={state?.currentBid ?? 0}
@@ -862,7 +952,7 @@ export default function LiveViewerPage() {
                     </motion.p>
                   </div>
 
-                  {/* Leading team chip */}
+                  {/* Leading / sold-to team chip */}
                   {state?.currentBidTeamName ? (
                     <motion.div
                       key={state.currentBidTeamId}
@@ -887,15 +977,150 @@ export default function LiveViewerPage() {
                         ) : (
                           <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
                         )}
-                        {state.currentBidTeamName}
+                        {isSold ? `Sold to ${state.currentBidTeamName}` : state.currentBidTeamName}
                       </span>
                     </motion.div>
+                  ) : isUnsold ? (
+                    <div className="flex justify-center sm:justify-start">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
+                        Player returns to pool
+                      </span>
+                    </div>
                   ) : null}
                 </div>
               </div>
             </motion.div>
+
+          ) : showFrozenCard ? (
+            // ── Frozen result card — stays visible until next player ───
+            <motion.div
+              key={`frozen-${lastResult!.playerName}`}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -14 }}
+              transition={{ duration: 0.3 }}
+              className="mb-5 p-4 sm:p-6 rounded-2xl backdrop-blur border"
+              style={{
+                backgroundColor: lastResult!.status === "sold"
+                  ? `${lastResult!.soldToTeamColor || "#22c55e"}10`
+                  : "rgba(239,68,68,0.06)",
+                borderColor: lastResult!.status === "sold"
+                  ? `${lastResult!.soldToTeamColor || "#22c55e"}45`
+                  : "rgba(239,68,68,0.3)",
+              }}
+            >
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                {/* Photo with persistent result stamp */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
+                    style={{
+                      borderColor: lastResult!.status === "sold"
+                        ? `${lastResult!.soldToTeamColor || "#22c55e"}55`
+                        : "rgba(239,68,68,0.4)",
+                    }}
+                  >
+                    {lastResult!.photoUrl ? (
+                      <img src={lastResult!.photoUrl} alt={lastResult!.playerName} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-14 h-14 text-muted-foreground/25" />
+                    )}
+                  </div>
+                  {/* Always-visible result stamp */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                      className={`font-display font-black text-xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl ${
+                        lastResult!.status === "sold"
+                          ? "bg-green-600/90 text-white"
+                          : "bg-red-700/90 text-white"
+                      }`}
+                      style={{ transform: "rotate(-12deg)" }}
+                    >
+                      {lastResult!.status === "sold" ? "SOLD" : "UNSOLD"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0 text-center sm:text-left space-y-3">
+                  <div>
+                    <h2 className="font-display font-black text-2xl sm:text-3xl leading-none">
+                      {lastResult!.playerName}
+                    </h2>
+                    {(lastResult!.role || lastResult!.city || lastResult!.age) && (
+                      <div className="flex flex-wrap gap-1.5 mt-2 justify-center sm:justify-start">
+                        {[lastResult!.role, lastResult!.city, lastResult!.age ? `Age ${lastResult!.age}` : null]
+                          .filter((v): v is string => !!v)
+                          .map((spec, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-border/25 text-muted-foreground border border-border/40">
+                              {spec}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Base: {formatIndianRupee(lastResult!.basePrice)}
+                    </p>
+                  </div>
+
+                  {lastResult!.status === "sold" ? (
+                    <>
+                      <div>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+                          Sold at
+                        </p>
+                        <p
+                          className="font-display font-black text-4xl sm:text-5xl leading-none"
+                          style={{
+                            color: lastResult!.soldToTeamColor || "#22c55e",
+                            textShadow: `0 0 28px ${lastResult!.soldToTeamColor || "#22c55e"}55`,
+                          }}
+                        >
+                          {formatIndianRupee(lastResult!.soldPrice || 0)}
+                        </p>
+                      </div>
+                      {lastResult!.soldToTeam && (
+                        <div className="flex justify-center sm:justify-start">
+                          <span
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
+                            style={{
+                              borderColor: `${lastResult!.soldToTeamColor || "#22c55e"}55`,
+                              backgroundColor: `${lastResult!.soldToTeamColor || "#22c55e"}15`,
+                              color: lastResult!.soldToTeamColor || "#22c55e",
+                            }}
+                          >
+                            {lastResult!.soldToTeamLogo ? (
+                              <img src={lastResult!.soldToTeamLogo} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                            )}
+                            Sold to {lastResult!.soldToTeam}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-center sm:justify-start">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
+                        Player returns to pool
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-center text-[10px] text-muted-foreground/35 mt-4 tracking-wide uppercase">
+                Waiting for next player
+              </p>
+            </motion.div>
+
+          ) : isIdle ? (
+            // ── Idle branded holding screen — auction not started yet ──
+            <motion.div key="idle-branded" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-5">
+              <IdleHoldingScreen tournament={tournament} />
+            </motion.div>
+
           ) : (
-            // Between players (active/paused, no current player)
+            // ── Paused / between players with no prior result ──────────
             <motion.div
               key="no-player"
               initial={{ opacity: 0 }}
@@ -912,11 +1137,7 @@ export default function LiveViewerPage() {
               ) : (
                 <>
                   <p className="font-display font-bold text-lg text-muted-foreground">Waiting for next player</p>
-                  <p className="text-sm text-muted-foreground">
-                    {soldCount > 0
-                      ? `${soldCount} player${soldCount !== 1 ? "s" : ""} sold so far`
-                      : "The auction will begin shortly."}
-                  </p>
+                  <p className="text-sm text-muted-foreground">The auction will begin shortly.</p>
                 </>
               )}
             </motion.div>
