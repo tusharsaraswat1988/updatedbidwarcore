@@ -62,7 +62,8 @@ const pricing = [
   {
     label: "Trial",
     price: "Free",
-    teams: "2 Teams",
+    gst: false,
+    teams: "Up to 2 Teams",
     desc: "Run your first auction at zero cost. No credit card required.",
     highlight: false,
     color: "border-border bg-card/30",
@@ -70,7 +71,8 @@ const pricing = [
   },
   {
     label: "Starter",
-    price: "₹999",
+    price: "₹5,000",
+    gst: true,
     teams: "Up to 4 Teams",
     desc: "Ideal for small club leagues and community tournaments.",
     highlight: false,
@@ -79,7 +81,8 @@ const pricing = [
   },
   {
     label: "Pro",
-    price: "₹1,999",
+    price: "₹6,000",
+    gst: true,
     teams: "Up to 8 Teams",
     desc: "Built for district and city-level franchise auctions.",
     highlight: true,
@@ -87,10 +90,41 @@ const pricing = [
     badge: "Most Popular",
   },
   {
+    label: "Advanced",
+    price: "₹8,000",
+    gst: true,
+    teams: "Up to 12 Teams",
+    desc: "Growing franchise leagues with larger rosters.",
+    highlight: false,
+    color: "border-border bg-card/30",
+    badge: null,
+  },
+  {
     label: "Elite",
-    price: "₹2,999",
+    price: "₹9,000",
+    gst: true,
     teams: "Up to 16 Teams",
-    desc: "State-level leagues and professional franchise tournaments.",
+    desc: "State-level and professional franchise tournaments.",
+    highlight: false,
+    color: "border-border bg-card/30",
+    badge: null,
+  },
+  {
+    label: "Premium",
+    price: "₹11,000",
+    gst: true,
+    teams: "Up to 22 Teams",
+    desc: "Large multi-city leagues and regional championships.",
+    highlight: false,
+    color: "border-border bg-card/30",
+    badge: null,
+  },
+  {
+    label: "Champion",
+    price: "₹12,000",
+    gst: true,
+    teams: "Up to 30 Teams",
+    desc: "National-level and flagship franchise auctions.",
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
@@ -660,21 +694,21 @@ export default function Landing() {
 
       {/* ── Pricing ─────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 space-y-4">
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Pricing</div>
             <h2 className="text-4xl md:text-5xl font-display font-black">One-time per-tournament pricing</h2>
             <p className="text-muted-foreground text-lg">Pay once per event. No monthly fees. No recurring charges.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {pricing.map((p, i) => (
               <motion.div
                 key={p.label}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className={`relative p-6 rounded-2xl border ${p.color} flex flex-col gap-4 transition-all hover:scale-[1.02]`}
+                transition={{ delay: i * 0.06 }}
+                className={`relative p-5 rounded-2xl border ${p.color} flex flex-col gap-4 transition-all hover:scale-[1.02]`}
               >
                 {p.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-black text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
@@ -683,19 +717,21 @@ export default function Landing() {
                 )}
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">{p.label}</p>
-                  <p className="text-3xl font-display font-black">{p.price}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">per auction</p>
+                  <p className="text-2xl font-display font-black">{p.price}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    per auction{p.gst && <span className="text-primary/80"> + GST</span>}
+                  </p>
                 </div>
-                <div className="border-t border-border/50 pt-4 space-y-2">
+                <div className="border-t border-border/50 pt-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <Trophy className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="font-semibold">{p.teams}</span>
+                    <span className="font-semibold text-sm">{p.teams}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{p.desc}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
                 </div>
                 <button
                   onClick={() => navigate("/organizer")}
-                  className={`mt-auto w-full py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`mt-auto w-full py-2 rounded-xl text-sm font-bold transition-all ${
                     p.highlight
                       ? "bg-primary text-black hover:bg-primary/90"
                       : "border border-border text-foreground hover:bg-card/80"
@@ -706,10 +742,59 @@ export default function Landing() {
               </motion.div>
             ))}
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-8 flex items-center justify-center gap-2">
-            <Shield className="w-3.5 h-3.5" />
-            License activated after payment. Contact us on WhatsApp for instant activation.
-          </p>
+
+          {/* Notes row */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5" />
+              License activated after payment. Contact us on WhatsApp for instant activation.
+            </span>
+            <span className="hidden sm:block text-border">|</span>
+            <span className="flex items-center gap-1.5 text-primary/80">
+              <Zap className="w-3.5 h-3.5" />
+              AI features carry additional usage charges.
+            </span>
+          </div>
+
+          {/* Billing Details */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-10 p-6 rounded-2xl border border-border bg-card/20"
+          >
+            <div className="flex flex-col md:flex-row md:items-center gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Bank Transfer Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Account Name</p>
+                    <p className="text-sm font-bold text-white">CWPDETAILERS AND MOTORS</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Account Number</p>
+                    <p className="text-sm font-bold text-white font-mono">42105505194</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">IFSC Code</p>
+                    <p className="text-sm font-bold text-white font-mono">SBIN0001773</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Branch</p>
+                    <p className="text-sm font-bold text-white">Bhelupura, Varanasi</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border/40">
+              After payment, share the transaction screenshot on WhatsApp at <a href="https://wa.me/918707488250" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">+91 8707488250</a> for instant license activation. GST invoice provided on request.
+            </p>
+          </motion.div>
         </div>
       </section>
 
