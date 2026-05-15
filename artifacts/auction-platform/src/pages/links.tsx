@@ -10,7 +10,7 @@ import {
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Users, Link2, Copy, ExternalLink, UserSquare2, ClipboardList, CalendarX, Lock, CheckCircle2 } from "lucide-react";
+import { Monitor, Users, Link2, Copy, ExternalLink, UserSquare2, ClipboardList, CalendarX, Lock, CheckCircle2, Radio } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -173,17 +173,22 @@ export default function LinksPage() {
           </Card>
         )}
 
-        {/* Player Stats View */}
+        {/* Viewer Links */}
         <Card className="border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <UserSquare2 className="w-5 h-5 text-primary" />
+              <Radio className="w-5 h-5 text-primary" />
               <h2 className="font-display font-bold text-lg">Viewer Links</h2>
             </div>
             <LinkRow
-              label="Live Auction Display (viewer)"
+              label="Live Auction Viewer"
+              url={`${base}/tournament/${tournamentId}/liveviewer`}
+              description="Public spectator screen — live bids, animated player card, team grid with squad details, and optional sound effects. Works on any mobile, tablet, or laptop."
+            />
+            <LinkRow
+              label="LED Big Screen Display"
               url={`${base}/tournament/${tournamentId}/display`}
-              description="Read-only view showing live bid amounts, team purses, and player details."
+              description="Fullscreen broadcast display for projectors and big-screen TVs."
             />
           </CardContent>
         </Card>

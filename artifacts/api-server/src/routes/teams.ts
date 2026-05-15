@@ -26,15 +26,33 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   createdAt: t.createdAt.toISOString(),
 });
 
+const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
+  id: t.id,
+  tournamentId: t.tournamentId,
+  name: t.name,
+  shortCode: t.shortCode,
+  ownerName: t.ownerName,
+  ownerMobile: null,
+  color: t.color,
+  logoUrl: t.logoUrl,
+  purse: t.purse,
+  purseUsed: t.purseUsed,
+  isBiddingEnabled: t.isBiddingEnabled,
+  accessCode: null,
+  createdAt: t.createdAt.toISOString(),
+});
+
 router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const isOrganizer = !!req.session?.organizerAccountId;
+  const serializer = isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tid))
     .orderBy(teamsTable.createdAt);
-  res.json(teams.map(teamToJson));
+  res.json(teams.map(serializer));
 });
 
 router.post("/tournaments/:tournamentId/teams", async (req, res) => {
@@ -52,11 +70,9 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
-  // Check for duplicate short code within this tournament
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
   if (existing.length > 0) { res.status(400).json({ error: `Short code "${d.shortCode.toUpperCase()}" is already used by another team` }); return; }
 
-  // Auto-fetch purse from tournament base purse
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
@@ -128,7 +144,6 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   res.json(teamToJson(team));
 });
 
-// POST verify owner access code
 router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
@@ -140,7 +155,6 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
-  // If no access code set, any code is accepted (backward compat)
   const valid = !team.accessCode || team.accessCode.toUpperCase() === body.data.code.toUpperCase();
   res.json({ valid });
 });

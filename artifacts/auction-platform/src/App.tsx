@@ -28,6 +28,7 @@ import AdminIntelligence from "@/pages/admin-intelligence";
 import ObsOverlay from "@/pages/obs-overlay";
 import OrganizerPortal from "@/pages/organizer-portal";
 import LegalPage from "@/pages/legal";
+import LiveViewer from "@/pages/liveviewer";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/tournament/new" component={NewTournament} />
       <Route path="/tournament/:id/login" component={OrganizerLogin} />
       <Route path="/tournament/:id/display" component={DisplayView} />
+      <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
       <Route path="/tournament/:id/register" component={PlayerRegister} />
       <Route path="/tournament/:id/obs" component={ObsOverlay} />
       <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />

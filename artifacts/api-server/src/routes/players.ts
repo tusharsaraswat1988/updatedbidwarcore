@@ -62,6 +62,31 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   createdAt: p.createdAt.toISOString(),
 });
 
+const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
+  id: p.id,
+  tournamentId: p.tournamentId,
+  categoryId: p.categoryId,
+  teamId: p.teamId,
+  name: p.name,
+  city: p.city,
+  role: p.role,
+  battingStyle: p.battingStyle,
+  bowlingStyle: p.bowlingStyle,
+  specialization: p.specialization,
+  age: p.age,
+  photoUrl: p.photoUrl,
+  basePrice: p.basePrice,
+  soldPrice: p.soldPrice,
+  retainedPrice: p.retainedPrice,
+  status: p.status,
+  jerseyNumber: p.jerseyNumber,
+  achievements: p.achievements,
+  mobileNumber: null,
+  cricheroUrl: p.cricheroUrl,
+  availabilityDates: p.availabilityDates,
+  createdAt: p.createdAt.toISOString(),
+});
+
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
   name: z.string().min(1),
@@ -85,12 +110,14 @@ const playerInputSchema = z.object({
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const isOrganizer = !!req.session?.organizerAccountId;
+  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
   const players = await db
     .select()
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid))
     .orderBy(playersTable.createdAt);
-  res.json(players.map(playerToJson));
+  res.json(players.map(serializer));
 });
 
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
@@ -125,7 +152,6 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   res.status(201).json(playerToJson(player));
 });
 
-// Public: get registration status (deadline + limit)
 router.get("/tournaments/:tournamentId/registration-status", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -134,7 +160,6 @@ router.get("/tournaments/:tournamentId/registration-status", async (req, res) =>
   res.json(status);
 });
 
-// Public: register a player (enforces deadline + limit)
 router.post("/tournaments/:tournamentId/register", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -167,10 +192,9 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       status: "available" as const,
     })
     .returning();
-  res.status(201).json(playerToJson(player));
+  res.status(201).json(playerToPublicJson(player));
 });
 
-// Bulk create players
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -221,12 +245,13 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const isOrganizer = !!req.session?.organizerAccountId;
   const [player] = await db
     .select()
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(playerToJson(player));
+  res.json(isOrganizer ? playerToJson(player) : playerToPublicJson(player));
 });
 
 router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
@@ -292,10 +317,6 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
   res.status(204).send();
 });
 
-// ─── Tournament Import — list available source tournaments ────────────────────
-// Returns all tournaments (except current) that have at least one player.
-// If the caller has an organizer account session, results are scoped to that
-// account's tournaments; otherwise all tournaments are shown.
 router.get("/tournaments/:tournamentId/import-sources", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -317,7 +338,6 @@ router.get("/tournaments/:tournamentId/import-sources", async (req, res) => {
     : baseQuery.where(ne(tournamentsTable.id, tid))
   ).orderBy(desc(tournamentsTable.createdAt));
 
-  // Attach player counts and filter out empty tournaments
   const result = await Promise.all(
     sources.map(async (s) => {
       const [{ count }] = await db
@@ -331,9 +351,6 @@ router.get("/tournaments/:tournamentId/import-sources", async (req, res) => {
   res.json(result.filter((s) => s.playerCount > 0));
 });
 
-// ─── Tournament Import — list players from a source tournament ────────────────
-// Returns players from sourceTournamentId, marking those that are already
-// in the target tournament as duplicates (by mobile number or name).
 router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const sourceTid = parseInt(String(req.query.sourceTournamentId || "0"));
@@ -344,7 +361,6 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
 
   const q = String(req.query.q || "").trim();
 
-  // Get existing mobiles and names in target tournament for duplicate detection
   const existingInTarget = await db
     .select({ mobile: playersTable.mobileNumber, name: playersTable.name })
     .from(playersTable)
@@ -357,7 +373,6 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     existingInTarget.map((p) => p.name.toLowerCase().trim()),
   );
 
-  // Build query for source players
   const conditions = [eq(playersTable.tournamentId, sourceTid)];
   if (q.length >= 2) {
     conditions.push(
@@ -374,8 +389,11 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .where(and(...conditions))
     .orderBy(playersTable.name);
 
+  const isOrganizer = !!req.session?.organizerAccountId;
+  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
+
   const result = sourcePlayers.map((p) => ({
-    ...playerToJson(p),
+    ...serializer(p),
     isDuplicate:
       (!!p.mobileNumber && mobileSet.has(p.mobileNumber)) ||
       nameSet.has(p.name.toLowerCase().trim()),
@@ -384,10 +402,6 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
   res.json(result);
 });
 
-// ─── Tournament Import — bulk import selected players ─────────────────────────
-// Copies selected players from sourceTournamentId into the target tournament.
-// Skips players whose mobile number already exists in the target.
-// Optionally overrides the category for all imported players.
 router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -402,7 +416,6 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 
   const { sourceTournamentId, playerIds, categoryId } = parsed.data;
 
-  // Fetch existing mobiles in target for dedup
   const existingMobiles = await db
     .select({ mobile: playersTable.mobileNumber })
     .from(playersTable)
@@ -411,7 +424,6 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
     existingMobiles.map((m) => m.mobile).filter((m): m is string => !!m),
   );
 
-  // Fetch source players by IDs
   const sourcePlayers = await db
     .select()
     .from(playersTable)
@@ -457,7 +469,6 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
     imported++;
   }
 
-  // Audit log
   if (imported > 0) {
     await db.insert(playerImportLogsTable).values({
       sourceTournamentId,
