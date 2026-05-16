@@ -694,11 +694,14 @@ function DetailPanel({
             variant="outline"
             className="h-7 gap-1.5 text-xs border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
             disabled={actionLoading === "Set Completed"}
-            onClick={() =>
-              doAction("Set Completed", () =>
-                setTournamentLicenseStatus(tournamentId, "completed"),
-              )
-            }
+            onClick={async () => {
+              if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
+              await doAction("Set Completed", async () => {
+                const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
+                if (!r1.success) return r1;
+                return lockTournament(tournamentId);
+              });
+            }}
           >
             {actionLoading === "Set Completed" ? (
               <RefreshCw className="w-3 h-3 animate-spin" />
@@ -708,23 +711,8 @@ function DetailPanel({
             Set Completed
           </Button>
         )}
-        {/* Lock / Unlock */}
-        {!isLocked ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-xs border-red-500/40 text-red-400 hover:bg-red-500/10"
-            disabled={actionLoading === "Lock"}
-            onClick={() => doAction("Lock", () => lockTournament(tournamentId))}
-          >
-            {actionLoading === "Lock" ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <Lock className="w-3 h-3" />
-            )}
-            Mark Completed & Lock
-          </Button>
-        ) : (
+        {/* Re-open escape hatch — only shown when tournament is locked */}
+        {isLocked && (
           <Button
             size="sm"
             variant="outline"
@@ -739,7 +727,7 @@ function DetailPanel({
             ) : (
               <Unlock className="w-3 h-3" />
             )}
-            Unlock
+            Re-open Auction
           </Button>
         )}
         {/* Edit */}
