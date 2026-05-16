@@ -4,11 +4,13 @@ import {
   useGetAuctionState,
   useGetTeam,
   useGetTeamPurses,
+  useGetTournament,
   usePlaceBid,
   useVerifyOwnerAccess,
   getGetAuctionStateQueryKey,
   getGetTeamQueryKey,
   getGetTeamPursesQueryKey,
+  getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
@@ -16,7 +18,7 @@ import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
@@ -143,6 +145,13 @@ export default function OwnerPanel() {
     },
   });
 
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId,
+    },
+  });
+
   useEffect(() => {
     if (!team) return;
     // Public endpoint returns requiresAccessCode boolean (accessCode is omitted).
@@ -165,15 +174,22 @@ export default function OwnerPanel() {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: 3000,
+      refetchInterval: (query) => {
+        const d = query.state.data;
+        if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
+        return 3000;
+      },
     },
   });
+
+  const isCompleted =
+    state?.licenseStatus === "completed" || state?.status === "completed";
 
   const { data: allPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: 10000,
+      enabled: !!tournamentId && !isCompleted,
+      refetchInterval: isCompleted ? false : 10000,
     },
   });
 
@@ -234,6 +250,58 @@ export default function OwnerPanel() {
       <FullscreenLayout>
         <div className="min-h-screen flex items-center justify-center">
           <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
+  if (isCompleted) {
+    const auctionDate = tournament?.auctionDate
+      ? new Date(tournament.auctionDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+    return (
+      <FullscreenLayout>
+        <div
+          className="min-h-screen flex flex-col items-center justify-center px-6"
+          style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.5, type: "spring" }}
+            className="w-full max-w-sm space-y-8 text-center"
+          >
+            <div className="space-y-5">
+              <div
+                className="w-24 h-24 rounded-3xl mx-auto flex items-center justify-center"
+                style={{ backgroundColor: `${teamColor}20`, border: `2px solid ${teamColor}50` }}
+              >
+                <CheckCircle2 className="w-12 h-12" style={{ color: teamColor }} />
+              </div>
+              <div className="space-y-2">
+                <h1 className="font-display font-black text-3xl text-white leading-tight">
+                  {tournament?.name || team.name}
+                </h1>
+                {auctionDate && (
+                  <p className="text-sm text-muted-foreground">{auctionDate}</p>
+                )}
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl border px-6 py-5 space-y-2"
+              style={{ borderColor: `${teamColor}30`, backgroundColor: `${teamColor}08` }}
+            >
+              <p className="font-display font-bold text-xl text-white">This auction has concluded.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Please contact the tournament operator for any further queries.
+              </p>
+            </div>
+
+            <p className="text-xs text-muted-foreground/50 tracking-widest uppercase">
+              Powered by BidWar
+            </p>
+          </motion.div>
         </div>
       </FullscreenLayout>
     );

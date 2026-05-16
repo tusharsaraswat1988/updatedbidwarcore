@@ -496,22 +496,31 @@ export default function Teams() {
                     )}
 
                     {/* Owner Panel Link */}
-                    <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
-                        <p className="text-xs font-mono text-muted-foreground truncate">{ownerLink}</p>
+                    {tournament?.status === "completed" ? (
+                      <div className="flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
+                          <p className="text-xs text-muted-foreground/50 italic">Auction concluded — link disabled</p>
+                        </div>
                       </div>
-                      <CopyButton text={ownerLink} />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
-                        onClick={() => navigate(`/tournament/${tournamentId}/owner/${team.id}`)}
-                        title="Open owner panel"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
+                          <p className="text-xs font-mono text-muted-foreground truncate">{ownerLink}</p>
+                        </div>
+                        <CopyButton text={ownerLink} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+                          onClick={() => navigate(`/tournament/${tournamentId}/owner/${team.id}`)}
+                          title="Open owner panel"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
