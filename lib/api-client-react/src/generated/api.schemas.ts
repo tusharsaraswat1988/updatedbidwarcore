@@ -248,13 +248,25 @@ export interface Category {
   id: number;
   tournamentId: number;
   name: string;
-  /** @nullable */
+  /**
+   * Minimum base value for players in this category. Overrides the tournament-level default when set. Null means use tournament default (category acts as filter/grouping only unless bidIncrement or bidTiers is also set).
+   * @nullable
+   */
   minBid?: number | null;
-  /** @nullable */
+  /**
+   * Flat bid increment for this category. Overrides the tournament-level tiers when set. Null means use tournament tiers.
+   * @nullable
+   */
   bidIncrement?: number | null;
-  /** @nullable */
+  /**
+   * JSON-encoded array of bid tier objects [{upTo, increment}, ...] for tiered increment logic. Overrides bidIncrement and tournament tiers when set.
+   * @nullable
+   */
   bidTiers?: string | null;
-  /** @nullable */
+  /**
+   * Maximum number of players from this category a team may purchase. Null means no limit.
+   * @nullable
+   */
   maxPlayers?: number | null;
   /** @nullable */
   colorCode?: string | null;
@@ -264,13 +276,25 @@ export interface Category {
 
 export interface CategoryInput {
   name: string;
-  /** @nullable */
+  /**
+   * Minimum base value override for players in this category. Leave null to use tournament default.
+   * @nullable
+   */
   minBid?: number | null;
-  /** @nullable */
+  /**
+   * Flat bid increment override for this category. Leave null to use tournament tiers.
+   * @nullable
+   */
   bidIncrement?: number | null;
-  /** @nullable */
+  /**
+   * JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.
+   * @nullable
+   */
   bidTiers?: string | null;
-  /** @nullable */
+  /**
+   * Maximum players per team in this category. Leave null for no limit.
+   * @nullable
+   */
   maxPlayers?: number | null;
   colorCode?: string;
   sortOrder?: number;
@@ -278,13 +302,25 @@ export interface CategoryInput {
 
 export interface CategoryUpdate {
   name?: string;
-  /** @nullable */
+  /**
+   * Minimum base value override for players in this category. Leave null to use tournament default.
+   * @nullable
+   */
   minBid?: number | null;
-  /** @nullable */
+  /**
+   * Flat bid increment override for this category. Leave null to use tournament tiers.
+   * @nullable
+   */
   bidIncrement?: number | null;
-  /** @nullable */
+  /**
+   * JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.
+   * @nullable
+   */
   bidTiers?: string | null;
-  /** @nullable */
+  /**
+   * Maximum players per team in this category. Leave null for no limit.
+   * @nullable
+   */
   maxPlayers?: number | null;
   colorCode?: string;
   sortOrder?: number;

@@ -350,10 +350,30 @@ export const ExportTournamentForLocalResponse = zod.object({
       id: zod.number(),
       tournamentId: zod.number(),
       name: zod.string(),
-      minBid: zod.number().nullish(),
-      bidIncrement: zod.number().nullish(),
-      bidTiers: zod.string().nullish(),
-      maxPlayers: zod.number().nullish(),
+      minBid: zod
+        .number()
+        .nullish()
+        .describe(
+          "Minimum base value for players in this category. Overrides the tournament-level default when set. Null means use tournament default (category acts as filter\/grouping only unless bidIncrement or bidTiers is also set).",
+        ),
+      bidIncrement: zod
+        .number()
+        .nullish()
+        .describe(
+          "Flat bid increment for this category. Overrides the tournament-level tiers when set. Null means use tournament tiers.",
+        ),
+      bidTiers: zod
+        .string()
+        .nullish()
+        .describe(
+          "JSON-encoded array of bid tier objects [{upTo, increment}, ...] for tiered increment logic. Overrides bidIncrement and tournament tiers when set.",
+        ),
+      maxPlayers: zod
+        .number()
+        .nullish()
+        .describe(
+          "Maximum number of players from this category a team may purchase. Null means no limit.",
+        ),
       colorCode: zod.string().nullish(),
       sortOrder: zod.number().optional(),
       createdAt: zod.string(),
@@ -522,10 +542,30 @@ export const ListCategoriesResponseItem = zod.object({
   id: zod.number(),
   tournamentId: zod.number(),
   name: zod.string(),
-  minBid: zod.number().nullish(),
-  bidIncrement: zod.number().nullish(),
-  bidTiers: zod.string().nullish(),
-  maxPlayers: zod.number().nullish(),
+  minBid: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minimum base value for players in this category. Overrides the tournament-level default when set. Null means use tournament default (category acts as filter\/grouping only unless bidIncrement or bidTiers is also set).",
+    ),
+  bidIncrement: zod
+    .number()
+    .nullish()
+    .describe(
+      "Flat bid increment for this category. Overrides the tournament-level tiers when set. Null means use tournament tiers.",
+    ),
+  bidTiers: zod
+    .string()
+    .nullish()
+    .describe(
+      "JSON-encoded array of bid tier objects [{upTo, increment}, ...] for tiered increment logic. Overrides bidIncrement and tournament tiers when set.",
+    ),
+  maxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Maximum number of players from this category a team may purchase. Null means no limit.",
+    ),
   colorCode: zod.string().nullish(),
   sortOrder: zod.number().optional(),
   createdAt: zod.string(),
@@ -541,10 +581,30 @@ export const CreateCategoryParams = zod.object({
 
 export const CreateCategoryBody = zod.object({
   name: zod.string(),
-  minBid: zod.number().nullish(),
-  bidIncrement: zod.number().nullish(),
-  bidTiers: zod.string().nullish(),
-  maxPlayers: zod.number().nullish(),
+  minBid: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minimum base value override for players in this category. Leave null to use tournament default.",
+    ),
+  bidIncrement: zod
+    .number()
+    .nullish()
+    .describe(
+      "Flat bid increment override for this category. Leave null to use tournament tiers.",
+    ),
+  bidTiers: zod
+    .string()
+    .nullish()
+    .describe(
+      "JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.",
+    ),
+  maxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Maximum players per team in this category. Leave null for no limit.",
+    ),
   colorCode: zod.string().optional(),
   sortOrder: zod.number().optional(),
 });
@@ -559,10 +619,30 @@ export const UpdateCategoryParams = zod.object({
 
 export const UpdateCategoryBody = zod.object({
   name: zod.string().optional(),
-  minBid: zod.number().nullish(),
-  bidIncrement: zod.number().nullish(),
-  bidTiers: zod.string().nullish(),
-  maxPlayers: zod.number().nullish(),
+  minBid: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minimum base value override for players in this category. Leave null to use tournament default.",
+    ),
+  bidIncrement: zod
+    .number()
+    .nullish()
+    .describe(
+      "Flat bid increment override for this category. Leave null to use tournament tiers.",
+    ),
+  bidTiers: zod
+    .string()
+    .nullish()
+    .describe(
+      "JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.",
+    ),
+  maxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Maximum players per team in this category. Leave null for no limit.",
+    ),
   colorCode: zod.string().optional(),
   sortOrder: zod.number().optional(),
 });
@@ -571,10 +651,30 @@ export const UpdateCategoryResponse = zod.object({
   id: zod.number(),
   tournamentId: zod.number(),
   name: zod.string(),
-  minBid: zod.number().nullish(),
-  bidIncrement: zod.number().nullish(),
-  bidTiers: zod.string().nullish(),
-  maxPlayers: zod.number().nullish(),
+  minBid: zod
+    .number()
+    .nullish()
+    .describe(
+      "Minimum base value for players in this category. Overrides the tournament-level default when set. Null means use tournament default (category acts as filter\/grouping only unless bidIncrement or bidTiers is also set).",
+    ),
+  bidIncrement: zod
+    .number()
+    .nullish()
+    .describe(
+      "Flat bid increment for this category. Overrides the tournament-level tiers when set. Null means use tournament tiers.",
+    ),
+  bidTiers: zod
+    .string()
+    .nullish()
+    .describe(
+      "JSON-encoded array of bid tier objects [{upTo, increment}, ...] for tiered increment logic. Overrides bidIncrement and tournament tiers when set.",
+    ),
+  maxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Maximum number of players from this category a team may purchase. Null means no limit.",
+    ),
   colorCode: zod.string().nullish(),
   sortOrder: zod.number().optional(),
   createdAt: zod.string(),

@@ -396,6 +396,15 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [filledFromProfile, setFilledFromProfile] = useState(false);
 
+  const [basePriceTouched, setBasePriceTouched] = useState(false);
+
+  // Sync basePrice default when tournament loads after the form opens (new players only)
+  useEffect(() => {
+    if (!player && !basePriceTouched && tournament?.minBid) {
+      setForm(f => ({ ...f, basePrice: tournament.minBid }));
+    }
+  }, [tournament?.minBid, player, basePriceTouched]);
+
   const [form, setForm] = useState({
     name: player?.name || "",
     city: player?.city || "",
@@ -528,7 +537,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Base Price (₹) *</Label>
-          <Input type="number" value={form.basePrice} onChange={e => f("basePrice", e.target.value)} required />
+          <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
         </div>
         <div className="space-y-2">
           <Label>Age</Label>

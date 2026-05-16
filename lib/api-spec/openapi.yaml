@@ -1617,12 +1617,16 @@ components:
           type: string
         minBid:
           type: ["integer", "null"]
+          description: Minimum base value for players in this category. Overrides the tournament-level default when set. Null means use tournament default (category acts as filter/grouping only unless bidIncrement or bidTiers is also set).
         bidIncrement:
           type: ["integer", "null"]
+          description: Flat bid increment for this category. Overrides the tournament-level tiers when set. Null means use tournament tiers.
         bidTiers:
           type: ["string", "null"]
+          description: JSON-encoded array of bid tier objects [{upTo, increment}, ...] for tiered increment logic. Overrides bidIncrement and tournament tiers when set.
         maxPlayers:
           type: ["integer", "null"]
+          description: Maximum number of players from this category a team may purchase. Null means no limit.
         colorCode:
           type: ["string", "null"]
         sortOrder:
@@ -1638,12 +1642,16 @@ components:
           type: string
         minBid:
           type: ["integer", "null"]
+          description: Minimum base value override for players in this category. Leave null to use tournament default.
         bidIncrement:
           type: ["integer", "null"]
+          description: Flat bid increment override for this category. Leave null to use tournament tiers.
         bidTiers:
           type: ["string", "null"]
+          description: JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.
         maxPlayers:
           type: ["integer", "null"]
+          description: Maximum players per team in this category. Leave null for no limit.
         colorCode:
           type: string
         sortOrder:
@@ -1656,12 +1664,16 @@ components:
           type: string
         minBid:
           type: ["integer", "null"]
+          description: Minimum base value override for players in this category. Leave null to use tournament default.
         bidIncrement:
           type: ["integer", "null"]
+          description: Flat bid increment override for this category. Leave null to use tournament tiers.
         bidTiers:
           type: ["string", "null"]
+          description: JSON-encoded tiered increment array. Takes precedence over bidIncrement when set.
         maxPlayers:
           type: ["integer", "null"]
+          description: Maximum players per team in this category. Leave null for no limit.
         colorCode:
           type: string
         sortOrder:
