@@ -696,11 +696,18 @@ function DetailPanel({
             disabled={actionLoading === "Set Completed"}
             onClick={async () => {
               if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-              await doAction("Set Completed", async () => {
+              setActionLoading("Set Completed");
+              try {
                 const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
-                if (!r1.success) return r1;
-                return lockTournament(tournamentId);
-              });
+                if (!r1.success) { flash(r1.error || "Set Completed failed", false); return; }
+                const r2 = await lockTournament(tournamentId);
+                if (!r2.success) { flash("Licence set to completed but lock failed — please retry", false); }
+                else { flash("Set Completed done"); }
+              } finally {
+                setActionLoading(null);
+                await load();
+                onRefresh();
+              }
             }}
           >
             {actionLoading === "Set Completed" ? (
