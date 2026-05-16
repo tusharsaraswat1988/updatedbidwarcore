@@ -698,11 +698,11 @@ export default function TournamentHub() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Base Purse (₹)</Label>
+                      <Label>Total Points Per Team (₹)</Label>
                       <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Min Bid (₹)</Label>
+                      <Label>Min Value of a Player (₹)</Label>
                       <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
                     </div>
                   </div>

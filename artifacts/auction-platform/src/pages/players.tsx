@@ -5,6 +5,7 @@ import {
   useListPlayers,
   useListCategories,
   useListTeams,
+  useGetTournament,
   useCreatePlayer,
   useUpdatePlayer,
   useDeletePlayer,
@@ -19,6 +20,7 @@ import {
   getListPlayersQueryKey,
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
+  getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -381,10 +383,11 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
 
 // ─── Player Form ───────────────────────────────────────────────────────────────
 
-function PlayerForm({ tournamentId, player, categories, onClose }: {
+function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   tournamentId: number;
   player?: any;
   categories: any[];
+  tournament?: any;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -402,7 +405,7 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
     specialization: player?.specialization || "",
     age: player?.age ? String(player.age) : "",
     photoUrl: player?.photoUrl || "",
-    basePrice: player?.basePrice || 100000,
+    basePrice: player?.basePrice || tournament?.minBid || 100000,
     jerseyNumber: player?.jerseyNumber || "",
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber || "",
@@ -410,7 +413,7 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
     availabilityDates: player?.availabilityDates || "",
     retainedPrice: player?.retainedPrice ? String(player.retainedPrice) : "",
     status: player?.status || "available",
-    categoryId: player?.categoryId ? String(player.categoryId) : (categories[0]?.id ? String(categories[0].id) : ""),
+    categoryId: player?.categoryId ? String(player.categoryId) : "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -635,8 +638,6 @@ function PlayerForm({ tournamentId, player, categories, onClose }: {
               <SelectContent className="dark">
                 <SelectItem value="available">Available</SelectItem>
                 <SelectItem value="retained">Retained (Pre-sold)</SelectItem>
-                <SelectItem value="sold">Sold</SelectItem>
-                <SelectItem value="unsold">Unsold</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -826,6 +827,9 @@ export default function Players() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+  });
   const deletePlayer = useDeletePlayer();
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -908,6 +912,7 @@ export default function Players() {
                   tournamentId={tournamentId}
                   player={editing}
                   categories={categories || []}
+                  tournament={tournament}
                   onClose={() => { setOpen(false); setEditing(null); }}
                 />
               </DialogContent>

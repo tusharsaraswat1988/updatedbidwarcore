@@ -14,29 +14,96 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Tag } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, Filter } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type TierFields = {
+  tier1UpTo: number;
+  tier1Inc: number;
+  tier2UpTo: number;
+  tier2Inc: number;
+  tier3Inc: number;
+};
+
+function parseExistingTiers(bidTiers: string | null | undefined): TierFields {
+  if (bidTiers) {
+    try {
+      const t = JSON.parse(bidTiers);
+      if (Array.isArray(t) && t.length >= 3) {
+        return {
+          tier1UpTo: t[0].upTo || 100000,
+          tier1Inc: t[0].increment || 25000,
+          tier2UpTo: t[1].upTo || 200000,
+          tier2Inc: t[1].increment || 50000,
+          tier3Inc: t[2].increment || 100000,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+  return { tier1UpTo: 100000, tier1Inc: 25000, tier2UpTo: 200000, tier2Inc: 50000, tier3Inc: 100000 };
+}
+
+function getInitialIncrementMode(category?: any): "none" | "flat" | "tiers" {
+  if (!category) return "none";
+  if (category.bidTiers) return "tiers";
+  if (category.bidIncrement) return "flat";
+  return "none";
+}
 
 function CategoryForm({ tournamentId, category, onClose }: { tournamentId: number; category?: any; onClose: () => void }) {
   const qc = useQueryClient();
   const createCat = useCreateCategory();
   const updateCat = useUpdateCategory();
+
+  const [incrementMode, setIncrementMode] = useState<"none" | "flat" | "tiers">(() => getInitialIncrementMode(category));
+  const initialTiers = parseExistingTiers(category?.bidTiers);
+
   const [form, setForm] = useState({
     name: category?.name || "",
-    minBid: category?.minBid || 100000,
-    bidIncrement: category?.bidIncrement || 50000,
-    maxPlayers: category?.maxPlayers || 5,
+    minBid: category?.minBid != null ? String(category.minBid) : "",
+    flatIncrement: category?.bidIncrement ? String(category.bidIncrement) : "",
+    maxPlayers: category?.maxPlayers ? String(category.maxPlayers) : "",
     colorCode: category?.colorCode || "#F59E0B",
-    sortOrder: category?.sortOrder ?? 0,
+    tier1UpTo: initialTiers.tier1UpTo,
+    tier1Inc: initialTiers.tier1Inc,
+    tier2UpTo: initialTiers.tier2UpTo,
+    tier2Inc: initialTiers.tier2Inc,
+    tier3Inc: initialTiers.tier3Inc,
   });
+
+  function setF(field: string, value: any) {
+    setForm(f => ({ ...f, [field]: value }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (category) {
-      await updateCat.mutateAsync({ tournamentId, categoryId: category.id, data: form });
+    const data: any = {
+      name: form.name,
+      colorCode: form.colorCode,
+      minBid: form.minBid !== "" ? parseInt(form.minBid) : null,
+      maxPlayers: form.maxPlayers !== "" ? parseInt(form.maxPlayers) : null,
+    };
+
+    if (incrementMode === "flat") {
+      data.bidIncrement = form.flatIncrement !== "" ? parseInt(form.flatIncrement) : null;
+      data.bidTiers = null;
+    } else if (incrementMode === "tiers") {
+      data.bidIncrement = null;
+      data.bidTiers = JSON.stringify([
+        { upTo: form.tier1UpTo, increment: form.tier1Inc },
+        { upTo: form.tier2UpTo, increment: form.tier2Inc },
+        { increment: form.tier3Inc },
+      ]);
     } else {
-      await createCat.mutateAsync({ tournamentId, data: form });
+      data.bidIncrement = null;
+      data.bidTiers = null;
+    }
+
+    if (category) {
+      await updateCat.mutateAsync({ tournamentId, categoryId: category.id, data });
+    } else {
+      await createCat.mutateAsync({ tournamentId, data });
     }
     qc.invalidateQueries({ queryKey: getListCategoriesQueryKey(tournamentId) });
     onClose();
@@ -46,35 +113,131 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label>Category Name</Label>
-        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="e.g. Platinum, Gold, Silver" />
+        <Input
+          value={form.name}
+          onChange={e => setF("name", e.target.value)}
+          required
+          placeholder="e.g. Platinum, Gold, Under-23, Fast Bowlers"
+        />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Minimum Bid (₹)</Label>
-          <Input type="number" value={form.minBid} onChange={e => setForm(f => ({ ...f, minBid: parseInt(e.target.value) || 0 }))} required />
-        </div>
-        <div className="space-y-2">
-          <Label>Bid Increment (₹)</Label>
-          <Input type="number" value={form.bidIncrement} onChange={e => setForm(f => ({ ...f, bidIncrement: parseInt(e.target.value) || 0 }))} />
-        </div>
+
+      <div className="space-y-2">
+        <Label>Minimum Base Value (₹)</Label>
+        <Input
+          type="number"
+          value={form.minBid}
+          onChange={e => setF("minBid", e.target.value)}
+          placeholder="Leave blank to use tournament default"
+        />
+        <p className="text-xs text-muted-foreground">
+          If left blank, the tournament's default min value applies. Category will act as a filter/grouping label only unless min value or increment is set.
+        </p>
       </div>
+
+      <div className="space-y-3">
+        <Label>Bid Increment</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={incrementMode === "none" ? "default" : "outline"}
+            onClick={() => setIncrementMode("none")}
+            className="flex-1"
+          >
+            Hub Default
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={incrementMode === "flat" ? "default" : "outline"}
+            onClick={() => setIncrementMode("flat")}
+            className="flex-1"
+          >
+            Flat Amount
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={incrementMode === "tiers" ? "default" : "outline"}
+            onClick={() => setIncrementMode("tiers")}
+            className="flex-1"
+          >
+            Tier System
+          </Button>
+        </div>
+
+        {incrementMode === "flat" && (
+          <div className="space-y-1">
+            <Input
+              type="number"
+              value={form.flatIncrement}
+              onChange={e => setF("flatIncrement", e.target.value)}
+              placeholder="e.g. 20000"
+            />
+            <p className="text-xs text-muted-foreground">Fixed amount added per bid step for players in this category.</p>
+          </div>
+        )}
+
+        {incrementMode === "tiers" && (
+          <div className="border border-border rounded-lg p-3 space-y-3">
+            <p className="text-xs text-muted-foreground">Each tier applies while current bid is below the threshold.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Tier 1 — bid up to (₹)</Label>
+                <Input type="number" value={form.tier1UpTo} onChange={e => setF("tier1UpTo", parseInt(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Tier 1 increment (₹)</Label>
+                <Input type="number" value={form.tier1Inc} onChange={e => setF("tier1Inc", parseInt(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Tier 2 — bid up to (₹)</Label>
+                <Input type="number" value={form.tier2UpTo} onChange={e => setF("tier2UpTo", parseInt(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Tier 2 increment (₹)</Label>
+                <Input type="number" value={form.tier2Inc} onChange={e => setF("tier2Inc", parseInt(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Final tier increment (₹)</Label>
+              <Input type="number" value={form.tier3Inc} onChange={e => setF("tier3Inc", parseInt(e.target.value) || 0)} />
+            </div>
+          </div>
+        )}
+
+        {incrementMode === "none" && (
+          <p className="text-xs text-muted-foreground">Uses the bid increment tiers configured in the tournament hub settings.</p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Max Players per Team</Label>
-          <Input type="number" value={form.maxPlayers} onChange={e => setForm(f => ({ ...f, maxPlayers: parseInt(e.target.value) || 0 }))} />
+          <Input
+            type="number"
+            value={form.maxPlayers}
+            onChange={e => setF("maxPlayers", e.target.value)}
+            placeholder="No limit"
+          />
+          <p className="text-xs text-muted-foreground">Max players from this category a team can buy. Leave blank for no limit.</p>
         </div>
         <div className="space-y-2">
           <Label>Color</Label>
           <div className="flex items-center gap-3">
-            <input type="color" value={form.colorCode} onChange={e => setForm(f => ({ ...f, colorCode: e.target.value }))} className="w-12 h-10 rounded cursor-pointer border border-border bg-transparent" />
-            <Input value={form.colorCode} onChange={e => setForm(f => ({ ...f, colorCode: e.target.value }))} className="font-mono" />
+            <input
+              type="color"
+              value={form.colorCode}
+              onChange={e => setF("colorCode", e.target.value)}
+              className="w-12 h-10 rounded cursor-pointer border border-border bg-transparent"
+            />
+            <Input value={form.colorCode} onChange={e => setF("colorCode", e.target.value)} className="font-mono" />
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        <Label>Auction Priority Order (lower number = auctions first, 0 = default)</Label>
-        <Input type="number" min={0} value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} placeholder="0" />
-      </div>
+
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1" disabled={createCat.isPending || updateCat.isPending}>
           {category ? "Update Category" : "Add Category"}
@@ -108,7 +271,7 @@ export default function Categories() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold tracking-tight">Categories</h1>
-            <p className="text-muted-foreground mt-2">Define player tiers, base bids, and bid increments.</p>
+            <p className="text-muted-foreground mt-2">Group players into tiers or filter categories. Set min value and increment to override hub settings during auction.</p>
           </div>
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
@@ -131,49 +294,62 @@ export default function Categories() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories?.map(cat => (
-              <Card key={cat.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
-                <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: `${cat.colorCode}22`, border: `1px solid ${cat.colorCode}44` }}
-                      >
-                        <Tag className="w-5 h-5" style={{ color: cat.colorCode || "#F59E0B" }} />
+            {categories?.map(cat => {
+              const isFilterOnly = cat.minBid == null && cat.bidIncrement == null && !cat.bidTiers;
+              return (
+                <Card key={cat.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
+                  <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: `${cat.colorCode}22`, border: `1px solid ${cat.colorCode}44` }}
+                        >
+                          {isFilterOnly
+                            ? <Filter className="w-5 h-5" style={{ color: cat.colorCode || "#F59E0B" }} />
+                            : <Tag className="w-5 h-5" style={{ color: cat.colorCode || "#F59E0B" }} />
+                          }
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-xl leading-tight">{cat.name}</h3>
+                          {cat.maxPlayers && <p className="text-xs text-muted-foreground">Max {cat.maxPlayers} players/team</p>}
+                          {isFilterOnly && <p className="text-xs text-muted-foreground italic">Filter/grouping only</p>}
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-xl leading-tight">{cat.name}</h3>
-                        {cat.maxPlayers && <p className="text-xs text-muted-foreground">Max {cat.maxPlayers} players/team</p>}
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(cat); setOpen(true); }}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(cat.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(cat); setOpen(true); }}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(cat.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Min Bid</p>
-                      <p className="font-bold font-mono" style={{ color: cat.colorCode || "#F59E0B" }}>{formatIndianRupee(cat.minBid)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Increment</p>
-                      <p className="font-bold font-mono text-muted-foreground">{formatIndianRupee(cat.bidIncrement || 0)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Priority</p>
-                      <p className="font-bold font-mono text-muted-foreground">#{cat.sortOrder ?? 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {!isFilterOnly && (
+                      <div className="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Min Base Value</p>
+                          <p className="font-bold font-mono" style={{ color: cat.colorCode || "#F59E0B" }}>
+                            {cat.minBid != null ? formatIndianRupee(cat.minBid) : "Hub default"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Increment</p>
+                          {cat.bidTiers ? (
+                            <p className="font-bold font-mono text-muted-foreground text-xs">Tier system</p>
+                          ) : (
+                            <p className="font-bold font-mono text-muted-foreground">
+                              {cat.bidIncrement != null ? formatIndianRupee(cat.bidIncrement) : "Hub default"}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

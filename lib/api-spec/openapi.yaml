@@ -1607,7 +1607,7 @@ components:
     # Category schemas
     Category:
       type: object
-      required: [id, tournamentId, name, minBid, createdAt]
+      required: [id, tournamentId, name, createdAt]
       properties:
         id:
           type: integer
@@ -1616,9 +1616,11 @@ components:
         name:
           type: string
         minBid:
-          type: integer
+          type: ["integer", "null"]
         bidIncrement:
           type: ["integer", "null"]
+        bidTiers:
+          type: ["string", "null"]
         maxPlayers:
           type: ["integer", "null"]
         colorCode:
@@ -1630,16 +1632,18 @@ components:
 
     CategoryInput:
       type: object
-      required: [name, minBid]
+      required: [name]
       properties:
         name:
           type: string
         minBid:
-          type: integer
+          type: ["integer", "null"]
         bidIncrement:
-          type: integer
+          type: ["integer", "null"]
+        bidTiers:
+          type: ["string", "null"]
         maxPlayers:
-          type: integer
+          type: ["integer", "null"]
         colorCode:
           type: string
         sortOrder:
@@ -1651,11 +1655,13 @@ components:
         name:
           type: string
         minBid:
-          type: integer
+          type: ["integer", "null"]
         bidIncrement:
-          type: integer
+          type: ["integer", "null"]
+        bidTiers:
+          type: ["string", "null"]
         maxPlayers:
-          type: integer
+          type: ["integer", "null"]
         colorCode:
           type: string
         sortOrder:

@@ -6,6 +6,7 @@ import {
   teamsTable,
   bidsTable,
   tournamentsTable,
+  categoriesTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
@@ -100,6 +101,22 @@ function computeTieredIncrement(currentBid: number, tiers: BidTier[]): number {
   return tiers[tiers.length - 1]?.increment ?? 50000;
 }
 
+function getCategoryTiers(
+  category: { bidTiers: string | null; bidIncrement: number | null },
+  fallbackTiers: BidTier[]
+): BidTier[] {
+  if (category.bidTiers) {
+    try {
+      const parsed = JSON.parse(category.bidTiers);
+      if (Array.isArray(parsed) && parsed.length >= 1) return parsed as BidTier[];
+    } catch { /* ignore */ }
+  }
+  if (category.bidIncrement && category.bidIncrement > 0) {
+    return [{ increment: category.bidIncrement }];
+  }
+  return fallbackTiers;
+}
+
 async function buildAuctionState(tournamentId: number) {
   const session = await getOrCreateSession(tournamentId);
 
@@ -132,7 +149,7 @@ async function buildAuctionState(tournamentId: number) {
   });
 
   let currentPlayer = null;
-  let bidIncrement = computeTieredIncrement(session.currentBid ?? 0, tiers);
+  let activeTiers = tiers;
 
   if (session.currentPlayerId) {
     const [p] = await db
@@ -141,8 +158,20 @@ async function buildAuctionState(tournamentId: number) {
       .where(eq(playersTable.id, session.currentPlayerId));
     if (p) {
       currentPlayer = playerToJson(p);
+      // Use category's bid settings if the category defines them
+      if (p.categoryId) {
+        const [cat] = await db
+          .select({ bidTiers: categoriesTable.bidTiers, bidIncrement: categoriesTable.bidIncrement })
+          .from(categoriesTable)
+          .where(eq(categoriesTable.id, p.categoryId));
+        if (cat) {
+          activeTiers = getCategoryTiers(cat, tiers);
+        }
+      }
     }
   }
+
+  const bidIncrement = computeTieredIncrement(session.currentBid ?? 0, activeTiers);
 
   let currentBidTeamName = null;
   let currentBidTeamColor = null;
@@ -431,12 +460,24 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     .from(playersTable)
     .where(eq(playersTable.id, selectedPlayerId));
 
+  // Use category's minBid as the starting bid if set, otherwise fall back to player's basePrice
+  let categoryStartBid = selectedPlayer.basePrice;
+  if (selectedPlayer.categoryId) {
+    const [catForStart] = await db
+      .select({ minBid: categoriesTable.minBid })
+      .from(categoriesTable)
+      .where(eq(categoriesTable.id, selectedPlayer.categoryId));
+    if (catForStart?.minBid != null && catForStart.minBid > 0) {
+      categoryStartBid = catForStart.minBid;
+    }
+  }
+
   await db
     .update(auctionSessionsTable)
     .set({
       status: "active",
       currentPlayerId: selectedPlayerId,
-      currentBid: selectedPlayer.basePrice,
+      currentBid: categoryStartBid,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
@@ -525,6 +566,39 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     if (playersBought >= maximumSquadSize) {
       res.status(400).json({ error: `Maximum squad size reached — this team already has ${playersBought} player${playersBought !== 1 ? "s" : ""} (limit: ${maximumSquadSize})` });
       return;
+    }
+  }
+
+  // Category max players check — if current player belongs to a category with a max, enforce it
+  if (session.currentPlayerId) {
+    const [bidPlayer] = await db
+      .select({ categoryId: playersTable.categoryId })
+      .from(playersTable)
+      .where(eq(playersTable.id, session.currentPlayerId));
+    if (bidPlayer?.categoryId) {
+      const [bidCat] = await db
+        .select({ maxPlayers: categoriesTable.maxPlayers, name: categoriesTable.name })
+        .from(categoriesTable)
+        .where(eq(categoriesTable.id, bidPlayer.categoryId));
+      if (bidCat?.maxPlayers && bidCat.maxPlayers > 0) {
+        const catPlayerCount = await db
+          .select({ id: playersTable.id })
+          .from(playersTable)
+          .where(
+            and(
+              eq(playersTable.tournamentId, tid),
+              eq(playersTable.teamId, teamId),
+              eq(playersTable.categoryId, bidPlayer.categoryId),
+              inArray(playersTable.status, ["sold", "retained"])
+            )
+          );
+        if (catPlayerCount.length >= bidCat.maxPlayers) {
+          res.status(400).json({
+            error: `Category limit reached — your team already has the maximum ${bidCat.maxPlayers} player${bidCat.maxPlayers !== 1 ? "s" : ""} in the "${bidCat.name}" category`,
+          });
+          return;
+        }
+      }
     }
   }
 
@@ -1083,12 +1157,24 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
     .from(playersTable)
     .where(eq(playersTable.id, selectedPlayerId));
 
+  // Use category's minBid as the starting bid if set, otherwise fall back to player's basePrice
+  let categoryStartBidDefer = selectedPlayer.basePrice;
+  if (selectedPlayer.categoryId) {
+    const [catForStartDefer] = await db
+      .select({ minBid: categoriesTable.minBid })
+      .from(categoriesTable)
+      .where(eq(categoriesTable.id, selectedPlayer.categoryId));
+    if (catForStartDefer?.minBid != null && catForStartDefer.minBid > 0) {
+      categoryStartBidDefer = catForStartDefer.minBid;
+    }
+  }
+
   await db
     .update(auctionSessionsTable)
     .set({
       status: "active",
       currentPlayerId: selectedPlayerId,
-      currentBid: selectedPlayer.basePrice,
+      currentBid: categoryStartBidDefer,
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,

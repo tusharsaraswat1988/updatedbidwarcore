@@ -183,7 +183,7 @@ export default function NewTournament() {
                       name="basePurse"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Team Base Purse (₹)</FormLabel>
+                          <FormLabel>Total Points Per Team (₹)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -209,7 +209,7 @@ export default function NewTournament() {
                       name="minBid"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Default Min Bid (₹)</FormLabel>
+                          <FormLabel>Min Value of a Player (₹)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>

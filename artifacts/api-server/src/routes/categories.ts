@@ -12,6 +12,7 @@ const catToJson = (c: typeof categoriesTable.$inferSelect) => ({
   name: c.name,
   minBid: c.minBid,
   bidIncrement: c.bidIncrement,
+  bidTiers: c.bidTiers,
   maxPlayers: c.maxPlayers,
   colorCode: c.colorCode,
   sortOrder: c.sortOrder,
@@ -25,7 +26,7 @@ router.get("/tournaments/:tournamentId/categories", async (req, res) => {
     .select()
     .from(categoriesTable)
     .where(eq(categoriesTable.tournamentId, tid))
-    .orderBy(asc(categoriesTable.sortOrder), asc(categoriesTable.minBid));
+    .orderBy(asc(categoriesTable.sortOrder), asc(categoriesTable.name));
   res.json(categories.map(catToJson));
 });
 
@@ -34,9 +35,10 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({
     name: z.string().min(1),
-    minBid: z.number().int(),
-    bidIncrement: z.number().int().optional(),
-    maxPlayers: z.number().int().optional(),
+    minBid: z.number().int().nullable().optional(),
+    bidIncrement: z.number().int().nullable().optional(),
+    bidTiers: z.string().nullable().optional(),
+    maxPlayers: z.number().int().nullable().optional(),
     colorCode: z.string().optional(),
     sortOrder: z.number().int().optional(),
   });
@@ -48,8 +50,9 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
     .values({
       tournamentId: tid,
       name: d.name,
-      minBid: d.minBid,
+      minBid: d.minBid ?? null,
       bidIncrement: d.bidIncrement ?? null,
+      bidTiers: d.bidTiers ?? null,
       maxPlayers: d.maxPlayers ?? null,
       colorCode: d.colorCode ?? "#F59E0B",
       sortOrder: d.sortOrder ?? 0,
@@ -64,9 +67,10 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({
     name: z.string().optional(),
-    minBid: z.number().int().optional(),
-    bidIncrement: z.number().int().optional(),
-    maxPlayers: z.number().int().optional(),
+    minBid: z.number().int().nullable().optional(),
+    bidIncrement: z.number().int().nullable().optional(),
+    bidTiers: z.string().nullable().optional(),
+    maxPlayers: z.number().int().nullable().optional(),
     colorCode: z.string().optional(),
     sortOrder: z.number().int().optional(),
   });
@@ -77,6 +81,7 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
   if (d.name !== undefined) updates.name = d.name;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
+  if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.maxPlayers !== undefined) updates.maxPlayers = d.maxPlayers;
   if (d.colorCode !== undefined) updates.colorCode = d.colorCode;
   if (d.sortOrder !== undefined) updates.sortOrder = d.sortOrder;

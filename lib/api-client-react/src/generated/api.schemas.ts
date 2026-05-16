@@ -248,9 +248,12 @@ export interface Category {
   id: number;
   tournamentId: number;
   name: string;
-  minBid: number;
+  /** @nullable */
+  minBid?: number | null;
   /** @nullable */
   bidIncrement?: number | null;
+  /** @nullable */
+  bidTiers?: string | null;
   /** @nullable */
   maxPlayers?: number | null;
   /** @nullable */
@@ -261,18 +264,28 @@ export interface Category {
 
 export interface CategoryInput {
   name: string;
-  minBid: number;
-  bidIncrement?: number;
-  maxPlayers?: number;
+  /** @nullable */
+  minBid?: number | null;
+  /** @nullable */
+  bidIncrement?: number | null;
+  /** @nullable */
+  bidTiers?: string | null;
+  /** @nullable */
+  maxPlayers?: number | null;
   colorCode?: string;
   sortOrder?: number;
 }
 
 export interface CategoryUpdate {
   name?: string;
-  minBid?: number;
-  bidIncrement?: number;
-  maxPlayers?: number;
+  /** @nullable */
+  minBid?: number | null;
+  /** @nullable */
+  bidIncrement?: number | null;
+  /** @nullable */
+  bidTiers?: string | null;
+  /** @nullable */
+  maxPlayers?: number | null;
   colorCode?: string;
   sortOrder?: number;
 }
