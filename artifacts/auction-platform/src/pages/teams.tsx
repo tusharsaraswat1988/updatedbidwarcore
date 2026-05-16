@@ -7,9 +7,11 @@ import {
   useDeleteTeam,
   useGetTournament,
   useGetTeamPurses,
+  useGetAuctionState,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
   getGetTeamPursesQueryKey,
+  getGetAuctionStateQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -302,6 +304,13 @@ export default function Teams() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: auctionState } = useGetAuctionState(tournamentId, {
+    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+  const isAuctionEnded =
+    tournament?.status === "completed" ||
+    auctionState?.licenseStatus === "completed" ||
+    auctionState?.status === "completed";
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -496,11 +505,11 @@ export default function Teams() {
                     )}
 
                     {/* Owner Panel Link */}
-                    {tournament?.status === "completed" ? (
+                    {isAuctionEnded ? (
                       <div className="flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-3 py-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Panel Link</p>
-                          <p className="text-xs text-muted-foreground/50 italic">Auction concluded — link disabled</p>
+                          <p className="text-xs text-muted-foreground/50 italic">Auction ended</p>
                         </div>
                       </div>
                     ) : (
