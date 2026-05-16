@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetAuctionStateQueryKey,
@@ -14,6 +14,10 @@ export function useAuctionSocket(
   onCheerMessage?: (msg: CheerMessage) => void,
 ) {
   const qc = useQueryClient();
+  // Keep ref in sync so the SSE handler always calls the latest callback
+  // without needing onCheerMessage in the effect dependency array
+  const onCheerRef = useRef(onCheerMessage);
+  useEffect(() => { onCheerRef.current = onCheerMessage; });
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -45,13 +49,12 @@ export function useAuctionSocket(
             }
           }
 
-          // Tournament settings changed (e.g. playerSelectionMode) — refetch auction state
           if (msg.type === "settings_changed") {
             qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
           }
 
-          if (msg.type === "cheer_message" && onCheerMessage) {
-            onCheerMessage({
+          if (msg.type === "cheer_message" && onCheerRef.current) {
+            onCheerRef.current({
               senderName: msg.senderName as string,
               message: msg.message as string,
             });
@@ -76,5 +79,5 @@ export function useAuctionSocket(
       clearTimeout(retryTimer);
       es?.close();
     };
-  }, [tournamentId, qc, onCheerMessage]);
+  }, [tournamentId, qc]); // onCheerMessage intentionally excluded — handled via ref
 }

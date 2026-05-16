@@ -17,7 +17,7 @@ import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
@@ -548,6 +548,7 @@ export default function LiveViewerPage() {
   const [cheerCooldown, setCheerCooldown] = useState(false);
   const [pendingPresetIndex, setPendingPresetIndex] = useState<number | null>(null);
   const [cheerBlockedMsg, setCheerBlockedMsg] = useState<string | null>(null);
+  const [cheerOpen, setCheerOpen] = useState(false);
 
   const handleCheerMessage = useCallback((msg: CheerMessage) => {
     setCheerMessages((prev) => {
@@ -663,10 +664,12 @@ export default function LiveViewerPage() {
       setPendingPresetIndex(idx);
       setNameInput("");
       setShowNameDialog(true);
+      setCheerOpen(false);
       return;
     }
     setCheerCooldown(true);
     setTimeout(() => setCheerCooldown(false), 500);
+    setCheerOpen(false);
     void postCheer(cheerName, idx);
   }
 
@@ -820,7 +823,7 @@ export default function LiveViewerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] relative">
+    <div className="h-[100dvh] bg-[#09090b] relative flex flex-col overflow-hidden">
       {/* Animated background glow */}
       <AnimatePresence>
         <motion.div
@@ -834,27 +837,27 @@ export default function LiveViewerPage() {
         />
       </AnimatePresence>
 
-      {/* ── Sticky header ─────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/8">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto flex-shrink-0 hidden sm:block" />
-            <span className="font-display font-black text-white text-sm tracking-wide hidden sm:block">BIDWAR</span>
-            <span className="text-border/50 hidden sm:block">·</span>
-            <p className="font-semibold text-sm truncate text-foreground">
-              {tournament?.name || "Auction"}
-            </p>
-          </div>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
+        <div className="px-4 py-3.5 flex items-center gap-3">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border ${statusRing}`}>
+            <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto" />
+            <span className="font-display font-black text-amber-400 text-base tracking-widest">BIDWAR</span>
+          </div>
+          <div className="h-5 w-px bg-white/15 flex-shrink-0" />
+          <p className="flex-1 min-w-0 font-semibold text-sm text-white/80 truncate">
+            {tournament?.name || "Live Auction"}
+          </p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${statusRing}`}>
               {(isActive || isSold) && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               )}
               {statusLabel}
             </span>
             <button
               onClick={() => setSoundSettingsOpen(true)}
-              className="p-2 rounded-lg border border-border/40 hover:border-border text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
               title="Sound settings"
             >
               {anySound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -863,19 +866,9 @@ export default function LiveViewerPage() {
         </div>
       </div>
 
-      {/* ── Sponsor strip ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2.5 py-1.5 bg-black/25 border-b border-white/5">
-        {tournament?.logoUrl && (
-          <img src={tournament.logoUrl} alt="" className="w-4 h-4 object-contain opacity-50 rounded" />
-        )}
-        <p className="text-[10px] text-muted-foreground/45 font-medium tracking-wide">
-          {tournament?.name ? `${tournament.name} · ` : ""}Powered by BidWar
-        </p>
-      </div>
-
       {/* ── Last result ticker ────────────────────────────────────────── */}
       {lastResult && (
-        <div className="overflow-hidden bg-black/35 border-b border-white/5 py-1.5">
+        <div className="flex-shrink-0 overflow-hidden bg-black/35 border-b border-white/5 py-1.5">
           <div className="flex animate-marquee" style={{ width: "max-content" }}>
             {[0, 1].map((i) => (
               <span key={i} className="inline-flex items-center gap-2.5 px-12 text-[11px] whitespace-nowrap">
@@ -907,21 +900,21 @@ export default function LiveViewerPage() {
       )}
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-4xl mx-auto px-4 pb-12">
+      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-4 py-3 pb-6">
 
         {/* Stats bar */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 py-4">
           <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-xl sm:text-2xl text-green-400">{soldCount}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Sold</p>
+            <p className="font-display font-black text-3xl sm:text-4xl text-green-400">{soldCount}</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Sold</p>
           </div>
           <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-xl sm:text-2xl text-amber-400">{remainingCount}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Remaining</p>
+            <p className="font-display font-black text-3xl sm:text-4xl text-amber-400">{remainingCount}</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Remaining</p>
           </div>
           <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-xl sm:text-2xl text-red-400">{unsoldCount}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Unsold</p>
+            <p className="font-display font-black text-3xl sm:text-4xl text-red-400">{unsoldCount}</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Unsold</p>
           </div>
         </div>
 
@@ -935,7 +928,7 @@ export default function LiveViewerPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
-              className="mb-5 p-4 sm:p-6 rounded-2xl backdrop-blur border transition-colors"
+              className="mb-4 p-4 sm:p-5 rounded-2xl backdrop-blur border transition-colors"
               style={{
                 backgroundColor: isSold
                   ? `${teamColor}10`
@@ -949,11 +942,11 @@ export default function LiveViewerPage() {
                   : "rgba(var(--border), 0.5)",
               }}
             >
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+              <div className="flex flex-row items-start gap-4">
                 {/* Photo */}
                 <div className="relative flex-shrink-0">
                   <div
-                    className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
+                    className="w-24 h-32 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
                     style={{ borderColor: isSold ? `${teamColor}55` : isUnsold ? "rgba(239,68,68,0.4)" : `${teamColor}55` }}
                   >
                     {state?.currentPlayer?.photoUrl ? (
@@ -1014,13 +1007,13 @@ export default function LiveViewerPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0 text-center sm:text-left space-y-3">
+                <div className="flex-1 min-w-0 text-left space-y-3">
                   <div>
-                    <h2 className="font-display font-black text-2xl sm:text-3xl leading-none">
+                    <h2 className="font-display font-black text-3xl sm:text-4xl leading-none">
                       {state?.currentPlayer?.name}
                     </h2>
                     {playerSpecs.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2 justify-center sm:justify-start">
+                      <div className="flex flex-wrap gap-1.5 mt-2">
                         {playerSpecs.slice(0, 4).map((spec, i) => (
                           <span
                             key={i}
@@ -1046,7 +1039,7 @@ export default function LiveViewerPage() {
                       initial={{ scale: 0.82, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 340, damping: 22 }}
-                      className="font-display font-black text-4xl sm:text-5xl leading-none"
+                      className="font-display font-black text-5xl sm:text-6xl leading-none"
                       style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
                     >
                       {formatIndianRupee(state?.currentBid || 0)}
@@ -1059,8 +1052,7 @@ export default function LiveViewerPage() {
                       key={state.currentBidTeamId}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex justify-center sm:justify-start"
-                    >
+                      >
                       <span
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
                         style={{
@@ -1100,7 +1092,7 @@ export default function LiveViewerPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
-              className="mb-5 p-4 sm:p-6 rounded-2xl backdrop-blur border"
+              className="mb-4 p-4 sm:p-5 rounded-2xl backdrop-blur border"
               style={{
                 backgroundColor: lastResult!.status === "sold"
                   ? `${lastResult!.soldToTeamColor || "#22c55e"}10`
@@ -1110,11 +1102,11 @@ export default function LiveViewerPage() {
                   : "rgba(239,68,68,0.3)",
               }}
             >
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+              <div className="flex flex-row items-start gap-4">
                 {/* Photo with persistent result stamp */}
                 <div className="relative flex-shrink-0">
                   <div
-                    className="w-28 h-36 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
+                    className="w-24 h-32 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
                     style={{
                       borderColor: lastResult!.status === "sold"
                         ? `${lastResult!.soldToTeamColor || "#22c55e"}55`
@@ -1143,13 +1135,13 @@ export default function LiveViewerPage() {
                 </div>
 
                 {/* Info */}
-                <div className="flex-1 min-w-0 text-center sm:text-left space-y-3">
+                <div className="flex-1 min-w-0 text-left space-y-3">
                   <div>
-                    <h2 className="font-display font-black text-2xl sm:text-3xl leading-none">
+                    <h2 className="font-display font-black text-3xl sm:text-4xl leading-none">
                       {lastResult!.playerName}
                     </h2>
                     {(lastResult!.role || lastResult!.city || lastResult!.age) && (
-                      <div className="flex flex-wrap gap-1.5 mt-2 justify-center sm:justify-start">
+                      <div className="flex flex-wrap gap-1.5 mt-2">
                         {[lastResult!.role, lastResult!.city, lastResult!.age ? `Age ${lastResult!.age}` : null]
                           .filter((v): v is string => !!v)
                           .map((spec, i) => (
@@ -1171,7 +1163,7 @@ export default function LiveViewerPage() {
                           Sold at
                         </p>
                         <p
-                          className="font-display font-black text-4xl sm:text-5xl leading-none"
+                          className="font-display font-black text-5xl sm:text-6xl leading-none"
                           style={{
                             color: lastResult!.soldToTeamColor || "#22c55e",
                             textShadow: `0 0 28px ${lastResult!.soldToTeamColor || "#22c55e"}55`,
@@ -1181,7 +1173,7 @@ export default function LiveViewerPage() {
                         </p>
                       </div>
                       {lastResult!.soldToTeam && (
-                        <div className="flex justify-center sm:justify-start">
+                        <div>
                           <span
                             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
                             style={{
@@ -1201,7 +1193,7 @@ export default function LiveViewerPage() {
                       )}
                     </>
                   ) : (
-                    <div className="flex justify-center sm:justify-start">
+                    <div>
                       <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
                         Player returns to pool
                       </span>
@@ -1209,7 +1201,7 @@ export default function LiveViewerPage() {
                   )}
                 </div>
               </div>
-              <p className="text-center text-[10px] text-muted-foreground/35 mt-4 tracking-wide uppercase">
+              <p className="text-center text-xs text-muted-foreground/35 mt-4 tracking-wide uppercase">
                 Waiting for next player
               </p>
             </motion.div>
@@ -1286,7 +1278,7 @@ export default function LiveViewerPage() {
                           {short.slice(0, 2)}
                         </div>
                       )}
-                      <span className="font-display font-black text-sm leading-none truncate" style={{ color: tc }}>
+                      <span className="font-display font-black text-base leading-none truncate" style={{ color: tc }}>
                         {short}
                       </span>
                       {isLeading && (
@@ -1294,8 +1286,8 @@ export default function LiveViewerPage() {
                       )}
                     </div>
 
-                    <p className="text-[11px] text-muted-foreground truncate leading-tight">{team.teamName}</p>
-                    <p className="font-display font-black text-sm mt-1.5 tabular-nums" style={{ color: tc }}>
+                    <p className="text-xs text-muted-foreground truncate leading-tight">{team.teamName}</p>
+                    <p className="font-display font-black text-base mt-1.5 tabular-nums" style={{ color: tc }}>
                       {formatShortIndianRupee(team.purseRemaining)}
                     </p>
 
@@ -1324,7 +1316,7 @@ export default function LiveViewerPage() {
           </div>
         )}
 
-        <div className={`mt-10 text-center ${cheerEnabled ? "pb-16" : ""}`}>
+        <div className="mt-6 text-center pb-2">
           <p className="text-[10px] text-muted-foreground/35 uppercase tracking-widest">
             Powered by BidWar
           </p>
@@ -1347,7 +1339,7 @@ export default function LiveViewerPage() {
 
       {/* ── Floating cheer strip ──────────────────────────────────────────── */}
       {cheerEnabled && cheerMessages.length > 0 && (
-        <div className="fixed bottom-[72px] right-3 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-72 max-w-[55vw]">
+        <div className="fixed bottom-24 right-4 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-72 max-w-[60vw]">
           <AnimatePresence mode="popLayout">
             {cheerMessages.map((m) => (
               <motion.div
@@ -1368,39 +1360,112 @@ export default function LiveViewerPage() {
         </div>
       )}
 
-      {/* ── Cheer chip bar ────────────────────────────────────────────────── */}
+      {/* ── Cheer FAB ─────────────────────────────────────────────────────── */}
       {cheerEnabled && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-sm border-t border-white/10 px-3 py-2">
-          <AnimatePresence>
-            {cheerBlockedMsg && (
-              <motion.div
-                key="cheer-error"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className="text-[11px] text-red-400 text-center mb-1"
+        <motion.button
+          onClick={() => setCheerOpen((o) => !o)}
+          whileTap={{ scale: 0.88 }}
+          className="fixed bottom-5 right-4 z-50 w-14 h-14 rounded-full bg-amber-500 flex items-center justify-center"
+          style={{ boxShadow: "0 0 24px rgba(245,158,11,0.55), 0 4px 16px rgba(0,0,0,0.5)" }}
+        >
+          <AnimatePresence mode="wait">
+            {cheerOpen ? (
+              <motion.span
+                key="x"
+                initial={{ rotate: -90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.15 }}
               >
-                {cheerBlockedMsg}
-              </motion.div>
+                <X className="w-6 h-6 text-black" />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="msg"
+                initial={{ rotate: 90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: -90, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <MessageCircle className="w-6 h-6 text-black" />
+              </motion.span>
             )}
           </AnimatePresence>
-          <div
-            className="flex gap-2 overflow-x-auto"
-            style={{ scrollbarWidth: "none" } as React.CSSProperties}
-          >
-            {cheerPresets.map((preset, i) => (
-              <button
-                key={i}
-                onClick={() => sendCheer(i)}
-                disabled={cheerCooldown}
-                className="flex-shrink-0 rounded-full border border-white/20 bg-white/5 hover:bg-white/15 active:scale-95 disabled:opacity-40 disabled:pointer-events-none transition-all px-3 py-1 text-xs text-white/85 whitespace-nowrap"
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-        </div>
+        </motion.button>
       )}
+
+      {/* ── Cheer panel ───────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {cheerEnabled && cheerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50"
+              onClick={() => setCheerOpen(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-white/10 rounded-t-2xl"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/25" />
+              </div>
+              <div className="px-5 pb-10 pt-3">
+                {cheerName ? (
+                  <div className="text-center mb-4">
+                    <span className="text-sm text-muted-foreground">
+                      Cheering as{" "}
+                      <span className="text-amber-400 font-semibold">{cheerName}</span>
+                    </span>
+                    <button
+                      className="ml-2 text-xs text-muted-foreground/60 underline"
+                      onClick={() => {
+                        setCheerName("");
+                        try { localStorage.removeItem("bidwar-viewer-name"); } catch {}
+                      }}
+                    >
+                      change
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center mb-4">
+                    Tap a message to join the cheer.
+                  </p>
+                )}
+                <AnimatePresence>
+                  {cheerBlockedMsg && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-sm text-red-400 text-center mb-3"
+                    >
+                      {cheerBlockedMsg}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+                <div className="grid grid-cols-2 gap-3">
+                  {cheerPresets.map((preset, i) => (
+                    <button
+                      key={i}
+                      onClick={() => sendCheer(i)}
+                      disabled={cheerCooldown}
+                      className="rounded-2xl border border-white/15 bg-white/5 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none py-4 px-4 text-sm text-white/90 text-left transition-transform leading-snug"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Cheer name dialog ─────────────────────────────────────────────── */}
       <Dialog
