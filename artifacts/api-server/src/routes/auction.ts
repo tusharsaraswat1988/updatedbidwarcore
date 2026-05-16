@@ -150,6 +150,9 @@ async function buildAuctionState(tournamentId: number) {
 
   let currentPlayer = null;
   let activeTiers = tiers;
+  let currentCategoryMaxPlayers: number | null = null;
+  let currentCategoryName: string | null = null;
+  let teamCategoryPlayerCounts: Record<string, number> | null = null;
 
   if (session.currentPlayerId) {
     const [p] = await db
@@ -158,14 +161,37 @@ async function buildAuctionState(tournamentId: number) {
       .where(eq(playersTable.id, session.currentPlayerId));
     if (p) {
       currentPlayer = playerToJson(p);
-      // Use category's bid settings if the category defines them
+      // Use category's bid settings and enforce max players if category defines them
       if (p.categoryId) {
         const [cat] = await db
-          .select({ bidTiers: categoriesTable.bidTiers, bidIncrement: categoriesTable.bidIncrement })
+          .select({ bidTiers: categoriesTable.bidTiers, bidIncrement: categoriesTable.bidIncrement, maxPlayers: categoriesTable.maxPlayers, name: categoriesTable.name })
           .from(categoriesTable)
           .where(eq(categoriesTable.id, p.categoryId));
         if (cat) {
           activeTiers = getCategoryTiers(cat, tiers);
+          if (cat.maxPlayers && cat.maxPlayers > 0) {
+            currentCategoryMaxPlayers = cat.maxPlayers;
+            currentCategoryName = cat.name;
+            // Count per-team players already bought in this category
+            const catPlayers = await db
+              .select({ teamId: playersTable.teamId })
+              .from(playersTable)
+              .where(
+                and(
+                  eq(playersTable.tournamentId, tournamentId),
+                  eq(playersTable.categoryId, p.categoryId),
+                  inArray(playersTable.status, ["sold", "retained"])
+                )
+              );
+            const counts: Record<string, number> = {};
+            for (const cp of catPlayers) {
+              if (cp.teamId != null) {
+                const key = String(cp.teamId);
+                counts[key] = (counts[key] ?? 0) + 1;
+              }
+            }
+            teamCategoryPlayerCounts = counts;
+          }
         }
       }
     }
@@ -261,6 +287,9 @@ async function buildAuctionState(tournamentId: number) {
     licenseStatus,
     trialTeamIds,
     deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
+    currentCategoryMaxPlayers,
+    currentCategoryName,
+    teamCategoryPlayerCounts,
   };
 }
 

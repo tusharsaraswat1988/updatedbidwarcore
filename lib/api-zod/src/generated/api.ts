@@ -966,6 +966,24 @@ export const GetAuctionStateResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1062,6 +1080,24 @@ export const StartAuctionResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1158,6 +1194,24 @@ export const PauseAuctionResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1259,6 +1313,24 @@ export const NextPlayerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1360,6 +1432,24 @@ export const PlaceBidResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1456,6 +1546,24 @@ export const SellPlayerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1557,6 +1665,24 @@ export const ManualSellResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1653,6 +1779,24 @@ export const MarkUnsoldResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1754,6 +1898,24 @@ export const ReAuctionPlayerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1850,6 +2012,24 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -1946,6 +2126,24 @@ export const UndoLastActionResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2046,6 +2244,24 @@ export const ResetTrialAuctionResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2146,6 +2362,24 @@ export const SetDisplayOverlayResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2248,6 +2482,24 @@ export const SetDisplayPlayerFilterResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2374,6 +2626,24 @@ export const SyncFortuneWheelResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2474,6 +2744,24 @@ export const SetCategoryFilterResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2580,6 +2868,24 @@ export const StartTimerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2676,6 +2982,24 @@ export const StopTimerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**
@@ -2772,6 +3096,24 @@ export const DeferPlayerResponse = zod.object({
     .array(zod.number())
     .nullish()
     .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
 });
 
 /**

@@ -541,6 +541,13 @@ export const AuctionStateLicenseStatus = {
   completed: "completed",
 } as const;
 
+/**
+ * Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.
+ */
+export type AuctionStateTeamCategoryPlayerCounts = {
+  [key: string]: number;
+} | null;
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -591,6 +598,18 @@ export interface AuctionState {
   trialTeamIds?: number[] | null;
   /** Player IDs deferred to the back of the queue */
   deferredPlayerIds?: number[] | null;
+  /**
+   * Max players per team allowed in the current player's category. Null if no limit is set.
+   * @nullable
+   */
+  currentCategoryMaxPlayers?: number | null;
+  /**
+   * Name of the current player's category. Null if player has no category or category has no max.
+   * @nullable
+   */
+  currentCategoryName?: string | null;
+  /** Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set. */
+  teamCategoryPlayerCounts?: AuctionStateTeamCategoryPlayerCounts;
 }
 
 export interface RegistrationStatus {

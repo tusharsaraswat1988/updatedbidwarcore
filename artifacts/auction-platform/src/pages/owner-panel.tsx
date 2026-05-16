@@ -202,7 +202,10 @@ export default function OwnerPanel() {
   const maxSquadReached = maxSquad > 0 && playersBought >= maxSquad;
   const increment = state?.bidIncrement ?? 50000;
   const nextBidAmount = (state?.currentBid || 0) + increment;
-  const canBid = isActive && hasPlayer && timerActive && !isLeading && spendablePurse >= nextBidAmount && (team?.isBiddingEnabled ?? true) && !maxSquadReached;
+  const categoryMax = state?.currentCategoryMaxPlayers ?? null;
+  const categoryCount = categoryMax != null ? ((state?.teamCategoryPlayerCounts as Record<string, number> | null | undefined)?.[String(teamId)] ?? 0) : 0;
+  const categoryLimitReached = categoryMax != null && categoryCount >= categoryMax;
+  const canBid = isActive && hasPlayer && timerActive && !isLeading && spendablePurse >= nextBidAmount && (team?.isBiddingEnabled ?? true) && !maxSquadReached && !categoryLimitReached;
 
   async function handleBid() {
     if (!canBid || isBidding) return;
@@ -357,6 +360,17 @@ export default function OwnerPanel() {
                   <p className="text-xs font-bold text-red-400">Maximum squad size reached — bidding blocked</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Your squad has {playersBought} player{playersBought !== 1 ? "s" : ""} — the maximum allowed is {maxSquad}.
+                  </p>
+                </div>
+              </div>
+            )}
+            {categoryLimitReached && !maxSquadReached && (
+              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl border border-red-500/25 bg-red-500/8">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-400">Category limit reached — bidding blocked</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Your team already has {categoryCount} player{categoryCount !== 1 ? "s" : ""} in the "{state?.currentCategoryName}" category — the maximum is {categoryMax}.
                   </p>
                 </div>
               </div>
@@ -528,6 +542,7 @@ export default function OwnerPanel() {
               <p className="text-center text-xs text-muted-foreground">
                 {!isActive ? "Auction not active"
                   : maxSquadReached ? "Maximum squad size reached"
+                  : categoryLimitReached ? `Category limit reached — max ${categoryMax} in "${state?.currentCategoryName}"`
                   : !team.isBiddingEnabled ? "Bidding disabled for your team"
                   : reservePurse > 0 && spendablePurse < nextBidAmount
                   ? `${formatShortIndianRupee(reservePurse)} reserved for ${slotsRequired} squad slot${slotsRequired !== 1 ? "s" : ""}`

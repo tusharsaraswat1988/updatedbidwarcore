@@ -1998,6 +1998,18 @@ components:
             type: integer
           nullable: true
           description: Player IDs deferred to the back of the queue
+        currentCategoryMaxPlayers:
+          type: ["integer", "null"]
+          description: Max players per team allowed in the current player's category. Null if no limit is set.
+        currentCategoryName:
+          type: ["string", "null"]
+          description: Name of the current player's category. Null if player has no category or category has no max.
+        teamCategoryPlayerCounts:
+          type: object
+          nullable: true
+          description: Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.
+          additionalProperties:
+            type: integer
 
     RegistrationStatus:
       type: object
