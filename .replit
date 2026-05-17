@@ -57,3 +57,4 @@ APP_DOMAIN = "bidwar.in"
 
 [nix]
 channel = "stable-25_05"
+packages = ["zip"]
