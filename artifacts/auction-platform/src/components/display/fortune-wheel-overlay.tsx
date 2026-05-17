@@ -3,16 +3,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Dices } from "lucide-react";
 import type { WheelItem } from "./types";
 
-function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation: number) {
+function drawWheelCanvas(
+  canvas: HTMLCanvasElement,
+  items: WheelItem[],
+  rotation: number,
+) {
   const ctx = canvas.getContext("2d");
   if (!ctx || !items.length) return;
   const { width, height } = canvas;
-  const cx = width / 2, cy = height / 2;
+  const cx = width / 2,
+    cy = height / 2;
   const r = Math.min(cx, cy) - 12;
   const arc = (2 * Math.PI) / items.length;
   ctx.clearRect(0, 0, width, height);
   items.forEach((item, i) => {
-    const start = rotation + i * arc, end = start + arc;
+    const start = rotation + i * arc,
+      end = start + arc;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, start, end);
@@ -31,7 +37,10 @@ function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation
     ctx.shadowColor = "rgba(0,0,0,0.7)";
     ctx.shadowBlur = 6;
     const maxLen = 14;
-    const label = item.label.length > maxLen ? item.label.slice(0, maxLen) + "…" : item.label;
+    const label =
+      item.label.length > maxLen
+        ? item.label.slice(0, maxLen) + "…"
+        : item.label;
     ctx.fillText(label, r - 18, 6);
     ctx.restore();
   });
@@ -55,7 +64,11 @@ function drawWheelCanvas(canvas: HTMLCanvasElement, items: WheelItem[], rotation
  *    a DisplayShell rerender, and DisplayShell rerenders never restart
  *    the RAF loop.
  */
-export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, winner, wheelSpinning }: {
+export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({
+  items,
+  winner,
+  wheelSpinning,
+}: {
   items: WheelItem[];
   winner: string | null | undefined;
   wheelSpinning?: boolean;
@@ -68,16 +81,28 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
   type AnimState =
     | { mode: "idle" }
     | { mode: "spin" }
-    | { mode: "land"; startRot: number; targetRot: number; startTime: number; duration: number };
+    | {
+        mode: "land";
+        startRot: number;
+        targetRot: number;
+        startTime: number;
+        duration: number;
+      };
   const stateRef = useRef<AnimState>({ mode: "idle" });
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
-  const [localWinner, setLocalWinner] = useState<{ label: string; color: string } | null>(null);
+  const [localWinner, setLocalWinner] = useState<{
+    label: string;
+    color: string;
+  } | null>(null);
   const [showSpinning, setShowSpinning] = useState(false);
   // Track which (winner, items.length) we have already kicked a landing for,
   // so we don't restart the landing animation on every items poll update.
-  const landedForRef = useRef<{ winner: string | null | undefined; itemsLen: number }>({ winner: undefined, itemsLen: 0 });
+  const landedForRef = useRef<{
+    winner: string | null | undefined;
+    itemsLen: number;
+  }>({ winner: undefined, itemsLen: 0 });
 
   // Single, persistent RAF loop. Never cancelled by state changes — the loop
   // simply reads stateRef each frame, so spin → land transitions are race-free.
@@ -92,7 +117,7 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
         rotRef.current += speedRef.current;
       } else if (s.mode === "spin") {
         // Fast spin — matches operator's perceived speed (~0.25 rad/frame)
-        speedRef.current += (0.28 - speedRef.current) * 0.08;
+        speedRef.current += (0.12 - speedRef.current) * 0.08;
         rotRef.current += speedRef.current;
       } else if (s.mode === "land") {
         const progress = Math.min((now - s.startTime) / s.duration, 1);
@@ -104,8 +129,12 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
           setShowSpinning(false);
           const winLabel = (s as { winnerLabel?: string }).winnerLabel;
           if (winLabel) {
-            const w = itemsRef.current.find(i => i.label === winLabel);
-            setLocalWinner(w ? { label: w.label, color: w.color } : { label: winLabel, color: "#EAB308" });
+            const w = itemsRef.current.find((i) => i.label === winLabel);
+            setLocalWinner(
+              w
+                ? { label: w.label, color: w.color }
+                : { label: winLabel, color: "#EAB308" },
+            );
           }
         }
       }
@@ -115,7 +144,10 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
       raf = requestAnimationFrame(tick);
     }
     raf = requestAnimationFrame(tick);
-    return () => { alive = false; cancelAnimationFrame(raf); };
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   // Single authoritative state-transition effect with explicit precedence:
@@ -165,7 +197,7 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
     }
     landedForRef.current = { winner, itemsLen: items.length };
 
-    const winnerIdx = items.findIndex(i => i.label === winner);
+    const winnerIdx = items.findIndex((i) => i.label === winner);
     if (winnerIdx < 0) {
       // Winner label not in current items — skip animation, just show card
       stateRef.current = { mode: "idle" };
@@ -179,9 +211,13 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
     // r ≡ -(i*arc + arc/2) (mod 2π).
     const arc = (2 * Math.PI) / items.length;
     const sliceCenter = winnerIdx * arc + arc / 2;
-    const currentNorm = ((rotRef.current % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const targetNorm = ((2 * Math.PI - sliceCenter) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-    const distToTarget = ((targetNorm - currentNorm) + 2 * Math.PI) % (2 * Math.PI);
+    const currentNorm =
+      ((rotRef.current % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const targetNorm =
+      (((2 * Math.PI - sliceCenter) % (2 * Math.PI)) + 2 * Math.PI) %
+      (2 * Math.PI);
+    const distToTarget =
+      (targetNorm - currentNorm + 2 * Math.PI) % (2 * Math.PI);
     const target = rotRef.current + 4 * 2 * Math.PI + distToTarget;
 
     stateRef.current = {
@@ -189,7 +225,7 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
       startRot: rotRef.current,
       targetRot: target,
       startTime: performance.now(),
-      duration: 3000,
+      duration: 4000,
       ...({ winnerLabel: winner } as object),
     } as AnimState;
     setLocalWinner(null);
@@ -197,18 +233,36 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
   }, [wheelSpinning, winner, items]);
 
   useEffect(() => {
-    if (canvasRef.current && items.length) drawWheelCanvas(canvasRef.current, items, rotRef.current);
+    if (canvasRef.current && items.length)
+      drawWheelCanvas(canvasRef.current, items, rotRef.current);
   }, [items]);
 
   // Responsive canvas size — fill 70vh, cap at 700
-  const size = typeof window !== "undefined" ? Math.min(window.innerHeight * 0.68, 700) : 600;
+  const size =
+    typeof window !== "undefined"
+      ? Math.min(window.innerHeight * 0.68, 700)
+      : 600;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden"
-      style={{ background: "radial-gradient(ellipse at center, #1a1a2e 0%, #09090b 100%)" }}>
-      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center gap-3 mb-4 flex-shrink-0">
+    <div
+      className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse at center, #1a1a2e 0%, #09090b 100%)",
+      }}
+    >
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-3 mb-4 flex-shrink-0"
+      >
         <Dices className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-        <h1 className="font-display font-black text-3xl md:text-5xl tracking-tight text-white" style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}>FORTUNE WHEEL</h1>
+        <h1
+          className="font-display font-black text-3xl md:text-5xl tracking-tight text-white"
+          style={{ textShadow: "0 0 40px rgba(234,179,8,0.5)" }}
+        >
+          FORTUNE WHEEL
+        </h1>
         <Dices className="w-8 h-8 md:w-10 md:h-10 text-primary" />
       </motion.div>
 
@@ -219,7 +273,10 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: [0.5, 1, 0.5], y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ opacity: { duration: 0.8, repeat: Infinity }, y: { duration: 0.3 } }}
+            transition={{
+              opacity: { duration: 0.8, repeat: Infinity },
+              y: { duration: 0.3 },
+            }}
             className="text-primary font-bold uppercase tracking-[0.3em] text-sm mb-3 flex-shrink-0"
           >
             Spinning...
@@ -231,17 +288,40 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({ items, wi
         <div className="absolute top-1/2 -right-5 -translate-y-1/2 z-10">
           <div className="w-0 h-0 border-t-[16px] border-b-[16px] border-r-[36px] border-t-transparent border-b-transparent border-r-primary drop-shadow-lg" />
         </div>
-        <canvas ref={canvasRef} width={size} height={size} className="rounded-full" style={{ filter: "drop-shadow(0 0 60px rgba(234,179,8,0.4))" }} />
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          className="rounded-full"
+          style={{ filter: "drop-shadow(0 0 60px rgba(234,179,8,0.4))" }}
+        />
       </div>
       <AnimatePresence>
         {localWinner && (
-          <motion.div initial={{ scale: 0, opacity: 0, y: 40 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0, opacity: 0 }}
+          <motion.div
+            initial={{ scale: 0, opacity: 0, y: 40 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
             className="mt-6 text-center px-8 md:px-12 py-4 md:py-6 rounded-3xl border-4 flex-shrink-0"
-            style={{ borderColor: localWinner.color, background: `${localWinner.color}22`, boxShadow: `0 0 80px ${localWinner.color}55` }}
+            style={{
+              borderColor: localWinner.color,
+              background: `${localWinner.color}22`,
+              boxShadow: `0 0 80px ${localWinner.color}55`,
+            }}
           >
-            <p className="text-base md:text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">Winner</p>
-            <p className="font-display font-black text-5xl md:text-7xl" style={{ color: localWinner.color, textShadow: `0 0 60px ${localWinner.color}` }}>{localWinner.label}</p>
+            <p className="text-base md:text-lg font-bold text-muted-foreground uppercase tracking-widest mb-2">
+              Winner
+            </p>
+            <p
+              className="font-display font-black text-5xl md:text-7xl"
+              style={{
+                color: localWinner.color,
+                textShadow: `0 0 60px ${localWinner.color}`,
+              }}
+            >
+              {localWinner.label}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
