@@ -75,6 +75,8 @@ export default function PlayerRegister() {
     cricheroUrl: "",
     categoryId: "",
     photoUrl: "",
+    battingStyle: "",
+    bowlingStyle: "",
     specialization: "",
   });
 
@@ -176,9 +178,9 @@ export default function PlayerRegister() {
 
     // Serialize spec selections into existing style fields (up to 3 groups)
     const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
-    const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] ?? form.role) : undefined;
-    const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] ?? undefined) : undefined;
-    const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] ?? form.specialization ?? undefined) : (form.specialization || undefined);
+    const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] || undefined) : (form.battingStyle || undefined);
+    const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] || undefined) : (form.bowlingStyle || undefined);
+    const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] || undefined) : (form.specialization || undefined);
 
     try {
       await registerPlayer.mutateAsync({
@@ -299,7 +301,7 @@ export default function PlayerRegister() {
                       onClick={() => {
                         setSubmitted(false); setWaConsent(false); setErrorMsg(null);
                         setFoundProfile(null); setMobileLookedUp(false);
-                        setForm({ name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "", specialization: "" });
+                        setForm({ name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "" });
                         setSpecSelections({});
                       }}
                     >
@@ -408,8 +410,8 @@ export default function PlayerRegister() {
                         </div>
                       </div>
 
-                      {/* Dynamic spec groups (Phase 4) */}
-                      {specs.length > 0 && (
+                      {/* Dynamic spec groups — same logic as admin form */}
+                      {specs.length > 0 ? (
                         <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                             {form.role} Specifications
@@ -438,7 +440,23 @@ export default function PlayerRegister() {
                             </div>
                           ))}
                         </div>
-                      )}
+                      ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
+                        /* Fallback free-text fields for cricket / other / unknown sports */
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Batting Style</Label>
+                            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Bowling Style</Label>
+                            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
+                          </div>
+                          <div className="space-y-2 col-span-2">
+                            <Label>Specialization</Label>
+                            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+                          </div>
+                        </div>
+                      ) : null)}
 
                       <div className="space-y-2">
                         <Label>Availability Dates</Label>
