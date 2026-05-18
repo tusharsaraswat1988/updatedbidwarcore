@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable } from "@workspace/db";
+import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -113,6 +113,7 @@ const playerInputSchema = z.object({
   availabilityDates: z.string().optional(),
   retainedPrice: z.number().int().optional(),
   status: z.string().optional(),
+  whatsappConsent: z.boolean().optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -199,8 +200,25 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
       status: "available" as const,
+      // Persist web-checkbox consent so the audit trail records method + timestamp
+      whatsappConsent: d.whatsappConsent ?? false,
+      whatsappConsentAt: d.whatsappConsent ? new Date() : null,
+      whatsappConsentMethod: d.whatsappConsent ? "web_checkbox" : null,
     })
     .returning();
+
+  // Record an explicit consent event for the web checkbox so audit queries
+  // can distinguish web-form consent from WhatsApp-OTP consent.
+  if (d.whatsappConsent && d.mobileNumber) {
+    await db.insert(waConsentEventsTable).values({
+      mobile: d.mobileNumber,
+      recipientType: "player",
+      recipientId: player.id,
+      tournamentId: tid,
+      eventType: "web_checkbox",
+    });
+  }
+
   res.status(201).json(playerToPublicJson(player));
 });
 

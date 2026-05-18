@@ -1818,6 +1818,9 @@ components:
           type: integer
         status:
           type: string
+        whatsappConsent:
+          type: boolean
+          description: Player opts in to WhatsApp notifications via web registration form
 
     PlayerUpdate:
       type: object

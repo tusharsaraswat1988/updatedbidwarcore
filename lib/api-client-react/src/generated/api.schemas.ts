@@ -409,6 +409,8 @@ export interface PlayerInput {
   availabilityDates?: string;
   retainedPrice?: number;
   status?: string;
+  /** Player opts in to WhatsApp notifications via web registration form */
+  whatsappConsent?: boolean;
 }
 
 export interface PlayerUpdate {

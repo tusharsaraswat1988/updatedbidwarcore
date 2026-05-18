@@ -140,7 +140,9 @@ export async function sendLicensedWhatsApp(
       return sendWhatsApp(to, body, templateSid);
     }
   }
-  // Not licensed or no tournament context — fall back to SMS
+  // Not licensed or no tournament context — explicit SMS fallback.
+  // Logged at info level so operators can see the channel switch in production.
+  logger.info({ tournamentId: tournamentId ?? null, to }, "sendLicensedWhatsApp: WA not licensed, falling back to SMS");
   const smsMobile = to.replace(/^whatsapp:/i, "").replace(/^\+/, "");
   const smsResult = await sendSms(smsMobile, body);
   return { ...smsResult, blocked: true };

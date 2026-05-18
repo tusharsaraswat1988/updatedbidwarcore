@@ -200,6 +200,7 @@ export default function PlayerRegister() {
           categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
           photoUrl: form.photoUrl || undefined,
           basePrice: 100000,
+          whatsappConsent: waConsent,
         },
       });
       setSubmitted(true);

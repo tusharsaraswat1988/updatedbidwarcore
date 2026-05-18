@@ -642,6 +642,11 @@ router.post("/webhooks/comm-delivery", async (req, res) => {
 
 // ─── Meta WhatsApp Quality Webhook ────────────────────────────────────────────
 
+// NOTE: This endpoint validates using Twilio's X-Twilio-Signature header.
+// Meta can deliver quality webhook events either directly (in which case
+// Twilio-style validation will reject them) or via a Twilio integration.
+// In production, confirm the delivery path and update this verification
+// strategy (e.g. validate Meta's X-Hub-Signature-256 header) if needed.
 router.post("/webhooks/wa-quality", async (req, res) => {
   if (!verifyTwilioSignature(req)) {
     logger.warn("wa-quality webhook rejected: invalid Twilio signature");

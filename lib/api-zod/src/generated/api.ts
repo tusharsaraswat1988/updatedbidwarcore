@@ -793,6 +793,12 @@ export const CreatePlayerBody = zod.object({
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
   status: zod.string().optional(),
+  whatsappConsent: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Player opts in to WhatsApp notifications via web registration form",
+    ),
 });
 
 /**
@@ -855,6 +861,12 @@ export const RegisterPlayerBody = zod.object({
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
   status: zod.string().optional(),
+  whatsappConsent: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Player opts in to WhatsApp notifications via web registration form",
+    ),
 });
 
 /**
@@ -899,6 +911,12 @@ export const BulkCreatePlayersBody = zod.object({
       availabilityDates: zod.string().optional(),
       retainedPrice: zod.number().optional(),
       status: zod.string().optional(),
+      whatsappConsent: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Player opts in to WhatsApp notifications via web registration form",
+        ),
     }),
   ),
 });
