@@ -22,6 +22,7 @@ import { BidDisplay } from "./bid-display";
 import { IdleScreen } from "./idle-screen";
 import { AnimatedEffectsLayer } from "./animated-effects-layer";
 import { OverlayManager } from "./overlay-manager";
+import { BreakCountdownOverlay } from "./break-countdown-overlay";
 import { useSoldAnimation } from "./use-sold-animation";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -273,7 +274,21 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 relative overflow-hidden min-h-0">
-          {/* SOLD animations layered above main content (stamp → card) */}
+          {/* Break / Pre-Auction countdown — scoped to content area so the top
+              AuctionHeader / sponsor strip remains visible. z-10 keeps it below
+              the sold-stamp animations (z-20) in the stacking order. */}
+          {stickyCountdownType && stickyCountdownEndsAt && (
+            <div key={stickyCountdownEndsAt} className="absolute inset-0 z-10">
+              <BreakCountdownOverlay
+                type={stickyCountdownType}
+                endsAt={stickyCountdownEndsAt}
+                label={displayCountdownLabel}
+                tournamentName={tournament?.name ?? null}
+              />
+            </div>
+          )}
+
+          {/* SOLD animations layered above countdown (z-20) and main content */}
           <AnimatedEffectsLayer soldPhase={soldPhase} soldRecord={soldRecord} />
 
           {state?.currentPlayer ? (
@@ -376,9 +391,6 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}
-          displayCountdownType={stickyCountdownType}
-          displayCountdownEndsAt={stickyCountdownEndsAt}
-          displayCountdownLabel={displayCountdownLabel}
         />
       </StaticBackground>
     </FullscreenLayout>

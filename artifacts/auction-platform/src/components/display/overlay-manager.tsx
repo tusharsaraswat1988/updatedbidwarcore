@@ -4,7 +4,6 @@ import { TeamOverlay } from "./team-overlay";
 import { PlayerOverlay } from "./player-overlay";
 import { Top5Overlay } from "./top5-overlay";
 import { FortuneWheelOverlay } from "./fortune-wheel-overlay";
-import { BreakCountdownOverlay } from "./break-countdown-overlay";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
 
 /**
@@ -13,7 +12,11 @@ import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem
  *   - player registry table (operator-toggled, filterable)
  *   - top-5 buys leaderboard (operator-toggled)
  *   - fortune wheel (separate `fortuneWheelActive` flag, can stack)
- *   - break / pre-auction countdown (displayCountdown field)
+ *
+ * Break/pre-auction countdown is intentionally NOT rendered here — it is
+ * rendered directly in the main content area of DisplayShell so it does not
+ * cover the top AuctionHeader / sponsor strip, and sits below sold-stamp
+ * animations in the stacking order.
  *
  * Render isolation:
  *  - Each overlay is its own React.memo'd subtree. Switching `overlayMode`
@@ -21,8 +24,6 @@ import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem
  *    rerender siblings.
  *  - The fortune wheel uses its own AnimatePresence so it can layer over
  *    or coexist with the other overlays without remounting them.
- *  - The countdown overlay uses its own AnimatePresence and layers on top
- *    of everything except the fortune wheel.
  *  - Children receive only the slices they actually consume; the parent
  *    DisplayShell passes useMemo'd values for stable identity.
  */
@@ -38,9 +39,6 @@ export const OverlayManager = memo(function OverlayManager({
   wheelItems,
   wheelWinner,
   wheelSpinning,
-  displayCountdownType,
-  displayCountdownEndsAt,
-  displayCountdownLabel,
 }: {
   overlayMode: string | null | undefined;
   stripPurses: PurseRow[];
@@ -53,12 +51,7 @@ export const OverlayManager = memo(function OverlayManager({
   wheelItems: WheelItem[];
   wheelWinner: string | null | undefined;
   wheelSpinning: boolean | null | undefined;
-  displayCountdownType: "break" | "pre-auction" | null;
-  displayCountdownEndsAt: string | null;
-  displayCountdownLabel: string | null;
 }) {
-  const showCountdown = !!displayCountdownType && !!displayCountdownEndsAt;
-
   return (
     <>
       {/* LED Display Overlays — Team / Player / Top 5 */}
@@ -127,27 +120,6 @@ export const OverlayManager = memo(function OverlayManager({
             className="absolute inset-0"
           >
             <FortuneWheelOverlay items={wheelItems} winner={wheelWinner} wheelSpinning={wheelSpinning ?? false} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Break / Pre-Auction Countdown Overlay — layers above everything */}
-      <AnimatePresence>
-        {showCountdown && (
-          <motion.div
-            key={`countdown-${displayCountdownEndsAt}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-            className="absolute inset-0"
-          >
-            <BreakCountdownOverlay
-              type={displayCountdownType!}
-              endsAt={displayCountdownEndsAt!}
-              label={displayCountdownLabel}
-              tournamentName={tournamentName}
-            />
           </motion.div>
         )}
       </AnimatePresence>
