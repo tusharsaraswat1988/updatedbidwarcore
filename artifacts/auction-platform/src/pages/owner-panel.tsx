@@ -18,7 +18,7 @@ import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2, MessageSquare, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
@@ -137,6 +137,8 @@ export default function OwnerPanel() {
 
   const [verified, setVerified] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [showWaConsent, setShowWaConsent] = useState(false);
+  const [waLink, setWaLink] = useState<string | null>(null);
 
   const { data: team } = useGetTeam(tournamentId, teamId, {
     query: {
@@ -169,6 +171,15 @@ export default function OwnerPanel() {
   }, [team, teamId]);
 
   useAuctionSocket(tournamentId);
+
+  useEffect(() => {
+    if (!verified) return;
+    const dismissed = sessionStorage.getItem(`wa_consent_dismissed_${teamId}`);
+    if (dismissed) return;
+    void fetch("/api/consent/wa-link").then(r => r.json()).then((d: { link?: string | null; configured?: boolean }) => {
+      if (d.link) { setWaLink(d.link); setShowWaConsent(true); }
+    }).catch(() => {});
+  }, [verified, teamId]);
 
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
@@ -329,6 +340,22 @@ export default function OwnerPanel() {
           background: `radial-gradient(ellipse at top, ${teamColor}15 0%, transparent 55%), #09090b`,
         }}
       >
+        {/* WhatsApp Consent Banner */}
+        {showWaConsent && waLink && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-[#25D366]/15 border-b border-[#25D366]/30">
+            <MessageSquare className="w-4 h-4 text-[#25D366] flex-shrink-0" />
+            <p className="flex-1 text-xs text-foreground">Tournament ke WhatsApp updates chahiye? Auction alerts, results milenge.</p>
+            <a href={waLink} target="_blank" rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-[#25D366] text-white text-xs font-bold flex-shrink-0 hover:bg-[#1da851] transition-colors">
+              Subscribe
+            </a>
+            <button onClick={() => { setShowWaConsent(false); sessionStorage.setItem(`wa_consent_dismissed_${teamId}`, "1"); }}
+              className="p-1 text-muted-foreground hover:text-foreground flex-shrink-0">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <div className="flex items-center gap-3">

@@ -29,6 +29,8 @@ import ObsOverlay from "@/pages/obs-overlay";
 import OrganizerPortal from "@/pages/organizer-portal";
 import LegalPage from "@/pages/legal";
 import LiveViewer from "@/pages/liveviewer";
+import AdminCommunicate from "@/pages/admin-communicate";
+import WaConsent from "@/pages/wa-consent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,6 +58,8 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/intelligence" component={AdminIntelligence} />
+      <Route path="/admin/communicate" component={AdminCommunicate} />
+      <Route path="/wa-consent/:token" component={WaConsent} />
       <Route path="/organizer" component={OrganizerPortal} />
       <Route path="/legal/:slug" component={LegalPage} />
 

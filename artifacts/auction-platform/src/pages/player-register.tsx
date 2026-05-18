@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import {
   useGetTournament,
@@ -15,13 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User, Lock, CalendarX, Users } from "lucide-react";
+import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function PlayerRegister() {
   const [, params] = useRoute("/tournament/:id/register");
   const tournamentId = parseInt(params?.id || "0");
   const [submitted, setSubmitted] = useState(false);
+  const [waConsent, setWaConsent] = useState(false);
+  const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -67,6 +69,12 @@ export default function PlayerRegister() {
       });
     } catch { return d; }
   }
+
+  useEffect(() => {
+    void fetch("/api/consent/wa-link").then(r => r.json()).then((d: { link?: string | null }) => {
+      if (d.link) setWaLink(d.link);
+    }).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -164,10 +172,24 @@ export default function PlayerRegister() {
                     <p className="text-muted-foreground">
                       Your registration has been received. The organizer will contact you with further details.
                     </p>
+                    {waConsent && waLink && (
+                      <div className="mt-6 p-4 rounded-xl border border-green-500/30 bg-green-500/8 text-sm space-y-3">
+                        <p className="font-semibold text-green-300">WhatsApp updates activate karein</p>
+                        <p className="text-xs text-muted-foreground">Tap the button below to send "hello" on WhatsApp — the bot will confirm your subscription.</p>
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#25D366] text-white font-bold text-sm hover:bg-[#1da851] transition-colors"
+                        >
+                          <MessageSquare className="w-4 h-4" /> Subscribe on WhatsApp
+                        </a>
+                      </div>
+                    )}
                     <Button
-                      className="mt-6"
+                      className="mt-4"
                       variant="outline"
-                      onClick={() => { setSubmitted(false); setErrorMsg(null); setForm({ name: "", mobileNumber: "", city: "", role: "batsman", battingStyle: "", bowlingStyle: "", specialization: "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "" }); }}
+                      onClick={() => { setSubmitted(false); setWaConsent(false); setErrorMsg(null); setForm({ name: "", mobileNumber: "", city: "", role: "batsman", battingStyle: "", bowlingStyle: "", specialization: "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "" }); }}
                     >
                       Register Another Player
                     </Button>
@@ -294,6 +316,19 @@ export default function PlayerRegister() {
                           </Select>
                         </div>
                       )}
+
+                      {/* WhatsApp consent checkbox */}
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={waConsent}
+                          onChange={e => setWaConsent(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                        />
+                        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                          I agree to receive WhatsApp updates about this tournament (auction alerts, schedule, results) from BidWar. You can unsubscribe any time by replying STOP.
+                        </span>
+                      </label>
 
                       <Button
                         type="submit"

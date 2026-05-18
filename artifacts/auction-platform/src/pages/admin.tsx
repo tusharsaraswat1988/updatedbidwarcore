@@ -258,6 +258,17 @@ function CreateTournamentModal({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">
+                  Auction Time
+                </Label>
+                <Input
+                  type="time"
+                  value={(form as any).auctionTime || ""}
+                  onChange={e => setForm(p => ({ ...p, auctionTime: e.target.value }))}
+                  placeholder="14:00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
                   Base Purse (₹)
                 </Label>
                 <Input
@@ -417,6 +428,7 @@ function DetailPanel({
         sport: d.tournament.sport,
         venue: d.tournament.venue || "",
         auctionDate: d.tournament.auctionDate || "",
+        auctionTime: (d.tournament as any).auctionTime || "",
         organizerName: d.tournament.organizerName || "",
         organizerMobile: d.tournament.organizerMobile || "",
         organizerEmail: d.tournament.organizerEmail || "",
@@ -491,6 +503,8 @@ function DetailPanel({
     if (ef.venue !== undefined) payload.venue = ef.venue as string;
     if (ef.auctionDate !== undefined)
       payload.auctionDate = ef.auctionDate as string;
+    if (ef.auctionTime !== undefined)
+      payload.auctionTime = ef.auctionTime as string;
     if (ef.organizerName !== undefined)
       payload.organizerName = ef.organizerName as string;
     if (ef.organizerMobile !== undefined)
@@ -913,6 +927,22 @@ function DetailPanel({
                         setEditForm((f) => ({
                           ...f,
                           auctionDate: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Auction Time
+                    </Label>
+                    <Input
+                      type="time"
+                      className="h-8 text-sm"
+                      value={(editForm.auctionTime as string) || ""}
+                      onChange={(e) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          auctionTime: e.target.value,
                         }))
                       }
                     />
@@ -2273,6 +2303,14 @@ export default function AdminDashboard() {
                 Licensed = can go live
               </span>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-green-500/40 text-green-400 hover:bg-green-500/10"
+              onClick={() => navigate("/admin/communicate")}
+            >
+              <MessageSquare className="w-4 h-4" /> Communicate
+            </Button>
             <Button
               size="sm"
               variant="outline"

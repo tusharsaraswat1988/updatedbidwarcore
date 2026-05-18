@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -29,6 +29,12 @@ export const playersTable = pgTable(
     // Global identity — links this tournament-scoped player to a cross-tournament
     // canonical identity in global_players. Null until manually or automatically linked.
     globalPlayerId: text("global_player_id"),
+    // WhatsApp consent (Meta-compliant opt-in)
+    whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
+    whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),
+    whatsappConsentMethod: text("whatsapp_consent_method"), // "whatsapp_otp_verified"|"web_checkbox"|"organizer_declaration"|"web_fallback"
+    whatsappConsentIp: text("whatsapp_consent_ip"),
+    whatsappConsentOrgId: integer("whatsapp_consent_org_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },

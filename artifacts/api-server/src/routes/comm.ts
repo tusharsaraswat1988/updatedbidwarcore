@@ -1,0 +1,342 @@
+/**
+ * Communication routes — admin-only.
+ * - POST /auth/admin/communicate/send      — blast messages (master admin)
+ * - GET  /auth/admin/communicate/logs      — message history
+ * - GET  /auth/admin/communicate/logs/:id  — single log entry
+ * - GET  /auth/admin/communicate/blasts    — automated blast history
+ * - POST /consent/generate                 — create consent token + send SMS
+ * - POST /consent/:token/confirm           — web fallback consent confirm
+ * - GET  /consent/:token                   — resolve token metadata (landing page)
+ * - POST /auth/admin/communicate/consent-declare — organizer declaration
+ */
+
+import { Router } from "express";
+import { db } from "@workspace/db";
+import {
+  tournamentsTable,
+  playersTable,
+  teamsTable,
+  organizersTable,
+  consentTokensTable,
+  commLogsTable,
+  consentBlastLogTable,
+} from "@workspace/db";
+import { eq, and, desc, gte, lte, or, sql } from "drizzle-orm";
+import { z } from "zod";
+import { randomBytes, createHash } from "crypto";
+import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms } from "../lib/comm-sender";
+import { logger } from "../lib/logger";
+
+const router = Router();
+
+function isMasterAdmin(req: import("express").Request): boolean {
+  return !!req.session.isAdmin && req.session.adminLevel === "master";
+}
+
+function newToken(): string {
+  return randomBytes(16).toString("hex");
+}
+
+function generateBlastId(): string {
+  return `blast_${Date.now()}_${randomBytes(4).toString("hex")}`;
+}
+
+// ─── Consent Token: Generate + Send SMS ───────────────────────────────────────
+
+router.post("/consent/generate", async (req, res) => {
+  const schema = z.object({
+    recipientType: z.enum(["player", "team_owner", "organizer"]),
+    recipientId: z.number().int(),
+    mobile: z.string().min(7),
+    tournamentId: z.number().int(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const { recipientType, recipientId, mobile, tournamentId } = parsed.data;
+
+  const [tournament] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const token = newToken();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72h
+  await db.insert(consentTokensTable).values({ token, recipientType, recipientId, mobile, tournamentId, expiresAt });
+
+  const waLink = buildWaMeLink(token);
+  const smsBody = buildConsentSms(tournament.name, waLink);
+  const result = await sendSms(mobile, smsBody);
+
+  res.json({ success: true, token, waLink, sent: result });
+});
+
+// ─── Bot Link (public — must be BEFORE /:token param route) ─────────────────
+
+router.get("/consent/wa-link", (_req, res) => {
+  const waNumber = (process.env.TWILIO_WHATSAPP_FROM ?? "").replace("whatsapp:", "").replace("+", "");
+  const link = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}` : null;
+  res.json({ link, configured: !!waNumber });
+});
+
+// ─── Consent Token: Resolve (landing page) ────────────────────────────────────
+
+router.get("/consent/:token", async (req, res) => {
+  const [ct] = await db.select().from(consentTokensTable).where(eq(consentTokensTable.token, req.params.token));
+  if (!ct) { res.status(404).json({ error: "Token not found or expired" }); return; }
+  const [tournament] = await db.select({ id: tournamentsTable.id, name: tournamentsTable.name, logoUrl: tournamentsTable.logoUrl }).from(tournamentsTable).where(eq(tournamentsTable.id, ct.tournamentId));
+  const waLink = buildWaMeLink(ct.token);
+  res.json({ token: ct.token, mobile: ct.mobile.replace(/\d(?=\d{4})/g, "*"), recipientType: ct.recipientType, tournamentName: tournament?.name ?? "", tournamentLogoUrl: tournament?.logoUrl ?? null, waLink, used: ct.used, expired: new Date() > ct.expiresAt });
+});
+
+// ─── Consent Token: Web Fallback Confirm ─────────────────────────────────────
+
+router.post("/consent/:token/confirm", async (req, res) => {
+  const [ct] = await db.select().from(consentTokensTable).where(eq(consentTokensTable.token, req.params.token));
+  if (!ct) { res.status(404).json({ error: "Token not found" }); return; }
+  if (ct.used) { res.json({ success: true, alreadyConfirmed: true }); return; }
+  if (new Date() > ct.expiresAt) { res.status(410).json({ error: "Token expired" }); return; }
+
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
+  const consentData = {
+    whatsappConsent: true,
+    whatsappConsentAt: new Date(),
+    whatsappConsentMethod: "web_fallback" as const,
+    whatsappConsentIp: ip,
+  };
+
+  if (ct.recipientType === "player") {
+    await db.update(playersTable).set(consentData).where(eq(playersTable.id, ct.recipientId));
+  } else if (ct.recipientType === "team_owner") {
+    await db.update(teamsTable).set(consentData).where(eq(teamsTable.id, ct.recipientId));
+  } else if (ct.recipientType === "organizer") {
+    await db.update(organizersTable).set(consentData).where(eq(organizersTable.id, ct.recipientId));
+  }
+
+  await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, ct.token));
+
+  // Log
+  await db.insert(commLogsTable).values({
+    tournamentId: ct.tournamentId,
+    recipientType: ct.recipientType,
+    recipientId: ct.recipientId,
+    recipientMobile: ct.mobile,
+    channel: "web",
+    messageContent: "Web fallback consent confirmed",
+    deliveryStatus: "delivered",
+  });
+
+  res.json({ success: true });
+});
+
+// ─── Organizer Declaration ────────────────────────────────────────────────────
+
+router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
+  if (!req.session.isAdmin && !req.session.organizerAccountId) {
+    res.status(403).json({ error: "Not authorized" }); return;
+  }
+  const schema = z.object({
+    recipientType: z.enum(["player", "team_owner"]),
+    recipientId: z.number().int(),
+    orgId: z.number().int().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const { recipientType, recipientId } = parsed.data;
+  const orgId = parsed.data.orgId ?? req.session.organizerAccountId ?? null;
+
+  const consentData = {
+    whatsappConsent: true,
+    whatsappConsentAt: new Date(),
+    whatsappConsentMethod: "organizer_declaration" as const,
+    whatsappConsentOrgId: orgId,
+  };
+
+  if (recipientType === "player") {
+    await db.update(playersTable).set(consentData).where(eq(playersTable.id, recipientId));
+  } else {
+    await db.update(teamsTable).set(consentData).where(eq(teamsTable.id, recipientId));
+  }
+
+  res.json({ success: true });
+});
+
+// ─── Send Message ─────────────────────────────────────────────────────────────
+
+router.post("/auth/admin/communicate/send", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Master admin required" }); return; }
+
+  const schema = z.object({
+    tournamentId: z.number().int().optional(),
+    recipientGroup: z.enum(["all_players", "sold_players", "unsold_players", "all_owners", "organizer", "manual"]),
+    specificTeamId: z.number().int().optional(),
+    channel: z.enum(["whatsapp", "sms", "both"]),
+    templateName: z.string().optional(),
+    messageContent: z.string().min(1).max(4096),
+    manualMobiles: z.array(z.string()).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
+  const d = parsed.data;
+
+  // License gate for WhatsApp
+  if ((d.channel === "whatsapp" || d.channel === "both") && d.tournamentId) {
+    const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
+    if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
+    if (t.licenseStatus !== "active" || t.adminLocked) {
+      res.status(403).json({ error: "WhatsApp messaging requires an active license and unlocked tournament" }); return;
+    }
+  }
+
+  // Build recipient list
+  type Recipient = { mobile: string; recipientType: string; recipientId: number | null; whatsappConsent: boolean };
+  const recipients: Recipient[] = [];
+
+  if (d.recipientGroup === "manual" && d.manualMobiles) {
+    for (const m of d.manualMobiles) {
+      recipients.push({ mobile: m, recipientType: "manual", recipientId: null, whatsappConsent: false });
+    }
+  } else if (d.tournamentId) {
+    const tid = d.tournamentId;
+    if (d.recipientGroup === "all_players" || d.recipientGroup === "sold_players" || d.recipientGroup === "unsold_players") {
+      const conds = [eq(playersTable.tournamentId, tid), sql`${playersTable.mobileNumber} IS NOT NULL AND ${playersTable.mobileNumber} != ''`];
+      if (d.recipientGroup === "sold_players") conds.push(eq(playersTable.status, "sold"));
+      if (d.recipientGroup === "unsold_players") conds.push(eq(playersTable.status, "unsold"));
+      const players = await db.select({ id: playersTable.id, mobileNumber: playersTable.mobileNumber, whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(and(...conds));
+      for (const p of players) {
+        if (p.mobileNumber) recipients.push({ mobile: p.mobileNumber, recipientType: "player", recipientId: p.id, whatsappConsent: p.whatsappConsent });
+      }
+    } else if (d.recipientGroup === "all_owners") {
+      const teamConds = [eq(teamsTable.tournamentId, tid), sql`${teamsTable.ownerMobile} IS NOT NULL AND ${teamsTable.ownerMobile} != ''`];
+      if (d.specificTeamId) teamConds.push(eq(teamsTable.id, d.specificTeamId));
+      const teams = await db.select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile, whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(and(...teamConds));
+      for (const t of teams) {
+        if (t.ownerMobile) recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: t.whatsappConsent });
+      }
+    } else if (d.recipientGroup === "organizer") {
+      const [t] = await db.select({ organizerMobile: tournamentsTable.organizerMobile, organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+      if (t?.organizerMobile) recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: false });
+    }
+  }
+
+  if (recipients.length === 0) { res.status(400).json({ error: "No recipients found" }); return; }
+
+  const blastId = generateBlastId();
+  const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string }> = [];
+
+  for (const r of recipients) {
+    // Consent-based channel routing: no WA consent → route to SMS automatically
+    const effectiveChannel = (d.channel === "whatsapp" || d.channel === "both") && !r.whatsappConsent ? "sms" : d.channel;
+
+    if (effectiveChannel === "whatsapp" || effectiveChannel === "both") {
+      const waResult = await sendWhatsApp(r.mobile, d.messageContent);
+      await db.insert(commLogsTable).values({
+        tournamentId: d.tournamentId ?? null,
+        recipientType: r.recipientType,
+        recipientId: r.recipientId,
+        recipientMobile: r.mobile,
+        channel: "whatsapp",
+        templateName: d.templateName ?? null,
+        messageContent: d.messageContent,
+        sentByAdminId: "master_admin",
+        blastId,
+        deliveryStatus: waResult.success ? "sent" : "failed",
+        metaMessageId: waResult.messageSid ?? null,
+        errorMessage: waResult.error ?? null,
+      });
+      results.push({ mobile: r.mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+    }
+    if (effectiveChannel === "sms" || effectiveChannel === "both") {
+      const smsResult = await sendSms(r.mobile, d.messageContent);
+      await db.insert(commLogsTable).values({
+        tournamentId: d.tournamentId ?? null,
+        recipientType: r.recipientType,
+        recipientId: r.recipientId,
+        recipientMobile: r.mobile,
+        channel: "sms",
+        templateName: d.templateName ?? null,
+        messageContent: d.messageContent,
+        sentByAdminId: "master_admin",
+        blastId,
+        deliveryStatus: smsResult.success ? "sent" : "failed",
+        metaMessageId: smsResult.messageSid ?? null,
+        errorMessage: smsResult.error ?? null,
+      });
+      results.push({ mobile: r.mobile, channel: "sms", success: smsResult.success, stub: smsResult.stub, error: smsResult.error });
+    }
+  }
+
+  res.json({ success: true, blastId, sent: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length, stub: results.some(r => r.stub), results });
+});
+
+// ─── Communication Logs ────────────────────────────────────────────────────────
+
+router.get("/auth/admin/communicate/logs", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+
+  const tournamentId = req.query.tournamentId ? parseInt(String(req.query.tournamentId)) : null;
+  const channel = String(req.query.channel || "");
+  const status = String(req.query.status || "");
+  const from = req.query.from ? new Date(String(req.query.from)) : null;
+  const to = req.query.to ? new Date(String(req.query.to)) : null;
+  const limit = Math.min(parseInt(String(req.query.limit || "100")), 500);
+  const offset = parseInt(String(req.query.offset || "0"));
+
+  const conds = [];
+  if (tournamentId && !isNaN(tournamentId)) conds.push(eq(commLogsTable.tournamentId, tournamentId));
+  if (channel) conds.push(eq(commLogsTable.channel, channel));
+  if (status) conds.push(eq(commLogsTable.deliveryStatus, status));
+  if (from) conds.push(gte(commLogsTable.sentAt, from));
+  if (to) conds.push(lte(commLogsTable.sentAt, to));
+
+  const logs = await db.select().from(commLogsTable)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(commLogsTable.sentAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json(logs);
+});
+
+router.get("/auth/admin/communicate/logs/:id", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [log] = await db.select().from(commLogsTable).where(eq(commLogsTable.id, id));
+  if (!log) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(log);
+});
+
+// ─── Automated Blast History ───────────────────────────────────────────────────
+
+router.get("/auth/admin/communicate/blasts", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  const tournamentId = req.query.tournamentId ? parseInt(String(req.query.tournamentId)) : null;
+  const conds = tournamentId ? [eq(consentBlastLogTable.tournamentId, tournamentId)] : [];
+  const entries = await db.select().from(consentBlastLogTable)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(consentBlastLogTable.sentAt))
+    .limit(200);
+  res.json(entries);
+});
+
+// ─── Consent Status for a Tournament ─────────────────────────────────────────
+
+router.get("/auth/admin/communicate/consent-status/:tournamentId", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [playerStats] = await db.select({
+    total: sql<number>`count(*)::int`,
+    consented: sql<number>`sum(case when whatsapp_consent then 1 else 0 end)::int`,
+    hasMobile: sql<number>`sum(case when mobile_number is not null and mobile_number != '' then 1 else 0 end)::int`,
+  }).from(playersTable).where(eq(playersTable.tournamentId, tid));
+
+  const [ownerStats] = await db.select({
+    total: sql<number>`count(*)::int`,
+    consented: sql<number>`sum(case when whatsapp_consent then 1 else 0 end)::int`,
+    hasMobile: sql<number>`sum(case when owner_mobile is not null and owner_mobile != '' then 1 else 0 end)::int`,
+  }).from(teamsTable).where(eq(teamsTable.tournamentId, tid));
+
+  res.json({ players: playerStats, owners: ownerStats });
+});
+
+export default router;

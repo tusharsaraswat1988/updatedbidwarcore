@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -13,6 +13,11 @@ export const organizersTable = pgTable("organizers", {
   licenseStatus: text("license_status").notNull().default("pending"),
   maxTournaments: integer("max_tournaments").notNull().default(1),
   notes: text("notes"),
+  // WhatsApp consent (Meta-compliant opt-in for organizer account)
+  whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
+  whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),
+  whatsappConsentMethod: text("whatsapp_consent_method"), // "whatsapp_otp_verified"|"web_checkbox"|"organizer_declaration"|"web_fallback"
+  whatsappConsentIp: text("whatsapp_consent_ip"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

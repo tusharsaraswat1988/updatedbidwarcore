@@ -9,6 +9,7 @@ export const tournamentsTable = pgTable("tournaments", {
   sport: text("sport").notNull().default("cricket"),
   venue: text("venue"),
   auctionDate: text("auction_date"),
+  auctionTime: text("auction_time"), // 24h format, e.g. "14:00"
   organizerName: text("organizer_name"),
   organizerMobile: text("organizer_mobile"),
   organizerEmail: text("organizer_email"),

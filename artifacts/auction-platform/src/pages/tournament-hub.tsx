@@ -135,6 +135,7 @@ export default function TournamentHub() {
       sport: tournament.sport,
       venue: tournament.venue || "",
       auctionDate: tournament.auctionDate || "",
+      auctionTime: (tournament as any).auctionTime || "",
       logoUrl: tournament.logoUrl && !tournament.logoUrl.startsWith("data:") ? tournament.logoUrl : "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
@@ -201,6 +202,7 @@ export default function TournamentHub() {
         sport: origForm.sport,
         venue: origForm.venue,
         auctionDate: origForm.auctionDate,
+        auctionTime: origForm.auctionTime,
         logoUrl: origForm.logoUrl,
         registrationDeadline: origForm.registrationDeadline,
         registrationLimit: origForm.registrationLimit,
@@ -317,6 +319,7 @@ export default function TournamentHub() {
         sport: editForm.sport as string,
         venue: editForm.venue as string || undefined,
         auctionDate: editForm.auctionDate as string || undefined,
+        auctionTime: editForm.auctionTime as string || undefined,
         logoUrl: editForm.logoUrl as string || undefined,
         sponsorLogos: JSON.stringify(filteredLogos),
         basePurse: Number(editForm.basePurse) || undefined,
@@ -651,6 +654,11 @@ export default function TournamentHub() {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
                       <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>
+                      <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
+                      <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
                     </div>
                   </div>
 
