@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetAuctionStateQueryKey,
@@ -8,16 +8,23 @@ import {
 } from "@workspace/api-client-react";
 
 export type CheerMessage = { senderName: string; message: string };
+export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
 export function useAuctionSocket(
   tournamentId: number,
   onCheerMessage?: (msg: CheerMessage) => void,
-) {
+): { connectionStatus: ConnectionStatus } {
   const qc = useQueryClient();
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("reconnecting");
+
   // Keep ref in sync so the SSE handler always calls the latest callback
   // without needing onCheerMessage in the effect dependency array
   const onCheerRef = useRef(onCheerMessage);
   useEffect(() => { onCheerRef.current = onCheerMessage; });
+
+  // Keep status setter in a ref so effect callbacks always have fresh access
+  const setStatusRef = useRef(setConnectionStatus);
+  useEffect(() => { setStatusRef.current = setConnectionStatus; });
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -28,7 +35,22 @@ export function useAuctionSocket(
     // before acting so stale callbacks from replaced instances are ignored.
     let current: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout>;
+    let disconnectedTimer: ReturnType<typeof setTimeout>;
     let destroyed = false;
+
+    function markConnected() {
+      clearTimeout(disconnectedTimer);
+      setStatusRef.current("connected");
+    }
+
+    function markReconnecting() {
+      clearTimeout(disconnectedTimer);
+      setStatusRef.current("reconnecting");
+      // After 5 s of continuous retry, escalate to "disconnected"
+      disconnectedTimer = setTimeout(() => {
+        setStatusRef.current("disconnected");
+      }, 5000);
+    }
 
     function connect() {
       if (destroyed) return;
@@ -38,8 +60,15 @@ export function useAuctionSocket(
       const es = new EventSource(`/api/tournaments/${tournamentId}/auction/events`);
       current = es;
 
+      es.onopen = () => {
+        if (es !== current) return;
+        markConnected();
+      };
+
       es.onmessage = (event) => {
         if (es !== current) return; // stale instance — ignore
+        // Any successful message confirms the connection is live
+        markConnected();
         try {
           const msg = JSON.parse(event.data);
 
@@ -76,6 +105,7 @@ export function useAuctionSocket(
       es.onerror = () => {
         if (es !== current) return; // stale instance — ignore
         es.close();
+        markReconnecting();
         if (!destroyed) {
           retryTimer = setTimeout(connect, 3000);
         }
@@ -100,9 +130,12 @@ export function useAuctionSocket(
     return () => {
       destroyed = true;
       clearTimeout(retryTimer);
+      clearTimeout(disconnectedTimer);
       current?.close();
       current = null;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [tournamentId, qc]); // onCheerMessage intentionally excluded — handled via ref
+
+  return { connectionStatus };
 }

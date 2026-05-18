@@ -51,6 +51,7 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
   Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
   PanelRightClose, PanelRightOpen, Tv2,
+  Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -75,7 +76,7 @@ export default function AuctionOperator() {
   // Per-team bid debounce: maps teamId → timestamp of last bid click
   const bidDebounce = useRef<Map<number, number>>(new Map());
 
-  useAuctionSocket(tournamentId);
+  const { connectionStatus } = useAuctionSocket(tournamentId);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -478,6 +479,35 @@ export default function AuctionOperator() {
             </Button>
           </a>
 
+          {/* Connection status dot */}
+          <div
+            title={
+              connectionStatus === "connected" ? "Feed connected"
+              : connectionStatus === "reconnecting" ? "Reconnecting to feed…"
+              : "Feed disconnected"
+            }
+            className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs font-semibold flex-shrink-0 transition-colors ${
+              connectionStatus === "connected"
+                ? "border-green-500/40 bg-green-500/10 text-green-400"
+                : connectionStatus === "reconnecting"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                : "border-red-500/40 bg-red-500/10 text-red-400"
+            }`}
+          >
+            {connectionStatus === "connected" ? (
+              <Wifi className="w-3.5 h-3.5" />
+            ) : connectionStatus === "reconnecting" ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <WifiOff className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {connectionStatus === "connected" ? "Live"
+               : connectionStatus === "reconnecting" ? "Reconnecting"
+               : "Offline"}
+            </span>
+          </div>
+
           {/* Right panel toggle (desktop only) */}
           <button
             title={rightCollapsed ? "Show Teams & Purse" : "Hide Teams & Purse"}
@@ -491,6 +521,24 @@ export default function AuctionOperator() {
             {rightCollapsed ? <PanelRightOpen className="w-3.5 h-3.5" /> : <PanelRightClose className="w-3.5 h-3.5" />}
           </button>
         </div>
+
+        {/* Reconnecting / disconnected inline banner */}
+        {connectionStatus !== "connected" && (
+          <div className={`flex-shrink-0 flex items-center gap-2 px-3 py-1 text-xs border-b ${
+            connectionStatus === "disconnected"
+              ? "bg-red-500/10 border-red-500/20 text-red-400"
+              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+          }`}>
+            {connectionStatus === "disconnected" ? (
+              <WifiOff className="w-3 h-3 flex-shrink-0" />
+            ) : (
+              <RefreshCw className="w-3 h-3 flex-shrink-0 animate-spin" />
+            )}
+            {connectionStatus === "disconnected"
+              ? "Feed disconnected — updates may be delayed. Attempting to reconnect…"
+              : "Reconnecting to live feed — bid updates may be delayed…"}
+          </div>
+        )}
 
         {/* ─── 3-COLUMN MAIN AREA ─────────────────────────────────────────── */}
         <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[260px_1fr]" : "lg:grid-cols-[260px_1fr_284px]"}`}>

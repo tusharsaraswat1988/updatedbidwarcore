@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Volume2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Volume2, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import {
   useGetAuctionState,
   useGetTeamPurses,
@@ -65,8 +65,11 @@ const EMPTY_WHEEL_ITEMS: WheelItem[] = [];
  * state change) cost nothing for components whose inputs are unchanged.
  */
 export function DisplayShell({ tournamentId }: { tournamentId: number }) {
+  // ── Corner connection indicator toggle (off by default) ──────────────
+  const [showConnectionIndicator, setShowConnectionIndicator] = useState(false);
+
   // ── Single realtime subscription ─────────────────────────────────────
-  useAuctionSocket(tournamentId);
+  const { connectionStatus } = useAuctionSocket(tournamentId);
 
   // ── Query data (cache invalidated by the socket above) ───────────────
   const { data: tournament } = useGetTournament(tournamentId, {
@@ -297,6 +300,36 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           <div className="absolute bottom-5 right-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm">
             <Volume2 className="w-3 h-3" />
             Click anywhere to enable audio
+          </div>
+        )}
+
+        {/* Corner connection indicator (togglable, off by default).
+            Click the invisible hit target in the top-left corner to show/hide. */}
+        <button
+          onClick={() => setShowConnectionIndicator(v => !v)}
+          className="absolute top-0 left-0 w-10 h-10 z-50 opacity-0 cursor-default"
+          aria-label="Toggle connection indicator"
+        />
+        {showConnectionIndicator && (
+          <div
+            className={`absolute top-3 left-3 z-50 flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-semibold backdrop-blur-sm pointer-events-none transition-colors ${
+              connectionStatus === "connected"
+                ? "bg-green-500/15 border-green-500/30 text-green-400"
+                : connectionStatus === "reconnecting"
+                ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                : "bg-red-500/15 border-red-500/30 text-red-400"
+            }`}
+          >
+            {connectionStatus === "connected" ? (
+              <Wifi className="w-3 h-3" />
+            ) : connectionStatus === "reconnecting" ? (
+              <RefreshCw className="w-3 h-3 animate-spin" />
+            ) : (
+              <WifiOff className="w-3 h-3" />
+            )}
+            {connectionStatus === "connected" ? "Live"
+             : connectionStatus === "reconnecting" ? "Reconnecting"
+             : "Offline"}
           </div>
         )}
 
