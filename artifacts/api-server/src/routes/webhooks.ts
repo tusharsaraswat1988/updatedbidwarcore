@@ -20,8 +20,10 @@ import {
   waQualityLogTable,
   consentTokensTable,
   waConsentEventsTable,
+  botSessionsTable,
+  waTemplatesTable,
 } from "@workspace/db";
-import { eq, and, desc, or, sql } from "drizzle-orm";
+import { eq, and, desc, or, sql, gt } from "drizzle-orm";
 import { sendSms, sendWhatsApp } from "../lib/comm-sender";
 import { logger } from "../lib/logger";
 import { randomBytes, scrypt, timingSafeEqual, createHmac } from "crypto";
@@ -124,6 +126,79 @@ async function findConsentTarget(mobile: string): Promise<{
   return null;
 }
 
+// Return ALL player/team records matching the mobile across all tournaments.
+// Used by the DATA/REPORT command to enable tournament disambiguation.
+type ConsentTarget = { type: "player" | "team_owner" | "organizer"; id: number; name: string; tournamentId?: number; tournamentName?: string };
+
+async function findAllConsentTargets(mobile: string): Promise<ConsentTarget[]> {
+  const norm = normalizePhone(mobile);
+  const results: ConsentTarget[] = [];
+
+  const players = await db
+    .select({ id: playersTable.id, name: playersTable.name, tournamentId: playersTable.tournamentId })
+    .from(playersTable)
+    .where(or(
+      eq(playersTable.mobileNumber, mobile),
+      eq(playersTable.mobileNumber, norm),
+      sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
+    ));
+  for (const p of players) {
+    const [t] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, p.tournamentId));
+    results.push({ type: "player", id: p.id, name: p.name, tournamentId: p.tournamentId, tournamentName: t?.name });
+  }
+
+  const teams = await db
+    .select({ id: teamsTable.id, name: teamsTable.name, tournamentId: teamsTable.tournamentId })
+    .from(teamsTable)
+    .where(or(
+      eq(teamsTable.ownerMobile, mobile),
+      eq(teamsTable.ownerMobile, norm),
+      sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
+    ));
+  for (const tm of teams) {
+    const [t] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tm.tournamentId));
+    results.push({ type: "team_owner", id: tm.id, name: tm.name, tournamentId: tm.tournamentId, tournamentName: t?.name });
+  }
+
+  if (results.length === 0) {
+    const orgs = await db
+      .select({ id: organizersTable.id, name: organizersTable.name })
+      .from(organizersTable)
+      .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, norm)));
+    for (const o of orgs) results.push({ type: "organizer", id: o.id, name: o.name });
+  }
+  return results;
+}
+
+// Build a personalized data summary for a resolved ConsentTarget
+async function buildPersonalizedSummary(target: ConsentTarget): Promise<string> {
+  if (target.type === "player") {
+    const [p] = await db.select({ name: playersTable.name, role: playersTable.role, status: playersTable.status, basePrice: playersTable.basePrice, soldPrice: playersTable.soldPrice }).from(playersTable).where(eq(playersTable.id, target.id));
+    const statusMap: Record<string, string> = { available: "Available", sold: "Sold", unsold: "Unsold", retained: "Retained" };
+    return [
+      `Khiladi: ${p?.name ?? target.name}`,
+      `Role: ${p?.role ?? "-"}`,
+      `Tournament: ${target.tournamentName ?? "-"}`,
+      `Status: ${statusMap[p?.status ?? ""] ?? p?.status ?? "-"}`,
+      p?.soldPrice ? `Sold price: ₹${p.soldPrice.toLocaleString("en-IN")}` : `Base price: ₹${(p?.basePrice ?? 0).toLocaleString("en-IN")}`,
+    ].join("\n");
+  } else if (target.type === "team_owner") {
+    const [tm] = await db.select({ name: teamsTable.name, ownerName: teamsTable.ownerName, purse: teamsTable.purse, purseUsed: teamsTable.purseUsed }).from(teamsTable).where(eq(teamsTable.id, target.id));
+    const remaining = (tm?.purse ?? 0) - (tm?.purseUsed ?? 0);
+    return [
+      `Team: ${tm?.name ?? target.name}`,
+      `Owner: ${tm?.ownerName ?? "-"}`,
+      `Tournament: ${target.tournamentName ?? "-"}`,
+      `Purse remaining: ₹${remaining.toLocaleString("en-IN")}`,
+      `Purse used: ₹${(tm?.purseUsed ?? 0).toLocaleString("en-IN")}`,
+    ].join("\n");
+  } else {
+    const [o] = await db.select({ name: organizersTable.name }).from(organizersTable).where(eq(organizersTable.id, target.id));
+    const tcount = (await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.organizerId, target.id))).length;
+    return [`Organizer: ${o?.name ?? target.name}`, `Tournaments: ${tcount}`].join("\n");
+  }
+}
+
 async function setConsentGranted(type: string, id: number, ip: string | null) {
   const data = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "whatsapp_otp_verified", whatsappConsentIp: ip };
   if (type === "player") await db.update(playersTable).set(data).where(eq(playersTable.id, id));
@@ -184,6 +259,25 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     }
     res.status(200).send("<Response/>");
     return;
+  }
+
+  // Short numeric reply — check for pending bot session (tournament disambiguation)
+  if (/^\d{1,2}$/.test(upper.trim())) {
+    const [sess] = await db.select().from(botSessionsTable)
+      .where(and(eq(botSessionsTable.mobile, mobile), gt(botSessionsTable.expiresAt, new Date())));
+    if (sess?.pendingAction === "disambiguate_tournament") {
+      const choice = parseInt(upper.trim());
+      const options = JSON.parse(sess.pendingData ?? "[]") as ConsentTarget[];
+      const selected = options[choice - 1];
+      if (selected) {
+        await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
+        const summary = await buildPersonalizedSummary(selected);
+        await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
+      } else {
+        await sendWhatsApp(from, `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'data' dobara bhejein.`);
+      }
+      res.status(200).send("<Response/>"); return;
+    }
   }
 
   // OTP reply — check pending OTP sessions
@@ -304,72 +398,49 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
 
   // DATA / REPORT — personalized data (requires confirmed WhatsApp consent)
   if (upper === "DATA" || upper === "REPORT" || upper === "MERI TEAM" || upper === "MY TEAM") {
-    const target = await findConsentTarget(mobile);
-    if (!target) {
+    const allTargets = await findAllConsentTargets(mobile);
+    if (allTargets.length === 0) {
       await sendWhatsApp(from, "Aapka number BidWar mein registered nahi hai. bidwar.in pe jaayein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // Consent gate: only respond with personal data after WhatsApp consent is confirmed
-    let hasConsent = false;
-    if (target.type === "player") {
-      const [p] = await db.select({ whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(eq(playersTable.id, target.id));
-      hasConsent = p?.whatsappConsent ?? false;
-    } else if (target.type === "team_owner") {
-      const [tm] = await db.select({ whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(eq(teamsTable.id, target.id));
-      hasConsent = tm?.whatsappConsent ?? false;
-    } else if (target.type === "organizer") {
-      const [o] = await db.select({ whatsappConsent: organizersTable.whatsappConsent }).from(organizersTable).where(eq(organizersTable.id, target.id));
-      hasConsent = o?.whatsappConsent ?? false;
+    // Consent gate: find the first target with confirmed consent
+    let consentedTarget: ConsentTarget | null = null;
+    for (const t of allTargets) {
+      let hasConsent = false;
+      if (t.type === "player") {
+        const [p] = await db.select({ whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(eq(playersTable.id, t.id));
+        hasConsent = p?.whatsappConsent ?? false;
+      } else if (t.type === "team_owner") {
+        const [tm] = await db.select({ whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(eq(teamsTable.id, t.id));
+        hasConsent = tm?.whatsappConsent ?? false;
+      } else if (t.type === "organizer") {
+        const [o] = await db.select({ whatsappConsent: organizersTable.whatsappConsent }).from(organizersTable).where(eq(organizersTable.id, t.id));
+        hasConsent = o?.whatsappConsent ?? false;
+      }
+      if (hasConsent) { consentedTarget = t; break; }
     }
-    if (!hasConsent) {
+    if (!consentedTarget) {
       await sendWhatsApp(from, "Pehle WhatsApp notifications ke liye subscribe karein. 'hello' bhejein aur YES select karein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // Build personalized summary
-    let summary = "";
-    if (target.type === "player") {
-      const [p] = await db.select({
-        name: playersTable.name, role: playersTable.role,
-        status: playersTable.status, basePrice: playersTable.basePrice,
-        soldPrice: playersTable.soldPrice,
-      }).from(playersTable).where(eq(playersTable.id, target.id));
-      const tname = target.tournamentId
-        ? (await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, target.tournamentId)))[0]?.name ?? ""
-        : "";
-      const statusMap: Record<string, string> = { available: "Available", sold: "Sold", unsold: "Unsold", retained: "Retained" };
-      summary = [
-        `Khiladi: ${p?.name ?? target.name}`,
-        `Role: ${p?.role ?? "-"}`,
-        `Tournament: ${tname}`,
-        `Status: ${statusMap[p?.status ?? ""] ?? p?.status ?? "-"}`,
-        p?.soldPrice ? `Sold price: ₹${p.soldPrice.toLocaleString("en-IN")}` : `Base price: ₹${(p?.basePrice ?? 0).toLocaleString("en-IN")}`,
-      ].join("\n");
-    } else if (target.type === "team_owner") {
-      const [tm] = await db.select({
-        name: teamsTable.name, ownerName: teamsTable.ownerName,
-        purse: teamsTable.purse, purseUsed: teamsTable.purseUsed,
-      }).from(teamsTable).where(eq(teamsTable.id, target.id));
-      const tname = target.tournamentId
-        ? (await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, target.tournamentId)))[0]?.name ?? ""
-        : "";
-      const remaining = (tm?.purse ?? 0) - (tm?.purseUsed ?? 0);
-      summary = [
-        `Team: ${tm?.name ?? target.name}`,
-        `Owner: ${tm?.ownerName ?? "-"}`,
-        `Tournament: ${tname}`,
-        `Purse remaining: ₹${remaining.toLocaleString("en-IN")}`,
-        `Purse used: ₹${(tm?.purseUsed ?? 0).toLocaleString("en-IN")}`,
-      ].join("\n");
-    } else if (target.type === "organizer") {
-      const [o] = await db.select({ name: organizersTable.name, mobile: organizersTable.mobile })
-        .from(organizersTable).where(eq(organizersTable.id, target.id));
-      const tcount = (await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.organizerId, target.id))).length;
-      summary = [`Organizer: ${o?.name ?? target.name}`, `Tournaments: ${tcount}`].join("\n");
+    // Multi-tournament: if more than one tournament-scoped record, ask which one
+    const tournamentTargets = allTargets.filter(t => t.tournamentId);
+    if (tournamentTargets.length > 1) {
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5-min window
+      await db.insert(botSessionsTable)
+        .values({ mobile, pendingAction: "disambiguate_tournament", pendingData: JSON.stringify(tournamentTargets), expiresAt })
+        .onConflictDoUpdate({ target: botSessionsTable.mobile, set: { pendingAction: "disambiguate_tournament", pendingData: JSON.stringify(tournamentTargets), expiresAt } });
+      const choices = tournamentTargets.map((t, i) =>
+        `${i + 1}. ${t.tournamentName ?? "Tournament " + t.tournamentId} (${t.type === "player" ? "Khiladi" : "Team"})`
+      ).join("\n");
+      await sendWhatsApp(from, `Aap kai tournaments mein hain. Kaunsa?\n\n${choices}\n\nSirf number bhejein (1, 2 ...)`);
+    } else {
+      // Single match — return data directly
+      const summary = await buildPersonalizedSummary(tournamentTargets[0] ?? consentedTarget);
+      await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
     }
-
-    await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
     res.status(200).send("<Response/>"); return;
   }
 
@@ -415,13 +486,22 @@ router.post("/webhooks/wa-quality", async (req, res) => {
   const body = req.body as Record<string, unknown>;
 
   await db.insert(waQualityLogTable).values({
-    eventType: String(body.event_type ?? body.entry ? "meta_event" : "unknown"),
+    eventType: String(body.event_type ?? (body.entry ? "meta_event" : "unknown")),
     phoneNumber: String(body.phone_number ?? ""),
     qualityRating: String(body.quality_rating ?? ""),
     templateName: String(body.template_name ?? ""),
     templateStatus: String(body.template_status ?? ""),
     rawPayload: raw,
   });
+
+  // Sync template status into the admin template registry when Meta reports a change
+  if (body.event_type === "template_status_update" && body.template_name && body.template_status) {
+    const statusMap: Record<string, string> = { APPROVED: "approved", REJECTED: "rejected", PAUSED: "paused" };
+    const newStatus = statusMap[String(body.template_status)] ?? "approved";
+    await db.update(waTemplatesTable)
+      .set({ status: newStatus })
+      .where(eq(waTemplatesTable.templateName, String(body.template_name)));
+  }
 
   res.status(200).json({ success: true });
 });

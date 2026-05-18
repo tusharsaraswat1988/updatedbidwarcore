@@ -21,6 +21,7 @@ import {
   commLogsTable,
   consentBlastLogTable,
   waConsentEventsTable,
+  waTemplatesTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, or } from "drizzle-orm";
 import { z } from "zod";
@@ -251,13 +252,24 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
-  // Template validation for WhatsApp: if TWILIO_WA_TEMPLATES is configured,
-  // require that templateName matches one of the approved template IDs.
+  // Template validation for WhatsApp: if the DB has approved templates registered,
+  // templateName must match one (status = "approved"). Env var fallback for migration.
   if ((d.channel === "whatsapp" || d.channel === "both") && d.templateName) {
-    const approvedTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
-    if (approvedTemplates.length > 0 && !approvedTemplates.includes(d.templateName)) {
-      res.status(400).json({ error: `Template "${d.templateName}" is not in the approved template list. Approved: ${approvedTemplates.join(", ")}` });
-      return;
+    const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, status: waTemplatesTable.status })
+      .from(waTemplatesTable);
+    if (dbTemplates.length > 0) {
+      const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
+      if (!approved.includes(d.templateName)) {
+        res.status(400).json({ error: `Template "${d.templateName}" is not approved. Approved: ${approved.join(", ")}` });
+        return;
+      }
+    } else {
+      // Fall back to env var when no DB templates configured yet
+      const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
+      if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
+        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved template list. Approved: ${envTemplates.join(", ")}` });
+        return;
+      }
     }
   }
 
@@ -364,6 +376,59 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   }
 
   res.json({ success: true, blastId, sent: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length, stub: results.some(r => r.stub), results });
+});
+
+// ─── WhatsApp Template Config (admin-managed) ─────────────────────────────────
+
+router.get("/auth/admin/communicate/templates", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  const templates = await db.select().from(waTemplatesTable).orderBy(waTemplatesTable.templateName);
+  res.json(templates);
+});
+
+router.post("/auth/admin/communicate/templates", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Master admin required" }); return; }
+  const schema = z.object({
+    templateName: z.string().min(1),
+    templateSid: z.string().optional(),
+    category: z.string().optional(),
+    description: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const [created] = await db.insert(waTemplatesTable)
+    .values({ ...parsed.data, status: "approved" })
+    .onConflictDoUpdate({ target: waTemplatesTable.templateName, set: { templateSid: parsed.data.templateSid ?? null, category: parsed.data.category ?? null, description: parsed.data.description ?? null, status: "approved" } })
+    .returning();
+  res.status(201).json(created);
+});
+
+router.patch("/auth/admin/communicate/templates/:id", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Master admin required" }); return; }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const schema = z.object({
+    status: z.enum(["approved", "paused", "rejected"]).optional(),
+    templateSid: z.string().optional(),
+    description: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+  if (parsed.data.templateSid !== undefined) updates.templateSid = parsed.data.templateSid;
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+  const [updated] = await db.update(waTemplatesTable).set(updates).where(eq(waTemplatesTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Template not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/auth/admin/communicate/templates/:id", async (req, res) => {
+  if (!isMasterAdmin(req)) { res.status(403).json({ error: "Master admin required" }); return; }
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.delete(waTemplatesTable).where(eq(waTemplatesTable.id, id));
+  res.json({ success: true });
 });
 
 // ─── Communication Logs ────────────────────────────────────────────────────────

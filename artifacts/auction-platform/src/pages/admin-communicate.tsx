@@ -124,8 +124,9 @@ export default function AdminCommunicate() {
     try {
       const r = await fetch("/api/auth/admin/tournaments?limit=200", { credentials: "include" });
       if (r.ok) {
-        const data = await r.json() as { tournaments?: Tournament[] };
-        setTournaments(data.tournaments ?? []);
+        // API returns a raw array; guard against both shapes
+        const data = await r.json();
+        setTournaments(Array.isArray(data) ? data : (data.tournaments ?? []));
       }
     } finally {
       setLoadingTournaments(false);

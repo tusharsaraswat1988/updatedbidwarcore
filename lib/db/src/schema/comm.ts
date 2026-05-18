@@ -109,6 +109,41 @@ export const waQualityLogTable = pgTable(
   },
 );
 
+// ─── WhatsApp Approved Templates ─────────────────────────────────────────────
+// Admin-managed registry of approved Meta/Twilio WhatsApp template IDs.
+// Status is updated by the wa-quality webhook when Meta reports a change.
+export const waTemplatesTable = pgTable(
+  "wa_templates",
+  {
+    id: serial("id").primaryKey(),
+    templateName: text("template_name").notNull().unique(),
+    templateSid: text("template_sid"),  // Twilio content SID (optional)
+    category: text("category"),         // "marketing"|"utility"|"authentication"
+    description: text("description"),
+    status: text("status").notNull().default("approved"), // "approved"|"paused"|"rejected"
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+);
+
+// ─── Bot Sessions ──────────────────────────────────────────────────────────────
+// Tracks transient multi-turn WhatsApp bot state (e.g. tournament disambiguation).
+// One record per mobile; upserted on each new action, expired TTL-based.
+export const botSessionsTable = pgTable(
+  "bot_sessions",
+  {
+    id: serial("id").primaryKey(),
+    mobile: text("mobile").notNull().unique(),
+    pendingAction: text("pending_action").notNull(), // "disambiguate_tournament"
+    pendingData: text("pending_data"),  // JSON payload for the pending action
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ix_bot_sessions_mobile").on(t.mobile),
+  ],
+);
+
 // ─── WhatsApp Consent Events ──────────────────────────────────────────────────
 // Persistent audit trail of every distinct consent signal received via WhatsApp.
 // YES is written here BEFORE the OTP step, giving a queryable, versioned record
@@ -142,4 +177,6 @@ export type OtpSession = typeof otpSessionsTable.$inferSelect;
 export type CommLog = typeof commLogsTable.$inferSelect;
 export type ConsentBlastEntry = typeof consentBlastLogTable.$inferSelect;
 export type WaQualityEvent = typeof waQualityLogTable.$inferSelect;
+export type WaTemplate = typeof waTemplatesTable.$inferSelect;
+export type BotSession = typeof botSessionsTable.$inferSelect;
 export type WaConsentEvent = typeof waConsentEventsTable.$inferSelect;
