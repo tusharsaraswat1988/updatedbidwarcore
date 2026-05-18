@@ -55,7 +55,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             Main Menu
           </div>
           <nav className="space-y-1 px-2">
-            <Link href="/" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+            <Link href="/organizer" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${location === '/organizer' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
               <LayoutDashboard className="w-5 h-5" />
               <span className="font-medium">All Tournaments</span>
             </Link>
