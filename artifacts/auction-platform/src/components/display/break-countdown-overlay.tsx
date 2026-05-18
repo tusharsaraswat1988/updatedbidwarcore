@@ -87,14 +87,15 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   const { hours, mins, secs, expired } = useCountdown(endsAt);
   const showHours = hours > 0;
 
-  // For pre-auction: auto-dismiss the overlay 4s after the countdown expires
+  // Auto-dismiss the overlay 4s after expiry for both types.
+  // Break shows "We're back!" then fades; pre-auction shows the official start banner.
   const [showBanner, setShowBanner] = useState(true);
   useEffect(() => {
-    if (!expired || type !== "pre-auction") return;
+    if (!expired) return;
     setShowBanner(true);
     const id = setTimeout(() => setShowBanner(false), 4000);
     return () => clearTimeout(id);
-  }, [expired, type]);
+  }, [expired]);
 
   // Reset dismiss state when countdown is restarted
   useEffect(() => {
@@ -112,7 +113,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
 
   return (
     <AnimatePresence>
-      {(!expired || isBreak || showBanner) && (
+      {(!expired || showBanner) && (
         <motion.div
           key="overlay"
           initial={{ opacity: 0 }}

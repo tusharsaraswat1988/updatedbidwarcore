@@ -76,7 +76,14 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: state } = useGetAuctionState(tournamentId, {
-    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
+    query: {
+      queryKey: getGetAuctionStateQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      // Poll as a safety net so countdown expiry is reflected even if an SSE
+      // event is missed. The interval is intentionally short on the display
+      // screen which is always open on dedicated hardware.
+      refetchInterval: 3000,
+    },
   });
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },

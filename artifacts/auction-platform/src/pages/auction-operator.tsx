@@ -570,6 +570,26 @@ export default function AuctionOperator() {
             </span>
           </div>
 
+          {/* Active countdown badge — visible at a glance in the top bar */}
+          {currentCountdown && currentCountdown.endsAt && (
+            <div className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-semibold flex-shrink-0">
+              {currentCountdown.type === "break" ? (
+                <Coffee className="w-3.5 h-3.5 flex-shrink-0" />
+              ) : (
+                <AlarmClock className="w-3.5 h-3.5 flex-shrink-0" />
+              )}
+              <CountdownClock endsAt={currentCountdown.endsAt} />
+              <button
+                onClick={handleCancelCountdown}
+                disabled={setBreakTimerMut.isPending || setPreAuctionMut.isPending}
+                title="End break now"
+                className="ml-1 h-4 w-4 flex items-center justify-center rounded bg-amber-500/20 hover:bg-red-500/30 hover:text-red-400 transition-colors disabled:opacity-40"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          )}
+
           {/* Right panel toggle (desktop only) */}
           <button
             title={rightCollapsed ? "Show Teams & Purse" : "Hide Teams & Purse"}

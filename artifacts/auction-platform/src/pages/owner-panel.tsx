@@ -19,6 +19,7 @@ import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
+import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
 import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2, MessageSquare, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -354,7 +355,7 @@ export default function OwnerPanel() {
   return (
     <FullscreenLayout>
       <div
-        className="min-h-screen flex flex-col"
+        className="relative min-h-screen flex flex-col"
         style={{
           background: `radial-gradient(ellipse at top, ${teamColor}15 0%, transparent 55%), #09090b`,
         }}
@@ -414,21 +415,22 @@ export default function OwnerPanel() {
           </div>
         </div>
 
-        {/* Break / Pre-Auction Countdown Banner */}
+        {/* Break / Pre-Auction Countdown — full-screen overlay */}
         {(() => {
           const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
-          if (!dc?.type || !dc?.endsAt) return null;
-          const isBreak = dc.type === "break";
-          return (
-            <div className={`flex items-center gap-2 px-4 py-2 border-b ${isBreak ? "border-amber-500/30 bg-amber-500/10" : "border-primary/30 bg-primary/10"}`}>
-              <Timer className={`w-3.5 h-3.5 flex-shrink-0 ${isBreak ? "text-amber-400" : "text-primary"}`} />
-              <span className="text-xs font-semibold text-foreground flex-1 truncate">
-                {isBreak ? "Break in progress" : "Auction starting shortly"}
-                {dc.label ? ` — ${dc.label}` : ""}
-              </span>
-              <CompactCountdown endsAt={dc.endsAt} />
-            </div>
-          );
+          const dcType = (dc?.type as "break" | "pre-auction" | null) ?? null;
+          const dcEndsAt = dc?.endsAt ?? null;
+          return dcType && dcEndsAt ? (
+            <AnimatePresence>
+              <BreakCountdownOverlay
+                key={dcEndsAt}
+                type={dcType}
+                endsAt={dcEndsAt}
+                label={dc?.label ?? null}
+                tournamentName={tournament?.name}
+              />
+            </AnimatePresence>
+          ) : null;
         })()}
 
         {/* Purse Stats */}
