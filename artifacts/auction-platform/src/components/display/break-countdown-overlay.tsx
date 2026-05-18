@@ -113,9 +113,14 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   const displayLabel = message || defaultLabel;
   const Icon = isBreak ? Coffee : Clock;
 
-  const iconColor = isBreak ? "text-amber-400" : "text-primary";
-  const accentColor = isBreak ? "from-amber-500/30 via-orange-500/20" : "from-primary/30 via-yellow-500/20";
-  const borderColor = isBreak ? "border-amber-500/20" : "border-primary/20";
+  // Last-10-seconds urgency pulse for break timers only
+  const isUrgent = isBreak && !expired && (hours === 0 && mins === 0 && secs <= 10);
+
+  const iconColor = isBreak ? (isUrgent ? "text-red-400" : "text-amber-400") : "text-primary";
+  const accentColor = isBreak
+    ? (isUrgent ? "from-red-500/40 via-red-600/20" : "from-amber-500/30 via-orange-500/20")
+    : "from-primary/30 via-yellow-500/20";
+  const borderColor = isBreak ? (isUrgent ? "border-red-500/40" : "border-amber-500/20") : "border-primary/20";
 
   const visible = !expired || (type === "pre-auction" && showBanner);
 
@@ -167,8 +172,8 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
           transition={{ duration: 0.6 }}
           className="absolute inset-0 flex flex-col items-center justify-center z-40 overflow-hidden"
         >
-          {/* Background gradient */}
-          <div className={`absolute inset-0 bg-gradient-to-b ${accentColor} to-transparent pointer-events-none`} />
+          {/* Background gradient — pulses red in the last 10 seconds of a break */}
+          <div className={`absolute inset-0 bg-gradient-to-b ${accentColor} to-transparent pointer-events-none ${isUrgent ? "animate-pulse" : ""}`} />
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
 
           {/* Content */}

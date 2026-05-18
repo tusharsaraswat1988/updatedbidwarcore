@@ -1142,7 +1142,9 @@ export default function AuctionOperator() {
                       </button>
                       <button
                         onClick={() => openCountdownDialog("pre-auction")}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent text-xs font-semibold transition-colors"
+                        disabled={isActive}
+                        title={isActive ? "Cannot show pre-auction countdown while auction is active" : undefined}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent text-xs font-semibold transition-colors disabled:opacity-40 disabled:pointer-events-none"
                       >
                         <AlarmClock className="w-3.5 h-3.5" />
                         Pre-Auction
