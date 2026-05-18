@@ -25,6 +25,7 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   activeCategoryIds: text("active_category_ids"),
   pausedTimeRemaining: integer("paused_time_remaining"),
   deferredPlayerIds: text("deferred_player_ids"),
+  displayCountdown: text("display_countdown"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

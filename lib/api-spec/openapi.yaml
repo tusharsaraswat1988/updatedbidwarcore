@@ -1024,6 +1024,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/break-timer:
+    post:
+      operationId: setBreakTimer
+      tags: [auction]
+      summary: Start or cancel a break countdown on the LED display
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [start, cancel]
+                durationSeconds:
+                  type: integer
+                  minimum: 10
+                  maximum: 3600
+                label:
+                  type: string
+      responses:
+        "200":
+          description: Countdown started or cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
+  /tournaments/{tournamentId}/auction/pre-auction-countdown:
+    post:
+      operationId: setPreAuctionCountdown
+      tags: [auction]
+      summary: Start or cancel a pre-auction countdown on the LED display
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [start, cancel]
+                durationSeconds:
+                  type: integer
+                  minimum: 10
+                  maximum: 3600
+                label:
+                  type: string
+      responses:
+        "200":
+          description: Countdown started or cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/start-timer:
     post:
       operationId: startTimer
@@ -2073,6 +2145,21 @@ components:
           description: Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.
           additionalProperties:
             type: integer
+        displayCountdown:
+          $ref: "#/components/schemas/DisplayCountdown"
+
+    DisplayCountdown:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [break, pre-auction]
+        endsAt:
+          type: string
+          description: ISO timestamp when the countdown ends
+        label:
+          type: ["string", "null"]
+          description: Optional display label override
 
     RegistrationStatus:
       type: object

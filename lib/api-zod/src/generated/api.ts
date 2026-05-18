@@ -1089,6 +1089,16 @@ export const GetAuctionStateResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1203,6 +1213,16 @@ export const StartAuctionResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1317,6 +1337,16 @@ export const PauseAuctionResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1436,6 +1466,16 @@ export const NextPlayerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1555,6 +1595,16 @@ export const PlaceBidResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1669,6 +1719,16 @@ export const SellPlayerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1788,6 +1848,16 @@ export const ManualSellResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -1902,6 +1972,16 @@ export const MarkUnsoldResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2021,6 +2101,16 @@ export const ReAuctionPlayerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2135,6 +2225,16 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2249,6 +2349,16 @@ export const UndoLastActionResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2367,6 +2477,16 @@ export const ResetTrialAuctionResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2485,6 +2605,16 @@ export const SetDisplayOverlayResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2605,6 +2735,16 @@ export const SetDisplayPlayerFilterResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2749,6 +2889,16 @@ export const SyncFortuneWheelResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2867,6 +3017,290 @@ export const SetCategoryFilterResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Start or cancel a break countdown on the LED display
+ */
+export const SetBreakTimerParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const setBreakTimerBodyDurationSecondsMin = 10;
+export const setBreakTimerBodyDurationSecondsMax = 3600;
+
+export const SetBreakTimerBody = zod.object({
+  action: zod.enum(["start", "cancel"]),
+  durationSeconds: zod
+    .number()
+    .min(setBreakTimerBodyDurationSecondsMin)
+    .max(setBreakTimerBodyDurationSecondsMax)
+    .optional(),
+  label: zod.string().optional(),
+});
+
+export const SetBreakTimerResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  currentBidTeamLogoUrl: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  bidTimerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  displayOverlay: zod
+    .union([
+      zod.literal("team"),
+      zod.literal("player"),
+      zod.literal("top5"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Start or cancel a pre-auction countdown on the LED display
+ */
+export const SetPreAuctionCountdownParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const setPreAuctionCountdownBodyDurationSecondsMin = 10;
+export const setPreAuctionCountdownBodyDurationSecondsMax = 3600;
+
+export const SetPreAuctionCountdownBody = zod.object({
+  action: zod.enum(["start", "cancel"]),
+  durationSeconds: zod
+    .number()
+    .min(setPreAuctionCountdownBodyDurationSecondsMin)
+    .max(setPreAuctionCountdownBodyDurationSecondsMax)
+    .optional(),
+  label: zod.string().optional(),
+});
+
+export const SetPreAuctionCountdownResponse = zod.object({
+  tournamentId: zod.number(),
+  status: zod.enum(["idle", "active", "paused", "completed"]),
+  currentPlayer: zod
+    .object({
+      id: zod.number(),
+      tournamentId: zod.number(),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+      name: zod.string(),
+      city: zod.string().nullish(),
+      role: zod.string().nullish(),
+      battingStyle: zod.string().nullish(),
+      bowlingStyle: zod.string().nullish(),
+      specialization: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      basePrice: zod.number(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.enum(["available", "sold", "unsold", "retained"]),
+      jerseyNumber: zod.string().nullish(),
+      achievements: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      cricheroUrl: zod.string().nullish(),
+      availabilityDates: zod.string().nullish(),
+      createdAt: zod.string(),
+    })
+    .nullish(),
+  currentBid: zod.number().nullish(),
+  currentBidTeamId: zod.number().nullish(),
+  currentBidTeamName: zod.string().nullish(),
+  currentBidTeamColor: zod.string().nullish(),
+  currentBidTeamLogoUrl: zod.string().nullish(),
+  bidIncrement: zod.number().optional(),
+  timerSeconds: zod.number().nullish(),
+  bidTimerSeconds: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  timerType: zod
+    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
+    .nullish()
+    .describe(
+      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
+    ),
+  lastAction: zod.string().nullish(),
+  soldPlayersCount: zod.number().optional(),
+  unsoldPlayersCount: zod.number().optional(),
+  remainingPlayersCount: zod.number().optional(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
+  wheelItems: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        color: zod.string(),
+      }),
+    )
+    .optional(),
+  wheelWinner: zod.string().nullish(),
+  teamPurseViewActive: zod.boolean().optional(),
+  displayOverlay: zod
+    .union([
+      zod.literal("team"),
+      zod.literal("player"),
+      zod.literal("top5"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Active LED overlay mode. null\/absent means no overlay."),
+  displayPlayerFilter: zod
+    .object({
+      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: zod.number().nullish(),
+      teamId: zod.number().nullish(),
+    })
+    .optional(),
+  activeCategoryIds: zod.array(zod.number()).nullish(),
+  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
+  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
+  trialTeamIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("First 2 team IDs eligible to bid in trial mode"),
+  deferredPlayerIds: zod
+    .array(zod.number())
+    .nullish()
+    .describe("Player IDs deferred to the back of the queue"),
+  currentCategoryMaxPlayers: zod
+    .number()
+    .nullish()
+    .describe(
+      "Max players per team allowed in the current player's category. Null if no limit is set.",
+    ),
+  currentCategoryName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Name of the current player's category. Null if player has no category or category has no max.",
+    ),
+  teamCategoryPlayerCounts: zod
+    .record(zod.string(), zod.number())
+    .nullish()
+    .describe(
+      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
+    ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -2991,6 +3425,16 @@ export const StartTimerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -3105,6 +3549,16 @@ export const StopTimerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**
@@ -3219,6 +3673,16 @@ export const DeferPlayerResponse = zod.object({
     .describe(
       "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
     ),
+  displayCountdown: zod
+    .object({
+      type: zod.enum(["break", "pre-auction"]).optional(),
+      endsAt: zod
+        .string()
+        .optional()
+        .describe("ISO timestamp when the countdown ends"),
+      label: zod.string().nullish().describe("Optional display label override"),
+    })
+    .optional(),
 });
 
 /**

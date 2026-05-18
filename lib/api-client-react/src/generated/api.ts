@@ -47,8 +47,10 @@ import type {
   RegistrationStatus,
   ResetTrialAuctionBody,
   SearchGlobalPlayersParams,
+  SetBreakTimerBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
+  SetPreAuctionCountdownBody,
   Team,
   TeamInput,
   TeamPurse,
@@ -3830,6 +3832,181 @@ export const useSetCategoryFilter = <
   TContext
 > => {
   return useMutation(getSetCategoryFilterMutationOptions(options));
+};
+
+/**
+ * @summary Start or cancel a break countdown on the LED display
+ */
+export const getSetBreakTimerUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/break-timer`;
+};
+
+export const setBreakTimer = async (
+  tournamentId: number,
+  setBreakTimerBody: SetBreakTimerBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetBreakTimerUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setBreakTimerBody),
+  });
+};
+
+export const getSetBreakTimerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setBreakTimer>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetBreakTimerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setBreakTimer>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetBreakTimerBody> },
+  TContext
+> => {
+  const mutationKey = ["setBreakTimer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setBreakTimer>>,
+    { tournamentId: number; data: BodyType<SetBreakTimerBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setBreakTimer(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetBreakTimerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setBreakTimer>>
+>;
+export type SetBreakTimerMutationBody = BodyType<SetBreakTimerBody>;
+export type SetBreakTimerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Start or cancel a break countdown on the LED display
+ */
+export const useSetBreakTimer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setBreakTimer>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetBreakTimerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setBreakTimer>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetBreakTimerBody> },
+  TContext
+> => {
+  return useMutation(getSetBreakTimerMutationOptions(options));
+};
+
+/**
+ * @summary Start or cancel a pre-auction countdown on the LED display
+ */
+export const getSetPreAuctionCountdownUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/pre-auction-countdown`;
+};
+
+export const setPreAuctionCountdown = async (
+  tournamentId: number,
+  setPreAuctionCountdownBody: SetPreAuctionCountdownBody,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getSetPreAuctionCountdownUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPreAuctionCountdownBody),
+  });
+};
+
+export const getSetPreAuctionCountdownMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setPreAuctionCountdown>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
+  TContext
+> => {
+  const mutationKey = ["setPreAuctionCountdown"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
+    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return setPreAuctionCountdown(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetPreAuctionCountdownMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPreAuctionCountdown>>
+>;
+export type SetPreAuctionCountdownMutationBody =
+  BodyType<SetPreAuctionCountdownBody>;
+export type SetPreAuctionCountdownMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Start or cancel a pre-auction countdown on the LED display
+ */
+export const useSetPreAuctionCountdown = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
+    TError,
+    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setPreAuctionCountdown>>,
+  TError,
+  { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
+  TContext
+> => {
+  return useMutation(getSetPreAuctionCountdownMutationOptions(options));
 };
 
 /**

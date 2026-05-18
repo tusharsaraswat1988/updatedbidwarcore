@@ -565,6 +565,25 @@ export type AuctionStateTeamCategoryPlayerCounts = {
   [key: string]: number;
 } | null;
 
+export type DisplayCountdownType =
+  (typeof DisplayCountdownType)[keyof typeof DisplayCountdownType];
+
+export const DisplayCountdownType = {
+  break: "break",
+  "pre-auction": "pre-auction",
+} as const;
+
+export interface DisplayCountdown {
+  type?: DisplayCountdownType;
+  /** ISO timestamp when the countdown ends */
+  endsAt?: string;
+  /**
+   * Optional display label override
+   * @nullable
+   */
+  label?: string | null;
+}
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -627,6 +646,7 @@ export interface AuctionState {
   currentCategoryName?: string | null;
   /** Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set. */
   teamCategoryPlayerCounts?: AuctionStateTeamCategoryPlayerCounts;
+  displayCountdown?: DisplayCountdown;
 }
 
 export interface RegistrationStatus {
@@ -881,6 +901,42 @@ export type VerifyOwnerAccess200 = {
 
 export type SetCategoryFilterBody = {
   categoryIds?: number[] | null;
+};
+
+export type SetBreakTimerBodyAction =
+  (typeof SetBreakTimerBodyAction)[keyof typeof SetBreakTimerBodyAction];
+
+export const SetBreakTimerBodyAction = {
+  start: "start",
+  cancel: "cancel",
+} as const;
+
+export type SetBreakTimerBody = {
+  action: SetBreakTimerBodyAction;
+  /**
+   * @minimum 10
+   * @maximum 3600
+   */
+  durationSeconds?: number;
+  label?: string;
+};
+
+export type SetPreAuctionCountdownBodyAction =
+  (typeof SetPreAuctionCountdownBodyAction)[keyof typeof SetPreAuctionCountdownBodyAction];
+
+export const SetPreAuctionCountdownBodyAction = {
+  start: "start",
+  cancel: "cancel",
+} as const;
+
+export type SetPreAuctionCountdownBody = {
+  action: SetPreAuctionCountdownBodyAction;
+  /**
+   * @minimum 10
+   * @maximum 3600
+   */
+  durationSeconds?: number;
+  label?: string;
 };
 
 export type SearchGlobalPlayersParams = {

@@ -197,6 +197,13 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     return { status: f.status, categoryId: f.categoryId ?? null, teamId: f.teamId ?? null };
   }, [state?.displayPlayerFilter?.status, state?.displayPlayerFilter?.categoryId, state?.displayPlayerFilter?.teamId]);
 
+  // Stable primitives for the countdown overlay — avoids BreakCountdownOverlay
+  // remounting on every SSE tick when the countdown values haven't changed.
+  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
+  const displayCountdownType = (dc?.type as "break" | "pre-auction" | null) ?? null;
+  const displayCountdownEndsAt = dc?.endsAt ?? null;
+  const displayCountdownLabel = dc?.label ?? null;
+
   const stripPurses = useMemo<PurseRow[]>(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,
     teamName: t.teamName,
@@ -345,6 +352,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}
+          displayCountdownType={displayCountdownType}
+          displayCountdownEndsAt={displayCountdownEndsAt}
+          displayCountdownLabel={displayCountdownLabel}
         />
       </StaticBackground>
     </FullscreenLayout>
