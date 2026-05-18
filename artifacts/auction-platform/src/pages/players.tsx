@@ -457,7 +457,8 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   useEffect(() => {
     if (isFirstSpecRender.current) { isFirstSpecRender.current = false; return; }
     setForm(prev => ({ ...prev, battingStyle: "", bowlingStyle: "", specialization: "" }));
-  }, [selectedRoleId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.role]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
