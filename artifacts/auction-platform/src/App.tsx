@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OrganizerGuard } from "@/components/organizer-guard";
+import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import NotFound from "@/pages/not-found";
 
 import Landing from "@/pages/landing";
@@ -52,7 +53,16 @@ function Router() {
       <Route path="/tournament/new" component={NewTournament} />
       <Route path="/tournament/:id/login" component={OrganizerLogin} />
       <Route path="/tournament/:id/display" component={DisplayView} />
-      <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
+      <Route path="/tournament/:id/liveviewer">
+        {(params) => {
+          const tid = parseInt(params?.id || "0");
+          return (
+            <TournamentCodeGate tournamentId={tid}>
+              <LiveViewer />
+            </TournamentCodeGate>
+          );
+        }}
+      </Route>
       <Route path="/tournament/:id/register" component={PlayerRegister} />
       <Route path="/tournament/:id/obs" component={ObsOverlay} />
       <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />

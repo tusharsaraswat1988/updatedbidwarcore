@@ -82,17 +82,27 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
       >
         {/* Header */}
         <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
-          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-9 w-9 object-contain flex-shrink-0" />
-          {!collapsed && (
-            <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">BIDWAR</span>
+          {collapsed ? (
+            <button
+              onClick={toggleCollapsed}
+              title="Expand sidebar"
+              className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <>
+              <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-9 w-9 object-contain flex-shrink-0" />
+              <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">BIDWAR</span>
+              <button
+                onClick={toggleCollapsed}
+                title="Collapse sidebar"
+                className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </>
           )}
-          <button
-            onClick={toggleCollapsed}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 overflow-x-hidden">

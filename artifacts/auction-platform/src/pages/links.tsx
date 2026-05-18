@@ -92,7 +92,7 @@ export default function LinksPage() {
             </div>
             <LinkRow
               label="LED Big Screen Display"
-              url={`${base}/tournament/${tournamentId}/display`}
+              url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
               description="Open this on the projector or big screen TV during the auction."
             />
             <LinkRow
@@ -180,14 +180,22 @@ export default function LinksPage() {
               <Radio className="w-5 h-5 text-primary" />
               <h2 className="font-display font-bold text-lg">Viewer Links</h2>
             </div>
+            {tournament?.auctionCode && (
+              <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-400">
+                <Lock className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  These links include the auction code <span className="font-mono font-bold">{tournament.auctionCode}</span> — viewers who open them are admitted automatically.
+                </span>
+              </div>
+            )}
             <LinkRow
               label="Live Auction Viewer"
-              url={`${base}/tournament/${tournamentId}/liveviewer`}
+              url={`${base}/tournament/${tournamentId}/liveviewer${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
               description="Public spectator screen — live bids, animated player card, team grid with squad details, and optional sound effects. Works on any mobile, tablet, or laptop."
             />
             <LinkRow
               label="LED Big Screen Display"
-              url={`${base}/tournament/${tournamentId}/display`}
+              url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
               description="Fullscreen broadcast display for projectors and big-screen TVs."
             />
           </CardContent>
