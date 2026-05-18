@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
 interface SpecOption { id: number; groupId: number; optionName: string; displayOrder: number; }
 interface SpecGroup { id: number; roleId: number; groupName: string; displayOrder: number; optional: boolean; options: SpecOption[]; }
-interface GlobalPlayer { id: string; canonicalName: string; mobileNumber: string | null; city: string | null; age: number | null; photoUrl: string | null; }
+interface GlobalPlayer { id: string; canonicalName: string; mobileNumber: string | null; city: string | null; age: number | null; photoUrl: string | null; battingStyle: string | null; bowlingStyle: string | null; specialization: string | null; }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useSportRoles(sportSlug: string | undefined) {
@@ -116,6 +116,35 @@ export default function PlayerRegister() {
   // Reset spec selections when role changes
   useEffect(() => { setSpecSelections({}); }, [form.role]);
 
+  // Pre-fill dynamic spec group selections from previously-stored values
+  // Maps battingStyle→group[0], bowlingStyle→group[1], specialization→group[2]
+  useEffect(() => {
+    if (!foundProfile || specs.length === 0) return;
+    const previousValues = [
+      foundProfile.battingStyle,
+      foundProfile.bowlingStyle,
+      foundProfile.specialization,
+    ];
+    const sortedGroups = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+    setSpecSelections(prev => {
+      const next = { ...prev };
+      sortedGroups.forEach((group, idx) => {
+        if (idx >= previousValues.length) return;
+        const prev_val = previousValues[idx];
+        if (!prev_val) return;
+        // Only pre-fill if not already chosen and the option exists in this group
+        if (next[group.id]) return;
+        const matchingOption = group.options.find(
+          opt => opt.optionName.toLowerCase() === prev_val.toLowerCase(),
+        );
+        if (matchingOption) {
+          next[group.id] = matchingOption.optionName;
+        }
+      });
+      return next;
+    });
+  }, [specs, foundProfile]);
+
   const isClosed = status && !status.open;
   const closedReason = status?.reason;
   const remaining = status?.limit != null ? Math.max(0, status.limit - status.currentCount) : null;
@@ -158,6 +187,9 @@ export default function PlayerRegister() {
               city: prev.city || (match.city ?? ""),
               age: prev.age || (match.age ? String(match.age) : ""),
               photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
+              battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
+              bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
+              specialization: prev.specialization || (match.specialization ?? ""),
             }));
           }
         } catch { /* ignore */ } finally {
