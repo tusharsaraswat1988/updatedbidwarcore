@@ -70,6 +70,7 @@ function CreateTournamentModal({
     sport: "cricket",
     venue: "",
     auctionDate: "",
+    auctionTime: "",
     basePurse: "1000000",
   });
   const [loading, setLoading] = useState(false);
@@ -87,7 +88,7 @@ function CreateTournamentModal({
 
   function handleClose() {
     setCreatedCode(null);
-    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", basePurse: "1000000" });
+    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", auctionTime: "", basePurse: "1000000" });
     setError("");
     onClose();
   }
@@ -102,6 +103,7 @@ function CreateTournamentModal({
       sport: form.sport,
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
+      auctionTime: form.auctionTime || undefined,
       basePurse: parseInt(form.basePurse) || 1000000,
     });
     setLoading(false);
@@ -171,6 +173,14 @@ function CreateTournamentModal({
                   type="date"
                   value={form.auctionDate}
                   onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Auction Time</Label>
+                <Input
+                  type="time"
+                  value={form.auctionTime}
+                  onChange={e => setForm(f => ({ ...f, auctionTime: e.target.value }))}
                 />
               </div>
             </div>

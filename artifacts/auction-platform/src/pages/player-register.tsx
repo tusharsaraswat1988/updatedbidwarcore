@@ -475,17 +475,29 @@ export default function PlayerRegister() {
                       )}
 
                       {/* WhatsApp consent */}
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={waConsent}
-                          onChange={e => setWaConsent(e.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer"
-                        />
-                        <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                          Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
-                        </span>
-                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={waConsent}
+                            onChange={e => setWaConsent(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                          />
+                          <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                            Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
+                          </span>
+                        </label>
+                        {waLink && (
+                          <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline pl-7"
+                          >
+                            WhatsApp pe subscribe karein (optional)
+                          </a>
+                        )}
+                      </div>
 
                       <Button
                         type="submit"

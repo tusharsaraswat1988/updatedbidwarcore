@@ -299,7 +299,7 @@ export async function updateOrganizerProfile(data: {
 }
 
 export async function createOrganizerTournament(data: {
-  name: string; sport?: string; venue?: string; auctionDate?: string;
+  name: string; sport?: string; venue?: string; auctionDate?: string; auctionTime?: string;
   basePurse?: number;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {

@@ -518,6 +518,26 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       res.status(200).send("<Response/>"); return;
     }
 
+    // Store recipient-bound identity in bot session so the YES handler can use it
+    // without falling back to a mobile first-match lookup.
+    // No token here (user initiated via hello, not OPTIN link) so token is null.
+    const helloSessionData = JSON.stringify({
+      token: null,
+      recipientType: target.type,
+      recipientId: target.id,
+      tournamentId: target.tournamentId ?? null,
+      name: target.name,
+    });
+    await db.insert(botSessionsTable).values({
+      mobile,
+      pendingAction: "pending_yes",
+      pendingData: helloSessionData,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    }).onConflictDoUpdate({
+      target: botSessionsTable.mobile,
+      set: { pendingAction: "pending_yes", pendingData: helloSessionData, expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
+    });
+
     await sendLicensedWhatsApp(target.tournamentId, from,
       `Namaste ${target.name}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
     );
