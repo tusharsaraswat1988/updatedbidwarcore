@@ -18,6 +18,7 @@ const formSchema = z.object({
   sport: z.string().min(1, "Select a sport"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
+  auctionTime: z.string().optional(),
   organizerName: z.string().optional(),
   basePurse: z.coerce.number().min(0).optional(),
   minBid: z.coerce.number().min(0).optional(),
@@ -68,6 +69,7 @@ export default function NewTournament() {
       sport: "cricket",
       venue: "",
       auctionDate: "",
+      auctionTime: "",
       organizerName: "",
       basePurse: 10000000,
       minBid: 10000,
@@ -198,6 +200,19 @@ export default function NewTournament() {
                           <FormLabel>Auction Date</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="auctionTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Auction Time</FormLabel>
+                          <FormControl>
+                            <Input type="time" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
