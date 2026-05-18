@@ -10,7 +10,7 @@ A full-stack broadcast-quality live sports auction system for cricket, football,
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `NEON_DATABASE_URL` — Neon PostgreSQL connection string (renamed from DATABASE_URL to avoid Replit's managed-DB conflict warning)
 
 ## Stack
 
