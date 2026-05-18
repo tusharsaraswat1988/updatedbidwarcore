@@ -12,8 +12,9 @@ import { AccessGate } from "./AccessGate";
 import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
+import { Squad } from "./Squad";
 
-type Screen = "loading" | "gate" | "warmup" | "live" | "completed";
+type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "completed";
 
 function sessionKey(teamId: number) {
   return `owner_verified_${teamId}`;
@@ -56,8 +57,9 @@ export function OwnerRoute() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team, teamId]);
 
-  // Auction state polling — always poll once screen is live
-  const pollInterval = screen === "live" ? 1500 : 5000;
+  // Auction state polling — 1 s during live bidding so the bid button
+  // reflects another team's bid within ~1 s instead of ~1.5 s
+  const pollInterval = screen === "live" || screen === "squad" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
@@ -142,7 +144,11 @@ export function OwnerRoute() {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
-      if (msg.includes("already the highest bidder")) return "leading";
+      if (msg.includes("already the highest bidder")) {
+        // Someone outbid us — refetch immediately so the new amount shows at once
+        qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+        return "leading";
+      }
       return "error";
     }
   }
@@ -192,6 +198,18 @@ export function OwnerRoute() {
     );
   }
 
+  if (screen === "squad") {
+    return (
+      <Squad
+        tournamentId={tournamentId}
+        teamId={teamId}
+        team={team}
+        teamPurse={teamPurse ?? null}
+        onBack={() => setScreen("live")}
+      />
+    );
+  }
+
   // live
   return (
     <LiveBid
@@ -203,6 +221,7 @@ export function OwnerRoute() {
       isFetching={stateFetching}
       bidErrorMsg={lastBidError}
       onBid={handleBid}
+      onViewSquad={() => setScreen("squad")}
       onSignOut={() => {
         sessionStorage.removeItem(sessionKey(teamId));
         setScreen("gate");

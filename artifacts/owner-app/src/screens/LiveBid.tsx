@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
@@ -68,6 +68,7 @@ interface Props {
   isFetching?: boolean;
   bidErrorMsg?: string;
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
+  onViewSquad: () => void;
   onSignOut: () => void;
 }
 
@@ -332,7 +333,7 @@ function BidButton({
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
-export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onSignOut }: Props) {
+export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
   const networkQ    = useNetworkQuality(state, isFetching);
@@ -432,6 +433,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             >
               {statusLabel}
             </span>
+            <button
+              onClick={onViewSquad}
+              className="p-1.5 text-[#71717a] hover:text-white transition-colors"
+              title="My squad"
+            >
+              <Users className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={onSignOut}
               className="p-1.5 text-[#71717a] hover:text-white transition-colors"
@@ -596,6 +604,9 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             >
               {statusLabel}
             </span>
+            <button onClick={onViewSquad} className="p-1 text-[#71717a] hover:text-white transition-colors" title="My squad">
+              <Users className="w-3.5 h-3.5" />
+            </button>
             <button onClick={onSignOut} className="p-1 text-[#71717a] hover:text-white transition-colors">
               <LogOut className="w-3.5 h-3.5" />
             </button>
