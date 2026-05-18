@@ -2,13 +2,20 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalLimiter } from "./lib/rate-limiters";
+import { pool } from "@workspace/db";
 
 const app: Express = express();
 
 const isProd = process.env.NODE_ENV === "production";
+
+// Replit and most production setups run behind a reverse proxy.
+// This tells Express to trust the X-Forwarded-For header so that
+// rate limiting and secure cookies work correctly.
+app.set("trust proxy", 1);
 
 function buildAllowedOrigins(): string[] {
   const origins: string[] = [
@@ -80,8 +87,14 @@ if (isProd && !sessionSecret) {
   throw new Error("SESSION_SECRET must be set in production.");
 }
 
+const PgSession = connectPgSimple(session);
+
 app.use(
   session({
+    store: new PgSession({
+      pool,
+      tableName: "sessions",
+    }),
     secret: sessionSecret ?? "bidwar-dev-secret",
     resave: false,
     saveUninitialized: false,
@@ -93,6 +106,8 @@ app.use(
     },
   }),
 );
+
+logger.info("Session store: PostgreSQL (persistent across restarts)");
 
 // Global rate limiter — catches spam on all non-auction routes.
 // Auction endpoints are automatically skipped inside globalLimiter
