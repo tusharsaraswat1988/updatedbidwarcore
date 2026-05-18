@@ -230,12 +230,12 @@ export default function AdminCommunicate() {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Tournament</Label>
             <div className="flex items-center gap-3">
-              <Select value={selectedTid} onValueChange={setSelectedTid}>
+              <Select value={selectedTid || "__all__"} onValueChange={v => setSelectedTid(v === "__all__" ? "" : v)}>
                 <SelectTrigger className="max-w-sm">
                   <SelectValue placeholder="Select tournament (optional)" />
                 </SelectTrigger>
                 <SelectContent className="dark">
-                  <SelectItem value="">All Tournaments</SelectItem>
+                  <SelectItem value="__all__">All Tournaments</SelectItem>
                   {tournaments.map(t => (
                     <SelectItem key={t.id} value={String(t.id)}>
                       {t.name}

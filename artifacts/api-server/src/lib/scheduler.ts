@@ -17,6 +17,7 @@ import {
   organizersTable,
   consentTokensTable,
   consentBlastLogTable,
+  commLogsTable,
 } from "@workspace/db";
 import { eq, and, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
@@ -144,6 +145,21 @@ async function runConsentBlast() {
       const waLink = buildWaMeLink(token);
       const smsBody = buildConsentSms(t.name, waLink);
       const result = await sendSms(target.mobile, smsBody);
+
+      // Unified communication log entry for automated scheduler-driven blasts.
+      // sentByAdminId is null because the sender is the system scheduler.
+      await db.insert(commLogsTable).values({
+        tournamentId: t.id,
+        recipientType: target.recipientType,
+        recipientId: target.id,
+        recipientMobile: target.mobile,
+        channel: "sms",
+        messageContent: smsBody,
+        deliveryStatus: result.success ? "sent" : "failed",
+        metaMessageId: result.messageSid ?? null,
+        errorMessage: result.success ? null : (result.error ?? null),
+        sentByAdminId: null,
+      });
 
       if (result.success) sent++;
       else logger.warn({ mobile: target.mobile, error: result.error }, "Consent blast SMS failed");

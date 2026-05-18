@@ -83,7 +83,7 @@ export default function Dashboard() {
                   <div className="space-y-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 opacity-70" />
-                      <span>{tournament.auctionDate ? new Date(tournament.auctionDate).toLocaleDateString() : 'Date TBD'}</span>
+                      <span>{tournament.auctionDate ? `${new Date(tournament.auctionDate).toLocaleDateString()}${(tournament as { auctionTime?: string | null }).auctionTime ? ` · ${(tournament as { auctionTime?: string | null }).auctionTime}` : ""}` : 'Date TBD'}</span>
                     </div>
                     {tournament.venue && (
                       <div className="flex items-center gap-2">

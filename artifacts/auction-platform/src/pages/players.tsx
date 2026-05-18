@@ -248,7 +248,7 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{s.name}</p>
                     <p className="text-xs text-muted-foreground capitalize mt-0.5">
-                      {s.sport}{s.auctionDate ? ` · ${s.auctionDate}` : ""}
+                      {s.sport}{s.auctionDate ? ` · ${s.auctionDate}${(s as { auctionTime?: string | null }).auctionTime ? ` ${(s as { auctionTime?: string | null }).auctionTime}` : ""}` : ""}
                     </p>
                   </div>
                   <Badge variant="outline" className="font-mono shrink-0">{s.playerCount} players</Badge>
