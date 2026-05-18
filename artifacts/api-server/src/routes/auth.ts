@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { tournamentsTable, organizersTable } from "@workspace/db";
+import { tournamentsTable, organizersTable, auctionSessionsTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
@@ -514,6 +514,20 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
 
   const [tournament] = await db.update(tournamentsTable).set(updates).where(eq(tournamentsTable.id, tid)).returning();
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  // When admin changes status away from "completed", unblock the auction session so
+  // the frontend stops treating it as finished. "idle" means the session exists but
+  // no auction is running — the operator can start fresh from the operator panel.
+  if (d.status !== undefined && d.status !== "completed") {
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "idle",
+        lastAction: `Status changed to "${d.status}" by admin — auction session reopened`,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  }
+
   res.json({ success: true, id: tournament.id, linkedOrganizerId: autoLinkedOrganizer?.id ?? null, linkedOrganizerName: autoLinkedOrganizer?.name ?? null });
 });
 
