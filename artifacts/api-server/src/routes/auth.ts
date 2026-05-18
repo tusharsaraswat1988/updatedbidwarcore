@@ -234,6 +234,8 @@ router.get("/auth/admin/tournaments", async (req, res) => {
     organizerMobile: t.organizerMobile,
     organizerEmail: t.organizerEmail,
     hasPassword: !!t.organizerPassword,
+    auctionDate: t.auctionDate ?? null,
+    auctionTime: t.auctionTime ?? null,
     createdAt: t.createdAt.toISOString(),
   })));
 });

@@ -546,7 +546,8 @@ router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => 
   }
 
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
-  const consentData = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "in_person" as const, whatsappConsentIp: ip };
+  const consentOrgId = req.session.organizerAccountId ?? null;
+  const consentData = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "organizer_declaration" as const, whatsappConsentIp: ip, whatsappConsentOrgId: consentOrgId };
   let playerCount = 0;
   let ownerCount = 0;
 
@@ -569,7 +570,7 @@ router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => 
     ownerCount = affected.length;
   }
 
-  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.session.organizerAccountId ?? (req.session.isAdmin ? "admin" : null) }, "Bulk in-person consent declared");
+  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.session.organizerAccountId ?? (req.session.isAdmin ? "admin" : null) }, "Bulk organizer-declaration consent recorded");
   res.json({ success: true, playerCount, ownerCount });
 });
 

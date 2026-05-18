@@ -142,6 +142,7 @@ function CreateTournamentModal({
     sport: "cricket",
     venue: "",
     auctionDate: "",
+    auctionTime: "",
     organizerName: "",
     organizerMobile: "",
     organizerEmail: "",
@@ -171,6 +172,7 @@ function CreateTournamentModal({
       sport: form.sport,
       venue: form.venue || undefined,
       auctionDate: form.auctionDate || undefined,
+      auctionTime: form.auctionTime || undefined,
       organizerName: form.organizerName || undefined,
       organizerMobile: form.organizerMobile || undefined,
       organizerEmail: form.organizerEmail || undefined,
@@ -262,8 +264,8 @@ function CreateTournamentModal({
                 </Label>
                 <Input
                   type="time"
-                  value={(form as any).auctionTime || ""}
-                  onChange={e => setForm(p => ({ ...p, auctionTime: e.target.value }))}
+                  value={form.auctionTime}
+                  onChange={f("auctionTime")}
                   placeholder="14:00"
                 />
               </div>
@@ -428,7 +430,7 @@ function DetailPanel({
         sport: d.tournament.sport,
         venue: d.tournament.venue || "",
         auctionDate: d.tournament.auctionDate || "",
-        auctionTime: (d.tournament as any).auctionTime || "",
+        auctionTime: d.tournament.auctionTime || "",
         organizerName: d.tournament.organizerName || "",
         organizerMobile: d.tournament.organizerMobile || "",
         organizerEmail: d.tournament.organizerEmail || "",

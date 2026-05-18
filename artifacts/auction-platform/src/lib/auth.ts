@@ -77,7 +77,9 @@ export type AdminTournamentRow = {
   licenseStatus: string; adminLocked: boolean;
   organizerId: number | null;
   organizerName: string | null; organizerMobile: string | null;
-  organizerEmail: string | null; hasPassword: boolean; createdAt: string;
+  organizerEmail: string | null; hasPassword: boolean;
+  auctionDate: string | null; auctionTime: string | null;
+  createdAt: string;
 };
 
 export async function listAdminTournaments(): Promise<AdminTournamentRow[]> {
@@ -91,7 +93,7 @@ export async function listAdminTournaments(): Promise<AdminTournamentRow[]> {
 // ─── Admin tournament CRUD ────────────────────────────────────────────────────
 
 export async function createAdminTournament(data: {
-  name: string; sport: string; venue?: string; auctionDate?: string;
+  name: string; sport: string; venue?: string; auctionDate?: string; auctionTime?: string;
   organizerName?: string; organizerMobile?: string; organizerEmail?: string;
   organizerPassword?: string; basePurse?: number; minBid?: number;
   timerSeconds?: number; bidTimerSeconds?: number;
@@ -208,7 +210,7 @@ export async function unlockTournament(tournamentId: number): Promise<{ success:
 export type AdminTournamentDetail = {
   tournament: {
     id: number; name: string; sport: string; venue: string | null;
-    auctionDate: string | null; organizerId: number | null;
+    auctionDate: string | null; auctionTime: string | null; organizerId: number | null;
     organizerName: string | null;
     organizerMobile: string | null; organizerEmail: string | null;
     status: string; licenseStatus: string; adminLocked: boolean;
