@@ -6,7 +6,7 @@ export const organizersTable = pgTable("organizers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").unique(),
-  mobile: text("mobile").notNull().default("").unique(),
+  mobile: text("mobile").unique(),
   passwordHash: text("password_hash"),
   googleId: text("google_id").unique(),
   googleEmail: text("google_email"),
