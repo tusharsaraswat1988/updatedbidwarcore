@@ -1,0 +1,145 @@
+I need SMART rate limiting that protects against brute force and spam 
+WITHOUT breaking live auction operations.
+
+CRITICAL REQUIREMENT:
+================
+Auction operations MUST NOT have rate limiting because:
+- Bidding happens at 2-3 requests per second
+- Polling happens every 1 second (4+ screens)
+- Admin edits during auction are time-sensitive
+- If rate limited, entire auction breaks
+
+Rate Limiting Strategy:
+=======================
+
+TIER 1 - GLOBAL (Non-auction routes)
+├─ 1000 requests/15 minutes per IP
+└─ Skip: All auction-related endpoints
+
+TIER 2 - AUTH ENDPOINTS (Brute force prevention) - RATE LIMITED
+├─ /auth/admin/login - 5 attempts/15min
+├─ /auth/organizer/:tournamentId/login - 5 attempts/15min
+├─ /auth/organizer-account/login - 5 attempts/15min
+├─ /auth/organizer-account/otp/send - 3 requests/5min
+├─ /auth/organizer-account/otp/verify - 10 attempts/15min
+└─ Response: 429 with "Too many login attempts"
+
+TIER 3 - HEAVY OPERATIONS (DB protection) - RATE LIMITED
+├─ /tournaments/*/export - 5 requests/15min
+├─ /tournaments/*/reports - 10 requests/15min
+├─ /tournaments/*/search - 10 requests/15min
+└─ Response: 429 with "Too many requests, try again later"
+
+TIER 4 - AUCTION OPERATIONS (No rate limit!) - UNLIMITED ✅
+├─ POST /tournaments/:id/auction/bid
+├─ POST /tournaments/:id/auction/start-player
+├─ POST /tournaments/:id/auction/next
+├─ POST /tournaments/:id/auction/defer
+├─ POST /tournaments/:id/auction/undo
+├─ POST /tournaments/:id/auction/sold
+├─ POST /tournaments/:id/auction/unsold
+├─ GET /tournaments/:id/auction/state
+├─ GET /tournaments/:id/auction/sse (Server-sent events)
+├─ GET /tournaments/:id/display
+├─ GET /tournaments/:id/owner/:teamId
+├─ PATCH /tournaments/:id/players/:playerId (admin edits)
+├─ PATCH /tournaments/:id/teams/:teamId (purse updates)
+└─ POST /tournaments/:id/cheer (30/min is ok, not critical)
+
+Implementation Details:
+======================
+
+1. Create artifacts/api-server/src/lib/rate-limiters.ts
+   - Export: globalLimiter, authLimiter, exportLimiter, cheerLimiter
+   - Add function: isAuctionEndpoint(req) - checks if route is auction-related
+   - globalLimiter should SKIP auction endpoints
+
+2. Update artifacts/api-server/src/app.ts
+   - Import globalLimiter
+   - Add: app.use(globalLimiter) after cors/session
+   - This catches random spam but skips auction operations
+
+3. Update artifacts/api-server/src/routes/auth.ts
+   - Import authLimiter
+   - Apply to all login endpoints ONLY
+
+4. Update artifacts/api-server/src/routes/auction.ts
+   - DO NOT apply any rate limiter
+   - Add comment: // Auction operations are intentionally not rate-limited
+   // to support rapid bidding (2-3 requests/sec per player)
+
+5. Helper function in rate-limiters.ts:
+   export function isAuctionEndpoint(req: express.Request): boolean {
+     const url = req.path;
+     return url.includes('/auction/') ||
+            url.includes('/display') ||
+            url.includes('/owner/') ||
+            (req.method === 'PATCH' && url.includes('/players/')) ||
+            (req.method === 'PATCH' && url.includes('/teams/'));
+   }
+
+6. globalLimiter configuration:
+   app.use(globalLimiter, (req, res, next) => {
+     if (isAuctionEndpoint(req)) {
+       return next(); // Skip rate limit for auction
+     }
+     // Otherwise apply rate limit
+   });
+
+7. Environment variables (.env.example):
+   RATE_LIMIT_DISABLED=false
+   RATE_LIMIT_AUTH_MAX=5
+   RATE_LIMIT_OTP_SEND_MAX=3
+   RATE_LIMIT_CHEER_MAX=30
+   RATE_LIMIT_EXPORT_MAX=5
+
+8. Logging:
+   - Log when rate limit is hit
+   - Log which endpoint tried to exceed
+   - Do NOT log auction operations (too noisy, 100+ logs/min)
+
+Testing:
+========
+
+1. Test auction operations work without limit:
+   # Simulate rapid bidding (10 bids in 2 seconds)
+   for i in {1..10}; do
+     curl -X POST http://localhost:8080/api/tournaments/1/auction/bid \
+       -H "Content-Type: application/json" \
+       -d '{"teamId":1,"amount":100000}' &
+   done
+   wait
+   # All 10 should succeed (no 429 errors)
+
+2. Test OTP limit works:
+   for i in {1..4}; do
+     curl -X POST http://localhost:8080/api/auth/organizer-account/otp/send \
+       -H "Content-Type: application/json" \
+       -d '{"mobile":"9999999999"}' \
+       -w "Attempt $i: %{http_code}\n"
+   done
+   # First 3 succeed, 4th gets 429
+
+3. Test export limit works:
+   for i in {1..6}; do
+     curl -X GET http://localhost:8080/api/tournaments/1/export \
+       -H "Authorization: Bearer token" \
+       -w "Export $i: %{http_code}\n"
+   done
+   # First 5 succeed, 6th gets 429
+
+Please provide:
+1. New file: artifacts/api-server/src/lib/rate-limiters.ts with all limiters + isAuctionEndpoint()
+2. Updated app.ts with smart global limiter that skips auction endpoints
+3. Updated routes/auth.ts with auth limiter on login endpoints
+4. Updated routes/auction.ts (confirm no rate limiter applied)
+5. Updated .env.example
+6. Code comments explaining why auction operations are unlimited
+7. Curl test commands for all 3 scenarios
+8. Verify typecheck passes
+
+Keep in mind:
+- Auction operations: 2-3 requests per second, must not be throttled
+- SSE connections: persistent, don't count towards rate limit
+- Polling: every 1 second on 4+ screens = very high frequency
+- Admin edits: time-critical during auction, no delays

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
 
 const cloudinaryLogoUrl = z
@@ -227,8 +228,8 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
 });
 
 // GET export full tournament snapshot for local/offline mode
-router.get("/tournaments/:tournamentId/export", async (req, res) => {
-  const id = parseInt(req.params.tournamentId);
+router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) => {
+  const id = parseInt(String(req.params.tournamentId));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));

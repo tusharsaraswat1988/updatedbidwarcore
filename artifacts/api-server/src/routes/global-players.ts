@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { globalPlayersTable, playersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { heavyLimiter } from "../lib/rate-limiters";
 
 const cloudinaryImageUrl = z
   .string()
@@ -18,7 +19,7 @@ const router = Router();
 // Used for autocomplete in the Add Player form.
 // Groups by mobile number — if same mobile appears in N tournaments, returns
 // the most recent record with appearance_count = N.
-router.get("/global-players/search", async (req, res) => {
+router.get("/global-players/search", heavyLimiter, async (req, res) => {
   const q = String(req.query.q || "").trim();
   const limit = Math.min(parseInt(String(req.query.limit || "10")), 50);
 

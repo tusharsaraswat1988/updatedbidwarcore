@@ -5,6 +5,7 @@ import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
+import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limiters";
 
 const scryptAsync = promisify(scrypt);
 
@@ -72,7 +73,7 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
 
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 
-router.post("/auth/admin/login", (req, res) => {
+router.post("/auth/admin/login", authLimiter, (req, res) => {
   const masterPw = process.env.ADMIN_PASSWORD;
   const dataPw = process.env.ADMIN_DATA_PASSWORD;
 
@@ -119,8 +120,8 @@ router.get("/auth/admin/me", (req, res) => {
 
 // ─── Organizer (per tournament) ───────────────────────────────────────────────
 
-router.post("/auth/organizer/:tournamentId/login", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
+router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res) => {
+  const tid = parseInt(String(req.params.tournamentId));
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -610,7 +611,7 @@ router.post("/auth/organizer-account/signup", async (req, res) => {
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
-router.post("/auth/organizer-account/login", async (req, res) => {
+router.post("/auth/organizer-account/login", authLimiter, async (req, res) => {
   const body = z.object({
     identifier: z.string().min(1),
     password: z.string().min(1),
@@ -723,7 +724,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
 
 // ─── OTP: Send code via Twilio Verify ────────────────────────────────────────
 
-router.post("/auth/organizer-account/otp/send", async (req, res) => {
+router.post("/auth/organizer-account/otp/send", otpSendLimiter, async (req, res) => {
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
@@ -772,7 +773,7 @@ router.post("/auth/organizer-account/otp/send", async (req, res) => {
 
 // ─── OTP: Verify code and reset password ─────────────────────────────────────
 
-router.post("/auth/organizer-account/otp/verify", async (req, res) => {
+router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, res) => {
   const body = z.object({
     mobile: z.string().min(7),
     code: z.string().length(6),

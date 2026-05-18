@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
+import { heavyLimiter, exportLimiter } from "../lib/rate-limiters";
 import {
   tournamentsTable, teamsTable, categoriesTable, playersTable,
 } from "@workspace/db";
@@ -629,11 +630,11 @@ function renderCsv(report: ReportData, res: Response): void {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/reports/types", requireMasterAdmin, (_req, res) => {
+router.get("/auth/admin/reports/types", requireMasterAdmin, heavyLimiter, (_req, res) => {
   res.json({ reports: REPORT_TYPES });
 });
 
-router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, async (req, res) => {
+router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, heavyLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
   const ctx = await loadContext(tournamentId);
@@ -652,7 +653,7 @@ router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, asyn
   });
 });
 
-router.post("/auth/admin/reports/:tournamentId/preview", requireMasterAdmin, async (req, res) => {
+router.post("/auth/admin/reports/:tournamentId/preview", requireMasterAdmin, heavyLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
   const parsed = previewBodySchema.safeParse(req.body);
@@ -663,7 +664,7 @@ router.post("/auth/admin/reports/:tournamentId/preview", requireMasterAdmin, asy
   res.json(data);
 });
 
-router.post("/auth/admin/reports/:tournamentId/export", requireMasterAdmin, async (req, res) => {
+router.post("/auth/admin/reports/:tournamentId/export", requireMasterAdmin, exportLimiter, async (req, res) => {
   const tournamentId = parseInt(String(req.params.tournamentId));
   if (!Number.isFinite(tournamentId)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
   const parsed = exportBodySchema.safeParse(req.body);

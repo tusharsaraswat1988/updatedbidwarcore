@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
+import { cheerLimiter } from "../lib/rate-limiters";
+// NOTE: Auction operations are intentionally not rate-limited to support
+// rapid bidding (2-3 req/sec per player) and polling (every 1s on 4+ screens).
 import {
   auctionSessionsTable,
   playersTable,
@@ -1474,8 +1477,10 @@ setInterval(() => {
   }
 }, 60_000);
 
-router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
+// Cheer is the only auction-adjacent route with a rate limit — 30/min is
+// generous for audience interaction but prevents simple spam loops.
+router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) => {
+  const tid = parseInt(String(req.params.tournamentId));
   if (isNaN(tid)) {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;

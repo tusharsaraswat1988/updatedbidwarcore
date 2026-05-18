@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { globalLimiter } from "./lib/rate-limiters";
 
 const app: Express = express();
 
@@ -92,6 +93,11 @@ app.use(
     },
   }),
 );
+
+// Global rate limiter — catches spam on all non-auction routes.
+// Auction endpoints are automatically skipped inside globalLimiter
+// so live bidding (2-3 req/sec) and polling (every 1s) are never throttled.
+app.use(globalLimiter);
 
 app.use("/api", router);
 

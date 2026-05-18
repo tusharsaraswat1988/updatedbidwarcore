@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import { teamsTable, tournamentsTable } from "@workspace/db";
 import { db } from "@workspace/db";
+import { heavyLimiter } from "../lib/rate-limiters";
 
 const router = Router();
 
@@ -586,7 +587,7 @@ router.get("/intelligence/events", async (req, res) => {
 
 // ─── Player Search ────────────────────────────────────────────────────────────
 
-router.get("/intelligence/players/search", async (req, res) => {
+router.get("/intelligence/players/search", heavyLimiter, async (req, res) => {
   const q = `%${(req.query.q as string) ?? ""}%`;
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
 

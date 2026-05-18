@@ -1,0 +1,151 @@
+import rateLimit from "express-rate-limit";
+import type { Request, Response } from "express";
+import { logger } from "./logger";
+
+const disabled = process.env.RATE_LIMIT_DISABLED === "true";
+
+/**
+ * Returns true for auction-related endpoints that must NEVER be rate-limited.
+ *
+ * Auction operations run at 2-3 requests/second per bidder, with polling on
+ * 4+ screens every 1 second. Any rate limit here would freeze a live auction.
+ * Admin PATCH edits on players/teams are also time-critical during bidding.
+ */
+export function isAuctionEndpoint(req: Request): boolean {
+  const p = req.path;
+  return (
+    p.includes("/auction") ||
+    p.includes("/owner/") ||
+    p.includes("/display") ||
+    p.includes("/cheer") ||
+    (req.method === "PATCH" && p.includes("/players/")) ||
+    (req.method === "PATCH" && p.includes("/teams/"))
+  );
+}
+
+function onLimitReached(req: Request, _res: Response, limitName: string) {
+  logger.warn(
+    { method: req.method, path: req.path, ip: req.ip },
+    `rate-limit: ${limitName} exceeded`,
+  );
+}
+
+/**
+ * TIER 1 — Global catch-all (1000 req / 15 min per IP).
+ * Automatically skips all auction-related endpoints so live bidding and
+ * polling are never throttled.
+ */
+export const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_GLOBAL_MAX ?? 1000),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: (req) => disabled || isAuctionEndpoint(req),
+  message: { error: "Too many requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "global");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * TIER 2 — Auth / login endpoints (5 attempts / 15 min per IP).
+ * Applied directly to admin login, organizer login, and account login routes.
+ * Prevents brute-force credential stuffing.
+ */
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 5),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many login attempts, please try again in 15 minutes." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "auth");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * OTP send limiter (3 requests / 5 min per IP).
+ * Tighter than auth because each send triggers a paid Twilio SMS.
+ */
+export const otpSendLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_OTP_SEND_MAX ?? 3),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many OTP requests, please wait 5 minutes." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "otp-send");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * OTP verify limiter (10 attempts / 15 min per IP).
+ * Prevents brute-forcing 6-digit OTP codes.
+ */
+export const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_OTP_VERIFY_MAX ?? 10),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many verification attempts, please try again in 15 minutes." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "otp-verify");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * TIER 3 — Heavy DB operations: export (5 req / 15 min per IP).
+ * Export builds a full tournament snapshot — expensive query.
+ */
+export const exportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_EXPORT_MAX ?? 5),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many export requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "export");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * TIER 3 — Heavy DB operations: reports / search (10 req / 15 min per IP).
+ */
+export const heavyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "heavy");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * Cheer limiter (30 req / min per IP).
+ * Audience cheers are fun but not critical — light cap to prevent spam.
+ */
+export const cheerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_CHEER_MAX ?? 30),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Slow down on the cheering!" },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "cheer");
+    res.status(options.statusCode).json(options.message);
+  },
+});
