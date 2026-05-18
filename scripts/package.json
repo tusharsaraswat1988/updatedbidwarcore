@@ -6,10 +6,13 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed:demo": "tsx src/seed-demo.ts",
+    "migrate": "tsx src/migrate.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/db": "workspace:*"
+    "@types/pg": "^8.18.0",
+    "@workspace/db": "workspace:*",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
