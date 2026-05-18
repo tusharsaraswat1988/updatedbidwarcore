@@ -56,15 +56,30 @@ export function createTournamentsRouter(db: LocalDb) {
   router.patch("/tournaments/:tournamentId", async (req, res) => {
     const id = parseInt(req.params.tournamentId);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const updates: Record<string, unknown> = {};
-    const allowed = ["name","sport","venue","auctionDate","organizerName","organizerMobile",
-      "logoUrl","sponsorLogos","basePurse","minBid","bidIncrement","bidTiers","timerSeconds",
-      "bidTimerSeconds","playerSelectionMode","status"];
-    for (const k of allowed) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
-    }
-    updates.updatedAt = new Date().toISOString();
-    const [row] = await db.update(tournamentsTable).set(updates).where(eq(tournamentsTable.id, id)).returning();
+    const schema = z.object({
+      name: z.string().min(1).max(200).optional(),
+      sport: z.string().max(60).optional(),
+      venue: z.string().max(200).nullable().optional(),
+      auctionDate: z.string().max(30).nullable().optional(),
+      organizerName: z.string().max(120).nullable().optional(),
+      organizerMobile: z.string().max(20).nullable().optional(),
+      logoUrl: z.string().url().nullable().optional(),
+      sponsorLogos: z.string().nullable().optional(),
+      basePurse: z.number().int().min(0).optional(),
+      minBid: z.number().int().min(0).optional(),
+      bidIncrement: z.number().int().min(0).optional(),
+      bidTiers: z.string().nullable().optional(),
+      timerSeconds: z.number().int().min(5).max(300).optional(),
+      bidTimerSeconds: z.number().int().min(5).max(300).optional(),
+      playerSelectionMode: z.enum(["manual","random","queue"]).optional(),
+      status: z.enum(["setup","active","paused","completed"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const d = parsed.data;
+    if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    const [row] = await db.update(tournamentsTable).set({ ...d, updatedAt: new Date().toISOString() })
+      .where(eq(tournamentsTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(tournamentToJson(row));
   });

@@ -45,12 +45,19 @@ export function createCategoriesRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     const catId = parseInt(req.params.categoryId);
     if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const updates: Record<string, unknown> = {};
-    for (const k of ["name","minBid","bidIncrement","maxPlayers","colorCode","sortOrder"]) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
-    }
-    updates.updatedAt = new Date().toISOString();
-    const [row] = await db.update(categoriesTable).set(updates)
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      minBid: z.number().int().min(0).optional(),
+      bidIncrement: z.number().int().min(0).nullable().optional(),
+      maxPlayers: z.number().int().min(0).nullable().optional(),
+      colorCode: z.string().max(20).optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const d = parsed.data;
+    if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    const [row] = await db.update(categoriesTable).set({ ...d, updatedAt: new Date().toISOString() })
       .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(catToJson(row));

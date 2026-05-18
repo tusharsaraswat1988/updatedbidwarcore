@@ -56,14 +56,23 @@ export function createTeamsRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     const teamId = parseInt(req.params.teamId);
     if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const updates: Record<string, unknown> = {};
-    const allowed = ["name","shortCode","ownerName","ownerMobile","color","logoUrl","purse",
-      "purseUsed","isBiddingEnabled","accessCode"];
-    for (const k of allowed) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
-    }
-    updates.updatedAt = new Date().toISOString();
-    const [row] = await db.update(teamsTable).set(updates)
+    const schema = z.object({
+      name: z.string().min(1).max(120).optional(),
+      shortCode: z.string().min(1).max(10).optional(),
+      ownerName: z.string().min(1).max(120).optional(),
+      ownerMobile: z.string().max(20).nullable().optional(),
+      color: z.string().max(20).optional(),
+      logoUrl: z.string().url().nullable().optional(),
+      purse: z.number().int().min(0).optional(),
+      purseUsed: z.number().int().min(0).optional(),
+      isBiddingEnabled: z.boolean().optional(),
+      accessCode: z.string().max(20).nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const d = parsed.data;
+    if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    const [row] = await db.update(teamsTable).set({ ...d, updatedAt: new Date().toISOString() })
       .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(teamToJson(row));

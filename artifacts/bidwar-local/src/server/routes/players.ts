@@ -63,15 +63,31 @@ export function createPlayersRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     const pid = parseInt(req.params.playerId);
     if (isNaN(tid) || isNaN(pid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const updates: Record<string, unknown> = {};
-    const allowed = ["name","categoryId","teamId","role","city","basePrice","soldPrice",
-      "retainedPrice","status","jerseyNumber","photoUrl","achievements","mobileNumber",
-      "battingStyle","bowlingStyle","specialization","cricheroUrl","availabilityDates"];
-    for (const k of allowed) {
-      if (req.body[k] !== undefined) updates[k] = req.body[k];
-    }
-    updates.updatedAt = new Date().toISOString();
-    const [row] = await db.update(playersTable).set(updates)
+    const schema = z.object({
+      name: z.string().min(1).max(120).optional(),
+      categoryId: z.number().int().nullable().optional(),
+      teamId: z.number().int().nullable().optional(),
+      role: z.string().max(60).nullable().optional(),
+      city: z.string().max(80).nullable().optional(),
+      basePrice: z.number().int().min(0).optional(),
+      soldPrice: z.number().int().min(0).nullable().optional(),
+      retainedPrice: z.number().int().min(0).nullable().optional(),
+      status: z.enum(["available","sold","unsold","retained"]).optional(),
+      jerseyNumber: z.string().max(10).nullable().optional(),
+      photoUrl: z.string().url().nullable().optional(),
+      achievements: z.string().max(500).nullable().optional(),
+      mobileNumber: z.string().max(20).nullable().optional(),
+      battingStyle: z.string().max(60).nullable().optional(),
+      bowlingStyle: z.string().max(60).nullable().optional(),
+      specialization: z.string().max(60).nullable().optional(),
+      cricheroUrl: z.string().url().nullable().optional(),
+      availabilityDates: z.string().max(200).nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const d = parsed.data;
+    if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    const [row] = await db.update(playersTable).set({ ...d, updatedAt: new Date().toISOString() })
       .where(and(eq(playersTable.id, pid), eq(playersTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(playerToJson(row));

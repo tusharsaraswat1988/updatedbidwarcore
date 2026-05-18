@@ -198,6 +198,23 @@
     let serverPort = 3741;
     let tournamentId = 1;
 
+    function setStatusEl(id, dotClass, label) {
+      const el = document.getElementById(id);
+      el.textContent = "";
+      const dot = document.createElement("span");
+      dot.className = "dot " + dotClass;
+      el.appendChild(dot);
+      el.appendChild(document.createTextNode(label));
+    }
+
+    function showMsg(el, text, type) {
+      el.textContent = "";
+      const div = document.createElement("div");
+      div.className = "message message-" + type;
+      div.textContent = text;
+      el.appendChild(div);
+    }
+
     async function init() {
       try {
         localIP = await window.bidwar.getLocalIP();
@@ -216,10 +233,10 @@
 
     async function checkInternet() {
       try {
-        const res = await fetch("https://clients1.google.com/generate_204", { mode: "no-cors", signal: AbortSignal.timeout(3000) });
-        document.getElementById("internet-status").innerHTML = '<span class="dot dot-green"></span>Connected';
+        await fetch("https://clients1.google.com/generate_204", { mode: "no-cors", signal: AbortSignal.timeout(3000) });
+        setStatusEl("internet-status", "dot-green", "Connected");
       } catch {
-        document.getElementById("internet-status").innerHTML = '<span class="dot dot-red"></span>Offline';
+        setStatusEl("internet-status", "dot-red", "Offline");
       }
     }
 
@@ -257,7 +274,7 @@
       const file = event.target.files[0];
       if (!file) return;
       const msgEl = document.getElementById("import-msg");
-      msgEl.innerHTML = "";
+      msgEl.textContent = "";
       try {
         const text = await file.text();
         const json = JSON.parse(text);
@@ -269,12 +286,15 @@
         const data = await res.json();
         if (res.ok) {
           tournamentId = data.tournamentId;
-          msgEl.innerHTML = `<div class="message message-ok">Imported: ${json.tournament?.name} (${json.players?.length} players, ${json.teams?.length} teams)</div>`;
+          const name = String(json.tournament?.name || "tournament");
+          const playerCount = Number(json.players?.length || 0);
+          const teamCount = Number(json.teams?.length || 0);
+          showMsg(msgEl, `Imported: ${name} (${playerCount} players, ${teamCount} teams)`, "ok");
         } else {
-          msgEl.innerHTML = `<div class="message message-err">Import failed: ${data.error || "Unknown error"}</div>`;
+          showMsg(msgEl, `Import failed: ${String(data.error || "Unknown error")}`, "err");
         }
       } catch (e) {
-        msgEl.innerHTML = `<div class="message message-err">Error reading file: ${e.message}</div>`;
+        showMsg(msgEl, `Error reading file: ${String(e.message || e)}`, "err");
       }
       event.target.value = "";
     }
