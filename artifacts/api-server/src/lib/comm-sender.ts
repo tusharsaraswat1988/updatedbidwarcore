@@ -1,8 +1,13 @@
 /**
- * Communication sender — WhatsApp (via Twilio) and SMS.
+ * Communication sender — WhatsApp (via Twilio) and SMS (via BulkSMS Gateway).
  *
- * Real sending requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and
- * TWILIO_WHATSAPP_FROM (e.g. "whatsapp:+14155238886") to be configured.
+ * SMS requires the following env secrets:
+ *   BULKSMS_PASSWORD  — account password for bulksmsgateway.in (user is hardcoded: bidwarsms)
+ *   BULKSMS_SENDER    — approved sender ID (e.g. INVITE, BIDWAR)
+ *   BULKSMS_TEMPLATE_ID — DLT-registered template ID (required by TRAI for transactional SMS)
+ *
+ * WhatsApp requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and
+ * TWILIO_WHATSAPP_FROM (e.g. "whatsapp:+14155238886").
  *
  * When credentials are absent the functions resolve with a stub result so
  * the rest of the system (consent flow, scheduler, API routes) works in
@@ -21,6 +26,80 @@ export type SendResult = {
   stub?: boolean;
 };
 
+// ─── BulkSMS Gateway ──────────────────────────────────────────────────────────
+
+const BULKSMS_USER = "bidwarsms";
+const BULKSMS_API  = "http://api.bulksmsgateway.in/sendmessage.php";
+
+/**
+ * Apply the character substitutions required by BulkSMS Gateway for message bodies.
+ * Per their API spec: & → Jg==   + → Kw==   # → Iw==
+ */
+function encodeBulkSmsMessage(msg: string): string {
+  return msg.replace(/&/g, "Jg==").replace(/\+/g, "Kw==").replace(/#/g, "Iw==");
+}
+
+/** Normalise a mobile number for BulkSMS (digits only, 91XXXXXXXXXX for India). */
+function toBulkSmsMobile(mobile: string): string {
+  const digits = mobile.replace(/\D/g, "");
+  if (digits.startsWith("91") && digits.length === 12) return digits;
+  if (digits.startsWith("0") && digits.length === 11) return `91${digits.slice(1)}`;
+  if (digits.length === 10) return `91${digits}`;
+  return digits;
+}
+
+/** Send an SMS via BulkSMS Gateway (bulksmsgateway.in). */
+async function sendBulkSms(to: string, body: string): Promise<SendResult> {
+  const password   = process.env.BULKSMS_PASSWORD;
+  const sender     = process.env.BULKSMS_SENDER;
+  const templateId = process.env.BULKSMS_TEMPLATE_ID ?? "";
+
+  if (!password || !sender) {
+    logger.warn({ to }, "BulkSMS not configured (BULKSMS_PASSWORD / BULKSMS_SENDER missing) — stub mode");
+    return { success: true, stub: true, messageSid: `stub_sms_${Date.now()}` };
+  }
+
+  const mobile = toBulkSmsMobile(to);
+  const params = new URLSearchParams({
+    user:        BULKSMS_USER,
+    password,
+    mobile,
+    message:     encodeBulkSmsMessage(body),
+    sender,
+    type:        "3",
+    template_id: templateId,
+  });
+
+  const url = `${BULKSMS_API}?${params.toString()}`;
+
+  try {
+    const res  = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const text = (await res.text()).trim();
+
+    // BulkSMS Gateway returns a positive numeric message ID on success,
+    // or a descriptive error string on failure.
+    const isSuccess = /^\d+$/.test(text) && parseInt(text, 10) > 0;
+
+    if (isSuccess) {
+      logger.info({ mobile, msgId: text }, "BulkSMS sent");
+      return { success: true, messageSid: text };
+    }
+
+    logger.error({ mobile, response: text }, "BulkSMS send failed");
+    return { success: false, error: text };
+  } catch (err) {
+    logger.error({ mobile, err }, "BulkSMS send exception");
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/** Send an SMS via BulkSMS Gateway. All callers unchanged — signature is identical. */
+export async function sendSms(to: string, body: string): Promise<SendResult> {
+  return sendBulkSms(to, body);
+}
+
+// ─── Twilio helpers (WhatsApp only) ───────────────────────────────────────────
+
 function toE164(mobile: string): string {
   const digits = mobile.replace(/\D/g, "");
   if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
@@ -34,40 +113,6 @@ function twilioBasicAuth(): string | null {
   const token = process.env.TWILIO_AUTH_TOKEN;
   if (!sid || !token) return null;
   return `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`;
-}
-
-/** Send an SMS via Twilio Programmable Messaging. */
-export async function sendSms(
-  to: string,
-  body: string,
-): Promise<SendResult> {
-  const auth = twilioBasicAuth();
-  const from = process.env.TWILIO_SMS_FROM;
-  if (!auth || !from) {
-    logger.warn({ to }, "SMS not configured — stub mode");
-    return { success: true, stub: true, messageSid: `stub_sms_${Date.now()}` };
-  }
-  const sid = process.env.TWILIO_ACCOUNT_SID!;
-  const e164 = toE164(to);
-  try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: auth,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: e164, From: from, Body: body }).toString(),
-    });
-    const data = await res.json() as { sid?: string; error_message?: string; message?: string };
-    if (!res.ok) {
-      logger.error({ to, status: res.status, err: data.error_message }, "SMS send failed");
-      return { success: false, error: data.error_message ?? "SMS failed" };
-    }
-    return { success: true, messageSid: data.sid };
-  } catch (err) {
-    logger.error({ to, err }, "SMS send exception");
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
-  }
 }
 
 /** Send a WhatsApp message via Twilio.
