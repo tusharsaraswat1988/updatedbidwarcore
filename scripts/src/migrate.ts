@@ -18,6 +18,18 @@ const migrations: Array<{ label: string; sql: string }> = [
     label: "organizers_google_id_unique",
     sql: `ALTER TABLE organizers ADD CONSTRAINT organizers_google_id_unique UNIQUE (google_id)`,
   },
+  {
+    label: "create_sessions_table",
+    sql: `
+      CREATE TABLE IF NOT EXISTS "sessions" (
+        "sid"    varchar      NOT NULL COLLATE "default",
+        "sess"   json         NOT NULL,
+        "expire" timestamp(6) NOT NULL,
+        CONSTRAINT "sessions_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+      ) WITH (OIDS=FALSE);
+      CREATE INDEX IF NOT EXISTS "IDX_sessions_expire" ON "sessions" ("expire");
+    `,
+  },
 ];
 
 for (const m of migrations) {
