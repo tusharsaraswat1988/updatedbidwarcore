@@ -84,7 +84,7 @@ function ChannelBadge({ channel }: { channel: string }) {
 
 function LicenseLock({ status, locked }: { status: string; locked?: boolean }) {
   if (locked) return <Badge className="bg-red-500/15 text-red-400 border-red-500/30 gap-1 text-[10px]"><Lock className="w-3 h-3" />Locked</Badge>;
-  if (status === "active") return <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]"><BadgeCheck className="w-3 h-3" />Active</Badge>;
+  if (status === "live") return <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]"><BadgeCheck className="w-3 h-3" />Live</Badge>;
   return <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 gap-1 text-[10px]"><AlertTriangle className="w-3 h-3" />Trial</Badge>;
 }
 
@@ -99,7 +99,8 @@ export default function AdminCommunicate() {
   const [logs, setLogs] = useState<CommLog[]>([]);
   const [blasts, setBlasts] = useState<BlastEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const [tab, setTab] = useState("send");
+  const [location] = useLocation();
+  const [tab, setTab] = useState(() => location.endsWith("/logs") ? "logs" : "send");
 
   // Send form
   const [recipientGroup, setRecipientGroup] = useState("all_players");
@@ -116,7 +117,7 @@ export default function AdminCommunicate() {
   const [logSearch, setLogSearch] = useState("");
 
   const selectedTournament = tournaments.find(t => String(t.id) === selectedTid);
-  const isLicensedForWa = selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked;
+  const isLicensedForWa = selectedTournament?.licenseStatus === "live" && !selectedTournament?.adminLocked;
 
   const loadTournaments = useCallback(async () => {
     setLoadingTournaments(true);
@@ -468,7 +469,7 @@ export default function AdminCommunicate() {
             <TabsContent value="blasts" className="mt-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">Automated 24-hour pre-tournament consent blasts. Runs hourly for active licensed tournaments with auction tomorrow.</p>
+                  <p className="text-sm text-muted-foreground">Automated 24-hour pre-tournament consent blasts. Runs hourly for live-licensed tournaments with auction tomorrow.</p>
                   <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => void loadBlasts()}>
                     <RefreshCw className="w-3.5 h-3.5" /> Refresh
                   </Button>

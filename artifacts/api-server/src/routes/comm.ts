@@ -21,7 +21,7 @@ import {
   commLogsTable,
   consentBlastLogTable,
 } from "@workspace/db";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, or } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms } from "../lib/comm-sender";
@@ -219,6 +219,16 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
+  // Template validation for WhatsApp: if TWILIO_WA_TEMPLATES is configured,
+  // require that templateName matches one of the approved template IDs.
+  if ((d.channel === "whatsapp" || d.channel === "both") && d.templateName) {
+    const approvedTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
+    if (approvedTemplates.length > 0 && !approvedTemplates.includes(d.templateName)) {
+      res.status(400).json({ error: `Template "${d.templateName}" is not in the approved template list. Approved: ${approvedTemplates.join(", ")}` });
+      return;
+    }
+  }
+
   // License gate for WhatsApp — "live" is the licensed status in this system
   if ((d.channel === "whatsapp" || d.channel === "both") && d.tournamentId) {
     const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
@@ -255,7 +265,16 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       }
     } else if (d.recipientGroup === "organizer") {
       const [t] = await db.select({ organizerMobile: tournamentsTable.organizerMobile, organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-      if (t?.organizerMobile) recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: false });
+      if (t?.organizerMobile) {
+        // Look up organizer's actual WhatsApp consent
+        let orgConsent = false;
+        if (t.organizerId) {
+          const [org] = await db.select({ whatsappConsent: organizersTable.whatsappConsent })
+            .from(organizersTable).where(eq(organizersTable.id, t.organizerId));
+          orgConsent = org?.whatsappConsent ?? false;
+        }
+        recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: orgConsent });
+      }
     }
   }
 

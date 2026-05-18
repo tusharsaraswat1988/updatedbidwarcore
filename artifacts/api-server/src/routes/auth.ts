@@ -219,6 +219,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     sport: z.string().default("cricket"),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    auctionTime: z.string().optional(),
     organizerId: z.number().int().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
@@ -237,6 +238,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     sport: d.sport,
     venue: d.venue,
     auctionDate: d.auctionDate,
+    auctionTime: d.auctionTime ?? null,
     organizerId: d.organizerId ?? null,
     organizerName: d.organizerName,
     organizerMobile: d.organizerMobile,
@@ -363,6 +365,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       sport: tournament.sport,
       venue: tournament.venue,
       auctionDate: tournament.auctionDate,
+      auctionTime: tournament.auctionTime ?? null,
       organizerId: tournament.organizerId,
       organizerName: tournament.organizerName,
       organizerMobile: tournament.organizerMobile,
@@ -433,6 +436,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     sport: z.string().optional(),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    auctionTime: z.string().nullable().optional(),
     organizerId: z.number().int().nullable().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
@@ -459,6 +463,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.organizerPassword !== undefined) updates.organizerPassword = d.organizerPassword;
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
+  if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
   if (d.status !== undefined) updates.status = d.status;
   if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
   if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
@@ -668,6 +673,7 @@ router.get("/auth/organizer-account/me", async (req, res) => {
       licenseStatus: t.licenseStatus,
       venue: t.venue,
       auctionDate: t.auctionDate,
+      auctionTime: t.auctionTime ?? null,
       createdAt: t.createdAt.toISOString(),
     })),
   });
@@ -693,6 +699,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     sport: z.string().default("cricket"),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    auctionTime: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
   });
@@ -706,6 +713,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     sport: d.sport,
     venue: d.venue ?? null,
     auctionDate: d.auctionDate ?? null,
+    auctionTime: d.auctionTime ?? null,
     organizerName: organizer.name,
     organizerMobile: organizer.mobile,
     organizerEmail: organizer.email ?? null,

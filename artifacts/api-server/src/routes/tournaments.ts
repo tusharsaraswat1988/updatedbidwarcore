@@ -22,6 +22,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   sport: t.sport,
   venue: t.venue,
   auctionDate: t.auctionDate,
+  auctionTime: t.auctionTime ?? null,
   organizerName: t.organizerName,
   organizerMobile: t.organizerMobile,
   organizerEmail: t.organizerEmail,
@@ -65,6 +66,7 @@ const tournamentInputSchema = z.object({
   sport: z.string().default("cricket"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
+  auctionTime: z.string().nullable().optional(),
   organizerName: z.string().optional(),
   organizerMobile: z.string().optional(),
   organizerEmail: z.string().optional(),
@@ -105,6 +107,7 @@ router.post("/tournaments", async (req, res) => {
       sport: d.sport,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
+      auctionTime: d.auctionTime ?? null,
       organizerName: d.organizerName ?? null,
       organizerMobile: d.organizerMobile ?? null,
       organizerEmail: d.organizerEmail ?? null,
@@ -139,6 +142,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     sport: z.string().optional(),
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
+    auctionTime: z.string().nullable().optional(),
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
@@ -178,6 +182,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.sport !== undefined) updates.sport = d.sport;
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
+  if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;

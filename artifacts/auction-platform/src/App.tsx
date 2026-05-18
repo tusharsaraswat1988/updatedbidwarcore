@@ -58,6 +58,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/reports" component={AdminReports} />
       <Route path="/admin/intelligence" component={AdminIntelligence} />
+      <Route path="/admin/communicate/logs" component={AdminCommunicate} />
       <Route path="/admin/communicate" component={AdminCommunicate} />
       <Route path="/wa-consent/:token" component={WaConsent} />
       <Route path="/organizer" component={OrganizerPortal} />
