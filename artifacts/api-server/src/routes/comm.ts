@@ -105,6 +105,13 @@ router.post("/consent/generate", async (req, res) => {
     }
     dbMobile = tm.ownerMobile || null;
   } else if (recipientType === "organizer") {
+    // Bind organizer recipientId to the tournament's actual organizerId
+    const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+    if (!t?.organizerId) { res.status(400).json({ error: "Tournament has no linked organizer" }); return; }
+    if (t.organizerId !== recipientId) {
+      res.status(400).json({ error: "recipientId must match the tournament's organizerId for organizer tokens" }); return;
+    }
     const [o] = await db.select({ id: organizersTable.id, mobile: organizersTable.mobile })
       .from(organizersTable).where(eq(organizersTable.id, recipientId));
     if (!o) { res.status(404).json({ error: "Organizer not found" }); return; }
@@ -192,7 +199,10 @@ router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const { recipientType, recipientId, tournamentId } = parsed.data;
-  const orgId = parsed.data.orgId ?? req.session.organizerAccountId ?? null;
+  // Force orgId from session for organizer callers — never trust caller-supplied orgId
+  const orgId = req.session.isAdmin
+    ? (parsed.data.orgId ?? req.session.organizerAccountId ?? null)
+    : (req.session.organizerAccountId ?? null);
 
   // Scoping: non-admin organizers may only declare consent for recipients in their own tournaments
   if (!req.session.isAdmin && req.session.organizerAccountId) {
@@ -252,22 +262,29 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
-  // Template validation for WhatsApp: if the DB has approved templates registered,
-  // templateName must match one (status = "approved"). Env var fallback for migration.
-  if ((d.channel === "whatsapp" || d.channel === "both") && d.templateName) {
-    const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, status: waTemplatesTable.status })
+  // Business-initiated WhatsApp messages MUST use an approved Meta template.
+  // templateName is required for all WA/both sends; we resolve the SID from the DB.
+  let resolvedTemplateSid: string | undefined;
+  if (d.channel === "whatsapp" || d.channel === "both") {
+    if (!d.templateName) {
+      res.status(400).json({ error: "templateName is required for WhatsApp sends (Meta business-initiated message compliance)" });
+      return;
+    }
+    const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, templateSid: waTemplatesTable.templateSid, status: waTemplatesTable.status })
       .from(waTemplatesTable);
     if (dbTemplates.length > 0) {
-      const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
-      if (!approved.includes(d.templateName)) {
+      const tmpl = dbTemplates.find(t => t.templateName === d.templateName && t.status === "approved");
+      if (!tmpl) {
+        const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
         res.status(400).json({ error: `Template "${d.templateName}" is not approved. Approved: ${approved.join(", ")}` });
         return;
       }
+      resolvedTemplateSid = tmpl.templateSid ?? undefined;
     } else {
-      // Fall back to env var when no DB templates configured yet
+      // Fall back to env var when no DB templates are configured yet
       const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
       if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
-        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved template list. Approved: ${envTemplates.join(", ")}` });
+        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list. Approved: ${envTemplates.join(", ")}` });
         return;
       }
     }
@@ -338,7 +355,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     const effectiveChannel = (d.channel === "whatsapp" || d.channel === "both") && !r.whatsappConsent ? "sms" : d.channel;
 
     if (effectiveChannel === "whatsapp" || effectiveChannel === "both") {
-      const waResult = await sendWhatsApp(r.mobile, d.messageContent);
+      const waResult = await sendWhatsApp(r.mobile, d.messageContent, resolvedTemplateSid);
       await db.insert(commLogsTable).values({
         tournamentId: d.tournamentId ?? null,
         recipientType: r.recipientType,

@@ -281,7 +281,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     basePrice: z.number().int().optional(),
     jerseyNumber: z.string().optional(),
     achievements: z.string().optional(),
-    mobileNumber: z.string().optional(),
+    mobileNumber: z.string().min(1).optional(),
     cricheroUrl: z.string().optional(),
     availabilityDates: z.string().optional(),
     retainedPrice: z.number().int().nullable().optional(),

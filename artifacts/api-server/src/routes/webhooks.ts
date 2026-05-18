@@ -320,23 +320,61 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     }
   }
 
-  // OPTIN TOKEN or YES (from consent question) — record explicit YES before OTP step
-  if (upper.startsWith("OPTIN ") || upper === "YES" || upper === "HA" || upper === "HAN") {
-    let tokenStr: string | null = null;
-    if (upper.startsWith("OPTIN ")) tokenStr = text.slice(6).trim();
-
+  // OPTIN TOKEN — first step: show consent question and save token in bot session.
+  // Do NOT immediately record YES or send OTP; wait for explicit YES/NO reply.
+  if (upper.startsWith("OPTIN ")) {
+    const tokenStr = text.slice(6).trim();
     const target = await findConsentTarget(mobile);
     if (!target) {
       await sendWhatsApp(from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // Mark consent token used if provided
+    // Save OPTIN token in bot session so the YES handler can use it
+    await db.insert(botSessionsTable).values({
+      mobile,
+      pendingAction: "pending_yes",
+      pendingData: tokenStr,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 min window
+    }).onConflictDoUpdate({
+      target: botSessionsTable.mobile,
+      set: { pendingAction: "pending_yes", pendingData: tokenStr, expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
+    });
+
+    await sendWhatsApp(from,
+      `Namaste ${target.name}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
+    );
+    res.status(200).send("<Response/>"); return;
+  }
+
+  // YES (explicit consent reply to consent question) — record YES event then send OTP.
+  if (upper === "YES" || upper === "HA" || upper === "HAN") {
+    const target = await findConsentTarget(mobile);
+    if (!target) {
+      await sendWhatsApp(from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
+      res.status(200).send("<Response/>"); return;
+    }
+
+    // Retrieve stored OPTIN token (if any) from pending bot session
+    const now = new Date();
+    const [session] = await db.select()
+      .from(botSessionsTable)
+      .where(and(
+        eq(botSessionsTable.mobile, mobile),
+        eq(botSessionsTable.pendingAction, "pending_yes"),
+        gt(botSessionsTable.expiresAt, now),
+      ));
+    const tokenStr = session?.pendingData ?? null;
+
+    // Clear the pending bot session
+    await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
+
+    // Mark consent token used if present
     if (tokenStr) {
       await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, tokenStr));
     }
 
-    // ── Persist the YES as a distinct, queryable consent event with question version ──
+    // Persist the explicit YES consent event with question version
     await db.insert(waConsentEventsTable).values({
       mobile,
       recipientType: target.type,
@@ -346,7 +384,6 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       questionVersion: CONSENT_QUESTION_V1,
       tokenUsed: tokenStr ?? null,
     });
-    // Also write the audit log entry for operator visibility
     await logConsentEvent(
       target,
       mobile,
@@ -357,7 +394,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     const otp = generateOtp();
     const otpHash = await hashOtp(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-    await db.insert(otpSessionsTable).values({ mobile: mobile, otpHash, purpose: "wa_consent", expiresAt });
+    await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "wa_consent", expiresAt });
 
     await sendSms(`+${mobile}`, `BidWar OTP: ${otp} — WhatsApp consent verify karne ke liye use karein. 10 min valid.`);
     await sendWhatsApp(from, `Shukriya ${target.name}! Consent ke liye dhanyawaad.\n\nAapki identity confirm karne ke liye aapke registered number pe SMS OTP bheja ja raha hai.\n\nOTP aane ke baad WhatsApp pe reply karein.`);

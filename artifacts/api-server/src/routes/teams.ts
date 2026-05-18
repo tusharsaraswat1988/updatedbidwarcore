@@ -131,7 +131,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     name: z.string().optional(),
     shortCode: z.string().optional(),
     ownerName: z.string().optional(),
-    ownerMobile: z.string().optional(),
+    ownerMobile: z.string().min(1).optional(),
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
     purse: z.number().int().optional(),
