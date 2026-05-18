@@ -94,6 +94,9 @@ app.use(
     store: new PgSession({
       pool,
       tableName: "sessions",
+      // Auto-creates the sessions table on first boot so the server is
+      // self-initialising without a separate migration step. Safe because
+      // connect-pg-simple only issues a CREATE TABLE IF NOT EXISTS DDL.
       createTableIfMissing: true,
     }),
     secret: sessionSecret ?? "bidwar-dev-secret",

@@ -1487,21 +1487,24 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
     countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
   } else if (body.data.action === "extend") {
-    const extendSecs = body.data.durationSeconds ?? 300;
-    let baseTime = Date.now();
+    // extend is only valid for an active break countdown — pre-auction
+    // countdowns are fixed at 10 s and cannot be extended.
+    let existingCountdown: { type: string; endsAt: string; message: string | null } | null = null;
     if (session.displayCountdown) {
       try {
-        const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
-        const remaining = new Date(parsed.endsAt).getTime();
-        if (remaining > Date.now()) baseTime = remaining;
+        existingCountdown = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
       } catch { /* ignore */ }
     }
-    const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
-    let message: string | null = null;
-    if (session.displayCountdown) {
-      try { message = (JSON.parse(session.displayCountdown) as { message: string | null }).message; } catch { /* ignore */ }
+    if (!existingCountdown || existingCountdown.type !== "break") {
+      res.status(400).json({ error: "extend is only valid for an active break countdown" });
+      return;
     }
-    countdown = JSON.stringify({ type: "break", endsAt, message });
+    const extendSecs = body.data.durationSeconds ?? 300;
+    const baseTime = new Date(existingCountdown.endsAt).getTime() > Date.now()
+      ? new Date(existingCountdown.endsAt).getTime()
+      : Date.now();
+    const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
+    countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
   }
   // cancel: countdown stays null
   await db

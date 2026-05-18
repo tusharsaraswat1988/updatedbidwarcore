@@ -59,6 +59,10 @@ A full-stack broadcast-quality live sports auction system for cricket, football,
 - Indian Rupee formatting throughout (₹1,00,00,000 style)
 - Use lucide-react icons
 
+## UX decisions
+
+- **Break Timer sidebar entry** (`/tournament/:id/break-timer`) is a dedicated page, not a dialog. This is intentional: it gives the operator a focused, full-page view of the break countdown controls (start, extend, cancel, label) that is easier to use on a second screen or tablet during a live event. The operator panel also has an inline countdown dialog for quick access. Both flows coexist; the sidebar page is the primary break-timer workflow.
+
 ## Gotchas
 
 - Always run `pnpm --filter @workspace/api-spec run codegen` after editing the OpenAPI spec
