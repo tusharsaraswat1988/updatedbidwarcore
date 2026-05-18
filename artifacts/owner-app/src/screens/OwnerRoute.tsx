@@ -58,7 +58,7 @@ export function OwnerRoute() {
 
   // Auction state polling — always poll once screen is live
   const pollInterval = screen === "live" ? 1500 : 5000;
-  const { data: state } = useGetAuctionState(tournamentId, {
+  const { data: state, isFetching: stateFetching } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId && screen !== "loading" && screen !== "gate",
@@ -88,6 +88,7 @@ export function OwnerRoute() {
   });
 
   const placeBid = usePlaceBid();
+  const [lastBidError, setLastBidError] = useState("");
 
   const teamColor   = team?.color || "#F59E0B";
   const teamPurse   = allPurses?.find(t => t.teamId === teamId);
@@ -135,9 +136,12 @@ export function OwnerRoute() {
     try {
       await placeBid.mutateAsync({ tournamentId, data: { teamId, amount } });
       qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      setLastBidError("");
       return "success";
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+      const display = msg || "Bid failed. Please try again.";
+      setLastBidError(display);
       if (msg.includes("already the highest bidder")) return "leading";
       return "error";
     }
@@ -196,6 +200,8 @@ export function OwnerRoute() {
       tournament={tournament ?? null}
       teamPurse={teamPurse ?? null}
       teamId={teamId}
+      isFetching={stateFetching}
+      bidErrorMsg={lastBidError}
       onBid={handleBid}
       onSignOut={() => {
         sessionStorage.removeItem(sessionKey(teamId));

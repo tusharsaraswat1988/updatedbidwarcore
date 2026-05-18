@@ -27,7 +27,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
-      includeAssets: ["pwa-icon.svg"],
+      includeAssets: ["pwa-icon.svg", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
         name: "BidWar Owner",
         short_name: "BidWar",
@@ -39,6 +39,18 @@ export default defineConfig({
         scope: basePath,
         start_url: basePath,
         icons: [
+          {
+            src: "pwa-icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "pwa-icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
           {
             src: "pwa-icon.svg",
             sizes: "any",

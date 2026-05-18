@@ -65,6 +65,8 @@ interface Props {
   tournament: Tournament | null;
   teamPurse: TeamPurse | null;
   teamId: number;
+  isFetching?: boolean;
+  bidErrorMsg?: string;
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onSignOut: () => void;
 }
@@ -72,13 +74,21 @@ interface Props {
 // ── Network quality ─────────────────────────────────────────────────────────
 type NetworkQuality = "good" | "weak" | "poor";
 
-function useNetworkQuality(state: AuctionState | null): NetworkQuality {
+function useNetworkQuality(state: AuctionState | null, isFetching?: boolean): NetworkQuality {
   const lastUpdateRef = useRef<number>(Date.now());
   const [quality, setQuality] = useState<NetworkQuality>("good");
 
+  // Reset on state object reference change (data actually changed)
   useEffect(() => {
     if (state) lastUpdateRef.current = Date.now();
   }, [state]);
+
+  // Also reset whenever a poll completes — this covers HTTP 304 (Not Modified)
+  // responses where React Query keeps the same object reference so `state`
+  // never changes, but the network is in fact healthy.
+  useEffect(() => {
+    lastUpdateRef.current = Date.now();
+  }, [isFetching]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -322,10 +332,10 @@ function BidButton({
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
-export function LiveBid({ state, team, tournament, teamPurse, teamId, onBid, onSignOut }: Props) {
+export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onSignOut }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
-  const networkQ    = useNetworkQuality(state);
+  const networkQ    = useNetworkQuality(state, isFetching);
   const mayTap      = useDebounce(600);
 
   const [bidding,     setBidding]     = useState(false);
@@ -509,7 +519,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, onBid, onS
             </div>
 
             {bidFeedback === "error" && (
-              <p className="text-center text-red-400 text-sm">Bid failed. Please try again.</p>
+              <p className="text-center text-red-400 text-sm">{bidErrorMsg || "Bid failed. Please try again."}</p>
             )}
             {disabledReason && (
               <p className="text-center text-[10px] text-[#71717a]">{disabledReason}</p>
@@ -659,7 +669,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, onBid, onS
         </div>
 
         {bidFeedback === "error" && (
-          <p className="text-center text-red-400 text-xs">Bid failed. Try again.</p>
+          <p className="text-center text-red-400 text-xs">{bidErrorMsg || "Bid failed. Try again."}</p>
         )}
         {disabledReason && (
           <p className="text-center text-[10px] text-[#71717a]">{disabledReason}</p>
