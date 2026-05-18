@@ -275,7 +275,7 @@ export default function AuctionOperator() {
       const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, message } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     } else {
-      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start" } });
+      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start", ...(message ? { message } : {}) } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     }
     setCountdownDialogOpen(false);
