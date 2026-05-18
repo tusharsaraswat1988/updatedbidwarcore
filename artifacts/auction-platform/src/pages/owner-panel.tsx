@@ -406,16 +406,16 @@ export default function OwnerPanel() {
           </div>
         </div>
 
-        {/* Break / Pre-Auction Countdown — overlay scoped to content area */}
+        {/* Break / Pre-Auction Countdown — compact top banner for tablet owner view */}
         {stickyDc && (
-          <div key={stickyDc.endsAt} className="absolute inset-0 z-30">
-            <BreakCountdownOverlay
-              type={stickyDc.type}
-              endsAt={stickyDc.endsAt}
-              message={stickyDc.message}
-              tournamentName={tournament?.name}
-            />
-          </div>
+          <BreakCountdownOverlay
+            key={stickyDc.endsAt}
+            type={stickyDc.type}
+            endsAt={stickyDc.endsAt}
+            message={stickyDc.message}
+            tournamentName={tournament?.name}
+            compact
+          />
         )}
 
         {/* Purse Stats */}
