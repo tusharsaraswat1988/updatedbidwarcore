@@ -1511,14 +1511,15 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   res.json(await broadcastState(tid));
 });
 
-// POST pre-auction-countdown (start or cancel a fixed 10s pre-auction countdown on the LED display)
+// POST pre-auction-countdown (trigger a fixed 10s pre-auction countdown on the LED display)
+// Body is optional — a bare POST with no body is treated as action="start".
 router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const body = z.object({
-    action: z.enum(["start", "cancel"]),
+    action: z.enum(["start", "cancel"]).optional().default("start"),
     label: z.string().max(60).optional(),
-  }).safeParse(req.body);
+  }).safeParse(req.body ?? {});
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
   let countdown: string | null = null;

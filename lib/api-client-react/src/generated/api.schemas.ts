@@ -88,6 +88,7 @@ export interface Tournament {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
+  /** Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields. */
   breakEndSoundEnabled?: boolean;
   /** @nullable */
   breakEndSoundUrl?: string | null;
@@ -943,7 +944,7 @@ export const SetPreAuctionCountdownBodyAction = {
 } as const;
 
 export type SetPreAuctionCountdownBody = {
-  action: SetPreAuctionCountdownBodyAction;
+  action?: SetPreAuctionCountdownBodyAction;
   label?: string;
 };
 

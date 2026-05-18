@@ -3930,7 +3930,7 @@ export const getSetPreAuctionCountdownUrl = (tournamentId: number) => {
 
 export const setPreAuctionCountdown = async (
   tournamentId: number,
-  setPreAuctionCountdownBody: SetPreAuctionCountdownBody,
+  setPreAuctionCountdownBody?: SetPreAuctionCountdownBody,
   options?: RequestInit,
 ): Promise<AuctionState> => {
   return customFetch<AuctionState>(getSetPreAuctionCountdownUrl(tournamentId), {

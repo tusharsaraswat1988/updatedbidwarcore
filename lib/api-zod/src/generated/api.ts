@@ -76,7 +76,12 @@ export const ListTournamentsResponseItem = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
+    ),
   breakEndSoundUrl: zod.string().nullish(),
   breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
@@ -175,7 +180,12 @@ export const GetTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
+    ),
   breakEndSoundUrl: zod.string().nullish(),
   breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
@@ -274,7 +284,12 @@ export const UpdateTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
+    ),
   breakEndSoundUrl: zod.string().nullish(),
   breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
@@ -345,7 +360,12 @@ export const ExportTournamentForLocalResponse = zod.object({
     soldSoundEnabled: zod.boolean().optional(),
     soldSoundUrl: zod.string().nullish(),
     soldSoundVolume: zod.number().optional(),
-    breakEndSoundEnabled: zod.boolean().optional(),
+    breakEndSoundEnabled: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
+      ),
     breakEndSoundUrl: zod.string().nullish(),
     breakEndSoundVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
@@ -3194,8 +3214,12 @@ export const SetPreAuctionCountdownParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const setPreAuctionCountdownBodyActionDefault = `start`;
+
 export const SetPreAuctionCountdownBody = zod.object({
-  action: zod.enum(["start", "cancel"]),
+  action: zod
+    .enum(["start", "cancel"])
+    .default(setPreAuctionCountdownBodyActionDefault),
   label: zod.string().optional(),
 });
 

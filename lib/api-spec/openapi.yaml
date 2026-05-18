@@ -1073,16 +1073,17 @@ paths:
           schema:
             type: integer
       requestBody:
-        required: true
+        required: false
+        description: Optional. Omitting the body or sending action=start triggers the countdown. Send action=cancel to clear it.
         content:
           application/json:
             schema:
               type: object
-              required: [action]
               properties:
                 action:
                   type: string
                   enum: [start, cancel]
+                  default: start
                 label:
                   type: string
       responses:
@@ -1491,6 +1492,7 @@ components:
           type: integer
         breakEndSoundEnabled:
           type: boolean
+          description: Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.
         breakEndSoundUrl:
           type: ["string", "null"]
         breakEndSoundVolume:
