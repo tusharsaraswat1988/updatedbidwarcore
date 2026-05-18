@@ -91,6 +91,9 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   soldSoundVolume: t.soldSoundVolume ?? 80,
   cheerMessagesEnabled: t.cheerMessagesEnabled ?? true,
   cheerMessagePresets: t.cheerMessagePresets ?? null,
+  breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
+  breakEndMusicUrl: t.breakEndMusicUrl ?? null,
+  breakEndMusicVolume: t.breakEndMusicVolume ?? 80,
   createdAt: t.createdAt.toISOString(),
 });
 
