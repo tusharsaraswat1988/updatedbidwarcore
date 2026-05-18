@@ -409,6 +409,26 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       .catch(() => {});
   }, [tournament?.sport]);
 
+  // Dynamic spec groups for selected role
+  type SpecOption = { id: number; optionName: string };
+  type SpecGroup = { id: number; groupName: string; displayOrder: number; optional: boolean; options: SpecOption[] };
+  const [specGroups, setSpecGroups] = useState<SpecGroup[]>([]);
+  const selectedRoleId = sportRoles.find(r => r.roleName === form.role)?.id;
+  const isFirstSpecRender = useRef(true);
+  useEffect(() => {
+    if (!selectedRoleId) { setSpecGroups([]); return; }
+    fetch(`/api/sports/roles/${selectedRoleId}/specs`)
+      .then(r => r.json())
+      .then((d: SpecGroup[]) => setSpecGroups(d))
+      .catch(() => setSpecGroups([]));
+  }, [selectedRoleId]);
+  // Clear spec field values when role changes (but not on first render)
+  useEffect(() => {
+    if (isFirstSpecRender.current) { isFirstSpecRender.current = false; return; }
+    setForm(prev => ({ ...prev, battingStyle: "", bowlingStyle: "", specialization: "" }));
+  }, [selectedRoleId]);
+  const SPEC_KEYS = ["battingStyle", "bowlingStyle", "specialization"] as const;
+
   // Sync basePrice default when tournament loads after the form opens (new players only)
   useEffect(() => {
     if (!player && !basePriceTouched && tournament?.minBid) {
@@ -436,6 +456,8 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     categoryId: player?.categoryId ? String(player.categoryId) : "",
   });
 
+  const [submitError, setSubmitError] = useState("");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const mobile = form.mobileNumber.trim();
@@ -444,6 +466,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       return;
     }
     setMobileError("");
+    setSubmitError("");
     const data = {
       name: form.name,
       city: form.city || undefined,
@@ -463,13 +486,18 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
     };
-    if (player) {
-      await updatePlayer.mutateAsync({ tournamentId, playerId: player.id, data });
-    } else {
-      await createPlayer.mutateAsync({ tournamentId, data });
+    try {
+      if (player) {
+        await updatePlayer.mutateAsync({ tournamentId, playerId: player.id, data });
+      } else {
+        await createPlayer.mutateAsync({ tournamentId, data });
+      }
+      qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      onClose();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || "Failed to save player";
+      setSubmitError(msg);
     }
-    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
-    onClose();
   }
 
   const f = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
@@ -534,10 +562,12 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
           </Select>
         </div>
       </div>
+      {/* Row 2: Mobile (required) | Role */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>City</Label>
-          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
+          <Label>Mobile Number *</Label>
+          <Input value={form.mobileNumber} onChange={e => { f("mobileNumber", e.target.value); if (mobileError) setMobileError(""); }} required placeholder="+91 98765 43210" />
+          {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
         </div>
         <div className="space-y-2">
           <Label>Role</Label>
@@ -554,43 +584,72 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
           </Select>
         </div>
       </div>
+      {/* Row 3: City | Age */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Base Price (₹) *</Label>
-          <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
+          <Label>City</Label>
+          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
         </div>
         <div className="space-y-2">
           <Label>Age</Label>
           <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
         </div>
       </div>
+      {/* Row 4: Base Price | Jersey No */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Batting Style</Label>
-          <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
-        </div>
-        <div className="space-y-2">
-          <Label>Bowling Style</Label>
-          <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Specialization</Label>
-          <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+          <Label>Base Price (₹) *</Label>
+          <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
         </div>
         <div className="space-y-2">
           <Label>Jersey No.</Label>
           <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Mobile Number</Label>
-          <Input value={form.mobileNumber} onChange={e => { f("mobileNumber", e.target.value); if (mobileError) setMobileError(""); }} required placeholder="+91 98765 43210" />
-          {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
+      {/* Dynamic spec groups: loaded from sport master per selected role */}
+      {specGroups.length > 0 ? (
+        <div className={`grid gap-4 ${specGroups.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+          {specGroups.slice(0, 3).map((group, idx) => {
+            const key = SPEC_KEYS[idx];
+            if (!key) return null;
+            return (
+              <div key={group.id} className="space-y-2">
+                <Label>{group.groupName}{!group.optional && " *"}</Label>
+                {group.options.length > 0 ? (
+                  <Select value={form[key]} onValueChange={v => f(key, v)}>
+                    <SelectTrigger><SelectValue placeholder={`Select ${group.groupName}`} /></SelectTrigger>
+                    <SelectContent className="dark">
+                      {group.options.map(o => (
+                        <SelectItem key={o.id} value={o.optionName}>{o.optionName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={form[key]} onChange={e => f(key, e.target.value)} placeholder={group.groupName} />
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div className="space-y-2">
+      ) : (
+        /* Fallback free-text spec fields when no master data for this sport/role */
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Batting Style</Label>
+            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
+          </div>
+          <div className="space-y-2">
+            <Label>Bowling Style</Label>
+            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
+          </div>
+          <div className="space-y-2">
+            <Label>Specialization</Label>
+            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+          </div>
+        </div>
+      )}
+      {/* Player Photo */}
+      <div className="space-y-2">
           <Label>Player Photo</Label>
           <div className="flex gap-2 items-start">
             <div className="w-12 h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -643,7 +702,6 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
             onSave={url => f("photoUrl", url)}
           />
         </div>
-      </div>
       <div className="space-y-2">
         <Label>Availability Dates</Label>
         <Input value={form.availabilityDates} onChange={e => f("availabilityDates", e.target.value)} placeholder="18, 19, 20 March 2025" />
@@ -680,6 +738,12 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
         </div>
       </div>
 
+      {submitError && (
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+          <span className="flex-shrink-0">!</span>
+          {submitError}
+        </div>
+      )}
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1" disabled={createPlayer.isPending || updatePlayer.isPending}>
           {player ? "Update Player" : "Add Player"}
@@ -892,7 +956,14 @@ export default function Players() {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">Players</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-bold tracking-tight">Players</h1>
+              {tournament?.auctionCode && (
+                <Badge variant="outline" className="font-mono text-sm text-primary border-primary/40 px-2 py-0.5">
+                  {tournament.auctionCode}
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground mt-2">
               {players?.length || 0} players registered
               {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}

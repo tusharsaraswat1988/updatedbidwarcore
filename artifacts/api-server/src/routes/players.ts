@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable } from "@workspace/db";
+import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -136,6 +136,23 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
+
+  // Duplicate name check (case-insensitive) within the same tournament
+  const [dupName] = await db
+    .select({ id: playersTable.id })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), sql`lower(${playersTable.name}) = lower(${d.name})`));
+  if (dupName) { res.status(400).json({ error: `A player named "${d.name}" is already registered in this tournament.` }); return; }
+
+  // Block organizer from registering their own mobile as a player
+  const orgAccountId = req.session?.organizerAccountId;
+  if (orgAccountId && d.mobileNumber) {
+    const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
+    if (org?.mobile && org.mobile === d.mobileNumber) {
+      res.status(400).json({ error: "You cannot register the organizer's own mobile number as a player." }); return;
+    }
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({

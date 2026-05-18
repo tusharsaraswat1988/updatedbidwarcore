@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { teamsTable, tournamentsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { teamsTable, tournamentsTable, organizersTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const cloudinaryLogoUrl = z
@@ -84,6 +84,22 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
 
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
   if (existing.length > 0) { res.status(400).json({ error: `Short code "${d.shortCode.toUpperCase()}" is already used by another team` }); return; }
+
+  // Duplicate team name check (case-insensitive) within the same tournament
+  const [dupName] = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(eq(teamsTable.tournamentId, tid), sql`lower(${teamsTable.name}) = lower(${d.name})`));
+  if (dupName) { res.status(400).json({ error: `A team named "${d.name}" is already registered in this tournament.` }); return; }
+
+  // Block organizer from using their own mobile as team owner mobile
+  const orgAccountId = req.session?.organizerAccountId;
+  if (orgAccountId) {
+    const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
+    if (org?.mobile && org.mobile === d.ownerMobile) {
+      res.status(400).json({ error: "You cannot use the organizer's own mobile number as a team owner mobile." }); return;
+    }
+  }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }

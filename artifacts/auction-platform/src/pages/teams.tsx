@@ -347,7 +347,14 @@ export default function Teams() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">Teams</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-bold tracking-tight">Teams</h1>
+              {tournament?.auctionCode && (
+                <Badge variant="outline" className="font-mono text-sm text-primary border-primary/40 px-2 py-0.5">
+                  {tournament.auctionCode}
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground mt-2">{teams?.length || 0} teams registered in this auction.</p>
           </div>
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
