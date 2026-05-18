@@ -579,7 +579,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mobile Number</Label>
-          <Input value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} placeholder="+91 98765 43210" />
+          <Input value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} required placeholder="+91 98765 43210" />
         </div>
         <div className="space-y-2">
           <Label>Player Photo</Label>

@@ -180,7 +180,7 @@ function TeamForm({
         </div>
         <div className="space-y-2">
           <Label>Owner Mobile</Label>
-          <Input value={form.ownerMobile} onChange={e => setForm(f => ({ ...f, ownerMobile: e.target.value }))} placeholder="+91 9999999999" />
+          <Input value={form.ownerMobile} onChange={e => setForm(f => ({ ...f, ownerMobile: e.target.value }))} required placeholder="+91 9999999999" />
         </div>
       </div>
 

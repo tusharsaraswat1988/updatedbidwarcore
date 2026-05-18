@@ -181,7 +181,7 @@ export default function PlayerRegister() {
         tournamentId,
         data: {
           name: form.name,
-          mobileNumber: form.mobileNumber || undefined,
+          mobileNumber: form.mobileNumber,
           city: form.city || undefined,
           role: form.role as any,
           battingStyle: battingStyle || undefined,

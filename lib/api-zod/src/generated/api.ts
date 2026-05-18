@@ -186,6 +186,7 @@ export const UpdateTournamentBody = zod.object({
   sport: zod.string().optional(),
   venue: zod.string().optional(),
   auctionDate: zod.string().optional(),
+  auctionTime: zod.string().nullish(),
   organizerName: zod.string().optional(),
   organizerMobile: zod.string().optional(),
   logoUrl: zod.string().optional(),

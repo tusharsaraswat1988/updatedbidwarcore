@@ -1517,6 +1517,9 @@ components:
           type: string
         auctionDate:
           type: string
+        auctionTime:
+          type: string
+          nullable: true
         organizerName:
           type: string
         organizerMobile:

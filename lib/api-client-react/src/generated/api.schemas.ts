@@ -163,6 +163,7 @@ export interface TournamentUpdate {
   sport?: string;
   venue?: string;
   auctionDate?: string;
+  auctionTime?: string | null;
   organizerName?: string;
   organizerMobile?: string;
   logoUrl?: string;

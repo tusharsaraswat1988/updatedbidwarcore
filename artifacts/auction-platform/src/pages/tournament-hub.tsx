@@ -140,35 +140,35 @@ export default function TournamentHub() {
       sport: tournament.sport,
       venue: tournament.venue || "",
       auctionDate: tournament.auctionDate || "",
-      auctionTime: (tournament as any).auctionTime || "",
+      auctionTime: tournament.auctionTime || "",
       logoUrl: tournament.logoUrl && !tournament.logoUrl.startsWith("data:") ? tournament.logoUrl : "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
-      bidTimerSeconds: String((tournament as any).bidTimerSeconds ?? "15"),
-      playerSelectionMode: (tournament as any).playerSelectionMode || "sequential",
-      registrationDeadline: (tournament as any).registrationDeadline || "",
-      registrationLimit: (tournament as any).registrationLimit != null ? String((tournament as any).registrationLimit) : "",
-      minimumSquadSize: String((tournament as any).minimumSquadSize ?? 0),
-      maximumSquadSize: String((tournament as any).maximumSquadSize ?? 0),
-      audioEnabled: (tournament as any).audioEnabled ?? true,
-      masterVolume: String((tournament as any).masterVolume ?? 80),
-      countdownSoundEnabled: (tournament as any).countdownSoundEnabled ?? true,
-      countdownSoundUrl: (tournament as any).countdownSoundUrl ?? "",
-      countdownSoundVolume: String((tournament as any).countdownSoundVolume ?? 70),
-      soldSoundEnabled: (tournament as any).soldSoundEnabled ?? true,
-      soldSoundUrl: (tournament as any).soldSoundUrl ?? "",
-      soldSoundVolume: String((tournament as any).soldSoundVolume ?? 80),
+      bidTimerSeconds: String(tournament.bidTimerSeconds ?? "15"),
+      playerSelectionMode: tournament.playerSelectionMode || "sequential",
+      registrationDeadline: tournament.registrationDeadline || "",
+      registrationLimit: tournament.registrationLimit != null ? String(tournament.registrationLimit) : "",
+      minimumSquadSize: String(tournament.minimumSquadSize ?? 0),
+      maximumSquadSize: String(tournament.maximumSquadSize ?? 0),
+      audioEnabled: tournament.audioEnabled ?? true,
+      masterVolume: String(tournament.masterVolume ?? 80),
+      countdownSoundEnabled: tournament.countdownSoundEnabled ?? true,
+      countdownSoundUrl: tournament.countdownSoundUrl ?? "",
+      countdownSoundVolume: String(tournament.countdownSoundVolume ?? 70),
+      soldSoundEnabled: tournament.soldSoundEnabled ?? true,
+      soldSoundUrl: tournament.soldSoundUrl ?? "",
+      soldSoundVolume: String(tournament.soldSoundVolume ?? 80),
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
     // Restore display names for previously uploaded audio files
-    setCountdownFileName((tournament as any).countdownSoundUrl ? "Custom file uploaded" : "");
-    setSoldFileName((tournament as any).soldSoundUrl ? "Custom file uploaded" : "");
+    setCountdownFileName(tournament.countdownSoundUrl ? "Custom file uploaded" : "");
+    setSoldFileName(tournament.soldSoundUrl ? "Custom file uploaded" : "");
     // Load bidTiers from JSON column, fall back to legacy 5-column values
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
-      const rawTiers = (tournament as any).bidTiers;
+      const rawTiers = tournament.bidTiers;
       if (rawTiers) {
         const parsed = JSON.parse(rawTiers);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -176,9 +176,9 @@ export default function TournamentHub() {
         } else { throw new Error("empty"); }
       } else {
         initialTiers = [
-          { upTo: (tournament as any).bidTier1UpTo ?? 100000, increment: (tournament as any).bidTier1Increment ?? 25000 },
-          { upTo: (tournament as any).bidTier2UpTo ?? 200000, increment: (tournament as any).bidTier2Increment ?? 50000 },
-          { increment: (tournament as any).bidTier3Increment ?? 100000 },
+          { upTo: tournament.bidTier1UpTo ?? 100000, increment: tournament.bidTier1Increment ?? 25000 },
+          { upTo: tournament.bidTier2UpTo ?? 200000, increment: tournament.bidTier2Increment ?? 50000 },
+          { increment: tournament.bidTier3Increment ?? 100000 },
         ];
       }
     } catch {
@@ -332,7 +332,7 @@ export default function TournamentHub() {
         bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
-        playerSelectionMode: editForm.playerSelectionMode as string || undefined,
+        playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
         minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
         maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
         registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
@@ -347,7 +347,7 @@ export default function TournamentHub() {
         soldSoundEnabled: editForm.soldSoundEnabled === true,
         soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
         soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-      } as any,
+      },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
     setEditOpen(false);
@@ -381,9 +381,9 @@ export default function TournamentHub() {
             </div>
             <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
               {tournament?.sport?.toUpperCase()}
-              {(tournament as any)?.auctionCode && (
+              {tournament?.auctionCode && (
                 <span className="text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 text-[11px] font-bold tracking-widest">
-                  {(tournament as any).auctionCode}
+                  {tournament.auctionCode}
                 </span>
               )}
               {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
