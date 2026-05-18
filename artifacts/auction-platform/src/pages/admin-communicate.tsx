@@ -84,7 +84,7 @@ function ChannelBadge({ channel }: { channel: string }) {
 
 function LicenseLock({ status, locked }: { status: string; locked?: boolean }) {
   if (locked) return <Badge className="bg-red-500/15 text-red-400 border-red-500/30 gap-1 text-[10px]"><Lock className="w-3 h-3" />Locked</Badge>;
-  if (status === "live") return <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]"><BadgeCheck className="w-3 h-3" />Live</Badge>;
+  if (status === "active") return <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]"><BadgeCheck className="w-3 h-3" />Active</Badge>;
   return <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 gap-1 text-[10px]"><AlertTriangle className="w-3 h-3" />Trial</Badge>;
 }
 
@@ -125,7 +125,7 @@ export default function AdminCommunicate() {
   const [logSearch, setLogSearch] = useState("");
 
   const selectedTournament = tournaments.find(t => String(t.id) === selectedTid);
-  const isLicensedForWa = selectedTournament?.licenseStatus === "live" && !selectedTournament?.adminLocked;
+  const isLicensedForWa = selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked;
 
   const loadTournaments = useCallback(async () => {
     setLoadingTournaments(true);

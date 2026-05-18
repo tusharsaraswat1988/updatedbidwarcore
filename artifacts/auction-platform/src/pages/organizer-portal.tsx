@@ -37,10 +37,10 @@ type Tournament = {
 // ─── Tournament License Badge ─────────────────────────────────────────────────
 
 function TournamentLicenseBadge({ status }: { status: string }) {
-  if (status === "live") {
+  if (status === "active") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1">
-        <ShieldCheck className="w-2.5 h-2.5" /> Live
+        <ShieldCheck className="w-2.5 h-2.5" /> Active
       </Badge>
     );
   }
@@ -682,7 +682,7 @@ function OrganizerDashboard({
     }
   }
 
-  const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "live");
+  const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "active");
   const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
 
   const filteredTournaments = tournaments.filter(t => {

@@ -294,7 +294,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     }
   }
 
-  // License gate for WhatsApp — "live" is the licensed status in this system.
+  // License gate for WhatsApp — "active" is the licensed status in this system.
   // All WhatsApp sends (including manual) require a tournamentId so the
   // license can be verified; no anonymous/licence-free WA blasts allowed.
   if (d.channel === "whatsapp" || d.channel === "both") {
