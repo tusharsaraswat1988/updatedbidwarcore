@@ -839,7 +839,18 @@ router.get("/auth/google", (req, res) => {
     prompt: "select_account",
     state,
   });
-  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+
+  // Must save session to the DB *before* redirecting — the PostgreSQL store
+  // is async, and without an explicit save the state won't be persisted by the
+  // time Google redirects back to the callback.
+  req.session.save((err) => {
+    if (err) {
+      req.log.error({ err }, "Failed to save session before Google redirect");
+      res.redirect("/organizer?error=google_failed");
+      return;
+    }
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
 });
 
 router.get("/auth/google/callback", async (req, res) => {
@@ -910,7 +921,16 @@ router.get("/auth/google/callback", async (req, res) => {
     for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
 
     const destination = organizer.mobile ? "/organizer" : "/organizer?require_mobile=1";
-    res.redirect(destination);
+    // Save session explicitly before redirect so the logged-in state is
+    // persisted in PostgreSQL before the browser follows the redirect.
+    req.session.save((err) => {
+      if (err) {
+        req.log.error({ err }, "Failed to save session after Google login");
+        res.redirect("/organizer?error=google_failed");
+        return;
+      }
+      res.redirect(destination);
+    });
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     res.redirect("/organizer?error=google_failed");
