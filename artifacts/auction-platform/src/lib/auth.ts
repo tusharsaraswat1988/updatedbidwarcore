@@ -299,7 +299,7 @@ export async function updateOrganizerProfile(data: {
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; venue?: string; auctionDate?: string;
   basePurse?: number;
-}): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string } }> {
+}): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {
       method: "POST",
@@ -356,7 +356,7 @@ export async function deleteAdminOrganizer(id: number): Promise<{ success: boole
 
 export async function setTournamentLicenseStatus(
   tournamentId: number,
-  status: "trial" | "live" | "completed"
+  status: "trial" | "active" | "completed"
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/set-license-status`, {

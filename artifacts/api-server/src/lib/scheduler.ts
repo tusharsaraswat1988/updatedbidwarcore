@@ -64,7 +64,7 @@ async function runConsentBlast() {
     organizerId: tournamentsTable.organizerId,
   }).from(tournamentsTable).where(
     and(
-      eq(tournamentsTable.licenseStatus, "live"),
+      eq(tournamentsTable.licenseStatus, "active"),
       eq(tournamentsTable.adminLocked, false),
       or(
         sql`${tournamentsTable.auctionDate} = ${todayIst}`,

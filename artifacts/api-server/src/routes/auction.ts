@@ -238,7 +238,7 @@ async function buildAuctionState(tournamentId: number) {
 
   // Trial mode: expose first 2 team IDs that are eligible to bid
   const licenseStatus = tournamentRow?.licenseStatus ?? "trial";
-  const isTrialMode = licenseStatus !== "live";
+  const isTrialMode = licenseStatus !== "active";
   let trialTeamIds: number[] | null = null;
   if (isTrialMode) {
     const trialTeams = await db
@@ -422,7 +422,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
 
   // Trial mode: restrict pool to first 10 players by ID
-  const isTrialMode = tournament?.licenseStatus !== "live";
+  const isTrialMode = tournament?.licenseStatus !== "active";
   let trialPlayerIds: number[] | null = null;
   if (isTrialMode) {
     const first10 = await db
@@ -569,7 +569,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
 
   // Trial mode: only the first 2 teams (by ID) may bid
-  if (tournament?.licenseStatus !== "live") {
+  if (tournament?.licenseStatus !== "active") {
     const trialTeams = await db
       .select({ id: teamsTable.id })
       .from(teamsTable)
@@ -719,6 +719,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   // Fire-and-forget WhatsApp notification
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
+    tournamentId: tid,
     playerName: soldPlayer?.name ?? "Player",
     teamName: team?.name ?? "Team",
     amount: soldAmount,
@@ -797,6 +798,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
 
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
+    tournamentId: tid,
     playerName: soldPlayer?.name ?? "Player",
     teamName: team?.name ?? "Team",
     amount,
@@ -859,6 +861,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
 
   notifyPlayerUnsold({
     mobile: player?.mobileNumber ?? null,
+    tournamentId: tid,
     playerName: player?.name ?? "Player",
     tournamentName: unsoldTournament?.name ?? "the tournament",
   });
@@ -943,6 +946,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
 
   notifyPlayerReAuction({
     mobile: player.mobileNumber ?? null,
+    tournamentId: tid,
     playerName: player.name,
     tournamentName: reTournament?.name ?? "the tournament",
   });
@@ -1122,7 +1126,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const timerSecs = tournament?.timerSeconds ?? 30;
   const selMode = tournament?.playerSelectionMode ?? "sequential";
-  const isTrialMode = tournament?.licenseStatus !== "live";
+  const isTrialMode = tournament?.licenseStatus !== "active";
 
   // Parse active category filter
   let activeCatIds: number[] | null = null;

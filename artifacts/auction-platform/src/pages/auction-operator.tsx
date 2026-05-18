@@ -29,6 +29,8 @@ import {
   getListTeamsQueryKey,
   getListPlayersQueryKey,
   getListCategoriesQueryKey,
+  useGetTournament,
+  getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
@@ -72,6 +74,9 @@ export default function AuctionOperator() {
 
   useAuctionSocket(tournamentId);
 
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+  });
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 1500 },
   });
@@ -263,7 +268,7 @@ export default function AuctionOperator() {
   const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
   const selectionMode = (state as any)?.playerSelectionMode ?? "sequential";
   const licenseStatus: string = (state as any)?.licenseStatus ?? "trial";
-  const isTrialMode = licenseStatus !== "live";
+  const isTrialMode = licenseStatus !== "active";
   const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
   const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
 
@@ -340,6 +345,12 @@ export default function AuctionOperator() {
               <span className="text-muted-foreground hidden sm:inline">RET <span className="text-purple-400 font-bold">{retainedPlayers.length}</span></span>
             )}
           </div>
+
+          {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
+            <span className="font-mono text-[10px] tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded px-1.5 py-0.5 flex-shrink-0 hidden sm:inline">
+              {(tournament as { auctionCode?: string | null }).auctionCode}
+            </span>
+          )}
 
           <div className="h-4 w-px bg-border flex-shrink-0" />
 

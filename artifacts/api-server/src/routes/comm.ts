@@ -304,7 +304,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     }
     const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
     if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
-    if (t.licenseStatus !== "live" || t.adminLocked) {
+    if (t.licenseStatus !== "active" || t.adminLocked) {
       res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" }); return;
     }
   }

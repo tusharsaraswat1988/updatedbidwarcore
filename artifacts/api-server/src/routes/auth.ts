@@ -37,6 +37,13 @@ declare module "express-session" {
     organizer?: Record<string, true>;
     organizerAccountId?: number;
     googleOAuthState?: string;
+    pendingGoogleProfile?: {
+      name: string;
+      email: string;
+      googleId: string;
+      googleEmail: string;
+    };
+    pendingGoogleMobile?: string;
   }
 }
 
@@ -299,7 +306,7 @@ router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, r
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [t] = await db.update(tournamentsTable)
-    .set({ licenseStatus: "live", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
+    .set({ licenseStatus: "active", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
@@ -730,10 +737,28 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  // Generate unique auction code (TT+NN+DDMM format)
+  function buildOrgCode(name: string, auctionDate?: string | null): string {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    const tt = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : (words[0]?.substring(0, 2) ?? "XX").toUpperCase();
+    const nn = String(Math.floor(Math.random() * 90) + 10);
+    const dt = auctionDate ? new Date(auctionDate) : new Date();
+    const dd = String(dt.getUTCDate()).padStart(2, "0");
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    return `${tt}${nn}${dd}${mm}`;
+  }
+  let auctionCode = buildOrgCode(d.name, d.auctionDate);
+  for (let i = 0; i < 14; i++) {
+    const [dup] = await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.auctionCode, auctionCode)).limit(1);
+    if (!dup) break;
+    auctionCode = buildOrgCode(d.name, d.auctionDate);
+  }
+
   const [tournament] = await db.insert(tournamentsTable).values({
     organizerId: organizer.id,
     name: d.name,
     sport: d.sport,
+    auctionCode,
     venue: d.venue ?? null,
     auctionDate: d.auctionDate ?? null,
     auctionTime: d.auctionTime ?? null,
@@ -750,7 +775,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   if (!req.session.organizer) req.session.organizer = {};
   req.session.organizer[String(tournament.id)] = true;
 
-  res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name } });
+  res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
 });
 
 // ─── OTP: Send code via Twilio Verify ────────────────────────────────────────
@@ -933,25 +958,30 @@ router.get("/auth/google/callback", async (req, res) => {
           .returning();
         organizer = linked;
       } else {
-        // 3. Create new Google-only account (no mobile, no password)
-        const [created] = await db.insert(organizersTable).values({
+        // 3. New Google user — DO NOT create organizer record yet.
+        // Store pending Google profile in session and redirect to /complete-profile
+        // where the organizer's mobile will be collected and OTP-verified before
+        // the organizer record is created. This ensures mobile is never null.
+        req.session.pendingGoogleProfile = {
           name: gUser.name ?? gUser.email.split("@")[0],
           email: gUser.email,
           googleId: gUser.id,
           googleEmail: gUser.email,
-          licenseStatus: "pending",
-          maxTournaments: 1,
-        }).returning();
-        organizer = created;
+        };
+        req.session.save((saveErr) => {
+          if (saveErr) { res.redirect("/organizer?error=google_failed"); return; }
+          res.redirect("/complete-profile");
+        });
+        return;
       }
     }
 
-    req.session.organizerAccountId = organizer.id;
+    req.session.organizerAccountId = organizer!.id;
     if (!req.session.organizer) req.session.organizer = {};
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
     for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
 
-    const destination = organizer.mobile ? "/organizer" : "/organizer?require_mobile=1";
+    const destination = "/organizer";
     // Save session explicitly before redirect so the logged-in state is
     // persisted in PostgreSQL before the browser follows the redirect.
     req.session.save((err) => {
@@ -1006,9 +1036,9 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   if (isNaN(tournamentId)) { res.status(400).json({ error: "Invalid tournament ID" }); return; }
 
   const body = z.object({
-    status: z.enum(["trial", "live", "completed"]),
+    status: z.enum(["trial", "active", "completed"]),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Status must be trial, live, or completed" }); return; }
+  if (!body.success) { res.status(400).json({ error: "Status must be trial, active, or completed" }); return; }
 
   const existing = await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
   if (existing.length === 0) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -1016,12 +1046,140 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   await db.update(tournamentsTable)
     .set({
       licenseStatus: body.data.status,
-      licenseGrantedAt: body.data.status === "live" ? new Date() : undefined,
-      licenseGrantedBy: body.data.status === "live" ? (req.session.adminLevel ?? undefined) : undefined,
+      licenseGrantedAt: body.data.status === "active" ? new Date() : undefined,
+      licenseGrantedBy: body.data.status === "active" ? (req.session.adminLevel ?? undefined) : undefined,
     })
     .where(eq(tournamentsTable.id, tournamentId));
 
   res.json({ success: true });
+});
+
+// ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────
+
+router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) => {
+  const pending = req.session.pendingGoogleProfile;
+  if (!pending) {
+    res.status(400).json({ error: "No pending Google profile — please sign in with Google first" });
+    return;
+  }
+
+  const schema = z.object({ mobile: z.string().min(10).max(15).regex(/^\d+$/, "Digits only") });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid mobile number" }); return; }
+
+  const { mobile } = parsed.data;
+
+  // Prevent duplicate mobile number
+  const [existing] = await db
+    .select({ id: organizersTable.id })
+    .from(organizersTable)
+    .where(eq(organizersTable.mobile, mobile));
+  if (existing) {
+    res.status(409).json({ error: "Mobile number already registered to another account" });
+    return;
+  }
+
+  // Generate and hash OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = (await scryptAsync(otp, salt, 64)) as Buffer;
+  const otpHash = `${salt}:${derivedKey.toString("hex")}`;
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  const { otpSessionsTable } = await import("@workspace/db");
+  await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "complete_profile", expiresAt });
+
+  const { sendSms } = await import("../lib/comm-sender");
+  await sendSms(mobile, `BidWar: Your verification code is ${otp}. Valid for 10 minutes. Do not share.`);
+
+  req.session.pendingGoogleMobile = mobile;
+  req.session.save((saveErr) => {
+    if (saveErr) {
+      req.log.error({ saveErr }, "Session save error in complete-profile");
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.json({ success: true });
+  });
+});
+
+router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
+  const pending = req.session.pendingGoogleProfile;
+  const mobile = req.session.pendingGoogleMobile;
+  if (!pending || !mobile) {
+    res.status(400).json({ error: "No pending profile or mobile — please restart Google sign-in" });
+    return;
+  }
+
+  const schema = z.object({ otp: z.string().length(6).regex(/^\d{6}$/) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "OTP must be 6 digits" }); return; }
+
+  const { otpSessionsTable } = await import("@workspace/db");
+  const { gt: drizzleGt, and: drizzleAnd, desc: drizzleDesc } = await import("drizzle-orm");
+
+  const [session] = await db
+    .select()
+    .from(otpSessionsTable)
+    .where(
+      drizzleAnd(
+        eq(otpSessionsTable.mobile, mobile),
+        eq(otpSessionsTable.purpose, "complete_profile"),
+        eq(otpSessionsTable.used, false),
+        drizzleGt(otpSessionsTable.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(drizzleDesc(otpSessionsTable.createdAt))
+    .limit(1);
+
+  if (!session) {
+    res.status(400).json({ error: "OTP expired or not found — request a new one" });
+    return;
+  }
+
+  const [salt, stored] = session.otpHash.split(":");
+  if (!salt || !stored) { res.status(400).json({ error: "Invalid OTP state" }); return; }
+  const derivedKey = (await scryptAsync(parsed.data.otp, salt, 64)) as Buffer;
+  const valid = timingSafeEqual(Buffer.from(stored, "hex"), derivedKey);
+  if (!valid) { res.status(400).json({ error: "Invalid OTP" }); return; }
+
+  await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
+
+  // Check for duplicate mobile one final time (race condition guard)
+  const [dup] = await db
+    .select({ id: organizersTable.id })
+    .from(organizersTable)
+    .where(eq(organizersTable.mobile, mobile));
+  if (dup) {
+    res.status(409).json({ error: "Mobile number already registered to another account" });
+    return;
+  }
+
+  // Now create the organizer record with a verified mobile
+  const [organizer] = await db.insert(organizersTable).values({
+    name: pending.name,
+    email: pending.email,
+    mobile,
+    googleId: pending.googleId,
+    googleEmail: pending.googleEmail,
+    licenseStatus: "pending",
+    maxTournaments: 1,
+  }).returning();
+
+  // Clear pending state and establish session
+  req.session.pendingGoogleProfile = undefined;
+  req.session.pendingGoogleMobile = undefined;
+  req.session.organizerAccountId = organizer.id;
+  if (!req.session.organizer) req.session.organizer = {};
+
+  req.session.save((saveErr) => {
+    if (saveErr) {
+      req.log.error({ saveErr }, "Session save error after complete-profile verify");
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
+  });
 });
 
 export default router;

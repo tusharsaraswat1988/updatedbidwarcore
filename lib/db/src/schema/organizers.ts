@@ -6,10 +6,7 @@ export const organizersTable = pgTable("organizers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").unique(),
-  // mobile is nullable at DB level to support Google-only signup (no mobile at creation time).
-  // Application layer enforces collection via ?require_mobile=1 redirect after OAuth.
-  // NULL values do not conflict with the unique index (PostgreSQL standard behaviour).
-  mobile: text("mobile").unique(),
+  mobile: text("mobile").notNull().unique(),
   passwordHash: text("password_hash"),
   googleId: text("google_id").unique(),
   googleEmail: text("google_email"),

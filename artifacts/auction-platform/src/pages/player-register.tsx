@@ -144,8 +144,10 @@ export default function PlayerRegister() {
         setLookupLoading(true);
         try {
           const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(val)}&limit=1`);
-          const data: { players?: GlobalPlayer[] } = await res.json();
-          const match = data.players?.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === val.replace(/\D/g, ""));
+          const data: GlobalPlayer[] = await res.json();
+          const match = Array.isArray(data)
+            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === val.replace(/\D/g, ""))
+            : undefined;
           if (match) {
             setFoundProfile(match);
             setForm(prev => ({

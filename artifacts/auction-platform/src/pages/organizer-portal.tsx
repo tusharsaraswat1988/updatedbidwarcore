@@ -74,6 +74,23 @@ function CreateTournamentModal({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [createdCode, setCreatedCode] = useState<string | null>(null);
+
+  // Load sports from master table
+  const [sports, setSports] = useState<{ slug: string; name: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/sports")
+      .then(r => r.json())
+      .then((d: { slug: string; name: string }[]) => setSports(d))
+      .catch(() => {});
+  }, []);
+
+  function handleClose() {
+    setCreatedCode(null);
+    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", basePurse: "1000000" });
+    setError("");
+    onClose();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,80 +106,105 @@ function CreateTournamentModal({
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
+    setCreatedCode(r.tournament?.auctionCode ?? null);
     onCreated();
   }
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-md dark">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Gavel className="w-4 h-4 text-primary" /> New Tournament
+            <Gavel className="w-4 h-4 text-primary" />
+            {createdCode ? "Tournament Created" : "New Tournament"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="space-y-2">
-            <Label>Tournament Name *</Label>
-            <Input
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Rotary Cricket League 2025"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Sport</Label>
-              <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cricket">Cricket</SelectItem>
-                  <SelectItem value="football">Football</SelectItem>
-                  <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                  <SelectItem value="basketball">Basketball</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+
+        {createdCode ? (
+          <div className="space-y-4 mt-2 text-center">
+            <CheckCheck className="w-10 h-10 text-green-400 mx-auto" />
+            <p className="text-sm text-muted-foreground">Your tournament has been created.</p>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">Auction Code</span>
+              <span className="font-mono text-2xl font-black tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-4 py-2">
+                {createdCode}
+              </span>
+              <p className="text-xs text-muted-foreground mt-1">Share this with team owners to access the bidding panel.</p>
             </div>
+            <Button className="w-full" onClick={handleClose}>Go to Dashboard</Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label>Auction Date</Label>
+              <Label>Tournament Name *</Label>
               <Input
-                type="date"
-                value={form.auctionDate}
-                onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Rotary Cricket League 2025"
+                required
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Venue</Label>
-            <Input
-              value={form.venue}
-              onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-              placeholder="Stadium name or city"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Total Purse per Team (₹)</Label>
-            <Input
-              type="number"
-              value={form.basePurse}
-              onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-              placeholder="1000000"
-            />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 text-destructive text-sm">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sport</Label>
+                <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {sports.length > 0
+                      ? sports.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)
+                      : (
+                        <>
+                          <SelectItem value="cricket">Cricket</SelectItem>
+                          <SelectItem value="football">Football</SelectItem>
+                          <SelectItem value="kabaddi">Kabaddi</SelectItem>
+                          <SelectItem value="volleyball">Volleyball</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </>
+                      )
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Auction Date</Label>
+                <Input
+                  type="date"
+                  value={form.auctionDate}
+                  onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                />
+              </div>
             </div>
-          )}
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" className="flex-1" disabled={loading}>
-              {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Create Tournament
-            </Button>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          </div>
-        </form>
+            <div className="space-y-2">
+              <Label>Venue</Label>
+              <Input
+                value={form.venue}
+                onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                placeholder="Stadium name or city"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Total Purse per Team (₹)</Label>
+              <Input
+                type="number"
+                value={form.basePurse}
+                onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
+                placeholder="1000000"
+              />
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 text-destructive text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+              </div>
+            )}
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Create Tournament
+              </Button>
+              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

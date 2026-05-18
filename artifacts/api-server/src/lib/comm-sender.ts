@@ -10,6 +10,9 @@
  */
 
 import { logger } from "./logger";
+import { db } from "@workspace/db";
+import { tournamentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export type SendResult = {
   success: boolean;
@@ -115,6 +118,32 @@ export async function sendWhatsApp(
     logger.error({ to, err }, "WhatsApp send exception");
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
+}
+
+/**
+ * Send a WhatsApp message ONLY when the tournament has an active (licensed) + unlocked status.
+ * Falls back silently to SMS when the tournament is not licensed or no tournament context exists.
+ * This is the single centralized entry point for ALL outbound WhatsApp in bot/scheduler flows.
+ */
+export async function sendLicensedWhatsApp(
+  tournamentId: number | null | undefined,
+  to: string,
+  body: string,
+  templateSid?: string,
+): Promise<SendResult & { blocked?: boolean }> {
+  if (tournamentId) {
+    const [t] = await db
+      .select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    if (t && t.licenseStatus === "active" && !t.adminLocked) {
+      return sendWhatsApp(to, body, templateSid);
+    }
+  }
+  // Not licensed or no tournament context — fall back to SMS
+  const smsMobile = to.replace(/^whatsapp:/i, "").replace(/^\+/, "");
+  const smsResult = await sendSms(smsMobile, body);
+  return { ...smsResult, blocked: true };
 }
 
 /** Build the wa.me consent opt-in link for a given consent token. */

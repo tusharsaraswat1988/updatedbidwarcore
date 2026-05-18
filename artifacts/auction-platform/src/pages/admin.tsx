@@ -84,7 +84,7 @@ import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function LicenseBadge({ status }: { status: string }) {
-  if (status === "live") {
+  if (status === "active") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]">
         <BadgeCheck className="w-3 h-3" /> Live
@@ -682,19 +682,19 @@ function DetailPanel({
             Set Trial
           </Button>
         )}
-        {isMaster && t.licenseStatus !== "live" && (
+        {isMaster && t.licenseStatus !== "active" && (
           <Button
             size="sm"
             variant="outline"
             className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
-            disabled={actionLoading === "Set Live"}
+            disabled={actionLoading === "Set Active"}
             onClick={() =>
-              doAction("Set Live", () =>
-                setTournamentLicenseStatus(tournamentId, "live"),
+              doAction("Set Active", () =>
+                setTournamentLicenseStatus(tournamentId, "active"),
               )
             }
           >
-            {actionLoading === "Set Live" ? (
+            {actionLoading === "Set Active" ? (
               <RefreshCw className="w-3 h-3 animate-spin" />
             ) : (
               <BadgeCheck className="w-3 h-3" />
@@ -2404,7 +2404,7 @@ export default function AdminDashboard() {
                 <span className="flex items-center gap-1">
                   <BadgeCheck className="w-3 h-3 text-green-400" />
                   {
-                    tournaments.filter((t) => t.licenseStatus === "live").length
+                    tournaments.filter((t) => t.licenseStatus === "active").length
                   }{" "}
                   licensed
                 </span>

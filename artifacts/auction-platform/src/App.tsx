@@ -31,6 +31,7 @@ import LegalPage from "@/pages/legal";
 import LiveViewer from "@/pages/liveviewer";
 import AdminCommunicate from "@/pages/admin-communicate";
 import WaConsent from "@/pages/wa-consent";
+import CompleteProfile from "@/pages/complete-profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/admin/communicate/logs" component={AdminCommunicate} />
       <Route path="/admin/communicate" component={AdminCommunicate} />
       <Route path="/wa-consent/:token" component={WaConsent} />
+      <Route path="/complete-profile" component={CompleteProfile} />
       <Route path="/organizer" component={OrganizerPortal} />
       <Route path="/legal/:slug" component={LegalPage} />
 

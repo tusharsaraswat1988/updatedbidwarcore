@@ -24,7 +24,7 @@ import {
   waTemplatesTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql, gt } from "drizzle-orm";
-import { sendSms, sendWhatsApp } from "../lib/comm-sender";
+import { sendSms, sendWhatsApp, sendLicensedWhatsApp } from "../lib/comm-sender";
 import { logger } from "../lib/logger";
 import { randomBytes, scrypt, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
@@ -139,7 +139,7 @@ async function isTournamentWaLicensed(tournamentId: number | null | undefined): 
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
   if (!t) return false;
-  return t.licenseStatus === "live" && t.adminLocked !== true;
+  return t.licenseStatus === "active" && t.adminLocked !== true;
 }
 
 async function findAllConsentTargets(mobile: string): Promise<ConsentTarget[]> {
@@ -267,7 +267,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     if (target) {
       await setConsentRevoked(target.type, target.id);
       await logConsentEvent(target, mobile, "STOP: WhatsApp consent revoked");
-      await sendWhatsApp(from, "Aap BidWar WhatsApp updates se unsubscribe ho gaye hain. SMS pe updates milte rahenge. Wapas subscribe karne ke liye 'hello' bhejein.");
+      await sendLicensedWhatsApp(target.tournamentId, from, "Aap BidWar WhatsApp updates se unsubscribe ho gaye hain. SMS pe updates milte rahenge. Wapas subscribe karne ke liye 'hello' bhejein.");
     }
     res.status(200).send("<Response/>");
     return;
@@ -284,9 +284,9 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       if (selected) {
         await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
         const summary = await buildPersonalizedSummary(selected);
-        await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
+        await sendLicensedWhatsApp(selected.tournamentId, from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
       } else {
-        await sendWhatsApp(from, `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'data' dobara bhejein.`);
+        await sendLicensedWhatsApp(options[0]?.tournamentId, from, `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'data' dobara bhejein.`);
       }
       res.status(200).send("<Response/>"); return;
     }
@@ -320,25 +320,13 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
             ip,
           });
           await logConsentEvent(target, mobile, "OTP verified: WhatsApp consent granted (whatsapp_otp_verified)");
-          // License gate: only send WA confirmation if tournament is licensed; else SMS fallback
-          const okWa = await isTournamentWaLicensed(target.tournamentId);
-          if (okWa) {
-            await sendWhatsApp(from, `Shukriya ${target.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
-          } else {
-            await sendSms(`+${mobile}`, `BidWar: Aapka consent record ho gaya hai. Tournament license activate hone ke baad WhatsApp updates shuru ho jayenge.`);
-          }
+          await sendLicensedWhatsApp(target.tournamentId, from, `Shukriya ${target.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
         } else {
-          await sendWhatsApp(from, "Identity verify ho gayi. BidWar updates shuru ho jayenge.");
+          await sendLicensedWhatsApp(null, from, "Identity verify ho gayi. BidWar updates shuru ho jayenge.");
         }
       } else {
-        // Invalid OTP: gate on tournament license before replying via WhatsApp
         const otpTarget = await findConsentTarget(mobile);
-        const okWaOtp = await isTournamentWaLicensed(otpTarget?.tournamentId);
-        if (okWaOtp) {
-          await sendWhatsApp(from, "Galat OTP. Dobara koshish karein ya nayi request ke liye 'hello' bhejein.");
-        } else {
-          await sendSms(`+${mobile}`, "BidWar: Galat OTP. Dobara koshish karein ya tournament portal pe jaayein.");
-        }
+        await sendLicensedWhatsApp(otpTarget?.tournamentId, from, "Galat OTP. Dobara koshish karein ya nayi request ke liye 'hello' bhejein.");
       }
       res.status(200).send("<Response/>");
       return;
@@ -351,16 +339,11 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     const tokenStr = text.slice(6).trim();
     const target = await findConsentTarget(mobile);
     if (!target) {
-      await sendWhatsApp(from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
+      await sendLicensedWhatsApp(null, from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // License gate: tournament must be WA-licensed before initiating consent flow
-    if (!(await isTournamentWaLicensed(target.tournamentId))) {
-      await sendSms(`+${mobile}`, `BidWar: Tournament abhi WhatsApp ke liye licensed nahi hai. SMS pe updates milte rahenge.`);
-      res.status(200).send("<Response/>"); return;
-    }
-
+    // License gate: block WA consent flow for unlicensed tournaments (SMS fallback via sendLicensedWhatsApp)
     // Save OPTIN token in bot session so the YES handler can use it
     await db.insert(botSessionsTable).values({
       mobile,
@@ -372,7 +355,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       set: { pendingAction: "pending_yes", pendingData: tokenStr, expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
     });
 
-    await sendWhatsApp(from,
+    await sendLicensedWhatsApp(target.tournamentId, from,
       `Namaste ${target.name}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
     );
     res.status(200).send("<Response/>"); return;
@@ -382,7 +365,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
   if (upper === "YES" || upper === "HA" || upper === "HAN") {
     const target = await findConsentTarget(mobile);
     if (!target) {
-      await sendWhatsApp(from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
+      await sendLicensedWhatsApp(null, from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
       res.status(200).send("<Response/>"); return;
     }
 
@@ -428,7 +411,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "wa_consent", expiresAt });
 
     await sendSms(`+${mobile}`, `BidWar OTP: ${otp} — WhatsApp consent verify karne ke liye use karein. 10 min valid.`);
-    await sendWhatsApp(from, `Shukriya ${target.name}! Consent ke liye dhanyawaad.\n\nAapki identity confirm karne ke liye aapke registered number pe SMS OTP bheja ja raha hai.\n\nOTP aane ke baad WhatsApp pe reply karein.`);
+    await sendLicensedWhatsApp(target.tournamentId, from, `Shukriya ${target.name}! Consent ke liye dhanyawaad.\n\nAapki identity confirm karne ke liye aapke registered number pe SMS OTP bheja ja raha hai.\n\nOTP aane ke baad WhatsApp pe reply karein.`);
 
     res.status(200).send("<Response/>"); return;
   }
@@ -437,17 +420,17 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
   if (upper === "HELLO" || upper === "HI" || upper === "NAMASTE") {
     const target = await findConsentTarget(mobile);
     if (!target) {
-      await sendWhatsApp(from, "Namaste! Main BidWar bot hun. Aapka number hamare system mein registered nahi hai. Kripya bidwar.in pe jaayein aur register karein.");
+      await sendLicensedWhatsApp(null, from, "Namaste! Main BidWar bot hun. Aapka number hamare system mein registered nahi hai. Kripya bidwar.in pe jaayein aur register karein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // License gate: tournament must be WA-licensed before initiating consent flow
+    // License gate: block WA consent flow for unlicensed tournaments
     if (!(await isTournamentWaLicensed(target.tournamentId))) {
       await sendSms(`+${mobile}`, `BidWar: Tournament abhi WhatsApp ke liye licensed nahi hai. SMS pe updates milte rahenge.`);
       res.status(200).send("<Response/>"); return;
     }
 
-    await sendWhatsApp(from,
+    await sendLicensedWhatsApp(target.tournamentId, from,
       `Namaste ${target.name}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
     );
     res.status(200).send("<Response/>"); return;
@@ -466,13 +449,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
         questionVersion: CONSENT_QUESTION_V1,
       });
     }
-    // License gate: only send WA decline confirmation if tournament is licensed; else SMS
-    const noLicensed = target ? await isTournamentWaLicensed(target.tournamentId) : false;
-    if (noLicensed) {
-      await sendWhatsApp(from, "Samajh gaye. Aap SMS pe updates paate rahenge. WhatsApp pe subscribe karne ke liye 'hello' bhejein.");
-    } else {
-      await sendSms(`+${mobile}`, "BidWar: Aapka opt-out record ho gaya hai. SMS updates jaari rahenge.");
-    }
+    await sendLicensedWhatsApp(target?.tournamentId, from, "Samajh gaye. Aap SMS pe updates paate rahenge. WhatsApp pe subscribe karne ke liye 'hello' bhejein.");
     res.status(200).send("<Response/>"); return;
   }
 
@@ -480,7 +457,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
   if (upper === "DATA" || upper === "REPORT" || upper === "MERI TEAM" || upper === "MY TEAM") {
     const allTargets = await findAllConsentTargets(mobile);
     if (allTargets.length === 0) {
-      await sendWhatsApp(from, "Aapka number BidWar mein registered nahi hai. bidwar.in pe jaayein.");
+      await sendLicensedWhatsApp(null, from, "Aapka number BidWar mein registered nahi hai. bidwar.in pe jaayein.");
       res.status(200).send("<Response/>"); return;
     }
 
@@ -501,18 +478,9 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       if (hasConsent) { consentedTarget = t; break; }
     }
     if (!consentedTarget) {
-      // Gate the "please subscribe first" reply on tournament license
-      const noConsentTid = allTargets[0]?.tournamentId ?? null;
-      if (await isTournamentWaLicensed(noConsentTid)) {
-        await sendWhatsApp(from, "Pehle WhatsApp notifications ke liye subscribe karein. 'hello' bhejein aur YES select karein.");
-      } else {
-        await sendSms(`+${mobile}`, "BidWar: Pehle WhatsApp notifications ke liye subscribe karein. Tournament portal pe jaayein.");
-      }
+      await sendLicensedWhatsApp(allTargets[0]?.tournamentId, from, "Pehle WhatsApp notifications ke liye subscribe karein. 'hello' bhejein aur YES select karein.");
       res.status(200).send("<Response/>"); return;
     }
-
-    // License gate for all DATA/REPORT WA responses
-    const dataLicensed = await isTournamentWaLicensed(consentedTarget.tournamentId);
 
     // Multi-tournament: if more than one tournament-scoped record, ask which one
     const tournamentTargets = allTargets.filter(t => t.tournamentId);
@@ -524,31 +492,18 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       const choices = tournamentTargets.map((t, i) =>
         `${i + 1}. ${t.tournamentName ?? "Tournament " + t.tournamentId} (${t.type === "player" ? "Khiladi" : "Team"})`
       ).join("\n");
-      if (dataLicensed) {
-        await sendWhatsApp(from, `Aap kai tournaments mein hain. Kaunsa?\n\n${choices}\n\nSirf number bhejein (1, 2 ...)`);
-      } else {
-        await sendSms(`+${mobile}`, `BidWar: Aap kai tournaments mein hain: ${choices}. Tournament portal pe jaayein.`);
-      }
+      await sendLicensedWhatsApp(consentedTarget.tournamentId, from, `Aap kai tournaments mein hain. Kaunsa?\n\n${choices}\n\nSirf number bhejein (1, 2 ...)`);
     } else {
       // Single match — return data directly
       const summary = await buildPersonalizedSummary(tournamentTargets[0] ?? consentedTarget);
-      if (dataLicensed) {
-        await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
-      } else {
-        await sendSms(`+${mobile}`, `BidWar aapki jankari:\n\n${summary}`);
-      }
+      await sendLicensedWhatsApp(consentedTarget.tournamentId, from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
     }
     res.status(200).send("<Response/>"); return;
   }
 
-  // Unknown command — look up target to apply license gate
+  // Unknown command
   const unknownTarget = await findConsentTarget(mobile);
-  const unknownLicensed = await isTournamentWaLicensed(unknownTarget?.tournamentId);
-  if (unknownLicensed) {
-    await sendWhatsApp(from, "BidWar bot:\n'hello' — subscribe karo\n'data' — apni info dekho\n'STOP' — unsubscribe karo");
-  } else {
-    await sendSms(`+${mobile}`, "BidWar: 'hello' bhejein subscribe ke liye, 'data' apni info ke liye, 'STOP' unsubscribe ke liye.");
-  }
+  await sendLicensedWhatsApp(unknownTarget?.tournamentId, from, "BidWar bot:\n'hello' — subscribe karo\n'data' — apni info dekho\n'STOP' — unsubscribe karo");
   res.status(200).send("<Response/>");
 });
 
