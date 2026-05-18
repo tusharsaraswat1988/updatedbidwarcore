@@ -282,9 +282,26 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       const options = JSON.parse(sess.pendingData ?? "[]") as ConsentTarget[];
       const selected = options[choice - 1];
       if (selected) {
-        await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
-        const summary = await buildPersonalizedSummary(selected);
-        await sendLicensedWhatsApp(selected.tournamentId, from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
+        // Re-verify consent for the selected target before serving data
+        let hasConsent = false;
+        if (selected.type === "player") {
+          const [p] = await db.select({ whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(eq(playersTable.id, selected.id));
+          hasConsent = p?.whatsappConsent ?? false;
+        } else if (selected.type === "team_owner") {
+          const [tm] = await db.select({ whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(eq(teamsTable.id, selected.id));
+          hasConsent = tm?.whatsappConsent ?? false;
+        } else if (selected.type === "organizer") {
+          const [o] = await db.select({ whatsappConsent: organizersTable.whatsappConsent }).from(organizersTable).where(eq(organizersTable.id, selected.id));
+          hasConsent = o?.whatsappConsent ?? false;
+        }
+        if (!hasConsent) {
+          await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
+          await sendLicensedWhatsApp(selected.tournamentId, from, "Is tournament ke liye aapka WhatsApp consent nahi hai. Pehle 'hello' bhejein aur YES se subscribe karein.");
+        } else {
+          await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
+          const summary = await buildPersonalizedSummary(selected);
+          await sendLicensedWhatsApp(selected.tournamentId, from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
+        }
       } else {
         await sendLicensedWhatsApp(options[0]?.tournamentId, from, `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'data' dobara bhejein.`);
       }
@@ -308,25 +325,39 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       const valid = await verifyOtp(upper, session.otpHash);
       if (valid) {
         await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
-        const target = await findConsentTarget(mobile);
-        if (target) {
-          await setConsentGranted(target.type, target.id, ip);
+
+        // Read the token-bound identity from the pending_otp bot session stored at YES time.
+        // This avoids a mobile-only first-match lookup that can mis-attribute consent in
+        // multi-record / multi-tournament scenarios.
+        const [otpSess] = await db.select().from(botSessionsTable)
+          .where(and(eq(botSessionsTable.mobile, mobile), eq(botSessionsTable.pendingAction, "pending_otp"), gt(botSessionsTable.expiresAt, new Date())));
+        await db.delete(botSessionsTable).where(and(eq(botSessionsTable.mobile, mobile), eq(botSessionsTable.pendingAction, "pending_otp")));
+
+        type StoredTarget = { recipientType: string; recipientId: number; tournamentId: number | null; name: string };
+        const storedTarget: StoredTarget | null = otpSess?.pendingData ? JSON.parse(otpSess.pendingData) as StoredTarget : null;
+
+        if (storedTarget) {
+          await setConsentGranted(storedTarget.recipientType, storedTarget.recipientId, ip);
           await db.insert(waConsentEventsTable).values({
             mobile,
-            recipientType: target.type,
-            recipientId: target.id,
-            tournamentId: target.tournamentId ?? null,
+            recipientType: storedTarget.recipientType,
+            recipientId: storedTarget.recipientId,
+            tournamentId: storedTarget.tournamentId ?? null,
             eventType: "otp_verified",
             ip,
           });
-          await logConsentEvent(target, mobile, "OTP verified: WhatsApp consent granted (whatsapp_otp_verified)");
-          await sendLicensedWhatsApp(target.tournamentId, from, `Shukriya ${target.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
+          await logConsentEvent(
+            { type: storedTarget.recipientType, id: storedTarget.recipientId, tournamentId: storedTarget.tournamentId ?? undefined },
+            mobile,
+            "OTP verified: WhatsApp consent granted (whatsapp_otp_verified)",
+          );
+          await sendLicensedWhatsApp(storedTarget.tournamentId, from, `Shukriya ${storedTarget.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
         } else {
-          await sendLicensedWhatsApp(null, from, "Identity verify ho gayi. BidWar updates shuru ho jayenge.");
+          // No pending_otp session — OTP arrived without a YES flow (e.g. session expired).
+          await sendLicensedWhatsApp(null, from, "OTP verify ho gayi lekin consent session expire ho gaya. Kripya 'hello' bhejein aur dobara subscribe karein.");
         }
       } else {
-        const otpTarget = await findConsentTarget(mobile);
-        await sendLicensedWhatsApp(otpTarget?.tournamentId, from, "Galat OTP. Dobara koshish karein ya nayi request ke liye 'hello' bhejein.");
+        await sendLicensedWhatsApp(null, from, "Galat OTP. Dobara koshish karein ya nayi request ke liye 'hello' bhejein.");
       }
       res.status(200).send("<Response/>");
       return;
@@ -337,39 +368,67 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
   // Do NOT immediately record YES or send OTP; wait for explicit YES/NO reply.
   if (upper.startsWith("OPTIN ")) {
     const tokenStr = text.slice(6).trim();
-    const target = await findConsentTarget(mobile);
-    if (!target) {
-      await sendLicensedWhatsApp(null, from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
+
+    // Resolve the exact recipient from the consent token — never fall back to a mobile first-match.
+    // This guarantees the consent flow is bound to a specific recipientType/recipientId/tournamentId.
+    const [ct] = await db.select().from(consentTokensTable)
+      .where(and(eq(consentTokensTable.token, tokenStr), eq(consentTokensTable.used, false), sql`${consentTokensTable.expiresAt} > now()`));
+    if (!ct) {
+      await sendLicensedWhatsApp(null, from, "Yeh consent link invalid ya expired hai. Kripya organizer se nayi link maangein.");
       res.status(200).send("<Response/>"); return;
     }
 
-    // License gate: block WA consent flow for unlicensed tournaments (SMS fallback via sendLicensedWhatsApp)
-    // Save OPTIN token in bot session so the YES handler can use it
+    // Security: token must have been issued for this exact mobile
+    const normInbound = normalizePhone(mobile);
+    const normToken = normalizePhone(ct.mobile);
+    if (normInbound !== normToken) {
+      await sendLicensedWhatsApp(null, from, "Yeh consent link aapke number ke liye nahi hai. Apne registered number pe aayi link use karein.");
+      res.status(200).send("<Response/>"); return;
+    }
+
+    // Resolve display name for the confirmed recipient
+    let recipientName = "Namaste";
+    if (ct.recipientType === "player") {
+      const [p] = await db.select({ name: playersTable.name }).from(playersTable).where(eq(playersTable.id, ct.recipientId));
+      if (p) recipientName = p.name;
+    } else if (ct.recipientType === "team_owner") {
+      const [tm] = await db.select({ ownerName: teamsTable.ownerName }).from(teamsTable).where(eq(teamsTable.id, ct.recipientId));
+      if (tm) recipientName = tm.ownerName;
+    } else if (ct.recipientType === "organizer") {
+      const [o] = await db.select({ name: organizersTable.name }).from(organizersTable).where(eq(organizersTable.id, ct.recipientId));
+      if (o) recipientName = o.name;
+    }
+
+    // Store the full token-resolved identity in the bot session.
+    // YES handler will read this — it must NOT call findConsentTarget(mobile).
+    const sessionData = JSON.stringify({
+      token: tokenStr,
+      recipientType: ct.recipientType,
+      recipientId: ct.recipientId,
+      tournamentId: ct.tournamentId,
+      name: recipientName,
+    });
     await db.insert(botSessionsTable).values({
       mobile,
       pendingAction: "pending_yes",
-      pendingData: tokenStr,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 min window
+      pendingData: sessionData,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     }).onConflictDoUpdate({
       target: botSessionsTable.mobile,
-      set: { pendingAction: "pending_yes", pendingData: tokenStr, expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
+      set: { pendingAction: "pending_yes", pendingData: sessionData, expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
     });
 
-    await sendLicensedWhatsApp(target.tournamentId, from,
-      `Namaste ${target.name}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
+    await sendLicensedWhatsApp(ct.tournamentId, from,
+      `Namaste ${recipientName}!\n\nKya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`
     );
     res.status(200).send("<Response/>"); return;
   }
 
   // YES (explicit consent reply to consent question) — record YES event then send OTP.
   if (upper === "YES" || upper === "HA" || upper === "HAN") {
-    const target = await findConsentTarget(mobile);
-    if (!target) {
-      await sendLicensedWhatsApp(null, from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
-      res.status(200).send("<Response/>"); return;
-    }
-
-    // Retrieve stored OPTIN token (if any) from pending bot session
+    // Read the token-resolved identity from the pending_yes bot session stored during OPTIN.
+    // We must NOT call findConsentTarget(mobile) here — that would re-do a first-match lookup
+    // and could mis-attribute consent when the same mobile appears in multiple records/tournaments.
     const now = new Date();
     const [session] = await db.select()
       .from(botSessionsTable)
@@ -378,40 +437,69 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
         eq(botSessionsTable.pendingAction, "pending_yes"),
         gt(botSessionsTable.expiresAt, now),
       ));
-    const tokenStr = session?.pendingData ?? null;
 
-    // Clear the pending bot session
-    await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
-
-    // Mark consent token used if present
-    if (tokenStr) {
-      await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, tokenStr));
+    type StoredYesTarget = { token: string | null; recipientType: string; recipientId: number; tournamentId: number; name: string };
+    let yesTarget: StoredYesTarget | null = null;
+    if (session?.pendingData) {
+      try { yesTarget = JSON.parse(session.pendingData) as StoredYesTarget; } catch { /* malformed */ }
     }
 
-    // Persist the explicit YES consent event with question version
+    if (!yesTarget) {
+      // No active OPTIN session — user may have sent YES unprompted or session expired
+      await sendLicensedWhatsApp(null, from, "Koi active consent request nahi mili. Pehle apni tournament link se 'OPTIN' bhejein ya 'hello' bhejein.");
+      res.status(200).send("<Response/>"); return;
+    }
+
+    // Clear the pending_yes bot session
+    await db.delete(botSessionsTable).where(and(eq(botSessionsTable.mobile, mobile), eq(botSessionsTable.pendingAction, "pending_yes")));
+
+    // Mark consent token used if present
+    if (yesTarget.token) {
+      await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, yesTarget.token));
+    }
+
+    // Persist the explicit YES consent event against the exact token-resolved recipient
     await db.insert(waConsentEventsTable).values({
       mobile,
-      recipientType: target.type,
-      recipientId: target.id,
-      tournamentId: target.tournamentId ?? null,
+      recipientType: yesTarget.recipientType,
+      recipientId: yesTarget.recipientId,
+      tournamentId: yesTarget.tournamentId ?? null,
       eventType: "yes_received",
       questionVersion: CONSENT_QUESTION_V1,
-      tokenUsed: tokenStr ?? null,
+      tokenUsed: yesTarget.token ?? null,
     });
     await logConsentEvent(
-      target,
+      { type: yesTarget.recipientType, id: yesTarget.recipientId, tournamentId: yesTarget.tournamentId ?? undefined },
       mobile,
-      `Explicit YES consent received via WhatsApp (pending OTP verification). Token: ${tokenStr ?? "none"}`,
+      `Explicit YES consent received via WhatsApp (pending OTP verification). Token: ${yesTarget.token ?? "none"}`,
     );
 
-    // Step 2: send OTP for identity verification
+    // Step 2: send OTP for identity verification.
+    // Store the resolved identity in a pending_otp bot session so the OTP handler
+    // can grant consent to the exact same recipient without another mobile lookup.
     const otp = generateOtp();
     const otpHash = await hashOtp(otp);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "wa_consent", expiresAt });
 
+    const otpSessionData = JSON.stringify({
+      recipientType: yesTarget.recipientType,
+      recipientId: yesTarget.recipientId,
+      tournamentId: yesTarget.tournamentId,
+      name: yesTarget.name,
+    });
+    await db.insert(botSessionsTable).values({
+      mobile,
+      pendingAction: "pending_otp",
+      pendingData: otpSessionData,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    }).onConflictDoUpdate({
+      target: botSessionsTable.mobile,
+      set: { pendingAction: "pending_otp", pendingData: otpSessionData, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+    });
+
     await sendSms(`+${mobile}`, `BidWar OTP: ${otp} — WhatsApp consent verify karne ke liye use karein. 10 min valid.`);
-    await sendLicensedWhatsApp(target.tournamentId, from, `Shukriya ${target.name}! Consent ke liye dhanyawaad.\n\nAapki identity confirm karne ke liye aapke registered number pe SMS OTP bheja ja raha hai.\n\nOTP aane ke baad WhatsApp pe reply karein.`);
+    await sendLicensedWhatsApp(yesTarget.tournamentId, from, `Shukriya ${yesTarget.name}! Consent ke liye dhanyawaad.\n\nAapki identity confirm karne ke liye aapke registered number pe SMS OTP bheja ja raha hai.\n\nOTP aane ke baad WhatsApp pe reply karein.`);
 
     res.status(200).send("<Response/>"); return;
   }
