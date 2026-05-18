@@ -160,4 +160,60 @@ router.post("/auth/admin/spec-groups/:groupId/options", async (req, res) => {
   res.status(201).json(option);
 });
 
+// ─── Admin: GET /auth/admin/sports-full ──────────────────────────────────────
+// Full sport hierarchy: sports → roles → spec groups → options (admin only)
+router.get("/auth/admin/sports-full", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const sports = await db.select().from(sportsTable).orderBy(sportsTable.name);
+  const result = await Promise.all(sports.map(async (sport) => {
+    const roles = await db
+      .select().from(sportRolesTable)
+      .where(eq(sportRolesTable.sportId, sport.id))
+      .orderBy(sportRolesTable.displayOrder, sportRolesTable.roleName);
+    const rolesWithSpecs = await Promise.all(roles.map(async (role) => {
+      const groups = await db
+        .select().from(roleSpecGroupsTable)
+        .where(eq(roleSpecGroupsTable.roleId, role.id))
+        .orderBy(roleSpecGroupsTable.displayOrder);
+      const groupsWithOptions = await Promise.all(groups.map(async (group) => {
+        const options = await db
+          .select().from(roleSpecOptionsTable)
+          .where(eq(roleSpecOptionsTable.groupId, group.id))
+          .orderBy(roleSpecOptionsTable.displayOrder);
+        return { ...group, options };
+      }));
+      return { ...role, specGroups: groupsWithOptions };
+    }));
+    return { ...sport, roles: rolesWithSpecs };
+  }));
+  res.json(result);
+});
+
+// ─── Admin: DELETE /auth/admin/spec-options/:optionId ────────────────────────
+router.delete("/auth/admin/spec-options/:optionId", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const optionId = parseInt(req.params.optionId);
+  if (isNaN(optionId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.update(roleSpecOptionsTable).set({ active: false }).where(eq(roleSpecOptionsTable.id, optionId));
+  res.json({ ok: true });
+});
+
+// ─── Admin: DELETE /auth/admin/spec-groups/:groupId ──────────────────────────
+router.delete("/auth/admin/spec-groups/:groupId", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const groupId = parseInt(req.params.groupId);
+  if (isNaN(groupId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.update(roleSpecGroupsTable).set({ active: false }).where(eq(roleSpecGroupsTable.id, groupId));
+  res.json({ ok: true });
+});
+
+// ─── Admin: DELETE /auth/admin/sport-roles/:roleId ───────────────────────────
+router.delete("/auth/admin/sport-roles/:roleId", async (req, res) => {
+  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const roleId = parseInt(req.params.roleId);
+  if (isNaN(roleId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.update(sportRolesTable).set({ active: false }).where(eq(sportRolesTable.id, roleId));
+  res.json({ ok: true });
+});
+
 export default router;

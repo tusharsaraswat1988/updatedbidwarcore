@@ -409,24 +409,11 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       .catch(() => {});
   }, [tournament?.sport]);
 
-  // Dynamic spec groups for selected role
+  // Spec groups state — populated after role selection (see effects below, after form state)
   type SpecOption = { id: number; optionName: string };
   type SpecGroup = { id: number; groupName: string; displayOrder: number; optional: boolean; options: SpecOption[] };
   const [specGroups, setSpecGroups] = useState<SpecGroup[]>([]);
-  const selectedRoleId = sportRoles.find(r => r.roleName === form.role)?.id;
   const isFirstSpecRender = useRef(true);
-  useEffect(() => {
-    if (!selectedRoleId) { setSpecGroups([]); return; }
-    fetch(`/api/sports/roles/${selectedRoleId}/specs`)
-      .then(r => r.json())
-      .then((d: SpecGroup[]) => setSpecGroups(d))
-      .catch(() => setSpecGroups([]));
-  }, [selectedRoleId]);
-  // Clear spec field values when role changes (but not on first render)
-  useEffect(() => {
-    if (isFirstSpecRender.current) { isFirstSpecRender.current = false; return; }
-    setForm(prev => ({ ...prev, battingStyle: "", bowlingStyle: "", specialization: "" }));
-  }, [selectedRoleId]);
   const SPEC_KEYS = ["battingStyle", "bowlingStyle", "specialization"] as const;
 
   // Sync basePrice default when tournament loads after the form opens (new players only)
@@ -457,6 +444,20 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   });
 
   const [submitError, setSubmitError] = useState("");
+
+  // selectedRoleId must be derived AFTER form state to avoid temporal dead zone
+  const selectedRoleId = sportRoles.find(r => r.roleName === form.role)?.id;
+  useEffect(() => {
+    if (!selectedRoleId) { setSpecGroups([]); return; }
+    fetch(`/api/sports/roles/${selectedRoleId}/specs`)
+      .then(r => r.json())
+      .then((d: SpecGroup[]) => setSpecGroups(d))
+      .catch(() => setSpecGroups([]));
+  }, [selectedRoleId]);
+  useEffect(() => {
+    if (isFirstSpecRender.current) { isFirstSpecRender.current = false; return; }
+    setForm(prev => ({ ...prev, battingStyle: "", bowlingStyle: "", specialization: "" }));
+  }, [selectedRoleId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
