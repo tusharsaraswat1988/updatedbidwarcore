@@ -178,14 +178,18 @@ export default function AuctionOperator() {
 
   async function handleManualSell() {
     if (!manualTeamId || !manualAmount) return;
-    await manualSellMut.mutateAsync({
-      tournamentId,
-      data: { teamId: parseInt(manualTeamId), amount: parseInt(manualAmount) || 0 },
-    });
-    setManualSellOpen(false);
-    setManualTeamId("");
-    setManualAmount("");
-    invalidate();
+    try {
+      await manualSellMut.mutateAsync({
+        tournamentId,
+        data: { teamId: parseInt(manualTeamId), amount: parseInt(manualAmount) || 0 },
+      });
+      setManualSellOpen(false);
+      setManualTeamId("");
+      setManualAmount("");
+      invalidate();
+    } catch {
+      // error shown in dialog via manualSellMut.error
+    }
   }
 
   async function handleReAuction(playerId: number, startFromBase: boolean) {
@@ -1201,7 +1205,7 @@ export default function AuctionOperator() {
       </Dialog>
 
       {/* Manual Sell */}
-      <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>
+      <Dialog open={manualSellOpen} onOpenChange={(open) => { setManualSellOpen(open); if (!open) manualSellMut.reset(); }}>
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1214,7 +1218,7 @@ export default function AuctionOperator() {
             </p>
             <div className="space-y-2">
               <Label>Team</Label>
-              <Select value={manualTeamId} onValueChange={setManualTeamId}>
+              <Select value={manualTeamId} onValueChange={(v) => { setManualTeamId(v); manualSellMut.reset(); }}>
                 <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
                 <SelectContent className="dark">
                   {(teams || []).map(t => (
@@ -1233,10 +1237,28 @@ export default function AuctionOperator() {
               <Input
                 type="number"
                 value={manualAmount}
-                onChange={e => setManualAmount(e.target.value)}
+                onChange={e => { setManualAmount(e.target.value); manualSellMut.reset(); }}
                 placeholder="e.g. 500000"
               />
+              {(() => {
+                const selectedTeam = (teams || []).find(t => String(t.id) === manualTeamId);
+                const enteredAmt = parseInt(manualAmount) || 0;
+                const purseLeft = selectedTeam ? selectedTeam.purse - selectedTeam.purseUsed : null;
+                if (selectedTeam && enteredAmt > 0 && purseLeft !== null && enteredAmt > purseLeft) {
+                  return (
+                    <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                      <span>Exceeds {selectedTeam.name}&apos;s remaining purse of {formatShortIndianRupee(purseLeft)}</span>
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
+            {manualSellMut.error && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">
+                {(manualSellMut.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Sale failed"}
+              </p>
+            )}
             <div className="flex gap-3">
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-500"

@@ -762,6 +762,18 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
 
+  // ── Purse validation ───────────────────────────────────────────────────────
+  if (amount > 0) {
+    const { spendablePurse, reservePurse, slotsRequired } = await computeTeamPurseProtection(tid, teamId);
+    if (amount > spendablePurse) {
+      const msg = reservePurse > 0
+        ? `Insufficient purse — ₹${reservePurse.toLocaleString("en-IN")} reserved for ${slotsRequired} minimum squad slot${slotsRequired !== 1 ? "s" : ""}`
+        : "Insufficient purse for this team";
+      res.status(400).json({ error: msg });
+      return;
+    }
+  }
+
   const playerId = session.currentPlayerId;
 
   await db
