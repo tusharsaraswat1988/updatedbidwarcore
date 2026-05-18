@@ -262,27 +262,34 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
-  // WhatsApp template resolution.
-  // In prototype / stub mode (no Twilio creds): sends stub anyway — no template enforcement.
-  // In production (Twilio creds present + DB templates exist): templateName must match approved template.
+  // WhatsApp template enforcement.
+  // Stub mode (no Twilio creds): template not enforced — allows dev/demo use.
+  // Production (Twilio creds present): templateName is REQUIRED for all business-initiated WA sends.
+  // Every approved template must be registered in wa_templates or TWILIO_WA_TEMPLATES env var.
+  const isLiveMode = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
   let resolvedTemplateSid: string | undefined;
-  if ((d.channel === "whatsapp" || d.channel === "both") && d.templateName) {
-    const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, templateSid: waTemplatesTable.templateSid, status: waTemplatesTable.status })
-      .from(waTemplatesTable);
-    const isLiveMode = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
-    if (isLiveMode && dbTemplates.length > 0) {
-      const tmpl = dbTemplates.find(t => t.templateName === d.templateName && t.status === "approved");
-      if (!tmpl) {
-        const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
-        res.status(400).json({ error: `Template "${d.templateName}" is not approved. Approved: ${approved.join(", ")}` });
-        return;
-      }
-      resolvedTemplateSid = tmpl.templateSid ?? undefined;
-    } else if (isLiveMode) {
-      const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
-      if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
-        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list.` });
-        return;
+  if (d.channel === "whatsapp" || d.channel === "both") {
+    if (isLiveMode && !d.templateName) {
+      res.status(400).json({ error: "templateName is required for WhatsApp sends in production mode" });
+      return;
+    }
+    if (d.templateName) {
+      const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, templateSid: waTemplatesTable.templateSid, status: waTemplatesTable.status })
+        .from(waTemplatesTable);
+      if (isLiveMode && dbTemplates.length > 0) {
+        const tmpl = dbTemplates.find(t => t.templateName === d.templateName && t.status === "approved");
+        if (!tmpl) {
+          const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
+          res.status(400).json({ error: `Template "${d.templateName}" is not approved. Approved: ${approved.join(", ")}` });
+          return;
+        }
+        resolvedTemplateSid = tmpl.templateSid ?? undefined;
+      } else if (isLiveMode) {
+        const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
+        if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
+          res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list.` });
+          return;
+        }
       }
     }
   }

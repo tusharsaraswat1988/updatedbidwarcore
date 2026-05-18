@@ -67,12 +67,21 @@ export async function sendSms(
   }
 }
 
-/** Send a WhatsApp message via Twilio. */
+/** Send a WhatsApp message via Twilio.
+ *
+ * STOP footer: WhatsApp Business messaging policy requires every business-initiated
+ * message to include an opt-out instruction. This function appends
+ * "Reply STOP to unsubscribe" unless the body already contains "STOP".
+ */
 export async function sendWhatsApp(
   to: string,
   body: string,
   templateSid?: string,
 ): Promise<SendResult> {
+  // Append STOP footer if not already present (WhatsApp Business compliance)
+  const STOP_FOOTER = "\n\nReply STOP to unsubscribe.";
+  const finalBody = body.toUpperCase().includes("STOP") ? body : body + STOP_FOOTER;
+
   const auth = twilioBasicAuth();
   const from = process.env.TWILIO_WHATSAPP_FROM; // e.g. "whatsapp:+14155238886"
   if (!auth || !from) {
@@ -85,7 +94,7 @@ export async function sendWhatsApp(
     const params: Record<string, string> = {
       To: `whatsapp:${e164}`,
       From: from,
-      Body: body,
+      Body: finalBody,
     };
     if (templateSid) params["ContentSid"] = templateSid;
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
