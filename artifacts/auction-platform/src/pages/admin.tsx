@@ -147,7 +147,6 @@ function CreateTournamentModal({
     organizerName: "",
     organizerMobile: "",
     organizerEmail: "",
-    organizerPassword: "",
     basePurse: "10000000",
     minBid: "100000",
     timerSeconds: "30",
@@ -177,7 +176,6 @@ function CreateTournamentModal({
       organizerName: form.organizerName || undefined,
       organizerMobile: form.organizerMobile || undefined,
       organizerEmail: form.organizerEmail || undefined,
-      organizerPassword: form.organizerPassword || undefined,
       basePurse: Number(form.basePurse) || 10000000,
       minBid: Number(form.minBid) || 100000,
       timerSeconds: Number(form.timerSeconds) || 30,
@@ -319,18 +317,6 @@ function CreateTournamentModal({
                   placeholder="Links to portal account"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <KeyRound className="w-3 h-3" />
-                  Organizer Password
-                </Label>
-                <Input
-                  type="password"
-                  value={form.organizerPassword}
-                  onChange={f("organizerPassword")}
-                  placeholder="Set access password"
-                />
-              </div>
             </div>
 
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
@@ -435,7 +421,6 @@ function DetailPanel({
         organizerName: d.tournament.organizerName || "",
         organizerMobile: d.tournament.organizerMobile || "",
         organizerEmail: d.tournament.organizerEmail || "",
-        organizerPassword: "",
         basePurse: d.tournament.basePurse,
         minBid: d.tournament.minBid,
         timerSeconds: d.tournament.timerSeconds,
@@ -514,8 +499,6 @@ function DetailPanel({
       payload.organizerMobile = ef.organizerMobile as string;
     if (ef.organizerEmail !== undefined)
       payload.organizerEmail = ef.organizerEmail as string;
-    if (ef.organizerPassword)
-      payload.organizerPassword = ef.organizerPassword as string;
     if (ef.basePurse) payload.basePurse = Number(ef.basePurse);
     if (ef.minBid) payload.minBid = Number(ef.minBid);
     if (ef.timerSeconds) payload.timerSeconds = Number(ef.timerSeconds);
@@ -1092,28 +1075,6 @@ function DetailPanel({
                         <SelectItem value="manual">Manual</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Organizer Password
-                </p>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      New password (leave blank to keep current)
-                    </Label>
-                    <Input
-                      type="password"
-                      className="h-8 text-sm"
-                      value={(editForm.organizerPassword as string) || ""}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          organizerPassword: e.target.value,
-                        }))
-                      }
-                      placeholder="Enter new password..."
-                    />
                   </div>
                 </div>
               </div>

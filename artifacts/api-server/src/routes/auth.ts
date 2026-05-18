@@ -178,7 +178,7 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!tournament.organizerPassword) {
-    res.status(403).json({ error: "No password set for this tournament. Ask the admin to configure one." });
+    res.status(403).json({ error: "Organizer access is not yet configured for this tournament." });
     return;
   }
   if (!safeCompare(body.data.password, tournament.organizerPassword)) {
@@ -203,13 +203,13 @@ router.get("/auth/organizer/:tournamentId/me", (req, res) => {
   res.json({ isOrganizer });
 });
 
-// ─── Set organizer password (admin or existing organizer) ─────────────────────
+// ─── Set organizer password (organizer only — admin cannot set this) ──────────
 
 router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session.isAdmin || (req.session.organizer && req.session.organizer[tidStr]));
+  const isOrganizer = !!(req.session.organizer && req.session.organizer[tidStr]);
   if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
   const body = z.object({ password: z.string().min(4) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Password must be at least 4 characters" }); return; }
@@ -254,7 +254,6 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
-    organizerPassword: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
@@ -275,7 +274,6 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     organizerName: d.organizerName,
     organizerMobile: d.organizerMobile,
     organizerEmail: d.organizerEmail,
-    organizerPassword: d.organizerPassword,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
     timerSeconds: d.timerSeconds ?? 30,
@@ -473,7 +471,6 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
-    organizerPassword: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
@@ -492,7 +489,6 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
-  if (d.organizerPassword !== undefined) updates.organizerPassword = d.organizerPassword;
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
