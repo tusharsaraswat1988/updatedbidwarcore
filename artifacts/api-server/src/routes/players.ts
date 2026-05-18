@@ -87,6 +87,14 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   createdAt: p.createdAt.toISOString(),
 });
 
+const cloudinaryImageUrl = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || v.startsWith("https://res.cloudinary.com/"),
+    "Image URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
+  );
+
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
   name: z.string().min(1),
@@ -96,7 +104,7 @@ const playerInputSchema = z.object({
   bowlingStyle: z.string().optional(),
   specialization: z.string().optional(),
   age: z.number().int().optional(),
-  photoUrl: z.string().optional(),
+  photoUrl: cloudinaryImageUrl,
   basePrice: z.number().int(),
   jerseyNumber: z.string().optional(),
   achievements: z.string().optional(),
@@ -269,7 +277,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     bowlingStyle: z.string().optional(),
     specialization: z.string().optional(),
     age: z.number().int().optional(),
-    photoUrl: z.string().optional(),
+    photoUrl: cloudinaryImageUrl,
     basePrice: z.number().int().optional(),
     jerseyNumber: z.string().optional(),
     achievements: z.string().optional(),

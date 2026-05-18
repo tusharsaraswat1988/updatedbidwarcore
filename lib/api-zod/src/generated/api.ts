@@ -15,6 +15,21 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Accepts a single image file via multipart/form-data. The file is uploaded to Cloudinary and the resulting HTTPS URL is returned. All image fields (photoUrl, logoUrl) must reference URLs returned by this endpoint.
+
+ * @summary Upload an image to Cloudinary
+ */
+export const UploadImageBody = zod.object({
+  file: zod.instanceof(File).describe("Image file (PNG, JPG, WebP, etc.)"),
+});
+
+export const UploadImageResponse = zod.object({
+  url: zod
+    .string()
+    .describe("Cloudinary HTTPS URL (https:\/\/res.cloudinary.com\/...)"),
+});
+
+/**
  * @summary List all tournaments
  */
 export const ListTournamentsResponseItem = zod.object({

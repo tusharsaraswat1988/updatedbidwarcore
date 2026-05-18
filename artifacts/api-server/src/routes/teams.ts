@@ -4,6 +4,14 @@ import { teamsTable, tournamentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
+const cloudinaryLogoUrl = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || v.startsWith("https://res.cloudinary.com/"),
+    "Logo URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
+  );
+
 const router = Router();
 
 function genAccessCode() {
@@ -68,7 +76,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     ownerName: z.string().min(1),
     ownerMobile: z.string().optional(),
     color: z.string().optional(),
-    logoUrl: z.string().optional(),
+    logoUrl: cloudinaryLogoUrl,
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -125,7 +133,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     ownerName: z.string().optional(),
     ownerMobile: z.string().optional(),
     color: z.string().optional(),
-    logoUrl: z.string().optional(),
+    logoUrl: cloudinaryLogoUrl,
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
     regenerateCode: z.boolean().optional(),

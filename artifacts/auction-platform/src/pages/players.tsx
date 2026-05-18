@@ -413,7 +413,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     bowlingStyle: player?.bowlingStyle || "",
     specialization: player?.specialization || "",
     age: player?.age ? String(player.age) : "",
-    photoUrl: player?.photoUrl || "",
+    photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
     jerseyNumber: player?.jerseyNumber || "",
     achievements: player?.achievements || "",
@@ -619,7 +619,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
             initialUrl={form.photoUrl || undefined}
             aspect={1}
             title="Player Photo"
-            onSave={dataUrl => f("photoUrl", dataUrl)}
+            onSave={url => f("photoUrl", url)}
           />
         </div>
       </div>

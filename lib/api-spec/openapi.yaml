@@ -8,6 +8,7 @@ servers:
     description: Base API path
 tags:
   - name: health
+  - name: media
   - name: tournaments
   - name: teams
   - name: players
@@ -29,6 +30,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── MEDIA ──────────────────────────────────────────────────────────────────
+  /upload:
+    post:
+      operationId: uploadImage
+      tags: [media]
+      summary: Upload an image to Cloudinary
+      description: >
+        Accepts a single image file via multipart/form-data.
+        The file is uploaded to Cloudinary and the resulting HTTPS URL is returned.
+        All image fields (photoUrl, logoUrl) must reference URLs returned by this endpoint.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file (PNG, JPG, WebP, etc.)
+      responses:
+        "200":
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url:
+                    type: string
+                    description: Cloudinary HTTPS URL (https://res.cloudinary.com/...)
+        "400":
+          description: No file provided or file is not an image
+        "503":
+          description: Cloudinary environment variables not configured
 
   # ─── TOURNAMENTS ────────────────────────────────────────────────────────────
   /tournaments:

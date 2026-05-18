@@ -5,6 +5,14 @@ import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { broadcastToTournament } from "../lib/broadcast";
 
+const cloudinaryLogoUrl = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || v.startsWith("https://res.cloudinary.com/"),
+    "Logo URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
+  );
+
 const router = Router();
 
 const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
@@ -59,7 +67,7 @@ const tournamentInputSchema = z.object({
   organizerName: z.string().optional(),
   organizerMobile: z.string().optional(),
   organizerEmail: z.string().optional(),
-  logoUrl: z.string().optional(),
+  logoUrl: cloudinaryLogoUrl,
   sponsorLogos: z.string().optional(),
   basePurse: z.number().int().optional(),
   minBid: z.number().int().optional(),
@@ -133,7 +141,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     organizerName: z.string().optional(),
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
-    logoUrl: z.string().optional(),
+    logoUrl: cloudinaryLogoUrl,
     sponsorLogos: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),

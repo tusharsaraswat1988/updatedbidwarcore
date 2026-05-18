@@ -21,7 +21,7 @@ type Props = {
   initialUrl?: string;
   aspect?: number;
   title?: string;
-  onSave: (dataUrl: string) => void;
+  onSave: (url: string) => void;
 };
 
 // Crop a source image (URL or data URL) to the given pixel area, optionally
@@ -90,14 +90,6 @@ async function autoEnhance(src: string): Promise<Blob> {
   });
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("FileReader failed"));
-    reader.readAsDataURL(blob);
-  });
-}
 
 export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title = "Edit Image", onSave }: Props) {
   // Image source loaded into the cropper. Either an object URL from a chosen
@@ -221,7 +213,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
   async function handleSave() {
     if (!src) return;
     setError(null);
-    setProcessing("Compressing & saving...");
+    setProcessing("Preparing image...");
     try {
       // 1. Crop (with rotation) using current crop area, or full image if no
       // crop was completed yet.
@@ -239,11 +231,20 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
       }
       // 2. Compress + cap dimensions for broadcast use.
       const compressed = await imageCompression(
-        new File([blob], "logo.png", { type: blob.type || "image/png" }),
+        new File([blob], "image.png", { type: blob.type || "image/png" }),
         { maxSizeMB: 0.4, maxWidthOrHeight: 800, useWebWorker: true, fileType: blob.type || "image/png" },
       );
-      const dataUrl = await blobToDataUrl(compressed);
-      onSave(dataUrl);
+      // 3. Upload via API → Cloudinary. The server returns a secure HTTPS URL.
+      setProcessing("Uploading to cloud storage...");
+      const formData = new FormData();
+      formData.append("file", compressed, "image.png");
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || `Upload failed (${res.status})`);
+      }
+      const { url } = await res.json() as { url: string };
+      onSave(url);
       onClose();
     } catch (e) {
       setError(
@@ -263,7 +264,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CropIcon className="w-5 h-5 text-primary" /> {title}
           </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-1">Crop, rotate, enhance or remove the background — final image is auto-compressed before saving.</p>
+          <p className="text-xs text-muted-foreground mt-1">Crop, rotate, enhance or remove the background — image is compressed and uploaded to cloud storage.</p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">

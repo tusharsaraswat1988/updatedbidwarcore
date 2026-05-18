@@ -68,7 +68,7 @@ function TeamForm({
     ownerMobile: team?.ownerMobile || "",
     color: team?.color || "#3B82F6",
     purse: team?.purse || basePurse,
-    logoUrl: team?.logoUrl || "",
+    logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
@@ -265,7 +265,7 @@ function TeamForm({
           initialUrl={form.logoUrl || undefined}
           aspect={1}
           title="Team Logo"
-          onSave={dataUrl => setForm(f => ({ ...f, logoUrl: dataUrl }))}
+          onSave={url => setForm(f => ({ ...f, logoUrl: url }))}
         />
       </div>
 

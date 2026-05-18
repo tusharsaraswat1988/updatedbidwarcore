@@ -4,6 +4,14 @@ import { globalPlayersTable, playersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+const cloudinaryImageUrl = z
+  .string()
+  .optional()
+  .refine(
+    (v) => !v || v.startsWith("https://res.cloudinary.com/"),
+    "Image URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
+  );
+
 const router = Router();
 
 // ─── Search players across all tournaments (deduplicated by mobile) ────────────
@@ -120,7 +128,7 @@ router.post("/global-players", async (req, res) => {
     defaultRole: z.string().optional(),
     city: z.string().optional(),
     age: z.number().int().optional(),
-    photoUrl: z.string().optional(),
+    photoUrl: cloudinaryImageUrl,
     notes: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);

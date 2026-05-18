@@ -856,6 +856,16 @@ export interface ImportPlayersResult {
   total: number;
 }
 
+export type UploadImageBody = {
+  /** Image file (PNG, JPG, WebP, etc.) */
+  file: Blob;
+};
+
+export type UploadImage200 = {
+  /** Cloudinary HTTPS URL (https://res.cloudinary.com/...) */
+  url: string;
+};
+
 export type ResetTrialAuctionBody = {
   password: string;
 };

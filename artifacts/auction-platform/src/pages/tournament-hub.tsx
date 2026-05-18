@@ -135,7 +135,7 @@ export default function TournamentHub() {
       sport: tournament.sport,
       venue: tournament.venue || "",
       auctionDate: tournament.auctionDate || "",
-      logoUrl: tournament.logoUrl || "",
+      logoUrl: tournament.logoUrl && !tournament.logoUrl.startsWith("data:") ? tournament.logoUrl : "",
       basePurse: String(tournament.basePurse ?? ""),
       minBid: String(tournament.minBid ?? ""),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
@@ -1125,7 +1125,7 @@ export default function TournamentHub() {
         initialUrl={editForm.logoUrl as string || undefined}
         aspect={1}
         title="Tournament Logo"
-        onSave={dataUrl => setEditForm(f => ({ ...f, logoUrl: dataUrl }))}
+        onSave={url => setEditForm(f => ({ ...f, logoUrl: url }))}
       />
     </AppLayout>
   );
