@@ -50,6 +50,7 @@ import {
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
   Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
+  PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -70,6 +71,7 @@ export default function AuctionOperator() {
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [mobilePanel, setMobilePanel] = useState<"queue" | "control" | "teams">("control");
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   // Per-team bid debounce: maps teamId → timestamp of last bid click
   const bidDebounce = useRef<Map<number, number>>(new Map());
 
@@ -465,10 +467,23 @@ export default function AuctionOperator() {
               <ExternalLink className="w-2.5 h-2.5 opacity-50 hidden sm:inline" />
             </Button>
           </a>
+
+          {/* Right panel toggle (desktop only) */}
+          <button
+            title={rightCollapsed ? "Show Teams & Purse" : "Hide Teams & Purse"}
+            onClick={() => setRightCollapsed(v => !v)}
+            className={`hidden lg:flex items-center justify-center h-7 w-7 rounded border transition-colors flex-shrink-0 ${
+              rightCollapsed
+                ? "border-primary/50 text-primary bg-primary/10 hover:bg-primary/20"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            {rightCollapsed ? <PanelRightOpen className="w-3.5 h-3.5" /> : <PanelRightClose className="w-3.5 h-3.5" />}
+          </button>
         </div>
 
         {/* ─── 3-COLUMN MAIN AREA ─────────────────────────────────────────── */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_284px] min-h-0 overflow-hidden">
+        <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[260px_1fr]" : "lg:grid-cols-[260px_1fr_284px]"}`}>
 
           {/* ═══════════════════ LEFT: PLAYER QUEUE ═══════════════════════ */}
           <aside className={`border-r border-border flex-col min-h-0 overflow-hidden bg-card/20 ${mobilePanel === "queue" ? "flex" : "hidden"} lg:flex`}>
@@ -1005,7 +1020,7 @@ export default function AuctionOperator() {
           </main>
 
           {/* ══════════════════ RIGHT: TEAMS + HISTORY ═════════════════════ */}
-          <aside className={`border-l border-border flex-col min-h-0 overflow-hidden bg-card/20 ${mobilePanel === "teams" ? "flex" : "hidden"} lg:flex`}>
+          <aside className={`border-l border-border flex-col min-h-0 overflow-hidden bg-card/20 ${mobilePanel === "teams" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
 
             {/* Teams & Purse */}
             <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "52%" }}>
