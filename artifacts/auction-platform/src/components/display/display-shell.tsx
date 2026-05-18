@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { Volume2, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import {
   useGetAuctionState,
@@ -117,32 +118,31 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
   // when an actual value changes, not on every auction-state SSE ping.
   const audioSettings = useMemo<AudioSettings | null>(() => {
     if (!tournament) return null;
-    const t = tournament as unknown as Record<string, unknown>;
     return {
-      audioEnabled:           (t.audioEnabled           as boolean)  ?? true,
-      masterVolume:           (t.masterVolume            as number)   ?? 80,
-      countdownSoundEnabled:  (t.countdownSoundEnabled   as boolean)  ?? true,
-      countdownSoundUrl:      (t.countdownSoundUrl       as string | null) ?? null,
-      countdownSoundVolume:   (t.countdownSoundVolume    as number)   ?? 70,
-      soldSoundEnabled:       (t.soldSoundEnabled        as boolean)  ?? true,
-      soldSoundUrl:           (t.soldSoundUrl            as string | null) ?? null,
-      soldSoundVolume:        (t.soldSoundVolume         as number)   ?? 80,
-      breakEndSoundEnabled:   (t.breakEndSoundEnabled    as boolean)  ?? false,
-      breakEndSoundUrl:       (t.breakEndSoundUrl        as string | null) ?? null,
-      breakEndSoundVolume:    (t.breakEndSoundVolume     as number)   ?? 80,
+      audioEnabled:          tournament.audioEnabled          ?? true,
+      masterVolume:          tournament.masterVolume          ?? 80,
+      countdownSoundEnabled: tournament.countdownSoundEnabled ?? true,
+      countdownSoundUrl:     tournament.countdownSoundUrl     ?? null,
+      countdownSoundVolume:  tournament.countdownSoundVolume  ?? 70,
+      soldSoundEnabled:      tournament.soldSoundEnabled      ?? true,
+      soldSoundUrl:          tournament.soldSoundUrl          ?? null,
+      soldSoundVolume:       tournament.soldSoundVolume       ?? 80,
+      breakEndSoundEnabled:  tournament.breakEndSoundEnabled  ?? false,
+      breakEndSoundUrl:      tournament.breakEndSoundUrl      ?? null,
+      breakEndSoundVolume:   tournament.breakEndSoundVolume   ?? 80,
     };
   }, [
-    (tournament as Record<string, unknown> | undefined)?.audioEnabled,
-    (tournament as Record<string, unknown> | undefined)?.masterVolume,
-    (tournament as Record<string, unknown> | undefined)?.countdownSoundEnabled,
-    (tournament as Record<string, unknown> | undefined)?.countdownSoundUrl,
-    (tournament as Record<string, unknown> | undefined)?.countdownSoundVolume,
-    (tournament as Record<string, unknown> | undefined)?.soldSoundEnabled,
-    (tournament as Record<string, unknown> | undefined)?.soldSoundUrl,
-    (tournament as Record<string, unknown> | undefined)?.soldSoundVolume,
-    (tournament as Record<string, unknown> | undefined)?.breakEndSoundEnabled,
-    (tournament as Record<string, unknown> | undefined)?.breakEndSoundUrl,
-    (tournament as Record<string, unknown> | undefined)?.breakEndSoundVolume,
+    tournament?.audioEnabled,
+    tournament?.masterVolume,
+    tournament?.countdownSoundEnabled,
+    tournament?.countdownSoundUrl,
+    tournament?.countdownSoundVolume,
+    tournament?.soldSoundEnabled,
+    tournament?.soldSoundUrl,
+    tournament?.soldSoundVolume,
+    tournament?.breakEndSoundEnabled,
+    tournament?.breakEndSoundUrl,
+    tournament?.breakEndSoundVolume,
   ]);
 
   // Stable key that changes exactly once per sold event for deduplication.
@@ -152,9 +152,8 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     ? `${state?.currentBidTeamId ?? 0}_${state?.currentBid ?? 0}_${state?.soldPlayersCount ?? 0}`
     : "";
 
-  // Derive countdown primitives here so they're available for useBroadcastAudio below
-  // and also for the overlay further down in the render. Kept outside useMemo because
-  // they're primitives (stable reference by value).
+  // Derive countdown primitives from the raw server state for useBroadcastAudio
+  // (audio scheduling must use the real server values, not the sticky copy).
   const _dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
   const displayCountdownType = (_dc?.type as "break" | "pre-auction" | null) ?? null;
   const displayCountdownEndsAt = _dc?.endsAt ?? null;
@@ -167,6 +166,12 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     displayCountdownType,
     displayCountdownEndsAt,
   });
+
+  // Sticky countdown for the visual overlay — holds the pre-auction countdown
+  // alive for 5 s after the server clears it so the 4-s banner can complete.
+  const stickyDc = useStickyCountdown(_dc);
+  const stickyCountdownType = stickyDc?.type ?? null;
+  const stickyCountdownEndsAt = stickyDc?.endsAt ?? null;
 
   const isActive = state?.status === "active";
   const isPaused = state?.status === "paused";
@@ -219,9 +224,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     return { status: f.status, categoryId: f.categoryId ?? null, teamId: f.teamId ?? null };
   }, [state?.displayPlayerFilter?.status, state?.displayPlayerFilter?.categoryId, state?.displayPlayerFilter?.teamId]);
 
-  // displayCountdownType / displayCountdownEndsAt declared above (before useBroadcastAudio).
-  // Only the label is derived here since it isn't needed by useBroadcastAudio.
-  const displayCountdownLabel = _dc?.label ?? null;
+  // Sticky label — follows the sticky countdown so the banner stays coherent
+  // during the post-expiry window.
+  const displayCountdownLabel = stickyDc?.label ?? null;
 
   const stripPurses = useMemo<PurseRow[]>(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,
@@ -371,8 +376,8 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}
-          displayCountdownType={displayCountdownType}
-          displayCountdownEndsAt={displayCountdownEndsAt}
+          displayCountdownType={stickyCountdownType}
+          displayCountdownEndsAt={stickyCountdownEndsAt}
           displayCountdownLabel={displayCountdownLabel}
         />
       </StaticBackground>

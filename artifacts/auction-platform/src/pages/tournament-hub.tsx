@@ -160,20 +160,16 @@ export default function TournamentHub() {
       soldSoundEnabled: tournament.soldSoundEnabled ?? true,
       soldSoundUrl: tournament.soldSoundUrl ?? "",
       soldSoundVolume: String(tournament.soldSoundVolume ?? 80),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      breakEndSoundEnabled: (tournament as any).breakEndSoundEnabled ?? false,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      breakEndSoundUrl: String((tournament as any).breakEndSoundUrl ?? ""),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      breakEndSoundVolume: String((tournament as any).breakEndSoundVolume ?? 80),
+      breakEndSoundEnabled: tournament.breakEndSoundEnabled ?? false,
+      breakEndSoundUrl: String(tournament.breakEndSoundUrl ?? ""),
+      breakEndSoundVolume: String(tournament.breakEndSoundVolume ?? 80),
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
     // Restore display names for previously uploaded audio files
     setCountdownFileName(tournament.countdownSoundUrl ? "Custom file uploaded" : "");
     setSoldFileName(tournament.soldSoundUrl ? "Custom file uploaded" : "");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setBreakEndFileName((tournament as any).breakEndSoundUrl ? "Custom file uploaded" : "");
+    setBreakEndFileName(tournament.breakEndSoundUrl ? "Custom file uploaded" : "");
     // Load bidTiers from JSON column, fall back to legacy 5-column values
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {

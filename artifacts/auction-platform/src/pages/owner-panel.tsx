@@ -20,6 +20,7 @@ import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
+import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2, MessageSquare, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -210,6 +211,11 @@ export default function OwnerPanel() {
       },
     },
   });
+
+  // Sticky countdown: survives the server auto-clearing the countdown on read
+  // so the pre-auction 4-s "officially started" banner can complete fully.
+  const _rawDc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
+  const stickyDc = useStickyCountdown(_rawDc);
 
   const isCompleted =
     state?.licenseStatus === "completed" || state?.status === "completed";
@@ -416,22 +422,17 @@ export default function OwnerPanel() {
         </div>
 
         {/* Break / Pre-Auction Countdown — full-screen overlay */}
-        {(() => {
-          const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
-          const dcType = (dc?.type as "break" | "pre-auction" | null) ?? null;
-          const dcEndsAt = dc?.endsAt ?? null;
-          return dcType && dcEndsAt ? (
-            <AnimatePresence>
-              <BreakCountdownOverlay
-                key={dcEndsAt}
-                type={dcType}
-                endsAt={dcEndsAt}
-                label={dc?.label ?? null}
-                tournamentName={tournament?.name}
-              />
-            </AnimatePresence>
-          ) : null;
-        })()}
+        <AnimatePresence>
+          {stickyDc && (
+            <BreakCountdownOverlay
+              key={stickyDc.endsAt}
+              type={stickyDc.type}
+              endsAt={stickyDc.endsAt}
+              label={stickyDc.label}
+              tournamentName={tournament?.name}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Purse Stats */}
         <div className="grid grid-cols-3 gap-3 px-6 pt-5">

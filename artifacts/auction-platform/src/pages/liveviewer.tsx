@@ -22,6 +22,7 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
+import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 
 type CheerEntry = { id: string; senderName: string; message: string; timestamp: number };
 
@@ -592,6 +593,12 @@ export default function LiveViewerPage() {
       staleTime: 0,
     },
   });
+
+  // Sticky countdown: survives the server auto-clearing the countdown on read
+  // so the pre-auction 4-s "officially started" banner can complete fully.
+  const _rawDc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
+  const stickyDc = useStickyCountdown(_rawDc);
+
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
@@ -1519,20 +1526,15 @@ export default function LiveViewerPage() {
       </AnimatePresence>
 
       {/* ── Break / Pre-Auction countdown overlay ────────────────────────── */}
-      {(() => {
-        const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
-        const dcType = (dc?.type as "break" | "pre-auction" | null) ?? null;
-        const dcEndsAt = dc?.endsAt ?? null;
-        const dcLabel = dc?.label ?? null;
-        return dcType && dcEndsAt ? (
-          <BreakCountdownOverlay
-            type={dcType}
-            endsAt={dcEndsAt}
-            label={dcLabel}
-            tournamentName={tournament?.name}
-          />
-        ) : null;
-      })()}
+      {stickyDc && (
+        <BreakCountdownOverlay
+          key={stickyDc.endsAt}
+          type={stickyDc.type}
+          endsAt={stickyDc.endsAt}
+          label={stickyDc.label}
+          tournamentName={tournament?.name}
+        />
+      )}
 
       {/* ── Cheer name dialog ─────────────────────────────────────────────── */}
       <Dialog
