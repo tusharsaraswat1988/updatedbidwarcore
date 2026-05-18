@@ -14,6 +14,7 @@ import {
   playersTable,
   teamsTable,
   organizersTable,
+  tournamentsTable,
   otpSessionsTable,
   commLogsTable,
   waQualityLogTable,
@@ -265,14 +266,74 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     res.status(200).send("<Response/>"); return;
   }
 
-  // DATA / REPORT — personalized data
+  // DATA / REPORT — personalized data (requires confirmed WhatsApp consent)
   if (upper === "DATA" || upper === "REPORT" || upper === "MERI TEAM" || upper === "MY TEAM") {
     const target = await findConsentTarget(mobile);
     if (!target) {
       await sendWhatsApp(from, "Aapka number BidWar mein registered nahi hai. bidwar.in pe jaayein.");
       res.status(200).send("<Response/>"); return;
     }
-    await sendWhatsApp(from, `Aapki BidWar information:\nType: ${target.type}\nID: ${target.id}\n\nDetailed report ke liye organizer se contact karein.`);
+
+    // Consent gate: only respond with personal data after WhatsApp consent is confirmed
+    let hasConsent = false;
+    if (target.type === "player") {
+      const [p] = await db.select({ whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(eq(playersTable.id, target.id));
+      hasConsent = p?.whatsappConsent ?? false;
+    } else if (target.type === "team_owner") {
+      const [tm] = await db.select({ whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(eq(teamsTable.id, target.id));
+      hasConsent = tm?.whatsappConsent ?? false;
+    } else if (target.type === "organizer") {
+      const [o] = await db.select({ whatsappConsent: organizersTable.whatsappConsent }).from(organizersTable).where(eq(organizersTable.id, target.id));
+      hasConsent = o?.whatsappConsent ?? false;
+    }
+    if (!hasConsent) {
+      await sendWhatsApp(from, "Pehle WhatsApp notifications ke liye subscribe karein. 'hello' bhejein aur YES select karein.");
+      res.status(200).send("<Response/>"); return;
+    }
+
+    // Build personalized summary
+    let summary = "";
+    if (target.type === "player") {
+      const [p] = await db.select({
+        name: playersTable.name, role: playersTable.role,
+        status: playersTable.status, basePrice: playersTable.basePrice,
+        soldPrice: playersTable.soldPrice,
+      }).from(playersTable).where(eq(playersTable.id, target.id));
+      const tname = target.tournamentId
+        ? (await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, target.tournamentId)))[0]?.name ?? ""
+        : "";
+      const statusMap: Record<string, string> = { available: "Available", sold: "Sold", unsold: "Unsold", retained: "Retained" };
+      summary = [
+        `Khiladi: ${p?.name ?? target.name}`,
+        `Role: ${p?.role ?? "-"}`,
+        `Tournament: ${tname}`,
+        `Status: ${statusMap[p?.status ?? ""] ?? p?.status ?? "-"}`,
+        p?.soldPrice ? `Sold price: ₹${p.soldPrice.toLocaleString("en-IN")}` : `Base price: ₹${(p?.basePrice ?? 0).toLocaleString("en-IN")}`,
+      ].join("\n");
+    } else if (target.type === "team_owner") {
+      const [tm] = await db.select({
+        name: teamsTable.name, ownerName: teamsTable.ownerName,
+        purse: teamsTable.purse, purseUsed: teamsTable.purseUsed,
+      }).from(teamsTable).where(eq(teamsTable.id, target.id));
+      const tname = target.tournamentId
+        ? (await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, target.tournamentId)))[0]?.name ?? ""
+        : "";
+      const remaining = (tm?.purse ?? 0) - (tm?.purseUsed ?? 0);
+      summary = [
+        `Team: ${tm?.name ?? target.name}`,
+        `Owner: ${tm?.ownerName ?? "-"}`,
+        `Tournament: ${tname}`,
+        `Purse remaining: ₹${remaining.toLocaleString("en-IN")}`,
+        `Purse used: ₹${(tm?.purseUsed ?? 0).toLocaleString("en-IN")}`,
+      ].join("\n");
+    } else if (target.type === "organizer") {
+      const [o] = await db.select({ name: organizersTable.name, mobile: organizersTable.mobile })
+        .from(organizersTable).where(eq(organizersTable.id, target.id));
+      const tcount = (await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.organizerId, target.id))).length;
+      summary = [`Organizer: ${o?.name ?? target.name}`, `Tournaments: ${tcount}`].join("\n");
+    }
+
+    await sendWhatsApp(from, `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`);
     res.status(200).send("<Response/>"); return;
   }
 
@@ -309,6 +370,11 @@ router.post("/webhooks/comm-delivery", async (req, res) => {
 // ─── Meta WhatsApp Quality Webhook ────────────────────────────────────────────
 
 router.post("/webhooks/wa-quality", async (req, res) => {
+  if (!verifyTwilioSignature(req)) {
+    logger.warn("wa-quality webhook rejected: invalid Twilio signature");
+    res.status(403).json({ error: "Unauthorized" });
+    return;
+  }
   const raw = JSON.stringify(req.body);
   const body = req.body as Record<string, unknown>;
 

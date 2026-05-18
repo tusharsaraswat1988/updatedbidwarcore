@@ -14,6 +14,7 @@ import {
   tournamentsTable,
   playersTable,
   teamsTable,
+  organizersTable,
   consentTokensTable,
   consentBlastLogTable,
 } from "@workspace/db";
@@ -104,9 +105,13 @@ async function runConsentBlast() {
       ...teams.map(tm => ({ recipientType: "team_owner" as const, id: tm.id, mobile: tm.mobile! })),
     ];
 
-    // Include tournament organizer if they have a mobile number
-    if (t.organizerMobile) {
-      targets.push({ recipientType: "organizer", id: t.organizerId, mobile: t.organizerMobile });
+    // Include tournament organizer only if unconsented and has mobile
+    if (t.organizerMobile && t.organizerId) {
+      const [org] = await db.select({ whatsappConsent: organizersTable.whatsappConsent })
+        .from(organizersTable).where(eq(organizersTable.id, t.organizerId));
+      if (!org?.whatsappConsent) {
+        targets.push({ recipientType: "organizer", id: t.organizerId, mobile: t.organizerMobile });
+      }
     }
 
     let sent = 0;
