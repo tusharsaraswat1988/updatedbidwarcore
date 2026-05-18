@@ -1,0 +1,166 @@
+Build a production-grade Team Owner PWA experience for BidWar optimized specifically for live auction bidding.
+
+CORE PRODUCT GOAL:
+The owner app must feel ultra-fast, highly secure, touch-friendly, and tournament-grade on both mobile phones and tablets in portrait and landscape orientations.
+
+IMPORTANT UX REQUIREMENTS:
+
+1. Responsive Device Support
+   The owner app must work flawlessly on:
+
+* Android phones
+* iPhones
+* Android tablets
+* iPads
+
+Support:
+
+* portrait mode
+* landscape mode
+* dynamic responsive layouts
+
+UI should intelligently adapt based on screen width/orientation.
+
+2. BID BUTTON PRIORITY (MOST IMPORTANT)
+   The bid button is the highest-priority UI element.
+
+Requirements:
+
+* minimum bottom 20% viewport area reserved for bidding controls
+* huge thumb-friendly tap target
+* visible at ALL times during active auction
+* no scrolling required to access bid button
+* ultra-fast response feedback
+* vibration/haptic feedback support where available
+* instant pressed state animation
+* disable accidental double taps
+* optimized for weak-network tournament conditions
+
+On tablets:
+
+* bid controls should become even larger and more premium.
+
+3. Always-Visible Branding
+   The app must always visibly show:
+   “Powered by BIDWAR”
+
+Requirements:
+
+* subtle but persistent
+* visible on all owner auction screens
+* non-intrusive
+* premium styling
+* responsive placement
+
+4. Owner Login Flow
+   Current flow:
+
+* operator shares owner link + access code
+* owner installs/saves PWA
+* owner enters mobile number + access code
+* joins auction room
+
+Implement:
+
+* persistent login
+* reconnect recovery
+* session restoration
+* secure authenticated owner sessions
+
+5. PWA Requirements
+
+* installable app
+* standalone fullscreen mode
+* splash screen
+* app icon
+* offline-ready shell
+* responsive app layout
+* smooth orientation switching
+
+6. Pre-Auction Warmup
+   Before auction:
+
+* preload player data
+* preload player images
+* preload tournament assets
+* preload team data
+* cache locally
+
+Show:
+“Preparing Auction Room…”
+
+7. Smart Realtime Architecture
+   Realtime payloads should remain extremely lightweight:
+
+* current player
+* current bid
+* highest bidder
+* countdown
+* sold state
+
+Optimize for:
+
+* low latency
+* weak internet
+* unstable mobile networks
+* reconnect-safe syncing
+
+8. Auction UX
+   The owner experience should feel like a premium live sports auction system.
+
+Include:
+
+* live countdown
+* bid confirmation animation
+* reconnect overlay
+* network quality indicator
+* sold notification
+* current purse visibility
+* current player card
+* sticky bidding controls
+
+9. Security Hardening
+   Implement:
+
+* authenticated sessions
+* rate limiting
+* replay protection
+* anti-spam bidding
+* anti-tab abuse
+* device/session monitoring
+* signed bid requests
+
+10. Performance
+
+* service worker
+* asset prefetching
+* optimized rendering
+* memoized components
+* lazy loading
+* virtualized heavy lists
+* smooth animations without lag
+
+11. Layout Expectations
+    Portrait:
+
+* current player top/middle
+* huge sticky bid controls bottom
+
+Landscape:
+
+* player/details left
+* bid controls dominant right/bottom area
+
+The bidding area must always remain visually dominant.
+
+12. Design Language
+    Visual style:
+
+* modern sports-tech platform
+* dark premium auction feel
+* high contrast
+* large readable typography
+* high visibility under tournament lighting conditions
+
+Goal:
+A secure, lightning-fast, tournament-grade owner bidding app that feels like a native premium sports auction platform while remaining web-based.

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/owner-app/"
+title = "BidWar Owner App"
+version = "1.0.0"
+id = "artifacts/owner-app"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/owner-app/" ]
+localPort = 18732
+
+[services.development]
+run = "pnpm --filter @workspace/owner-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/owner-app", "run", "build" ]
+publicDir = "artifacts/owner-app/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18732"
+BASE_PATH = "/owner-app/"
