@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -95,6 +95,11 @@ export default function TournamentHub() {
   const qc = useQueryClient();
 
   const [editOpen, setEditOpen] = useState(false);
+  // Sports list loaded from master table for dynamic sport dropdown
+  const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/sports").then(r => r.json()).then((d: { id: number; name: string; slug: string }[]) => setHubSports(d)).catch(() => {});
+  }, []);
   type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
   const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
   const [editForm, setEditForm] = useState<Record<string, string | number | boolean>>({});
@@ -374,11 +379,16 @@ export default function TournamentHub() {
                 {tournament?.status}
               </span>
             </div>
-            <p className="text-muted-foreground mt-2 font-mono text-sm">
+            <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
               {tournament?.sport?.toUpperCase()}
-              {tournament?.organizerName && ` · ${tournament.organizerName}`}
-              {tournament?.venue && ` · ${tournament.venue}`}
-              {" · "} BASE PURSE: {formatIndianRupee(tournament?.basePurse)}
+              {(tournament as any)?.auctionCode && (
+                <span className="text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 text-[11px] font-bold tracking-widest">
+                  {(tournament as any).auctionCode}
+                </span>
+              )}
+              {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
+              {tournament?.venue && <span>· {tournament.venue}</span>}
+              <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -639,8 +649,8 @@ export default function TournamentHub() {
                       <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent className="dark">
-                          {["cricket","football","kabaddi","badminton","volleyball","esports","other"].map(s => (
-                            <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                          {(hubSports.length > 0 ? hubSports : [{slug:"cricket",name:"Cricket"},{slug:"football",name:"Football"},{slug:"kabaddi",name:"Kabaddi"},{slug:"badminton",name:"Badminton"},{slug:"volleyball",name:"Volleyball"},{slug:"esports",name:"E-Sports"},{slug:"other",name:"Other"}]).map(s => (
+                            <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

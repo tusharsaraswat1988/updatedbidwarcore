@@ -6,6 +6,37 @@ import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
 
+// ─── Auction Code Generation ──────────────────────────────────────────────────
+// Format: TT + NN + DDMM
+//   TT   = first letter of first two words (or first 2 chars of single word), uppercase
+//   NN   = random 2-digit number 10–99
+//   DDMM = zero-padded day + month from auctionDate (today if omitted)
+function buildAuctionCode(name: string, auctionDate?: string | null): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const tt = words.length >= 2
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : (words[0]?.substring(0, 2) ?? "XX").toUpperCase();
+  const nn = String(Math.floor(Math.random() * 90) + 10);
+  const d = auctionDate ? new Date(auctionDate) : new Date();
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${tt}${nn}${dd}${mm}`;
+}
+
+async function generateUniqueAuctionCode(name: string, auctionDate?: string | null): Promise<string> {
+  for (let attempt = 0; attempt < 15; attempt++) {
+    const code = buildAuctionCode(name, auctionDate);
+    const existing = await db
+      .select({ id: tournamentsTable.id })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.auctionCode, code))
+      .limit(1);
+    if (existing.length === 0) return code;
+  }
+  // Fallback: append random 2-digit suffix to guarantee uniqueness
+  return buildAuctionCode(name, auctionDate) + String(Math.floor(Math.random() * 90) + 10);
+}
+
 const cloudinaryLogoUrl = z
   .string()
   .optional()
@@ -20,6 +51,8 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   id: t.id,
   name: t.name,
   sport: t.sport,
+  sportId: t.sportId ?? null,
+  auctionCode: t.auctionCode ?? null,
   venue: t.venue,
   auctionDate: t.auctionDate,
   auctionTime: t.auctionTime ?? null,
@@ -100,11 +133,13 @@ router.post("/tournaments", async (req, res) => {
   const parsed = tournamentInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+  const auctionCode = await generateUniqueAuctionCode(d.name, d.auctionDate);
   const [tournament] = await db
     .insert(tournamentsTable)
     .values({
       name: d.name,
       sport: d.sport,
+      auctionCode,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
       auctionTime: d.auctionTime ?? null,

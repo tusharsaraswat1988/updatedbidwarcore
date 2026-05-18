@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,10 @@ export const tournamentsTable = pgTable("tournaments", {
   organizerId: integer("organizer_id"),
   name: text("name").notNull(),
   sport: text("sport").notNull().default("cricket"),
+  // Dynamic sport reference (Phase 2) — nullable for backward compat
+  sportId: integer("sport_id"),
+  // Unique 8-char auction code e.g. "RC732504" (Phase 1)
+  auctionCode: text("auction_code"),
   venue: text("venue"),
   auctionDate: text("auction_date"),
   auctionTime: text("auction_time"), // 24h format, e.g. "14:00"
@@ -56,7 +60,10 @@ export const tournamentsTable = pgTable("tournaments", {
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+},
+(t) => [
+  uniqueIndex("ix_tournaments_auction_code").on(t.auctionCode),
+]);
 
 export const insertTournamentSchema = createInsertSchema(tournamentsTable).omit({
   id: true,

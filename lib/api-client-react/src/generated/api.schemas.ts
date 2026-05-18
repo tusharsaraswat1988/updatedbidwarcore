@@ -33,9 +33,18 @@ export interface Tournament {
   name: string;
   sport: string;
   /** @nullable */
+  sportId?: number | null;
+  /**
+   * Auto-generated 8-char code e.g. RC732504
+   * @nullable
+   */
+  auctionCode?: string | null;
+  /** @nullable */
   venue?: string | null;
   /** @nullable */
   auctionDate?: string | null;
+  /** @nullable */
+  auctionTime?: string | null;
   /** @nullable */
   organizerName?: string | null;
   /** @nullable */
@@ -98,19 +107,6 @@ export interface CheerInput {
   messageIndex: number;
 }
 
-export type TournamentInputSport =
-  (typeof TournamentInputSport)[keyof typeof TournamentInputSport];
-
-export const TournamentInputSport = {
-  cricket: "cricket",
-  football: "football",
-  kabaddi: "kabaddi",
-  badminton: "badminton",
-  volleyball: "volleyball",
-  esports: "esports",
-  other: "other",
-} as const;
-
 export type TournamentInputPlayerSelectionMode =
   (typeof TournamentInputPlayerSelectionMode)[keyof typeof TournamentInputPlayerSelectionMode];
 
@@ -122,7 +118,7 @@ export const TournamentInputPlayerSelectionMode = {
 
 export interface TournamentInput {
   name: string;
-  sport: TournamentInputSport;
+  sport: string;
   venue?: string;
   auctionDate?: string;
   organizerName?: string;

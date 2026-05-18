@@ -2,20 +2,20 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useState, useEffect } from "react";
 import { useCreateTournament } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
-  sport: z.enum(["cricket", "football", "kabaddi", "badminton", "volleyball", "esports", "other"]),
+  sport: z.string().min(1, "Select a sport"),
   venue: z.string().optional(),
   auctionDate: z.string().optional(),
   organizerName: z.string().optional(),
@@ -27,10 +27,39 @@ const formSchema = z.object({
   maximumSquadSize: z.coerce.number().min(0).max(100).optional(),
 });
 
+// Client-side preview only — server generates the real unique code
+function previewAuctionCode(name: string, date: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "--------";
+  const tt = words.length >= 2
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : words[0].substring(0, 2).toUpperCase();
+  const nn = "XX";
+  if (!date) return `${tt}${nn}----`;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return `${tt}${nn}----`;
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${tt}${nn}${dd}${mm}`;
+}
+
+// Fetch sports list from API for the dropdown
+function useSportsList() {
+  const [sports, setSports] = useState<{ id: number; name: string; slug: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/sports")
+      .then(r => r.json())
+      .then((data: { id: number; name: string; slug: string }[]) => setSports(data))
+      .catch(() => {});
+  }, []);
+  return sports;
+}
+
 export default function NewTournament() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createTournament = useCreateTournament();
+  const sports = useSportsList();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,6 +78,10 @@ export default function NewTournament() {
     },
   });
 
+  const watchedName = form.watch("name");
+  const watchedDate = form.watch("auctionDate");
+  const codePreview = previewAuctionCode(watchedName, watchedDate ?? "");
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     createTournament.mutate(
       { data: values },
@@ -56,7 +89,7 @@ export default function NewTournament() {
         onSuccess: (data) => {
           toast({
             title: "Tournament created",
-            description: "You can now start setting up teams and players.",
+            description: `Auction code: ${(data as { auctionCode?: string | null }).auctionCode ?? "—"}`,
           });
           setLocation(`/tournament/${data.id}`);
         },
@@ -95,12 +128,30 @@ export default function NewTournament() {
                       <FormItem>
                         <FormLabel>Tournament Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Premier League 2024" {...field} />
+                          <Input placeholder="e.g. Rotary Cricket League" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Auction Code Preview */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-amber-400" />
+                      Auction Code (auto-generated)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={codePreview}
+                        className="font-mono tracking-widest text-amber-400 bg-amber-500/5 border-amber-500/30 cursor-not-allowed w-40"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Preview — final code assigned on create
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
@@ -109,20 +160,29 @@ export default function NewTournament() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Sport</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select a sport" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="cricket">Cricket</SelectItem>
-                              <SelectItem value="football">Football</SelectItem>
-                              <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                              <SelectItem value="badminton">Badminton</SelectItem>
-                              <SelectItem value="volleyball">Volleyball</SelectItem>
-                              <SelectItem value="esports">E-Sports</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
+                              {sports.length > 0
+                                ? sports.map(s => (
+                                    <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
+                                  ))
+                                : (
+                                  <>
+                                    <SelectItem value="cricket">Cricket</SelectItem>
+                                    <SelectItem value="football">Football</SelectItem>
+                                    <SelectItem value="kabaddi">Kabaddi</SelectItem>
+                                    <SelectItem value="badminton">Badminton</SelectItem>
+                                    <SelectItem value="volleyball">Volleyball</SelectItem>
+                                    <SelectItem value="esports">E-Sports</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </>
+                                )
+                              }
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -251,7 +311,7 @@ export default function NewTournament() {
                             <Input type="number" min={0} max={100} {...field} />
                           </FormControl>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Reserve purse is held back for each unfilled slot. Teams cannot spend reserved funds.
+                            Reserve purse is held back for each unfilled slot.
                           </p>
                           <FormMessage />
                         </FormItem>
@@ -267,7 +327,7 @@ export default function NewTournament() {
                             <Input type="number" min={0} max={100} {...field} />
                           </FormControl>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Hard cap — teams cannot bid once they reach this many players.
+                            Hard cap — teams cannot bid once they reach this limit.
                           </p>
                           <FormMessage />
                         </FormItem>

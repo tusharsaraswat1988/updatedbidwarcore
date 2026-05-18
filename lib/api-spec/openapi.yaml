@@ -1343,9 +1343,16 @@ components:
           type: string
         sport:
           type: string
+        sportId:
+          type: ["integer", "null"]
+        auctionCode:
+          type: ["string", "null"]
+          description: "Auto-generated 8-char code e.g. RC732504"
         venue:
           type: ["string", "null"]
         auctionDate:
+          type: ["string", "null"]
+        auctionTime:
           type: ["string", "null"]
         organizerName:
           type: ["string", "null"]
@@ -1441,7 +1448,6 @@ components:
           type: string
         sport:
           type: string
-          enum: [cricket, football, kabaddi, badminton, volleyball, esports, other]
         venue:
           type: string
         auctionDate:

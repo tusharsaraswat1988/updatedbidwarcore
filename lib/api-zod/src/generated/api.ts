@@ -36,8 +36,14 @@ export const ListTournamentsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   sport: zod.string(),
+  sportId: zod.number().nullish(),
+  auctionCode: zod
+    .string()
+    .nullish()
+    .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
   auctionDate: zod.string().nullish(),
+  auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
@@ -81,15 +87,7 @@ export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
  */
 export const CreateTournamentBody = zod.object({
   name: zod.string(),
-  sport: zod.enum([
-    "cricket",
-    "football",
-    "kabaddi",
-    "badminton",
-    "volleyball",
-    "esports",
-    "other",
-  ]),
+  sport: zod.string(),
   venue: zod.string().optional(),
   auctionDate: zod.string().optional(),
   organizerName: zod.string().optional(),
@@ -131,8 +129,14 @@ export const GetTournamentResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   sport: zod.string(),
+  sportId: zod.number().nullish(),
+  auctionCode: zod
+    .string()
+    .nullish()
+    .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
   auctionDate: zod.string().nullish(),
+  auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
@@ -217,8 +221,14 @@ export const UpdateTournamentResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
   sport: zod.string(),
+  sportId: zod.number().nullish(),
+  auctionCode: zod
+    .string()
+    .nullish()
+    .describe("Auto-generated 8-char code e.g. RC732504"),
   venue: zod.string().nullish(),
   auctionDate: zod.string().nullish(),
+  auctionTime: zod.string().nullish(),
   organizerName: zod.string().nullish(),
   organizerMobile: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
@@ -277,8 +287,14 @@ export const ExportTournamentForLocalResponse = zod.object({
     id: zod.number(),
     name: zod.string(),
     sport: zod.string(),
+    sportId: zod.number().nullish(),
+    auctionCode: zod
+      .string()
+      .nullish()
+      .describe("Auto-generated 8-char code e.g. RC732504"),
     venue: zod.string().nullish(),
     auctionDate: zod.string().nullish(),
+    auctionTime: zod.string().nullish(),
     organizerName: zod.string().nullish(),
     organizerMobile: zod.string().nullish(),
     logoUrl: zod.string().nullish(),

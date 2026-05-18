@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { useRoute } from "wouter";
 import {
@@ -395,8 +395,17 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   const updatePlayer = useUpdatePlayer();
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [filledFromProfile, setFilledFromProfile] = useState(false);
-
   const [basePriceTouched, setBasePriceTouched] = useState(false);
+
+  // Dynamic roles from sport master table
+  const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
+  useEffect(() => {
+    const slug = tournament?.sport ?? "cricket";
+    fetch(`/api/sports/by-slug/${encodeURIComponent(slug)}/roles`)
+      .then(r => r.json())
+      .then((d: { id: number; roleName: string }[]) => setSportRoles(d))
+      .catch(() => {});
+  }, [tournament?.sport]);
 
   // Sync basePrice default when tournament loads after the form opens (new players only)
   useEffect(() => {
@@ -408,7 +417,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   const [form, setForm] = useState({
     name: player?.name || "",
     city: player?.city || "",
-    role: player?.role || "batsman",
+    role: player?.role || "",
     battingStyle: player?.battingStyle || "",
     bowlingStyle: player?.bowlingStyle || "",
     specialization: player?.specialization || "",
@@ -525,10 +534,13 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
         <div className="space-y-2">
           <Label>Role</Label>
           <Select value={form.role} onValueChange={v => f("role", v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
             <SelectContent className="dark">
-              {["batsman","bowler","all-rounder","wicketkeeper","midfielder","forward","defender","goalkeeper","other"].map(r => (
-                <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>
+              {(sportRoles.length > 0
+                ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
+                : ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => ({ value: r, label: r }))
+              ).map(r => (
+                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>

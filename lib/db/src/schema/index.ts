@@ -9,3 +9,4 @@ export * from "./global_players";
 export * from "./auction_events";
 export * from "./player_import_logs";
 export * from "./comm";
+export * from "./sports";

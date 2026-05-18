@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute } from "wouter";
 import {
   useGetTournament,
@@ -15,8 +15,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare } from "lucide-react";
+import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
+interface SpecOption { id: number; groupId: number; optionName: string; displayOrder: number; }
+interface SpecGroup { id: number; roleId: number; groupName: string; displayOrder: number; optional: boolean; options: SpecOption[]; }
+interface GlobalPlayer { id: string; canonicalName: string; mobileNumber: string | null; city: string | null; age: number | null; photoUrl: string | null; }
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+function useSportRoles(sportSlug: string | undefined) {
+  const [roles, setRoles] = useState<SportRole[]>([]);
+  useEffect(() => {
+    if (!sportSlug) return;
+    fetch(`/api/sports/by-slug/${encodeURIComponent(sportSlug)}/roles`)
+      .then(r => r.json())
+      .then((d: SportRole[]) => setRoles(d))
+      .catch(() => {});
+  }, [sportSlug]);
+  return roles;
+}
+
+function useRoleSpecs(roleId: number | undefined) {
+  const [specs, setSpecs] = useState<SpecGroup[]>([]);
+  useEffect(() => {
+    if (!roleId) { setSpecs([]); return; }
+    fetch(`/api/sports/roles/${roleId}/specs`)
+      .then(r => r.json())
+      .then((d: SpecGroup[]) => setSpecs(d))
+      .catch(() => {});
+  }, [roleId]);
+  return specs;
+}
 
 export default function PlayerRegister() {
   const [, params] = useRoute("/tournament/:id/register");
@@ -25,14 +56,18 @@ export default function PlayerRegister() {
   const [waConsent, setWaConsent] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Mobile lookup state (Phase 5)
+  const [mobileLookedUp, setMobileLookedUp] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [foundProfile, setFoundProfile] = useState<GlobalPlayer | null>(null);
+  const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [form, setForm] = useState({
     name: "",
     mobileNumber: "",
     city: "",
-    role: "batsman",
-    battingStyle: "",
-    bowlingStyle: "",
-    specialization: "",
+    role: "",
     age: "",
     jerseyNumber: "",
     achievements: "",
@@ -40,7 +75,11 @@ export default function PlayerRegister() {
     cricheroUrl: "",
     categoryId: "",
     photoUrl: "",
+    specialization: "",
   });
+
+  // Spec group selections: groupId → chosen optionName
+  const [specSelections, setSpecSelections] = useState<Record<number, string>>({});
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -56,6 +95,24 @@ export default function PlayerRegister() {
     },
   });
   const registerPlayer = useRegisterPlayer();
+
+  // Dynamic roles from sport master table
+  const sportSlug = (tournament as { sport?: string } | undefined)?.sport;
+  const roles = useSportRoles(sportSlug);
+
+  // Set default role once roles load
+  useEffect(() => {
+    if (roles.length > 0 && !form.role) {
+      setForm(prev => ({ ...prev, role: roles[0].roleName }));
+    }
+  }, [roles]);
+
+  // Spec groups for selected role
+  const selectedRole = roles.find(r => r.roleName === form.role);
+  const specs = useRoleSpecs(selectedRole?.id);
+
+  // Reset spec selections when role changes
+  useEffect(() => { setSpecSelections({}); }, [form.role]);
 
   const isClosed = status && !status.open;
   const closedReason = status?.reason;
@@ -76,9 +133,47 @@ export default function PlayerRegister() {
     }).catch(() => {});
   }, []);
 
+  // Mobile number lookup with debounce
+  function handleMobileChange(val: string) {
+    f("mobileNumber", val);
+    setMobileLookedUp(false);
+    setFoundProfile(null);
+    if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+    if (val.replace(/\D/g, "").length >= 10) {
+      mobileDebounceRef.current = setTimeout(async () => {
+        setLookupLoading(true);
+        try {
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(val)}&limit=1`);
+          const data: { players?: GlobalPlayer[] } = await res.json();
+          const match = data.players?.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === val.replace(/\D/g, ""));
+          if (match) {
+            setFoundProfile(match);
+            setForm(prev => ({
+              ...prev,
+              name: prev.name || match.canonicalName,
+              city: prev.city || (match.city ?? ""),
+              age: prev.age || (match.age ? String(match.age) : ""),
+              photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
+            }));
+          }
+        } catch { /* ignore */ } finally {
+          setLookupLoading(false);
+          setMobileLookedUp(true);
+        }
+      }, 600);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
+
+    // Serialize spec selections into existing style fields (up to 3 groups)
+    const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+    const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] ?? form.role) : undefined;
+    const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] ?? undefined) : undefined;
+    const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] ?? form.specialization ?? undefined) : (form.specialization || undefined);
+
     try {
       await registerPlayer.mutateAsync({
         tournamentId,
@@ -87,9 +182,9 @@ export default function PlayerRegister() {
           mobileNumber: form.mobileNumber || undefined,
           city: form.city || undefined,
           role: form.role as any,
-          battingStyle: form.battingStyle || undefined,
-          bowlingStyle: form.bowlingStyle || undefined,
-          specialization: form.specialization || undefined,
+          battingStyle: battingStyle || undefined,
+          bowlingStyle: bowlingStyle || undefined,
+          specialization: specialization || undefined,
           age: form.age ? parseInt(form.age) : undefined,
           jerseyNumber: form.jerseyNumber || undefined,
           achievements: form.achievements || undefined,
@@ -125,8 +220,8 @@ export default function PlayerRegister() {
         <div className="w-full max-w-lg">
           {/* Header */}
           <div className="text-center mb-8">
-            {tournament?.logoUrl ? (
-              <img src={tournament.logoUrl} alt={tournament.name} className="h-16 w-16 object-contain mx-auto mb-4 rounded-xl" />
+            {(tournament as { logoUrl?: string | null } | undefined)?.logoUrl ? (
+              <img src={(tournament as { logoUrl?: string | null }).logoUrl!} alt={tournament?.name} className="h-16 w-16 object-contain mx-auto mb-4 rounded-xl" />
             ) : (
               <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
             )}
@@ -134,6 +229,11 @@ export default function PlayerRegister() {
               {tournament?.name || "BidWar"}
             </h1>
             <p className="text-muted-foreground mt-1">Player Registration</p>
+            {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
+              <p className="text-xs font-mono text-amber-400 mt-1">
+                Code: {(tournament as { auctionCode?: string | null }).auctionCode}
+              </p>
+            )}
           </div>
 
           <AnimatePresence mode="wait">
@@ -189,7 +289,12 @@ export default function PlayerRegister() {
                     <Button
                       className="mt-4"
                       variant="outline"
-                      onClick={() => { setSubmitted(false); setWaConsent(false); setErrorMsg(null); setForm({ name: "", mobileNumber: "", city: "", role: "batsman", battingStyle: "", bowlingStyle: "", specialization: "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "" }); }}
+                      onClick={() => {
+                        setSubmitted(false); setWaConsent(false); setErrorMsg(null);
+                        setFoundProfile(null); setMobileLookedUp(false);
+                        setForm({ name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "", specialization: "" });
+                        setSpecSelections({});
+                      }}
                     >
                       Register Another Player
                     </Button>
@@ -198,7 +303,7 @@ export default function PlayerRegister() {
               </motion.div>
             ) : (
               <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                {/* Status banner: deadline + slots remaining */}
+                {/* Status banner */}
                 {status && (status.deadline || status.limit != null) && (
                   <div className="mb-4 flex flex-wrap items-center justify-center gap-3 text-xs">
                     {status.deadline && (
@@ -228,32 +333,40 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
+                      {/* Mobile first — triggers global player lookup */}
+                      <div className="space-y-2">
+                        <Label>Mobile Number *</Label>
+                        <div className="relative">
+                          <Input
+                            required
+                            value={form.mobileNumber}
+                            onChange={e => handleMobileChange(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            type="tel"
+                            className="pr-8"
+                          />
+                          {lookupLoading && (
+                            <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
+                          )}
+                          {!lookupLoading && mobileLookedUp && (
+                            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile ? "text-green-500" : "text-muted-foreground"}`} />
+                          )}
+                        </div>
+                        {foundProfile && (
+                          <p className="text-xs text-green-400">
+                            Profile found — details pre-filled from your previous registration.
+                          </p>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 col-span-2">
                           <Label>Full Name *</Label>
                           <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" />
                         </div>
                         <div className="space-y-2">
-                          <Label>Mobile Number *</Label>
-                          <Input required value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} placeholder="+91 98765 43210" type="tel" />
-                        </div>
-                        <div className="space-y-2">
                           <Label>City</Label>
                           <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Role *</Label>
-                          <Select value={form.role} onValueChange={v => f("role", v)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark">
-                              {["batsman","bowler","all-rounder","wicketkeeper","midfielder","forward","defender","goalkeeper","other"].map(r => (
-                                <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Age</Label>
@@ -261,27 +374,64 @@ export default function PlayerRegister() {
                         </div>
                       </div>
 
+                      {/* Dynamic role dropdown */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Batting Style</Label>
-                          <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Bowling Style</Label>
-                          <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Specialization</Label>
-                          <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter" />
+                          <Label>Role *</Label>
+                          <Select value={form.role} onValueChange={v => f("role", v)}>
+                            <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                            <SelectContent className="dark">
+                              {roles.length > 0
+                                ? roles.map(r => (
+                                    <SelectItem key={r.id} value={r.roleName}>{r.roleName}</SelectItem>
+                                  ))
+                                : (
+                                  // Fallback while loading
+                                  ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => (
+                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                  ))
+                                )
+                              }
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Jersey Number</Label>
                           <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
                         </div>
                       </div>
+
+                      {/* Dynamic spec groups (Phase 4) */}
+                      {specs.length > 0 && (
+                        <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {form.role} Specifications
+                          </p>
+                          {specs.map(group => (
+                            <div key={group.id} className="space-y-1.5">
+                              <Label className="text-sm">
+                                {group.groupName}
+                                {!group.optional && <span className="text-destructive ml-0.5">*</span>}
+                              </Label>
+                              <Select
+                                value={specSelections[group.id] ?? ""}
+                                onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder={`Select ${group.groupName}`} />
+                                </SelectTrigger>
+                                <SelectContent className="dark">
+                                  {group.options.map(opt => (
+                                    <SelectItem key={opt.id} value={opt.optionName}>
+                                      {opt.optionName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label>Availability Dates</Label>
@@ -317,7 +467,7 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      {/* WhatsApp consent checkbox */}
+                      {/* WhatsApp consent */}
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -326,7 +476,7 @@ export default function PlayerRegister() {
                           className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer"
                         />
                         <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                          I agree to receive WhatsApp updates about this tournament (auction alerts, schedule, results) from BidWar. You can unsubscribe any time by replying STOP.
+                          Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
                         </span>
                       </label>
 
@@ -336,7 +486,7 @@ export default function PlayerRegister() {
                         className="w-full h-12 text-base font-bold"
                         disabled={registerPlayer.isPending}
                       >
-                        {registerPlayer.isPending ? "Submitting..." : "Submit Registration"}
+                        {registerPlayer.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : "Submit Registration"}
                       </Button>
                     </form>
                   </CardContent>

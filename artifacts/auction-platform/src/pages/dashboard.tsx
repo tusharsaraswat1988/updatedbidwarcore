@@ -71,9 +71,16 @@ export default function Dashboard() {
                     <Badge variant={tournament.status === 'active' ? 'default' : 'secondary'} className={tournament.status === 'active' ? 'bg-green-500/20 text-green-500 border-green-500/20' : ''}>
                       {tournament.status.toUpperCase()}
                     </Badge>
-                    <Badge variant="outline" className="uppercase font-mono text-[10px]">
-                      {tournament.sport}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      {(tournament as { auctionCode?: string | null }).auctionCode && (
+                        <Badge variant="outline" className="font-mono text-[10px] text-amber-400 border-amber-500/40 bg-amber-500/10">
+                          {(tournament as { auctionCode?: string | null }).auctionCode}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="uppercase font-mono text-[10px]">
+                        {tournament.sport}
+                      </Badge>
+                    </div>
                   </div>
                   <CardTitle className="text-2xl mt-4 line-clamp-1 group-hover:text-primary transition-colors">
                     {tournament.name}

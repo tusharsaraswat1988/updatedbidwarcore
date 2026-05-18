@@ -9,6 +9,27 @@ import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limit
 
 const scryptAsync = promisify(scrypt);
 
+// Auction code helpers (mirrors tournaments.ts — kept local to avoid circular deps)
+function _buildAuctionCode(name: string, auctionDate?: string | null): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const tt = words.length >= 2
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : (words[0]?.substring(0, 2) ?? "XX").toUpperCase();
+  const nn = String(Math.floor(Math.random() * 90) + 10);
+  const d = auctionDate ? new Date(auctionDate) : new Date();
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${tt}${nn}${dd}${mm}`;
+}
+async function _generateUniqueAuctionCode(name: string, auctionDate?: string | null): Promise<string> {
+  for (let i = 0; i < 15; i++) {
+    const code = _buildAuctionCode(name, auctionDate);
+    const ex = await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.auctionCode, code)).limit(1);
+    if (ex.length === 0) return code;
+  }
+  return _buildAuctionCode(name, auctionDate) + String(Math.floor(Math.random() * 90) + 10);
+}
+
 declare module "express-session" {
   interface SessionData {
     isAdmin?: boolean;
@@ -233,9 +254,11 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+  const auctionCode = await _generateUniqueAuctionCode(d.name, d.auctionDate);
   const [t] = await db.insert(tournamentsTable).values({
     name: d.name,
     sport: d.sport,
+    auctionCode,
     venue: d.venue,
     auctionDate: d.auctionDate,
     auctionTime: d.auctionTime ?? null,
