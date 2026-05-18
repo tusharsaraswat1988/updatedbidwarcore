@@ -5,7 +5,7 @@ import { Coffee, Clock } from "lucide-react";
 interface BreakCountdownOverlayProps {
   type: "break" | "pre-auction";
   endsAt: string;
-  label: string | null;
+  message: string | null;
   tournamentName: string | null | undefined;
   /** compact — renders a slim top-of-screen banner rather than a full-screen
    *  overlay. Intended for tablet owner-panel views where the full overlay
@@ -85,7 +85,7 @@ function Colon() {
 export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   type,
   endsAt,
-  label,
+  message,
   tournamentName,
   compact = false,
 }: BreakCountdownOverlayProps) {
@@ -110,7 +110,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
 
   const isBreak = type === "break";
   const defaultLabel = isBreak ? "Back soon" : "Auction starts in";
-  const displayLabel = label || defaultLabel;
+  const displayLabel = message || defaultLabel;
   const Icon = isBreak ? Coffee : Clock;
 
   const iconColor = isBreak ? "text-amber-400" : "text-primary";
@@ -124,7 +124,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
     const mmss = `${String(Math.floor((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) / 60)).padStart(2, "0")}:${String((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) % 60).padStart(2, "0")}`;
     const bannerText = expired
       ? (isBreak ? "Break ended" : `${tournamentName || "Auction"} has officially started!`)
-      : displayLabel;
+      : (message || defaultLabel);
     return (
       <AnimatePresence>
         {visible && (

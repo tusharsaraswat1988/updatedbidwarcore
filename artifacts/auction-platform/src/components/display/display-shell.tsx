@@ -128,9 +128,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
       soldSoundEnabled:      tournament.soldSoundEnabled      ?? true,
       soldSoundUrl:          tournament.soldSoundUrl          ?? null,
       soldSoundVolume:       tournament.soldSoundVolume       ?? 80,
-      breakEndSoundEnabled:  tournament.breakEndSoundEnabled  ?? false,
-      breakEndSoundUrl:      tournament.breakEndSoundUrl      ?? null,
-      breakEndSoundVolume:   tournament.breakEndSoundVolume   ?? 80,
+      breakEndMusicEnabled:  tournament.breakEndMusicEnabled  ?? false,
+      breakEndMusicUrl:      tournament.breakEndMusicUrl      ?? null,
+      breakEndMusicVolume:   tournament.breakEndMusicVolume   ?? 80,
     };
   }, [
     tournament?.audioEnabled,
@@ -141,9 +141,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     tournament?.soldSoundEnabled,
     tournament?.soldSoundUrl,
     tournament?.soldSoundVolume,
-    tournament?.breakEndSoundEnabled,
-    tournament?.breakEndSoundUrl,
-    tournament?.breakEndSoundVolume,
+    tournament?.breakEndMusicEnabled,
+    tournament?.breakEndMusicUrl,
+    tournament?.breakEndMusicVolume,
   ]);
 
   // Stable key that changes exactly once per sold event for deduplication.
@@ -227,7 +227,7 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
 
   // Sticky label — follows the sticky countdown so the banner stays coherent
   // during the post-expiry window.
-  const displayCountdownLabel = stickyDc?.label ?? null;
+  const displayCountdownLabel = stickyDc?.message ?? null;
 
   const stripPurses = useMemo<PurseRow[]>(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,
@@ -282,7 +282,7 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
               <BreakCountdownOverlay
                 type={stickyCountdownType}
                 endsAt={stickyCountdownEndsAt}
-                label={displayCountdownLabel}
+                message={displayCountdownLabel}
                 tournamentName={tournament?.name ?? null}
               />
             </div>

@@ -1051,7 +1051,7 @@ paths:
                   minimum: 10
                   maximum: 3600
                   description: Required for start; optional for extend (defaults to 300s / 5 min)
-                label:
+                message:
                   type: string
       responses:
         "200":
@@ -1084,7 +1084,7 @@ paths:
                   type: string
                   enum: [start, cancel]
                   default: start
-                label:
+                message:
                   type: string
       responses:
         "200":
@@ -1490,12 +1490,11 @@ components:
           type: ["string", "null"]
         soldSoundVolume:
           type: integer
-        breakEndSoundEnabled:
+        breakEndMusicEnabled:
           type: boolean
-          description: Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.
-        breakEndSoundUrl:
+        breakEndMusicUrl:
           type: ["string", "null"]
-        breakEndSoundVolume:
+        breakEndMusicVolume:
           type: integer
         cheerMessagesEnabled:
           type: boolean
@@ -1582,11 +1581,11 @@ components:
           type: string
         soldSoundVolume:
           type: integer
-        breakEndSoundEnabled:
+        breakEndMusicEnabled:
           type: boolean
-        breakEndSoundUrl:
+        breakEndMusicUrl:
           type: string
-        breakEndSoundVolume:
+        breakEndMusicVolume:
           type: integer
 
     TournamentUpdate:
@@ -1662,11 +1661,11 @@ components:
           type: ["string", "null"]
         soldSoundVolume:
           type: integer
-        breakEndSoundEnabled:
+        breakEndMusicEnabled:
           type: boolean
-        breakEndSoundUrl:
+        breakEndMusicUrl:
           type: ["string", "null"]
-        breakEndSoundVolume:
+        breakEndMusicVolume:
           type: integer
 
     # Team schemas
@@ -2176,9 +2175,9 @@ components:
         endsAt:
           type: string
           description: ISO timestamp when the countdown ends
-        label:
+        message:
           type: ["string", "null"]
-          description: Optional display label override
+          description: Optional display message override
 
     RegistrationStatus:
       type: object

@@ -256,10 +256,10 @@ async function buildAuctionState(tournamentId: number) {
     if (session.deferredPlayerIds) deferredPlayerIds = JSON.parse(session.deferredPlayerIds);
   } catch { /* ignore */ }
 
-  let displayCountdown: { type: string; endsAt: string; label: string | null } | null = null;
+  let displayCountdown: { type: string; endsAt: string; message: string | null } | null = null;
   try {
     if (session.displayCountdown) {
-      const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; label: string | null };
+      const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
       // Only include if still in the future (auto-expire stale countdowns)
       if (new Date(parsed.endsAt).getTime() > Date.now()) {
         displayCountdown = parsed;
@@ -1474,7 +1474,7 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   const body = z.object({
     action: z.enum(["start", "cancel", "extend"]),
     durationSeconds: z.number().int().min(10).max(3600).optional(),
-    label: z.string().max(60).optional(),
+    message: z.string().max(60).optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
@@ -1485,23 +1485,23 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   let countdown: string | null = null;
   if (body.data.action === "start" && body.data.durationSeconds) {
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
-    countdown = JSON.stringify({ type: "break", endsAt, label: body.data.label ?? null });
+    countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
   } else if (body.data.action === "extend") {
     const extendSecs = body.data.durationSeconds ?? 300;
     let baseTime = Date.now();
     if (session.displayCountdown) {
       try {
-        const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; label: string | null };
+        const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
         const remaining = new Date(parsed.endsAt).getTime();
         if (remaining > Date.now()) baseTime = remaining;
       } catch { /* ignore */ }
     }
     const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
-    let label: string | null = null;
+    let message: string | null = null;
     if (session.displayCountdown) {
-      try { label = (JSON.parse(session.displayCountdown) as { label: string | null }).label; } catch { /* ignore */ }
+      try { message = (JSON.parse(session.displayCountdown) as { message: string | null }).message; } catch { /* ignore */ }
     }
-    countdown = JSON.stringify({ type: "break", endsAt, label });
+    countdown = JSON.stringify({ type: "break", endsAt, message });
   }
   // cancel: countdown stays null
   await db
@@ -1518,14 +1518,14 @@ router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (r
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const body = z.object({
     action: z.enum(["start", "cancel"]).optional().default("start"),
-    label: z.string().max(60).optional(),
+    message: z.string().max(60).optional(),
   }).safeParse(req.body ?? {});
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
   let countdown: string | null = null;
   if (body.data.action === "start") {
     const endsAt = new Date(Date.now() + 10_000).toISOString();
-    countdown = JSON.stringify({ type: "pre-auction", endsAt, label: body.data.label ?? null });
+    countdown = JSON.stringify({ type: "pre-auction", endsAt, message: body.data.message ?? null });
   }
   await db
     .update(auctionSessionsTable)

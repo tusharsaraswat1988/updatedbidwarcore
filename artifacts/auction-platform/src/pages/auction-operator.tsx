@@ -270,9 +270,9 @@ export default function AuctionOperator() {
   async function handleStartCountdown() {
     const mins = parseFloat(countdownMinutes) || 5;
     const durationSeconds = Math.round(mins * 60);
-    const label = countdownLabel.trim() || undefined;
+    const message = countdownLabel.trim() || undefined;
     if (countdownDialogType === "break") {
-      const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, label } });
+      const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, message } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     } else {
       const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start" } });
@@ -347,7 +347,7 @@ export default function AuctionOperator() {
   const isTrialMode = licenseStatus !== "active";
   const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
   const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
-  const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
+  const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
 
   const searchLower = playerSearch.trim().toLowerCase();
   const filterBySearch = <T extends { name: string; jerseyNumber?: string | null }>(list: T[]): T[] =>
@@ -1108,8 +1108,8 @@ export default function AuctionOperator() {
                           <p className="text-sm font-semibold text-foreground">
                             {currentCountdown.type === "break" ? "Break Timer" : "Pre-Auction Countdown"}
                           </p>
-                          {currentCountdown.label && (
-                            <p className="text-[10px] text-muted-foreground truncate">{currentCountdown.label}</p>
+                          {currentCountdown.message && (
+                            <p className="text-[10px] text-muted-foreground truncate">{currentCountdown.message}</p>
                           )}
                         </div>
                         {currentCountdown.endsAt && (

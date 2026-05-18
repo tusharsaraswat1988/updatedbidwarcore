@@ -1531,7 +1531,7 @@ export default function LiveViewerPage() {
           key={stickyDc.endsAt}
           type={stickyDc.type}
           endsAt={stickyDc.endsAt}
-          label={stickyDc.label}
+          message={stickyDc.message}
           tournamentName={tournament?.name}
         />
       )}

@@ -160,16 +160,16 @@ export default function TournamentHub() {
       soldSoundEnabled: tournament.soldSoundEnabled ?? true,
       soldSoundUrl: tournament.soldSoundUrl ?? "",
       soldSoundVolume: String(tournament.soldSoundVolume ?? 80),
-      breakEndSoundEnabled: tournament.breakEndSoundEnabled ?? false,
-      breakEndSoundUrl: String(tournament.breakEndSoundUrl ?? ""),
-      breakEndSoundVolume: String(tournament.breakEndSoundVolume ?? 80),
+      breakEndMusicEnabled: tournament.breakEndMusicEnabled ?? false,
+      breakEndMusicUrl: String(tournament.breakEndMusicUrl ?? ""),
+      breakEndMusicVolume: String(tournament.breakEndMusicVolume ?? 80),
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
     // Restore display names for previously uploaded audio files
     setCountdownFileName(tournament.countdownSoundUrl ? "Custom file uploaded" : "");
     setSoldFileName(tournament.soldSoundUrl ? "Custom file uploaded" : "");
-    setBreakEndFileName(tournament.breakEndSoundUrl ? "Custom file uploaded" : "");
+    setBreakEndFileName(tournament.breakEndMusicUrl ? "Custom file uploaded" : "");
     // Load bidTiers from JSON column, fall back to legacy 5-column values
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
@@ -241,19 +241,19 @@ export default function TournamentHub() {
         soldSoundEnabled: origForm.soldSoundEnabled,
         soldSoundUrl: origForm.soldSoundUrl,
         soldSoundVolume: origForm.soldSoundVolume,
-        breakEndSoundEnabled: origForm.breakEndSoundEnabled,
-        breakEndSoundUrl: origForm.breakEndSoundUrl,
-        breakEndSoundVolume: origForm.breakEndSoundVolume,
+        breakEndMusicEnabled: origForm.breakEndMusicEnabled,
+        breakEndMusicUrl: origForm.breakEndMusicUrl,
+        breakEndMusicVolume: origForm.breakEndMusicVolume,
       }));
       setCountdownFileName(origForm.countdownSoundUrl ? "Custom file uploaded" : "");
       setSoldFileName(origForm.soldSoundUrl ? "Custom file uploaded" : "");
-      setBreakEndFileName(origForm.breakEndSoundUrl ? "Custom file uploaded" : "");
+      setBreakEndFileName(origForm.breakEndMusicUrl ? "Custom file uploaded" : "");
     }
   }
 
   function handleAudioUpload(
     e: React.ChangeEvent<HTMLInputElement>,
-    field: "countdownSoundUrl" | "soldSoundUrl" | "breakEndSoundUrl",
+    field: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
     setFileName: (n: string) => void,
   ) {
     const file = e.target.files?.[0];
@@ -283,9 +283,9 @@ export default function TournamentHub() {
       soldSoundEnabled: false,
       soldSoundUrl: null,
       soldSoundVolume: 0,
-      breakEndSoundEnabled: false,
-      breakEndSoundUrl: null,
-      breakEndSoundVolume: 80,
+      breakEndMusicEnabled: false,
+      breakEndMusicUrl: null,
+      breakEndMusicVolume: 80,
     });
     mgr.previewCountdown();
   }
@@ -303,9 +303,9 @@ export default function TournamentHub() {
       soldSoundEnabled: true,
       soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
       soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-      breakEndSoundEnabled: false,
-      breakEndSoundUrl: null,
-      breakEndSoundVolume: 80,
+      breakEndMusicEnabled: false,
+      breakEndMusicUrl: null,
+      breakEndMusicVolume: 80,
     });
     mgr.previewSold();
   }
@@ -323,9 +323,9 @@ export default function TournamentHub() {
       soldSoundEnabled: false,
       soldSoundUrl: null,
       soldSoundVolume: 0,
-      breakEndSoundEnabled: true,
-      breakEndSoundUrl: (editForm.breakEndSoundUrl as string).trim() || null,
-      breakEndSoundVolume: Number(editForm.breakEndSoundVolume) || 80,
+      breakEndMusicEnabled: true,
+      breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+      breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
     });
     mgr.previewBreakEnd();
   }
@@ -382,9 +382,9 @@ export default function TournamentHub() {
         soldSoundEnabled: editForm.soldSoundEnabled === true,
         soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
         soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-        breakEndSoundEnabled: editForm.breakEndSoundEnabled === true,
-        breakEndSoundUrl: (editForm.breakEndSoundUrl as string).trim() || null,
-        breakEndSoundVolume: Number(editForm.breakEndSoundVolume) || 80,
+        breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
+        breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+        breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -1092,12 +1092,12 @@ export default function TournamentHub() {
                               <span className="text-[10px] text-muted-foreground font-normal">on break timer expiry</span>
                             </Label>
                             <Switch
-                              checked={editForm.breakEndSoundEnabled === true}
-                              onCheckedChange={(v) => setEditForm(f => ({ ...f, breakEndSoundEnabled: v }))}
+                              checked={editForm.breakEndMusicEnabled === true}
+                              onCheckedChange={(v) => setEditForm(f => ({ ...f, breakEndMusicEnabled: v }))}
                             />
                           </div>
 
-                          {editForm.breakEndSoundEnabled === true && (
+                          {editForm.breakEndMusicEnabled === true && (
                             <div className="space-y-2.5">
                               <div className="space-y-1.5">
                                 <Label className="text-xs text-muted-foreground">Custom audio file</Label>
@@ -1111,33 +1111,33 @@ export default function TournamentHub() {
                                       type="file"
                                       accept="audio/mpeg,audio/ogg,audio/wav,audio/aac,.mp3,.ogg,.wav,.aac"
                                       className="hidden"
-                                      onChange={(e) => handleAudioUpload(e, "breakEndSoundUrl", setBreakEndFileName)}
+                                      onChange={(e) => handleAudioUpload(e, "breakEndMusicUrl", setBreakEndFileName)}
                                     />
                                   </label>
-                                  {editForm.breakEndSoundUrl && (
+                                  {editForm.breakEndMusicUrl && (
                                     <Button
                                       type="button" variant="ghost" size="icon"
                                       className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                      onClick={() => { setEditForm(f => ({ ...f, breakEndSoundUrl: "" })); setBreakEndFileName(""); }}
+                                      onClick={() => { setEditForm(f => ({ ...f, breakEndMusicUrl: "" })); setBreakEndFileName(""); }}
                                     >
                                       <X className="w-3 h-3" />
                                     </Button>
                                   )}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground">
-                                  {editForm.breakEndSoundUrl ? "Custom file loaded — will replace built-in chime" : "No file selected — built-in chime will play"}
+                                  {editForm.breakEndMusicUrl ? "Custom file loaded — will replace built-in chime" : "No file selected — built-in chime will play"}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <Label className="text-[11px] text-muted-foreground">Volume</Label>
-                                    <span className="text-[11px] font-medium tabular-nums">{editForm.breakEndSoundVolume}%</span>
+                                    <span className="text-[11px] font-medium tabular-nums">{editForm.breakEndMusicVolume}%</span>
                                   </div>
                                   <Slider
                                     min={0} max={100} step={1}
-                                    value={[Number(editForm.breakEndSoundVolume)]}
-                                    onValueChange={([v]) => setEditForm(f => ({ ...f, breakEndSoundVolume: String(v) }))}
+                                    value={[Number(editForm.breakEndMusicVolume)]}
+                                    onValueChange={([v]) => setEditForm(f => ({ ...f, breakEndMusicVolume: String(v) }))}
                                   />
                                 </div>
                                 <Button

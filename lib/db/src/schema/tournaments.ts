@@ -56,9 +56,9 @@ export const tournamentsTable = pgTable("tournaments", {
   soldSoundUrl: text("sold_sound_url"),
   soldSoundVolume: integer("sold_sound_volume").notNull().default(80),
   // Break-end sound (plays on LED display when a break countdown expires)
-  breakEndSoundEnabled: boolean("break_end_sound_enabled").notNull().default(false),
-  breakEndSoundUrl: text("break_end_sound_url"),
-  breakEndSoundVolume: integer("break_end_sound_volume").notNull().default(80),
+  breakEndMusicEnabled: boolean("break_end_sound_enabled").notNull().default(false),
+  breakEndMusicUrl: text("break_end_sound_url"),
+  breakEndMusicVolume: integer("break_end_sound_volume").notNull().default(80),
   // Cheer messages (live viewer interactive reactions)
   cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings

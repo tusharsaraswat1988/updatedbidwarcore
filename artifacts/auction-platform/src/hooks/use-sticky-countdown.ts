@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 type CountdownState = {
   type: "break" | "pre-auction";
   endsAt: string;
-  label: string | null;
+  message: string | null;
 } | null;
 
 /**
@@ -17,7 +17,7 @@ type CountdownState = {
  */
 export function useStickyCountdown(
   serverDc:
-    | { type?: string; endsAt?: string; label?: string | null }
+    | { type?: string; endsAt?: string; message?: string | null }
     | null
     | undefined,
 ): CountdownState {
@@ -30,7 +30,7 @@ export function useStickyCountdown(
       setLocal({
         type: serverDc.type as "break" | "pre-auction",
         endsAt: serverDc.endsAt,
-        label: serverDc.label ?? null,
+        message: serverDc.message ?? null,
       });
       return;
     }

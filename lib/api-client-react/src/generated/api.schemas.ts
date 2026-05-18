@@ -88,11 +88,10 @@ export interface Tournament {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
-  /** Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields. */
-  breakEndSoundEnabled?: boolean;
+  breakEndMusicEnabled?: boolean;
   /** @nullable */
-  breakEndSoundUrl?: string | null;
-  breakEndSoundVolume?: number;
+  breakEndMusicUrl?: string | null;
+  breakEndMusicVolume?: number;
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
@@ -152,9 +151,9 @@ export interface TournamentInput {
   soldSoundEnabled?: boolean;
   soldSoundUrl?: string;
   soldSoundVolume?: number;
-  breakEndSoundEnabled?: boolean;
-  breakEndSoundUrl?: string;
-  breakEndSoundVolume?: number;
+  breakEndMusicEnabled?: boolean;
+  breakEndMusicUrl?: string;
+  breakEndMusicVolume?: number;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -205,10 +204,10 @@ export interface TournamentUpdate {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
-  breakEndSoundEnabled?: boolean;
+  breakEndMusicEnabled?: boolean;
   /** @nullable */
-  breakEndSoundUrl?: string | null;
-  breakEndSoundVolume?: number;
+  breakEndMusicUrl?: string | null;
+  breakEndMusicVolume?: number;
 }
 
 export interface Team {
@@ -590,10 +589,10 @@ export interface DisplayCountdown {
   /** ISO timestamp when the countdown ends */
   endsAt?: string;
   /**
-   * Optional display label override
+   * Optional display message override
    * @nullable
    */
-  label?: string | null;
+  message?: string | null;
 }
 
 export interface AuctionState {
@@ -932,7 +931,7 @@ export type SetBreakTimerBody = {
    * @maximum 3600
    */
   durationSeconds?: number;
-  label?: string;
+  message?: string;
 };
 
 export type SetPreAuctionCountdownBodyAction =
@@ -945,7 +944,7 @@ export const SetPreAuctionCountdownBodyAction = {
 
 export type SetPreAuctionCountdownBody = {
   action?: SetPreAuctionCountdownBodyAction;
-  label?: string;
+  message?: string;
 };
 
 export type SearchGlobalPlayersParams = {

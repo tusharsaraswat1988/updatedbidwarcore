@@ -20,9 +20,9 @@ export interface AudioSettings {
   soldSoundEnabled: boolean;
   soldSoundUrl: string | null;
   soldSoundVolume: number;       // 0–100
-  breakEndSoundEnabled: boolean;
-  breakEndSoundUrl: string | null;
-  breakEndSoundVolume: number;   // 0–100
+  breakEndMusicEnabled: boolean;
+  breakEndMusicUrl: string | null;
+  breakEndMusicVolume: number;   // 0–100
 }
 
 const DEFAULT_SETTINGS: AudioSettings = {
@@ -34,9 +34,9 @@ const DEFAULT_SETTINGS: AudioSettings = {
   soldSoundEnabled: true,
   soldSoundUrl: null,
   soldSoundVolume: 80,
-  breakEndSoundEnabled: false,
-  breakEndSoundUrl: null,
-  breakEndSoundVolume: 80,
+  breakEndMusicEnabled: false,
+  breakEndMusicUrl: null,
+  breakEndMusicVolume: 80,
 };
 
 export class AuctionAudioManager {
@@ -86,7 +86,7 @@ export class AuctionAudioManager {
   setSettings(s: AudioSettings): void {
     const prevCountdownUrl = this.settings.countdownSoundUrl;
     const prevSoldUrl = this.settings.soldSoundUrl;
-    const prevBreakEndUrl = this.settings.breakEndSoundUrl;
+    const prevBreakEndUrl = this.settings.breakEndMusicUrl;
     this.settings = s;
     this.applyMasterGain();
 
@@ -97,8 +97,8 @@ export class AuctionAudioManager {
     if (s.soldSoundUrl !== prevSoldUrl) {
       this.soldAudio = s.soldSoundUrl ? this.makeAudio(s.soldSoundUrl) : null;
     }
-    if (s.breakEndSoundUrl !== prevBreakEndUrl) {
-      this.breakEndAudio = s.breakEndSoundUrl ? this.makeAudio(s.breakEndSoundUrl) : null;
+    if (s.breakEndMusicUrl !== prevBreakEndUrl) {
+      this.breakEndAudio = s.breakEndMusicUrl ? this.makeAudio(s.breakEndMusicUrl) : null;
     }
   }
 
@@ -172,7 +172,7 @@ export class AuctionAudioManager {
 
   playBreakEnd(key: string): void {
     if (!this.settings.audioEnabled) return;
-    if (!this.settings.breakEndSoundEnabled) return;
+    if (!this.settings.breakEndMusicEnabled) return;
     if (key && key === this.breakEndKeyPlayed) return; // deduplicate per event
     this.breakEndKeyPlayed = key;
 
@@ -180,7 +180,7 @@ export class AuctionAudioManager {
       const clone = this.breakEndAudio.cloneNode() as HTMLAudioElement;
       clone.volume = Math.min(
         1,
-        (this.settings.breakEndSoundVolume / 100) * (this.settings.masterVolume / 100),
+        (this.settings.breakEndMusicVolume / 100) * (this.settings.masterVolume / 100),
       );
       clone.play().catch(() => {});
       return;
@@ -321,7 +321,7 @@ export class AuctionAudioManager {
     const ctx = this.ctx;
     if (!ctx || !this.masterGain) return;
 
-    const vol = this.settings.breakEndSoundVolume / 100;
+    const vol = this.settings.breakEndMusicVolume / 100;
 
     // Short ascending three-note chime: G5 → B5 → D6 (major arpeggio) — signals break over
     const notes: Array<{ freq: number; delay: number; dur: number; amp: number }> = [

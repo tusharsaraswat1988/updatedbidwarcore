@@ -55,7 +55,7 @@ export default function BreakTimerPage() {
   const [breakLabel, setBreakLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
+  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
   const { mins, secs, expired } = useRemainingTime(dc?.endsAt ?? null);
 
   async function handleStartBreak() {
@@ -65,7 +65,7 @@ export default function BreakTimerPage() {
     try {
       await setBreakTimerMut.mutateAsync({
         tournamentId,
-        data: { action: "start", durationSeconds: Math.round(mins * 60), label: breakLabel || undefined },
+        data: { action: "start", durationSeconds: Math.round(mins * 60), message: breakLabel || undefined },
       });
       await refetch();
     } catch { setError("Failed to start break timer."); }
@@ -148,8 +148,8 @@ export default function BreakTimerPage() {
                   <p className="text-sm font-bold text-foreground">
                     {dc.type === "break" ? "Break Timer" : "Pre-Auction Countdown"} — Active
                   </p>
-                  {dc.label && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{dc.label}</p>
+                  {dc.message && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{dc.message}</p>
                   )}
                 </div>
                 <div className="font-display font-black text-2xl tabular-nums text-foreground flex-shrink-0">

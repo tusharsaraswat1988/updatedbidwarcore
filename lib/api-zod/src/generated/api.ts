@@ -76,14 +76,9 @@ export const ListTournamentsResponseItem = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod
-    .boolean()
-    .optional()
-    .describe(
-      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
-    ),
-  breakEndSoundUrl: zod.string().nullish(),
-  breakEndSoundVolume: zod.number().optional(),
+  breakEndMusicEnabled: zod.boolean().optional(),
+  breakEndMusicUrl: zod.string().nullish(),
+  breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -124,9 +119,9 @@ export const CreateTournamentBody = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().optional(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod.boolean().optional(),
-  breakEndSoundUrl: zod.string().optional(),
-  breakEndSoundVolume: zod.number().optional(),
+  breakEndMusicEnabled: zod.boolean().optional(),
+  breakEndMusicUrl: zod.string().optional(),
+  breakEndMusicVolume: zod.number().optional(),
 });
 
 /**
@@ -180,14 +175,9 @@ export const GetTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod
-    .boolean()
-    .optional()
-    .describe(
-      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
-    ),
-  breakEndSoundUrl: zod.string().nullish(),
-  breakEndSoundVolume: zod.number().optional(),
+  breakEndMusicEnabled: zod.boolean().optional(),
+  breakEndMusicUrl: zod.string().nullish(),
+  breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -235,9 +225,9 @@ export const UpdateTournamentBody = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod.boolean().optional(),
-  breakEndSoundUrl: zod.string().nullish(),
-  breakEndSoundVolume: zod.number().optional(),
+  breakEndMusicEnabled: zod.boolean().optional(),
+  breakEndMusicUrl: zod.string().nullish(),
+  breakEndMusicVolume: zod.number().optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -284,14 +274,9 @@ export const UpdateTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
-  breakEndSoundEnabled: zod
-    .boolean()
-    .optional()
-    .describe(
-      "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
-    ),
-  breakEndSoundUrl: zod.string().nullish(),
-  breakEndSoundVolume: zod.number().optional(),
+  breakEndMusicEnabled: zod.boolean().optional(),
+  breakEndMusicUrl: zod.string().nullish(),
+  breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -360,14 +345,9 @@ export const ExportTournamentForLocalResponse = zod.object({
     soldSoundEnabled: zod.boolean().optional(),
     soldSoundUrl: zod.string().nullish(),
     soldSoundVolume: zod.number().optional(),
-    breakEndSoundEnabled: zod
-      .boolean()
-      .optional()
-      .describe(
-        "Sound played when a break countdown ends on the LED display. Uses breakEndSound naming for consistency with soldSound and countdownSound fields.",
-      ),
-    breakEndSoundUrl: zod.string().nullish(),
-    breakEndSoundVolume: zod.number().optional(),
+    breakEndMusicEnabled: zod.boolean().optional(),
+    breakEndMusicUrl: zod.string().nullish(),
+    breakEndMusicVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
     cheerMessagePresets: zod.string().nullish(),
     createdAt: zod.string(),
@@ -1134,7 +1114,10 @@ export const GetAuctionStateResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1258,7 +1241,10 @@ export const StartAuctionResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1382,7 +1368,10 @@ export const PauseAuctionResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1511,7 +1500,10 @@ export const NextPlayerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1640,7 +1632,10 @@ export const PlaceBidResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1764,7 +1759,10 @@ export const SellPlayerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -1893,7 +1891,10 @@ export const ManualSellResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2017,7 +2018,10 @@ export const MarkUnsoldResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2146,7 +2150,10 @@ export const ReAuctionPlayerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2270,7 +2277,10 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2394,7 +2404,10 @@ export const UndoLastActionResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2522,7 +2535,10 @@ export const ResetTrialAuctionResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2650,7 +2666,10 @@ export const SetDisplayOverlayResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2780,7 +2799,10 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -2934,7 +2956,10 @@ export const SyncFortuneWheelResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3062,7 +3087,10 @@ export const SetCategoryFilterResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3087,7 +3115,7 @@ export const SetBreakTimerBody = zod.object({
     .describe(
       "Required for start; optional for extend (defaults to 300s \/ 5 min)",
     ),
-  label: zod.string().optional(),
+  message: zod.string().optional(),
 });
 
 export const SetBreakTimerResponse = zod.object({
@@ -3202,7 +3230,10 @@ export const SetBreakTimerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3220,7 +3251,7 @@ export const SetPreAuctionCountdownBody = zod.object({
   action: zod
     .enum(["start", "cancel"])
     .default(setPreAuctionCountdownBodyActionDefault),
-  label: zod.string().optional(),
+  message: zod.string().optional(),
 });
 
 export const SetPreAuctionCountdownResponse = zod.object({
@@ -3335,7 +3366,10 @@ export const SetPreAuctionCountdownResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3469,7 +3503,10 @@ export const StartTimerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3593,7 +3630,10 @@ export const StopTimerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
@@ -3717,7 +3757,10 @@ export const DeferPlayerResponse = zod.object({
         .string()
         .optional()
         .describe("ISO timestamp when the countdown ends"),
-      label: zod.string().nullish().describe("Optional display label override"),
+      message: zod
+        .string()
+        .nullish()
+        .describe("Optional display message override"),
     })
     .nullish(),
 });
