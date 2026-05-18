@@ -102,6 +102,14 @@ export default function AdminCommunicate() {
   const [location] = useLocation();
   const [tab, setTab] = useState(() => location.endsWith("/logs") ? "logs" : "send");
 
+  // Contacts tab
+  interface MissingContact { id: number; name: string; role?: string | null; ownerName?: string | null }
+  const [missingPlayers, setMissingPlayers] = useState<MissingContact[]>([]);
+  const [missingOwners, setMissingOwners] = useState<MissingContact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [bulkDeclaring, setBulkDeclaring] = useState(false);
+  const [bulkDeclareResult, setBulkDeclareResult] = useState<{ playerCount: number; ownerCount: number } | null>(null);
+
   // Send form
   const [recipientGroup, setRecipientGroup] = useState("all_players");
   const [channel, setChannel] = useState("sms");
@@ -162,10 +170,47 @@ export default function AdminCommunicate() {
     if (r.ok) setBlasts(await r.json() as BlastEntry[]);
   }, [selectedTid]);
 
+  const loadContacts = useCallback(async () => {
+    if (!selectedTid) { setMissingPlayers([]); setMissingOwners([]); return; }
+    setLoadingContacts(true);
+    try {
+      const r = await fetch(`/api/auth/admin/communicate/missing-contacts/${selectedTid}`, { credentials: "include" });
+      if (r.ok) {
+        const d = await r.json() as { missingPlayers: MissingContact[]; missingOwners: MissingContact[] };
+        setMissingPlayers(d.missingPlayers);
+        setMissingOwners(d.missingOwners);
+      }
+    } finally { setLoadingContacts(false); }
+  }, [selectedTid]);
+
   useEffect(() => {
     if (tab === "logs") void loadLogs();
     if (tab === "blasts") void loadBlasts();
-  }, [tab, loadLogs, loadBlasts]);
+    if (tab === "contacts") void loadContacts();
+  }, [tab, loadLogs, loadBlasts, loadContacts]);
+
+  async function handleBulkDeclare(type: "all") {
+    if (!selectedTid) return;
+    setBulkDeclaring(true);
+    setBulkDeclareResult(null);
+    try {
+      const r = await fetch("/api/auth/admin/communicate/consent-declare-bulk", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournamentId: parseInt(selectedTid), recipientType: type }),
+      });
+      if (r.ok) {
+        const d = await r.json() as { playerCount: number; ownerCount: number };
+        setBulkDeclareResult(d);
+        void loadContacts();
+        if (consentStats) {
+          const r2 = await fetch(`/api/auth/admin/communicate/consent-status/${selectedTid}`, { credentials: "include" });
+          if (r2.ok) setConsentStats(await r2.json() as ConsentStats);
+        }
+      }
+    } finally { setBulkDeclaring(false); }
+  }
 
   async function handleSend() {
     if (!messageContent.trim()) { setSendError("Message content is required"); return; }
@@ -314,6 +359,7 @@ export default function AdminCommunicate() {
               <TabsTrigger value="send" className="gap-2"><Send className="w-3.5 h-3.5" />Send</TabsTrigger>
               <TabsTrigger value="logs" className="gap-2"><Activity className="w-3.5 h-3.5" />Logs</TabsTrigger>
               <TabsTrigger value="blasts" className="gap-2"><Clock className="w-3.5 h-3.5" />Auto Blasts</TabsTrigger>
+              <TabsTrigger value="contacts" className="gap-2"><Phone className="w-3.5 h-3.5" />Contacts</TabsTrigger>
             </TabsList>
 
             {/* ── Send ────────────────────────────────────── */}
@@ -494,6 +540,91 @@ export default function AdminCommunicate() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+            </TabsContent>
+            {/* ── Contacts ──────────────────────────────────── */}
+            <TabsContent value="contacts" className="mt-4">
+              <div className="space-y-4">
+                {!selectedTid ? (
+                  <div className="text-center py-16 text-muted-foreground">
+                    <Phone className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Select a tournament to view missing contacts</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">Missing Mobile Numbers</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Participants without a mobile number cannot receive SMS or WhatsApp communications.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => void loadContacts()}>
+                          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-8 gap-1.5"
+                          disabled={bulkDeclaring || (!missingPlayers.length && !missingOwners.length && !consentStats?.players.hasMobile && !consentStats?.owners.hasMobile)}
+                          onClick={() => void handleBulkDeclare("all")}
+                        >
+                          {bulkDeclaring ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          Declare In-Person Consent (All)
+                        </Button>
+                      </div>
+                    </div>
+
+                    {bulkDeclareResult && (
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-500/25 bg-green-500/8 text-xs text-green-400">
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                        In-person consent recorded: {bulkDeclareResult.playerCount} player(s), {bulkDeclareResult.ownerCount} owner(s) updated.
+                      </div>
+                    )}
+
+                    {loadingContacts ? (
+                      <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {missingPlayers.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2">Players without mobile ({missingPlayers.length})</p>
+                            <div className="space-y-1">
+                              {missingPlayers.map(p => (
+                                <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card/30 text-sm">
+                                  <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                  <span className="flex-1 font-medium">{p.name}</span>
+                                  {p.role && <Badge variant="outline" className="text-[10px] capitalize">{p.role}</Badge>}
+                                  <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">No mobile</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {missingOwners.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2">Team owners without mobile ({missingOwners.length})</p>
+                            <div className="space-y-1">
+                              {missingOwners.map(o => (
+                                <div key={o.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card/30 text-sm">
+                                  <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                  <span className="flex-1 font-medium">{o.name}</span>
+                                  {o.ownerName && <span className="text-xs text-muted-foreground">{o.ownerName}</span>}
+                                  <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">No mobile</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {missingPlayers.length === 0 && missingOwners.length === 0 && (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <CheckCircle2 className="w-8 h-8 mx-auto mb-3 opacity-30 text-green-400" />
+                            <p className="text-sm">All participants have mobile numbers on file.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </TabsContent>

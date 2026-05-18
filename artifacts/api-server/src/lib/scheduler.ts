@@ -76,7 +76,7 @@ async function runConsentBlast() {
   for (const t of tournaments) {
     const auctionAt = parseTournamentDateTime(t.auctionDate, t.auctionTime);
     // Exact 23–25 h window check (works in any timezone — timestamps are absolute)
-    if (!auctionAt || auctionAt < in23h || auctionAt > in25h) continue;
+    if (!auctionAt || isNaN(auctionAt.getTime()) || auctionAt < in23h || auctionAt > in25h) continue;
 
     logger.info({ tournamentId: t.id, name: t.name, auctionAt }, "Sending consent blast");
 

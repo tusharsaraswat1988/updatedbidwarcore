@@ -613,6 +613,32 @@ function OrganizerDashboard({
   const [, navigate] = useLocation();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [declareOpen, setDeclareOpen] = useState(false);
+  const [declareTid, setDeclareTid] = useState<number | null>(null);
+  const [declaring, setDeclaring] = useState(false);
+  const [declareResult, setDeclareResult] = useState<string | null>(null);
+
+  async function handleDeclareConsent() {
+    if (!declareTid) return;
+    setDeclaring(true);
+    setDeclareResult(null);
+    try {
+      const r = await fetch("/api/auth/admin/communicate/consent-declare-bulk", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournamentId: declareTid, recipientType: "all" }),
+      });
+      if (r.ok) {
+        const d = await r.json() as { playerCount: number; ownerCount: number };
+        setDeclareResult(`Consent recorded for ${d.playerCount} player(s) and ${d.ownerCount} team owner(s).`);
+      } else {
+        setDeclareResult("Failed to record consent. Please try again.");
+      }
+    } finally {
+      setDeclaring(false);
+    }
+  }
 
   const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "live");
   const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
@@ -725,12 +751,9 @@ function OrganizerDashboard({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <button
-                    className="w-full text-left"
-                    onClick={() => navigate(`/tournament/${t.id}`)}
-                  >
-                    <Card className="border-border/50 bg-card/30 hover:bg-card/60 hover:border-border transition-all cursor-pointer h-full">
-                      <CardContent className="p-5 space-y-3">
+                  <Card className="border-border/50 bg-card/30 hover:border-border transition-all h-full">
+                    <CardContent className="p-5 space-y-3">
+                      <button className="w-full text-left" onClick={() => navigate(`/tournament/${t.id}`)}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
@@ -738,18 +761,27 @@ function OrganizerDashboard({
                           </div>
                           <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
                         </div>
-                        <div>
+                        <div className="mt-3">
                           <p className="font-bold text-base leading-snug">{t.name}</p>
                           <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
                             {t.status}
                           </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground mt-2">
                           {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
                         </p>
-                      </CardContent>
-                    </Card>
-                  </button>
+                      </button>
+                      <div className="pt-2 border-t border-border/40">
+                        <button
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={e => { e.stopPropagation(); setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          Record in-person consent
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               ))}
             </div>
@@ -765,6 +797,40 @@ function OrganizerDashboard({
           onRefresh();
         }}
       />
+
+      {/* In-Person Consent Declaration Dialog */}
+      <Dialog open={declareOpen} onOpenChange={v => { if (!v) { setDeclareOpen(false); setDeclareResult(null); } }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-primary" /> Record In-Person Consent
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            {!declareResult ? (
+              <>
+                <p>I confirm that I have obtained verbal or written consent from all players and team owners in this tournament to receive WhatsApp auction updates from BidWar.</p>
+                <p className="text-[11px] text-amber-400 bg-amber-500/10 rounded px-3 py-2">
+                  This declaration is logged with your account and timestamp. Only declare if you have actually obtained consent in person.
+                </p>
+              </>
+            ) : (
+              <p className={declareResult.startsWith("Failed") ? "text-red-400" : "text-green-400"}>{declareResult}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button size="sm" variant="outline" onClick={() => { setDeclareOpen(false); setDeclareResult(null); }}>
+              {declareResult ? "Close" : "Cancel"}
+            </Button>
+            {!declareResult && (
+              <Button size="sm" onClick={() => void handleDeclareConsent()} disabled={declaring}>
+                {declaring ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                Confirm Declaration
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

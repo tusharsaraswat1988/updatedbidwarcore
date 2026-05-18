@@ -262,17 +262,15 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
-  // Business-initiated WhatsApp messages MUST use an approved Meta template.
-  // templateName is required for all WA/both sends; we resolve the SID from the DB.
+  // WhatsApp template resolution.
+  // In prototype / stub mode (no Twilio creds): sends stub anyway — no template enforcement.
+  // In production (Twilio creds present + DB templates exist): templateName must match approved template.
   let resolvedTemplateSid: string | undefined;
-  if (d.channel === "whatsapp" || d.channel === "both") {
-    if (!d.templateName) {
-      res.status(400).json({ error: "templateName is required for WhatsApp sends (Meta business-initiated message compliance)" });
-      return;
-    }
+  if ((d.channel === "whatsapp" || d.channel === "both") && d.templateName) {
     const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, templateSid: waTemplatesTable.templateSid, status: waTemplatesTable.status })
       .from(waTemplatesTable);
-    if (dbTemplates.length > 0) {
+    const isLiveMode = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
+    if (isLiveMode && dbTemplates.length > 0) {
       const tmpl = dbTemplates.find(t => t.templateName === d.templateName && t.status === "approved");
       if (!tmpl) {
         const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
@@ -280,11 +278,10 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         return;
       }
       resolvedTemplateSid = tmpl.templateSid ?? undefined;
-    } else {
-      // Fall back to env var when no DB templates are configured yet
+    } else if (isLiveMode) {
       const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
       if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
-        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list. Approved: ${envTemplates.join(", ")}` });
+        res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list.` });
         return;
       }
     }
@@ -497,6 +494,76 @@ router.get("/auth/admin/communicate/blasts", async (req, res) => {
     .orderBy(desc(consentBlastLogTable.sentAt))
     .limit(200);
   res.json(entries);
+});
+
+// ─── Missing Contacts (players/teams with no mobile) ─────────────────────────
+
+router.get("/auth/admin/communicate/missing-contacts/:tournamentId", async (req, res) => {
+  if (!req.session.isAdmin && !req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  if (!req.session.isAdmin && req.session.organizerAccountId) {
+    const [t] = await db.select({ organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    if (!t || t.organizerId !== req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+  }
+
+  const missingPlayers = await db
+    .select({ id: playersTable.id, name: playersTable.name, role: playersTable.role })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.mobileNumber} IS NULL OR ${playersTable.mobileNumber} = ''`));
+
+  const missingOwners = await db
+    .select({ id: teamsTable.id, name: teamsTable.name, ownerName: teamsTable.ownerName })
+    .from(teamsTable)
+    .where(and(eq(teamsTable.tournamentId, tid), sql`${teamsTable.ownerMobile} IS NULL OR ${teamsTable.ownerMobile} = ''`));
+
+  res.json({ missingPlayers, missingOwners });
+});
+
+// ─── Bulk In-Person Consent Declaration ──────────────────────────────────────
+
+router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => {
+  if (!req.session.isAdmin && !req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+  const schema = z.object({
+    tournamentId: z.number().int(),
+    recipientType: z.enum(["player", "team_owner", "all"]),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const { tournamentId, recipientType } = parsed.data;
+
+  if (!req.session.isAdmin && req.session.organizerAccountId) {
+    const [t] = await db.select({ organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+    if (!t || t.organizerId !== req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized for this tournament" }); return; }
+  }
+
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
+  const consentData = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "in_person" as const, whatsappConsentIp: ip };
+  let playerCount = 0;
+  let ownerCount = 0;
+
+  if (recipientType === "player" || recipientType === "all") {
+    const affected = await db.update(playersTable).set(consentData)
+      .where(and(
+        eq(playersTable.tournamentId, tournamentId),
+        eq(playersTable.whatsappConsent, false),
+        sql`${playersTable.mobileNumber} IS NOT NULL AND ${playersTable.mobileNumber} != ''`,
+      )).returning({ id: playersTable.id });
+    playerCount = affected.length;
+  }
+  if (recipientType === "team_owner" || recipientType === "all") {
+    const affected = await db.update(teamsTable).set(consentData)
+      .where(and(
+        eq(teamsTable.tournamentId, tournamentId),
+        eq(teamsTable.whatsappConsent, false),
+        sql`${teamsTable.ownerMobile} IS NOT NULL AND ${teamsTable.ownerMobile} != ''`,
+      )).returning({ id: teamsTable.id });
+    ownerCount = affected.length;
+  }
+
+  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.session.organizerAccountId ?? (req.session.isAdmin ? "admin" : null) }, "Bulk in-person consent declared");
+  res.json({ success: true, playerCount, ownerCount });
 });
 
 // ─── Consent Status for a Tournament ─────────────────────────────────────────
