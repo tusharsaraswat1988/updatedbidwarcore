@@ -362,6 +362,25 @@ export default function AuctionOperator() {
 
           <div className="h-4 w-px bg-border flex-shrink-0" />
 
+          {/* Category selector */}
+          {categories && categories.length > 0 && (
+            <button
+              onClick={openCategoryFilter}
+              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-semibold transition-colors flex-shrink-0 ${
+                activeCategoryIds && activeCategoryIds.length > 0
+                  ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              <Tag className="w-3 h-3" />
+              {activeCategoryIds && activeCategoryIds.length > 0
+                ? activeCategoryIds.length === 1
+                  ? (categoryMap[activeCategoryIds[0]]?.name ?? "1 Category")
+                  : `${activeCategoryIds.length} Categories`
+                : "All Categories"}
+            </button>
+          )}
+
           {/* Start / Pause */}
           {!isActive ? (
             <Button
