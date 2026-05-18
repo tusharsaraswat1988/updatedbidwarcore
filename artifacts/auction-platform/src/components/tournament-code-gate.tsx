@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 
 function sessionKey(tid: number) {
   return `tournament_verified_${tid}`;
@@ -21,26 +21,38 @@ export function TournamentCodeGate({
   tournamentId: number;
   children: ReactNode;
 }) {
-  const [status, setStatus] = useState<"loading" | "locked" | "unlocked">("loading");
+  const [status, setStatus] = useState<"loading" | "locked" | "unlocked" | "error">("loading");
   const [auctionCode, setAuctionCode] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState("");
   const [tournamentLogo, setTournamentLogo] = useState("");
   const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
-  const [error, setError] = useState("");
+  const [inputError, setInputError] = useState("");
 
-  useEffect(() => {
+  function loadTournament() {
     if (!tournamentId) return;
 
+    setStatus("loading");
+
+    // Already verified in this browser tab session?
     if (sessionStorage.getItem(sessionKey(tournamentId)) === "1") {
       setStatus("unlocked");
       return;
     }
 
     fetch(`/api/tournaments/${tournamentId}`)
-      .then(r => r.json())
-      .then((data: { auctionCode?: string | null; name?: string; logoUrl?: string }) => {
-        const ac = data.auctionCode ?? null;
+      .then(r => {
+        // Fail-closed: any non-2xx response locks the gate
+        if (!r.ok) {
+          setStatus("locked");
+          return null;
+        }
+        return r.json() as Promise<{ auctionCode?: string | null; name?: string; logoUrl?: string }>;
+      })
+      .then((data) => {
+        if (!data) return; // non-ok already handled
+
+        const ac = (data.auctionCode ?? null);
         setAuctionCode(ac);
         setTournamentName(data.name ?? "");
         setTournamentLogo(
@@ -48,10 +60,12 @@ export function TournamentCodeGate({
         );
 
         if (!ac) {
+          // Tournament has no auctionCode — allow through (backward compatible)
           setStatus("unlocked");
           return;
         }
 
+        // Auto-unlock from ?code= query param
         const paramCode = getCodeParam().toUpperCase();
         if (paramCode && paramCode === ac.toUpperCase()) {
           sessionStorage.setItem(sessionKey(tournamentId), "1");
@@ -62,8 +76,14 @@ export function TournamentCodeGate({
         setStatus("locked");
       })
       .catch(() => {
-        setStatus("unlocked");
+        // Fail-closed: network / parse errors keep the gate locked
+        setStatus("error");
       });
+  }
+
+  useEffect(() => {
+    loadTournament();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -73,7 +93,7 @@ export function TournamentCodeGate({
       sessionStorage.setItem(sessionKey(tournamentId), "1");
       setStatus("unlocked");
     } else {
-      setError("Incorrect code. Please try again.");
+      setInputError("Incorrect code. Please try again.");
       setCode("");
     }
   }
@@ -90,6 +110,29 @@ export function TournamentCodeGate({
     return <>{children}</>;
   }
 
+  if (status === "error") {
+    return (
+      <div className="dark min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b]">
+        <div className="w-full max-w-sm space-y-6 text-center">
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
+          </div>
+          <div>
+            <h2 className="text-white font-bold text-xl">Could not load tournament</h2>
+            <p className="text-[#71717a] text-sm mt-1">Check your connection and try again.</p>
+          </div>
+          <button
+            onClick={loadTournament}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // status === "locked"
   return (
     <div className="dark min-h-screen flex flex-col items-center justify-center px-6 bg-[#09090b] selection:bg-yellow-400 selection:text-black">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
@@ -122,7 +165,7 @@ export function TournamentCodeGate({
             <input
               type={showCode ? "text" : "password"}
               value={code}
-              onChange={e => { setCode(e.target.value.toUpperCase()); setError(""); }}
+              onChange={e => { setCode(e.target.value.toUpperCase()); setInputError(""); }}
               placeholder="AUCTION CODE"
               autoComplete="off"
               autoFocus
@@ -138,14 +181,14 @@ export function TournamentCodeGate({
           </div>
 
           <AnimatePresence>
-            {error && (
+            {inputError && (
               <motion.p
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 className="text-red-400 text-sm text-center"
               >
-                {error}
+                {inputError}
               </motion.p>
             )}
           </AnimatePresence>
