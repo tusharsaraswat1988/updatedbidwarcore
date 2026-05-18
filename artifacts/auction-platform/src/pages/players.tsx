@@ -21,6 +21,7 @@ import {
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
+  PlayerInputRole,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -396,6 +397,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [filledFromProfile, setFilledFromProfile] = useState(false);
   const [basePriceTouched, setBasePriceTouched] = useState(false);
+  const [mobileError, setMobileError] = useState("");
 
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
@@ -436,10 +438,16 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const data: any = {
+    const mobile = form.mobileNumber.trim();
+    if (!mobile) {
+      setMobileError("Mobile number is required");
+      return;
+    }
+    setMobileError("");
+    const data = {
       name: form.name,
       city: form.city || undefined,
-      role: form.role,
+      role: form.role as PlayerInputRole,
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
@@ -448,7 +456,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       basePrice: parseInt(String(form.basePrice)) || 0,
       jerseyNumber: form.jerseyNumber || undefined,
       achievements: form.achievements || undefined,
-      mobileNumber: form.mobileNumber || undefined,
+      mobileNumber: mobile,
       cricheroUrl: form.cricheroUrl || undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
@@ -579,7 +587,8 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mobile Number</Label>
-          <Input value={form.mobileNumber} onChange={e => f("mobileNumber", e.target.value)} required placeholder="+91 98765 43210" />
+          <Input value={form.mobileNumber} onChange={e => { f("mobileNumber", e.target.value); if (mobileError) setMobileError(""); }} required placeholder="+91 98765 43210" />
+          {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
         </div>
         <div className="space-y-2">
           <Label>Player Photo</Label>

@@ -8,6 +8,7 @@ import {
   getGetTournamentQueryKey,
   getListCategoriesQueryKey,
   getGetRegistrationStatusQueryKey,
+  PlayerInputRole,
 } from "@workspace/api-client-react";
 import { FullscreenLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -168,6 +169,10 @@ export default function PlayerRegister() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.mobileNumber.trim()) {
+      setErrorMsg("Mobile number is required.");
+      return;
+    }
     setErrorMsg(null);
 
     // Serialize spec selections into existing style fields (up to 3 groups)
@@ -181,9 +186,9 @@ export default function PlayerRegister() {
         tournamentId,
         data: {
           name: form.name,
-          mobileNumber: form.mobileNumber,
+          mobileNumber: form.mobileNumber.trim(),
           city: form.city || undefined,
-          role: form.role as any,
+          role: form.role as PlayerInputRole,
           battingStyle: battingStyle || undefined,
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,

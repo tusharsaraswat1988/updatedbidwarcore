@@ -91,6 +91,10 @@ function TeamForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!form.ownerMobile.trim()) {
+      setError("Owner mobile number is required");
+      return;
+    }
     if (shortCodeDuplicate) {
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
