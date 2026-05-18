@@ -42,9 +42,14 @@ export function TournamentCodeGate({
 
     fetch(`/api/tournaments/${tournamentId}`)
       .then(r => {
-        // Fail-closed: any non-2xx response locks the gate
         if (!r.ok) {
-          setStatus("locked");
+          // Transient server errors (5xx) → retry screen
+          // Not found / client errors (4xx) → locked (no content to show)
+          if (r.status >= 500) {
+            setStatus("error");
+          } else {
+            setStatus("locked");
+          }
           return null;
         }
         return r.json() as Promise<{ auctionCode?: string | null; name?: string; logoUrl?: string }>;
