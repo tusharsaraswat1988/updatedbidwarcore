@@ -108,7 +108,7 @@ const playerInputSchema = z.object({
   basePrice: z.number().int(),
   jerseyNumber: z.string().optional(),
   achievements: z.string().optional(),
-  mobileNumber: z.string().optional(),
+  mobileNumber: z.string().min(1, "Mobile number is required for communication features"),
   cricheroUrl: z.string().optional(),
   availabilityDates: z.string().optional(),
   retainedPrice: z.number().int().optional(),

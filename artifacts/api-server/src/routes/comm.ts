@@ -20,6 +20,7 @@ import {
   consentTokensTable,
   commLogsTable,
   consentBlastLogTable,
+  waConsentEventsTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, or } from "drizzle-orm";
 import { z } from "zod";
@@ -83,6 +84,37 @@ router.post("/consent/generate", async (req, res) => {
 
   const [tournament] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  // Recipient integrity: verify the recipient exists in this tournament and
+  // the supplied mobile matches what is stored in the DB for that entity.
+  // This prevents an organizer from minting tokens for unrelated recipient IDs.
+  let dbMobile: string | null = null;
+  if (recipientType === "player") {
+    const [p] = await db.select({ tournamentId: playersTable.tournamentId, mobileNumber: playersTable.mobileNumber })
+      .from(playersTable).where(eq(playersTable.id, recipientId));
+    if (!p || p.tournamentId !== tournamentId) {
+      res.status(403).json({ error: "Player does not belong to this tournament" }); return;
+    }
+    dbMobile = p.mobileNumber || null;
+  } else if (recipientType === "team_owner") {
+    const [tm] = await db.select({ tournamentId: teamsTable.tournamentId, ownerMobile: teamsTable.ownerMobile })
+      .from(teamsTable).where(eq(teamsTable.id, recipientId));
+    if (!tm || tm.tournamentId !== tournamentId) {
+      res.status(403).json({ error: "Team does not belong to this tournament" }); return;
+    }
+    dbMobile = tm.ownerMobile || null;
+  } else if (recipientType === "organizer") {
+    const [o] = await db.select({ id: organizersTable.id, mobile: organizersTable.mobile })
+      .from(organizersTable).where(eq(organizersTable.id, recipientId));
+    if (!o) { res.status(404).json({ error: "Organizer not found" }); return; }
+    dbMobile = o.mobile || null;
+  }
+  // Ensure the supplied mobile matches the stored record (strip leading +/spaces for comparison)
+  const normalize = (m: string) => m.replace(/\D/g, "");
+  if (dbMobile && normalize(dbMobile) !== normalize(mobile)) {
+    res.status(400).json({ error: "Supplied mobile number does not match the record on file for this recipient" });
+    return;
+  }
 
   const token = newToken();
   const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72h
@@ -229,8 +261,14 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     }
   }
 
-  // License gate for WhatsApp — "live" is the licensed status in this system
-  if ((d.channel === "whatsapp" || d.channel === "both") && d.tournamentId) {
+  // License gate for WhatsApp — "live" is the licensed status in this system.
+  // All WhatsApp sends (including manual) require a tournamentId so the
+  // license can be verified; no anonymous/licence-free WA blasts allowed.
+  if (d.channel === "whatsapp" || d.channel === "both") {
+    if (!d.tournamentId) {
+      res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
+      return;
+    }
     const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
     if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
     if (t.licenseStatus !== "live" || t.adminLocked) {

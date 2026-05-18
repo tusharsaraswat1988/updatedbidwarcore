@@ -8,7 +8,7 @@ export const teamsTable = pgTable("teams", {
   name: text("name").notNull(),
   shortCode: text("short_code").notNull(),
   ownerName: text("owner_name").notNull(),
-  ownerMobile: text("owner_mobile"),
+  ownerMobile: text("owner_mobile").notNull().default(""),
   color: text("color").default("#3B82F6"),
   logoUrl: text("logo_url"),
   purse: integer("purse").notNull().default(10000000),

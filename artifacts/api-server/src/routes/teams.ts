@@ -74,7 +74,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     name: z.string().min(1),
     shortCode: z.string().min(1).max(5),
     ownerName: z.string().min(1),
-    ownerMobile: z.string().optional(),
+    ownerMobile: z.string().min(1, "Owner mobile is required for communication features"),
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
   });

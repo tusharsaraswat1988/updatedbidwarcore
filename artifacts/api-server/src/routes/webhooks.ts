@@ -19,6 +19,7 @@ import {
   commLogsTable,
   waQualityLogTable,
   consentTokensTable,
+  waConsentEventsTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql } from "drizzle-orm";
 import { sendSms, sendWhatsApp } from "../lib/comm-sender";
@@ -61,6 +62,12 @@ function verifyTwilioSignature(req: import("express").Request): boolean {
     return false;
   }
 }
+
+// ─── Consent Question Version ─────────────────────────────────────────────────
+// Bump this constant whenever the wording of the consent question changes so the
+// exact text shown to the user at the time of their YES is queryable in wa_consent_events.
+const CONSENT_QUESTION_V1 =
+  `Kya aap BidWar se match updates, auction alerts aur tournament notifications WhatsApp pe paana chahte hain?\n\nHan ke liye "YES" bhejein\nNa ke liye "NO" bhejein`;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -198,6 +205,14 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
         const target = await findConsentTarget(mobile);
         if (target) {
           await setConsentGranted(target.type, target.id, ip);
+          await db.insert(waConsentEventsTable).values({
+            mobile,
+            recipientType: target.type,
+            recipientId: target.id,
+            tournamentId: target.tournamentId ?? null,
+            eventType: "otp_verified",
+            ip,
+          });
           await logConsentEvent(target, mobile, "OTP verified: WhatsApp consent granted (whatsapp_otp_verified)");
           await sendWhatsApp(from, `Shukriya ${target.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
         } else {
@@ -227,7 +242,17 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
       await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, tokenStr));
     }
 
-    // ── Record the explicit YES as a separate audit event before proceeding to OTP ──
+    // ── Persist the YES as a distinct, queryable consent event with question version ──
+    await db.insert(waConsentEventsTable).values({
+      mobile,
+      recipientType: target.type,
+      recipientId: target.id,
+      tournamentId: target.tournamentId ?? null,
+      eventType: "yes_received",
+      questionVersion: CONSENT_QUESTION_V1,
+      tokenUsed: tokenStr ?? null,
+    });
+    // Also write the audit log entry for operator visibility
     await logConsentEvent(
       target,
       mobile,
@@ -262,6 +287,17 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
 
   // NO — declined
   if (upper === "NO" || upper === "NAHI" || upper === "NAA") {
+    const target = await findConsentTarget(mobile);
+    if (target) {
+      await db.insert(waConsentEventsTable).values({
+        mobile,
+        recipientType: target.type,
+        recipientId: target.id,
+        tournamentId: target.tournamentId ?? null,
+        eventType: "declined",
+        questionVersion: CONSENT_QUESTION_V1,
+      });
+    }
     await sendWhatsApp(from, "Samajh gaye. Aap SMS pe updates paate rahenge. WhatsApp pe subscribe karne ke liye 'hello' bhejein.");
     res.status(200).send("<Response/>"); return;
   }

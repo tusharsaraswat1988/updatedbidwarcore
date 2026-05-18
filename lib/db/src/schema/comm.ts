@@ -109,8 +109,37 @@ export const waQualityLogTable = pgTable(
   },
 );
 
+// ─── WhatsApp Consent Events ──────────────────────────────────────────────────
+// Persistent audit trail of every distinct consent signal received via WhatsApp.
+// YES is written here BEFORE the OTP step, giving a queryable, versioned record
+// of the exact question shown and the user's intent at that moment.
+export const waConsentEventsTable = pgTable(
+  "wa_consent_events",
+  {
+    id: serial("id").primaryKey(),
+    mobile: text("mobile").notNull(),
+    recipientType: text("recipient_type"), // "player"|"team_owner"|"organizer"
+    recipientId: integer("recipient_id"),
+    tournamentId: integer("tournament_id"),
+    // "yes_received" = user said YES (pre-OTP), "otp_verified" = OTP confirmed,
+    // "declined" = user said NO
+    eventType: text("event_type").notNull(),
+    // Exact verbatim text of the consent question that was presented to the user.
+    // Versioned so future question changes are tracked separately.
+    questionVersion: text("question_version"),
+    tokenUsed: text("token_used"),
+    ip: text("ip"),
+    eventAt: timestamp("event_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("ix_wa_consent_events_mobile").on(t.mobile),
+    index("ix_wa_consent_events_event_at").on(t.eventAt),
+  ],
+);
+
 export type ConsentToken = typeof consentTokensTable.$inferSelect;
 export type OtpSession = typeof otpSessionsTable.$inferSelect;
 export type CommLog = typeof commLogsTable.$inferSelect;
 export type ConsentBlastEntry = typeof consentBlastLogTable.$inferSelect;
 export type WaQualityEvent = typeof waQualityLogTable.$inferSelect;
+export type WaConsentEvent = typeof waConsentEventsTable.$inferSelect;

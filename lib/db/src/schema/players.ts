@@ -22,7 +22,7 @@ export const playersTable = pgTable(
     status: text("status").notNull().default("available"), // available | sold | unsold | retained
     jerseyNumber: text("jersey_number"),
     achievements: text("achievements"),
-    mobileNumber: text("mobile_number"),
+    mobileNumber: text("mobile_number").notNull().default(""),
     cricheroUrl: text("crichero_url"),
     availabilityDates: text("availability_dates"),
     specialization: text("specialization"),
