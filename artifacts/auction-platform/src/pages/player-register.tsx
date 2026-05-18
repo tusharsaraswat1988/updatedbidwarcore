@@ -8,7 +8,6 @@ import {
   getGetTournamentQueryKey,
   getListCategoriesQueryKey,
   getGetRegistrationStatusQueryKey,
-  PlayerInputRole,
 } from "@workspace/api-client-react";
 import { FullscreenLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -188,7 +187,7 @@ export default function PlayerRegister() {
           name: form.name,
           mobileNumber: form.mobileNumber.trim(),
           city: form.city || undefined,
-          role: form.role as PlayerInputRole,
+          role: form.role || undefined,
           battingStyle: battingStyle || undefined,
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,

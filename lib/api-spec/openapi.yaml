@@ -1791,7 +1791,6 @@ components:
           type: string
         role:
           type: string
-          enum: [batsman, bowler, all-rounder, wicketkeeper, midfielder, forward, defender, goalkeeper, smash, service, libero, other]
         battingStyle:
           type: string
         bowlingStyle:

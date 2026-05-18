@@ -21,7 +21,6 @@ import {
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
-  PlayerInputRole,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -471,7 +470,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     const data = {
       name: form.name,
       city: form.city || undefined,
-      role: form.role as PlayerInputRole,
+      role: form.role || undefined,
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
@@ -632,8 +631,8 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
             );
           })}
         </div>
-      ) : (
-        /* Fallback free-text spec fields when no master data for this sport/role */
+      ) : (["cricket", "other", ""].includes(tournament?.sport ?? "cricket") ? (
+        /* Fallback free-text spec fields — only shown for cricket/other/unknown sport */
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Batting Style</Label>
@@ -648,7 +647,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
             <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
           </div>
         </div>
-      )}
+      ) : null)}
       {/* Player Photo */}
       <div className="space-y-2">
           <Label>Player Photo</Label>

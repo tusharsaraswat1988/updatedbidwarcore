@@ -373,29 +373,11 @@ export interface Player {
   createdAt: string;
 }
 
-export type PlayerInputRole =
-  (typeof PlayerInputRole)[keyof typeof PlayerInputRole];
-
-export const PlayerInputRole = {
-  batsman: "batsman",
-  bowler: "bowler",
-  "all-rounder": "all-rounder",
-  wicketkeeper: "wicketkeeper",
-  midfielder: "midfielder",
-  forward: "forward",
-  defender: "defender",
-  goalkeeper: "goalkeeper",
-  smash: "smash",
-  service: "service",
-  libero: "libero",
-  other: "other",
-} as const;
-
 export interface PlayerInput {
   categoryId?: number;
   name: string;
   city?: string;
-  role?: PlayerInputRole;
+  role?: string;
   battingStyle?: string;
   bowlingStyle?: string;
   specialization?: string;

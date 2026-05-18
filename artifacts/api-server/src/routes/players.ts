@@ -91,8 +91,8 @@ const cloudinaryImageUrl = z
   .string()
   .optional()
   .refine(
-    (v) => !v || v.startsWith("https://res.cloudinary.com/"),
-    "Image URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
+    (v) => !v || v.startsWith("https://"),
+    "Image URL must be a valid HTTPS URL",
   );
 
 const playerInputSchema = z.object({
