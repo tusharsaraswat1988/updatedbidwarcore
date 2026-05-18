@@ -9,7 +9,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import { Coffee, AlarmClock, Play, StopCircle, PlusCircle, Timer } from "lucide-react";
+import { Coffee, AlarmClock, Play, StopCircle, PlusCircle, Timer, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 function useRemainingTime(endsAt: string | null | undefined) {
@@ -108,6 +108,7 @@ export default function BreakTimerPage() {
 
   const isBreakActive = dc?.type === "break" && !expired;
   const isPreAuctionActive = dc?.type === "pre-auction" && !expired;
+  const auctionIsLive = state?.status === "active";
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -223,10 +224,17 @@ export default function BreakTimerPage() {
             </div>
           </div>
 
+          {auctionIsLive && (
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-400 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+              Auction is live — pause bidding before starting a break.
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               onClick={handleStartBreak}
-              disabled={setBreakTimerMut.isPending || isBreakActive}
+              disabled={setBreakTimerMut.isPending || isBreakActive || auctionIsLive}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-amber-500/50 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 font-semibold text-sm transition-colors disabled:opacity-40"
             >
               <Play className="w-4 h-4" />

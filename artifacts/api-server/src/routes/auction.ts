@@ -270,6 +270,34 @@ async function buildAuctionState(tournamentId: number) {
     }
   } catch { /* ignore */ }
 
+  // Last sold player — shown on owner panels when no player is currently up
+  let lastSoldPlayer: {
+    id: number; name: string; role: string | null; photoUrl: string | null;
+    soldToTeamId: number; soldToTeamName: string | null; soldToTeamColor: string | null;
+    soldAmount: number;
+  } | null = null;
+  if (!session.currentPlayerId) {
+    const [lastBid] = await db
+      .select()
+      .from(bidsTable)
+      .where(eq(bidsTable.tournamentId, tournamentId))
+      .orderBy(desc(bidsTable.timestamp))
+      .limit(1);
+    if (lastBid) {
+      const [lp] = await db.select().from(playersTable).where(eq(playersTable.id, lastBid.playerId));
+      const [lt] = await db.select().from(teamsTable).where(eq(teamsTable.id, lastBid.teamId));
+      if (lp) {
+        lastSoldPlayer = {
+          id: lp.id, name: lp.name, role: lp.role, photoUrl: lp.photoUrl,
+          soldToTeamId: lastBid.teamId,
+          soldToTeamName: lt?.name ?? null,
+          soldToTeamColor: lt?.color ?? null,
+          soldAmount: lastBid.amount,
+        };
+      }
+    }
+  }
+
   return {
     tournamentId,
     status: session.status,
@@ -308,6 +336,7 @@ async function buildAuctionState(tournamentId: number) {
     currentCategoryName,
     teamCategoryPlayerCounts,
     displayCountdown,
+    lastSoldPlayer,
   };
 }
 
@@ -1478,6 +1507,11 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
+  // Prevent starting a break while bidding is live — operator must pause first
+  if (body.data.action === "start" && session.status === "active") {
+    res.status(409).json({ error: "Cannot start a break during live bidding. Pause the auction first." });
+    return;
+  }
   if (body.data.action === "start" && !body.data.durationSeconds) {
     res.status(400).json({ error: "durationSeconds is required when action is start" });
     return;

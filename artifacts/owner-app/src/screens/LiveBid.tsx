@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users } from "lucide-react";
+import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users, Coffee } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
@@ -31,6 +31,21 @@ interface AuctionState {
   currentCategoryMaxPlayers?: number | null;
   currentCategoryName?: string | null;
   teamCategoryPlayerCounts?: Record<string, number> | null;
+  displayCountdown?: {
+    type?: string;
+    endsAt?: string;
+    message?: string | null;
+  } | null;
+  lastSoldPlayer?: {
+    id?: number;
+    name?: string;
+    role?: string | null;
+    photoUrl?: string | null;
+    soldToTeamId?: number | null;
+    soldToTeamName?: string | null;
+    soldToTeamColor?: string | null;
+    soldAmount?: number | null;
+  } | null;
 }
 
 interface Team {
@@ -332,6 +347,58 @@ function BidButton({
   );
 }
 
+// ── Last sold player card ────────────────────────────────────────────────────
+function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
+  player: NonNullable<AuctionState["lastSoldPlayer"]>;
+  teamColor: string;
+  wonByThisTeam: boolean;
+}) {
+  const soldColor = wonByThisTeam ? teamColor : "#22c55e";
+  return (
+    <motion.div
+      key="last-sold"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="flex items-center gap-4 p-4 rounded-2xl border bg-[#18181b] relative overflow-hidden"
+      style={{ borderColor: `${soldColor}40` }}
+    >
+      <div className="w-16 h-20 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+        {player.photoUrl ? (
+          <img src={player.photoUrl} alt={player.name ?? ""} className="w-full h-full object-cover opacity-70" />
+        ) : (
+          <User className="w-8 h-8 text-[#52525b]" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: soldColor }}>
+          {wonByThisTeam ? "Your team won!" : "Last sold"}
+        </p>
+        <h2 className="font-display font-bold text-xl leading-tight text-white truncate">{player.name}</h2>
+        {player.role && <p className="text-xs text-[#71717a] capitalize mt-0.5">{player.role}</p>}
+        {!wonByThisTeam && player.soldToTeamName && (
+          <p className="text-xs text-[#71717a] mt-0.5">
+            Won by <span className="text-white font-semibold">{player.soldToTeamName}</span>
+          </p>
+        )}
+      </div>
+      {player.soldAmount != null && (
+        <div className="text-right flex-shrink-0">
+          <p className="font-display font-black text-lg" style={{ color: soldColor }}>
+            {formatIndianRupee(player.soldAmount)}
+          </p>
+          <div
+            className="inline-flex items-center px-2 py-0.5 rounded-md mt-1 border text-[10px] font-bold uppercase tracking-wider"
+            style={{ backgroundColor: `${soldColor}20`, borderColor: `${soldColor}40`, color: soldColor }}
+          >
+            SOLD
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut }: Props) {
   const orientation = useOrientation();
@@ -401,11 +468,37 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     state?.status === "paused" ? "PAUSED" :
     state?.status ? state.status.toUpperCase() : "IDLE";
 
+  // Break countdown
+  const breakEndsAt = state?.displayCountdown?.type === "break" ? (state.displayCountdown.endsAt ?? null) : null;
+  const { secondsLeft: breakSecsLeft } = useCountdown(breakEndsAt);
+  const breakMins = Math.floor(breakSecsLeft / 60);
+  const breakSecs = breakSecsLeft % 60;
+  const isOnBreak = !!breakEndsAt && breakSecsLeft > 0;
+
+  // Won banner — fires when this team's bid wins a player
+  const [wonBanner, setWonBanner] = useState<{ name: string; soldAmount?: number | null } | null>(null);
+  const prevPlayerIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const curPlayerId = state?.currentPlayer?.id ?? null;
+    let cleanup: (() => void) | undefined;
+    if (prevPlayerIdRef.current != null && curPlayerId == null) {
+      const lsp = state?.lastSoldPlayer;
+      if (lsp && lsp.soldToTeamId === teamId) {
+        setWonBanner({ name: lsp.name ?? "Player", soldAmount: lsp.soldAmount });
+        const t = setTimeout(() => setWonBanner(null), 5000);
+        cleanup = () => clearTimeout(t);
+      }
+    }
+    prevPlayerIdRef.current = curPlayerId;
+    return cleanup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.currentPlayer?.id, state?.lastSoldPlayer?.soldToTeamId, teamId]);
+
   // ── Portrait layout ────────────────────────────────────────────────────────
   if (!landscape) {
     return (
       <div
-        className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom"
+        className="relative h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom"
         style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
       >
         {/* Header */}
@@ -461,6 +554,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
+            ) : state?.lastSoldPlayer ? (
+              <LastSoldPlayerCard
+                key="last-sold"
+                player={state.lastSoldPlayer}
+                teamColor={teamColor}
+                wonByThisTeam={state.lastSoldPlayer.soldToTeamId === teamId}
+              />
             ) : (
               <motion.div
                 key="no-player"
@@ -553,6 +653,58 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
           </div>
         </div>
 
+        {/* Break overlay */}
+        <AnimatePresence>
+          {isOnBreak && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#09090b]/93 flex flex-col items-center justify-center gap-4 z-30"
+            >
+              <Coffee className="w-14 h-14 text-amber-400" />
+              <div className="text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1">Auction</p>
+                <p className="font-display font-black text-3xl text-white">ON BREAK</p>
+                {state?.displayCountdown?.message && (
+                  <p className="text-sm text-[#71717a] mt-1">{state.displayCountdown.message}</p>
+                )}
+                <p className="font-display font-black text-5xl text-amber-400 mt-3 tabular-nums">
+                  {String(breakMins).padStart(2, "0")}:{String(breakSecs).padStart(2, "0")}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Won banner */}
+        <AnimatePresence>
+          {wonBanner && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
+              style={{ backgroundColor: `${teamColor}22`, backdropFilter: "blur(6px)" }}
+            >
+              <motion.div
+                initial={{ scale: 0.5 }}
+                animate={{ scale: [0.5, 1.15, 1] }}
+                transition={{ duration: 0.5, times: [0, 0.7, 1] }}
+              >
+                <Trophy className="w-20 h-20" style={{ color: teamColor }} />
+              </motion.div>
+              <div className="text-center">
+                <p className="font-display font-black text-4xl" style={{ color: teamColor }}>YOU WON!</p>
+                <p className="text-xl font-bold text-white mt-2">{wonBanner.name}</p>
+                {wonBanner.soldAmount != null && (
+                  <p className="text-sm text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Reconnect overlay */}
         <AnimatePresence>
           {networkQ === "poor" && (
@@ -579,7 +731,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
   // ── Landscape layout ───────────────────────────────────────────────────────
   return (
     <div
-      className="h-full flex flex-row bg-[#09090b] overflow-hidden"
+      className="relative h-full flex flex-row bg-[#09090b] overflow-hidden"
       style={{ background: `radial-gradient(ellipse at center left, ${teamColor}12 0%, transparent 55%), #09090b` }}
     >
       {/* Left: player info */}
@@ -621,6 +773,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
+            ) : state?.lastSoldPlayer ? (
+              <LastSoldPlayerCard
+                key="last-sold-ls"
+                player={state.lastSoldPlayer}
+                teamColor={teamColor}
+                wonByThisTeam={state.lastSoldPlayer.soldToTeamId === teamId}
+              />
             ) : (
               <motion.div
                 key="no-player-ls"
@@ -690,6 +849,58 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
           Powered by BidWar
         </p>
       </div>
+
+      {/* Break overlay */}
+      <AnimatePresence>
+        {isOnBreak && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-[#09090b]/93 flex flex-col items-center justify-center gap-4 z-30"
+          >
+            <Coffee className="w-14 h-14 text-amber-400" />
+            <div className="text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1">Auction</p>
+              <p className="font-display font-black text-3xl text-white">ON BREAK</p>
+              {state?.displayCountdown?.message && (
+                <p className="text-sm text-[#71717a] mt-1">{state.displayCountdown.message}</p>
+              )}
+              <p className="font-display font-black text-5xl text-amber-400 mt-3 tabular-nums">
+                {String(breakMins).padStart(2, "0")}:{String(breakSecs).padStart(2, "0")}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Won banner */}
+      <AnimatePresence>
+        {wonBanner && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
+            style={{ backgroundColor: `${teamColor}22`, backdropFilter: "blur(6px)" }}
+          >
+            <motion.div
+              initial={{ scale: 0.5 }}
+              animate={{ scale: [0.5, 1.15, 1] }}
+              transition={{ duration: 0.5, times: [0, 0.7, 1] }}
+            >
+              <Trophy className="w-20 h-20" style={{ color: teamColor }} />
+            </motion.div>
+            <div className="text-center">
+              <p className="font-display font-black text-4xl" style={{ color: teamColor }}>YOU WON!</p>
+              <p className="text-xl font-bold text-white mt-2">{wonBanner.name}</p>
+              {wonBanner.soldAmount != null && (
+                <p className="text-sm text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Reconnect overlay */}
       <AnimatePresence>
