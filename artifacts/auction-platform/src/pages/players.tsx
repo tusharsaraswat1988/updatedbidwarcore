@@ -35,6 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, DatabaseZap, Loader2 } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -951,6 +952,8 @@ export default function Players() {
   const teamMap = Object.fromEntries((teams || []).map(t => [t.id, t]));
   const retainedCount = (players || []).filter(p => p.status === "retained").length;
 
+  const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
@@ -1082,7 +1085,19 @@ export default function Players() {
                         {player.city && <span>{player.city}</span>}
                         {player.role && <span className="capitalize">· {player.role}</span>}
                         {player.age && <span>· Age {player.age}</span>}
-                        {player.battingStyle && <span>· {player.battingStyle}</span>}
+                        {(() => {
+                          const specGroups = roleSpecMap.get((player.role || "").toLowerCase().trim()) || [];
+                          const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
+                          return specValues.map((val, i) => {
+                            if (!val) return null;
+                            const label = specGroups[i]?.groupName;
+                            return (
+                              <span key={i}>
+                                · {label ? <><span className="text-muted-foreground/60">{label}:</span> {val}</> : val}
+                              </span>
+                            );
+                          });
+                        })()}
                         {player.availabilityDates && <span className="text-blue-400">· Avail: {player.availabilityDates}</span>}
                         {team && (
                           <span className="font-semibold" style={{ color: team.color || "#fff" }}>· {team.name}</span>

@@ -23,6 +23,7 @@ import { AnimatedEffectsLayer } from "./animated-effects-layer";
 import { OverlayManager } from "./overlay-manager";
 import { useSoldAnimation } from "./use-sold-animation";
 import { useBroadcastAudio } from "./use-broadcast-audio";
+import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import type { AudioSettings } from "@/lib/audio-manager";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
 
@@ -93,6 +94,11 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     },
   });
 
+  // ── Spec group names for the current player's role ───────────────────
+  // useRoleSpecGroups fetches once per role change; bid-tick SSE updates
+  // do not re-trigger it, so memo'd children stay stable between bids.
+  const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
+
   // ── Derived state ────────────────────────────────────────────────────
   const { soldPhase, soldRecord } = useSoldAnimation(state);
 
@@ -149,11 +155,21 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
 
   const playerSpecs = useMemo<string[]>(() => {
     if (!state?.currentPlayer) return [];
-    return [
-      state.currentPlayer.role,
+    const specValues = [
       state.currentPlayer.battingStyle,
       state.currentPlayer.bowlingStyle,
       state.currentPlayer.specialization,
+    ];
+    const labeledSpecs = specValues
+      .map((val, i) => {
+        if (!val) return null;
+        const label = currentPlayerSpecGroups[i]?.groupName;
+        return label ? `${label}: ${val}` : val;
+      })
+      .filter((v): v is string => Boolean(v));
+    return [
+      state.currentPlayer.role,
+      ...labeledSpecs,
       state.currentPlayer.city,
       state.currentPlayer.age ? `Age ${state.currentPlayer.age}` : null,
     ].filter((v): v is string => Boolean(v));
@@ -165,6 +181,7 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     state?.currentPlayer?.city,
     state?.currentPlayer?.age,
     state?.currentPlayer,
+    currentPlayerSpecGroups,
   ]);
 
   // Stable identity for the optional player filter — `state.displayPlayerFilter`

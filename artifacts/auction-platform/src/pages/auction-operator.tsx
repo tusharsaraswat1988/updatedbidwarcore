@@ -52,6 +52,7 @@ import {
   Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
@@ -112,6 +113,9 @@ export default function AuctionOperator() {
   const setDisplayPlayerFilterMut = useSetDisplayPlayerFilter();
   const setCategoryFilter = useSetCategoryFilter();
   const deferPlayerMut = useDeferPlayer();
+
+  // Spec group names for the current player's role (displayed in the player card)
+  const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
@@ -732,9 +736,19 @@ export default function AuctionOperator() {
                             {state?.currentPlayer?.city && (
                               <span className="text-[10px] text-muted-foreground">{state.currentPlayer.city}</span>
                             )}
-                            {state?.currentPlayer?.battingStyle && (
-                              <span className="text-[10px] text-muted-foreground">{state.currentPlayer.battingStyle}</span>
-                            )}
+                            {[
+                              state?.currentPlayer?.battingStyle,
+                              state?.currentPlayer?.bowlingStyle,
+                              state?.currentPlayer?.specialization,
+                            ].map((val, i) => {
+                              if (!val) return null;
+                              const label = currentPlayerSpecGroups[i]?.groupName;
+                              return (
+                                <span key={i} className="text-[10px] text-muted-foreground">
+                                  {label ? <><span className="opacity-60">{label}:</span> {val}</> : val}
+                                </span>
+                              );
+                            })}
                             <span className="text-[10px] text-muted-foreground">Base <span className="text-foreground font-semibold">{formatShortIndianRupee(state?.currentPlayer?.basePrice)}</span></span>
                             {state?.currentPlayer?.availabilityDates && (
                               <span className="text-[10px] text-blue-400">Avail: {state.currentPlayer.availabilityDates}</span>
