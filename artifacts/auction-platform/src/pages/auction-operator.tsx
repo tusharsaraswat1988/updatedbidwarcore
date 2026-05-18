@@ -1567,37 +1567,44 @@ export default function AuctionOperator() {
                 : "Show a pre-auction countdown on the LED display before the auction begins."}
             </p>
 
-            {/* Quick preset buttons */}
-            <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 block">Duration</Label>
-              <div className="grid grid-cols-4 gap-1.5 mb-2">
-                {[5, 10, 15, 30].map(mins => (
-                  <button
-                    key={mins}
-                    onClick={() => setCountdownMinutes(String(mins))}
-                    className={`py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                      countdownMinutes === String(mins)
-                        ? "bg-primary/20 border-primary/50 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    {mins} min
-                  </button>
-                ))}
+            {/* Duration controls — break only; pre-auction is always 10 s */}
+            {countdownDialogType === "break" ? (
+              <div>
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 block">Duration</Label>
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  {[5, 10, 15, 30].map(mins => (
+                    <button
+                      key={mins}
+                      onClick={() => setCountdownMinutes(String(mins))}
+                      className={`py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                        countdownMinutes === String(mins)
+                          ? "bg-primary/20 border-primary/50 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {mins} min
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={countdownMinutes}
+                    onChange={e => setCountdownMinutes(e.target.value)}
+                    min={0.5}
+                    max={60}
+                    step={0.5}
+                    className="w-24 text-center text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">minutes</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={countdownMinutes}
-                  onChange={e => setCountdownMinutes(e.target.value)}
-                  min={0.5}
-                  max={60}
-                  step={0.5}
-                  className="w-24 text-center text-sm"
-                />
-                <span className="text-sm text-muted-foreground">minutes</span>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-sm">
+                <AlarmClock className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-primary font-semibold">Fixed 10-second countdown</span>
               </div>
-            </div>
+            )}
 
             <div className="space-y-1.5">
               <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1615,7 +1622,7 @@ export default function AuctionOperator() {
             <div className="flex gap-3">
               <Button
                 className={`flex-1 ${countdownDialogType === "break" ? "bg-amber-600 hover:bg-amber-500" : "bg-primary hover:bg-primary/90 text-black"}`}
-                disabled={!countdownMinutes || parseFloat(countdownMinutes) <= 0 || setBreakTimerMut.isPending || setPreAuctionMut.isPending}
+                disabled={(countdownDialogType === "break" && (!countdownMinutes || parseFloat(countdownMinutes) <= 0)) || setBreakTimerMut.isPending || setPreAuctionMut.isPending}
                 onClick={handleStartCountdown}
               >
                 Start Countdown
