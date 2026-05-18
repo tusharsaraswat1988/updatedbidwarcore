@@ -176,7 +176,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   res.json(teamToJson(team));
 });
 
-router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req, res) => {
+router.post("/tournaments/:tournamentId/teams/:teamId/verify-access-code", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }

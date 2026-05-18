@@ -100,7 +100,10 @@ export function OwnerRoute() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: enteredCode }),
       });
-      if (r.ok) return true;
+      if (r.ok) {
+        const body = await r.json() as { valid?: boolean };
+        return body.valid === true;
+      }
 
       // Fallback: compare against team.accessCode if returned (organizer view)
       const accessCode = (team as unknown as { accessCode?: string })?.accessCode;
