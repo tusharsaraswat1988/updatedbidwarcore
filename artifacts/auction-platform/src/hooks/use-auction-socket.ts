@@ -22,18 +22,24 @@ export function useAuctionSocket(
   useEffect(() => {
     if (!tournamentId) return;
 
-    let es: EventSource;
+    // `current` always points to the active EventSource. Each call to
+    // connect() replaces it, and onerror/onmessage handlers capture the
+    // local instance they were attached to — they compare against `current`
+    // before acting so stale callbacks from replaced instances are ignored.
+    let current: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout>;
     let destroyed = false;
 
     function connect() {
       if (destroyed) return;
       clearTimeout(retryTimer);
-      es?.close();
+      current?.close();
 
-      es = new EventSource(`/api/tournaments/${tournamentId}/auction/events`);
+      const es = new EventSource(`/api/tournaments/${tournamentId}/auction/events`);
+      current = es;
 
       es.onmessage = (event) => {
+        if (es !== current) return; // stale instance — ignore
         try {
           const msg = JSON.parse(event.data);
 
@@ -68,6 +74,7 @@ export function useAuctionSocket(
       };
 
       es.onerror = () => {
+        if (es !== current) return; // stale instance — ignore
         es.close();
         if (!destroyed) {
           retryTimer = setTimeout(connect, 3000);
@@ -93,7 +100,8 @@ export function useAuctionSocket(
     return () => {
       destroyed = true;
       clearTimeout(retryTimer);
-      es?.close();
+      current?.close();
+      current = null;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [tournamentId, qc]); // onCheerMessage intentionally excluded — handled via ref
