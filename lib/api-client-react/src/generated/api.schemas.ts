@@ -657,7 +657,7 @@ export interface AuctionState {
   currentCategoryName?: string | null;
   /** Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set. */
   teamCategoryPlayerCounts?: AuctionStateTeamCategoryPlayerCounts;
-  displayCountdown?: DisplayCountdown;
+  displayCountdown?: DisplayCountdown | null;
 }
 
 export interface RegistrationStatus {

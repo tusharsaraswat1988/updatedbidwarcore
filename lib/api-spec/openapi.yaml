@@ -2161,7 +2161,9 @@ components:
           additionalProperties:
             type: integer
         displayCountdown:
-          $ref: "#/components/schemas/DisplayCountdown"
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DisplayCountdown"
 
     DisplayCountdown:
       type: object
