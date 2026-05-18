@@ -24,21 +24,6 @@ import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2, MessageSquare, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
-function formatRemaining(endsAt: string): string {
-  const ms = Math.max(0, new Date(endsAt).getTime() - Date.now());
-  const s = Math.ceil(ms / 1000);
-  if (s <= 0) return "00:00";
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-}
-
-function CompactCountdown({ endsAt }: { endsAt: string }) {
-  const [display, setDisplay] = useState(() => formatRemaining(endsAt));
-  useEffect(() => {
-    const id = setInterval(() => setDisplay(formatRemaining(endsAt)), 500);
-    return () => clearInterval(id);
-  }, [endsAt]);
-  return <span className="font-display font-bold tabular-nums text-sm">{display}</span>;
-}
 
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
   tournamentId: number;
