@@ -7,6 +7,37 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+const isProd = process.env.NODE_ENV === "production";
+
+function buildAllowedOrigins(): string[] {
+  const origins: string[] = [
+    "https://bidwar.in",
+    "https://www.bidwar.in",
+  ];
+
+  const replitDomains = process.env.REPLIT_DOMAINS ?? "";
+  const replitDevDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
+
+  for (const d of replitDomains.split(",").filter(Boolean)) {
+    origins.push(`https://${d.trim()}`);
+  }
+  if (replitDevDomain) {
+    origins.push(`https://${replitDevDomain}`);
+  }
+
+  if (!isProd) {
+    origins.push(
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://localhost:8080",
+    );
+  }
+
+  return origins;
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
 app.use(
   pinoHttp({
     logger,
@@ -27,21 +58,36 @@ app.use(
   }),
 );
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin not allowed: ${origin}`));
+    },
+    credentials: true,
+  }),
+);
+
 // Images are now stored as Cloudinary URLs (not base64), so JSON payloads
 // are small. 1 MB is ample for all API request bodies.
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
+const sessionSecret = process.env.SESSION_SECRET;
+if (isProd && !sessionSecret) {
+  throw new Error("SESSION_SECRET must be set in production.");
+}
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "bidwar-dev-secret",
+    secret: sessionSecret ?? "bidwar-dev-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   }),
