@@ -50,7 +50,7 @@ import {
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
   Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
-  PanelRightClose, PanelRightOpen,
+  PanelRightClose, PanelRightOpen, Tv2,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -128,6 +128,10 @@ export default function AuctionOperator() {
 
   async function handleNextPlayer(mode: "sequential" | "random", playerId?: number) {
     await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
+    // Auto-reset LED to main live view whenever a new player is loaded
+    if (state?.displayOverlay) {
+      await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+    }
     invalidate();
   }
 
@@ -427,35 +431,41 @@ export default function AuctionOperator() {
           )}
 
           {/* LED overlay controls */}
-          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg border border-border bg-card/50 flex-shrink-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1 hidden sm:inline">LED</span>
+          <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-border bg-card/50 flex-shrink-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground pr-1 border-r border-border mr-0.5">LED<br/>SCREEN</span>
             {ledOverlayButtons.map(({ mode, label, icon: Icon, bg }) => {
               const active = state?.displayOverlay === mode;
               return (
                 <button
                   key={mode}
-                  title={`${active ? "Hide" : "Show"} ${label} overlay on LED`}
+                  title={active ? `Currently showing ${label} on LED — click to go back to live auction` : `Show ${label} overlay on LED screen`}
                   onClick={async () => {
                     await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } });
                     invalidate();
                   }}
                   disabled={setDisplayOverlay.isPending}
-                  className={`flex items-center gap-1 h-7 px-1.5 sm:px-2 rounded text-[10px] font-bold transition-all ${
-                    active ? `${bg} shadow-sm` : "text-muted-foreground hover:text-foreground"
+                  className={`flex items-center gap-1.5 h-8 px-2.5 rounded text-[11px] font-bold transition-all ${
+                    active ? `${bg} shadow-md ring-1 ring-white/20` : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{label}</span>
+                  <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{label}</span>
                 </button>
               );
             })}
-            {state?.displayOverlay && (
+            {state?.displayOverlay ? (
               <button
-                className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-red-400 transition-colors"
+                title="Return LED screen to the live auction player view"
+                className="flex items-center gap-1.5 h-8 px-2.5 rounded text-[11px] font-bold text-green-400 hover:bg-green-500/15 border-l border-border ml-0.5 pl-2 transition-colors"
                 onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } }); invalidate(); }}
               >
-                <X className="w-3 h-3" />
+                <Tv2 className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>LIVE</span>
               </button>
+            ) : (
+              <span className="flex items-center gap-1 h-8 px-2 text-[9px] text-green-500/60 font-semibold border-l border-border ml-0.5 pl-2">
+                <Tv2 className="w-3 h-3" /> Live
+              </span>
             )}
           </div>
 
@@ -559,24 +569,25 @@ export default function AuctionOperator() {
 
             {/* Role filter tabs — only shown for queue tab */}
             {reAuctionTab === "queue" && (
-              <div className="flex gap-0.5 px-2 pb-1.5 flex-shrink-0 flex-wrap">
+              <div className="flex gap-1 px-2 pb-2 flex-shrink-0 flex-wrap">
                 {([
-                  { key: "all", label: `All (${filteredQueue.length})` },
-                  { key: "bat", label: `BAT (${roleCounts.bat})` },
-                  { key: "bowl", label: `BOWL (${roleCounts.bowl})` },
-                  { key: "ar", label: `AR (${roleCounts.ar})` },
-                  ...(roleCounts.wk > 0 ? [{ key: "wk", label: `WK (${roleCounts.wk})` }] : []),
-                ] as { key: string; label: string }[]).map(({ key, label }) => (
+                  { key: "all", label: `ALL`, count: filteredQueue.length },
+                  { key: "bat", label: `BAT`, count: roleCounts.bat },
+                  { key: "bowl", label: `BOWL`, count: roleCounts.bowl },
+                  { key: "ar", label: `AR`, count: roleCounts.ar },
+                  ...(roleCounts.wk > 0 ? [{ key: "wk", label: `WK`, count: roleCounts.wk }] : []),
+                ] as { key: string; label: string; count: number }[]).map(({ key, label, count }) => (
                   <button
                     key={key}
                     onClick={() => setRoleFilter(key)}
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide transition-all ${
+                    className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wide transition-all ${
                       roleFilter === key
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground bg-muted/30 hover:text-foreground"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground bg-muted/40 hover:bg-muted hover:text-foreground"
                     }`}
                   >
                     {label}
+                    <span className={`text-[9px] font-mono ${roleFilter === key ? "opacity-80" : "opacity-60"}`}>{count}</span>
                   </button>
                 ))}
               </div>
