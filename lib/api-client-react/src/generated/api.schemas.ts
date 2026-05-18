@@ -673,7 +673,13 @@ export interface TeamPurse {
   spendablePurse: number;
   slotsRequired: number;
   lowestBasePrice: number;
+  minimumSquadSize: number;
   maximumSquadSize: number;
+  retainedCount: number;
+  /** @nullable */
+  topPlayerName?: string | null;
+  /** @nullable */
+  topPlayerAmount?: number | null;
 }
 
 export interface TopBidEntry {

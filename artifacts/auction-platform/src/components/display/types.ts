@@ -26,11 +26,15 @@ export type PurseRow = {
   purseUsed: number;
   purseRemaining: number;
   playersBought: number;
+  retainedCount?: number;
   reservePurse?: number;
   spendablePurse?: number;
   slotsRequired?: number;
+  minimumSquadSize?: number;
   maximumSquadSize?: number;
   lowestBasePrice?: number;
+  topPlayerName?: string | null;
+  topPlayerAmount?: number | null;
 };
 
 export type PlayerLite = {

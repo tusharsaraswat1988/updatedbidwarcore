@@ -5,6 +5,7 @@ import {
   teamsTable,
   bidsTable,
   categoriesTable,
+  tournamentsTable,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
@@ -74,6 +75,11 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const [tournamentRow] = await db
+    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+
   const teams = await db
     .select()
     .from(teamsTable)
@@ -88,7 +94,20 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
   const protections = await computeAllTeamPurseProtections(tid, teams);
 
   const result = teams.map((team) => {
-    const playersBought = players.filter((p) => p.teamId === team.id && p.status === "sold").length;
+    const teamSoldRetained = players.filter(
+      (p) => p.teamId === team.id && (p.status === "sold" || p.status === "retained")
+    );
+    const playersBought = teamSoldRetained.length;
+    const retainedCount = players.filter(
+      (p) => p.teamId === team.id && p.status === "retained"
+    ).length;
+
+    // Highest-paid player for this team
+    const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>(
+      (best, p) => (!best || (p.soldPrice ?? 0) > (best.soldPrice ?? 0) ? p : best),
+      null
+    );
+
     const p = protections.get(team.id);
     return {
       teamId: team.id,
@@ -101,11 +120,15 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       purseUsed: team.purseUsed,
       purseRemaining: team.purse - team.purseUsed,
       playersBought,
+      retainedCount,
       reservePurse: p?.reservePurse ?? 0,
       spendablePurse: p?.spendablePurse ?? (team.purse - team.purseUsed),
       slotsRequired: p?.slotsRequired ?? 0,
       lowestBasePrice: p?.lowestBasePrice ?? 0,
+      minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
       maximumSquadSize: p?.maximumSquadSize ?? 0,
+      topPlayerName: topPlayer?.name ?? null,
+      topPlayerAmount: topPlayer?.soldPrice ?? null,
     };
   });
 

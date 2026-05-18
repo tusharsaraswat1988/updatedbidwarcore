@@ -17,7 +17,7 @@ import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
@@ -1246,9 +1246,16 @@ export default function LiveViewerPage() {
                 const isLeading = state?.currentBidTeamId === team.teamId;
                 const tc = team.color || "#F59E0B";
                 const short = team.shortCode || team.teamName.slice(0, 4).toUpperCase();
-                const squadPct = team.maximumSquadSize > 0
-                  ? Math.min(100, (team.playersBought / team.maximumSquadSize) * 100)
-                  : 0;
+                const maxSquad = team.maximumSquadSize;
+                const minSquad = team.minimumSquadSize;
+                const bought = team.playersBought;
+                const slotsNeeded = team.slotsRequired;
+                const reserved = team.reservePurse;
+                const spendable = team.spendablePurse;
+                const squadFull = maxSquad > 0 && bought >= maxSquad;
+                const minMet = minSquad === 0 || slotsNeeded === 0;
+                const squadPct = maxSquad > 0
+                  ? Math.min(100, (bought / maxSquad) * 100) : 0;
                 return (
                   <motion.button
                     key={team.teamId}
@@ -1267,6 +1274,7 @@ export default function LiveViewerPage() {
                       style={{ backgroundColor: tc }}
                     />
 
+                    {/* Header */}
                     <div className="flex items-center gap-2 mb-2 mt-0.5">
                       {team.logoUrl ? (
                         <img src={team.logoUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
@@ -1278,7 +1286,7 @@ export default function LiveViewerPage() {
                           {short.slice(0, 2)}
                         </div>
                       )}
-                      <span className="font-display font-black text-base leading-none truncate" style={{ color: tc }}>
+                      <span className="font-display font-black text-sm leading-none truncate" style={{ color: tc }}>
                         {short}
                       </span>
                       {isLeading && (
@@ -1286,28 +1294,70 @@ export default function LiveViewerPage() {
                       )}
                     </div>
 
-                    <p className="text-xs text-muted-foreground truncate leading-tight">{team.teamName}</p>
-                    <p className="font-display font-black text-base mt-1.5 tabular-nums" style={{ color: tc }}>
-                      {formatShortIndianRupee(team.purseRemaining)}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate leading-tight">{team.teamName}</p>
+
+                    {/* Purse block */}
+                    <div className="mt-1.5 space-y-0.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Remaining</span>
+                        <span className="font-display font-black text-sm tabular-nums" style={{ color: tc }}>
+                          {formatShortIndianRupee(team.purseRemaining)}
+                        </span>
+                      </div>
+                      {spendable !== undefined && spendable < team.purseRemaining && (
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Max Bid</span>
+                          <span className={`font-mono font-bold text-xs tabular-nums ${squadFull ? "text-red-400" : "text-emerald-400"}`}>
+                            {squadFull ? "Full" : formatShortIndianRupee(spendable)}
+                          </span>
+                        </div>
+                      )}
+                      {reserved !== undefined && reserved > 0 && (
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-[9px] text-amber-400/70 uppercase tracking-wider">Reserved</span>
+                          <span className="font-mono font-bold text-[10px] tabular-nums text-amber-400/80">
+                            {formatShortIndianRupee(reserved)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Squad capacity */}
-                    {team.maximumSquadSize > 0 ? (
-                      <div className="mt-1.5">
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
-                          <span>{team.playersBought} / {team.maximumSquadSize}</span>
-                        </div>
-                        <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${squadPct}%`, backgroundColor: tc }}
-                          />
-                        </div>
+                    <div className="mt-1.5">
+                      {maxSquad > 0 ? (
+                        <>
+                          <div className="flex items-center justify-between text-[10px] mb-0.5">
+                            <span className={slotsNeeded > 0 ? "text-amber-400" : minMet && minSquad > 0 ? "text-green-400/70" : "text-muted-foreground"}>
+                              {bought} / {maxSquad}
+                              {slotsNeeded > 0 && ` · need ${slotsNeeded}`}
+                              {squadFull && " · FULL"}
+                            </span>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${squadFull ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400/60"}`}
+                              style={{ width: `${squadPct}%` }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground">
+                          {bought} player{bought !== 1 ? "s" : ""}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Top player */}
+                    {team.topPlayerName && (
+                      <div className="mt-1.5 flex items-center gap-1 min-w-0">
+                        <Star className="w-2.5 h-2.5 flex-shrink-0 text-amber-400/60" />
+                        <span className="text-[9px] text-muted-foreground truncate">{team.topPlayerName}</span>
+                        {team.topPlayerAmount != null && (
+                          <span className="text-[9px] font-mono text-amber-400/70 flex-shrink-0 ml-auto tabular-nums">
+                            {formatShortIndianRupee(team.topPlayerAmount)}
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {team.playersBought} player{team.playersBought !== 1 ? "s" : ""}
-                      </p>
                     )}
                   </motion.button>
                 );

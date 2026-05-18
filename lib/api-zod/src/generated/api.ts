@@ -3302,7 +3302,11 @@ export const GetTeamPursesResponseItem = zod.object({
   spendablePurse: zod.number(),
   slotsRequired: zod.number(),
   lowestBasePrice: zod.number(),
+  minimumSquadSize: zod.number(),
   maximumSquadSize: zod.number(),
+  retainedCount: zod.number(),
+  topPlayerName: zod.string().nullish(),
+  topPlayerAmount: zod.number().nullish(),
 });
 export const GetTeamPursesResponse = zod.array(GetTeamPursesResponseItem);
 

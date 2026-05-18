@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Wallet, Gavel } from "lucide-react";
+import { Wallet, Gavel, Star } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import type { PurseRow } from "./types";
 
@@ -95,18 +95,13 @@ export const TeamOverlay = memo(function TeamOverlay({
               const spendable = team.spendablePurse ?? team.purseRemaining;
               const reserve = team.reservePurse ?? 0;
               const slotsNeeded = team.slotsRequired ?? 0;
-              const lowestBase = team.lowestBasePrice ?? 0;
               const maxSquad = team.maximumSquadSize ?? 0;
               const squadFull = maxSquad > 0 && team.playersBought >= maxSquad;
 
-              // Max a team can bid on a single player:
-              // Must keep enough spendable purse to fill remaining minimum slots
-              // at the cheapest available base price.
-              const reservedForSlots =
-                slotsNeeded > 1 && lowestBase > 0
-                  ? (slotsNeeded - 1) * lowestBase
-                  : 0;
-              const maxOnPlayer = Math.max(0, spendable - reservedForSlots);
+              // spendablePurse already reserves (slotsRequired × lowestBasePrice)
+              // for the remaining mandatory slots, so it IS the max a team can
+              // bid on a single player without violating purse protection.
+              const maxOnPlayer = Math.max(0, spendable);
 
               return (
                 <motion.div
@@ -158,6 +153,17 @@ export const TeamOverlay = memo(function TeamOverlay({
                       >
                         {team.shortCode}
                       </p>
+                      {team.topPlayerName && (
+                        <p className="text-[9px] md:text-[10px] text-white/40 leading-tight truncate flex items-center gap-0.5 mt-0.5">
+                          <Star className="w-2 h-2 flex-shrink-0 text-amber-400/60" />
+                          <span className="truncate">{team.topPlayerName}</span>
+                          {team.topPlayerAmount != null && (
+                            <span className="flex-shrink-0 text-amber-400/70 font-mono">
+                              {" "}{formatShortIndianRupee(team.topPlayerAmount)}
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
                     {isLeading && (
                       <div

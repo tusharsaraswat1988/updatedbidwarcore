@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
@@ -418,76 +418,125 @@ export default function Teams() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-sm border-t border-border pt-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Wallet className="w-4 h-4" />
-                        <span>Purse: <span className="text-foreground font-semibold">{formatShortIndianRupee(team.purse)}</span></span>
-                      </div>
-                      <Badge
-                        variant={team.isBiddingEnabled ? "default" : "secondary"}
-                        className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : ""}
-                      >
-                        {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
-                      </Badge>
-                    </div>
-
-                    {/* Squad Progress */}
+                    {/* Purse + Squad Summary */}
                     {(() => {
                       const tp = teamPurses?.find(p => p.teamId === team.id);
+                      const purseRemaining = team.purse - (team.purseUsed || 0);
+                      const spendable = tp?.spendablePurse ?? purseRemaining;
+                      const reserved = tp?.reservePurse ?? 0;
                       const bought = tp?.playersBought ?? 0;
+                      const retained = tp?.retainedCount ?? 0;
                       const slotsNeeded = tp?.slotsRequired ?? 0;
+                      const minSquad = tp?.minimumSquadSize ?? tournament?.minimumSquadSize ?? 0;
                       const maxSquad = tp?.maximumSquadSize ?? 0;
-                      const minSquad = tournament?.minimumSquadSize ?? 0;
                       const maxReached = maxSquad > 0 && bought >= maxSquad;
                       const minMet = minSquad === 0 || slotsNeeded === 0;
-                      const hasRules = minSquad > 0 || maxSquad > 0;
-                      if (!hasRules && bought === 0) return null;
+                      const canBuyMore = maxSquad > 0 ? maxSquad - bought : null;
+                      const topName = tp?.topPlayerName ?? null;
+                      const topAmt = tp?.topPlayerAmount ?? null;
                       return (
-                        <div className="space-y-1.5 pt-2 border-t border-border">
+                        <div className="space-y-3 pt-3 border-t border-border">
+                          {/* Bidding status */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className={`text-xs font-semibold ${
-                                maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"
-                              }`}>
-                                {bought} player{bought !== 1 ? "s" : ""}
-                                {maxSquad > 0 ? ` / ${maxSquad} max` : ""}
-                              </span>
+                            <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                              <Wallet className="w-3.5 h-3.5" />
+                              <span>Budget: <span className="text-foreground font-semibold">{formatShortIndianRupee(team.purse)}</span></span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {slotsNeeded > 0 && (
-                                <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
-                                  <ShieldAlert className="w-3 h-3" /> {slotsNeeded} more needed
-                                </span>
-                              )}
-                              {maxReached && (
-                                <span className="text-[10px] text-red-400 font-medium">Squad full</span>
-                              )}
-                              {!maxReached && minMet && minSquad > 0 && (
-                                <span className="text-[10px] text-green-400 font-medium">Min met</span>
-                              )}
-                            </div>
+                            <Badge
+                              variant={team.isBiddingEnabled ? "default" : "secondary"}
+                              className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20 text-[10px]" : "text-[10px]"}
+                            >
+                              {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
+                            </Badge>
                           </div>
-                          {maxSquad > 0 && (
-                            <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${maxReached ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400"}`}
-                                style={{ width: `${Math.min(100, maxSquad > 0 ? (bought / maxSquad) * 100 : 0)}%` }}
-                              />
+
+                          {/* Purse breakdown grid */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(purseRemaining)}</p>
                             </div>
-                          )}
-                          {tp && tp.reservePurse > 0 && (
-                            <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
-                              <ShieldAlert className="w-2.5 h-2.5" />
-                              {formatShortIndianRupee(tp.reservePurse)} reserved
-                              {tp.lowestBasePrice > 0 && ` · base price ₹${tp.lowestBasePrice.toLocaleString("en-IN")}/slot`}
-                            </p>
-                          )}
-                          {tp && tp.spendablePurse != null && tp.reservePurse > 0 && (
-                            <p className="text-[10px] text-muted-foreground">
-                              Spendable: <span className="text-foreground font-semibold">{formatShortIndianRupee(tp.spendablePurse)}</span>
-                              {" "}<span className="text-muted-foreground/60">of {formatShortIndianRupee(team.purse - (team.purseUsed || 0))} remaining</span>
-                            </p>
+                            <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
+                              <p className="text-[10px] text-emerald-400/80 uppercase tracking-wider mb-0.5">Max Bid / Player</p>
+                              <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
+                                {maxReached ? "Squad full" : formatShortIndianRupee(spendable)}
+                              </p>
+                            </div>
+                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Spent</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(team.purseUsed || 0)}</p>
+                            </div>
+                            {reserved > 0 ? (
+                              <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2">
+                                <p className="text-[10px] text-amber-400/80 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                  <ShieldAlert className="w-2.5 h-2.5" /> Reserved
+                                </p>
+                                <p className="text-sm font-bold font-mono tabular-nums text-amber-400">{formatShortIndianRupee(reserved)}</p>
+                                <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">for {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}</p>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Reserved</p>
+                                <p className="text-sm font-bold font-mono tabular-nums text-muted-foreground/50">—</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Squad status */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                                <span className={`text-xs font-semibold ${maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : minSquad > 0 ? "text-green-400" : "text-foreground"}`}>
+                                  {bought} bought{retained > 0 ? ` (${retained} retained)` : ""}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px]">
+                                {minSquad > 0 && (
+                                  <span className={slotsNeeded > 0 ? "text-amber-400" : "text-green-400"}>
+                                    min {minSquad}{slotsNeeded > 0 ? ` · need ${slotsNeeded}` : " met"}
+                                  </span>
+                                )}
+                                {maxSquad > 0 && (
+                                  <span className={maxReached ? "text-red-400 font-bold" : "text-muted-foreground"}>
+                                    max {maxSquad}{canBuyMore !== null && !maxReached ? ` · ${canBuyMore} left` : ""}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {maxSquad > 0 && (
+                              <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${maxReached ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400"}`}
+                                  style={{ width: `${Math.min(100, (bought / maxSquad) * 100)}%` }}
+                                />
+                              </div>
+                            )}
+                            {!minMet && minSquad > 0 && (
+                              <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                                <ShieldAlert className="w-2.5 h-2.5" />
+                                {slotsNeeded} more player{slotsNeeded !== 1 ? "s" : ""} required to meet minimum squad
+                              </p>
+                            )}
+                            {minMet && minSquad > 0 && (
+                              <p className="text-[10px] text-green-400/70">Minimum squad requirement met</p>
+                            )}
+                          </div>
+
+                          {/* Top player */}
+                          {topName && (
+                            <div className="flex items-center gap-2 bg-amber-500/6 border border-amber-500/20 rounded-lg px-3 py-2">
+                              <Star className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none mb-0.5">Top Buy</p>
+                                <p className="text-xs font-bold text-foreground truncate">{topName}</p>
+                              </div>
+                              {topAmt != null && (
+                                <p className="text-sm font-display font-black tabular-nums text-amber-400 flex-shrink-0">
+                                  {formatShortIndianRupee(topAmt)}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                       );

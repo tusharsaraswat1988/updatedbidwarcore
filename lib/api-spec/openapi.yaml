@@ -2115,7 +2115,7 @@ components:
 
     TeamPurse:
       type: object
-      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, maximumSquadSize]
+      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, minimumSquadSize, maximumSquadSize, retainedCount]
       properties:
         teamId:
           type: integer
@@ -2145,8 +2145,16 @@ components:
           type: integer
         lowestBasePrice:
           type: integer
+        minimumSquadSize:
+          type: integer
         maximumSquadSize:
           type: integer
+        retainedCount:
+          type: integer
+        topPlayerName:
+          type: ["string", "null"]
+        topPlayerAmount:
+          type: ["integer", "null"]
 
     TopBidEntry:
       type: object

@@ -49,7 +49,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle, Undo2,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
-  Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert,
+  Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
@@ -1034,11 +1034,15 @@ export default function AuctionOperator() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs font-mono font-bold" style={{ color: team.color || "inherit" }}>
-                          {formatShortIndianRupee(spendable)}
+                        {/* Spendable (max bid) */}
+                        <p className={`text-xs font-mono font-bold ${cardMaxReached ? "text-red-400" : "text-emerald-400"}`}>
+                          {cardMaxReached ? "FULL" : formatShortIndianRupee(spendable)}
                         </p>
+                        <p className="text-[8px] text-muted-foreground/50 leading-none">max bid</p>
                         {reserved > 0 && (
-                          <p className="text-[9px] text-amber-400/60 font-mono leading-tight">+{formatShortIndianRupee(reserved)} rsv</p>
+                          <p className="text-[9px] text-amber-400/60 font-mono leading-tight mt-0.5">
+                            +{formatShortIndianRupee(reserved)} rsv · {slotsNeeded}slot{slotsNeeded !== 1 ? "s" : ""}
+                          </p>
                         )}
                         {/* Purse bar */}
                         <div className="mt-1 h-1 bg-muted/50 rounded-full overflow-hidden">
@@ -1047,16 +1051,25 @@ export default function AuctionOperator() {
                             style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }}
                           />
                         </div>
-                        {/* Squad indicator */}
+                        {/* Squad + top player */}
                         <div className="flex items-center justify-between mt-0.5">
                           <span className={`text-[9px] font-medium ${
                             cardMaxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : cardPlayersBought > 0 ? "text-green-400/70" : "text-muted-foreground"
                           }`}>
                             {cardPlayersBought}{cardMaxSquad > 0 ? `/${cardMaxSquad}` : ""}p
                           </span>
-                          {slotsNeeded > 0 && <span className="text-[8px] text-amber-400/60">need {slotsNeeded}</span>}
+                          {slotsNeeded > 0 && !cardMaxReached && <span className="text-[8px] text-amber-400/60">need {slotsNeeded}</span>}
                           {cardMaxReached && <span className="text-[8px] text-red-400 font-bold">FULL</span>}
                         </div>
+                        {purseData?.topPlayerName && (
+                          <div className="flex items-center gap-0.5 mt-0.5 min-w-0">
+                            <Star className="w-2 h-2 flex-shrink-0 text-amber-400/50" />
+                            <span className="text-[8px] text-muted-foreground/60 truncate">{purseData.topPlayerName}</span>
+                            {purseData.topPlayerAmount != null && (
+                              <span className="text-[8px] font-mono text-amber-400/60 flex-shrink-0 ml-auto tabular-nums">{formatShortIndianRupee(purseData.topPlayerAmount)}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
