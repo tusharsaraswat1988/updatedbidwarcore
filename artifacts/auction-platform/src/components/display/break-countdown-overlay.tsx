@@ -7,6 +7,10 @@ interface BreakCountdownOverlayProps {
   endsAt: string;
   label: string | null;
   tournamentName: string | null | undefined;
+  /** compact — renders a slim top-of-screen banner rather than a full-screen
+   *  overlay. Intended for tablet owner-panel views where the full overlay
+   *  would obscure purse/bidding controls. */
+  compact?: boolean;
 }
 
 function useCountdown(endsAt: string) {
@@ -83,6 +87,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   endsAt,
   label,
   tournamentName,
+  compact = false,
 }: BreakCountdownOverlayProps) {
   const { hours, mins, secs, expired } = useCountdown(endsAt);
   const showHours = hours > 0;
@@ -108,13 +113,52 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   const displayLabel = label || defaultLabel;
   const Icon = isBreak ? Coffee : Clock;
 
-  const accentColor = isBreak ? "from-amber-500/30 via-orange-500/20" : "from-primary/30 via-yellow-500/20";
   const iconColor = isBreak ? "text-amber-400" : "text-primary";
+  const accentColor = isBreak ? "from-amber-500/30 via-orange-500/20" : "from-primary/30 via-yellow-500/20";
   const borderColor = isBreak ? "border-amber-500/20" : "border-primary/20";
 
+  const visible = !expired || (type === "pre-auction" && showBanner);
+
+  // ── Compact banner (owner panel / tablet views) ───────────────────────────
+  if (compact) {
+    const mmss = `${String(Math.floor((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) / 60)).padStart(2, "0")}:${String((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) % 60).padStart(2, "0")}`;
+    const bannerText = expired
+      ? (isBreak ? "Break ended" : `${tournamentName || "Auction"} has officially started!`)
+      : displayLabel;
+    return (
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            key="compact-banner"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.3 }}
+            className="absolute top-0 inset-x-0 z-40"
+          >
+            <div
+              className={`mx-4 mt-3 flex items-center gap-3 px-4 py-3 rounded-2xl border ${borderColor} bg-black/80 backdrop-blur-sm shadow-lg`}
+            >
+              <Icon className={`w-4 h-4 flex-shrink-0 ${iconColor}`} />
+              <span className="flex-1 text-sm font-semibold text-white/90 truncate">
+                {bannerText}
+              </span>
+              {!expired && (
+                <span className={`text-sm font-display font-black tabular-nums ${iconColor}`}>
+                  {mmss}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  // ── Full-screen overlay (LED display / liveviewer) ────────────────────────
   return (
     <AnimatePresence>
-      {(!expired || (type === "pre-auction" && showBanner)) && (
+      {visible && (
         <motion.div
           key="overlay"
           initial={{ opacity: 0 }}

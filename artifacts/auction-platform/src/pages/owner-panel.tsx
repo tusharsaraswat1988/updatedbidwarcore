@@ -430,6 +430,7 @@ export default function OwnerPanel() {
               endsAt={stickyDc.endsAt}
               label={stickyDc.label}
               tournamentName={tournament?.name}
+              compact
             />
           )}
         </AnimatePresence>

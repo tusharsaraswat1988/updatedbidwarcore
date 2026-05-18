@@ -1478,6 +1478,10 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
+  if (body.data.action === "start" && !body.data.durationSeconds) {
+    res.status(400).json({ error: "durationSeconds is required when action is start" });
+    return;
+  }
   let countdown: string | null = null;
   if (body.data.action === "start" && body.data.durationSeconds) {
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
