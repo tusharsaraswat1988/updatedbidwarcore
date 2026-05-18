@@ -40,8 +40,12 @@ router.post("/upload", upload.single("file"), async (req, res) => {
   }
 
   try {
-    // Dynamic import prevents Cloudinary from reading CLOUDINARY_URL at server
-    // startup (the SDK validates it on import and throws if it's malformed).
+    // The Cloudinary SDK validates CLOUDINARY_URL on its first import and throws
+    // if the value doesn't begin with "cloudinary://". Remove it if malformed
+    // so the SDK falls back to our explicit cloudinary.config() call below.
+    if (process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_URL.startsWith("cloudinary://")) {
+      delete process.env.CLOUDINARY_URL;
+    }
     const { v2: cloudinary } = await import("cloudinary");
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
