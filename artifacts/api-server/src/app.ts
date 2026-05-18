@@ -94,6 +94,7 @@ app.use(
     store: new PgSession({
       pool,
       tableName: "sessions",
+      createTableIfMissing: true,
     }),
     secret: sessionSecret ?? "bidwar-dev-secret",
     resave: false,
