@@ -1,42 +1,28 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { OwnerRoute } from "@/screens/OwnerRoute";
 
-const queryClient = new QueryClient();
-
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
-      </div>
-    </div>
-  );
-}
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
+      <Route path="/tournament/:id/owner/:teamId" component={OwnerRoute} />
+      <Route>
+        <div className="h-full flex items-center justify-center bg-[#09090b]">
+          <div className="text-center space-y-3">
+            <p className="text-[#71717a] text-sm">Open your owner link to join the auction.</p>
+            <p className="text-[10px] text-[#3f3f46] uppercase tracking-widest">Powered by BidWar</p>
+          </div>
+        </div>
+      </Route>
     </Switch>
   );
 }
 
-function App() {
+export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <WouterRouter base={BASE}>
+      <Router />
+    </WouterRouter>
   );
 }
-
-export default App;
