@@ -15,6 +15,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useTimerExpired } from "@/hooks/use-timer-expired";
+import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import { ServerCountdown } from "@/components/server-countdown";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -214,6 +215,8 @@ export default function OwnerPanel() {
   // the timer crosses zero — useTimerExpired() does that with one setTimeout.
   const expired = useTimerExpired(state?.timerEndsAt);
   const timerExpired = !!state?.timerEndsAt && expired;
+
+  const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive = state?.status === "active";
@@ -520,17 +523,49 @@ export default function OwnerPanel() {
                     <User className="w-9 h-9 text-muted-foreground" />
                   )}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h2 className="font-display font-bold text-2xl leading-none">{state?.currentPlayer?.name}</h2>
-                  {state?.currentPlayer?.role && (
-                    <p className="text-sm text-muted-foreground capitalize mt-1">{state.currentPlayer.role}</p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                    {state?.currentPlayer?.role && (
+                      <span className="text-sm text-muted-foreground capitalize">{state.currentPlayer.role}</span>
+                    )}
+                    {state?.currentPlayer?.age && (
+                      <span className="text-xs text-muted-foreground">Age <span className="text-foreground font-semibold">{state.currentPlayer.age}</span></span>
+                    )}
+                    {state?.currentPlayer?.city && (
+                      <span className="text-xs text-muted-foreground">{state.currentPlayer.city}</span>
+                    )}
+                  </div>
+                  {[
+                    state?.currentPlayer?.battingStyle,
+                    state?.currentPlayer?.bowlingStyle,
+                    state?.currentPlayer?.specialization,
+                  ].some(Boolean) && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                      {[
+                        state?.currentPlayer?.battingStyle,
+                        state?.currentPlayer?.bowlingStyle,
+                        state?.currentPlayer?.specialization,
+                      ].map((val, i) => {
+                        if (!val) return null;
+                        const label = currentPlayerSpecGroups[i]?.groupName;
+                        return (
+                          <span key={i} className="text-xs text-muted-foreground">
+                            {label ? <><span className="opacity-60">{label}:</span> <span className="text-foreground font-medium">{val}</span></> : <span className="text-foreground font-medium">{val}</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
                   )}
-                  {state?.currentPlayer?.city && (
-                    <p className="text-xs text-muted-foreground">{state.currentPlayer.city}</p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                    <span className="text-xs text-muted-foreground">Base <span className="text-foreground font-semibold">{formatIndianRupee(state?.currentPlayer?.basePrice)}</span></span>
+                    {state?.currentPlayer?.availabilityDates && (
+                      <span className="text-xs text-blue-400">Avail: {state.currentPlayer.availabilityDates}</span>
+                    )}
+                  </div>
+                  {state?.currentPlayer?.achievements && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{state.currentPlayer.achievements}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Base: {formatIndianRupee(state?.currentPlayer?.basePrice)}
-                  </p>
                 </div>
               </motion.div>
             ) : (
