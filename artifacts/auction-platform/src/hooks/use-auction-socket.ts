@@ -28,6 +28,9 @@ export function useAuctionSocket(
 
     function connect() {
       if (destroyed) return;
+      clearTimeout(retryTimer);
+      es?.close();
+
       es = new EventSource(`/api/tournaments/${tournamentId}/auction/events`);
 
       es.onmessage = (event) => {
@@ -72,12 +75,26 @@ export function useAuctionSocket(
       };
     }
 
+    // When a background tab regains focus the browser may have throttled
+    // the SSE onmessage callbacks, leaving the UI stale. On visibility
+    // change we: (a) force-invalidate the auction state so React Query
+    // issues a fresh GET immediately, and (b) reconnect the SSE stream
+    // to flush any buffered events and confirm the connection is healthy.
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+        connect();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     connect();
 
     return () => {
       destroyed = true;
       clearTimeout(retryTimer);
       es?.close();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [tournamentId, qc]); // onCheerMessage intentionally excluded — handled via ref
 }
