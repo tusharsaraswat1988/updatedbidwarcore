@@ -32,6 +32,7 @@ import LiveViewer from "@/pages/liveviewer";
 import AdminCommunicate from "@/pages/admin-communicate";
 import WaConsent from "@/pages/wa-consent";
 import CompleteProfile from "@/pages/complete-profile";
+import BreakTimerPage from "@/pages/break-timer";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,6 +120,12 @@ function Router() {
         {(params) => {
           const tid = parseInt(params?.id || "0");
           return <OrganizerGuard tournamentId={tid}><FortuneWheel /></OrganizerGuard>;
+        }}
+      </Route>
+      <Route path="/tournament/:id/break-timer">
+        {(params) => {
+          const tid = parseInt(params?.id || "0");
+          return <OrganizerGuard tournamentId={tid}><BreakTimerPage /></OrganizerGuard>;
         }}
       </Route>
 

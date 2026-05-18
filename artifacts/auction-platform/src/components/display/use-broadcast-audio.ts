@@ -21,6 +21,8 @@ export function useBroadcastAudio({
   timerEndsAt,
   soldKey,
   settings,
+  displayCountdownType,
+  displayCountdownEndsAt,
 }: {
   /** Current auction status: "idle" | "active" | "paused" | "sold" | "unsold" */
   status: string | undefined;
@@ -30,6 +32,10 @@ export function useBroadcastAudio({
   soldKey: string;
   /** Live audio settings from the tournament record */
   settings: AudioSettings | null;
+  /** Type of the active display countdown, or null */
+  displayCountdownType: "break" | "pre-auction" | null;
+  /** ISO timestamp when the active display countdown ends, or null */
+  displayCountdownEndsAt: string | null;
 }) {
   const managerRef = useRef<AuctionAudioManager | null>(null);
   const prevStatusRef = useRef<string | undefined>(undefined);
@@ -99,6 +105,17 @@ export function useBroadcastAudio({
 
     return () => clearInterval(id);
   }, [status, timerEndsAt]);
+
+  // ── Break-end sound — fires once when a break countdown expires ───────
+  useEffect(() => {
+    if (displayCountdownType !== "break" || !displayCountdownEndsAt) return;
+    const msUntilExpiry = new Date(displayCountdownEndsAt).getTime() - Date.now();
+    if (msUntilExpiry <= 0) return; // already expired — don't fire retroactively
+    const id = setTimeout(() => {
+      managerRef.current?.playBreakEnd(displayCountdownEndsAt);
+    }, msUntilExpiry);
+    return () => clearTimeout(id);
+  }, [displayCountdownType, displayCountdownEndsAt]);
 
   // ── Expose manager for preview (tournament settings UI) ───────────────
   const getManager = useCallback(() => managerRef.current, []);

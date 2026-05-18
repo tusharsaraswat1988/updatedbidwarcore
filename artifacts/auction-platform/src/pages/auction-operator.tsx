@@ -53,10 +53,28 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Filter, Search,
   Hourglass, Monitor, Users, Crown, ListOrdered, ExternalLink, ShieldAlert, Star,
   PanelRightClose, PanelRightOpen, Tv2,
-  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock,
+  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
+
+function CountdownClock({ endsAt }: { endsAt: string }) {
+  const [display, setDisplay] = useState(() => {
+    const ms = Math.max(0, new Date(endsAt).getTime() - Date.now());
+    const s = Math.ceil(ms / 1000);
+    return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  });
+  useEffect(() => {
+    const tick = () => {
+      const ms = Math.max(0, new Date(endsAt).getTime() - Date.now());
+      const s = Math.ceil(ms / 1000);
+      setDisplay(`${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`);
+    };
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [endsAt]);
+  return <span className="font-display font-black tabular-nums text-lg leading-none">{display}</span>;
+}
 
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
@@ -257,7 +275,7 @@ export default function AuctionOperator() {
       const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, label } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     } else {
-      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, label } });
+      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start" } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     }
     setCountdownDialogOpen(false);
@@ -1059,21 +1077,39 @@ export default function AuctionOperator() {
                     )}
                   </div>
                   {currentCountdown ? (
-                    <div className="flex items-center gap-2">
-                      {currentCountdown.type === "break" ? (
-                        <Coffee className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                      ) : (
-                        <AlarmClock className="w-4 h-4 text-primary flex-shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground">
-                          {currentCountdown.type === "break" ? "Break Timer" : "Pre-Auction Countdown"} active
-                        </p>
-                        {currentCountdown.label && (
-                          <p className="text-[10px] text-muted-foreground truncate">{currentCountdown.label}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {currentCountdown.type === "break" ? (
+                          <Coffee className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                        ) : (
+                          <AlarmClock className="w-4 h-4 text-primary flex-shrink-0" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-foreground">
+                            {currentCountdown.type === "break" ? "Break Timer" : "Pre-Auction Countdown"}
+                          </p>
+                          {currentCountdown.label && (
+                            <p className="text-[10px] text-muted-foreground truncate">{currentCountdown.label}</p>
+                          )}
+                        </div>
+                        {currentCountdown.endsAt && (
+                          <CountdownClock endsAt={currentCountdown.endsAt} />
                         )}
                       </div>
-                      <span className="ml-auto text-xs text-green-400 font-semibold flex-shrink-0 animate-pulse">LIVE</span>
+                      {currentCountdown.type === "break" && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "extend", durationSeconds: 300 } });
+                            } catch { /* ignore */ }
+                          }}
+                          disabled={setBreakTimerMut.isPending}
+                          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-semibold transition-colors disabled:opacity-40"
+                        >
+                          <PlusCircle className="w-3 h-3" />
+                          Extend +5 min
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">

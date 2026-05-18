@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coffee, Clock } from "lucide-react";
 
@@ -87,6 +87,20 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   const { hours, mins, secs, expired } = useCountdown(endsAt);
   const showHours = hours > 0;
 
+  // For pre-auction: auto-dismiss the overlay 4s after the countdown expires
+  const [showBanner, setShowBanner] = useState(true);
+  useEffect(() => {
+    if (!expired || type !== "pre-auction") return;
+    setShowBanner(true);
+    const id = setTimeout(() => setShowBanner(false), 4000);
+    return () => clearTimeout(id);
+  }, [expired, type]);
+
+  // Reset dismiss state when countdown is restarted
+  useEffect(() => {
+    setShowBanner(true);
+  }, [endsAt]);
+
   const isBreak = type === "break";
   const defaultLabel = isBreak ? "Back soon" : "Auction starts in";
   const displayLabel = label || defaultLabel;
@@ -97,67 +111,80 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   const borderColor = isBreak ? "border-amber-500/20" : "border-primary/20";
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center z-40 overflow-hidden">
-      {/* Background gradient */}
-      <div className={`absolute inset-0 bg-gradient-to-b ${accentColor} to-transparent pointer-events-none`} />
-      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+    <AnimatePresence>
+      {(!expired || isBreak || showBanner) && (
+        <motion.div
+          key="overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6 }}
+          className="absolute inset-0 flex flex-col items-center justify-center z-40 overflow-hidden"
+        >
+          {/* Background gradient */}
+          <div className={`absolute inset-0 bg-gradient-to-b ${accentColor} to-transparent pointer-events-none`} />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
 
-      {/* Content */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative flex flex-col items-center gap-6 px-8 text-center"
-      >
-        {/* Icon + label */}
-        <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border ${borderColor} bg-black/40 backdrop-blur-sm`}>
-          <Icon className={`w-5 h-5 ${iconColor}`} />
-          <span className="text-white/80 text-sm md:text-base font-semibold uppercase tracking-widest">
-            {displayLabel}
-          </span>
-        </div>
-
-        {/* Countdown digits */}
-        <AnimatePresence mode="wait">
-          {expired ? (
-            <motion.div
-              key="expired"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center gap-3"
-            >
-              <span className="text-5xl md:text-7xl font-display font-black text-white">
-                {isBreak ? "We're back!" : "Starting now!"}
+          {/* Content */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="relative flex flex-col items-center gap-6 px-8 text-center"
+          >
+            {/* Icon + label */}
+            <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border ${borderColor} bg-black/40 backdrop-blur-sm`}>
+              <Icon className={`w-5 h-5 ${iconColor}`} />
+              <span className="text-white/80 text-sm md:text-base font-semibold uppercase tracking-widest">
+                {displayLabel}
               </span>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="digits"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-end gap-3 md:gap-5"
-            >
-              {showHours && (
-                <>
-                  <DigitBlock value={hours} label="Hours" />
-                  <Colon />
-                </>
-              )}
-              <DigitBlock value={mins} label="Minutes" />
-              <Colon />
-              <DigitBlock value={secs} label="Seconds" />
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
 
-        {/* Tournament name */}
-        {tournamentName && (
-          <p className="text-white/40 text-sm md:text-base font-medium tracking-wider uppercase mt-2">
-            {tournamentName}
-          </p>
-        )}
-      </motion.div>
-    </div>
+            {/* Countdown digits */}
+            <AnimatePresence mode="wait">
+              {expired ? (
+                <motion.div
+                  key="expired"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <span className="text-4xl md:text-6xl font-display font-black text-white leading-tight">
+                    {isBreak
+                      ? "We're back!"
+                      : `${tournamentName || "Auction"} has now officially started!`}
+                  </span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="digits"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-end gap-3 md:gap-5"
+                >
+                  {showHours && (
+                    <>
+                      <DigitBlock value={hours} label="Hours" />
+                      <Colon />
+                    </>
+                  )}
+                  <DigitBlock value={mins} label="Minutes" />
+                  <Colon />
+                  <DigitBlock value={secs} label="Seconds" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Tournament name (shown during countdown, not after expiry) */}
+            {tournamentName && !expired && (
+              <p className="text-white/40 text-sm md:text-base font-medium tracking-wider uppercase mt-2">
+                {tournamentName}
+              </p>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 });

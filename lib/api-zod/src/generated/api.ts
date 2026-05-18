@@ -76,6 +76,9 @@ export const ListTournamentsResponseItem = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundUrl: zod.string().nullish(),
+  breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -116,6 +119,9 @@ export const CreateTournamentBody = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().optional(),
   soldSoundVolume: zod.number().optional(),
+  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundUrl: zod.string().optional(),
+  breakEndSoundVolume: zod.number().optional(),
 });
 
 /**
@@ -169,6 +175,9 @@ export const GetTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundUrl: zod.string().nullish(),
+  breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -216,6 +225,9 @@ export const UpdateTournamentBody = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundUrl: zod.string().nullish(),
+  breakEndSoundVolume: zod.number().optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -262,6 +274,9 @@ export const UpdateTournamentResponse = zod.object({
   soldSoundEnabled: zod.boolean().optional(),
   soldSoundUrl: zod.string().nullish(),
   soldSoundVolume: zod.number().optional(),
+  breakEndSoundEnabled: zod.boolean().optional(),
+  breakEndSoundUrl: zod.string().nullish(),
+  breakEndSoundVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
   createdAt: zod.string(),
@@ -330,6 +345,9 @@ export const ExportTournamentForLocalResponse = zod.object({
     soldSoundEnabled: zod.boolean().optional(),
     soldSoundUrl: zod.string().nullish(),
     soldSoundVolume: zod.number().optional(),
+    breakEndSoundEnabled: zod.boolean().optional(),
+    breakEndSoundUrl: zod.string().nullish(),
+    breakEndSoundVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
     cheerMessagePresets: zod.string().nullish(),
     createdAt: zod.string(),
@@ -3040,12 +3058,15 @@ export const setBreakTimerBodyDurationSecondsMin = 10;
 export const setBreakTimerBodyDurationSecondsMax = 3600;
 
 export const SetBreakTimerBody = zod.object({
-  action: zod.enum(["start", "cancel"]),
+  action: zod.enum(["start", "cancel", "extend"]),
   durationSeconds: zod
     .number()
     .min(setBreakTimerBodyDurationSecondsMin)
     .max(setBreakTimerBodyDurationSecondsMax)
-    .optional(),
+    .optional()
+    .describe(
+      "Required for start; optional for extend (defaults to 300s \/ 5 min)",
+    ),
   label: zod.string().optional(),
 });
 
@@ -3167,22 +3188,14 @@ export const SetBreakTimerResponse = zod.object({
 });
 
 /**
- * @summary Start or cancel a pre-auction countdown on the LED display
+ * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
  */
 export const SetPreAuctionCountdownParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
-export const setPreAuctionCountdownBodyDurationSecondsMin = 10;
-export const setPreAuctionCountdownBodyDurationSecondsMax = 3600;
-
 export const SetPreAuctionCountdownBody = zod.object({
   action: zod.enum(["start", "cancel"]),
-  durationSeconds: zod
-    .number()
-    .min(setPreAuctionCountdownBodyDurationSecondsMin)
-    .max(setPreAuctionCountdownBodyDurationSecondsMax)
-    .optional(),
   label: zod.string().optional(),
 });
 

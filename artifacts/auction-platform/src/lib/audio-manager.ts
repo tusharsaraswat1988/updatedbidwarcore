@@ -20,6 +20,9 @@ export interface AudioSettings {
   soldSoundEnabled: boolean;
   soldSoundUrl: string | null;
   soldSoundVolume: number;       // 0–100
+  breakEndSoundEnabled: boolean;
+  breakEndSoundUrl: string | null;
+  breakEndSoundVolume: number;   // 0–100
 }
 
 const DEFAULT_SETTINGS: AudioSettings = {
@@ -31,6 +34,9 @@ const DEFAULT_SETTINGS: AudioSettings = {
   soldSoundEnabled: true,
   soldSoundUrl: null,
   soldSoundVolume: 80,
+  breakEndSoundEnabled: false,
+  breakEndSoundUrl: null,
+  breakEndSoundVolume: 80,
 };
 
 export class AuctionAudioManager {
@@ -40,12 +46,14 @@ export class AuctionAudioManager {
   // Custom HTML audio elements for URL-backed sounds
   private countdownAudio: HTMLAudioElement | null = null;
   private soldAudio: HTMLAudioElement | null = null;
+  private breakEndAudio: HTMLAudioElement | null = null;
 
   private settings: AudioSettings = { ...DEFAULT_SETTINGS };
 
   // Deduplication state
   private lastCountdownSec = -1;
   private soldKeyPlayed = "";
+  private breakEndKeyPlayed = "";
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -78,6 +86,7 @@ export class AuctionAudioManager {
   setSettings(s: AudioSettings): void {
     const prevCountdownUrl = this.settings.countdownSoundUrl;
     const prevSoldUrl = this.settings.soldSoundUrl;
+    const prevBreakEndUrl = this.settings.breakEndSoundUrl;
     this.settings = s;
     this.applyMasterGain();
 
@@ -87,6 +96,9 @@ export class AuctionAudioManager {
     }
     if (s.soldSoundUrl !== prevSoldUrl) {
       this.soldAudio = s.soldSoundUrl ? this.makeAudio(s.soldSoundUrl) : null;
+    }
+    if (s.breakEndSoundUrl !== prevBreakEndUrl) {
+      this.breakEndAudio = s.breakEndSoundUrl ? this.makeAudio(s.breakEndSoundUrl) : null;
     }
   }
 
@@ -154,6 +166,31 @@ export class AuctionAudioManager {
       return;
     }
     this.synthSold();
+  }
+
+  // ── Break-end sound ───────────────────────────────────────────────────
+
+  playBreakEnd(key: string): void {
+    if (!this.settings.audioEnabled) return;
+    if (!this.settings.breakEndSoundEnabled) return;
+    if (key && key === this.breakEndKeyPlayed) return; // deduplicate per event
+    this.breakEndKeyPlayed = key;
+
+    if (this.breakEndAudio) {
+      const clone = this.breakEndAudio.cloneNode() as HTMLAudioElement;
+      clone.volume = Math.min(
+        1,
+        (this.settings.breakEndSoundVolume / 100) * (this.settings.masterVolume / 100),
+      );
+      clone.play().catch(() => {});
+      return;
+    }
+    this.synthBreakEnd();
+  }
+
+  previewBreakEnd(): void {
+    this.breakEndKeyPlayed = ""; // reset so preview always plays
+    this.playBreakEnd("__preview__" + Date.now());
   }
 
   // ── Emergency controls ────────────────────────────────────────────────
@@ -277,6 +314,38 @@ export class AuctionAudioManager {
       osc2.connect(g2);
       osc2.start(t);
       osc2.stop(t + dur);
+    });
+  }
+
+  private synthBreakEnd(): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain) return;
+
+    const vol = this.settings.breakEndSoundVolume / 100;
+
+    // Short ascending three-note chime: G5 → B5 → D6 (major arpeggio) — signals break over
+    const notes: Array<{ freq: number; delay: number; dur: number; amp: number }> = [
+      { freq: 783.99, delay: 0.0,  dur: 0.22, amp: 0.45 }, // G5
+      { freq: 987.77, delay: 0.12, dur: 0.22, amp: 0.45 }, // B5
+      { freq: 1174.7, delay: 0.24, dur: 0.45, amp: 0.60 }, // D6 — held
+    ];
+
+    notes.forEach(({ freq, delay, dur, amp }) => {
+      const t = ctx.currentTime + delay;
+
+      const g = ctx.createGain();
+      g.connect(this.masterGain!);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol * amp, t + 0.012);
+      g.gain.setValueAtTime(vol * amp, t + dur * 0.5);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      osc.connect(g);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
     });
   }
 }

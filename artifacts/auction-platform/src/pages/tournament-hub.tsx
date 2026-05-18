@@ -274,6 +274,9 @@ export default function TournamentHub() {
       soldSoundEnabled: false,
       soldSoundUrl: null,
       soldSoundVolume: 0,
+      breakEndSoundEnabled: false,
+      breakEndSoundUrl: null,
+      breakEndSoundVolume: 80,
     });
     mgr.previewCountdown();
   }
@@ -291,6 +294,9 @@ export default function TournamentHub() {
       soldSoundEnabled: true,
       soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
       soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
+      breakEndSoundEnabled: false,
+      breakEndSoundUrl: null,
+      breakEndSoundVolume: 80,
     });
     mgr.previewSold();
   }

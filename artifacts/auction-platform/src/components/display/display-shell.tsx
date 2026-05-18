@@ -112,14 +112,17 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     if (!tournament) return null;
     const t = tournament as unknown as Record<string, unknown>;
     return {
-      audioEnabled:          (t.audioEnabled          as boolean)  ?? true,
-      masterVolume:          (t.masterVolume           as number)   ?? 80,
-      countdownSoundEnabled: (t.countdownSoundEnabled  as boolean)  ?? true,
-      countdownSoundUrl:     (t.countdownSoundUrl      as string | null) ?? null,
-      countdownSoundVolume:  (t.countdownSoundVolume   as number)   ?? 70,
-      soldSoundEnabled:      (t.soldSoundEnabled       as boolean)  ?? true,
-      soldSoundUrl:          (t.soldSoundUrl           as string | null) ?? null,
-      soldSoundVolume:       (t.soldSoundVolume        as number)   ?? 80,
+      audioEnabled:           (t.audioEnabled           as boolean)  ?? true,
+      masterVolume:           (t.masterVolume            as number)   ?? 80,
+      countdownSoundEnabled:  (t.countdownSoundEnabled   as boolean)  ?? true,
+      countdownSoundUrl:      (t.countdownSoundUrl       as string | null) ?? null,
+      countdownSoundVolume:   (t.countdownSoundVolume    as number)   ?? 70,
+      soldSoundEnabled:       (t.soldSoundEnabled        as boolean)  ?? true,
+      soldSoundUrl:           (t.soldSoundUrl            as string | null) ?? null,
+      soldSoundVolume:        (t.soldSoundVolume         as number)   ?? 80,
+      breakEndSoundEnabled:   (t.breakEndSoundEnabled    as boolean)  ?? false,
+      breakEndSoundUrl:       (t.breakEndSoundUrl        as string | null) ?? null,
+      breakEndSoundVolume:    (t.breakEndSoundVolume     as number)   ?? 80,
     };
   }, [
     (tournament as Record<string, unknown> | undefined)?.audioEnabled,
@@ -130,6 +133,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     (tournament as Record<string, unknown> | undefined)?.soldSoundEnabled,
     (tournament as Record<string, unknown> | undefined)?.soldSoundUrl,
     (tournament as Record<string, unknown> | undefined)?.soldSoundVolume,
+    (tournament as Record<string, unknown> | undefined)?.breakEndSoundEnabled,
+    (tournament as Record<string, unknown> | undefined)?.breakEndSoundUrl,
+    (tournament as Record<string, unknown> | undefined)?.breakEndSoundVolume,
   ]);
 
   // Stable key that changes exactly once per sold event for deduplication.
@@ -139,11 +145,20 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     ? `${state?.currentBidTeamId ?? 0}_${state?.currentBid ?? 0}_${state?.soldPlayersCount ?? 0}`
     : "";
 
+  // Derive countdown primitives here so they're available for useBroadcastAudio below
+  // and also for the overlay further down in the render. Kept outside useMemo because
+  // they're primitives (stable reference by value).
+  const _dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
+  const displayCountdownType = (_dc?.type as "break" | "pre-auction" | null) ?? null;
+  const displayCountdownEndsAt = _dc?.endsAt ?? null;
+
   const { isUnlocked } = useBroadcastAudio({
     status: state?.status,
     timerEndsAt: state?.timerEndsAt,
     soldKey,
     settings: audioSettings,
+    displayCountdownType,
+    displayCountdownEndsAt,
   });
 
   const isActive = state?.status === "active";
@@ -197,12 +212,9 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
     return { status: f.status, categoryId: f.categoryId ?? null, teamId: f.teamId ?? null };
   }, [state?.displayPlayerFilter?.status, state?.displayPlayerFilter?.categoryId, state?.displayPlayerFilter?.teamId]);
 
-  // Stable primitives for the countdown overlay — avoids BreakCountdownOverlay
-  // remounting on every SSE tick when the countdown values haven't changed.
-  const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
-  const displayCountdownType = (dc?.type as "break" | "pre-auction" | null) ?? null;
-  const displayCountdownEndsAt = dc?.endsAt ?? null;
-  const displayCountdownLabel = dc?.label ?? null;
+  // displayCountdownType / displayCountdownEndsAt declared above (before useBroadcastAudio).
+  // Only the label is derived here since it isn't needed by useBroadcastAudio.
+  const displayCountdownLabel = _dc?.label ?? null;
 
   const stripPurses = useMemo<PurseRow[]>(() => (teamPurses || []).map(t => ({
     teamId: t.teamId,

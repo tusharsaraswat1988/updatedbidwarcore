@@ -21,6 +21,7 @@ import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star } 
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
 import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
+import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
 
 type CheerEntry = { id: string; senderName: string; message: string; timestamp: number };
 
@@ -1516,6 +1517,22 @@ export default function LiveViewerPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Break / Pre-Auction countdown overlay ────────────────────────── */}
+      {(() => {
+        const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
+        const dcType = (dc?.type as "break" | "pre-auction" | null) ?? null;
+        const dcEndsAt = dc?.endsAt ?? null;
+        const dcLabel = dc?.label ?? null;
+        return dcType && dcEndsAt ? (
+          <BreakCountdownOverlay
+            type={dcType}
+            endsAt={dcEndsAt}
+            label={dcLabel}
+            tournamentName={tournament?.name}
+          />
+        ) : null;
+      })()}
 
       {/* ── Cheer name dialog ─────────────────────────────────────────────── */}
       <Dialog

@@ -1045,16 +1045,17 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [start, cancel]
+                  enum: [start, cancel, extend]
                 durationSeconds:
                   type: integer
                   minimum: 10
                   maximum: 3600
+                  description: Required for start; optional for extend (defaults to 300s / 5 min)
                 label:
                   type: string
       responses:
         "200":
-          description: Countdown started or cancelled
+          description: Countdown started, extended, or cancelled
           content:
             application/json:
               schema:
@@ -1064,7 +1065,7 @@ paths:
     post:
       operationId: setPreAuctionCountdown
       tags: [auction]
-      summary: Start or cancel a pre-auction countdown on the LED display
+      summary: Trigger a fixed 10-second pre-auction countdown on the LED display
       parameters:
         - name: tournamentId
           in: path
@@ -1082,10 +1083,6 @@ paths:
                 action:
                   type: string
                   enum: [start, cancel]
-                durationSeconds:
-                  type: integer
-                  minimum: 10
-                  maximum: 3600
                 label:
                   type: string
       responses:
@@ -1492,6 +1489,12 @@ components:
           type: ["string", "null"]
         soldSoundVolume:
           type: integer
+        breakEndSoundEnabled:
+          type: boolean
+        breakEndSoundUrl:
+          type: ["string", "null"]
+        breakEndSoundVolume:
+          type: integer
         cheerMessagesEnabled:
           type: boolean
         cheerMessagePresets:
@@ -1577,6 +1580,12 @@ components:
           type: string
         soldSoundVolume:
           type: integer
+        breakEndSoundEnabled:
+          type: boolean
+        breakEndSoundUrl:
+          type: string
+        breakEndSoundVolume:
+          type: integer
 
     TournamentUpdate:
       type: object
@@ -1650,6 +1659,12 @@ components:
         soldSoundUrl:
           type: ["string", "null"]
         soldSoundVolume:
+          type: integer
+        breakEndSoundEnabled:
+          type: boolean
+        breakEndSoundUrl:
+          type: ["string", "null"]
+        breakEndSoundVolume:
           type: integer
 
     # Team schemas

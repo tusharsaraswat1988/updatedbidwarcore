@@ -3922,7 +3922,7 @@ export const useSetBreakTimer = <
 };
 
 /**
- * @summary Start or cancel a pre-auction countdown on the LED display
+ * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
  */
 export const getSetPreAuctionCountdownUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/pre-auction-countdown`;
@@ -3987,7 +3987,7 @@ export type SetPreAuctionCountdownMutationBody =
 export type SetPreAuctionCountdownMutationError = ErrorType<unknown>;
 
 /**
- * @summary Start or cancel a pre-auction countdown on the LED display
+ * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
  */
 export const useSetPreAuctionCountdown = <
   TError = ErrorType<unknown>,

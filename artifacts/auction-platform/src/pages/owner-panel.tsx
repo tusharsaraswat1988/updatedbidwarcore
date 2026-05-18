@@ -22,6 +22,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Trophy, Wallet, Users, Lock, Eye, EyeOff, RefreshCw, LogOut, Timer, AlertTriangle, ShieldAlert, CheckCircle2, MessageSquare, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 
+function formatRemaining(endsAt: string): string {
+  const ms = Math.max(0, new Date(endsAt).getTime() - Date.now());
+  const s = Math.ceil(ms / 1000);
+  if (s <= 0) return "00:00";
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function CompactCountdown({ endsAt }: { endsAt: string }) {
+  const [display, setDisplay] = useState(() => formatRemaining(endsAt));
+  useEffect(() => {
+    const id = setInterval(() => setDisplay(formatRemaining(endsAt)), 500);
+    return () => clearInterval(id);
+  }, [endsAt]);
+  return <span className="font-display font-bold tabular-nums text-sm">{display}</span>;
+}
+
 function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
   tournamentId: number;
   teamId: number;
@@ -397,6 +413,23 @@ export default function OwnerPanel() {
             </button>
           </div>
         </div>
+
+        {/* Break / Pre-Auction Countdown Banner */}
+        {(() => {
+          const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown ?? null;
+          if (!dc?.type || !dc?.endsAt) return null;
+          const isBreak = dc.type === "break";
+          return (
+            <div className={`flex items-center gap-2 px-4 py-2 border-b ${isBreak ? "border-amber-500/30 bg-amber-500/10" : "border-primary/30 bg-primary/10"}`}>
+              <Timer className={`w-3.5 h-3.5 flex-shrink-0 ${isBreak ? "text-amber-400" : "text-primary"}`} />
+              <span className="text-xs font-semibold text-foreground flex-1 truncate">
+                {isBreak ? "Break in progress" : "Auction starting shortly"}
+                {dc.label ? ` — ${dc.label}` : ""}
+              </span>
+              <CompactCountdown endsAt={dc.endsAt} />
+            </div>
+          );
+        })()}
 
         {/* Purse Stats */}
         <div className="grid grid-cols-3 gap-3 px-6 pt-5">

@@ -2,7 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
-  Settings, Activity, BarChart3,
+  Settings, Activity, BarChart3, Coffee,
   Link2, Shuffle, LogOut, RefreshCw, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
@@ -173,6 +173,14 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 >
                   <Activity className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Operator Panel</span>}
+                </Link>
+                <Link
+                  href={`/tournament/${tournamentId}/break-timer`}
+                  title="Break Timer"
+                  className={navCls(`/tournament/${tournamentId}/break-timer`)}
+                >
+                  <Coffee className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>Break Timer</span>}
                 </Link>
                 <Link
                   href={`/tournament/${tournamentId}/display`}

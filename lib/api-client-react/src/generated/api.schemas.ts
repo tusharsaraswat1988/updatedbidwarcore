@@ -88,6 +88,10 @@ export interface Tournament {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
+  breakEndSoundEnabled?: boolean;
+  /** @nullable */
+  breakEndSoundUrl?: string | null;
+  breakEndSoundVolume?: number;
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
@@ -147,6 +151,9 @@ export interface TournamentInput {
   soldSoundEnabled?: boolean;
   soldSoundUrl?: string;
   soldSoundVolume?: number;
+  breakEndSoundEnabled?: boolean;
+  breakEndSoundUrl?: string;
+  breakEndSoundVolume?: number;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -197,6 +204,10 @@ export interface TournamentUpdate {
   /** @nullable */
   soldSoundUrl?: string | null;
   soldSoundVolume?: number;
+  breakEndSoundEnabled?: boolean;
+  /** @nullable */
+  breakEndSoundUrl?: string | null;
+  breakEndSoundVolume?: number;
 }
 
 export interface Team {
@@ -909,11 +920,13 @@ export type SetBreakTimerBodyAction =
 export const SetBreakTimerBodyAction = {
   start: "start",
   cancel: "cancel",
+  extend: "extend",
 } as const;
 
 export type SetBreakTimerBody = {
   action: SetBreakTimerBodyAction;
   /**
+   * Required for start; optional for extend (defaults to 300s / 5 min)
    * @minimum 10
    * @maximum 3600
    */
@@ -931,11 +944,6 @@ export const SetPreAuctionCountdownBodyAction = {
 
 export type SetPreAuctionCountdownBody = {
   action: SetPreAuctionCountdownBodyAction;
-  /**
-   * @minimum 10
-   * @maximum 3600
-   */
-  durationSeconds?: number;
   label?: string;
 };
 

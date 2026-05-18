@@ -122,6 +122,9 @@ const tournamentInputSchema = z.object({
   soldSoundEnabled: z.boolean().optional(),
   soldSoundUrl: z.string().optional(),
   soldSoundVolume: z.number().int().min(0).max(100).optional(),
+  breakEndSoundEnabled: z.boolean().optional(),
+  breakEndSoundUrl: z.string().optional(),
+  breakEndSoundVolume: z.number().int().min(0).max(100).optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -208,6 +211,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     soldSoundEnabled: z.boolean().optional(),
     soldSoundUrl: z.string().nullable().optional(),
     soldSoundVolume: z.number().int().min(0).max(100).optional(),
+    breakEndSoundEnabled: z.boolean().optional(),
+    breakEndSoundUrl: z.string().nullable().optional(),
+    breakEndSoundVolume: z.number().int().min(0).max(100).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -249,6 +255,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.soldSoundEnabled !== undefined) updates.soldSoundEnabled = d.soldSoundEnabled;
   if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl;
   if (d.soldSoundVolume !== undefined) updates.soldSoundVolume = d.soldSoundVolume;
+  if (d.breakEndSoundEnabled !== undefined) updates.breakEndSoundEnabled = d.breakEndSoundEnabled;
+  if (d.breakEndSoundUrl !== undefined) updates.breakEndSoundUrl = d.breakEndSoundUrl;
+  if (d.breakEndSoundVolume !== undefined) updates.breakEndSoundVolume = d.breakEndSoundVolume;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)
