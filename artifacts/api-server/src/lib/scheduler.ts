@@ -2,8 +2,11 @@
  * 24-hour pre-tournament consent blast scheduler.
  *
  * Runs hourly. Finds tournaments whose auctionDate + auctionTime falls within
- * the next 23–25 hours (active license, not locked). Sends consent SMS with
- * wa.me link to all unconsented participants. Deduplicates via consent_blast_log.
+ * the next 23–25 hours (live license, not locked). Sends consent SMS with
+ * wa.me link to all unconsented participants (players, team owners, organizer).
+ * Deduplicates via consent_blast_log.
+ *
+ * Date arithmetic uses IST (UTC+5:30) to match stored auctionDate values.
  */
 
 import { db } from "@workspace/db";
@@ -14,10 +17,12 @@ import {
   consentTokensTable,
   consentBlastLogTable,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { sendSms, buildWaMeLink, buildConsentSms } from "./comm-sender";
 import { logger } from "./logger";
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // UTC+5:30
 
 function newToken(): string { return randomBytes(16).toString("hex"); }
 
@@ -29,31 +34,46 @@ function parseTournamentDateTime(date: string | null, time: string | null): Date
   } catch { return null; }
 }
 
+/** Returns the current date string in IST (YYYY-MM-DD). */
+function istDateStr(offsetFromNowMs = 0): string {
+  const istNow = new Date(Date.now() + IST_OFFSET_MS + offsetFromNowMs);
+  return istNow.toISOString().slice(0, 10);
+}
+
 async function runConsentBlast() {
   const now = new Date();
   const in23h = new Date(now.getTime() + 23 * 60 * 60 * 1000);
   const in25h = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-  const todayStr = now.toISOString().slice(0, 10);
-  const tomorrowStr = in23h.toISOString().slice(0, 10);
 
-  logger.info({ tomorrowStr }, "Running 24h consent blast check");
+  // Use IST-aware date strings to avoid UTC midnight vs IST midnight mismatch.
+  // Widen pre-filter to today + tomorrow in IST — exact window enforced below.
+  const todayIst = istDateStr(0);
+  const tomorrowIst = istDateStr(24 * 60 * 60 * 1000);
 
-  // Find active, unlocked tournaments where auctionDate = tomorrow
+  logger.info({ todayIst, tomorrowIst }, "Running 24h consent blast check");
+
+  // Find live, unlocked tournaments where auctionDate is today or tomorrow in IST
   const tournaments = await db.select({
     id: tournamentsTable.id,
     name: tournamentsTable.name,
     auctionDate: tournamentsTable.auctionDate,
     auctionTime: tournamentsTable.auctionTime,
+    organizerMobile: tournamentsTable.organizerMobile,
+    organizerId: tournamentsTable.organizerId,
   }).from(tournamentsTable).where(
     and(
-      eq(tournamentsTable.licenseStatus, "active"),
+      eq(tournamentsTable.licenseStatus, "live"),
       eq(tournamentsTable.adminLocked, false),
-      sql`${tournamentsTable.auctionDate} = ${tomorrowStr}`,
+      or(
+        sql`${tournamentsTable.auctionDate} = ${todayIst}`,
+        sql`${tournamentsTable.auctionDate} = ${tomorrowIst}`,
+      ),
     ),
   );
 
   for (const t of tournaments) {
     const auctionAt = parseTournamentDateTime(t.auctionDate, t.auctionTime);
+    // Exact 23–25 h window check (works in any timezone — timestamps are absolute)
     if (!auctionAt || auctionAt < in23h || auctionAt > in25h) continue;
 
     logger.info({ tournamentId: t.id, name: t.name, auctionAt }, "Sending consent blast");
@@ -78,28 +98,43 @@ async function runConsentBlast() {
         ),
       );
 
-    type BlastTarget = { recipientType: "player" | "team_owner"; id: number; mobile: string };
+    type BlastTarget = { recipientType: "player" | "team_owner" | "organizer"; id: number | null; mobile: string };
     const targets: BlastTarget[] = [
       ...players.map(p => ({ recipientType: "player" as const, id: p.id, mobile: p.mobile! })),
       ...teams.map(tm => ({ recipientType: "team_owner" as const, id: tm.id, mobile: tm.mobile! })),
     ];
 
+    // Include tournament organizer if they have a mobile number
+    if (t.organizerMobile) {
+      targets.push({ recipientType: "organizer", id: t.organizerId, mobile: t.organizerMobile });
+    }
+
     let sent = 0;
     let skipped = 0;
 
+    // Use IST tomorrow for the blast deduplication key (matches auctionDate semantics)
+    const blastDateKey = tomorrowIst;
+
     for (const target of targets) {
-      // Deduplication check
+      // Deduplication: one SMS per mobile per blast date
       try {
-        await db.insert(consentBlastLogTable).values({ tournamentId: t.id, mobile: target.mobile, blastDate: tomorrowStr });
+        await db.insert(consentBlastLogTable).values({ tournamentId: t.id, mobile: target.mobile, blastDate: blastDateKey });
       } catch {
         skipped++;
-        continue; // Already sent today
+        continue; // Already sent for this blast window
       }
 
       // Generate consent token
       const token = newToken();
       const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
-      await db.insert(consentTokensTable).values({ token, recipientType: target.recipientType, recipientId: target.id, mobile: target.mobile, tournamentId: t.id, expiresAt });
+      await db.insert(consentTokensTable).values({
+        token,
+        recipientType: target.recipientType,
+        recipientId: target.id ?? 0,
+        mobile: target.mobile,
+        tournamentId: t.id,
+        expiresAt,
+      });
 
       const waLink = buildWaMeLink(token);
       const smsBody = buildConsentSms(t.name, waLink);

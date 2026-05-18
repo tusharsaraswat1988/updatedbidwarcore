@@ -3,6 +3,9 @@
  * - POST /webhooks/comm-inbound   — WhatsApp/SMS inbound (consent bot, STOP, data queries)
  * - POST /webhooks/comm-delivery  — Twilio delivery receipts → comm_logs update
  * - POST /webhooks/wa-quality     — Meta quality rating events → wa_quality_log
+ *
+ * Security: Twilio signature verification is enforced when TWILIO_AUTH_TOKEN is present.
+ * All webhook handlers refuse unsigned requests in production.
  */
 
 import { Router } from "express";
@@ -17,14 +20,48 @@ import {
   consentTokensTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql } from "drizzle-orm";
-import { z } from "zod";
-import { sendSms, sendWhatsApp, buildWaMeLink } from "../lib/comm-sender";
+import { sendSms, sendWhatsApp } from "../lib/comm-sender";
 import { logger } from "../lib/logger";
-import { randomBytes, createHash, scrypt, timingSafeEqual } from "crypto";
+import { randomBytes, scrypt, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
 
 const scryptAsync = promisify(scrypt);
 const router = Router();
+
+// ─── Twilio Signature Verification ───────────────────────────────────────────
+
+/**
+ * Verifies the X-Twilio-Signature header using HMAC-SHA1.
+ * Returns true when:
+ *  - TWILIO_AUTH_TOKEN is not configured (stub/dev mode — allow through)
+ *  - The computed signature matches the header
+ * Returns false when the auth token is configured but the signature is missing or wrong.
+ */
+function verifyTwilioSignature(req: import("express").Request): boolean {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) return true; // stub mode: skip verification
+
+  const signature = req.headers["x-twilio-signature"] as string | undefined;
+  if (!signature) return false;
+
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined) ?? "https";
+  const host = (req.headers["x-forwarded-host"] as string | undefined) ?? req.headers.host ?? "";
+  const url = `${proto}://${host}${req.originalUrl}`;
+
+  const body = req.body as Record<string, string>;
+  const params = Object.keys(body).sort().reduce((acc, key) => acc + key + (body[key] ?? ""), "");
+  const str = url + params;
+
+  const expected = createHmac("sha1", authToken).update(str).digest("base64");
+
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "").replace(/^0/, "91");
@@ -58,21 +95,18 @@ async function findConsentTarget(mobile: string): Promise<{
 } | null> {
   const norm = normalizePhone(mobile);
 
-  // Players
   const players = await db.select({ id: playersTable.id, name: playersTable.name, tournamentId: playersTable.tournamentId })
     .from(playersTable)
     .where(or(eq(playersTable.mobileNumber, mobile), eq(playersTable.mobileNumber, norm), sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`))
     .limit(1);
   if (players.length > 0) return { type: "player", id: players[0].id, name: players[0].name, tournamentId: players[0].tournamentId };
 
-  // Teams (owner mobile)
   const teams = await db.select({ id: teamsTable.id, name: teamsTable.name, tournamentId: teamsTable.tournamentId })
     .from(teamsTable)
     .where(or(eq(teamsTable.ownerMobile, mobile), eq(teamsTable.ownerMobile, norm), sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`))
     .limit(1);
   if (teams.length > 0) return { type: "team_owner", id: teams[0].id, name: teams[0].name, tournamentId: teams[0].tournamentId };
 
-  // Organizers
   const orgs = await db.select({ id: organizersTable.id, name: organizersTable.name })
     .from(organizersTable)
     .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, norm)))
@@ -96,10 +130,31 @@ async function setConsentRevoked(type: string, id: number) {
   else if (type === "organizer") await db.update(organizersTable).set(data).where(eq(organizersTable.id, id));
 }
 
+async function logConsentEvent(
+  target: { type: string; id: number; tournamentId?: number } | null,
+  mobile: string,
+  content: string,
+) {
+  await db.insert(commLogsTable).values({
+    tournamentId: target?.tournamentId ?? null,
+    recipientType: target?.type ?? "unknown",
+    recipientId: target ? target.id : null,
+    recipientMobile: mobile,
+    channel: "whatsapp",
+    messageContent: content,
+    deliveryStatus: "delivered",
+  });
+}
+
 // ─── Inbound WhatsApp / SMS ───────────────────────────────────────────────────
 
 router.post("/webhooks/comm-inbound", async (req, res) => {
-  // Twilio sends form-encoded body
+  if (!verifyTwilioSignature(req)) {
+    logger.warn("Inbound webhook rejected: invalid Twilio signature");
+    res.status(403).send("<Response/>");
+    return;
+  }
+
   const body = req.body as Record<string, string>;
   const from = body.From ?? body.from ?? "";
   const text = (body.Body ?? body.body ?? "").trim();
@@ -116,6 +171,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     const target = await findConsentTarget(mobile);
     if (target) {
       await setConsentRevoked(target.type, target.id);
+      await logConsentEvent(target, mobile, "STOP: WhatsApp consent revoked");
       await sendWhatsApp(from, "Aap BidWar WhatsApp updates se unsubscribe ho gaye hain. SMS pe updates milte rahenge. Wapas subscribe karne ke liye 'hello' bhejein.");
     }
     res.status(200).send("<Response/>");
@@ -141,6 +197,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
         const target = await findConsentTarget(mobile);
         if (target) {
           await setConsentGranted(target.type, target.id, ip);
+          await logConsentEvent(target, mobile, "OTP verified: WhatsApp consent granted (whatsapp_otp_verified)");
           await sendWhatsApp(from, `Shukriya ${target.name}! Aap BidWar WhatsApp notifications ke liye successfully subscribed hain. Tournament updates milenge. STOP bhejein unsubscribe ke liye.`);
         } else {
           await sendWhatsApp(from, "Identity verify ho gayi. BidWar updates shuru ho jayenge.");
@@ -153,12 +210,11 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     }
   }
 
-  // OPTIN TOKEN or YES (from consent question)
+  // OPTIN TOKEN or YES (from consent question) — record explicit YES before OTP step
   if (upper.startsWith("OPTIN ") || upper === "YES" || upper === "HA" || upper === "HAN") {
     let tokenStr: string | null = null;
     if (upper.startsWith("OPTIN ")) tokenStr = text.slice(6).trim();
 
-    // Find the person
     const target = await findConsentTarget(mobile);
     if (!target) {
       await sendWhatsApp(from, "Aapka mobile number BidWar mein registered nahi hai. Kripya tournament organizer se contact karein.");
@@ -169,6 +225,13 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     if (tokenStr) {
       await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, tokenStr));
     }
+
+    // ── Record the explicit YES as a separate audit event before proceeding to OTP ──
+    await logConsentEvent(
+      target,
+      mobile,
+      `Explicit YES consent received via WhatsApp (pending OTP verification). Token: ${tokenStr ?? "none"}`,
+    );
 
     // Step 2: send OTP for identity verification
     const otp = generateOtp();
@@ -221,6 +284,12 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
 // ─── Delivery Receipt Webhook ─────────────────────────────────────────────────
 
 router.post("/webhooks/comm-delivery", async (req, res) => {
+  if (!verifyTwilioSignature(req)) {
+    logger.warn("Delivery webhook rejected: invalid Twilio signature");
+    res.status(403).send("<Response/>");
+    return;
+  }
+
   const body = req.body as Record<string, string>;
   const sid = body.MessageSid ?? body.SmsSid ?? "";
   const status = body.MessageStatus ?? body.SmsStatus ?? "";

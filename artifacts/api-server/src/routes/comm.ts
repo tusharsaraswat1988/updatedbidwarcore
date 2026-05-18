@@ -4,10 +4,10 @@
  * - GET  /auth/admin/communicate/logs      — message history
  * - GET  /auth/admin/communicate/logs/:id  — single log entry
  * - GET  /auth/admin/communicate/blasts    — automated blast history
- * - POST /consent/generate                 — create consent token + send SMS
+ * - POST /consent/generate                 — create consent token + send SMS (admin/organizer only)
  * - POST /consent/:token/confirm           — web fallback consent confirm
  * - GET  /consent/:token                   — resolve token metadata (landing page)
- * - POST /auth/admin/communicate/consent-declare — organizer declaration
+ * - POST /auth/admin/communicate/consent-declare — organizer declaration (scoped to their tournaments)
  */
 
 import { Router } from "express";
@@ -21,9 +21,9 @@ import {
   commLogsTable,
   consentBlastLogTable,
 } from "@workspace/db";
-import { eq, and, desc, gte, lte, or, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes } from "crypto";
 import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms } from "../lib/comm-sender";
 import { logger } from "../lib/logger";
 
@@ -31,6 +31,10 @@ const router = Router();
 
 function isMasterAdmin(req: import("express").Request): boolean {
   return !!req.session.isAdmin && req.session.adminLevel === "master";
+}
+
+function isAdminOrOrganizer(req: import("express").Request): boolean {
+  return !!(req.session.isAdmin || req.session.organizerAccountId);
 }
 
 function newToken(): string {
@@ -41,9 +45,22 @@ function generateBlastId(): string {
   return `blast_${Date.now()}_${randomBytes(4).toString("hex")}`;
 }
 
-// ─── Consent Token: Generate + Send SMS ───────────────────────────────────────
+// ─── Bot Link (public — must be BEFORE /:token param route) ─────────────────
+
+router.get("/consent/wa-link", (_req, res) => {
+  const waNumber = (process.env.TWILIO_WHATSAPP_FROM ?? "").replace("whatsapp:", "").replace("+", "");
+  const link = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}` : null;
+  res.json({ link, configured: !!waNumber });
+});
+
+// ─── Consent Token: Generate + Send SMS (requires admin or organizer auth) ───
 
 router.post("/consent/generate", async (req, res) => {
+  if (!isAdminOrOrganizer(req)) {
+    res.status(403).json({ error: "Admin or organizer login required" });
+    return;
+  }
+
   const schema = z.object({
     recipientType: z.enum(["player", "team_owner", "organizer"]),
     recipientId: z.number().int(),
@@ -53,6 +70,16 @@ router.post("/consent/generate", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const { recipientType, recipientId, mobile, tournamentId } = parsed.data;
+
+  // Organizer callers may only generate tokens for their own tournament
+  if (!req.session.isAdmin && req.session.organizerAccountId) {
+    const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+    if (!t || t.organizerId !== req.session.organizerAccountId) {
+      res.status(403).json({ error: "Not authorized for this tournament" });
+      return;
+    }
+  }
 
   const [tournament] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -66,14 +93,6 @@ router.post("/consent/generate", async (req, res) => {
   const result = await sendSms(mobile, smsBody);
 
   res.json({ success: true, token, waLink, sent: result });
-});
-
-// ─── Bot Link (public — must be BEFORE /:token param route) ─────────────────
-
-router.get("/consent/wa-link", (_req, res) => {
-  const waNumber = (process.env.TWILIO_WHATSAPP_FROM ?? "").replace("whatsapp:", "").replace("+", "");
-  const link = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}` : null;
-  res.json({ link, configured: !!waNumber });
 });
 
 // ─── Consent Token: Resolve (landing page) ────────────────────────────────────
@@ -112,7 +131,6 @@ router.post("/consent/:token/confirm", async (req, res) => {
 
   await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, ct.token));
 
-  // Log
   await db.insert(commLogsTable).values({
     tournamentId: ct.tournamentId,
     recipientType: ct.recipientType,
@@ -126,7 +144,7 @@ router.post("/consent/:token/confirm", async (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Organizer Declaration ────────────────────────────────────────────────────
+// ─── Organizer Declaration (scoped to caller's own tournaments) ───────────────
 
 router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
   if (!req.session.isAdmin && !req.session.organizerAccountId) {
@@ -135,12 +153,37 @@ router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
   const schema = z.object({
     recipientType: z.enum(["player", "team_owner"]),
     recipientId: z.number().int(),
+    tournamentId: z.number().int(),
     orgId: z.number().int().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const { recipientType, recipientId } = parsed.data;
+  const { recipientType, recipientId, tournamentId } = parsed.data;
   const orgId = parsed.data.orgId ?? req.session.organizerAccountId ?? null;
+
+  // Scoping: non-admin organizers may only declare consent for recipients in their own tournaments
+  if (!req.session.isAdmin && req.session.organizerAccountId) {
+    const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+    if (!t || t.organizerId !== req.session.organizerAccountId) {
+      res.status(403).json({ error: "Not authorized for this tournament" }); return;
+    }
+
+    // Also verify the recipient belongs to this tournament
+    if (recipientType === "player") {
+      const [p] = await db.select({ tournamentId: playersTable.tournamentId })
+        .from(playersTable).where(eq(playersTable.id, recipientId));
+      if (!p || p.tournamentId !== tournamentId) {
+        res.status(403).json({ error: "Recipient does not belong to this tournament" }); return;
+      }
+    } else {
+      const [tm] = await db.select({ tournamentId: teamsTable.tournamentId })
+        .from(teamsTable).where(eq(teamsTable.id, recipientId));
+      if (!tm || tm.tournamentId !== tournamentId) {
+        res.status(403).json({ error: "Recipient does not belong to this tournament" }); return;
+      }
+    }
+  }
 
   const consentData = {
     whatsappConsent: true,
@@ -176,12 +219,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
-  // License gate for WhatsApp
+  // License gate for WhatsApp — "live" is the licensed status in this system
   if ((d.channel === "whatsapp" || d.channel === "both") && d.tournamentId) {
     const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
     if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
-    if (t.licenseStatus !== "active" || t.adminLocked) {
-      res.status(403).json({ error: "WhatsApp messaging requires an active license and unlocked tournament" }); return;
+    if (t.licenseStatus !== "live" || t.adminLocked) {
+      res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" }); return;
     }
   }
 
