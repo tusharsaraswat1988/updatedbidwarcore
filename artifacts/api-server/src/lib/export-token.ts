@@ -8,8 +8,22 @@ import { timingSafeEqual } from "crypto";
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 /**
+ * Machine-readable reason code for audit logging.
+ * Never logged alongside the token value itself.
+ */
+export type TokenFailureReason =
+  | "missing_token"
+  | "no_token_configured"
+  | "invalid_token"
+  | "token_expired";
+
+export type TokenValidationResult =
+  | { valid: true }
+  | { valid: false; status: 401 | 403; error: string; reason: TokenFailureReason };
+
+/**
  * Validates an export token from an incoming request against the stored
- * tournament token. Returns an error string on failure, null on success.
+ * tournament token.
  *
  * Protections applied:
  *  1. Constant-time comparison (timingSafeEqual) — prevents timing attacks
@@ -22,13 +36,13 @@ export function validateExportToken(
   providedToken: string | string[] | undefined,
   storedToken: string | null | undefined,
   expiresAt: Date | null | undefined,
-): { valid: true } | { valid: false; status: 401 | 403; error: string } {
+): TokenValidationResult {
   if (!providedToken || typeof providedToken !== "string") {
-    return { valid: false, status: 401, error: "Missing X-Export-Token header" };
+    return { valid: false, status: 401, error: "Missing X-Export-Token header", reason: "missing_token" };
   }
 
   if (!storedToken) {
-    return { valid: false, status: 403, error: "No export token configured for this tournament" };
+    return { valid: false, status: 403, error: "No export token configured for this tournament", reason: "no_token_configured" };
   }
 
   // Timing-safe comparison: avoids oracle attacks even if token chars differ in length.
@@ -40,13 +54,13 @@ export function validateExportToken(
     aBytes.length === bBytes.length && timingSafeEqual(aBytes, bBytes);
 
   if (!tokenMatch) {
-    return { valid: false, status: 403, error: "Invalid export token" };
+    return { valid: false, status: 403, error: "Invalid export token", reason: "invalid_token" };
   }
 
   // Expiry check with clock-drift tolerance: the local server clock may lag or
   // lead by up to CLOCK_SKEW_MS without triggering a false expiry rejection.
   if (expiresAt && expiresAt.getTime() < Date.now() - CLOCK_SKEW_MS) {
-    return { valid: false, status: 403, error: "Export token has expired — re-export from cloud" };
+    return { valid: false, status: 403, error: "Export token has expired — re-export from cloud", reason: "token_expired" };
   }
 
   return { valid: true };

@@ -367,12 +367,14 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
     tournament.exportTokenExpiresAt,
   );
   if (!tokenCheck.valid) {
+    req.log.warn({ tournamentId: id, reason: tokenCheck.reason, ip: req.ip }, "Sync: export token validation rejected");
     res.status(tokenCheck.status).json({ error: tokenCheck.error }); return;
   }
 
   // Replay prevention: reject a second sync with the same token.
   // Once results are synced, a new export (and fresh token) is required.
   if (tournament.exportTokenSyncedAt) {
+    req.log.warn({ tournamentId: id, syncedAt: tournament.exportTokenSyncedAt.toISOString(), ip: req.ip }, "Sync: token replay attempt blocked");
     res.status(409).json({
       error: "This export token has already been used for sync. Re-export from cloud to sync again.",
       syncedAt: tournament.exportTokenSyncedAt.toISOString(),

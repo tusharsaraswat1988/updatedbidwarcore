@@ -1709,6 +1709,7 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
     tournament.exportTokenExpiresAt,
   );
   if (!tokenCheck.valid) {
+    req.log.warn({ tournamentId: tid, reason: tokenCheck.reason, ip: req.ip }, "Mirror: export token validation rejected");
     res.status(tokenCheck.status).json({ error: tokenCheck.error }); return;
   }
 
