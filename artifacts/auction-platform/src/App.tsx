@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import NotFound from "@/pages/not-found";
@@ -44,6 +46,24 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function BrandingEffects() {
+  const { logos, brandName } = useBranding();
+
+  useEffect(() => {
+    if (logos.appIcon) {
+      const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+      if (icon) icon.href = logos.appIcon;
+      if (apple) apple.href = logos.appIcon;
+    }
+    if (brandName && brandName !== "BidWar") {
+      document.title = document.title.replace(/BidWar/g, brandName);
+    }
+  }, [logos.appIcon, brandName]);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -151,6 +171,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <BrandingEffects />
           <Router />
         </WouterRouter>
         <Toaster />

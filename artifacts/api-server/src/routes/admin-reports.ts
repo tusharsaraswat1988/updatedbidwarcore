@@ -4,6 +4,7 @@ import { heavyLimiter, exportLimiter } from "../lib/rate-limiters";
 import {
   tournamentsTable, teamsTable, categoriesTable, playersTable,
 } from "@workspace/db";
+import { brandingSettingsTable } from "@workspace/db/schema";
 import { and, eq, inArray, gte, lte, ilike, desc } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
@@ -399,17 +400,34 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
   return null;
 }
 
+// ─── Branding helper ──────────────────────────────────────────────────────────
+
+type BrandingData = {
+  brandName: string;
+  watermarkText: string;
+  watermarkOpacity: number;
+};
+
+async function fetchBranding(): Promise<BrandingData> {
+  const [row] = await db.select().from(brandingSettingsTable).limit(1);
+  return {
+    brandName: row?.brandName ?? "BidWar",
+    watermarkText: row?.watermarkText || (row?.brandName ?? "BidWar"),
+    watermarkOpacity: row?.watermarkOpacity ?? 0.04,
+  };
+}
+
 // ─── PDF renderer ─────────────────────────────────────────────────────────────
 
-function renderPdf(report: ReportData, res: Response): void {
-  const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 32, bufferPages: true, info: { Title: report.reportTitle, Author: "BidWar" } });
+function renderPdf(report: ReportData, res: Response, branding: BrandingData): void {
+  const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 32, bufferPages: true, info: { Title: report.reportTitle, Author: branding.brandName } });
   doc.pipe(res);
 
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
   function header() {
     doc.fillColor("#0a0a0a").rect(doc.page.margins.left, doc.page.margins.top, pageWidth, 50).fill();
-    doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(18).text("BidWar", doc.page.margins.left + 14, doc.page.margins.top + 10);
+    doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(18).text(branding.brandName, doc.page.margins.left + 14, doc.page.margins.top + 10);
     doc.fillColor("#ffffff").font("Helvetica").fontSize(9).text(`${report.tournamentSport.toUpperCase()} · ${report.tournamentName}`, doc.page.margins.left + 14, doc.page.margins.top + 32);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(11).text(report.reportTitle, doc.page.margins.left, doc.page.margins.top + 10, { width: pageWidth - 28, align: "right" });
     doc.fillColor("#cbd5e1").font("Helvetica").fontSize(8).text(`Generated: ${new Date(report.generatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`, doc.page.margins.left, doc.page.margins.top + 32, { width: pageWidth - 14, align: "right" });
@@ -507,11 +525,11 @@ function renderPdf(report: ReportData, res: Response): void {
     // watermark
     doc.save();
     doc.rotate(-25, { origin: [w / 2, h / 2] });
-    doc.fillColor("#000000", 0.04).font("Helvetica-Bold").fontSize(120).text("BidWar", 0, h / 2 - 60, { width: w, align: "center" });
+    doc.fillColor("#000000", branding.watermarkOpacity).font("Helvetica-Bold").fontSize(120).text(branding.watermarkText, 0, h / 2 - 60, { width: w, align: "center" });
     doc.restore();
     // footer
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7)
-      .text(`Page ${i + 1} of ${range.count}  ·  BidWar Report Center  ·  Confidential`, doc.page.margins.left, h - doc.page.margins.bottom + 6, { width: w - doc.page.margins.left - doc.page.margins.right, align: "center" });
+      .text(`Page ${i + 1} of ${range.count}  ·  ${branding.brandName} Report Center  ·  Confidential`, doc.page.margins.left, h - doc.page.margins.bottom + 6, { width: w - doc.page.margins.left - doc.page.margins.right, align: "center" });
   }
 
   doc.end();
@@ -519,9 +537,9 @@ function renderPdf(report: ReportData, res: Response): void {
 
 // ─── Excel renderer ───────────────────────────────────────────────────────────
 
-async function renderExcel(report: ReportData, res: Response): Promise<void> {
+async function renderExcel(report: ReportData, res: Response, branding: BrandingData): Promise<void> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "BidWar";
+  wb.creator = branding.brandName;
   wb.created = new Date();
 
   for (let si = 0; si < report.sections.length; si++) {
@@ -671,12 +689,15 @@ router.post("/auth/admin/reports/:tournamentId/export", requireMasterAdmin, expo
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body", details: parsed.error.issues }); return; }
   if (!REPORT_TYPES.find(r => r.id === parsed.data.type)) { res.status(400).json({ error: "Unknown report type" }); return; }
   const { type, filters, format } = parsed.data;
-  const data = await buildReport(type, tournamentId, filters ?? {});
+  const [data, branding] = await Promise.all([
+    buildReport(type, tournamentId, filters ?? {}),
+    fetchBranding(),
+  ]);
   if (!data) { res.status(404).json({ error: "Report or tournament not found" }); return; }
   const safeName = `${data.tournamentName}-${data.reportTitle}-${new Date().toISOString().slice(0, 10)}`.replace(/[^a-z0-9-]/gi, "_");
   res.setHeader("Content-Disposition", `attachment; filename="${safeName}.${format}"`);
-  if (format === "pdf") { renderPdf(data, res); return; }
-  if (format === "xlsx") { await renderExcel(data, res); return; }
+  if (format === "pdf") { renderPdf(data, res, branding); return; }
+  if (format === "xlsx") { await renderExcel(data, res, branding); return; }
   if (format === "csv") { renderCsv(data, res); return; }
   res.status(400).json({ error: "Unsupported format" });
 });

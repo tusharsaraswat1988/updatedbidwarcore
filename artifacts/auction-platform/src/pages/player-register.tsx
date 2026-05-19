@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoute } from "wouter";
+import { useBranding } from "@/hooks/use-branding";
 import {
   useGetTournament,
   useListCategories,
@@ -52,6 +53,7 @@ function useRoleSpecs(roleId: number | undefined) {
 export default function PlayerRegister() {
   const [, params] = useRoute("/tournament/:id/register");
   const tournamentId = parseInt(params?.id || "0");
+  const { brandName, poweredByText, logos } = useBranding();
   const [submitted, setSubmitted] = useState(false);
   const [waConsent, setWaConsent] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
@@ -267,7 +269,7 @@ export default function PlayerRegister() {
               <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
             )}
             <h1 className="text-3xl font-display font-black text-white">
-              {tournament?.name || "BidWar"}
+              {tournament?.name || brandName}
             </h1>
             <p className="text-muted-foreground mt-1">Player Registration</p>
             {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
@@ -563,6 +565,11 @@ export default function PlayerRegister() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <div className="mt-8 flex flex-col items-center gap-2 pb-4">
+            {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-30" />}
+            <p className="text-[11px] text-muted-foreground/40 uppercase tracking-widest">{poweredByText}</p>
+          </div>
         </div>
       </div>
     </FullscreenLayout>

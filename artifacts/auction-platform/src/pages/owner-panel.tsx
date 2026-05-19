@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useBranding } from "@/hooks/use-branding";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState,
@@ -265,6 +266,7 @@ export default function OwnerPanel() {
     }
   }
 
+  const { poweredByText, logos, brandName } = useBranding();
   const teamColor = team?.color || "#F59E0B";
 
   if (checking || !team) {
@@ -320,9 +322,10 @@ export default function OwnerPanel() {
               </p>
             </div>
 
-            <p className="text-xs text-muted-foreground/50 tracking-widest uppercase">
-              Powered by BidWar
-            </p>
+            <div className="flex flex-col items-center gap-2">
+              {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-30" />}
+              <p className="text-xs text-muted-foreground/50 tracking-widest uppercase">{poweredByText}</p>
+            </div>
           </motion.div>
         </div>
       </FullscreenLayout>
