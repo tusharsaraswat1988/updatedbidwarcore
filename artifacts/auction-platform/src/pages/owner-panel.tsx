@@ -48,6 +48,9 @@ function AccessGate({ tournamentId, teamId, teamName, teamColor, onVerified }: {
       const result = await verify.mutateAsync({ tournamentId, teamId, data: { code: code.trim() } });
       if (result.valid) {
         sessionStorage.setItem(`owner_verified_${teamId}`, "1");
+        // Persist the verified access code so bid submissions can include it
+        // (required by the local server's per-bid access-code check in local mode)
+        sessionStorage.setItem(`owner_code_${teamId}`, code.trim());
         onVerified();
       } else {
         setError("Incorrect access code. Please try again.");
@@ -249,8 +252,10 @@ export default function OwnerPanel() {
   async function handleBid() {
     if (!canBid || isBidding) return;
     setIsBidding(true);
+    // Include access code if one was stored at verification time (required by local server)
+    const storedCode = sessionStorage.getItem(`owner_code_${teamId}`) || undefined;
     try {
-      await placeBid.mutateAsync({ tournamentId, data: { teamId, amount: nextBidAmount } });
+      await placeBid.mutateAsync({ tournamentId, data: { teamId, amount: nextBidAmount, ...(storedCode ? { accessCode: storedCode } : {}) } });
       qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
       setBidFeedback("success");
       setTimeout(() => setBidFeedback(null), 1500);

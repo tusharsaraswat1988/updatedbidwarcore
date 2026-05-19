@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useParams } from "wouter";
 import { AppLayout } from "@/components/layout";
-import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import {
+  useGetTournament, getGetTournamentQueryKey,
+  useGetAuctionState, getGetAuctionStateQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MonitorDown, Download, CheckCircle2, AlertTriangle, Wifi, Globe, Laptop } from "lucide-react";
+import { MonitorDown, Download, CheckCircle2, AlertTriangle, Wifi, Globe, Laptop, Activity } from "lucide-react";
 
 export default function LocalModePage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +19,21 @@ export default function LocalModePage() {
 
   const [downloading, setDownloading] = useState(false);
   const [downloadMsg, setDownloadMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // Poll cloud auction state to show mirror health — updated whenever local server
+  // successfully mirrors a state change to this cloud tournament.
+  const { data: auctionState, dataUpdatedAt } = useGetAuctionState(tournamentId, {
+    query: {
+      queryKey: getGetAuctionStateQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: 10000,
+    },
+  });
+
+  const lastMirrorTime = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+  const secondsAgo = lastMirrorTime ? Math.round((Date.now() - lastMirrorTime.getTime()) / 1000) : null;
+  const mirrorFresh = secondsAgo !== null && secondsAgo < 30;
+  const mirrorActive = auctionState?.status === "active" || auctionState?.status === "paused";
 
   async function handleExport() {
     setDownloading(true);
@@ -159,6 +177,40 @@ export default function LocalModePage() {
                 </p>
                 <p className="text-xs bg-muted/40 px-3 py-2 rounded border border-border">
                   The cloud sync will mark the tournament as completed and update all player records.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" />
+                  Mirror Sync Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Cloud State</p>
+                    <p className={`text-sm font-semibold ${mirrorActive ? "text-green-400" : "text-muted-foreground"}`}>
+                      {auctionState?.status ? auctionState.status.charAt(0).toUpperCase() + auctionState.status.slice(1) : "No data"}
+                    </p>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Last Polled</p>
+                    <p className={`text-sm font-semibold ${mirrorFresh ? "text-green-400" : "text-muted-foreground"}`}>
+                      {secondsAgo !== null ? (secondsAgo < 60 ? `${secondsAgo}s ago` : `${Math.round(secondsAgo / 60)}m ago`) : "—"}
+                    </p>
+                  </div>
+                </div>
+                {auctionState?.currentPlayer && (
+                  <p className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border">
+                    Current player on cloud: <strong className="text-foreground">{auctionState.currentPlayer.name}</strong>
+                    {auctionState.currentBid ? ` — bid ₹${Number(auctionState.currentBid).toLocaleString("en-IN")}` : ""}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  This panel polls the cloud every 10 seconds. If BidWar Local is actively mirroring, the state above should update in real time during the auction.
                 </p>
               </CardContent>
             </Card>

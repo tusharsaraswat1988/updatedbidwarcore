@@ -159,6 +159,14 @@
       <div id="import-msg"></div>
     </div>
 
+    <!-- Tournament Selector -->
+    <div class="card">
+      <h2>Active Tournament</h2>
+      <div id="tournament-list">
+        <div style="color:#71717a;font-size:13px;">Loading tournaments...</div>
+      </div>
+    </div>
+
     <!-- Quick Access -->
     <div class="card">
       <h2>Quick Access</h2>
@@ -235,6 +243,7 @@
         document.getElementById("local-ip").textContent = localIP;
         document.getElementById("local-port").textContent = `http://${localIP}:${serverPort}`;
         loadQR();
+        loadTournaments();
         checkInternet();
         setInterval(checkInternet, 10000);
         loadSyncStatus();
@@ -243,6 +252,48 @@
         document.getElementById("local-ip").textContent = "Starting...";
         setTimeout(init, 2000);
       }
+    }
+
+    async function loadTournaments() {
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/api/tournaments`);
+        if (!res.ok) return;
+        const tournaments = await res.json();
+        const el = document.getElementById("tournament-list");
+        if (!tournaments.length) {
+          el.innerHTML = '<div style="color:#71717a;font-size:13px;">No tournaments imported yet. Import a tournament export file to get started.</div>';
+          return;
+        }
+        el.innerHTML = "";
+        tournaments.forEach(t => {
+          const isActive = t.id === tournamentId;
+          const row = document.createElement("div");
+          row.style.cssText = `display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;margin-bottom:8px;border:1px solid ${isActive ? "#eab30866" : "#27272a"};background:${isActive ? "#eab30811" : "#09090b"};cursor:${tournaments.length > 1 ? "pointer" : "default"};`;
+          row.innerHTML = `
+            <div>
+              <div style="font-size:13px;font-weight:600;color:${isActive ? "#eab308" : "#fafafa"}">${t.name}</div>
+              <div style="font-size:11px;color:#71717a;margin-top:2px;">${t.sport} · ${t.status || "pending"}</div>
+            </div>
+            ${isActive ? '<span style="font-size:11px;font-weight:700;color:#eab308;letter-spacing:0.5px;">ACTIVE</span>' : '<span style="font-size:11px;color:#52525b;">Click to select</span>'}
+          `;
+          if (!isActive) {
+            row.onclick = () => selectTournament(t.id, t.name);
+          }
+          el.appendChild(row);
+        });
+      } catch {
+        const el = document.getElementById("tournament-list");
+        if (el) el.innerHTML = '<div style="color:#71717a;font-size:13px;">Could not load tournaments.</div>';
+      }
+    }
+
+    function selectTournament(id, name) {
+      tournamentId = id;
+      localStorage.setItem("activeTournamentId", String(id));
+      loadTournaments();
+      // Reload QR for new tournament context (same LAN URL, just update active)
+      loadQR();
+      alert(`Active tournament set to: ${name}`);
     }
 
     function loadQR() {
