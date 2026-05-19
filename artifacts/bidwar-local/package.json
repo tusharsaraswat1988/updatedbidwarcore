@@ -13,7 +13,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package:win": "electron-builder --win",
+    "package:win": "electron-builder --win --publish never",
     "package:win:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
     "package:mac": "electron-builder --mac",
     "package:linux": "electron-builder --linux AppImage"

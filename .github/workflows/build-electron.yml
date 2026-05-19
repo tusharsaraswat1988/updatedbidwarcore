@@ -64,7 +64,6 @@ jobs:
       - name: Package Windows installer (NSIS)
         run: pnpm --filter @workspace/bidwar-local run package:win
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: List release output
