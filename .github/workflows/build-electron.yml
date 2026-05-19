@@ -1,0 +1,94 @@
+name: Build BidWar Local (Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.2.0)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared libraries (db-local)
+        run: pnpm --filter @workspace/db-local run build
+
+      - name: Build BidWar Local (frontend + server + electron)
+        run: pnpm --filter @workspace/bidwar-local run build
+        env:
+          PORT: '3741'
+          BASE_PATH: '/'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version in package.json
+        shell: bash
+        run: |
+          cd artifacts/bidwar-local
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
+            pkg.version = '${{ github.event.inputs.version || '1.0.0' }}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Package Windows installer (NSIS)
+        run: pnpm --filter @workspace/bidwar-local run package:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: List release output
+        shell: bash
+        run: ls -lh artifacts/bidwar-local/release/
+
+      - name: Create GitHub Release and upload installer
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version || '1.0.0' }}
+          name: BidWar Local v${{ github.event.inputs.version || '1.0.0' }}
+          body: |
+            ## BidWar Local v${{ github.event.inputs.version || '1.0.0' }}
+
+            Windows installer for offline auction management.
+
+            ### Installation
+            1. Download `BidWar-Local-Setup-${{ github.event.inputs.version || '1.0.0' }}.exe` below
+            2. Double-click to install
+            3. If Windows shows a security warning, click **More info → Run anyway**
+            4. Open **BidWar Local** from your Desktop
+          files: |
+            artifacts/bidwar-local/release/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

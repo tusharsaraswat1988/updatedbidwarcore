@@ -58,6 +58,11 @@ import {
   Sliders,
   Palette,
   MonitorDown,
+  Hammer,
+  GitBranch,
+  ExternalLink,
+  CircleCheck,
+  XCircle,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -2606,6 +2611,325 @@ function InstallerSettingsPanel() {
   );
 }
 
+// ─── Build Trigger Panel ─────────────────────────────────────────────────────
+
+interface BuildStatus {
+  configured: boolean;
+  hasRuns?: boolean;
+  error?: string;
+  id?: number;
+  status?: string;
+  conclusion?: string | null;
+  url?: string;
+  createdAt?: string;
+  title?: string;
+  actionsUrl?: string;
+}
+
+interface GithubConfig {
+  owner: string | null;
+  repo: string | null;
+  workflowFile: string | null;
+}
+
+function buildStatusBadge(status: BuildStatus) {
+  if (!status.hasRuns) return null;
+  const s = status.status;
+  const c = status.conclusion;
+  if (s === "completed") {
+    if (c === "success") {
+      return (
+        <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-xs">
+          <CircleCheck className="w-3 h-3" /> Build passed
+        </Badge>
+      );
+    }
+    if (c === "failure") {
+      return (
+        <Badge className="bg-red-500/15 text-red-400 border-red-500/30 gap-1 text-xs">
+          <XCircle className="w-3 h-3" /> Build failed
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-muted text-muted-foreground gap-1 text-xs">
+        {c ?? "completed"}
+      </Badge>
+    );
+  }
+  if (s === "in_progress") {
+    return (
+      <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 gap-1 text-xs">
+        <RefreshCw className="w-3 h-3 animate-spin" /> Building...
+      </Badge>
+    );
+  }
+  if (s === "queued" || s === "waiting") {
+    return (
+      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 gap-1 text-xs">
+        <RefreshCw className="w-3 h-3" /> Queued
+      </Badge>
+    );
+  }
+  return <Badge className="bg-muted text-muted-foreground text-xs">{s}</Badge>;
+}
+
+function BuildTriggerPanel() {
+  const [config, setConfig] = useState<GithubConfig>({ owner: "", repo: "", workflowFile: "build-electron.yml" });
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [configSaved, setConfigSaved] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  const [version, setVersion] = useState("1.0.0");
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const [buildStatus, setBuildStatus] = useState<BuildStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  async function loadConfig() {
+    const r = await fetch("/api/auth/admin/builds/github-config");
+    if (r.ok) {
+      const d = await r.json() as GithubConfig;
+      setConfig({ owner: d.owner ?? "", repo: d.repo ?? "", workflowFile: d.workflowFile ?? "build-electron.yml" });
+    }
+    setConfigLoading(false);
+  }
+
+  async function fetchStatus() {
+    setStatusLoading(true);
+    const r = await fetch("/api/auth/admin/builds/status");
+    if (r.ok) setBuildStatus(await r.json() as BuildStatus);
+    setStatusLoading(false);
+  }
+
+  useEffect(() => {
+    loadConfig();
+    void fetchStatus();
+  }, []);
+
+  useEffect(() => {
+    if (buildStatus?.status === "in_progress" || buildStatus?.status === "queued") {
+      const t = setInterval(() => void fetchStatus(), 15000);
+      return () => clearInterval(t);
+    }
+    return undefined;
+  }, [buildStatus?.status]);
+
+  async function saveConfig() {
+    setConfigSaving(true);
+    setConfigSaved(false);
+    setConfigError(null);
+    const r = await fetch("/api/auth/admin/builds/github-config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        owner: config.owner?.trim() || null,
+        repo: config.repo?.trim() || null,
+        workflowFile: config.workflowFile?.trim() || null,
+      }),
+    });
+    if (r.ok) {
+      setConfigSaved(true);
+      setTimeout(() => setConfigSaved(false), 3000);
+    } else {
+      const d = await r.json().catch(() => ({})) as { error?: string };
+      setConfigError(d.error ?? "Save failed");
+    }
+    setConfigSaving(false);
+  }
+
+  async function triggerBuild() {
+    setTriggering(true);
+    setTriggerMsg(null);
+    const r = await fetch("/api/auth/admin/builds/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: version.trim() }),
+    });
+    if (r.ok) {
+      const d = await r.json() as { ok: boolean; version: string; actionsUrl: string };
+      setTriggerMsg({ text: `Build triggered for v${d.version}. Check GitHub Actions for progress.`, ok: true });
+      setTimeout(() => void fetchStatus(), 4000);
+    } else {
+      const d = await r.json().catch(() => ({})) as { error?: string };
+      setTriggerMsg({ text: d.error ?? "Trigger failed", ok: false });
+    }
+    setTriggering(false);
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-6 border-t border-border/40">
+      <div className="max-w-lg space-y-6">
+        <div>
+          <h2 className="font-display font-bold text-lg text-white flex items-center gap-2">
+            <Hammer className="w-5 h-5 text-blue-400" />
+            Windows Build Pipeline
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Trigger the GitHub Actions workflow that builds and uploads the BidWar Local Windows installer.
+          </p>
+        </div>
+
+        {/* GitHub Config */}
+        <div className="space-y-4 rounded-xl border border-border/50 bg-muted/10 p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <GitBranch className="w-3.5 h-3.5" /> GitHub Repository
+          </p>
+
+          {configLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Owner / Org</Label>
+                  <Input
+                    value={config.owner ?? ""}
+                    onChange={(e) => setConfig((c) => ({ ...c, owner: e.target.value }))}
+                    placeholder="your-org"
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Repository</Label>
+                  <Input
+                    value={config.repo ?? ""}
+                    onChange={(e) => setConfig((c) => ({ ...c, repo: e.target.value }))}
+                    placeholder="bidwar-app"
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Workflow File</Label>
+                <Input
+                  value={config.workflowFile ?? ""}
+                  onChange={(e) => setConfig((c) => ({ ...c, workflowFile: e.target.value }))}
+                  placeholder="build-electron.yml"
+                  className="h-8 text-sm font-mono"
+                />
+              </div>
+
+              {configError && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> {configError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-3">
+                <Button size="sm" className="gap-1.5 h-7 text-xs" onClick={saveConfig} disabled={configSaving}>
+                  {configSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  {configSaving ? "Saving..." : configSaved ? "Saved" : "Save Config"}
+                </Button>
+                {configSaved && <span className="text-xs text-green-400">Saved.</span>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Trigger Build */}
+        <div className="space-y-3 rounded-xl border border-border/50 bg-muted/10 p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Hammer className="w-3.5 h-3.5" /> Trigger a Build
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="space-y-1 w-32">
+              <Label className="text-xs text-muted-foreground">Version</Label>
+              <Input
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                placeholder="1.0.0"
+                className="h-8 text-sm font-mono"
+              />
+            </div>
+            <div className="pt-5">
+              <Button
+                size="sm"
+                className="gap-1.5 h-8 bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={triggerBuild}
+                disabled={triggering || !config.owner || !config.repo}
+              >
+                {triggering ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Hammer className="w-3.5 h-3.5" />}
+                {triggering ? "Triggering..." : "Build Windows Installer"}
+              </Button>
+            </div>
+          </div>
+          {!config.owner && !configLoading && (
+            <p className="text-xs text-muted-foreground">Set the GitHub owner and repo above before triggering a build.</p>
+          )}
+          {triggerMsg && (
+            <p className={`text-xs flex items-center gap-1.5 ${triggerMsg.ok ? "text-green-400" : "text-destructive"}`}>
+              {triggerMsg.ok ? <CircleCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+              {triggerMsg.text}
+            </p>
+          )}
+        </div>
+
+        {/* Build Status */}
+        {buildStatus !== null && (
+          <div className="space-y-3 rounded-xl border border-border/50 bg-muted/10 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> Latest Build
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => void fetchStatus()}
+                title="Refresh status"
+              >
+                <RefreshCw className={`w-3 h-3 ${statusLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
+            {!buildStatus.configured && (
+              <p className="text-xs text-muted-foreground">Configure GitHub owner and repo to see build status.</p>
+            )}
+            {buildStatus.configured && !buildStatus.hasRuns && !buildStatus.error && (
+              <p className="text-xs text-muted-foreground">No builds yet. Trigger one above.</p>
+            )}
+            {buildStatus.error && (
+              <p className="text-xs text-destructive">{buildStatus.error}</p>
+            )}
+            {buildStatus.hasRuns && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {buildStatusBadge(buildStatus)}
+                  {buildStatus.title && (
+                    <span className="text-xs text-muted-foreground truncate max-w-xs">{buildStatus.title}</span>
+                  )}
+                </div>
+                {buildStatus.createdAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Started {new Date(buildStatus.createdAt).toLocaleString()}
+                  </p>
+                )}
+                {buildStatus.url && (
+                  <a
+                    href={buildStatus.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" /> View on GitHub Actions
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -2816,7 +3140,10 @@ export default function AdminDashboard() {
         ) : adminTab === "sports" ? (
           <SportsPanel />
         ) : adminTab === "settings" ? (
-          <InstallerSettingsPanel />
+          <div className="flex-1 flex flex-col overflow-auto divide-y divide-border/40">
+            <InstallerSettingsPanel />
+            <BuildTriggerPanel />
+          </div>
         ) : (
           <div className="flex-1 flex min-h-0">
             {/* Left: tournament list */}
