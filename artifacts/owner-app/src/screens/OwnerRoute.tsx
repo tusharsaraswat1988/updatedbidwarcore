@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "wouter";
 import {
   useGetTeam, getGetTeamQueryKey,
@@ -13,6 +13,7 @@ import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
 import { Squad } from "./Squad";
+import { upsertSavedAuction } from "./Launcher";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "completed";
 
@@ -20,36 +21,82 @@ function sessionKey(teamId: number) {
   return `owner_verified_${teamId}`;
 }
 
-const LAST_URL_KEY = "owner_last_path";
+// ── Push subscription helper ──────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const output  = new Uint8Array(rawData.length) as Uint8Array<ArrayBuffer>;
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
 
+async function subscribeToPush(tournamentId: number, teamId: number) {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    const keyRes = await fetch("/api/vapid-public-key");
+    if (!keyRes.ok) return;
+    const { publicKey } = (await keyRes.json()) as { publicKey: string };
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    const subJson = sub.toJSON() as {
+      endpoint: string;
+      keys: { p256dh: string; auth: string };
+    };
+
+    await fetch(`/api/tournaments/${tournamentId}/push-subscribe?teamId=${teamId}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(subJson),
+    });
+  } catch {
+    // Push is optional — fail silently
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export function OwnerRoute() {
-  const params = useParams<{ id: string; teamId: string }>();
+  const params       = useParams<{ id: string; teamId: string }>();
   const tournamentId = parseInt(params.id || "0");
   const teamId       = parseInt(params.teamId || "0");
   const qc           = useQueryClient();
-
-  // Persist this owner's path so the PWA home-screen launch can redirect back
-  useEffect(() => {
-    if (tournamentId && teamId) {
-      localStorage.setItem(LAST_URL_KEY, `/tournament/${tournamentId}/owner/${teamId}`);
-    }
-  }, [tournamentId, teamId]);
+  const pushDoneRef  = useRef(false);
 
   const [screen, setScreen] = useState<Screen>("loading");
 
   const { data: team } = useGetTeam(tournamentId, teamId, {
     query: {
       queryKey: getGetTeamQueryKey(tournamentId, teamId),
-      enabled: !!tournamentId && !!teamId,
+      enabled:  !!tournamentId && !!teamId,
     },
   });
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: !!tournamentId,
+      enabled:  !!tournamentId,
     },
   });
+
+  // Save this auction to localStorage so the Launcher can find it later
+  useEffect(() => {
+    if (!tournamentId || !teamId) return;
+    upsertSavedAuction({
+      tournamentId,
+      teamId,
+      tournamentName: tournament?.name,
+      teamName:       team?.name,
+      teamColor:      team?.color ?? undefined,
+    });
+  }, [tournamentId, teamId, tournament?.name, team?.name, team?.color]);
 
   // Determine if code is required and if already verified
   useEffect(() => {
@@ -66,13 +113,20 @@ export function OwnerRoute() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team, teamId]);
 
-  // Auction state polling — 1 s during live bidding so the bid button
-  // reflects another team's bid within ~1 s instead of ~1.5 s
+  // Subscribe to push once the owner is past the gate
+  useEffect(() => {
+    if (screen === "loading" || screen === "gate") return;
+    if (pushDoneRef.current) return;
+    pushDoneRef.current = true;
+    subscribeToPush(tournamentId, teamId);
+  }, [screen, tournamentId, teamId]);
+
+  // Auction state polling
   const pollInterval = screen === "live" || screen === "squad" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching } = useGetAuctionState(tournamentId, {
     query: {
-      queryKey: getGetAuctionStateQueryKey(tournamentId),
-      enabled: !!tournamentId && screen !== "loading" && screen !== "gate",
+      queryKey:       getGetAuctionStateQueryKey(tournamentId),
+      enabled:        !!tournamentId && screen !== "loading" && screen !== "gate",
       refetchInterval: (query) => {
         const d = query.state.data;
         if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
@@ -92,8 +146,8 @@ export function OwnerRoute() {
 
   const { data: allPurses } = useGetTeamPurses(tournamentId, {
     query: {
-      queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId && (screen === "live" || screen === "completed"),
+      queryKey:       getGetTeamPursesQueryKey(tournamentId),
+      enabled:        !!tournamentId && (screen === "live" || screen === "completed"),
       refetchInterval: isCompleted ? false : 10000,
     },
   });
@@ -101,29 +155,35 @@ export function OwnerRoute() {
   const placeBid = usePlaceBid();
   const [lastBidError, setLastBidError] = useState("");
 
-  const teamColor   = team?.color || "#F59E0B";
-  const teamPurse   = allPurses?.find(t => t.teamId === teamId);
+  const teamColor = team?.color || "#F59E0B";
+  const teamPurse = allPurses?.find((t) => t.teamId === teamId);
 
-  // ── Verify access code ──────────────────────────────────────────────────────
+  // ── Sync / recover handler ────────────────────────────────────────────────
+  function handleSync() {
+    qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+    qc.invalidateQueries({ queryKey: getGetTeamQueryKey(tournamentId, teamId) });
+    qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+  }
+
+  // ── Access code verification ──────────────────────────────────────────────
   async function verifyCode(enteredCode: string): Promise<boolean> {
     try {
-      const r = await fetch(`/api/tournaments/${tournamentId}/teams/${teamId}/verify-access-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: enteredCode }),
-      });
+      const r = await fetch(
+        `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access-code`,
+        {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ code: enteredCode }),
+        },
+      );
       if (r.ok) {
-        const body = await r.json() as { valid?: boolean };
+        const body = (await r.json()) as { valid?: boolean };
         return body.valid === true;
       }
-
-      // Fallback: compare against team.accessCode if returned (organizer view)
       const accessCode = (team as unknown as { accessCode?: string })?.accessCode;
       if (accessCode && enteredCode.toUpperCase() === accessCode.toUpperCase()) return true;
-
       return false;
     } catch {
-      // Network error — check local team data as fallback
       const accessCode = (team as unknown as { accessCode?: string })?.accessCode;
       if (accessCode && enteredCode.toUpperCase() === accessCode.toUpperCase()) return true;
       return false;
@@ -136,11 +196,7 @@ export function OwnerRoute() {
   }
 
   function handleWarmupReady() {
-    if (isCompleted) {
-      setScreen("completed");
-    } else {
-      setScreen("live");
-    }
+    setScreen(isCompleted ? "completed" : "live");
   }
 
   async function handleBid(amount: number): Promise<"success" | "leading" | "error"> {
@@ -154,7 +210,6 @@ export function OwnerRoute() {
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
       if (msg.includes("already the highest bidder")) {
-        // Someone outbid us — refetch immediately so the new amount shows at once
         qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
         return "leading";
       }
@@ -162,7 +217,7 @@ export function OwnerRoute() {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   if (screen === "loading" || !team) {
     return (
       <div className="h-full flex items-center justify-center bg-[#09090b]">
@@ -190,6 +245,7 @@ export function OwnerRoute() {
         teamShortCode={team.shortCode || "?"}
         teamColor={teamColor}
         onReady={handleWarmupReady}
+        onSync={handleSync}
       />
     );
   }
@@ -219,7 +275,6 @@ export function OwnerRoute() {
     );
   }
 
-  // live
   return (
     <LiveBid
       state={state ?? null}
@@ -231,6 +286,7 @@ export function OwnerRoute() {
       bidErrorMsg={lastBidError}
       onBid={handleBid}
       onViewSquad={() => setScreen("squad")}
+      onSync={handleSync}
       onSignOut={() => {
         sessionStorage.removeItem(sessionKey(teamId));
         setScreen("gate");

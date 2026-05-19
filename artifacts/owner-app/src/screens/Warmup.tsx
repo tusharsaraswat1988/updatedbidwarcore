@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { RefreshCw } from "lucide-react";
 
 interface Props {
-  teamName: string;
+  teamName:      string;
   teamShortCode: string;
-  teamColor: string;
-  onReady: () => void;
+  teamColor:     string;
+  onReady:       () => void;
+  onSync?:       () => void;
 }
 
 const STEPS = [
@@ -15,8 +17,9 @@ const STEPS = [
   "Ready to bid!",
 ];
 
-export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
-  const [step, setStep] = useState(0);
+export function Warmup({ teamName, teamShortCode, teamColor, onReady, onSync }: Props) {
+  const [step,    setStep]    = useState(0);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const timings = [600, 700, 700, 500];
@@ -35,6 +38,13 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
     const id = setTimeout(advance, timings[0]);
     return () => clearTimeout(id);
   }, [onReady]);
+
+  function handleSync() {
+    if (!onSync || syncing) return;
+    setSyncing(true);
+    onSync();
+    setTimeout(() => setSyncing(false), 1200);
+  }
 
   return (
     <div
@@ -91,9 +101,21 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
         />
       </div>
 
-      <p className="absolute bottom-8 text-[11px] text-[#3f3f46] uppercase tracking-widest">
-        Powered by BidWar
-      </p>
+      {/* Footer */}
+      <div className="absolute bottom-8 flex items-center gap-4">
+        <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">
+          Powered by BidWar
+        </p>
+        {onSync && (
+          <button
+            onClick={handleSync}
+            className="p-1.5 rounded-full text-[#3f3f46] hover:text-[#71717a] transition-colors"
+            title="Sync data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

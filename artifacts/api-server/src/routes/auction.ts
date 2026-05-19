@@ -413,6 +413,15 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
 
   await db.update(auctionSessionsTable).set(patch).where(eq(auctionSessionsTable.tournamentId, tid));
   await db.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
+
+  // Fire-and-forget push notification to all subscribed owner devices
+  import("./push").then(({ sendPushToTournament }) => {
+    sendPushToTournament(tid, {
+      title: "Auction is Live!",
+      body:  "Your auction has started — open BidWar to place your bids.",
+    }).catch(() => {});
+  }).catch(() => {});
+
   res.json(await broadcastState(tid));
 });
 

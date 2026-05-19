@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users, Coffee } from "lucide-react";
+import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users, Coffee, RefreshCw } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
@@ -85,6 +85,7 @@ interface Props {
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
   onSignOut: () => void;
+  onSync: () => void;
 }
 
 // ── Network quality ─────────────────────────────────────────────────────────
@@ -400,14 +401,16 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
-export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut }: Props) {
+export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
   const networkQ    = useNetworkQuality(state, isFetching);
   const mayTap      = useDebounce(600);
 
-  const [bidding,     setBidding]     = useState(false);
-  const [bidFeedback, setBidFeedback] = useState<"success" | "error" | "leading" | null>(null);
+  const [bidding,          setBidding]          = useState(false);
+  const [bidFeedback,      setBidFeedback]       = useState<"success" | "error" | "leading" | null>(null);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [syncing,          setSyncing]           = useState(false);
 
   const teamColor = team.color || "#F59E0B";
   const isLeading = state?.currentBidTeamId === teamId;
@@ -437,6 +440,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     spendablePurse >= nextBidAmount &&
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached;
+
+  function handleSyncTap() {
+    if (syncing) return;
+    setSyncing(true);
+    onSync();
+    setTimeout(() => setSyncing(false), 1200);
+  }
 
   async function handleBidTap() {
     if (!canBid || bidding || !mayTap()) return;
@@ -527,6 +537,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
               {statusLabel}
             </span>
             <button
+              onClick={handleSyncTap}
+              className="p-1.5 text-[#71717a] hover:text-white transition-colors"
+              title="Sync"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            </button>
+            <button
               onClick={onViewSquad}
               className="p-1.5 text-[#71717a] hover:text-white transition-colors"
               title="My squad"
@@ -534,7 +551,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
               <Users className="w-3.5 h-3.5" />
             </button>
             <button
-              onClick={onSignOut}
+              onClick={() => setShowSignOutConfirm(true)}
               className="p-1.5 text-[#71717a] hover:text-white transition-colors"
               title="Sign out"
             >
@@ -724,6 +741,37 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Sign-out confirmation overlay */}
+        <AnimatePresence>
+          {showSignOutConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-6"
+            >
+              <div className="text-center space-y-2">
+                <p className="font-display font-bold text-xl text-white">Leave this auction?</p>
+                <p className="text-sm text-[#71717a]">You will need to re-enter your access code.</p>
+              </div>
+              <div className="flex gap-3 w-full max-w-xs">
+                <button
+                  onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 py-3 rounded-xl border border-[#27272a] text-[#a1a1aa] font-semibold text-sm hover:bg-[#18181b] transition-colors"
+                >
+                  Stay
+                </button>
+                <button
+                  onClick={() => { setShowSignOutConfirm(false); onSignOut(); }}
+                  className="flex-1 py-3 rounded-xl bg-[#27272a] text-white font-semibold text-sm hover:bg-[#3f3f46] transition-colors"
+                >
+                  Yes, Leave
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -756,10 +804,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             >
               {statusLabel}
             </span>
+            <button onClick={handleSyncTap} className="p-1 text-[#71717a] hover:text-white transition-colors" title="Sync">
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            </button>
             <button onClick={onViewSquad} className="p-1 text-[#71717a] hover:text-white transition-colors" title="My squad">
               <Users className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onSignOut} className="p-1 text-[#71717a] hover:text-white transition-colors">
+            <button onClick={() => setShowSignOutConfirm(true)} className="p-1 text-[#71717a] hover:text-white transition-colors">
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -917,6 +968,37 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
               <p className="text-sm text-[#71717a] mt-1">Reconnecting to auction room...</p>
             </div>
             <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sign-out confirmation overlay */}
+      <AnimatePresence>
+        {showSignOutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-6"
+          >
+            <div className="text-center space-y-2">
+              <p className="font-display font-bold text-xl text-white">Leave this auction?</p>
+              <p className="text-sm text-[#71717a]">You will need to re-enter your access code.</p>
+            </div>
+            <div className="flex gap-3 w-full max-w-xs">
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="flex-1 py-3 rounded-xl border border-[#27272a] text-[#a1a1aa] font-semibold text-sm hover:bg-[#18181b] transition-colors"
+              >
+                Stay
+              </button>
+              <button
+                onClick={() => { setShowSignOutConfirm(false); onSignOut(); }}
+                className="flex-1 py-3 rounded-xl bg-[#27272a] text-white font-semibold text-sm hover:bg-[#3f3f46] transition-colors"
+              >
+                Yes, Leave
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

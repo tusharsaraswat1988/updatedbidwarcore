@@ -16,10 +16,12 @@ import commRouter from "./comm";
 import webhooksRouter from "./webhooks";
 import sportsRouter from "./sports";
 import brandingRouter from "./branding";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(pushRouter);
 router.use(healthRouter);
 router.use(uploadRouter);
 router.use(brandingRouter);
