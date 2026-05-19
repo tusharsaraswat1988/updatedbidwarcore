@@ -586,12 +586,6 @@ export default function AdminBranding() {
                     hint="Loading screen for mobile / PWA / Electron app."
                   />
                 </div>
-                <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 max-w-lg">
-                  <p className="text-xs text-amber-400 font-semibold">Upload requires Cloudinary</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in environment secrets to enable asset uploads.
-                  </p>
-                </div>
               </TabsContent>
 
               {/* ── Colors & Typography ──────────────────── */}
