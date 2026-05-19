@@ -48,6 +48,21 @@ Thumbs.db
 .cache/
 .local/
 .env
+.env.local
+.env.*.local
 *.zip
 *.sql
 build
+
+# Security — never commit credentials or secrets
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+secrets.yaml
+secrets.toml
+*secrets*
+*credentials*
+.env.production
+.env.staging

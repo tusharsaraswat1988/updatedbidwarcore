@@ -1,0 +1,142 @@
+IMPORTANT SYSTEM AUDIT TASK
+
+Earlier, an Electron + Local Router architecture was partially developed for Bidwar to solve slow internet and unstable network issues during live auctions.
+
+The original idea was:
+- create a local-network-first auction environment
+- allow auctions to continue on LAN/local WiFi even if internet is weak
+- reduce dependency on external internet stability
+- improve bid latency and reliability
+- later sync data back to cloud/server
+
+The work was partially started earlier but paused midway after some modifications and feature additions.
+
+NOW I NEED A COMPLETE AUDIT AND FUTURE ROADMAP.
+
+YOUR TASKS:
+
+PHASE 1 — DISCOVERY & AUDIT
+
+1. Search the entire codebase and identify:
+- Electron-related code
+- local router/network logic
+- LAN discovery logic
+- websocket architecture
+- offline sync systems
+- local database logic
+- P2P/network broadcasting logic
+- socket fallback systems
+- service workers/offline caching
+- local server startup logic
+- desktop packaging logic
+- sync queue logic
+- conflict resolution logic
+
+2. Identify:
+- what was completed
+- what is partially completed
+- what is broken
+- what is obsolete
+- what conflicts with current architecture
+- what no longer matches the latest Bidwar system
+
+3. Check compatibility with:
+- current auction engine
+- current websocket structure
+- current authentication
+- organizer/team-owner/operator architecture
+- current database models
+- new admin separation architecture
+- current deployment structure
+
+4. Detect:
+- duplicate systems
+- abandoned files
+- dead code
+- unused dependencies
+- conflicting socket systems
+- conflicting auth systems
+
+PHASE 2 — TECHNICAL ANALYSIS
+
+Explain:
+1. What the original architecture intended to do
+2. Whether the local-first approach is technically viable
+3. Whether Electron is still the best approach
+4. Whether local-router architecture is scalable
+5. Expected latency advantages
+6. Expected synchronization challenges
+7. Security risks
+8. Multi-device synchronization risks
+9. Risks during live bidding
+10. Risks with reconnection scenarios
+
+PHASE 3 — FUTURE STRATEGY
+
+Based on CURRENT Bidwar architecture, recommend:
+
+OPTION A:
+Continue and complete Electron + local router architecture
+
+OPTION B:
+Refactor and modernize the existing approach
+
+OPTION C:
+Replace with better architecture entirely
+
+For each option explain:
+- complexity
+- scalability
+- maintenance cost
+- deployment difficulty
+- reliability
+- offline capability
+- internet dependency
+- expected performance during auctions
+
+PHASE 4 — IDEAL FUTURE ARCHITECTURE
+
+Design the best architecture for:
+- slow internet auctions
+- unstable mobile hotspot environments
+- tournament grounds
+- indoor venues
+- multi-device live bidding
+- organizer + operator + owner real-time syncing
+
+Explain recommended architecture for:
+- websocket layer
+- local networking
+- offline persistence
+- sync recovery
+- conflict resolution
+- reconnect handling
+- bid consistency
+- anti-duplicate-bid protection
+- failover systems
+
+PHASE 5 — OUTPUT FORMAT
+
+Provide:
+1. Current state report
+2. Risk report
+3. Missing work report
+4. Recommended architecture
+5. Step-by-step future roadmap
+6. Refactor requirements
+7. Folder structure suggestions
+8. Network architecture diagram (text format)
+9. Deployment architecture
+10. Clear recommendation on whether to continue Electron approach or replace it
+
+IMPORTANT:
+Do NOT start coding immediately.
+
+First perform deep analysis of the existing codebase and architecture.
+
+After analysis:
+- provide findings
+- provide recommendations
+- provide implementation roadmap
+
+Only after approval should implementation begin.
