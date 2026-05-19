@@ -1,0 +1,55 @@
+git push --force "https://x-access-token:$GITHUB_PAT@github.com/tusharsaraswat1988/updatedbidwarcore.git" main
+warning: current Git remote contains credentials
+warning: current Git remote contains credentials                               
+Uploading LFS objects: 100% (4/4), 1.4 GB | 0 B/s, done.                       
+Enumerating objects: 4064, done.
+Counting objects: 100% (4064/4064), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (3814/3814), done.
+Writing objects: 100% (4064/4064), 91.39 MiB | 5.37 MiB/s, done.
+Total 4064 (delta 2663), reused 641 (delta 173), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2663/2663), done.
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+remote: 
+remote: - GITHUB PUSH PROTECTION
+remote:   —————————————————————————————————————————
+remote:     Resolve the following violations before pushing again
+remote: 
+remote:     - Push cannot contain secrets
+remote: 
+remote:     
+remote:      (?) Learn how to resolve a blocked push
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push
+remote:     
+remote:     
+remote:       —— Twilio Account String Identifier ——————————————————
+remote:        locations:
+remote:          - commit: 9f87ad99ffd6802c894a737050124b6bf56dd755
+remote:            path: .replit:41
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/tusharsaraswat1988/updatedbidwarcore/security/secret-scanning/unblock-secret/3DwLIjQyGsBV2viRPXlxvSYHqJt
+remote:     
+remote:     
+remote:       —— Google OAuth Client ID ————————————————————————————
+remote:        locations:
+remote:          - commit: 9f87ad99ffd6802c894a737050124b6bf56dd755
+remote:            path: .replit:45
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/tusharsaraswat1988/updatedbidwarcore/security/secret-scanning/unblock-secret/3DwLInbbftWkGIwnwAR6vV09W3U
+remote:     
+remote:     
+remote:       —— Google OAuth Client Secret ————————————————————————
+remote:        locations:
+remote:          - commit: 9f87ad99ffd6802c894a737050124b6bf56dd755
+remote:            path: .replit:46
+remote:     
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.
+remote:        https://github.com/tusharsaraswat1988/updatedbidwarcore/security/secret-scanning/unblock-secret/3DwLIoYolWSNUrcUpVjrYPXxEyM
+remote:     
+remote: 
+remote: 
+To https://github.com/tusharsaraswat1988/updatedbidwarcore.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/tusharsaraswat1988/updatedbidwarcore.git'
