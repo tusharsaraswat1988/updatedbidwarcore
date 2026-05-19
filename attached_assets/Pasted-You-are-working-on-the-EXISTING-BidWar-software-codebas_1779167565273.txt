@@ -1,0 +1,310 @@
+You are working on the EXISTING BidWar software codebase for bidwar.in.
+
+IMPORTANT:
+This is NOT a new software.
+Do NOT recreate auth, layout, sidebar, routing, theme system, database architecture, or admin structure from scratch.
+
+You must integrate this module INSIDE the existing Super Admin Panel cleanly.
+
+====================================================
+TASK
+====================================================
+
+Create a new section:
+
+Super Admin → Settings → Branding Center
+
+Purpose:
+Manage global BidWar branding settings and assets across:
+- Admin panel
+- Team owner app
+- Viewer screens
+- Auction room
+- PDFs
+- Public links
+- Future mobile/PWA branding
+
+====================================================
+CRITICAL RULES
+====================================================
+
+- Reuse existing BidWar components and architecture
+- Reuse existing upload/storage system
+- Reuse existing settings system if available
+- Reuse current theme engine
+- Follow current coding structure
+- DO NOT break existing functionality
+- Existing branding/colors/fonts should remain active unless admin changes manually
+- Load current active colors/fonts as defaults
+
+====================================================
+MENU LOCATION
+====================================================
+
+Settings
+   → Branding Center
+
+Use existing sidebar/menu design.
+
+====================================================
+UI STRUCTURE
+====================================================
+
+Create responsive premium card-based UI.
+
+Sections:
+
+1. Brand Identity
+2. Visual Assets
+3. Colors & Typography
+4. Public Branding
+5. Logo Animation
+6. Live Preview
+
+Use tabs or collapsible cards matching existing admin UI.
+
+====================================================
+1. BRAND IDENTITY
+====================================================
+
+Fields:
+
+- Brand Name
+  default:
+  BidWar
+
+- Tagline
+  placeholder:
+  "Powered by Intelligent Bidding"
+
+- Powered By Text
+  default:
+  "Powered by BidWar"
+
+- Mini Brand Text
+  example:
+  BW
+
+====================================================
+2. VISUAL ASSETS
+====================================================
+
+A. Main Brand Logo
+Formats:
+PNG / SVG / WEBP
+
+Transparent background preferred.
+
+Preview after upload.
+
+B. Mini Logo
+Used for:
+sidebar
+mobile topbar
+compact areas
+
+C. App Icon
+Recommended:
+512x512
+
+Used for:
+PWA
+browser icon
+future mobile app
+
+D. Splash Screen Image
+
+Add preview cards for all uploads.
+
+====================================================
+3. COLORS & TYPOGRAPHY
+====================================================
+
+AUTO LOAD CURRENT SYSTEM VALUES.
+
+DO NOT auto-change UI.
+
+Fields:
+- Primary Color
+- Secondary Color
+- Accent Color
+- Background Color
+- Success Color
+- Danger Color
+
+Use color pickers.
+
+Typography:
+- Heading Font
+- Body Font
+
+Preload currently active fonts automatically.
+
+Changes apply only after:
+SAVE BRANDING SETTINGS
+
+====================================================
+4. PUBLIC BRANDING
+====================================================
+
+Toggle settings:
+
+- Show Powered By on Viewer Screen
+- Show Powered By on Team Owner App
+- Show Branding on PDFs
+- Show Branding on Public Share Links
+- Show Branding on Auction Screens
+- Enable Watermark
+
+Watermark options:
+- Watermark Text
+- Opacity Slider
+- Position Selector
+
+Default:
+Powered by BidWar
+
+====================================================
+5. LOGO ANIMATION
+====================================================
+
+ONLY KEEP LOGO ANIMATION SUPPORT FOR NOW.
+
+Do NOT add intro videos or auction videos currently.
+
+Upload support:
+- Animated Logo
+Formats:
+MP4
+WEBM
+GIF
+
+Add preview player.
+
+Purpose:
+Used later for:
+- splash screen
+- loading animation
+- future app intro
+
+Store structure should remain future-ready.
+
+====================================================
+6. LIVE PREVIEW
+====================================================
+
+Realtime preview section.
+
+Preview examples:
+- Login header
+- Auction room topbar
+- Viewer screen
+- Team owner app header
+- PDF/report header
+
+Changes should preview instantly WITHOUT save.
+
+====================================================
+DATABASE
+====================================================
+
+If existing settings table exists:
+extend safely.
+
+Otherwise create:
+branding_settings
+
+Suggested fields:
+
+brand_name
+tagline
+powered_by_text
+mini_brand_text
+
+main_logo_url
+mini_logo_url
+app_icon_url
+splash_screen_url
+
+primary_color
+secondary_color
+accent_color
+background_color
+success_color
+danger_color
+
+heading_font
+body_font
+
+show_powered_by_viewer
+show_powered_by_owner_app
+show_branding_pdf
+show_branding_public_links
+show_branding_auction
+
+enable_watermark
+watermark_text
+watermark_opacity
+watermark_position
+
+logo_animation_url
+
+created_at
+updated_at
+
+====================================================
+GLOBAL BRANDING SERVICE
+====================================================
+
+Create reusable:
+useBranding()
+
+Should expose:
+- logos
+- colors
+- fonts
+- tagline
+- poweredByText
+- watermark
+
+for future global usage.
+
+====================================================
+IMPORTANT BRANDING RULE
+====================================================
+
+"Powered by BidWar" visibility is HIGH PRIORITY.
+
+Especially on:
+- Team owner app
+- Viewer screen
+- Auction screen
+
+Bid button area branding visibility should remain strong but premium.
+
+====================================================
+UI/UX REQUIREMENTS
+====================================================
+
+- Responsive
+- Dark mode compatible
+- Mobile friendly
+- Fast loading
+- Validate uploads
+- Optimize uploaded assets
+- Maintain current BidWar design language
+- Premium sports-tech feel
+
+====================================================
+FINAL REQUIREMENT
+====================================================
+
+Before implementation:
+Analyze existing BidWar architecture first.
+
+Then integrate cleanly without:
+- duplication
+- UI inconsistency
+- route conflicts
+- theme conflicts
+- breaking existing modules
