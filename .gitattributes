@@ -1,1 +1,4 @@
 project_backup.zip filter=lfs diff=lfs merge=lfs -text
+artifacts/bidwar-local/release/BidWar[[:space:]]Local-1.0.0.AppImage filter=lfs diff=lfs merge=lfs -text
+artifacts/bidwar-local/release/linux-unpacked/@workspacebidwar-local filter=lfs diff=lfs merge=lfs -text
+artifacts/bidwar-local/release/win-unpacked/BidWar[[:space:]]Local.exe filter=lfs diff=lfs merge=lfs -text

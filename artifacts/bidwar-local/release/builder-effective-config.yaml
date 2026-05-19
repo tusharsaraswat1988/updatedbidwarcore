@@ -1,0 +1,28 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.bidwar.local
+productName: BidWar Local
+copyright: Copyright 2025 BidWar
+files:
+  - filter:
+      - dist-electron/**
+      - dist-server/**
+      - frontend-dist/**
+      - renderer/**
+      - node_modules/**
+win:
+  target: nsis
+  icon: assets/icon.ico
+mac:
+  target: dmg
+  icon: assets/icon.icns
+  category: public.app-category.sports
+linux:
+  target: AppImage
+  icon: assets/icon.png
+  category: Sports
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+electronVersion: 36.9.5

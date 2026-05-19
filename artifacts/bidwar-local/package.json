@@ -1,6 +1,8 @@
 {
   "name": "@workspace/bidwar-local",
   "version": "1.0.0",
+  "description": "BidWar Local — offline Electron auction app",
+  "author": "BidWar",
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
@@ -12,7 +14,9 @@
     "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:win": "electron-builder --win",
-    "package:mac": "electron-builder --mac"
+    "package:win:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
+    "package:mac": "electron-builder --mac",
+    "package:linux": "electron-builder --linux AppImage"
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
@@ -30,6 +34,7 @@
     "@types/qrcode": "^1.5.6",
     "electron": "^36.3.2",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.27.3",
     "typescript": "^5.9.0"
   },
   "build": {
@@ -54,6 +59,11 @@
       "target": "dmg",
       "icon": "assets/icon.icns",
       "category": "public.app-category.sports"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Sports"
     },
     "nsis": {
       "oneClick": false,
