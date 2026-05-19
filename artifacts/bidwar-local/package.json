@@ -5,9 +5,11 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "electron .",
+    "build:icons": "node ./scripts/generate-icons.mjs",
+    "build:frontend": "node ./scripts/copy-frontend.mjs",
     "build:server": "node ./build-server.mjs",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "build": "pnpm run build:server && pnpm run build:electron",
+    "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:win": "electron-builder --win",
     "package:mac": "electron-builder --mac"
@@ -40,6 +42,7 @@
     "files": [
       "dist-electron/**",
       "dist-server/**",
+      "frontend-dist/**",
       "renderer/**",
       "node_modules/**"
     ],
