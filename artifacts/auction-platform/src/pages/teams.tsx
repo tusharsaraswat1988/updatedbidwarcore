@@ -123,7 +123,7 @@ function TeamForm({
 
       {/* Team Name (full width) */}
       <div className="space-y-2">
-        <Label>Team Name</Label>
+        <Label>Team Name *</Label>
         <Input
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -135,7 +135,7 @@ function TeamForm({
       {/* Short Code — auto-generated, editable */}
       <div className="space-y-2">
         <Label className="flex items-center gap-1.5">
-          Short Code
+          Short Code *
           {isNew && !shortCodeManuallyEdited && (
             <span className="text-[10px] font-normal text-primary flex items-center gap-0.5">
               <Wand2 className="w-3 h-3" /> auto-generated
@@ -179,11 +179,11 @@ function TeamForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Owner Name</Label>
+          <Label>Owner Name *</Label>
           <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required placeholder="Ravi Mehta" />
         </div>
         <div className="space-y-2">
-          <Label>Owner Mobile</Label>
+          <Label>Owner Mobile *</Label>
           <Input value={form.ownerMobile} onChange={e => setForm(f => ({ ...f, ownerMobile: e.target.value }))} required placeholder="+91 9999999999" />
         </div>
       </div>
@@ -199,7 +199,7 @@ function TeamForm({
         {/* Purse — only show when editing existing team */}
         {!isNew && (
           <div className="space-y-2">
-            <Label>Purse (₹)</Label>
+            <Label>Purse (₹) *</Label>
             <Input type="number" value={form.purse} onChange={e => setForm(f => ({ ...f, purse: parseInt(e.target.value) || 0 }))} required />
           </div>
         )}

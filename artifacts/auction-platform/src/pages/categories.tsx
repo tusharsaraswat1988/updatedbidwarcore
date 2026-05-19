@@ -112,7 +112,7 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label>Category Name</Label>
+        <Label>Category Name *</Label>
         <Input
           value={form.name}
           onChange={e => setF("name", e.target.value)}
