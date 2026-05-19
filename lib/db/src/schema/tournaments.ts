@@ -66,6 +66,11 @@ export const tournamentsTable = pgTable("tournaments", {
   localModeEnabled: boolean("local_mode_enabled").notNull().default(false),
   exportToken: text("export_token"),
   exportTokenExpiresAt: timestamp("export_token_expires_at", { withTimezone: true }),
+  // Replay prevention: set to now() after a successful /sync call;
+  // subsequent /sync attempts with the same token are rejected.
+  exportTokenSyncedAt: timestamp("export_token_synced_at", { withTimezone: true }),
+  // Operational visibility: updated on every successful /mirror call.
+  exportTokenLastMirrorAt: timestamp("export_token_last_mirror_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },
