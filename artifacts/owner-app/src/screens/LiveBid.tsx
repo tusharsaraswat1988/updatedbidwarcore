@@ -1,13 +1,17 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert, AlertTriangle, Users, Coffee, RefreshCw } from "lucide-react";
+import {
+  Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert,
+  AlertTriangle, Users, Coffee, RefreshCw, X, XCircle,
+} from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { useBranding } from "@/hooks/useBranding";
 
-// ── Types (minimal shapes matching the API schema) ──────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 interface AuctionState {
   status?: string;
   licenseStatus?: string;
@@ -89,24 +93,15 @@ interface Props {
   isSyncError?: boolean;
 }
 
-// ── Network quality ─────────────────────────────────────────────────────────
+// ── Network quality ──────────────────────────────────────────────────────────
 type NetworkQuality = "good" | "weak" | "poor";
 
 function useNetworkQuality(state: AuctionState | null, isFetching?: boolean): NetworkQuality {
   const lastUpdateRef = useRef<number>(Date.now());
   const [quality, setQuality] = useState<NetworkQuality>("good");
 
-  // Reset on state object reference change (data actually changed)
-  useEffect(() => {
-    if (state) lastUpdateRef.current = Date.now();
-  }, [state]);
-
-  // Also reset whenever a poll completes — this covers HTTP 304 (Not Modified)
-  // responses where React Query keeps the same object reference so `state`
-  // never changes, but the network is in fact healthy.
-  useEffect(() => {
-    lastUpdateRef.current = Date.now();
-  }, [isFetching]);
+  useEffect(() => { if (state) lastUpdateRef.current = Date.now(); }, [state]);
+  useEffect(() => { lastUpdateRef.current = Date.now(); }, [isFetching]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -121,7 +116,7 @@ function useNetworkQuality(state: AuctionState | null, isFetching?: boolean): Ne
   return quality;
 }
 
-// ── Anti-double-tap hook ────────────────────────────────────────────────────
+// ── Anti-double-tap ──────────────────────────────────────────────────────────
 function useDebounce(ms = 600) {
   const lastTap = useRef(0);
   return useCallback(() => {
@@ -132,45 +127,46 @@ function useDebounce(ms = 600) {
   }, [ms]);
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function NetworkDot({ quality }: { quality: NetworkQuality }) {
-  if (quality === "good")
-    return <Wifi className="w-4 h-4 text-green-400" />;
-  if (quality === "weak")
-    return <WifiLow className="w-4 h-4 text-yellow-400" />;
-  return <WifiOff className="w-4 h-4 text-red-400 animate-pulse" />;
+  if (quality === "good")  return <Wifi className="w-6 h-6 text-green-400" />;
+  if (quality === "weak")  return <WifiLow className="w-6 h-6 text-yellow-400" />;
+  return <WifiOff className="w-6 h-6 text-red-400 animate-pulse" />;
 }
 
 function TimerBar({
-  timerEndsAt,
-  teamColor,
-  timerExpired,
+  timerEndsAt, teamColor, timerExpired,
 }: {
   timerEndsAt: string | null | undefined;
   teamColor: string;
   timerExpired: boolean;
 }) {
   const { secondsLeft } = useCountdown(timerEndsAt);
-
   if (!timerEndsAt) return null;
 
+  const urgent = secondsLeft <= 5;
+  const color  = timerExpired || urgent ? "#ef4444" : teamColor;
+
   return (
-    <div className="flex items-center gap-3 px-1">
-      <div className="flex-1 h-2 bg-[#27272a] rounded-full overflow-hidden">
+    <div className="flex items-center gap-4 px-1">
+      <div className="flex-1 h-3 bg-[#27272a] rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
-          style={{ backgroundColor: timerExpired ? "#ef4444" : teamColor }}
+          style={{ backgroundColor: color }}
           animate={{ width: timerExpired ? "0%" : `${Math.max(0, (secondsLeft / 30) * 100)}%` }}
           transition={{ duration: 0.5 }}
         />
       </div>
-      <span
-        className="font-display font-bold text-lg tabular-nums w-8 text-right"
-        style={{ color: timerExpired ? "#ef4444" : timerExpired ? "#ef4444" : secondsLeft <= 5 ? "#ef4444" : teamColor }}
+      <motion.span
+        key={secondsLeft}
+        animate={urgent && !timerExpired ? { scale: [1, 1.15, 1] } : {}}
+        transition={{ duration: 0.3 }}
+        className="font-display font-black text-4xl tabular-nums w-16 text-right leading-none"
+        style={{ color }}
       >
         {secondsLeft}s
-      </span>
+      </motion.span>
     </div>
   );
 }
@@ -185,25 +181,27 @@ function PlayerCard({ player, teamColor }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
-      className="flex items-center gap-4 p-4 rounded-2xl border border-[#27272a] bg-[#18181b]"
+      className="flex items-center gap-5 p-5 rounded-2xl border border-[#27272a] bg-[#18181b]"
     >
-      <div className="w-16 h-20 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
         ) : (
-          <User className="w-8 h-8 text-[#52525b]" />
+          <User className="w-10 h-10 text-[#52525b]" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{player.name}</h2>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-          {player.role && <span className="text-sm text-[#a1a1aa] capitalize">{player.role}</span>}
-          {player.age && <span className="text-xs text-[#71717a]">Age {player.age}</span>}
-          {player.city && <span className="text-xs text-[#71717a]">{player.city}</span>}
+        <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+          {player.role && (
+            <span className="text-base text-[#a1a1aa] capitalize font-semibold">{player.role}</span>
+          )}
+          {player.age && <span className="text-sm text-[#71717a]">Age {player.age}</span>}
+          {player.city && <span className="text-sm text-[#71717a]">{player.city}</span>}
         </div>
         {player.basePrice != null && (
-          <p className="text-xs text-[#71717a] mt-1">
-            Base <span className="text-white font-semibold">{formatIndianRupee(player.basePrice)}</span>
+          <p className="text-sm text-[#71717a] mt-2">
+            Base <span className="text-white font-bold text-base">{formatIndianRupee(player.basePrice)}</span>
           </p>
         )}
       </div>
@@ -218,22 +216,22 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
   leadingTeam?: string | null;
 }) {
   return (
-    <div className="text-center">
-      <p className="text-xs font-semibold text-[#71717a] uppercase tracking-wider mb-1">
-        {isLeading ? "Your Bid — Leading" : "Current Bid"}
+    <div className="text-center py-2">
+      <p className="text-sm font-bold text-[#71717a] uppercase tracking-widest mb-2">
+        {isLeading ? "Your Bid — You Are Leading" : "Current Bid"}
       </p>
       <motion.p
         key={amount}
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="font-display font-black text-5xl leading-none"
+        className="font-display font-black text-6xl leading-none"
         style={{ color: isLeading ? teamColor : "#ffffff" }}
       >
         {formatIndianRupee(amount || 0)}
       </motion.p>
       {!isLeading && leadingTeam && (
-        <p className="text-xs text-[#71717a] mt-1">
-          Leading: <span className="font-semibold text-white">{leadingTeam}</span>
+        <p className="text-base text-[#71717a] mt-2">
+          Leading: <span className="font-bold text-white text-lg">{leadingTeam}</span>
         </p>
       )}
     </div>
@@ -241,17 +239,8 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
 }
 
 function BidButton({
-  canBid,
-  isLeading,
-  timerExpired,
-  hasPlayer,
-  isActive,
-  bidding,
-  bidFeedback,
-  nextBidAmount,
-  teamColor,
-  onBid,
-  landscape,
+  canBid, isLeading, timerExpired, hasPlayer, isActive,
+  bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape,
 }: {
   canBid: boolean;
   isLeading: boolean;
@@ -265,7 +254,7 @@ function BidButton({
   onBid: () => void;
   landscape: boolean;
 }) {
-  const buttonH = landscape ? "min-h-[40vh] h-full" : "h-full min-h-[14vh]";
+  const buttonH = landscape ? "min-h-[40vh] h-full" : "h-full min-h-[18vh]";
 
   if (isLeading) {
     return (
@@ -273,13 +262,13 @@ function BidButton({
         key="leading"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border-4 flex flex-col items-center justify-center gap-3 px-4`}
+        className={`w-full ${buttonH} rounded-3xl border-4 flex flex-col items-center justify-center gap-4 px-6`}
         style={{ borderColor: `${teamColor}80`, backgroundColor: `${teamColor}18` }}
       >
-        <Trophy className="w-12 h-12" style={{ color: teamColor }} />
+        <Trophy className="w-16 h-16" style={{ color: teamColor }} />
         <div className="text-center">
-          <p className="font-display font-black text-2xl" style={{ color: teamColor }}>HIGHEST BIDDER</p>
-          <p className="text-sm text-[#71717a] mt-1">Waiting for other teams...</p>
+          <p className="font-display font-black text-3xl" style={{ color: teamColor }}>HIGHEST BIDDER</p>
+          <p className="text-base text-[#71717a] mt-2">Waiting for other teams...</p>
         </div>
       </motion.div>
     );
@@ -291,12 +280,12 @@ function BidButton({
         key="expired"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-3`}
+        className={`w-full ${buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-4`}
       >
-        <AlertTriangle className="w-10 h-10 text-red-400" />
+        <AlertTriangle className="w-14 h-14 text-red-400" />
         <div className="text-center">
-          <p className="font-display font-black text-2xl text-red-400">BIDDING CLOSED</p>
-          <p className="text-sm text-[#71717a] mt-1">Timer expired — awaiting operator</p>
+          <p className="font-display font-black text-3xl text-red-400">BIDDING CLOSED</p>
+          <p className="text-base text-[#71717a] mt-2">Timer expired — awaiting operator</p>
         </div>
       </motion.div>
     );
@@ -308,10 +297,10 @@ function BidButton({
         key="waiting"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-2`}
+        className={`w-full ${buttonH} rounded-3xl border border-dashed border-[#3f3f46] bg-[#18181b] flex flex-col items-center justify-center gap-3`}
       >
-        <div className="w-8 h-8 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
-        <p className="text-sm text-[#71717a]">
+        <div className="w-10 h-10 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
+        <p className="text-base text-[#71717a] font-semibold">
           {!isActive ? "Auction paused" : "Waiting for next player..."}
         </p>
       </motion.div>
@@ -330,11 +319,11 @@ function BidButton({
         backgroundColor: canBid ? teamColor : "#374151",
         boxShadow: canBid ? `0 0 60px ${teamColor}50, 0 8px 32px rgba(0,0,0,0.5)` : "none",
         color: canBid ? "black" : "#6b7280",
-        fontSize: landscape ? "clamp(2rem, 5vw, 3.5rem)" : "clamp(2.5rem, 10vw, 4rem)",
+        fontSize: landscape ? "clamp(2rem, 5vw, 3.5rem)" : "clamp(2.5rem, 10vw, 4.5rem)",
       }}
     >
       {bidding ? (
-        <div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto" />
       ) : bidFeedback === "success" ? (
         <span>BID PLACED!</span>
       ) : (
@@ -349,7 +338,7 @@ function BidButton({
   );
 }
 
-// ── Last sold player card ────────────────────────────────────────────────────
+// ── Last sold player card ─────────────────────────────────────────────────────
 function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
   player: NonNullable<AuctionState["lastSoldPlayer"]>;
   teamColor: string;
@@ -362,35 +351,35 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="flex items-center gap-4 p-4 rounded-2xl border bg-[#18181b] relative overflow-hidden"
+      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#18181b] relative overflow-hidden"
       style={{ borderColor: `${soldColor}40` }}
     >
-      <div className="w-16 h-20 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
         {player.photoUrl ? (
           <img src={player.photoUrl} alt={player.name ?? ""} className="w-full h-full object-cover opacity-70" />
         ) : (
-          <User className="w-8 h-8 text-[#52525b]" />
+          <User className="w-10 h-10 text-[#52525b]" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: soldColor }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: soldColor }}>
           {wonByThisTeam ? "Your team won!" : "Last sold"}
         </p>
-        <h2 className="font-display font-bold text-xl leading-tight text-white truncate">{player.name}</h2>
-        {player.role && <p className="text-xs text-[#71717a] capitalize mt-0.5">{player.role}</p>}
+        <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{player.name}</h2>
+        {player.role && <p className="text-sm text-[#71717a] capitalize mt-1">{player.role}</p>}
         {!wonByThisTeam && player.soldToTeamName && (
-          <p className="text-xs text-[#71717a] mt-0.5">
-            Won by <span className="text-white font-semibold">{player.soldToTeamName}</span>
+          <p className="text-sm text-[#71717a] mt-1">
+            Won by <span className="text-white font-bold">{player.soldToTeamName}</span>
           </p>
         )}
       </div>
       {player.soldAmount != null && (
         <div className="text-right flex-shrink-0">
-          <p className="font-display font-black text-lg" style={{ color: soldColor }}>
+          <p className="font-display font-black text-xl" style={{ color: soldColor }}>
             {formatIndianRupee(player.soldAmount)}
           </p>
           <div
-            className="inline-flex items-center px-2 py-0.5 rounded-md mt-1 border text-[10px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center px-2 py-1 rounded-lg mt-1 border text-xs font-black uppercase tracking-wider"
             style={{ backgroundColor: `${soldColor}20`, borderColor: `${soldColor}40`, color: soldColor }}
           >
             SOLD
@@ -401,12 +390,32 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
   );
 }
 
-// ── Main component ──────────────────────────────────────────────────────────
-export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync, isSyncError }: Props) {
+// ── Brand mini logo ───────────────────────────────────────────────────────────
+function BrandMini({ logos, brandName, miniBrandText }: {
+  logos: { mini?: string | null };
+  brandName: string;
+  miniBrandText: string;
+}) {
+  if (logos.mini) {
+    return <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-60" />;
+  }
+  return (
+    <span className="font-display font-black text-sm text-amber-400/50 tracking-wide">
+      {miniBrandText}
+    </span>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export function LiveBid({
+  state, team, tournament, teamPurse, teamId,
+  isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync, isSyncError,
+}: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
   const networkQ    = useNetworkQuality(state, isFetching);
   const mayTap      = useDebounce(600);
+  const { brandName, logos, poweredByText, miniBrandText, showPoweredBy } = useBranding();
 
   const [bidding,            setBidding]            = useState(false);
   const [bidFeedback,        setBidFeedback]         = useState<"success" | "error" | "leading" | null>(null);
@@ -423,17 +432,17 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
   const expired     = useTimerExpired(state?.timerEndsAt);
   const timerActive = !!state?.timerEndsAt && !expired;
 
-  const spendablePurse   = teamPurse?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
-  const reservePurse     = teamPurse?.reservePurse ?? 0;
-  const playersBought    = teamPurse?.playersBought ?? 0;
-  const maxSquad         = teamPurse?.maximumSquadSize ?? 0;
-  const slotsRequired    = teamPurse?.slotsRequired ?? 0;
-  const maxSquadReached  = maxSquad > 0 && playersBought >= maxSquad;
-  const increment        = state?.bidIncrement ?? 50000;
-  const nextBidAmount    = (state?.currentBid || 0) + increment;
+  const spendablePurse  = teamPurse?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
+  const reservePurse    = teamPurse?.reservePurse ?? 0;
+  const playersBought   = teamPurse?.playersBought ?? 0;
+  const maxSquad        = teamPurse?.maximumSquadSize ?? 0;
+  const slotsRequired   = teamPurse?.slotsRequired ?? 0;
+  const maxSquadReached = maxSquad > 0 && playersBought >= maxSquad;
+  const increment       = state?.bidIncrement ?? 50000;
+  const nextBidAmount   = (state?.currentBid || 0) + increment;
 
-  const categoryMax   = state?.currentCategoryMaxPlayers ?? null;
-  const categoryCount = categoryMax != null
+  const categoryMax          = state?.currentCategoryMaxPlayers ?? null;
+  const categoryCount        = categoryMax != null
     ? ((state?.teamCategoryPlayerCounts as Record<string, number> | null | undefined)?.[String(teamId)] ?? 0)
     : 0;
   const categoryLimitReached = categoryMax != null && categoryCount >= categoryMax;
@@ -444,7 +453,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached;
 
-  // Sync failure detection: if isSyncError becomes true after a sync attempt, surface it briefly
+  // ── Sync failure detection ──────────────────────────────────────────────────
   useEffect(() => {
     if (!syncAttempted.current || syncing) return undefined;
     if (isSyncError) {
@@ -472,13 +481,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     const result = await onBid(nextBidAmount);
     setBidding(false);
     setBidFeedback(result);
-    if (result === "success") hapticSuccess();
+    if (result === "success")  hapticSuccess();
     else if (result === "leading") hapticLeading();
     else hapticError();
     setTimeout(() => setBidFeedback(null), 1600);
   }
 
-  // Disable-reason label under button
+  // ── Disable-reason ──────────────────────────────────────────────────────────
   const disabledReason =
     !canBid && !isLeading && !expired && hasPlayer
       ? !isActive                        ? "Auction not active"
@@ -491,37 +500,60 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
       : null;
 
   const statusLabel =
-    state?.status === "active" ? "LIVE" :
-    state?.status === "paused" ? "PAUSED" :
-    state?.status ? state.status.toUpperCase() : "IDLE";
+    state?.status === "active"  ? "LIVE" :
+    state?.status === "paused"  ? "PAUSED" :
+    state?.status               ? state.status.toUpperCase() : "IDLE";
 
   // Break countdown
-  const breakEndsAt = state?.displayCountdown?.type === "break" ? (state.displayCountdown.endsAt ?? null) : null;
+  const breakEndsAt  = state?.displayCountdown?.type === "break" ? (state.displayCountdown.endsAt ?? null) : null;
   const { secondsLeft: breakSecsLeft } = useCountdown(breakEndsAt);
-  const breakMins = Math.floor(breakSecsLeft / 60);
-  const breakSecs = breakSecsLeft % 60;
-  const isOnBreak = !!breakEndsAt && breakSecsLeft > 0;
+  const breakMins    = Math.floor(breakSecsLeft / 60);
+  const breakSecs    = breakSecsLeft % 60;
+  const isOnBreak    = !!breakEndsAt && breakSecsLeft > 0;
 
-  // Won banner — fires when this team's bid wins a player
-  const [wonBanner, setWonBanner] = useState<{ name: string; soldAmount?: number | null } | null>(null);
-  const prevPlayerIdRef = useRef<number | null>(null);
+  // ── Unified won/unsold notification ─────────────────────────────────────────
+  const [wonBanner,    setWonBanner]    = useState<{ name: string; soldAmount?: number | null } | null>(null);
+  const [unsoldBanner, setUnsoldBanner] = useState<{ name: string } | null>(null);
+  const prevPlayerRef = useRef<{ id: number; name: string } | null>(null);
+
   useEffect(() => {
-    const curPlayerId = state?.currentPlayer?.id ?? null;
-    let cleanup: (() => void) | undefined;
-    if (prevPlayerIdRef.current != null && curPlayerId == null) {
+    const curPlayer   = state?.currentPlayer;
+    const curPlayerId = curPlayer?.id ?? null;
+    const prev        = prevPlayerRef.current;
+
+    // Update ref whenever a player is active
+    if (curPlayerId != null) {
+      prevPlayerRef.current = { id: curPlayerId, name: curPlayer?.name ?? "Player" };
+      return;
+    }
+
+    // currentPlayer just became null — check what happened
+    if (prev != null) {
       const lsp = state?.lastSoldPlayer;
+
       if (lsp && lsp.soldToTeamId === teamId) {
-        setWonBanner({ name: lsp.name ?? "Player", soldAmount: lsp.soldAmount });
-        const t = setTimeout(() => setWonBanner(null), 5000);
-        cleanup = () => clearTimeout(t);
+        // Our team won the player
+        setWonBanner({ name: lsp.name ?? prev.name, soldAmount: lsp.soldAmount });
+        const t = setTimeout(() => setWonBanner(null), 5500);
+        prevPlayerRef.current = null;
+        return () => clearTimeout(t);
+      } else if (lsp && lsp.id === prev.id && lsp.soldToTeamId != null) {
+        // Player was sold to another team — LastSoldCard handles display
+        prevPlayerRef.current = null;
+        return;
+      } else {
+        // Player was not sold (unsold or deferred back to pool)
+        setUnsoldBanner({ name: prev.name });
+        const t = setTimeout(() => setUnsoldBanner(null), 4000);
+        prevPlayerRef.current = null;
+        return () => clearTimeout(t);
       }
     }
-    prevPlayerIdRef.current = curPlayerId;
-    return cleanup;
+    return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.currentPlayer?.id, state?.lastSoldPlayer?.soldToTeamId, teamId]);
+  }, [state?.currentPlayer?.id, state?.lastSoldPlayer?.id, state?.lastSoldPlayer?.soldToTeamId, teamId]);
 
-  // ── Portrait layout ────────────────────────────────────────────────────────
+  // ── Portrait layout ─────────────────────────────────────────────────────────
   if (!landscape) {
     return (
       <div
@@ -529,25 +561,33 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
         style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-[#27272a] flex-shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center justify-between px-4 pt-3 pb-3 border-b border-[#27272a] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Brand mini */}
+            <BrandMini logos={logos} brandName={brandName} miniBrandText={miniBrandText} />
+
+            {/* Divider */}
+            <div className="w-px h-5 bg-[#3f3f46]" />
+
+            {/* Team badge */}
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
+              className="w-11 h-11 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
               style={{ backgroundColor: `${teamColor}30`, color: teamColor, border: `2px solid ${teamColor}55` }}
             >
               {team.shortCode || "?"}
             </div>
             <div className="min-w-0">
-              <p className="font-display font-bold text-base leading-none truncate" style={{ color: teamColor }}>
+              <p className="font-display font-bold text-lg leading-none truncate" style={{ color: teamColor }}>
                 {team.name}
               </p>
-              <p className="text-[10px] text-[#71717a] mt-0.5">{tournament?.name || "Auction"}</p>
+              <p className="text-xs text-[#71717a] mt-0.5 truncate">{tournament?.name || "Auction"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+
+          <div className="flex items-center gap-3 flex-shrink-0">
             <NetworkDot quality={networkQ} />
             <span
-              className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+              className={`text-xs font-black px-2.5 py-1.5 rounded-full ${
                 isActive ? "bg-green-500/20 text-green-400" : "bg-[#27272a] text-[#71717a]"
               }`}
             >
@@ -555,32 +595,32 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             </span>
             <button
               onClick={handleSyncTap}
-              className="p-1.5 text-[#71717a] hover:text-white transition-colors"
+              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
               title="Sync"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-6 h-6 ${syncing ? "animate-spin" : ""}`} />
             </button>
             <button
               onClick={onViewSquad}
-              className="p-1.5 text-[#71717a] hover:text-white transition-colors"
+              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
               title="My squad"
             >
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-6 h-6" />
             </button>
             <button
               onClick={() => setShowSignOutConfirm(true)}
-              className="p-1.5 text-[#71717a] hover:text-white transition-colors"
-              title="Sign out"
+              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
+              title="Leave"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-6 h-6" />
             </button>
           </div>
         </div>
 
         {/* Sync error banner */}
         {syncFailed && (
-          <div className="flex-shrink-0 mx-4 mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30">
-            <p className="text-xs text-red-400">Sync failed — check your connection</p>
+          <div className="flex-shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30">
+            <p className="text-sm text-red-400 font-semibold">Sync failed — check your connection</p>
           </div>
         )}
 
@@ -591,7 +631,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             <TimerBar timerEndsAt={state.timerEndsAt} teamColor={teamColor} timerExpired={expired} />
           )}
 
-          {/* Player */}
+          {/* Player card or last sold */}
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
@@ -607,11 +647,11 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
                 key="no-player"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
+                className="flex items-center justify-center p-10 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
               >
                 <div className="text-center text-[#52525b]">
-                  <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Waiting for next player...</p>
+                  <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-base">Waiting for next player...</p>
                 </div>
               </motion.div>
             )}
@@ -627,27 +667,27 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
 
           {/* Reserve / squad banners */}
           {reservePurse > 0 && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
-              <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-400 font-semibold">
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-500/25 bg-amber-500/8">
+              <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-400 font-semibold">
                 {formatShortIndianRupee(reservePurse)} reserved — {slotsRequired} slot{slotsRequired !== 1 ? "s" : ""} needed
               </p>
             </div>
           )}
           {maxSquadReached && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border border-red-500/25 bg-red-500/8">
-              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-red-400 font-semibold">Maximum squad size reached — bidding blocked</p>
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-500/25 bg-red-500/8">
+              <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-400 font-semibold">Maximum squad size reached — bidding blocked</p>
             </div>
           )}
         </div>
 
-        {/* Sticky bid controls — min 25vh */}
+        {/* Sticky bid controls */}
         <div
-          className="flex-shrink-0 px-4 pt-3 pb-4 border-t border-[#27272a] space-y-2"
-          style={{ minHeight: "max(25vh, 180px)" }}
+          className="flex-shrink-0 px-4 pt-3 pb-4 border-t border-[#27272a] space-y-3"
+          style={{ minHeight: "max(28vh, 200px)" }}
         >
-          <div className="flex-1 flex flex-col h-full gap-2">
+          <div className="flex-1 flex flex-col h-full gap-3">
             <div className="flex-1">
               <AnimatePresence mode="wait">
                 <BidButton
@@ -668,10 +708,10 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             </div>
 
             {bidFeedback === "error" && (
-              <p className="text-center text-red-400 text-sm">{bidErrorMsg || "Bid failed. Please try again."}</p>
+              <p className="text-center text-red-400 text-base font-semibold">{bidErrorMsg || "Bid failed. Please try again."}</p>
             )}
             {disabledReason && (
-              <p className="text-center text-[10px] text-[#71717a]">{disabledReason}</p>
+              <p className="text-center text-sm text-[#71717a]">{disabledReason}</p>
             )}
 
             {/* Purse strip */}
@@ -682,35 +722,37 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
                 { label: "Players",   value: String(playersBought) },
               ].map(({ label, value, accent }) => (
                 <div key={label} className="text-center">
-                  <p className="font-display font-bold text-base" style={accent ? { color: accent } : { color: "#fafafa" }}>
+                  <p className="font-display font-black text-xl" style={accent ? { color: accent } : { color: "#fafafa" }}>
                     {value}
                   </p>
-                  <p className="text-[9px] text-[#52525b] uppercase tracking-wide">{label}</p>
+                  <p className="text-xs text-[#52525b] uppercase tracking-wide mt-0.5">{label}</p>
                 </div>
               ))}
             </div>
 
-            <p className="text-center text-[10px] text-[#3f3f46] uppercase tracking-widest">Powered by BidWar</p>
+            {showPoweredBy && (
+              <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+            )}
           </div>
         </div>
 
-        {/* Break overlay */}
+        {/* ── Break overlay ── */}
         <AnimatePresence>
           {isOnBreak && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/93 flex flex-col items-center justify-center gap-4 z-30"
+              className="absolute inset-0 bg-[#09090b]/93 flex flex-col items-center justify-center gap-5 z-30"
             >
-              <Coffee className="w-14 h-14 text-amber-400" />
+              <Coffee className="w-20 h-20 text-amber-400" />
               <div className="text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1">Auction</p>
-                <p className="font-display font-black text-3xl text-white">ON BREAK</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-amber-400/70 mb-2">Auction</p>
+                <p className="font-display font-black text-4xl text-white">ON BREAK</p>
                 {state?.displayCountdown?.message && (
-                  <p className="text-sm text-[#71717a] mt-1">{state.displayCountdown.message}</p>
+                  <p className="text-lg text-[#71717a] mt-2">{state.displayCountdown.message}</p>
                 )}
-                <p className="font-display font-black text-5xl text-amber-400 mt-3 tabular-nums">
+                <p className="font-display font-black text-6xl text-amber-400 mt-4 tabular-nums">
                   {String(breakMins).padStart(2, "0")}:{String(breakSecs).padStart(2, "0")}
                 </p>
               </div>
@@ -718,77 +760,109 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
           )}
         </AnimatePresence>
 
-        {/* Won banner */}
+        {/* ── Won banner ── */}
         <AnimatePresence>
           {wonBanner && (
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.92 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
-              style={{ backgroundColor: `${teamColor}22`, backdropFilter: "blur(6px)" }}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-40 px-8"
+              style={{ backgroundColor: `${teamColor}28`, backdropFilter: "blur(8px)" }}
             >
               <motion.div
                 initial={{ scale: 0.5 }}
-                animate={{ scale: [0.5, 1.15, 1] }}
+                animate={{ scale: [0.5, 1.2, 1] }}
                 transition={{ duration: 0.5, times: [0, 0.7, 1] }}
               >
-                <Trophy className="w-20 h-20" style={{ color: teamColor }} />
+                <Trophy className="w-28 h-28" style={{ color: teamColor }} />
               </motion.div>
               <div className="text-center">
-                <p className="font-display font-black text-4xl" style={{ color: teamColor }}>YOU WON!</p>
-                <p className="text-xl font-bold text-white mt-2">{wonBanner.name}</p>
+                <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
+                <p className="text-2xl font-bold text-white mt-3">{wonBanner.name}</p>
                 {wonBanner.soldAmount != null && (
-                  <p className="text-sm text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>
+                  <p className="text-xl text-[#a1a1aa] mt-2">{formatIndianRupee(wonBanner.soldAmount)}</p>
                 )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Reconnect overlay */}
+        {/* ── Unsold/Deferred banner ── */}
+        <AnimatePresence>
+          {unsoldBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-40 px-8"
+              style={{ backgroundColor: "rgba(9,9,11,0.92)", backdropFilter: "blur(8px)" }}
+            >
+              <motion.div
+                initial={{ scale: 0.7, rotate: -10 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <XCircle className="w-28 h-28 text-red-400" />
+              </motion.div>
+              <div className="text-center">
+                <p className="font-display font-black text-5xl text-red-400">UNSOLD</p>
+                <p className="text-2xl font-bold text-white mt-3">{unsoldBanner.name}</p>
+                <p className="text-base text-[#71717a] mt-2">Player not sold — moving on</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Reconnect overlay ── */}
         <AnimatePresence>
           {networkQ === "poor" && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-4 z-50"
+              className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-5 z-50"
             >
-              <WifiOff className="w-12 h-12 text-red-400 animate-pulse" />
+              <WifiOff className="w-16 h-16 text-red-400 animate-pulse" />
               <div className="text-center">
-                <p className="font-display font-bold text-xl text-white">Connection lost</p>
-                <p className="text-sm text-[#71717a] mt-1">Reconnecting to auction room...</p>
+                <p className="font-display font-bold text-2xl text-white">Connection lost</p>
+                <p className="text-base text-[#71717a] mt-2">Reconnecting to auction room...</p>
               </div>
-              <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
-              <p className="text-[10px] text-[#3f3f46] uppercase tracking-widest">Powered by BidWar</p>
+              <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
+              <p className="text-sm text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Sign-out confirmation overlay */}
+        {/* ── Sign-out confirmation ── */}
         <AnimatePresence>
           {showSignOutConfirm && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-6"
+              className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-8 z-[60] px-8"
             >
-              <div className="text-center space-y-2">
-                <p className="font-display font-bold text-xl text-white">Leave this auction?</p>
-                <p className="text-sm text-[#71717a]">You will need to re-enter your access code.</p>
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="absolute top-5 right-5 p-2 text-[#52525b] hover:text-white transition-colors"
+              >
+                <X className="w-7 h-7" />
+              </button>
+              <div className="text-center space-y-3">
+                <p className="font-display font-bold text-2xl text-white">Leave this auction?</p>
+                <p className="text-base text-[#71717a]">You will need to re-enter your access code.</p>
               </div>
-              <div className="flex gap-3 w-full max-w-xs">
+              <div className="flex gap-4 w-full max-w-xs">
                 <button
                   onClick={() => setShowSignOutConfirm(false)}
-                  className="flex-1 py-3 rounded-xl border border-[#27272a] text-[#a1a1aa] font-semibold text-sm hover:bg-[#18181b] transition-colors"
+                  className="flex-1 py-4 rounded-2xl border border-[#27272a] text-[#a1a1aa] font-bold text-base hover:bg-[#18181b] transition-colors"
                 >
                   Stay
                 </button>
                 <button
                   onClick={() => { setShowSignOutConfirm(false); onSignOut(); }}
-                  className="flex-1 py-3 rounded-xl bg-[#27272a] text-white font-semibold text-sm hover:bg-[#3f3f46] transition-colors"
+                  className="flex-1 py-4 rounded-2xl bg-[#27272a] text-white font-bold text-base hover:bg-[#3f3f46] transition-colors"
                 >
                   Yes, Leave
                 </button>
@@ -800,7 +874,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     );
   }
 
-  // ── Landscape layout ───────────────────────────────────────────────────────
+  // ── Landscape layout ─────────────────────────────────────────────────────────
   return (
     <div
       className="relative h-full flex flex-row bg-[#09090b] overflow-hidden"
@@ -809,43 +883,34 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
       {/* Left: player info */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-[#27272a]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-[#27272a] flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#27272a] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandMini logos={logos} brandName={brandName} miniBrandText={miniBrandText} />
+            <div className="w-px h-4 bg-[#3f3f46]" />
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs flex-shrink-0"
+              className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-black text-xs flex-shrink-0"
               style={{ backgroundColor: `${teamColor}30`, color: teamColor, border: `2px solid ${teamColor}55` }}
             >
               {team.shortCode || "?"}
             </div>
-            <p className="font-display font-bold text-sm truncate" style={{ color: teamColor }}>{team.name}</p>
+            <p className="font-display font-bold text-base truncate" style={{ color: teamColor }}>{team.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <NetworkDot quality={networkQ} />
-            <span
-              className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                isActive ? "bg-green-500/20 text-green-400" : "bg-[#27272a] text-[#71717a]"
-              }`}
-            >
+            <span className={`text-xs font-black px-2 py-1 rounded-full ${isActive ? "bg-green-500/20 text-green-400" : "bg-[#27272a] text-[#71717a]"}`}>
               {statusLabel}
             </span>
-            <button onClick={handleSyncTap} className="p-1 text-[#71717a] hover:text-white transition-colors" title="Sync">
-              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            <button onClick={handleSyncTap} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Sync">
+              <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
             </button>
-            <button onClick={onViewSquad} className="p-1 text-[#71717a] hover:text-white transition-colors" title="My squad">
-              <Users className="w-3.5 h-3.5" />
+            <button onClick={onViewSquad} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="My squad">
+              <Users className="w-5 h-5" />
             </button>
-            <button onClick={() => setShowSignOutConfirm(true)} className="p-1 text-[#71717a] hover:text-white transition-colors">
-              <LogOut className="w-3.5 h-3.5" />
+            <button onClick={() => setShowSignOutConfirm(true)} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]">
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
-
-        {/* Sync error banner */}
-        {syncFailed && (
-          <div className="flex-shrink-0 mx-4 mt-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30">
-            <p className="text-xs text-red-400">Sync failed — check your connection</p>
-          </div>
-        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
@@ -867,13 +932,12 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
                 key="no-player-ls"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center justify-center p-6 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
+                className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-[#3f3f46] bg-[#18181b]"
               >
-                <p className="text-sm text-[#52525b]">Waiting for next player...</p>
+                <p className="text-base text-[#52525b]">Waiting for next player...</p>
               </motion.div>
             )}
           </AnimatePresence>
-
           <BidAmount
             amount={state?.currentBid || 0}
             isLeading={isLeading}
@@ -883,7 +947,7 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
         </div>
 
         {/* Purse strip */}
-        <div className="px-4 py-2 border-t border-[#27272a] flex-shrink-0">
+        <div className="px-4 py-3 border-t border-[#27272a] flex-shrink-0">
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: "Spendable", value: formatShortIndianRupee(spendablePurse), accent: teamColor },
@@ -891,15 +955,15 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
               { label: "Players",   value: String(playersBought) },
             ].map(({ label, value, accent }) => (
               <div key={label} className="text-center">
-                <p className="font-display font-bold text-sm" style={accent ? { color: accent } : { color: "#fafafa" }}>{value}</p>
-                <p className="text-[9px] text-[#52525b] uppercase tracking-wide">{label}</p>
+                <p className="font-display font-black text-lg" style={accent ? { color: accent } : { color: "#fafafa" }}>{value}</p>
+                <p className="text-[10px] text-[#52525b] uppercase tracking-wide">{label}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Right: bid controls — DOMINANT */}
+      {/* Right: bid controls */}
       <div className="w-[42%] flex flex-col px-4 py-4 gap-3" style={{ minWidth: 200 }}>
         <div className="flex-1">
           <AnimatePresence mode="wait">
@@ -921,34 +985,32 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
         </div>
 
         {bidFeedback === "error" && (
-          <p className="text-center text-red-400 text-xs">{bidErrorMsg || "Bid failed. Try again."}</p>
+          <p className="text-center text-red-400 text-sm font-semibold">{bidErrorMsg || "Bid failed. Try again."}</p>
         )}
         {disabledReason && (
-          <p className="text-center text-[10px] text-[#71717a]">{disabledReason}</p>
+          <p className="text-center text-xs text-[#71717a]">{disabledReason}</p>
         )}
 
-        <p className="text-center text-[10px] text-[#3f3f46] uppercase tracking-widest flex-shrink-0">
-          Powered by BidWar
-        </p>
+        {showPoweredBy && (
+          <p className="text-center text-xs text-[#3f3f46] uppercase tracking-widest flex-shrink-0">
+            {poweredByText}
+          </p>
+        )}
       </div>
 
-      {/* Break overlay */}
+      {/* ── Break overlay ── */}
       <AnimatePresence>
         {isOnBreak && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 bg-[#09090b]/93 flex flex-col items-center justify-center gap-4 z-30"
           >
-            <Coffee className="w-14 h-14 text-amber-400" />
+            <Coffee className="w-16 h-16 text-amber-400" />
             <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70 mb-1">Auction</p>
-              <p className="font-display font-black text-3xl text-white">ON BREAK</p>
-              {state?.displayCountdown?.message && (
-                <p className="text-sm text-[#71717a] mt-1">{state.displayCountdown.message}</p>
-              )}
-              <p className="font-display font-black text-5xl text-amber-400 mt-3 tabular-nums">
+              <p className="text-sm font-bold uppercase tracking-widest text-amber-400/70 mb-1">Auction</p>
+              <p className="font-display font-black text-4xl text-white">ON BREAK</p>
+              {state?.displayCountdown?.message && <p className="text-base text-[#71717a] mt-1">{state.displayCountdown.message}</p>}
+              <p className="font-display font-black text-6xl text-amber-400 mt-3 tabular-nums">
                 {String(breakMins).padStart(2, "0")}:{String(breakSecs).padStart(2, "0")}
               </p>
             </div>
@@ -956,77 +1018,82 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
         )}
       </AnimatePresence>
 
-      {/* Won banner */}
+      {/* ── Won banner ── */}
       <AnimatePresence>
         {wonBanner && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.92 }}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
-            style={{ backgroundColor: `${teamColor}22`, backdropFilter: "blur(6px)" }}
+            initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-40"
+            style={{ backgroundColor: `${teamColor}28`, backdropFilter: "blur(8px)" }}
           >
-            <motion.div
-              initial={{ scale: 0.5 }}
-              animate={{ scale: [0.5, 1.15, 1] }}
-              transition={{ duration: 0.5, times: [0, 0.7, 1] }}
-            >
-              <Trophy className="w-20 h-20" style={{ color: teamColor }} />
+            <motion.div initial={{ scale: 0.5 }} animate={{ scale: [0.5, 1.2, 1] }} transition={{ duration: 0.5, times: [0, 0.7, 1] }}>
+              <Trophy className="w-28 h-28" style={{ color: teamColor }} />
             </motion.div>
             <div className="text-center">
-              <p className="font-display font-black text-4xl" style={{ color: teamColor }}>YOU WON!</p>
-              <p className="text-xl font-bold text-white mt-2">{wonBanner.name}</p>
-              {wonBanner.soldAmount != null && (
-                <p className="text-sm text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>
-              )}
+              <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
+              <p className="text-2xl font-bold text-white mt-2">{wonBanner.name}</p>
+              {wonBanner.soldAmount != null && <p className="text-xl text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Reconnect overlay */}
+      {/* ── Unsold/Deferred banner ── */}
+      <AnimatePresence>
+        {unsoldBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-40"
+            style={{ backgroundColor: "rgba(9,9,11,0.92)", backdropFilter: "blur(8px)" }}
+          >
+            <motion.div initial={{ scale: 0.7, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 300 }}>
+              <XCircle className="w-28 h-28 text-red-400" />
+            </motion.div>
+            <div className="text-center">
+              <p className="font-display font-black text-5xl text-red-400">UNSOLD</p>
+              <p className="text-2xl font-bold text-white mt-2">{unsoldBanner.name}</p>
+              <p className="text-base text-[#71717a] mt-1">Player not sold — moving on</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Reconnect overlay ── */}
       <AnimatePresence>
         {networkQ === "poor" && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-4 z-50"
           >
-            <WifiOff className="w-12 h-12 text-red-400 animate-pulse" />
+            <WifiOff className="w-14 h-14 text-red-400 animate-pulse" />
             <div className="text-center">
-              <p className="font-display font-bold text-xl text-white">Connection lost</p>
-              <p className="text-sm text-[#71717a] mt-1">Reconnecting to auction room...</p>
+              <p className="font-display font-bold text-2xl text-white">Connection lost</p>
+              <p className="text-base text-[#71717a] mt-1">Reconnecting to auction room...</p>
             </div>
-            <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
+            <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Sign-out confirmation overlay */}
+      {/* ── Sign-out confirmation ── */}
       <AnimatePresence>
         {showSignOutConfirm && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-6"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-[#09090b]/95 flex flex-col items-center justify-center gap-6 z-[60] px-8"
           >
+            <button onClick={() => setShowSignOutConfirm(false)} className="absolute top-5 right-5 p-2 text-[#52525b] hover:text-white transition-colors">
+              <X className="w-7 h-7" />
+            </button>
             <div className="text-center space-y-2">
-              <p className="font-display font-bold text-xl text-white">Leave this auction?</p>
-              <p className="text-sm text-[#71717a]">You will need to re-enter your access code.</p>
+              <p className="font-display font-bold text-2xl text-white">Leave this auction?</p>
+              <p className="text-base text-[#71717a]">You will need to re-enter your access code.</p>
             </div>
-            <div className="flex gap-3 w-full max-w-xs">
-              <button
-                onClick={() => setShowSignOutConfirm(false)}
-                className="flex-1 py-3 rounded-xl border border-[#27272a] text-[#a1a1aa] font-semibold text-sm hover:bg-[#18181b] transition-colors"
-              >
+            <div className="flex gap-4 w-full max-w-xs">
+              <button onClick={() => setShowSignOutConfirm(false)} className="flex-1 py-4 rounded-2xl border border-[#27272a] text-[#a1a1aa] font-bold text-base hover:bg-[#18181b] transition-colors">
                 Stay
               </button>
-              <button
-                onClick={() => { setShowSignOutConfirm(false); onSignOut(); }}
-                className="flex-1 py-3 rounded-xl bg-[#27272a] text-white font-semibold text-sm hover:bg-[#3f3f46] transition-colors"
-              >
+              <button onClick={() => { setShowSignOutConfirm(false); onSignOut(); }} className="flex-1 py-4 rounded-2xl bg-[#27272a] text-white font-bold text-base hover:bg-[#3f3f46] transition-colors">
                 Yes, Leave
               </button>
             </div>

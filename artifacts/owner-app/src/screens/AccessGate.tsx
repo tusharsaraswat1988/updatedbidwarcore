@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff } from "lucide-react";
+import { useBranding } from "@/hooks/useBranding";
 
 interface Props {
   teamName: string;
@@ -11,10 +12,11 @@ interface Props {
 }
 
 export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, verifyCode }: Props) {
-  const [code, setCode]           = useState("");
-  const [showCode, setShowCode]   = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [code, setCode]         = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const { brandName, logos, poweredByText, miniBrandText } = useBranding();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,9 +36,7 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
   return (
     <div
       className="h-full flex flex-col items-center justify-center px-6 bg-[#09090b] overscroll-none"
-      style={{
-        background: `radial-gradient(ellipse at top, ${teamColor}18 0%, transparent 55%), #09090b`,
-      }}
+      style={{ background: `radial-gradient(ellipse at top, ${teamColor}18 0%, transparent 55%), #09090b` }}
     >
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -44,17 +44,28 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
         transition={{ duration: 0.4, type: "spring" }}
         className="w-full max-w-sm space-y-8"
       >
-        {/* Team badge */}
-        <div className="text-center space-y-4">
+        {/* Brand + Team badge */}
+        <div className="text-center space-y-5">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {logos.mini ? (
+              <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                {miniBrandText}
+              </div>
+            )}
+            <span className="font-display font-black text-lg text-white tracking-wide">{brandName}</span>
+          </div>
+
           <div
-            className="w-24 h-24 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-3xl"
+            className="w-28 h-28 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-4xl"
             style={{ backgroundColor: `${teamColor}25`, border: `3px solid ${teamColor}60`, color: teamColor }}
           >
-            {teamShortCode || <Lock className="w-10 h-10" />}
+            {teamShortCode || <Lock className="w-12 h-12" />}
           </div>
           <div>
-            <h1 className="font-display font-black text-3xl text-white tracking-wide">{teamName}</h1>
-            <p className="text-[#71717a] text-sm mt-1">Enter your access code to join</p>
+            <h1 className="font-display font-black text-4xl text-white tracking-wide">{teamName}</h1>
+            <p className="text-[#71717a] text-lg mt-2">Enter your access code to join</p>
           </div>
         </div>
 
@@ -68,15 +79,15 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
               placeholder="ACCESS CODE"
               autoComplete="off"
               autoFocus
-              className="w-full px-5 py-5 rounded-2xl border border-[#3f3f46] text-center font-display font-bold text-2xl tracking-[0.35em] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none focus:border-[color:var(--team-color)] transition-colors"
-              style={{ "--team-color": teamColor } as React.CSSProperties}
+              className="w-full px-6 py-6 rounded-2xl border border-[#3f3f46] text-center font-display font-bold text-3xl tracking-[0.35em] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none transition-colors"
+              style={{ borderColor: code ? teamColor : undefined }}
             />
             <button
               type="button"
               onClick={() => setShowCode(v => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-[#a1a1aa] transition-colors p-1"
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-[#a1a1aa] transition-colors p-2"
             >
-              {showCode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showCode ? <EyeOff className="w-7 h-7" /> : <Eye className="w-7 h-7" />}
             </button>
           </div>
 
@@ -87,7 +98,7 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="text-red-400 text-sm text-center"
+                className="text-red-400 text-base text-center font-semibold"
               >
                 {error}
               </motion.p>
@@ -98,19 +109,17 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
             type="submit"
             disabled={!code.trim() || loading}
             whileTap={{ scale: 0.97 }}
-            className="w-full py-5 rounded-2xl font-display font-black text-xl text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="w-full py-6 rounded-2xl font-display font-black text-2xl text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             style={{ backgroundColor: teamColor, boxShadow: `0 0 40px ${teamColor}44` }}
           >
             {loading ? (
-              <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto" />
-            ) : (
-              "ENTER"
-            )}
+              <div className="w-7 h-7 border-3 border-black border-t-transparent rounded-full animate-spin mx-auto" />
+            ) : "ENTER"}
           </motion.button>
         </form>
 
-        <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest text-center">
-          Powered by BidWar
+        <p className="text-sm text-[#3f3f46] uppercase tracking-widest text-center">
+          {poweredByText}
         </p>
       </motion.div>
     </div>

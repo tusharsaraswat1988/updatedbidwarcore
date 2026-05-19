@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Trophy, Clock, Pause, X } from "lucide-react";
+import { Clock, Pause, X, Zap } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useBranding } from "@/hooks/useBranding";
 
 export interface SavedAuction {
   tournamentId: number;
@@ -24,27 +26,18 @@ export function getSavedAuctions(): SavedAuction[] {
 
 export function upsertSavedAuction(entry: SavedAuction) {
   const list = getSavedAuctions();
-  const idx  = list.findIndex(
-    (s) => s.tournamentId === entry.tournamentId && s.teamId === entry.teamId,
-  );
-  if (idx >= 0) {
-    list[idx] = { ...list[idx], ...entry };
-  } else {
-    list.unshift(entry);
-  }
-  // Cap at 10, remove oldest first (list is in recency order)
-  const capped = list.slice(0, 10);
-  localStorage.setItem(SAVED_AUCTIONS_KEY, JSON.stringify(capped));
+  const idx  = list.findIndex(s => s.tournamentId === entry.tournamentId && s.teamId === entry.teamId);
+  if (idx >= 0) list[idx] = { ...list[idx], ...entry };
+  else list.unshift(entry);
+  localStorage.setItem(SAVED_AUCTIONS_KEY, JSON.stringify(list.slice(0, 10)));
 }
 
 export function removeSavedAuction(tournamentId: number, teamId: number) {
-  const list = getSavedAuctions().filter(
-    (s) => !(s.tournamentId === tournamentId && s.teamId === teamId),
-  );
+  const list = getSavedAuctions().filter(s => !(s.tournamentId === tournamentId && s.teamId === teamId));
   localStorage.setItem(SAVED_AUCTIONS_KEY, JSON.stringify(list));
 }
 
-// ── Status helpers ─────────────────────────────────────────────────────────
+// ── Status helpers ──────────────────────────────────────────────────────────
 type AuctionStatusRaw = { status?: string; licenseStatus?: string } | null;
 
 function isLive(s: AuctionStatusRaw)      { return s?.status === "active"; }
@@ -62,78 +55,76 @@ async function fetchAuctionStatus(tournamentId: number): Promise<AuctionStatusRa
   }
 }
 
-// ── Status badge ────────────────────────────────────────────────────────────
+// ── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ state }: { state: AuctionStatusRaw }) {
   if (!state) return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider">
+    <span className="text-sm px-3 py-1 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider font-semibold">
       Unknown
     </span>
   );
   if (isLive(state)) return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 uppercase tracking-wider font-bold flex items-center gap-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+    <span className="text-sm px-3 py-1 rounded-full bg-green-500/20 text-green-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
       Live
     </span>
   );
   if (state.status === "paused") return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 uppercase tracking-wider font-bold flex items-center gap-1">
-      <Pause className="w-2.5 h-2.5" />
+    <span className="text-sm px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 uppercase tracking-wider font-bold flex items-center gap-1.5">
+      <Pause className="w-3.5 h-3.5" />
       Paused
     </span>
   );
   return (
-    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider flex items-center gap-1">
-      <Clock className="w-2.5 h-2.5" />
+    <span className="text-sm px-3 py-1 rounded-full bg-[#27272a] text-[#71717a] uppercase tracking-wider font-semibold flex items-center gap-1.5">
+      <Clock className="w-3.5 h-3.5" />
       Upcoming
     </span>
   );
 }
 
-// ── Auction card ────────────────────────────────────────────────────────────
-function AuctionCard({
-  auction,
-  state,
-  onClick,
-  onRemove,
-}: {
-  auction: SavedAuction;
-  state:   AuctionStatusRaw;
-  onClick: () => void;
+// ── Auction card ─────────────────────────────────────────────────────────────
+function AuctionCard({ auction, state, onClick, onRemove }: {
+  auction:  SavedAuction;
+  state:    AuctionStatusRaw;
+  onClick:  () => void;
   onRemove: () => void;
 }) {
   const color = auction.teamColor || "#F59E0B";
   const live  = isLive(state);
 
   return (
-    <div className="relative group">
-      {/* Main tappable card area — not a <button> to avoid nesting interactive elements */}
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative group"
+    >
       <div
         role="button"
         tabIndex={0}
         onClick={onClick}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
-        className="w-full text-left p-4 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer"
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+        className="w-full text-left p-5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer"
         style={{
           borderColor:     live ? `${color}60` : "#27272a",
           backgroundColor: live ? `${color}12` : "#18181b",
           boxShadow:       live ? `0 0 24px ${color}20` : "none",
         }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Team badge */}
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-base flex-shrink-0"
+            className="w-16 h-16 rounded-2xl flex items-center justify-center font-display font-black text-xl flex-shrink-0"
             style={{ backgroundColor: `${color}25`, color, border: `2px solid ${color}50` }}
           >
             {(auction.teamName?.substring(0, 3) || "?").toUpperCase()}
           </div>
 
           {/* Names */}
-          <div className="flex-1 min-w-0">
-            <p className="font-display font-bold text-base text-white leading-tight truncate">
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="font-display font-bold text-xl text-white leading-tight truncate">
               {auction.teamName || `Team ${auction.teamId}`}
             </p>
-            <p className="text-xs text-[#71717a] truncate mt-0.5">
+            <p className="text-base text-[#71717a] truncate">
               {auction.tournamentName || `Tournament ${auction.tournamentId}`}
             </p>
           </div>
@@ -143,27 +134,35 @@ function AuctionCard({
             <StatusBadge state={state} />
           </div>
         </div>
+
+        {live && (
+          <div className="mt-3 pt-3 border-t flex items-center gap-2" style={{ borderColor: `${color}25` }}>
+            <Zap className="w-4 h-4" style={{ color }} />
+            <p className="text-sm font-semibold" style={{ color }}>Tap to join live auction</p>
+          </div>
+        )}
       </div>
 
-      {/* Remove button — sibling, not child, so no interactive nesting */}
+      {/* Remove button */}
       <button
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="absolute top-2 right-2 p-1 rounded-full text-[#52525b] hover:text-[#a1a1aa] opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={e => { e.stopPropagation(); onRemove(); }}
+        className="absolute top-3 right-3 p-1.5 rounded-full text-[#52525b] hover:text-[#a1a1aa] opacity-0 group-hover:opacity-100 transition-opacity"
         title="Remove"
       >
-        <X className="w-3 h-3" />
+        <X className="w-4 h-4" />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
-// ── Main Launcher ───────────────────────────────────────────────────────────
+// ── Main Launcher ─────────────────────────────────────────────────────────────
 export function Launcher() {
   const [, setLocation] = useLocation();
-  const [saved,   setSaved]   = useState<SavedAuction[]>([]);
-  const [states,  setStates]  = useState<Record<string, AuctionStatusRaw>>({});
-  const [loading, setLoading] = useState(true);
+  const [saved,      setSaved]      = useState<SavedAuction[]>([]);
+  const [states,     setStates]     = useState<Record<string, AuctionStatusRaw>>({});
+  const [loading,    setLoading]    = useState(true);
   const [redirected, setRedirected] = useState(false);
+  const { brandName, logos, poweredByText, miniBrandText } = useBranding();
 
   useEffect(() => {
     const list = getSavedAuctions();
@@ -171,13 +170,12 @@ export function Launcher() {
 
     if (list.length === 0) { setLoading(false); return; }
 
-    // Fetch all auction states in parallel
     Promise.all(
-      list.map(async (s) => {
+      list.map(async s => {
         const state = await fetchAuctionStatus(s.tournamentId);
         return { key: `${s.tournamentId}-${s.teamId}`, state };
       }),
-    ).then((results) => {
+    ).then(results => {
       const map: Record<string, AuctionStatusRaw> = {};
       for (const r of results) map[r.key] = r.state;
       setStates(map);
@@ -188,12 +186,8 @@ export function Launcher() {
   // Auto-redirect once states are loaded
   useEffect(() => {
     if (loading || redirected) return;
-    // Filter out completed auctions for redirect logic
-    const active = saved.filter((s) => {
-      const st = states[`${s.tournamentId}-${s.teamId}`];
-      return !isCompleted(st);
-    });
-    const live = active.filter((s) => isLive(states[`${s.tournamentId}-${s.teamId}`]));
+    const active = saved.filter(s => !isCompleted(states[`${s.tournamentId}-${s.teamId}`]));
+    const live   = active.filter(s => isLive(states[`${s.tournamentId}-${s.teamId}`]));
     if (live.length === 1) {
       setRedirected(true);
       setLocation(`/tournament/${live[0].tournamentId}/owner/${live[0].teamId}`);
@@ -206,44 +200,65 @@ export function Launcher() {
 
   function handleRemove(tournamentId: number, teamId: number) {
     removeSavedAuction(tournamentId, teamId);
-    setSaved((prev) => prev.filter(
-      (s) => !(s.tournamentId === tournamentId && s.teamId === teamId),
-    ));
+    setSaved(prev => prev.filter(s => !(s.tournamentId === tournamentId && s.teamId === teamId)));
   }
 
-  // Filter out completed auctions for display
-  const visible = saved.filter((s) => {
-    if (loading) return true; // show all while loading
-    const st = states[`${s.tournamentId}-${s.teamId}`];
-    return !isCompleted(st);
+  const visible = saved.filter(s => {
+    if (loading) return true;
+    return !isCompleted(states[`${s.tournamentId}-${s.teamId}`]);
   });
 
-  const liveAuctions = visible.filter((s) =>
-    isLive(states[`${s.tournamentId}-${s.teamId}`]),
+  const liveAuctions = visible.filter(s => isLive(states[`${s.tournamentId}-${s.teamId}`]));
+
+  const BrandLogo = () => (
+    <div className="flex items-center justify-center gap-3">
+      {logos.main ? (
+        <img src={logos.main} alt={brandName} className="h-14 w-auto" />
+      ) : logos.mini ? (
+        <img src={logos.mini} alt={brandName} className="h-10 w-auto" />
+      ) : (
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-display font-black text-xl bg-amber-400/20 text-amber-400 border-2 border-amber-400/40">
+          {miniBrandText}
+        </div>
+      )}
+      {!logos.main && (
+        <span className="font-display font-black text-4xl text-white tracking-wide">{brandName}</span>
+      )}
+    </div>
   );
 
-  // ── Empty state ───────────────────────────────────────────────────────────
-  if (!loading && visible.length === 0) {
+  // Loading spinner
+  if (loading) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] px-8">
-        <div className="text-center space-y-4">
-          <Trophy className="w-12 h-12 text-[#3f3f46] mx-auto" />
-          <p className="text-[#71717a] text-sm leading-relaxed">
-            Open your owner link to join an auction.
-          </p>
-          <p className="text-[10px] text-[#3f3f46] uppercase tracking-widest">
-            Powered by BidWar
-          </p>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-8">
+        <BrandLogo />
+        <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
       </div>
     );
   }
 
-  // ── Loading spinner ───────────────────────────────────────────────────────
-  if (loading) {
+  // Empty state — acts as the splash/welcome screen
+  if (!loading && visible.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]">
-        <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
+      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] px-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center space-y-8"
+        >
+          <BrandLogo />
+          <div className="space-y-3">
+            <p className="text-xl text-[#a1a1aa] leading-relaxed">
+              Open your owner link to join an auction.
+            </p>
+            <p className="text-base text-[#52525b] leading-relaxed">
+              Your tournament operator will send you a unique link.
+            </p>
+          </div>
+          <p className="text-sm text-[#3f3f46] uppercase tracking-widest">
+            {poweredByText}
+          </p>
+        </motion.div>
       </div>
     );
   }
@@ -251,49 +266,34 @@ export function Launcher() {
   return (
     <div className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom">
       {/* Header */}
-      <div className="px-5 pt-6 pb-4 flex-shrink-0">
-        <h1 className="font-display font-black text-2xl text-white">Your Auctions</h1>
-        {liveAuctions.length > 0 && (
-          <p className="text-sm text-green-400 mt-1">
-            {liveAuctions.length === 1
-              ? "1 auction is live — tap to join"
-              : `${liveAuctions.length} auctions are live — choose one`}
+      <div className="px-5 pt-6 pb-4 flex-shrink-0 border-b border-[#27272a]">
+        <div className="flex items-center gap-3 mb-3">
+          {logos.mini ? (
+            <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
+              {miniBrandText}
+            </div>
+          )}
+          <span className="font-display font-black text-xl text-white">{brandName}</span>
+        </div>
+        <h1 className="font-display font-black text-3xl text-white">Your Auctions</h1>
+        {liveAuctions.length > 0 ? (
+          <p className="text-base text-green-400 mt-1 font-semibold">
+            {liveAuctions.length === 1 ? "1 auction is live — tap to join" : `${liveAuctions.length} auctions live`}
           </p>
-        )}
-        {liveAuctions.length === 0 && (
-          <p className="text-sm text-[#71717a] mt-1">No auctions are live right now</p>
+        ) : (
+          <p className="text-base text-[#71717a] mt-1">No auctions are live right now</p>
         )}
       </div>
 
       {/* Auction list */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-3 min-h-0">
-        {/* Live auctions first */}
-        {liveAuctions.length > 0 && (
-          <>
-            <p className="text-[10px] text-[#52525b] uppercase tracking-widest font-semibold pt-1">
-              Live Now
-            </p>
-            {liveAuctions.map((s) => (
-              <AuctionCard
-                key={`${s.tournamentId}-${s.teamId}`}
-                auction={s}
-                state={states[`${s.tournamentId}-${s.teamId}`]}
-                onClick={() => navigate(s)}
-                onRemove={() => handleRemove(s.tournamentId, s.teamId)}
-              />
-            ))}
-          </>
-        )}
-
-        {/* Upcoming auctions */}
-        {visible.filter((s) => !isLive(states[`${s.tournamentId}-${s.teamId}`])).length > 0 && (
-          <>
-            <p className="text-[10px] text-[#52525b] uppercase tracking-widest font-semibold pt-2">
-              Upcoming
-            </p>
-            {visible
-              .filter((s) => !isLive(states[`${s.tournamentId}-${s.teamId}`]))
-              .map((s) => (
+      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 space-y-4 min-h-0">
+        <AnimatePresence>
+          {liveAuctions.length > 0 && (
+            <>
+              <p className="text-sm text-[#52525b] uppercase tracking-widest font-semibold">Live Now</p>
+              {liveAuctions.map(s => (
                 <AuctionCard
                   key={`${s.tournamentId}-${s.teamId}`}
                   auction={s}
@@ -302,12 +302,30 @@ export function Launcher() {
                   onRemove={() => handleRemove(s.tournamentId, s.teamId)}
                 />
               ))}
-          </>
-        )}
+            </>
+          )}
+
+          {visible.filter(s => !isLive(states[`${s.tournamentId}-${s.teamId}`])).length > 0 && (
+            <>
+              <p className="text-sm text-[#52525b] uppercase tracking-widest font-semibold pt-2">Upcoming</p>
+              {visible
+                .filter(s => !isLive(states[`${s.tournamentId}-${s.teamId}`]))
+                .map(s => (
+                  <AuctionCard
+                    key={`${s.tournamentId}-${s.teamId}`}
+                    auction={s}
+                    state={states[`${s.tournamentId}-${s.teamId}`]}
+                    onClick={() => navigate(s)}
+                    onRemove={() => handleRemove(s.tournamentId, s.teamId)}
+                  />
+                ))}
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
-      <p className="text-center text-[10px] text-[#3f3f46] uppercase tracking-widest pb-5 flex-shrink-0">
-        Powered by BidWar
+      <p className="text-center text-sm text-[#3f3f46] uppercase tracking-widest pb-5 flex-shrink-0">
+        {poweredByText}
       </p>
     </div>
   );

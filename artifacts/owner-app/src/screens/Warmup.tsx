@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { useBranding } from "@/hooks/useBranding";
 
 interface Props {
   teamName:      string;
@@ -17,9 +17,9 @@ const STEPS = [
   "Ready to bid!",
 ];
 
-export function Warmup({ teamName, teamShortCode, teamColor, onReady, onSync }: Props) {
-  const [step,    setStep]    = useState(0);
-  const [syncing, setSyncing] = useState(false);
+export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
+  const [step, setStep] = useState(0);
+  const { brandName, logos, poweredByText, miniBrandText } = useBranding();
 
   useEffect(() => {
     const timings = [600, 700, 700, 500];
@@ -39,46 +39,50 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady, onSync }: 
     return () => clearTimeout(id);
   }, [onReady]);
 
-  function handleSync() {
-    if (!onSync || syncing) return;
-    setSyncing(true);
-    onSync();
-    setTimeout(() => setSyncing(false), 1200);
-  }
-
   return (
     <div
       className="h-full flex flex-col items-center justify-center bg-[#09090b] px-6"
-      style={{
-        background: `radial-gradient(ellipse at center, ${teamColor}18 0%, transparent 60%), #09090b`,
-      }}
+      style={{ background: `radial-gradient(ellipse at center, ${teamColor}18 0%, transparent 60%), #09090b` }}
     >
-      <div className="text-center space-y-10">
+      <div className="w-full max-w-sm text-center space-y-10">
+        {/* Brand logo */}
+        <div className="flex items-center justify-center gap-2.5">
+          {logos.mini ? (
+            <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
+          ) : (
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
+              {miniBrandText}
+            </div>
+          )}
+          <span className="font-display font-black text-2xl text-white tracking-wide">{brandName}</span>
+        </div>
+
         {/* Team badge */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 200 }}
+          className="space-y-4"
         >
           <div
-            className="w-28 h-28 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-4xl mb-4"
+            className="w-36 h-36 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-5xl"
             style={{ backgroundColor: `${teamColor}25`, border: `3px solid ${teamColor}60`, color: teamColor }}
           >
             {teamShortCode}
           </div>
-          <h1 className="font-display font-black text-3xl text-white tracking-wide">{teamName}</h1>
+          <h1 className="font-display font-black text-4xl text-white tracking-wide">{teamName}</h1>
         </motion.div>
 
         {/* Progress steps */}
         <div className="space-y-4">
-          <div className="flex justify-center gap-1.5 mb-5">
+          <div className="flex justify-center gap-2 mb-5">
             {STEPS.map((_, i) => (
               <motion.div
                 key={i}
-                className="h-1 rounded-full"
+                className="h-1.5 rounded-full"
                 style={{ backgroundColor: teamColor }}
-                initial={{ width: 8, opacity: 0.2 }}
-                animate={{ width: i <= step ? 24 : 8, opacity: i <= step ? 1 : 0.2 }}
+                initial={{ width: 10, opacity: 0.2 }}
+                animate={{ width: i <= step ? 28 : 10, opacity: i <= step ? 1 : 0.2 }}
                 transition={{ duration: 0.3 }}
               />
             ))}
@@ -88,7 +92,7 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady, onSync }: 
             key={step}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[#a1a1aa] text-sm"
+            className="text-[#a1a1aa] text-lg"
           >
             {STEPS[step]}
           </motion.p>
@@ -96,26 +100,14 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady, onSync }: 
 
         {/* Spinner */}
         <div
-          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto"
+          className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin mx-auto"
           style={{ borderColor: `${teamColor}40`, borderTopColor: teamColor }}
         />
       </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-8 flex items-center gap-4">
-        <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">
-          Powered by BidWar
-        </p>
-        {onSync && (
-          <button
-            onClick={handleSync}
-            className="p-1.5 rounded-full text-[#3f3f46] hover:text-[#71717a] transition-colors"
-            title="Sync data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-          </button>
-        )}
-      </div>
+      <p className="absolute bottom-8 text-sm text-[#3f3f46] uppercase tracking-widest">
+        {poweredByText}
+      </p>
     </div>
   );
 }
