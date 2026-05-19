@@ -4,6 +4,10 @@
   "description": "BidWar Local — offline Electron auction app",
   "author": "BidWar",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tusharsaraswat1988/updatedbidwarcore.git"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "electron .",

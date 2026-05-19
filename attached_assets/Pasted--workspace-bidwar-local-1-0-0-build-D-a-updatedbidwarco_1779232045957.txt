@@ -1,0 +1,105 @@
+
+> @workspace/bidwar-local@1.0.0 build D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron
+> @workspace/bidwar-local@1.0.0 build:icons D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> node ./scripts/generate-icons.mjs
+Generated assets/icon.png  (857 bytes, 256x256 RGBA)
+Generated assets/icon.ico  (PNG-in-ICO, Vista+ format)
+Generated assets/icon.icns (ic08 / 256x256 PNG slot)
+Replace with production 1024x1024 artwork before shipping.
+> @workspace/bidwar-local@1.0.0 build:frontend D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> node ./scripts/copy-frontend.mjs
+Building auction-platform...
+> @workspace/auction-platform@0.0.0 build D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\auction-platform
+> vite build --config vite.config.ts
+vite v7.3.2 building client environment for production...
+transforming...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/progress.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2948 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/public/index.html                                            10.08 kB │ gzip:     2.82 kB
+dist/public/assets/ort.bundle.min-OfoG_cy9.mjs                   399.90 kB
+dist/public/assets/ort.webgpu.bundle.min-CEayb2S6.mjs            399.92 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+dist/public/assets/ort-wasm-simd-threaded.jsep-D5Jk56-t.wasm  23,914.39 kB │ gzip: 5,662.56 kB
+- Using dynamic import() to code-split the application
+dist/public/assets/index-BUabboct.css                            187.21 kB │ gzip:    26.40 kB
+dist/public/assets/index-D1rswqP9.js                              82.00 kB │ gzip:    22.24 kB
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+dist/public/assets/ort.bundle.min-DAXuwjBG.js                    395.51 kB │ gzip:   108.23 kB
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+dist/public/assets/ort.webgpu.bundle.min-CElWvg4j.js             395.53 kB │ gzip:   108.23 kB
+dist/public/assets/index-kBA12kb8.js                           1,805.66 kB │ gzip:   494.06 kB
+✓ built in 16.05s
+Copied D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\auction-platform\dist → D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local\frontend-dist
+> @workspace/bidwar-local@1.0.0 build:server D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> node ./build-server.mjs
+  dist-server\index.js  1.6mb
+Done in 274ms
+> @workspace/bidwar-local@1.0.0 build:electron D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> tsc -p tsconfig.electron.json
+1s
+Run cd artifacts/bidwar-local
+  
+12s
+Run pnpm --filter @workspace/bidwar-local run package:win
+  
+> @workspace/bidwar-local@1.0.0 package:win D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local
+> electron-builder --win
+  • electron-builder  version=25.1.8 os=10.0.26100
+  • artifacts will be published if draft release exists  reason=CI detected
+  • loaded configuration  file=package.json ("build" field)
+  • executing @electron/rebuild  electronVersion=36.9.5 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=win32 arch=x64 electron=36.9.5 appOutDir=release\win-unpacked
+  • downloading     url=https://github.com/electron/electron/releases/download/v36.9.5/electron-v36.9.5-win32-x64.zip size=122 MB parts=4
+  • downloaded      url=https://github.com/electron/electron/releases/download/v36.9.5/electron-v36.9.5-win32-x64.zip duration=607ms
+  • updating asar integrity executable resource  executablePath=release\win-unpacked\BidWar Local.exe
+  ⨯ Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish  failedTask=build stackTrace=Error: Cannot detect repository by .git/config. Please specify "repository" in the package.json (https://docs.npmjs.com/files/package.json#repository).
+Please see https://electron.build/publish
+    at getInfo (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:550:13)
+    at getResolvedPublishConfig (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:559:18)
+    at resolvePublishConfigurations (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:442:16)
+    at getPublishConfigs (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:416:10)
+    at getAppUpdatePublishConfiguration (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:248:73)
+    at D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\publish\PublishManager.ts:118:29
+    at Packager.afterPack (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\packager.ts:560:7)
+    at WinPackager.doPack (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\platformPackager.ts:322:5)
+    at WinPackager.pack (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\platformPackager.ts:138:5)
+    at Packager.doBuild (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\packager.ts:459:9)
+    at executeFinally (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\builder-util@25.1.7\node_modules\builder-util\src\promise.ts:12:14)
+    at Packager.build (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\app-builder-lib@25.1.8_dmg-builder@25.1.8\node_modules\app-builder-lib\src\packager.ts:393:31)
+    at executeFinally (D:\a\updatedbidwarcore\updatedbidwarcore\node_modules\.pnpm\builder-util@25.1.7\node_modules\builder-util\src\promise.ts:12:14)
+D:\a\updatedbidwarcore\updatedbidwarcore\artifacts\bidwar-local:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/bidwar-local@1.0.0 package:win: `electron-builder --win`
+Exit status 1
+Error: Process completed with exit code 1.
+0s
+0s
+0s
+1s
+Post job cleanup.
+Pruning is unnecessary.
+0s
+2s
+Post job cleanup.
+"C:\Program Files\Git\bin\git.exe" version
+git version 2.54.0.windows.1
+Temporarily overriding HOME='D:\a\_temp\7250bdb7-dd3d-43b9-83fa-2a7b76cbc180' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\updatedbidwarcore\updatedbidwarcore
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
