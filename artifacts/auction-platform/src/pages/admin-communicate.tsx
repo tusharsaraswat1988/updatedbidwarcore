@@ -509,11 +509,11 @@ export default function AdminCommunicate() {
                         <StatusBadge status={log.deliveryStatus} />
                         {log.metaMessageId && (
                           <span
-                            className="hidden lg:block text-[10px] font-mono text-muted-foreground/60 flex-shrink-0 max-w-32 truncate"
+                            className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60 flex-shrink-0 max-w-40 truncate"
                             title={`${log.channel === "sms" ? "Message ID" : "Message SID"}: ${log.metaMessageId}`}
                           >
-                            <span className="text-muted-foreground/40 not-italic">{log.channel === "sms" ? "ID:" : "SID:"}</span>{" "}
-                            {log.metaMessageId.length > 12 ? `${log.metaMessageId.slice(0, 12)}\u2026` : log.metaMessageId}
+                            <span className="not-italic text-muted-foreground/40">{log.channel === "sms" ? "Message ID:" : "Message SID:"}</span>
+                            {log.metaMessageId.length > 10 ? `${log.metaMessageId.slice(0, 10)}\u2026` : log.metaMessageId}
                           </span>
                         )}
                         <span className="text-[10px] text-muted-foreground flex-shrink-0">
