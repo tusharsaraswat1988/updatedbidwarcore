@@ -20,11 +20,20 @@ function sessionKey(teamId: number) {
   return `owner_verified_${teamId}`;
 }
 
+const LAST_URL_KEY = "owner_last_path";
+
 export function OwnerRoute() {
   const params = useParams<{ id: string; teamId: string }>();
   const tournamentId = parseInt(params.id || "0");
   const teamId       = parseInt(params.teamId || "0");
   const qc           = useQueryClient();
+
+  // Persist this owner's path so the PWA home-screen launch can redirect back
+  useEffect(() => {
+    if (tournamentId && teamId) {
+      localStorage.setItem(LAST_URL_KEY, `/tournament/${tournamentId}/owner/${teamId}`);
+    }
+  }, [tournamentId, teamId]);
 
   const [screen, setScreen] = useState<Screen>("loading");
 
