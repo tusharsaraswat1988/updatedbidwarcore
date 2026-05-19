@@ -26,7 +26,7 @@ export default defineConfig({
     runtimeErrorOverlay(),
     VitePWA({
       registerType: "autoUpdate",
-      devOptions: { enabled: false },
+      devOptions: { enabled: true, type: "module" },
       includeAssets: ["pwa-icon.svg", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
         name: "BidWar Owner",
