@@ -17,6 +17,7 @@ import webhooksRouter from "./webhooks";
 import sportsRouter from "./sports";
 import brandingRouter from "./branding";
 import pushRouter from "./push";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(globalPlayersRouter);
 router.use(commRouter);
 router.use(webhooksRouter);
 router.use(sportsRouter);
+router.use(settingsRouter);
 
 export default router;

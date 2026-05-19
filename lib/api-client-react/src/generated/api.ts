@@ -35,6 +35,7 @@ import type {
   ImportPlayersInput,
   ImportPlayersResult,
   ImportSource,
+  InstallerUrlSettings,
   ListImportCandidatesParams,
   LocalSyncPayload,
   LocalSyncResult,
@@ -5298,4 +5299,165 @@ export const useImportPlayersFromTournament = <
   TContext
 > => {
   return useMutation(getImportPlayersFromTournamentMutationOptions(options));
+};
+
+/**
+ * @summary Get BidWar Local installer URL and version (public)
+ */
+export const getGetInstallerUrlUrl = () => {
+  return `/api/settings/installer-url`;
+};
+
+export const getInstallerUrl = async (
+  options?: RequestInit,
+): Promise<InstallerUrlSettings> => {
+  return customFetch<InstallerUrlSettings>(getGetInstallerUrlUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInstallerUrlQueryKey = () => {
+  return [`/api/settings/installer-url`] as const;
+};
+
+export const getGetInstallerUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInstallerUrl>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInstallerUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInstallerUrlQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getInstallerUrl>>> = ({
+    signal,
+  }) => getInstallerUrl({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInstallerUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInstallerUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInstallerUrl>>
+>;
+export type GetInstallerUrlQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get BidWar Local installer URL and version (public)
+ */
+
+export function useGetInstallerUrl<
+  TData = Awaited<ReturnType<typeof getInstallerUrl>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInstallerUrl>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInstallerUrlQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update BidWar Local installer URL and version (admin only)
+ */
+export const getUpdateInstallerUrlUrl = () => {
+  return `/api/auth/admin/settings/installer-url`;
+};
+
+export const updateInstallerUrl = async (
+  installerUrlSettings: InstallerUrlSettings,
+  options?: RequestInit,
+): Promise<InstallerUrlSettings> => {
+  return customFetch<InstallerUrlSettings>(getUpdateInstallerUrlUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(installerUrlSettings),
+  });
+};
+
+export const getUpdateInstallerUrlMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInstallerUrl>>,
+    TError,
+    { data: BodyType<InstallerUrlSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateInstallerUrl>>,
+  TError,
+  { data: BodyType<InstallerUrlSettings> },
+  TContext
+> => {
+  const mutationKey = ["updateInstallerUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateInstallerUrl>>,
+    { data: BodyType<InstallerUrlSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateInstallerUrl(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateInstallerUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateInstallerUrl>>
+>;
+export type UpdateInstallerUrlMutationBody = BodyType<InstallerUrlSettings>;
+export type UpdateInstallerUrlMutationError = ErrorType<void>;
+
+/**
+ * @summary Update BidWar Local installer URL and version (admin only)
+ */
+export const useUpdateInstallerUrl = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInstallerUrl>>,
+    TError,
+    { data: BodyType<InstallerUrlSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateInstallerUrl>>,
+  TError,
+  { data: BodyType<InstallerUrlSettings> },
+  TContext
+> => {
+  return useMutation(getUpdateInstallerUrlMutationOptions(options));
 };

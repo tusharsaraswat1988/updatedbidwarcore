@@ -908,6 +908,24 @@ export interface ImportPlayersResult {
   total: number;
 }
 
+export interface InstallerUrlSettings {
+  /**
+   * Windows installer download URL (GitHub Releases etc.)
+   * @nullable
+   */
+  url?: string | null;
+  /**
+   * Version string e.g. "1.0.0"
+   * @nullable
+   */
+  version?: string | null;
+  /**
+   * ISO date of release e.g. "2026-05-19"
+   * @nullable
+   */
+  releasedAt?: string | null;
+}
+
 export type UploadImageBody = {
   /** Image file (PNG, JPG, WebP, etc.) */
   file: Blob;

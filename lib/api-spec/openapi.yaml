@@ -16,6 +16,7 @@ tags:
   - name: auction
   - name: analytics
   - name: global-players
+  - name: settings
 
 paths:
   /healthz:
@@ -1437,6 +1438,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportPlayersResult"
 
+  # ─── SETTINGS ───────────────────────────────────────────────────────────────
+  /settings/installer-url:
+    get:
+      operationId: getInstallerUrl
+      tags: [settings]
+      summary: Get BidWar Local installer URL and version (public)
+      responses:
+        "200":
+          description: Installer settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstallerUrlSettings"
+
+  /auth/admin/settings/installer-url:
+    patch:
+      operationId: updateInstallerUrl
+      tags: [settings]
+      summary: Update BidWar Local installer URL and version (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstallerUrlSettings"
+      responses:
+        "200":
+          description: Updated installer settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstallerUrlSettings"
+        "403":
+          description: Admin required
+
 components:
   schemas:
     HealthStatus:
@@ -2595,3 +2631,16 @@ components:
           type: integer
         total:
           type: integer
+
+    InstallerUrlSettings:
+      type: object
+      properties:
+        url:
+          type: ["string", "null"]
+          description: Windows installer download URL (GitHub Releases etc.)
+        version:
+          type: ["string", "null"]
+          description: Version string e.g. "1.0.0"
+        releasedAt:
+          type: ["string", "null"]
+          description: ISO date of release e.g. "2026-05-19"

@@ -2461,6 +2461,151 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
   );
 }
 
+// ─── Installer Settings Panel ────────────────────────────────────────────────
+
+function InstallerSettingsPanel() {
+  const [url, setUrl] = useState("");
+  const [version, setVersion] = useState("");
+  const [releasedAt, setReleasedAt] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/installer-url")
+      .then((r) => r.json())
+      .then((d: { url?: string | null; version?: string | null; releasedAt?: string | null }) => {
+        setUrl(d.url ?? "");
+        setVersion(d.version ?? "");
+        setReleasedAt(d.releasedAt ?? "");
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/admin/settings/installer-url", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: url.trim() || null,
+          version: version.trim() || null,
+          releasedAt: releasedAt.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        setError(d.error ?? "Save failed");
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="max-w-lg space-y-6">
+        <div>
+          <h2 className="font-display font-bold text-lg text-white flex items-center gap-2">
+            <MonitorDown className="w-5 h-5 text-amber-400" />
+            BidWar Local — Installer Download
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Set the public download URL and version shown to organizers on the Local Mode setup page.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                Download URL
+              </Label>
+              <Input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://github.com/your-org/bidwar-local/releases/download/v1.0.0/BidWarLocal-Setup.exe"
+                className="text-sm font-mono"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Paste the direct link to the Windows installer (.exe). Organizers will see a Download button on their Local Mode page.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Version
+                </Label>
+                <Input
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  placeholder="1.0.0"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Release Date
+                </Label>
+                <Input
+                  value={releasedAt}
+                  onChange={(e) => setReleasedAt(e.target.value)}
+                  placeholder="2026-05-19"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> {error}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : saved ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Check className="w-3.5 h-3.5" />
+                )}
+                {saving ? "Saving..." : saved ? "Saved" : "Save"}
+              </Button>
+              {saved && (
+                <span className="text-xs text-green-400">Changes saved successfully.</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -2478,7 +2623,7 @@ export default function AdminDashboard() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [, navigate] = useLocation();
-  const [adminTab, setAdminTab] = useState<"tournaments" | "organizers" | "sports">(
+  const [adminTab, setAdminTab] = useState<"tournaments" | "organizers" | "sports" | "settings">(
     "tournaments",
   );
 
@@ -2655,6 +2800,14 @@ export default function AdminDashboard() {
           >
             <Sliders className="w-3.5 h-3.5" /> Sports & Specs
           </Button>
+          <Button
+            size="sm"
+            variant={adminTab === "settings" ? "default" : "ghost"}
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setAdminTab("settings")}
+          >
+            <MonitorDown className="w-3.5 h-3.5" /> Local App
+          </Button>
         </div>
 
         {/* Body */}
@@ -2662,6 +2815,8 @@ export default function AdminDashboard() {
           <OrganizersPanel isMaster={isMaster} />
         ) : adminTab === "sports" ? (
           <SportsPanel />
+        ) : adminTab === "settings" ? (
+          <InstallerSettingsPanel />
         ) : (
           <div className="flex-1 flex min-h-0">
             {/* Left: tournament list */}

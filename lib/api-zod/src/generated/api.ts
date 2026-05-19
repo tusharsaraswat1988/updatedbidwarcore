@@ -4075,3 +4075,45 @@ export const ImportPlayersFromTournamentResponse = zod.object({
   skipped: zod.number(),
   total: zod.number(),
 });
+
+/**
+ * @summary Get BidWar Local installer URL and version (public)
+ */
+export const GetInstallerUrlResponse = zod.object({
+  url: zod
+    .string()
+    .nullish()
+    .describe("Windows installer download URL (GitHub Releases etc.)"),
+  version: zod.string().nullish().describe('Version string e.g. \"1.0.0\"'),
+  releasedAt: zod
+    .string()
+    .nullish()
+    .describe('ISO date of release e.g. \"2026-05-19\"'),
+});
+
+/**
+ * @summary Update BidWar Local installer URL and version (admin only)
+ */
+export const UpdateInstallerUrlBody = zod.object({
+  url: zod
+    .string()
+    .nullish()
+    .describe("Windows installer download URL (GitHub Releases etc.)"),
+  version: zod.string().nullish().describe('Version string e.g. \"1.0.0\"'),
+  releasedAt: zod
+    .string()
+    .nullish()
+    .describe('ISO date of release e.g. \"2026-05-19\"'),
+});
+
+export const UpdateInstallerUrlResponse = zod.object({
+  url: zod
+    .string()
+    .nullish()
+    .describe("Windows installer download URL (GitHub Releases etc.)"),
+  version: zod.string().nullish().describe('Version string e.g. \"1.0.0\"'),
+  releasedAt: zod
+    .string()
+    .nullish()
+    .describe('ISO date of release e.g. \"2026-05-19\"'),
+});
