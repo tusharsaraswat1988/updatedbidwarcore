@@ -18,12 +18,14 @@
     "cors": "^2.8.5",
     "drizzle-orm": "catalog:",
     "express": "^5.1.0",
+    "qrcode": "^1.5.4",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.3",
     "@types/node": "catalog:",
+    "@types/qrcode": "^1.5.6",
     "electron": "^36.3.2",
     "electron-builder": "^25.1.8",
     "typescript": "^5.9.0"

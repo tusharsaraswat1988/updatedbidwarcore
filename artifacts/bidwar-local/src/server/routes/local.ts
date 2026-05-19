@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import QRCode from "qrcode";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
@@ -204,6 +205,22 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       .where(eq(syncQueueTable.failed, false));
 
     res.json(result);
+  });
+
+  // GET /local/qr.png — QR code image for the local server URL (for easy device onboarding)
+  // Reads localIP from X-Local-IP header sent by the Electron renderer (or falls back to req.hostname)
+  router.get("/qr.png", async (req, res) => {
+    const ip = String(req.headers["x-local-ip"] || req.hostname || "127.0.0.1");
+    const port = String(req.headers["x-local-port"] || "3741");
+    const url = `http://${ip}:${port}`;
+    try {
+      const png = await QRCode.toBuffer(url, { type: "png", width: 300, margin: 2 });
+      res.set("Content-Type", "image/png");
+      res.set("Cache-Control", "no-store");
+      res.send(png);
+    } catch (err) {
+      res.status(500).json({ error: "QR generation failed" });
+    }
   });
 
   return router;

@@ -135,6 +135,18 @@
       </p>
     </div>
 
+    <!-- QR Launcher -->
+    <div class="card">
+      <h2>QR Code — Team Owner Launcher</h2>
+      <p style="font-size:12px;color:#71717a;margin-bottom:14px;">
+        Team owners: scan this QR code with any phone on the same WiFi to open the bidding panel instantly.
+      </p>
+      <div style="display:flex;justify-content:center;">
+        <img id="qr-img" src="" alt="QR Code" style="width:180px;height:180px;border-radius:8px;border:1px solid #27272a;display:none;" />
+        <div id="qr-placeholder" style="width:180px;height:180px;border-radius:8px;border:1px solid #27272a;background:#18181b;display:flex;align-items:center;justify-content:center;color:#52525b;font-size:12px;">Loading...</div>
+      </div>
+    </div>
+
     <!-- Import Tournament -->
     <div class="card">
       <h2>Import Tournament</h2>
@@ -197,6 +209,7 @@
     let localIP = "127.0.0.1";
     let serverPort = 3741;
     let tournamentId = parseInt(localStorage.getItem("activeTournamentId") || "1") || 1;
+    let storedCloudBaseUrl = localStorage.getItem("cloudBaseUrl") || "";
 
     function setStatusEl(id, dotClass, label) {
       const el = document.getElementById(id);
@@ -221,6 +234,7 @@
         serverPort = await window.bidwar.getServerPort();
         document.getElementById("local-ip").textContent = localIP;
         document.getElementById("local-port").textContent = `http://${localIP}:${serverPort}`;
+        loadQR();
         checkInternet();
         setInterval(checkInternet, 10000);
         loadSyncStatus();
@@ -229,6 +243,23 @@
         document.getElementById("local-ip").textContent = "Starting...";
         setTimeout(init, 2000);
       }
+    }
+
+    function loadQR() {
+      const url = `http://localhost:${serverPort}/local/qr.png`;
+      const img = document.getElementById("qr-img");
+      const placeholder = document.getElementById("qr-placeholder");
+      // Pass local IP and port as headers via a fetch → blob URL so the server
+      // can embed the correct LAN address into the QR code
+      fetch(url, {
+        headers: { "X-Local-IP": localIP, "X-Local-Port": String(serverPort) },
+      }).then(r => r.blob()).then(blob => {
+        img.src = URL.createObjectURL(blob);
+        img.style.display = "block";
+        placeholder.style.display = "none";
+      }).catch(() => {
+        placeholder.textContent = "QR unavailable";
+      });
     }
 
     async function checkInternet() {
@@ -287,6 +318,11 @@
         if (res.ok) {
           tournamentId = data.tournamentId;
           localStorage.setItem("activeTournamentId", String(tournamentId));
+          // Persist cloudBaseUrl so the sync dialog can pre-fill it later
+          if (json.cloudBaseUrl) {
+            storedCloudBaseUrl = String(json.cloudBaseUrl);
+            localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
+          }
           const name = String(json.tournament?.name || "tournament");
           const playerCount = Number(json.players?.length || 0);
           const teamCount = Number(json.teams?.length || 0);
@@ -301,13 +337,22 @@
     }
 
     async function manualSync() {
-      const cloudUrl = prompt("Enter your BidWar cloud URL (e.g. https://yourdomain.replit.app):");
+      // Pre-fill from the cloudBaseUrl stored during import; user can override
+      const defaultUrl = storedCloudBaseUrl || "";
+      const cloudUrl = prompt(
+        "BidWar cloud URL (pre-filled from your last import — edit if needed):",
+        defaultUrl
+      );
       if (!cloudUrl) return;
+      const trimmedUrl = cloudUrl.trim().replace(/\/$/, "");
+      // Persist the (possibly corrected) URL for next time
+      storedCloudBaseUrl = trimmedUrl;
+      localStorage.setItem("cloudBaseUrl", trimmedUrl);
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/sync-to-cloud`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cloudBaseUrl: cloudUrl.trim().replace(/\/$/, ""), tournamentId }),
+          body: JSON.stringify({ cloudBaseUrl: trimmedUrl, tournamentId }),
         });
         const data = await res.json();
         if (res.ok) {

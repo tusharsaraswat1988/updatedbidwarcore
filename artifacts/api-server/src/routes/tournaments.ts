@@ -283,9 +283,19 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
 });
 
 // GET export full tournament snapshot for local/offline mode
+// Requires organizer or admin session — token issuance is a privileged action
 router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) => {
   const id = parseInt(String(req.params.tournamentId));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  // Auth check: must be an admin or an authenticated organizer for this tournament
+  const isAdmin = !!req.session.isAdmin;
+  const isOrgAccount = !!req.session.organizerAccountId;
+  const isOrgForTournament = !!(req.session.organizer as Record<string, boolean> | undefined)?.[String(id)];
+  if (!isAdmin && !isOrgAccount && !isOrgForTournament) {
+    res.status(401).json({ error: "Authentication required to export tournament" });
+    return;
+  }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
