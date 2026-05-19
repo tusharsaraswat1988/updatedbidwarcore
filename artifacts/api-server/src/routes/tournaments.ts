@@ -6,6 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
+import { validateExportToken } from "../lib/export-token";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -356,16 +357,27 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const providedToken = req.headers["x-export-token"];
-  if (!providedToken) { res.status(401).json({ error: "Missing X-Export-Token header" }); return; }
-
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  if (!tournament.exportToken || tournament.exportToken !== providedToken) {
-    res.status(403).json({ error: "Invalid or expired export token" }); return;
+
+  // Timing-safe token validation with clock-drift tolerance
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error }); return;
   }
-  if (tournament.exportTokenExpiresAt && tournament.exportTokenExpiresAt < new Date()) {
-    res.status(403).json({ error: "Export token has expired — re-export from cloud" }); return;
+
+  // Replay prevention: reject a second sync with the same token.
+  // Once results are synced, a new export (and fresh token) is required.
+  if (tournament.exportTokenSyncedAt) {
+    res.status(409).json({
+      error: "This export token has already been used for sync. Re-export from cloud to sync again.",
+      syncedAt: tournament.exportTokenSyncedAt.toISOString(),
+    });
+    return;
   }
 
   const schema = z.object({
@@ -420,7 +432,11 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
     bidsInserted++;
   }
 
-  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, id));
+  // Mark tournament complete and stamp the token as used — prevents replay sync
+  await db.update(tournamentsTable).set({
+    status: "completed",
+    exportTokenSyncedAt: new Date(),
+  }).where(eq(tournamentsTable.id, id));
 
   res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted });
 });

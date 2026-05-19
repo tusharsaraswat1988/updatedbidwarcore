@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { cheerLimiter } from "../lib/rate-limiters";
+import { validateExportToken } from "../lib/export-token";
 // NOTE: Auction operations are intentionally not rate-limited to support
 // rapid bidding (2-3 req/sec per player) and polling (every 1s on 4+ screens).
 import {
@@ -1698,16 +1699,17 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
   const tid = parseInt(req.params.id);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const providedToken = req.headers["x-export-token"];
-  if (!providedToken) { res.status(401).json({ error: "Missing X-Export-Token header" }); return; }
-
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  if (!tournament.exportToken || tournament.exportToken !== providedToken) {
-    res.status(403).json({ error: "Invalid export token" }); return;
-  }
-  if (tournament.exportTokenExpiresAt && tournament.exportTokenExpiresAt < new Date()) {
-    res.status(403).json({ error: "Export token expired — re-export from cloud" }); return;
+
+  // Timing-safe token validation with clock-drift tolerance (shared helper)
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error }); return;
   }
 
   const bodySchema = z.object({
@@ -1748,6 +1750,11 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
     wheelItemsJson: d.wheelItemsJson ?? null,
     wheelWinner: d.wheelWinner ?? null,
   }).where(eq(auctionSessionsTable.id, session.id));
+
+  // Track last successful mirror for operational visibility (non-blocking)
+  void db.update(tournamentsTable)
+    .set({ exportTokenLastMirrorAt: new Date() })
+    .where(eq(tournamentsTable.id, tid));
 
   // Broadcast to cloud display/OBS screens so they update live
   const fullState = await buildAuctionState(tid);
