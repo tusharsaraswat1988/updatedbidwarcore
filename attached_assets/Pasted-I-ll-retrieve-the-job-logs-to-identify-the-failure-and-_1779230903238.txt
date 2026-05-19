@@ -1,0 +1,56 @@
+I'll retrieve the job logs to identify the failure and provide a solution.Now let me get the workflow file and relevant configuration files to understand the setup:## Solution: pnpm Lockfile Configuration Mismatch
+
+Problem
+The job is failing with:
+
+Code
+ERR_PNPM_LOCKFILE_CONFIG_MISMATCH Cannot proceed with the frozen installation. 
+The current "overrides" configuration doesn't match the value found in the lockfile
+This occurs when running pnpm install --frozen-lockfile in the workflow. The overrides section in your pnpm-lock.yaml doesn't match what pnpm expects based on your current package.json configuration.
+
+Root Cause
+Your pnpm-lock.yaml has an extensive overrides section (lines 73-161) that defines dependency resolutions for security patches and platform-specific binaries. When you use --frozen-lockfile, pnpm validates that the lockfile exactly matches the package configuration. Any mismatch causes this error.
+
+Solution
+Option 1: Update the lockfile (Recommended)
+
+Replace the install step in .github/workflows/build-electron.yml line 41:
+
+YAML
+- name: Install dependencies
+  run: pnpm install --frozen-lockfile
+with:
+
+YAML
+- name: Install dependencies
+  run: pnpm install --no-frozen-lockfile
+Then run locally:
+
+bash
+pnpm install --no-frozen-lockfile
+Commit the updated pnpm-lock.yaml:
+
+bash
+git add pnpm-lock.yaml
+git commit -m "Update pnpm lockfile with current overrides configuration"
+git push
+Option 2: Regenerate lockfile strictly
+
+If you want to keep --frozen-lockfile for CI reliability:
+
+Locally, delete the lockfile and regenerate it:
+bash
+rm pnpm-lock.yaml
+pnpm install
+Verify the generated lockfile is correct:
+bash
+pnpm install --frozen-lockfile
+Commit and push:
+bash
+git add pnpm-lock.yaml
+git commit -m "Regenerate pnpm lockfile"
+git push
+Why This Happens
+Your pnpm-lock.yaml contains 90+ override rules for platform-specific binaries and security patches. If your package.json was modified without updating the lockfile, or if pnpm version changed, these can become out of sync.
+
+Recommendation: Use Option 1 for immediate resolution, as it's the most straightforward approach and ensures your CI uses the exact dependency tree you're developing with.
