@@ -1500,6 +1500,9 @@ components:
           type: boolean
         cheerMessagePresets:
           type: ["string", "null"]
+        localModeEnabled:
+          type: boolean
+          description: "Whether BidWar Local offline auction mode is enabled for this tournament"
         createdAt:
           type: string
 

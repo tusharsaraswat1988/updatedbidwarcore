@@ -25,6 +25,8 @@ export const tournamentsTable = sqliteTable("tournaments", {
   playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
   status: text("status").notNull().default("setup"),
   cloudId: integer("cloud_id"),
+  cloudBaseUrl: text("cloud_base_url"),
+  exportToken: text("export_token"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });

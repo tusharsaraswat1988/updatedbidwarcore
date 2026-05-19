@@ -196,7 +196,7 @@
   <script>
     let localIP = "127.0.0.1";
     let serverPort = 3741;
-    let tournamentId = 1;
+    let tournamentId = parseInt(localStorage.getItem("activeTournamentId") || "1") || 1;
 
     function setStatusEl(id, dotClass, label) {
       const el = document.getElementById(id);
@@ -286,6 +286,7 @@
         const data = await res.json();
         if (res.ok) {
           tournamentId = data.tournamentId;
+          localStorage.setItem("activeTournamentId", String(tournamentId));
           const name = String(json.tournament?.name || "tournament");
           const playerCount = Number(json.players?.length || 0);
           const teamCount = Number(json.teams?.length || 0);

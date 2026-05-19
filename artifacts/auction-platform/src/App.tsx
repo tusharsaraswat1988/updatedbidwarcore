@@ -37,6 +37,7 @@ import AdminBranding from "@/pages/admin-branding";
 import WaConsent from "@/pages/wa-consent";
 import CompleteProfile from "@/pages/complete-profile";
 import BreakTimerPage from "@/pages/break-timer";
+import LocalModePage from "@/pages/local-mode";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -158,6 +159,12 @@ function Router() {
         {(params) => {
           const tid = parseInt(params?.id || "0");
           return <OrganizerGuard tournamentId={tid}><BreakTimerPage /></OrganizerGuard>;
+        }}
+      </Route>
+      <Route path="/tournament/:id/local-mode">
+        {(params) => {
+          const tid = parseInt(params?.id || "0");
+          return <OrganizerGuard tournamentId={tid}><LocalModePage /></OrganizerGuard>;
         }}
       </Route>
 

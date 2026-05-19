@@ -14,6 +14,8 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
   router.post("/import", async (req, res) => {
     const schema = z.object({
       version: z.number(),
+      exportToken: z.string().optional(),
+      cloudBaseUrl: z.string().url().optional(),
       tournament: z.object({
         id: z.number(), name: z.string(), sport: z.string(),
         venue: z.string().nullish(), auctionDate: z.string().nullish(),
@@ -48,7 +50,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid snapshot format", details: parsed.error.issues }); return; }
-    const { tournament: t, teams, players, categories } = parsed.data;
+    const { tournament: t, teams, players, categories, exportToken, cloudBaseUrl } = parsed.data;
 
     const now = new Date().toISOString();
 
@@ -64,6 +66,8 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
         playerSelectionMode: t.playerSelectionMode, status: "setup", updatedAt: now,
+        ...(cloudBaseUrl ? { cloudBaseUrl } : {}),
+        ...(exportToken ? { exportToken } : {}),
       }).where(eq(tournamentsTable.id, localTid));
     } else {
       const [inserted] = await db.insert(tournamentsTable).values({
@@ -73,6 +77,8 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
         playerSelectionMode: t.playerSelectionMode, status: "setup", cloudId: t.id,
+        cloudBaseUrl: cloudBaseUrl ?? null,
+        exportToken: exportToken ?? null,
       }).returning();
       localTid = inserted.id;
     }
@@ -170,9 +176,18 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       return { playerCloudId: player?.cloudId ?? 0, teamCloudId: team?.cloudId ?? 0, amount: b.amount, timestamp: b.timestamp };
     }).filter(b => b.playerCloudId > 0 && b.teamCloudId > 0);
 
-    const cloudRes = await fetch(`${cloudBaseUrl}/api/tournaments/${tournament.cloudId}/sync`, {
+    const resolvedCloudUrl = cloudBaseUrl ?? tournament.cloudBaseUrl ?? "";
+    if (!resolvedCloudUrl) {
+      res.status(400).json({ error: "No cloud URL configured — provide cloudBaseUrl or re-import from cloud" });
+      return;
+    }
+
+    const cloudRes = await fetch(`${resolvedCloudUrl}/api/tournaments/${tournament.cloudId}/sync`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(tournament.exportToken ? { "X-Export-Token": tournament.exportToken } : {}),
+      },
       body: JSON.stringify({ playerResults, teamPurses, bids: bidPayload }),
     });
 

@@ -57,6 +57,7 @@ import {
   ChevronDown,
   Sliders,
   Palette,
+  MonitorDown,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -773,6 +774,28 @@ function DetailPanel({
               Cancel
             </Button>
           </>
+        )}
+        {/* Local Mode toggle (master admin only) */}
+        {isMaster && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={`h-7 gap-1.5 text-xs ${t.localModeEnabled
+              ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              : "border-border text-muted-foreground hover:bg-accent"}`}
+            disabled={actionLoading === "Toggle Local Mode"}
+            onClick={() =>
+              doAction("Toggle Local Mode", () =>
+                updateAdminTournament(tournamentId, { localModeEnabled: !t.localModeEnabled }),
+              )
+            }
+            title={t.localModeEnabled ? "Click to disable Local Mode" : "Click to enable Local Mode"}
+          >
+            {actionLoading === "Toggle Local Mode"
+              ? <RefreshCw className="w-3 h-3 animate-spin" />
+              : <MonitorDown className="w-3 h-3" />}
+            Local Mode: {t.localModeEnabled ? "ON" : "OFF"}
+          </Button>
         )}
         {/* Reset Auction (master admin only) */}
         {isMaster && (

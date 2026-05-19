@@ -8,11 +8,10 @@ export function createSyncWorker(db: LocalDb, cloudBaseUrl: string) {
   async function checkAndSync() {
     if (!cloudBaseUrl) return;
 
-    // Check internet connectivity
+    // Check internet connectivity (plain fetch — mode:"no-cors" is browser-only and breaks Node.js)
     try {
       await fetch("https://clients1.google.com/generate_204", {
         signal: AbortSignal.timeout(3000),
-        mode: "no-cors" as "no-cors",
       });
     } catch {
       return; // No internet, skip

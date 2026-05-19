@@ -95,6 +95,8 @@ export interface Tournament {
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
+  /** Whether BidWar Local offline auction mode is enabled for this tournament */
+  localModeEnabled?: boolean;
   createdAt: string;
 }
 

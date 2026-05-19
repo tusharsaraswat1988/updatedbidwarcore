@@ -27,6 +27,8 @@ export async function setupTables(client: Client): Promise<void> {
       player_selection_mode TEXT NOT NULL DEFAULT 'sequential',
       status TEXT NOT NULL DEFAULT 'setup',
       cloud_id INTEGER,
+      cloud_base_url TEXT,
+      export_token TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -107,11 +109,14 @@ export async function setupTables(client: Client): Promise<void> {
       is_break INTEGER NOT NULL DEFAULT 0,
       break_ends_at TEXT,
       fortune_wheel_active INTEGER NOT NULL DEFAULT 0,
+      wheel_spinning INTEGER NOT NULL DEFAULT 0,
       team_purse_view_active INTEGER NOT NULL DEFAULT 0,
+      display_overlay TEXT,
       wheel_items_json TEXT,
       wheel_winner TEXT,
       active_category_ids TEXT,
       paused_time_remaining INTEGER,
+      display_countdown TEXT,
       sold_players_count INTEGER NOT NULL DEFAULT 0,
       unsold_players_count INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
@@ -126,4 +131,20 @@ export async function setupTables(client: Client): Promise<void> {
       error TEXT
     );
   `);
+
+  // Run schema migrations for existing databases (ALTER TABLE ADD COLUMN is idempotent via try-catch)
+  const migrations = [
+    "ALTER TABLE tournaments ADD COLUMN cloud_base_url TEXT",
+    "ALTER TABLE tournaments ADD COLUMN export_token TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN wheel_spinning INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE auction_sessions ADD COLUMN display_overlay TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",
+  ];
+  for (const sql of migrations) {
+    try {
+      await client.execute(sql);
+    } catch {
+      // Column already exists — expected for existing databases
+    }
+  }
 }

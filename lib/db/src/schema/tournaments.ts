@@ -62,6 +62,10 @@ export const tournamentsTable = pgTable("tournaments", {
   // Cheer messages (live viewer interactive reactions)
   cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
+  // BidWar Local — premium offline auction feature
+  localModeEnabled: boolean("local_mode_enabled").notNull().default(false),
+  exportToken: text("export_token"),
+  exportTokenExpiresAt: timestamp("export_token_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },

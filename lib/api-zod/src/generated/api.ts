@@ -81,6 +81,12 @@ export const ListTournamentsResponseItem = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  localModeEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether BidWar Local offline auction mode is enabled for this tournament",
+    ),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -180,6 +186,12 @@ export const GetTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  localModeEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether BidWar Local offline auction mode is enabled for this tournament",
+    ),
   createdAt: zod.string(),
 });
 
@@ -279,6 +291,12 @@ export const UpdateTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  localModeEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether BidWar Local offline auction mode is enabled for this tournament",
+    ),
   createdAt: zod.string(),
 });
 
@@ -350,6 +368,12 @@ export const ExportTournamentForLocalResponse = zod.object({
     breakEndMusicVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
     cheerMessagePresets: zod.string().nullish(),
+    localModeEnabled: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Whether BidWar Local offline auction mode is enabled for this tournament",
+      ),
     createdAt: zod.string(),
   }),
   teams: zod.array(

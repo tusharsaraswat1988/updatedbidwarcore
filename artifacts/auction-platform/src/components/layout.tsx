@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3, Coffee,
-  Link2, Shuffle, LogOut, RefreshCw, ChevronLeft, ChevronRight,
+  Link2, Shuffle, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown,
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -219,6 +219,31 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <RefreshCw className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Reset Auction</span>}
                 </Link>
+                {tournament?.localModeEnabled ? (
+                  <Link
+                    href={`/tournament/${tournamentId}/local-mode`}
+                    title="Local Mode"
+                    className={navCls(`/tournament/${tournamentId}/local-mode`)}
+                  >
+                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span>Local Mode</span>}
+                  </Link>
+                ) : (
+                  <div
+                    title="Local Mode is not enabled for this tournament. Contact your admin."
+                    className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
+                      collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
+                    }`}
+                  >
+                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="font-medium">Local Mode</span>
+                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Disabled</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </nav>
             </>
           )}

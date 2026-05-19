@@ -1693,4 +1693,67 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
   res.json({ ok: true });
 });
 
+// POST /tournaments/:id/auction/mirror — receive live auction state from a BidWar Local instance
+router.post("/tournaments/:id/auction/mirror", async (req, res) => {
+  const tid = parseInt(req.params.id);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const providedToken = req.headers["x-export-token"];
+  if (!providedToken) { res.status(401).json({ error: "Missing X-Export-Token header" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  if (!tournament.exportToken || tournament.exportToken !== providedToken) {
+    res.status(403).json({ error: "Invalid export token" }); return;
+  }
+  if (tournament.exportTokenExpiresAt && tournament.exportTokenExpiresAt < new Date()) {
+    res.status(403).json({ error: "Export token expired — re-export from cloud" }); return;
+  }
+
+  const bodySchema = z.object({
+    status: z.string(),
+    currentPlayerCloudId: z.number().int().nullable().optional(),
+    currentBidTeamCloudId: z.number().int().nullable().optional(),
+    currentBid: z.number().int().nullable().optional(),
+    timerEndsAt: z.string().nullable().optional(),
+    lastAction: z.string().nullable().optional(),
+    fortuneWheelActive: z.boolean().optional().default(false),
+    wheelSpinning: z.boolean().optional().default(false),
+    teamPurseViewActive: z.boolean().optional().default(false),
+    isBreak: z.boolean().optional().default(false),
+    breakEndsAt: z.string().nullable().optional(),
+    displayCountdown: z.string().nullable().optional(),
+    wheelItemsJson: z.string().nullable().optional(),
+    wheelWinner: z.string().nullable().optional(),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid mirror payload" }); return; }
+  const d = parsed.data;
+
+  const session = await getOrCreateSession(tid);
+  await db.update(auctionSessionsTable).set({
+    status: d.status,
+    currentPlayerId: d.currentPlayerCloudId ?? null,
+    currentBidTeamId: d.currentBidTeamCloudId ?? null,
+    currentBid: d.currentBid ?? null,
+    timerEndsAt: d.timerEndsAt ?? null,
+    lastAction: d.lastAction ?? null,
+    fortuneWheelActive: d.fortuneWheelActive ?? false,
+    wheelSpinning: d.wheelSpinning ?? false,
+    teamPurseViewActive: d.teamPurseViewActive ?? false,
+    isBreak: d.isBreak ?? false,
+    breakEndsAt: d.breakEndsAt ?? null,
+    displayCountdown: d.displayCountdown ?? null,
+    wheelItemsJson: d.wheelItemsJson ?? null,
+    wheelWinner: d.wheelWinner ?? null,
+  }).where(eq(auctionSessionsTable.id, session.id));
+
+  // Broadcast to cloud display/OBS screens so they update live
+  const fullState = await buildAuctionState(tid);
+  broadcastToTournament(tid, { type: "auction_state", state: fullState });
+
+  res.json({ ok: true });
+});
+
 export default router;

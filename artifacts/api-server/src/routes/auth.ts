@@ -417,6 +417,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       lastResetBy: tournament.lastResetBy ?? null,
       cheerMessagesEnabled: tournament.cheerMessagesEnabled ?? true,
       cheerMessagePresets: tournament.cheerMessagePresets ?? null,
+      localModeEnabled: tournament.localModeEnabled ?? false,
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
@@ -478,6 +479,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     playerSelectionMode: z.string().optional(),
     status: z.string().optional(),
     bidTiers: z.string().optional(),
+    localModeEnabled: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -499,6 +501,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
+  if (d.localModeEnabled !== undefined) updates.localModeEnabled = d.localModeEnabled;
 
   // Auto-link organizer account by mobile or email when those fields are set
   let autoLinkedOrganizer: { id: number; name: string } | null = null;

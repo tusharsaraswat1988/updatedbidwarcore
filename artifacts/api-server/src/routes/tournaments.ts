@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -94,6 +95,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
   breakEndMusicUrl: t.breakEndMusicUrl ?? null,
   breakEndMusicVolume: t.breakEndMusicVolume ?? 80,
+  localModeEnabled: t.localModeEnabled ?? false,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -288,6 +290,20 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
 
+  if (!tournament.localModeEnabled) {
+    res.status(403).json({ error: "Local mode is not enabled for this tournament" });
+    return;
+  }
+
+  // Generate a fresh 48-hour export token for this download
+  const exportToken = randomBytes(32).toString("hex");
+  const exportTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  await db.update(tournamentsTable).set({ exportToken, exportTokenExpiresAt }).where(eq(tournamentsTable.id, id));
+
+  // Derive the cloud base URL so the local app knows where to mirror back
+  const host = process.env.REPLIT_DOMAINS?.split(",")[0] || req.get("host") || "localhost";
+  const cloudBaseUrl = `https://${host}`;
+
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
   const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, id));
@@ -305,6 +321,8 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   res.json({
     version: 1,
     exportedAt: new Date().toISOString(),
+    exportToken,
+    cloudBaseUrl,
     tournament: tournamentToJson(tournament),
     teams: teams.map(t => ({
       id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
@@ -327,6 +345,18 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const providedToken = req.headers["x-export-token"];
+  if (!providedToken) { res.status(401).json({ error: "Missing X-Export-Token header" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  if (!tournament.exportToken || tournament.exportToken !== providedToken) {
+    res.status(403).json({ error: "Invalid or expired export token" }); return;
+  }
+  if (tournament.exportTokenExpiresAt && tournament.exportTokenExpiresAt < new Date()) {
+    res.status(403).json({ error: "Export token has expired — re-export from cloud" }); return;
+  }
+
   const schema = z.object({
     playerResults: z.array(z.object({
       cloudId: z.number().int(),
@@ -348,9 +378,6 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid sync payload" }); return; }
-
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
-  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
 
   const { playerResults, teamPurses, bids } = parsed.data;
 

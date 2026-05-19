@@ -5,6 +5,7 @@ import type { LocalDb } from "@workspace/db-local";
 import {
   auctionSessionsTable, playersTable, teamsTable, bidsTable, tournamentsTable,
 } from "@workspace/db-local";
+import { mirrorStateToCloud } from "../mirror.js";
 
 // SSE client registry (in-process, no separate broadcast module needed)
 const sseClients = new Map<number, Set<Response>>();
@@ -132,6 +133,14 @@ export function createAuctionRouter(db: LocalDb) {
     let activeCategoryIds: number[] | null = null;
     try { if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
 
+    let displayCountdown: { type: string; endsAt: string; message: string | null } | null = null;
+    if (session.displayCountdown) {
+      try {
+        const parsed = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
+        if (parsed && new Date(parsed.endsAt) > new Date()) displayCountdown = parsed;
+      } catch { /* ignore */ }
+    }
+
     return {
       tournamentId, status: session.status, currentPlayer,
       currentBid: session.currentBid, currentBidTeamId: session.currentBidTeamId,
@@ -139,8 +148,13 @@ export function createAuctionRouter(db: LocalDb) {
       bidIncrement, timerSeconds, bidTimerSeconds, timerEndsAt: session.timerEndsAt,
       lastAction: session.lastAction, soldPlayersCount: soldCount,
       unsoldPlayersCount: unsoldCount, remainingPlayersCount: availableCount,
-      fortuneWheelActive: session.fortuneWheelActive, wheelItems,
+      fortuneWheelActive: session.fortuneWheelActive,
+      wheelSpinning: session.wheelSpinning ?? false,
+      wheelItems,
       wheelWinner: session.wheelWinner, teamPurseViewActive: session.teamPurseViewActive,
+      isBreak: session.isBreak ?? false,
+      breakEndsAt: session.breakEndsAt ?? null,
+      displayCountdown,
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
     };
   }
@@ -148,6 +162,7 @@ export function createAuctionRouter(db: LocalDb) {
   async function broadcastState(tournamentId: number, invalidate: string[] = []) {
     const state = await buildAuctionState(tournamentId);
     broadcastToTournament(tournamentId, { type: "auction_state", state, invalidate });
+    mirrorStateToCloud(db, tournamentId);
     return state;
   }
 
@@ -477,6 +492,7 @@ export function createAuctionRouter(db: LocalDb) {
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const body = z.object({
       active: z.boolean().optional(),
+      spinning: z.boolean().optional(),
       items: z.array(z.object({ label: z.string(), color: z.string() })).optional(),
       winner: z.string().nullable().optional(),
     }).safeParse(req.body);
@@ -484,11 +500,76 @@ export function createAuctionRouter(db: LocalDb) {
     await getOrCreateSession(tid);
     const patch: Record<string, unknown> = {};
     if (body.data.active !== undefined) patch.fortuneWheelActive = body.data.active;
+    if (body.data.spinning !== undefined) patch.wheelSpinning = body.data.spinning;
     if (body.data.items !== undefined) patch.wheelItemsJson = JSON.stringify(body.data.items);
     if ("winner" in body.data) patch.wheelWinner = body.data.winner ?? null;
     if (Object.keys(patch).length > 0) {
       await db.update(auctionSessionsTable).set(patch).where(eq(auctionSessionsTable.tournamentId, tid));
     }
+    res.json(await broadcastState(tid));
+  });
+
+  // POST break-timer (start, extend, or cancel a break countdown on the LED display)
+  router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const body = z.object({
+      action: z.enum(["start", "cancel", "extend"]),
+      durationSeconds: z.number().int().min(10).max(3600).optional(),
+      message: z.string().max(60).optional(),
+    }).safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    const session = await getOrCreateSession(tid);
+    if (body.data.action === "start" && session.status === "active") {
+      res.status(409).json({ error: "Cannot start a break during live bidding. Pause the auction first." });
+      return;
+    }
+    if (body.data.action === "start" && !body.data.durationSeconds) {
+      res.status(400).json({ error: "durationSeconds is required when action is start" });
+      return;
+    }
+    let countdown: string | null = null;
+    if (body.data.action === "start" && body.data.durationSeconds) {
+      const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
+      countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
+    } else if (body.data.action === "extend") {
+      let existingCountdown: { type: string; endsAt: string; message: string | null } | null = null;
+      if (session.displayCountdown) {
+        try {
+          existingCountdown = JSON.parse(session.displayCountdown) as { type: string; endsAt: string; message: string | null };
+        } catch { /* ignore */ }
+      }
+      if (!existingCountdown || existingCountdown.type !== "break") {
+        res.status(400).json({ error: "extend is only valid for an active break countdown" });
+        return;
+      }
+      const extendSecs = body.data.durationSeconds ?? 300;
+      const baseTime = new Date(existingCountdown.endsAt).getTime() > Date.now()
+        ? new Date(existingCountdown.endsAt).getTime()
+        : Date.now();
+      const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
+      countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
+    }
+    await db.update(auctionSessionsTable).set({ displayCountdown: countdown }).where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid));
+  });
+
+  // POST pre-auction-countdown (10-second fixed countdown before bidding opens)
+  router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const body = z.object({
+      action: z.enum(["start", "cancel"]).optional().default("start"),
+      message: z.string().max(60).optional(),
+    }).safeParse(req.body ?? {});
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    await getOrCreateSession(tid);
+    let countdown: string | null = null;
+    if (body.data.action === "start") {
+      const endsAt = new Date(Date.now() + 10_000).toISOString();
+      countdown = JSON.stringify({ type: "pre-auction", endsAt, message: body.data.message ?? null });
+    }
+    await db.update(auctionSessionsTable).set({ displayCountdown: countdown }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid));
   });
 
