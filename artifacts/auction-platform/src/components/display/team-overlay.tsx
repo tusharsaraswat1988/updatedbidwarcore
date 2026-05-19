@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Wallet, Gavel, Star } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import type { PurseRow } from "./types";
+import { useBranding } from "@/hooks/use-branding";
 
 /**
  * Overlay 1 — IPL-style TEAM PURSE STATUS table.
@@ -20,6 +21,7 @@ export const TeamOverlay = memo(function TeamOverlay({
   currentBidTeamId?: number | null;
   tournamentName?: string;
 }) {
+  const { logos, brandName } = useBranding();
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
@@ -61,9 +63,9 @@ export const TeamOverlay = memo(function TeamOverlay({
 
         {/* BidWar brand mark — top right */}
         <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-10 md:h-14 w-auto flex-shrink-0" />
+          <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-10 md:h-14 w-auto flex-shrink-0" />
           <span className="font-display font-black text-lg md:text-2xl tracking-tight text-white leading-none">
-            BIDWAR
+            {brandName.toUpperCase()}
           </span>
         </div>
       </div>

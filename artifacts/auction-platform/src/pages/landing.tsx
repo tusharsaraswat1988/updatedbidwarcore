@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useBranding } from "@/hooks/use-branding";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Radio, Shuffle, Zap,
@@ -327,6 +328,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function Landing() {
   const [, navigate] = useLocation();
+  const { logos, brandName } = useBranding();
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
@@ -335,8 +337,8 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-9 w-auto" />
-            <span className="font-display font-black text-xl tracking-tight text-white">BIDWAR</span>
+            <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-auto" />
+            <span className="font-display font-black text-xl tracking-tight text-white">{brandName.toUpperCase()}</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -858,8 +860,8 @@ export default function Landing() {
             {/* Brand */}
             <div className="space-y-4 md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-9 w-auto" />
-                <span className="font-display font-black text-xl text-white">BIDWAR</span>
+                <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-auto" />
+                <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 India's live sports auction platform. IPL-grade infrastructure for cricket, football, kabaddi and franchise leagues.

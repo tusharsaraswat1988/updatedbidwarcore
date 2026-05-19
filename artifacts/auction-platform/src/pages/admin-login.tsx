@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, Eye, EyeOff, LogIn, ShieldAlert, Trophy } from "lucide-react";
@@ -15,6 +16,7 @@ export default function AdminLogin() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { logos, brandName } = useBranding();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,8 +48,8 @@ export default function AdminLogin() {
             </div>
             <div>
               <div className="flex items-center justify-center gap-2 mb-1">
-                <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-10 w-auto" />
-                <span className="font-display font-black text-xl text-white">BIDWAR</span>
+                <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-10 w-auto" />
+                <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-muted-foreground text-sm">Super Admin Login</p>
             </div>

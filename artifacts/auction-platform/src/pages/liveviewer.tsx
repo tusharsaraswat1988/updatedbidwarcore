@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { useBranding } from "@/hooks/use-branding";
 
 import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
@@ -539,6 +540,7 @@ function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
 export default function LiveViewerPage() {
   const [, params] = useRoute("/tournament/:id/liveviewer");
   const tournamentId = parseInt(params?.id || "0");
+  const { logos, brandName } = useBranding();
 
   // ── Cheer state (declared early so the socket callback is stable) ─────────
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
@@ -849,8 +851,8 @@ export default function LiveViewerPage() {
       <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
         <div className="px-4 py-3.5 flex items-center gap-3">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto" />
-            <span className="font-display font-black text-amber-400 text-base tracking-widest">BIDWAR</span>
+            <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-7 w-auto" />
+            <span className="font-display font-black text-amber-400 text-base tracking-widest">{brandName.toUpperCase()}</span>
           </div>
           <div className="h-5 w-px bg-white/15 flex-shrink-0" />
           <p className="flex-1 min-w-0 font-semibold text-sm text-white/80 truncate">

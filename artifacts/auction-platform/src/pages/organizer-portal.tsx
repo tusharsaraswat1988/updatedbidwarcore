@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
+import { useBranding } from "@/hooks/use-branding";
 import {
   signupOrganizerAccount,
   loginOrganizerAccount,
@@ -418,6 +419,7 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
   const [error, setError] = useState(initialError ?? "");
   const [showPw, setShowPw] = useState(false);
   const [, navigate] = useLocation();
+  const { logos, brandName } = useBranding();
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [signupForm, setSignupForm] = useState({ name: "", mobile: "", email: "", password: "", confirmPassword: "" });
@@ -468,8 +470,8 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
         </button>
 
         <div className="text-center space-y-3">
-          <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-20 w-auto mx-auto" />
-          <h1 className="font-display font-black text-3xl text-white">BIDWAR</h1>
+          <img src={logos.main || "/bidwar-logo-transparent.png"} alt={brandName} className="h-20 w-auto mx-auto" />
+          <h1 className="font-display font-black text-3xl text-white">{brandName.toUpperCase()}</h1>
           <p className="text-muted-foreground text-sm">Organizer Portal</p>
         </div>
 
