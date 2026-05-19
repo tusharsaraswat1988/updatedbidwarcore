@@ -55,6 +55,7 @@ import {
   MessageSquare,
   ChevronDown,
   Sliders,
+  Palette,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -2571,6 +2572,14 @@ export default function AdminDashboard() {
               onClick={() => navigate("/admin/reports")}
             >
               <FileBarChart className="w-4 h-4" /> Report Center
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 border-violet-500/40 text-violet-400 hover:bg-violet-500/10"
+              onClick={() => navigate("/admin/branding")}
+            >
+              <Palette className="w-4 h-4" /> Branding
             </Button>
             <Button
               size="sm"

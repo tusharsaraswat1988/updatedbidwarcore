@@ -31,6 +31,7 @@ import OrganizerPortal from "@/pages/organizer-portal";
 import LegalPage from "@/pages/legal";
 import LiveViewer from "@/pages/liveviewer";
 import AdminCommunicate from "@/pages/admin-communicate";
+import AdminBranding from "@/pages/admin-branding";
 import WaConsent from "@/pages/wa-consent";
 import CompleteProfile from "@/pages/complete-profile";
 import BreakTimerPage from "@/pages/break-timer";
@@ -72,6 +73,7 @@ function Router() {
       <Route path="/admin/intelligence" component={AdminIntelligence} />
       <Route path="/admin/communicate/logs" component={AdminCommunicate} />
       <Route path="/admin/communicate" component={AdminCommunicate} />
+      <Route path="/admin/branding" component={AdminBranding} />
       <Route path="/wa-consent/:token" component={WaConsent} />
       <Route path="/complete-profile" component={CompleteProfile} />
       <Route path="/organizer" component={OrganizerPortal} />

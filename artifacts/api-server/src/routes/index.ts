@@ -15,12 +15,14 @@ import globalPlayersRouter from "./global-players";
 import commRouter from "./comm";
 import webhooksRouter from "./webhooks";
 import sportsRouter from "./sports";
+import brandingRouter from "./branding";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(healthRouter);
 router.use(uploadRouter);
+router.use(brandingRouter);
 router.use(tournamentsRouter);
 router.use(teamsRouter);
 router.use(categoriesRouter);
