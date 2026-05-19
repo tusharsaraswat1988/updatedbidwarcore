@@ -1,0 +1,110 @@
+##[debug]Starting: Set up job
+Current runner version: '2.334.0'
+Runner Image Provisioner
+Operating System
+Runner Image
+GITHUB_TOKEN Permissions
+Secret source: Actions
+##[debug]Primary repository: tusharsaraswat1988/updatedbidwarcore
+Prepare workflow directory
+##[debug]Creating pipeline directory: 'D:\a\updatedbidwarcore'
+##[debug]Creating workspace directory: 'D:\a\updatedbidwarcore\updatedbidwarcore'
+##[debug]Update context data
+##[debug]Evaluating job-level environment variables
+##[debug]Evaluating job container
+##[debug]Evaluating job service containers
+##[debug]Evaluating job defaults
+Prepare all required actions
+Getting action download info
+Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+##[debug]Copied action archive 'C:\actionarchivecache\actions_checkout\34e114876b0b11c390a56381ad16ebd13914f8d5.zip' to 'D:\a\_actions\_temp_334ba66a-3946-4b2d-87f4-82b5735df089\35a4af94-8ab5-4231-8708-119ac3ef429d.zip'
+##[debug]Unwrap 'actions-checkout-34e1148' to 'D:\a\_actions\actions\checkout\v4'
+##[debug]Archive 'D:\a\_actions\_temp_334ba66a-3946-4b2d-87f4-82b5735df089\35a4af94-8ab5-4231-8708-119ac3ef429d.zip' has been unzipped into 'D:\a\_actions\actions\checkout\v4'.
+Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+##[debug]Copied action archive 'C:\actionarchivecache\actions_setup-node\49933ea5288caeca8642d1e84afbd3f7d6820020.zip' to 'D:\a\_actions\_temp_5effcfd2-692e-4ef5-9d63-5e0bfd76bc40\25045d09-e1ae-40c4-b62b-4a03828faa37.zip'
+##[debug]Unwrap 'actions-setup-node-49933ea' to 'D:\a\_actions\actions\setup-node\v4'
+##[debug]Archive 'D:\a\_actions\_temp_5effcfd2-692e-4ef5-9d63-5e0bfd76bc40\25045d09-e1ae-40c4-b62b-4a03828faa37.zip' has been unzipped into 'D:\a\_actions\actions\setup-node\v4'.
+Download action repository 'pnpm/action-setup@v4' (SHA:b906affcce14559ad1aafd4ab0e942779e9f58b1)
+##[debug]Download 'https://codeload.github.com/pnpm/action-setup/zip/b906affcce14559ad1aafd4ab0e942779e9f58b1' to 'D:\a\_actions\_temp_fdef2bd5-6225-4803-a8fc-ae9566776ea7\016b3da2-bb23-40fe-b681-cfb257048f6c.zip'
+##[debug]Unwrap 'action-setup-b906affcce14559ad1aafd4ab0e942779e9f58b1' to 'D:\a\_actions\pnpm\action-setup\v4'
+##[debug]Archive 'D:\a\_actions\_temp_fdef2bd5-6225-4803-a8fc-ae9566776ea7\016b3da2-bb23-40fe-b681-cfb257048f6c.zip' has been unzipped into 'D:\a\_actions\pnpm\action-setup\v4'.
+8s
+8s
+6s
+2s
+1s
+1m 26s
+2s
+36s
+0s
+16s
+0s
+0s
+0s
+0s
+0s
+3s
+##[debug]Evaluating condition for step: 'Post Checkout repository'
+##[debug]Evaluating: always()
+##[debug]Evaluating always:
+##[debug]=> true
+##[debug]Result: true
+##[debug]Starting: Post Checkout repository
+##[debug]Loading inputs
+##[debug]Evaluating: github.repository
+##[debug]Evaluating Index:
+##[debug]..Evaluating github:
+##[debug]..=> Object
+##[debug]..Evaluating String:
+##[debug]..=> 'repository'
+##[debug]=> 'tusharsaraswat1988/updatedbidwarcore'
+##[debug]Result: 'tusharsaraswat1988/updatedbidwarcore'
+##[debug]Evaluating: github.token
+##[debug]Evaluating Index:
+##[debug]..Evaluating github:
+##[debug]..=> Object
+##[debug]..Evaluating String:
+##[debug]..=> 'token'
+##[debug]=> '***'
+##[debug]Result: '***'
+##[debug]Loading env
+Post job cleanup.
+##[debug]Getting git version
+"C:\Program Files\Git\bin\git.exe" version
+git version 2.54.0.windows.1
+##[debug]0
+##[debug]git version 2.54.0.windows.1
+##[debug]
+##[debug]Set git useragent to: git/2.54.0 (github-actions-checkout)
+::add-mask::***
+Temporarily overriding HOME='D:\a\_temp\78a22b73-feee-4316-86b8-386455d84617' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\updatedbidwarcore\updatedbidwarcore
+##[debug]0
+##[debug]
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+##[debug]1
+##[debug]
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+##[debug]0
+##[debug]
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+http.https://github.com/.extraheader
+##[debug]0
+##[debug]http.https://github.com/.extraheader
+##[debug]
+"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+##[debug]0
+##[debug]
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+##[debug]0
+##[debug]
+"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+##[debug]1
+##[debug]
+"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+##[debug]0
+##[debug]
+##[debug]Unsetting HOME override
+##[debug]Node Action run completed with exit code 0
+##[debug]Finishing: Post Checkout repository
