@@ -105,41 +105,47 @@ function AuctionCard({
   const live  = isLive(state);
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left p-4 rounded-2xl border transition-all active:scale-[0.98] relative group"
-      style={{
-        borderColor:     live ? `${color}60` : "#27272a",
-        backgroundColor: live ? `${color}12` : "#18181b",
-        boxShadow:       live ? `0 0 24px ${color}20` : "none",
-      }}
-    >
-      <div className="flex items-center gap-3">
-        {/* Team badge */}
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-base flex-shrink-0"
-          style={{ backgroundColor: `${color}25`, color, border: `2px solid ${color}50` }}
-        >
-          {(auction.teamName?.substring(0, 3) || "?").toUpperCase()}
-        </div>
+    <div className="relative group">
+      {/* Main tappable card area — not a <button> to avoid nesting interactive elements */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+        className="w-full text-left p-4 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer"
+        style={{
+          borderColor:     live ? `${color}60` : "#27272a",
+          backgroundColor: live ? `${color}12` : "#18181b",
+          boxShadow:       live ? `0 0 24px ${color}20` : "none",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Team badge */}
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-base flex-shrink-0"
+            style={{ backgroundColor: `${color}25`, color, border: `2px solid ${color}50` }}
+          >
+            {(auction.teamName?.substring(0, 3) || "?").toUpperCase()}
+          </div>
 
-        {/* Names */}
-        <div className="flex-1 min-w-0">
-          <p className="font-display font-bold text-base text-white leading-tight truncate">
-            {auction.teamName || `Team ${auction.teamId}`}
-          </p>
-          <p className="text-xs text-[#71717a] truncate mt-0.5">
-            {auction.tournamentName || `Tournament ${auction.tournamentId}`}
-          </p>
-        </div>
+          {/* Names */}
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold text-base text-white leading-tight truncate">
+              {auction.teamName || `Team ${auction.teamId}`}
+            </p>
+            <p className="text-xs text-[#71717a] truncate mt-0.5">
+              {auction.tournamentName || `Tournament ${auction.tournamentId}`}
+            </p>
+          </div>
 
-        {/* Status + remove */}
-        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-          <StatusBadge state={state} />
+          {/* Status badge */}
+          <div className="flex-shrink-0">
+            <StatusBadge state={state} />
+          </div>
         </div>
       </div>
 
-      {/* Remove button */}
+      {/* Remove button — sibling, not child, so no interactive nesting */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         className="absolute top-2 right-2 p-1 rounded-full text-[#52525b] hover:text-[#a1a1aa] opacity-0 group-hover:opacity-100 transition-opacity"
@@ -147,7 +153,7 @@ function AuctionCard({
       >
         <X className="w-3 h-3" />
       </button>
-    </button>
+    </div>
   );
 }
 

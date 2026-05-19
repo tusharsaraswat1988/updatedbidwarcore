@@ -1,9 +1,10 @@
 import { Router } from "express";
 import webPush from "web-push";
 import { db } from "@workspace/db";
-import { pushSubscriptionsTable } from "@workspace/db";
+import { pushSubscriptionsTable, tournamentsTable, teamsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { pushSubscribeLimiter } from "../lib/rate-limiters";
 
 const router = Router();
 
@@ -36,15 +37,27 @@ const subscribeSchema = z.object({
   }),
 });
 
-router.post("/tournaments/:tournamentId/push-subscribe", async (req, res) => {
-  const tournamentId = parseInt(req.params.tournamentId);
+router.post("/tournaments/:tournamentId/push-subscribe", pushSubscribeLimiter, async (req, res) => {
+  const tournamentId = parseInt(String(req.params.tournamentId));
   if (isNaN(tournamentId)) { res.status(400).json({ error: "Invalid tournament ID" }); return; }
 
-  const teamId = parseInt(String(req.query.teamId ?? ""));
+  const teamIdRaw = Array.isArray(req.query.teamId) ? req.query.teamId[0] : req.query.teamId;
+  const teamId = parseInt(String(teamIdRaw ?? ""));
   if (isNaN(teamId))       { res.status(400).json({ error: "teamId query param required" }); return; }
 
   const parsed = subscribeSchema.safeParse(req.body);
   if (!parsed.success)     { res.status(400).json({ error: "Invalid subscription object" }); return; }
+
+  // Validate that the tournament and team actually exist before writing anything
+  const [tournament] = await db.select({ id: tournamentsTable.id })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const [team] = await db.select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tournamentId)));
+  if (!team) { res.status(404).json({ error: "Team not found" }); return; }
 
   const { endpoint, keys } = parsed.data;
 

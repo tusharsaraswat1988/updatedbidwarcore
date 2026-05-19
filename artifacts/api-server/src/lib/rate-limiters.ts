@@ -149,3 +149,21 @@ export const cheerLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   },
 });
+
+/**
+ * Push-subscribe limiter (5 subscriptions / 10 min per IP).
+ * Each call writes a DB row; prevent device/endpoint spam from
+ * unauthenticated callers.
+ */
+export const pushSubscribeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_PUSH_SUBSCRIBE_MAX ?? 5),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many subscription requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "push-subscribe");
+    res.status(options.statusCode).json(options.message);
+  },
+});
