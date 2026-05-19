@@ -54,6 +54,13 @@ Thumbs.db
 *.sql
 build
 
+# Electron build outputs — never commit binaries to git
+artifacts/bidwar-local/release/
+artifacts/bidwar-local/dist-electron/
+artifacts/bidwar-local/dist-server/
+artifacts/bidwar-local/frontend-dist/
+artifacts/bidwar-local/dist-ts/
+
 # Security — never commit credentials or secrets
 *.pem
 *.key
