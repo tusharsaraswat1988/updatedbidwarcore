@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "wouter";
+import { useWakeLock } from "../hooks/useWakeLock";
 import {
   useGetTeam, getGetTeamQueryKey,
   useGetTournament, getGetTournamentQueryKey,
@@ -71,6 +72,10 @@ export function OwnerRoute() {
   const pushDoneRef  = useRef(false);
 
   const [screen, setScreen] = useState<Screen>("loading");
+
+  // Keep the screen awake while the owner is active — critical during live bidding.
+  // Released automatically when the page is hidden; re-acquired on visibility restore.
+  useWakeLock(screen !== "loading" && screen !== "gate");
 
   const { data: team } = useGetTeam(tournamentId, teamId, {
     query: {
