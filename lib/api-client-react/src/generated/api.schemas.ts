@@ -443,6 +443,8 @@ export interface BulkPlayerResult {
 export interface BidInput {
   teamId: number;
   amount: number;
+  /** Team access code — required if the team has one configured */
+  accessCode?: string;
 }
 
 export interface ManualSellInput {
@@ -740,10 +742,40 @@ export interface TimerInput {
 export interface TournamentExport {
   version: number;
   exportedAt: string;
+  /** 48-hour token for authenticating mirror/sync calls to the cloud */
+  exportToken: string;
+  /** Base URL of the cloud server (e.g. https://myapp.replit.app) */
+  cloudBaseUrl: string;
   tournament: Tournament;
   teams: Team[];
   players: Player[];
   categories: Category[];
+}
+
+export interface MirrorPayload {
+  status: string;
+  /** @nullable */
+  currentPlayerCloudId?: number | null;
+  /** @nullable */
+  currentBidTeamCloudId?: number | null;
+  /** @nullable */
+  currentBid?: number | null;
+  /** @nullable */
+  timerEndsAt?: string | null;
+  /** @nullable */
+  lastAction?: string | null;
+  fortuneWheelActive?: boolean;
+  wheelSpinning?: boolean;
+  teamPurseViewActive?: boolean;
+  isBreak?: boolean;
+  /** @nullable */
+  breakEndsAt?: string | null;
+  /** @nullable */
+  displayCountdown?: string | null;
+  /** @nullable */
+  wheelItemsJson?: string | null;
+  /** @nullable */
+  wheelWinner?: string | null;
 }
 
 export type LocalSyncPayloadPlayerResultsItem = {
@@ -884,6 +916,10 @@ export type UploadImageBody = {
 export type UploadImage200 = {
   /** Cloudinary HTTPS URL (https://res.cloudinary.com/...) */
   url: string;
+};
+
+export type MirrorAuctionState200 = {
+  ok?: boolean;
 };
 
 export type ResetTrialAuctionBody = {

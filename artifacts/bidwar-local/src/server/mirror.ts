@@ -1,5 +1,5 @@
 import type { LocalDb } from "@workspace/db-local";
-import { tournamentsTable, teamsTable, playersTable, auctionSessionsTable } from "@workspace/db-local";
+import { tournamentsTable, teamsTable, playersTable, auctionSessionsTable, syncQueueTable } from "@workspace/db-local";
 import { eq } from "drizzle-orm";
 
 function sleep(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
@@ -52,6 +52,7 @@ export function mirrorStateToCloud(db: LocalDb, localTournamentId: number): void
 
       const url = `${tournament.cloudBaseUrl}/api/tournaments/${tournament.cloudId}/auction/mirror`;
 
+      let mirrored = false;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const res = await fetch(url, {
@@ -63,12 +64,25 @@ export function mirrorStateToCloud(db: LocalDb, localTournamentId: number): void
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(5000),
           });
-          if (res.ok) return;
-          // Non-2xx — log attempt number but don't throw
+          if (res.ok) { mirrored = true; break; }
         } catch {
           // Network error — retry
         }
         if (attempt < 2) await sleep(attempt === 0 ? 500 : 1500);
+      }
+
+      // If all retries failed, enqueue for the sync worker to drain later
+      if (!mirrored) {
+        await db.insert(syncQueueTable).values({
+          operation: "mirror",
+          payload: JSON.stringify({
+            url,
+            exportToken: tournament.exportToken,
+            method: "POST",
+            data: payload,
+          }),
+          createdAt: new Date().toISOString(),
+        });
       }
     } catch {
       // Top-level catch — mirror must never crash the caller

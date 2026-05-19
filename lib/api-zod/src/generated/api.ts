@@ -317,6 +317,14 @@ export const ExportTournamentForLocalParams = zod.object({
 export const ExportTournamentForLocalResponse = zod.object({
   version: zod.number(),
   exportedAt: zod.string(),
+  exportToken: zod
+    .string()
+    .describe(
+      "48-hour token for authenticating mirror\/sync calls to the cloud",
+    ),
+  cloudBaseUrl: zod
+    .string()
+    .describe("Base URL of the cloud server (e.g. https:\/\/myapp.replit.app)"),
   tournament: zod.object({
     id: zod.number(),
     name: zod.string(),
@@ -462,6 +470,12 @@ export const SyncLocalAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const SyncLocalAuctionHeader = zod.object({
+  "X-Export-Token": zod
+    .string()
+    .describe("48-hour token obtained from the export endpoint"),
+});
+
 export const SyncLocalAuctionBody = zod.object({
   playerResults: zod.array(
     zod.object({
@@ -494,6 +508,40 @@ export const SyncLocalAuctionResponse = zod.object({
   playersUpdated: zod.number(),
   teamsUpdated: zod.number(),
   bidsInserted: zod.number(),
+});
+
+/**
+ * @summary Mirror live local auction state to cloud display (called by BidWar Local)
+ */
+export const MirrorAuctionStateParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const MirrorAuctionStateHeader = zod.object({
+  "X-Export-Token": zod
+    .string()
+    .describe("48-hour token obtained from the export endpoint"),
+});
+
+export const MirrorAuctionStateBody = zod.object({
+  status: zod.string(),
+  currentPlayerCloudId: zod.number().nullish(),
+  currentBidTeamCloudId: zod.number().nullish(),
+  currentBid: zod.number().nullish(),
+  timerEndsAt: zod.string().nullish(),
+  lastAction: zod.string().nullish(),
+  fortuneWheelActive: zod.boolean().optional(),
+  wheelSpinning: zod.boolean().optional(),
+  teamPurseViewActive: zod.boolean().optional(),
+  isBreak: zod.boolean().optional(),
+  breakEndsAt: zod.string().nullish(),
+  displayCountdown: zod.string().nullish(),
+  wheelItemsJson: zod.string().nullish(),
+  wheelWinner: zod.string().nullish(),
+});
+
+export const MirrorAuctionStateResponse = zod.object({
+  ok: zod.boolean().optional(),
 });
 
 /**
@@ -1542,6 +1590,10 @@ export const PlaceBidParams = zod.object({
 export const PlaceBidBody = zod.object({
   teamId: zod.number(),
   amount: zod.number(),
+  accessCode: zod
+    .string()
+    .optional()
+    .describe("Team access code — required if the team has one configured"),
 });
 
 export const PlaceBidResponse = zod.object({

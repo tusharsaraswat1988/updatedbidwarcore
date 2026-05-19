@@ -27,6 +27,8 @@ export const tournamentsTable = sqliteTable("tournaments", {
   cloudId: integer("cloud_id"),
   cloudBaseUrl: text("cloud_base_url"),
   exportToken: text("export_token"),
+  localModeEnabled: integer("local_mode_enabled").notNull().default(0),
+  operatorPin: text("operator_pin"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });

@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Response, type NextFunction, type Request } from "express";
 import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
@@ -166,6 +166,28 @@ export function createAuctionRouter(db: LocalDb) {
     return state;
   }
 
+  // Operator PIN middleware — applied to all mutating auction routes.
+  // If the tournament has an operatorPin set, callers must supply the correct
+  // value in the X-Operator-Pin header. GET requests and the /bid endpoint
+  // (which uses team access codes instead) are always allowed through.
+  router.use(async (req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET") { next(); return; }
+    const match = /\/tournaments\/(\d+)\/auction/.exec(req.path);
+    if (!match) { next(); return; }
+    // Bid route authenticates with team access codes — skip PIN check
+    if (req.path.endsWith("/bid")) { next(); return; }
+    const tid = parseInt(match[1]);
+    if (!tid) { next(); return; }
+    const [t] = await db
+      .select({ operatorPin: tournamentsTable.operatorPin })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+    if (!t?.operatorPin) { next(); return; } // No PIN configured — open LAN access
+    const provided = req.headers["x-operator-pin"] as string | undefined;
+    if (provided === t.operatorPin) { next(); return; }
+    res.status(401).json({ error: "Operator PIN required. Include X-Operator-Pin header." });
+  });
+
   // GET SSE stream
   router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
@@ -286,10 +308,10 @@ export function createAuctionRouter(db: LocalDb) {
   router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const schema = z.object({ teamId: z.number().int(), amount: z.number().int() });
+    const schema = z.object({ teamId: z.number().int(), amount: z.number().int(), accessCode: z.string().optional() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-    const { teamId, amount } = parsed.data;
+    const { teamId, amount, accessCode } = parsed.data;
     const session = await getOrCreateSession(tid);
     if (!session.currentPlayerId) { res.status(400).json({ error: "No player currently up for bid" }); return; }
     if (session.status !== "active") { res.status(400).json({ error: "Auction is not active" }); return; }
@@ -300,6 +322,10 @@ export function createAuctionRouter(db: LocalDb) {
     if (session.currentBidTeamId === teamId) { res.status(409).json({ error: "Your team is already the highest bidder" }); return; }
     const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+    // Access code check — if the team has one set, the caller must supply it
+    if (team.accessCode && accessCode !== team.accessCode) {
+      res.status(403).json({ error: "Invalid team access code" }); return;
+    }
     if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
     if (amount > (team.purse - team.purseUsed)) { res.status(400).json({ error: "Insufficient purse" }); return; }
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));

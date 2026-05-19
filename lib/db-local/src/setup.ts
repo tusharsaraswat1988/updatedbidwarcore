@@ -136,6 +136,8 @@ export async function setupTables(client: Client): Promise<void> {
   const migrations = [
     "ALTER TABLE tournaments ADD COLUMN cloud_base_url TEXT",
     "ALTER TABLE tournaments ADD COLUMN export_token TEXT",
+    "ALTER TABLE tournaments ADD COLUMN local_mode_enabled INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN operator_pin TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN wheel_spinning INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE auction_sessions ADD COLUMN display_overlay TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",

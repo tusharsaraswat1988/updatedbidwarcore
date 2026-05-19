@@ -27,10 +27,16 @@ export function createSyncWorker(db: LocalDb, cloudBaseUrl: string) {
 
     for (const entry of pending) {
       try {
-        const payload = JSON.parse(entry.payload);
-        const res = await fetch(`${cloudBaseUrl}${payload.endpoint}`, {
-          method: payload.method || "POST",
-          headers: { "Content-Type": "application/json" },
+        const payload = JSON.parse(entry.payload) as {
+          url?: string; endpoint?: string; method?: string;
+          data?: unknown; exportToken?: string;
+        };
+        const targetUrl = payload.url ?? `${cloudBaseUrl}${payload.endpoint ?? ""}`;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (payload.exportToken) headers["X-Export-Token"] = payload.exportToken;
+        const res = await fetch(targetUrl, {
+          method: payload.method ?? "POST",
+          headers,
           body: JSON.stringify(payload.data),
           signal: AbortSignal.timeout(10000),
         });

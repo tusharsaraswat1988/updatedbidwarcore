@@ -192,6 +192,12 @@ paths:
           required: true
           schema:
             type: integer
+        - name: X-Export-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 48-hour token obtained from the export endpoint
       requestBody:
         required: true
         content:
@@ -207,6 +213,44 @@ paths:
                 $ref: "#/components/schemas/LocalSyncResult"
         "404":
           description: Not found
+
+  /tournaments/{tournamentId}/auction/mirror:
+    post:
+      operationId: mirrorAuctionState
+      tags: [auction]
+      summary: Mirror live local auction state to cloud display (called by BidWar Local)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Export-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 48-hour token obtained from the export endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MirrorPayload"
+      responses:
+        "200":
+          description: Mirrored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          description: Missing export token
+        "403":
+          description: Invalid or expired export token
 
   # ─── TEAMS ──────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/teams:
@@ -1983,6 +2027,9 @@ components:
           type: integer
         amount:
           type: integer
+        accessCode:
+          type: string
+          description: Team access code — required if the team has one configured
 
     ManualSellInput:
       type: object
@@ -2296,12 +2343,18 @@ components:
 
     TournamentExport:
       type: object
-      required: [version, exportedAt, tournament, teams, players, categories]
+      required: [version, exportedAt, exportToken, cloudBaseUrl, tournament, teams, players, categories]
       properties:
         version:
           type: integer
         exportedAt:
           type: string
+        exportToken:
+          type: string
+          description: 48-hour token for authenticating mirror/sync calls to the cloud
+        cloudBaseUrl:
+          type: string
+          description: Base URL of the cloud server (e.g. https://myapp.replit.app)
         tournament:
           $ref: "#/components/schemas/Tournament"
         teams:
@@ -2316,6 +2369,39 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Category"
+
+    MirrorPayload:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        currentPlayerCloudId:
+          type: ["integer", "null"]
+        currentBidTeamCloudId:
+          type: ["integer", "null"]
+        currentBid:
+          type: ["integer", "null"]
+        timerEndsAt:
+          type: ["string", "null"]
+        lastAction:
+          type: ["string", "null"]
+        fortuneWheelActive:
+          type: boolean
+        wheelSpinning:
+          type: boolean
+        teamPurseViewActive:
+          type: boolean
+        isBreak:
+          type: boolean
+        breakEndsAt:
+          type: ["string", "null"]
+        displayCountdown:
+          type: ["string", "null"]
+        wheelItemsJson:
+          type: ["string", "null"]
+        wheelWinner:
+          type: ["string", "null"]
 
     LocalSyncPayload:
       type: object

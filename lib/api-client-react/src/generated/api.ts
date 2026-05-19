@@ -39,6 +39,8 @@ import type {
   LocalSyncPayload,
   LocalSyncResult,
   ManualSellInput,
+  MirrorAuctionState200,
+  MirrorPayload,
   NextPlayerInput,
   Player,
   PlayerInput,
@@ -842,6 +844,96 @@ export const useSyncLocalAuction = <
   TContext
 > => {
   return useMutation(getSyncLocalAuctionMutationOptions(options));
+};
+
+/**
+ * @summary Mirror live local auction state to cloud display (called by BidWar Local)
+ */
+export const getMirrorAuctionStateUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/mirror`;
+};
+
+export const mirrorAuctionState = async (
+  tournamentId: number,
+  mirrorPayload: MirrorPayload,
+  options?: RequestInit,
+): Promise<MirrorAuctionState200> => {
+  return customFetch<MirrorAuctionState200>(
+    getMirrorAuctionStateUrl(tournamentId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mirrorPayload),
+    },
+  );
+};
+
+export const getMirrorAuctionStateMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mirrorAuctionState>>,
+    TError,
+    { tournamentId: number; data: BodyType<MirrorPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mirrorAuctionState>>,
+  TError,
+  { tournamentId: number; data: BodyType<MirrorPayload> },
+  TContext
+> => {
+  const mutationKey = ["mirrorAuctionState"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mirrorAuctionState>>,
+    { tournamentId: number; data: BodyType<MirrorPayload> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return mirrorAuctionState(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MirrorAuctionStateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mirrorAuctionState>>
+>;
+export type MirrorAuctionStateMutationBody = BodyType<MirrorPayload>;
+export type MirrorAuctionStateMutationError = ErrorType<void>;
+
+/**
+ * @summary Mirror live local auction state to cloud display (called by BidWar Local)
+ */
+export const useMirrorAuctionState = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mirrorAuctionState>>,
+    TError,
+    { tournamentId: number; data: BodyType<MirrorPayload> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mirrorAuctionState>>,
+  TError,
+  { tournamentId: number; data: BodyType<MirrorPayload> },
+  TContext
+> => {
+  return useMutation(getMirrorAuctionStateMutationOptions(options));
 };
 
 /**
