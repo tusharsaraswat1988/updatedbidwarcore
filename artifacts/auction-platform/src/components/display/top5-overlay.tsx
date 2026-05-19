@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { User, Trophy, Crown } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
+import { useBranding } from "@/hooks/use-branding";
 import type { PlayerLite, PurseRow } from "./types";
 
 /**
@@ -15,6 +16,7 @@ export const Top5Overlay = memo(function Top5Overlay({ players, purses, tourname
   purses: PurseRow[];
   tournamentName?: string;
 }) {
+  const { logos, brandName, miniBrandText, poweredByText, visibility } = useBranding();
   const teamMap = useMemo(() => new Map(purses.map(t => [t.teamId, t])), [purses]);
   const top5 = useMemo(() => players
     .filter(p => p.status === "sold" && (p.soldPrice ?? 0) > 0)
@@ -43,6 +45,17 @@ export const Top5Overlay = memo(function Top5Overlay({ players, purses, tourname
           {tournamentName && (
             <p className="text-xs md:text-sm font-bold uppercase tracking-[0.4em] text-white/60 mt-1">{tournamentName} AUCTION</p>
           )}
+          {/* Brand line below tournament name */}
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {logos.mini ? (
+              <img src={logos.mini} alt={brandName} className="h-5 w-auto opacity-60" />
+            ) : (
+              <span className="font-display font-black text-[11px] tracking-widest text-yellow-400/50">{miniBrandText}</span>
+            )}
+            {visibility.showPoweredByViewer && (
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/35">{poweredByText}</span>
+            )}
+          </div>
         </div>
         <Crown className="w-10 h-10 md:w-14 md:h-14 text-yellow-400" style={{ filter: "drop-shadow(0 0 20px rgba(250,204,21,0.6))" }} />
       </div>

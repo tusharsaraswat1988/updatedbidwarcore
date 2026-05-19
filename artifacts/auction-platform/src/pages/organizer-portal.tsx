@@ -665,6 +665,7 @@ function OrganizerDashboard({
   onRefresh: () => void;
 }) {
   const [, navigate] = useLocation();
+  const { logos, brandName, miniBrandText, poweredByText } = useBranding();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [declareOpen, setDeclareOpen] = useState(false);
@@ -716,9 +717,18 @@ function OrganizerDashboard({
       <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-              <Gavel className="w-4 h-4 text-primary" />
-            </div>
+            {/* BidWar brand logo */}
+            {logos.mini ? (
+              <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+            ) : logos.main ? (
+              <img src={logos.main} alt={brandName} className="h-8 w-auto" />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
+                {miniBrandText}
+              </div>
+            )}
+            <span className="font-display font-black text-lg text-white tracking-wide hidden sm:inline">{brandName}</span>
+            <div className="w-px h-6 bg-border/60 hidden sm:block" />
             <div>
               <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
               <p className="text-xs text-muted-foreground">{organizer.mobile ?? organizer.email ?? ""}</p>

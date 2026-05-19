@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import {
   listAdminTournaments,
   lockTournament,
@@ -2447,6 +2448,7 @@ export default function AdminDashboard() {
     isLoading: authLoading,
     logout,
   } = useAdminAuth();
+  const { logos, brandName, miniBrandText } = useBranding();
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -2508,6 +2510,18 @@ export default function AdminDashboard() {
         {/* Top header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card/50 flex-shrink-0">
           <div className="flex items-center gap-3">
+            {/* BidWar brand logo */}
+            {logos.mini ? (
+              <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
+            ) : logos.main ? (
+              <img src={logos.main} alt={brandName} className="h-9 w-auto" />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-sm text-primary">
+                {miniBrandText}
+              </div>
+            )}
+            <span className="font-display font-black text-xl text-white tracking-wide hidden sm:inline">{brandName}</span>
+            <div className="w-px h-6 bg-border/60" />
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-amber-400" />
             </div>
