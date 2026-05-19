@@ -147,7 +147,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
   // POST /local/sync-to-cloud — push auction results to cloud
   router.post("/sync-to-cloud", async (req, res) => {
     const schema = z.object({
-      cloudBaseUrl: z.string().url(),
+      cloudBaseUrl: z.string().url().optional(),
       tournamentId: z.number().int(),
     });
     const parsed = schema.safeParse(req.body);

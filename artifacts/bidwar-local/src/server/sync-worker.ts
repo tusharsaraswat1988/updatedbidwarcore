@@ -4,11 +4,17 @@ import { eq, and, isNull } from "drizzle-orm";
 
 const CHECK_INTERVAL_MS = 30_000; // Check every 30 seconds
 
-export function createSyncWorker(db: LocalDb, cloudBaseUrl: string) {
+export function createSyncWorker(db: LocalDb, cloudBaseUrl = "") {
   async function checkAndSync() {
-    if (!cloudBaseUrl) return;
+    // Always try to drain even without a global cloudBaseUrl — entries with
+    // payload.url are self-contained and don't need the global base URL.
+    // Check connectivity first (skip if no entry-level URL and no global URL).
+    const hasPending = await db.select().from(syncQueueTable)
+      .where(and(eq(syncQueueTable.failed, false), isNull(syncQueueTable.syncedAt)))
+      .then(rows => rows.length > 0);
+    if (!hasPending) return;
 
-    // Check internet connectivity (plain fetch — mode:"no-cors" is browser-only and breaks Node.js)
+    // Check internet connectivity before attempting any drain
     try {
       await fetch("https://clients1.google.com/generate_204", {
         signal: AbortSignal.timeout(3000),
@@ -17,7 +23,7 @@ export function createSyncWorker(db: LocalDb, cloudBaseUrl: string) {
       return; // No internet, skip
     }
 
-    // Find unsynced queue entries
+    // Re-fetch unsynced entries (after connectivity check)
     const pending = await db
       .select()
       .from(syncQueueTable)

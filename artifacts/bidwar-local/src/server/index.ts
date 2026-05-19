@@ -44,10 +44,11 @@ async function main() {
     console.log(`BidWar Local server running on port ${PORT}`);
   });
 
-  // Start auto-sync worker
-  if (CLOUD_BASE_URL) {
-    createSyncWorker(db, CLOUD_BASE_URL);
-  }
+  // Start auto-sync worker unconditionally so queued mirror entries drain
+  // when connectivity returns — even if CLOUD_BASE_URL is not set as an env var.
+  // Per-entry payload.url (stored at enqueue time) provides the endpoint without
+  // needing a global env-level base URL.
+  createSyncWorker(db, CLOUD_BASE_URL);
 }
 
 main().catch(console.error);
