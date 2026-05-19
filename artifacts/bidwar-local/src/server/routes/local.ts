@@ -8,6 +8,29 @@ import {
   auctionSessionsTable, bidsTable, syncQueueTable,
 } from "@workspace/db-local";
 
+/**
+ * Verify operator PIN for a given tournament.
+ * Returns true (allowed) if no PIN is configured, or if X-Operator-Pin header matches.
+ * Sends 401 and returns false if PIN is set but header is missing or wrong.
+ */
+async function checkOperatorPin(
+  db: LocalDb,
+  tournamentId: number | null,
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<boolean> {
+  if (!tournamentId) return true; // No tournament context — let caller validate input first
+  const [t] = await db
+    .select({ operatorPin: tournamentsTable.operatorPin })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+  if (!t?.operatorPin) return true; // No PIN configured
+  const provided = req.headers["x-operator-pin"] as string | undefined;
+  if (provided === t.operatorPin) return true;
+  res.status(401).json({ error: "Operator PIN required. Include X-Operator-Pin header." });
+  return false;
+}
+
 export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
   const router = Router();
 
@@ -146,6 +169,8 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
   });
 
   // POST /local/sync-to-cloud — push auction results to cloud
+  // Protected by operator PIN (if configured) to prevent LAN callers from
+  // exfiltrating the exportToken or sending unauthorized sync payloads.
   router.post("/sync-to-cloud", async (req, res) => {
     const schema = z.object({
       cloudBaseUrl: z.string().url().optional(),
@@ -154,6 +179,9 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const { cloudBaseUrl, tournamentId: localTid } = parsed.data;
+
+    // PIN check before fetching tournament data (fail fast)
+    if (!await checkOperatorPin(db, localTid, req, res)) return;
 
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, localTid));
     if (!tournament?.cloudId) { res.status(400).json({ error: "Tournament has no cloud ID — import from cloud first" }); return; }
