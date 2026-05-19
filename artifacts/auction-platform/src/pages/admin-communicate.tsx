@@ -507,6 +507,15 @@ export default function AdminCommunicate() {
                         <span className="text-xs text-muted-foreground w-20 flex-shrink-0 capitalize">{log.recipientType.replace("_", " ")}</span>
                         <span className="flex-1 truncate text-xs text-foreground/80">{log.messageContent}</span>
                         <StatusBadge status={log.deliveryStatus} />
+                        {log.metaMessageId && (
+                          <span
+                            className="hidden lg:block text-[10px] font-mono text-muted-foreground/60 flex-shrink-0 max-w-32 truncate"
+                            title={`${log.channel === "sms" ? "Message ID" : "Message SID"}: ${log.metaMessageId}`}
+                          >
+                            <span className="text-muted-foreground/40 not-italic">{log.channel === "sms" ? "ID:" : "SID:"}</span>{" "}
+                            {log.metaMessageId.length > 12 ? `${log.metaMessageId.slice(0, 12)}\u2026` : log.metaMessageId}
+                          </span>
+                        )}
                         <span className="text-[10px] text-muted-foreground flex-shrink-0">
                           {new Date(log.sentAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </span>

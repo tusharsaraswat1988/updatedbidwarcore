@@ -65,7 +65,7 @@ export const commLogsTable = pgTable(
     blastId: text("blast_id"), // groups messages from a single blast operation
     deliveryStatus: text("delivery_status").notNull().default("pending"), // "pending"|"sent"|"delivered"|"read"|"failed"
     deliveryUpdatedAt: timestamp("delivery_updated_at", { withTimezone: true }),
-    metaMessageId: text("meta_message_id"), // WhatsApp message SID from Meta/Twilio
+    metaMessageId: text("meta_message_id"), // Gateway message identifier: Twilio SID for WhatsApp, plain message ID for SMS (BulkSMS)
     errorMessage: text("error_message"),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
