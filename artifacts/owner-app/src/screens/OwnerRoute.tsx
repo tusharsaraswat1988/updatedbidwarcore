@@ -13,7 +13,7 @@ import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
 import { Squad } from "./Squad";
-import { upsertSavedAuction } from "./Launcher";
+import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "completed";
 
@@ -86,9 +86,29 @@ export function OwnerRoute() {
     },
   });
 
-  // Save this auction to localStorage so the Launcher can find it later
+  // Auction state polling — declared early so the save effect below can read it
+  const pollInterval = screen === "live" || screen === "squad" ? 1000 : 5000;
+  const { data: state, isFetching: stateFetching, isError: stateIsError } = useGetAuctionState(tournamentId, {
+    query: {
+      queryKey:       getGetAuctionStateQueryKey(tournamentId),
+      enabled:        !!tournamentId && screen !== "loading" && screen !== "gate",
+      refetchInterval: (query) => {
+        const d = query.state.data;
+        if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
+        return pollInterval;
+      },
+    },
+  });
+
+  // Save this auction to localStorage so the Launcher can find it later.
+  // Never save (and actively remove) completed auctions.
   useEffect(() => {
     if (!tournamentId || !teamId) return;
+    const completed = state?.status === "completed" || state?.licenseStatus === "completed";
+    if (completed) {
+      removeSavedAuction(tournamentId, teamId);
+      return;
+    }
     upsertSavedAuction({
       tournamentId,
       teamId,
@@ -96,7 +116,7 @@ export function OwnerRoute() {
       teamName:       team?.name,
       teamColor:      team?.color ?? undefined,
     });
-  }, [tournamentId, teamId, tournament?.name, team?.name, team?.color]);
+  }, [tournamentId, teamId, tournament?.name, team?.name, team?.color, state?.status, state?.licenseStatus]);
 
   // Determine if code is required and if already verified
   useEffect(() => {
@@ -120,20 +140,6 @@ export function OwnerRoute() {
     pushDoneRef.current = true;
     subscribeToPush(tournamentId, teamId);
   }, [screen, tournamentId, teamId]);
-
-  // Auction state polling
-  const pollInterval = screen === "live" || screen === "squad" ? 1000 : 5000;
-  const { data: state, isFetching: stateFetching } = useGetAuctionState(tournamentId, {
-    query: {
-      queryKey:       getGetAuctionStateQueryKey(tournamentId),
-      enabled:        !!tournamentId && screen !== "loading" && screen !== "gate",
-      refetchInterval: (query) => {
-        const d = query.state.data;
-        if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
-        return pollInterval;
-      },
-    },
-  });
 
   // Detect auction completion
   useEffect(() => {
@@ -287,6 +293,7 @@ export function OwnerRoute() {
       onBid={handleBid}
       onViewSquad={() => setScreen("squad")}
       onSync={handleSync}
+      isSyncError={stateIsError}
       onSignOut={() => {
         sessionStorage.removeItem(sessionKey(teamId));
         setScreen("gate");

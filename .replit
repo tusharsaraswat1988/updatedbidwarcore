@@ -60,7 +60,6 @@ externalPort = 3000
 [userenv.shared]
 TWILIO_WHATSAPP_FROM = "+18382214175"
 VAPID_PUBLIC_KEY = "BJcfqtvE_Q84CkO2-IO_jGiXJ4CZPnFpwmEODysaA8tQqxAgGEov0zjgohz_gaThlmaPm9hQ5Vx5mdXo_eY238A"
-VAPID_PRIVATE_KEY = "1fV9T3aZQO0xU_jJ_M9OPwdbyMU2oztDI0pIySxMkyY"
 
 [userenv.production]
 APP_DOMAIN = "bidwar.in"

@@ -86,6 +86,7 @@ interface Props {
   onViewSquad: () => void;
   onSignOut: () => void;
   onSync: () => void;
+  isSyncError?: boolean;
 }
 
 // ── Network quality ─────────────────────────────────────────────────────────
@@ -401,16 +402,18 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
-export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync }: Props) {
+export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync, isSyncError }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
   const networkQ    = useNetworkQuality(state, isFetching);
   const mayTap      = useDebounce(600);
 
-  const [bidding,          setBidding]          = useState(false);
-  const [bidFeedback,      setBidFeedback]       = useState<"success" | "error" | "leading" | null>(null);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [syncing,          setSyncing]           = useState(false);
+  const [bidding,            setBidding]            = useState(false);
+  const [bidFeedback,        setBidFeedback]         = useState<"success" | "error" | "leading" | null>(null);
+  const [showSignOutConfirm, setShowSignOutConfirm]  = useState(false);
+  const [syncing,            setSyncing]             = useState(false);
+  const [syncFailed,         setSyncFailed]          = useState(false);
+  const syncAttempted = useRef(false);
 
   const teamColor = team.color || "#F59E0B";
   const isLeading = state?.currentBidTeamId === teamId;
@@ -441,8 +444,22 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached;
 
+  // Sync failure detection: if isSyncError becomes true after a sync attempt, surface it briefly
+  useEffect(() => {
+    if (!syncAttempted.current || syncing) return undefined;
+    if (isSyncError) {
+      setSyncFailed(true);
+      const t = setTimeout(() => { setSyncFailed(false); syncAttempted.current = false; }, 4000);
+      return () => clearTimeout(t);
+    }
+    syncAttempted.current = false;
+    return undefined;
+  }, [syncing, isSyncError]);
+
   function handleSyncTap() {
     if (syncing) return;
+    setSyncFailed(false);
+    syncAttempted.current = true;
     setSyncing(true);
     onSync();
     setTimeout(() => setSyncing(false), 1200);
@@ -559,6 +576,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             </button>
           </div>
         </div>
+
+        {/* Sync error banner */}
+        {syncFailed && (
+          <div className="flex-shrink-0 mx-4 mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30">
+            <p className="text-xs text-red-400">Sync failed — check your connection</p>
+          </div>
+        )}
 
         {/* Scrollable top area */}
         <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4 min-h-0">
@@ -815,6 +839,13 @@ export function LiveBid({ state, team, tournament, teamPurse, teamId, isFetching
             </button>
           </div>
         </div>
+
+        {/* Sync error banner */}
+        {syncFailed && (
+          <div className="flex-shrink-0 mx-4 mt-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30">
+            <p className="text-xs text-red-400">Sync failed — check your connection</p>
+          </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
