@@ -99,6 +99,7 @@ export default function AdminCommunicate() {
   const [logs, setLogs] = useState<CommLog[]>([]);
   const [blasts, setBlasts] = useState<BlastEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<CommLog | null>(null);
   const [location] = useLocation();
   const [tab, setTab] = useState(() => location.endsWith("/logs") ? "logs" : "send");
 
@@ -496,7 +497,11 @@ export default function AdminCommunicate() {
                 ) : (
                   <div className="space-y-1.5">
                     {filteredLogs.map(log => (
-                      <div key={log.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card/30 text-sm">
+                      <button
+                        key={log.id}
+                        onClick={() => setSelectedLog(log)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card/30 text-sm hover:bg-card/60 transition-colors text-left cursor-pointer"
+                      >
                         <ChannelBadge channel={log.channel} />
                         <span className="font-mono text-xs text-muted-foreground w-28 flex-shrink-0">{log.recipientMobile}</span>
                         <span className="text-xs text-muted-foreground w-20 flex-shrink-0 capitalize">{log.recipientType.replace("_", " ")}</span>
@@ -505,7 +510,8 @@ export default function AdminCommunicate() {
                         <span className="text-[10px] text-muted-foreground flex-shrink-0">
                           {new Date(log.sentAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </span>
-                      </div>
+                        <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -631,6 +637,70 @@ export default function AdminCommunicate() {
           </Tabs>
         </div>
       </div>
+
+      {/* ── Log Detail Dialog ─────────────────────────────────────────── */}
+      <Dialog open={!!selectedLog} onOpenChange={open => { if (!open) setSelectedLog(null); }}>
+        <DialogContent className="dark max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              Message Details
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-2 flex-wrap">
+                <ChannelBadge channel={selectedLog.channel} />
+                <StatusBadge status={selectedLog.deliveryStatus} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Recipient</p>
+                  <p className="font-mono text-xs">{selectedLog.recipientMobile}</p>
+                  <p className="text-[11px] text-muted-foreground capitalize">{selectedLog.recipientType.replace("_", " ")}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Sent at</p>
+                  <p className="text-xs">{new Date(selectedLog.sentAt).toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Message</p>
+                <ScrollArea className="max-h-32 rounded border border-border/50 bg-muted/10 p-2.5">
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed">{selectedLog.messageContent}</p>
+                </ScrollArea>
+              </div>
+
+              {selectedLog.metaMessageId && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    {selectedLog.channel === "sms" ? "Message ID" : "Message SID"}
+                  </p>
+                  <p className="font-mono text-xs break-all text-foreground/80 rounded border border-border/50 bg-muted/10 px-2.5 py-1.5">
+                    {selectedLog.metaMessageId}
+                  </p>
+                </div>
+              )}
+
+              {selectedLog.errorMessage && (
+                <div className="rounded-lg border border-red-500/25 bg-red-500/8 p-3 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-red-400 font-semibold">Error</p>
+                  <p className="text-xs text-red-300 break-all">{selectedLog.errorMessage}</p>
+                </div>
+              )}
+
+              {selectedLog.templateName && (
+                <div className="space-y-0.5">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Template</p>
+                  <p className="text-xs text-foreground/70">{selectedLog.templateName}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </FullscreenLayout>
   );
 }
