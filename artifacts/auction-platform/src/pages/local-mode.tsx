@@ -9,9 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   MonitorDown, Download, CheckCircle2, AlertTriangle, Wifi,
-  Globe, Laptop, Activity, Smartphone, Monitor, Router,
-  ArrowRight, Package, FolderOpen, Play, RefreshCw, ExternalLink,
-  Circle,
+  Play, RefreshCw, ExternalLink, Circle, Laptop, Router,
+  Smartphone, Monitor, QrCode, Package, FolderOpen, Activity,
 } from "lucide-react";
 
 // ─── Step completion helpers ──────────────────────────────────────────────────
@@ -38,59 +37,59 @@ function saveCompletion(tournamentId: number, step: number, done: boolean) {
 
 function LanDiagram() {
   return (
-    <div className="relative w-full py-6 px-4">
-      {/* Center: Router */}
-      <div className="flex flex-col items-center gap-8">
+    <div className="rounded-xl border border-border/40 bg-muted/10 p-5">
+      <div className="flex flex-col items-center gap-5">
 
-        {/* Top row: Operator Laptop */}
-        <div className="flex flex-col items-center gap-2">
+        {/* Auction Computer */}
+        <div className="flex flex-col items-center gap-1.5">
           <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30">
             <Laptop className="w-7 h-7 text-amber-400" />
           </div>
-          <span className="text-xs font-medium text-amber-300">Operator Laptop</span>
-          <span className="text-[10px] text-muted-foreground text-center max-w-[120px]">BidWar Local runs here</span>
+          <span className="text-xs font-semibold text-amber-300">Auction Computer</span>
+          <span className="text-[10px] text-muted-foreground">BidWar Local runs here</span>
         </div>
 
-        {/* Connector down */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-px h-5 bg-border/60" />
-          <span className="text-[10px] text-muted-foreground">Wi-Fi / LAN cable</span>
-          <div className="w-px h-5 bg-border/60" />
+        <div className="flex items-center gap-1">
+          <div className="w-px h-6 bg-border/60 mx-auto" />
         </div>
 
         {/* Router */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-1.5">
           <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30">
             <Router className="w-7 h-7 text-blue-400" />
           </div>
-          <span className="text-xs font-medium text-blue-300">Wi-Fi Router</span>
-          <span className="text-[10px] text-muted-foreground text-center max-w-[140px]">All devices on the same network</span>
+          <span className="text-xs font-semibold text-blue-300">Wi-Fi Router</span>
+          <span className="text-[10px] text-muted-foreground">All devices connect here</span>
         </div>
 
-        {/* Bottom row: Owner Phones + Display */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-1">
-            <div className="w-14 h-px bg-border/60" />
-            <div className="w-px h-5 bg-border/60" />
-            <div className="w-14 h-px bg-border/60" />
+        {/* Lines out */}
+        <div className="flex items-end justify-center gap-16 relative">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-px h-6 bg-border/60" />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-px h-6 bg-border/60" />
           </div>
         </div>
-        <div className="flex items-start justify-center gap-10 flex-wrap">
-          <div className="flex flex-col items-center gap-2">
+
+        {/* Devices row */}
+        <div className="flex items-start justify-center gap-12">
+          <div className="flex flex-col items-center gap-1.5">
             <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/30">
               <Smartphone className="w-7 h-7 text-green-400" />
             </div>
-            <span className="text-xs font-medium text-green-300">Owner Phones</span>
-            <span className="text-[10px] text-muted-foreground text-center max-w-[100px]">Open owner panel URL in browser</span>
+            <span className="text-xs font-semibold text-green-300">Owner Phones</span>
+            <span className="text-[10px] text-muted-foreground text-center max-w-[90px]">Scan QR code to join</span>
           </div>
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-1.5">
             <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/30">
               <Monitor className="w-7 h-7 text-purple-400" />
             </div>
-            <span className="text-xs font-medium text-purple-300">LED Display</span>
-            <span className="text-[10px] text-muted-foreground text-center max-w-[100px]">Open display URL in full-screen browser</span>
+            <span className="text-xs font-semibold text-purple-300">Big Screen</span>
+            <span className="text-[10px] text-muted-foreground text-center max-w-[90px]">Open the display link full-screen</span>
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -112,7 +111,6 @@ function StepCard({ number, icon, title, done, onToggle, children, accent = "tex
   return (
     <div className={`rounded-xl border bg-card transition-colors ${done ? "border-green-500/30 bg-green-500/[0.03]" : "border-border/50"}`}>
       <div className="flex items-start gap-4 p-5">
-        {/* Step number + completion indicator */}
         <button
           onClick={onToggle}
           className="flex-shrink-0 mt-0.5 group"
@@ -128,7 +126,6 @@ function StepCard({ number, icon, title, done, onToggle, children, accent = "tex
         </button>
 
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Header */}
           <div className="flex items-center gap-2">
             <span className={accent}>{icon}</span>
             <h3 className="font-semibold text-base">{title}</h3>
@@ -138,8 +135,6 @@ function StepCard({ number, icon, title, done, onToggle, children, accent = "tex
               </Badge>
             )}
           </div>
-
-          {/* Content */}
           {children}
         </div>
       </div>
@@ -147,13 +142,13 @@ function StepCard({ number, icon, title, done, onToggle, children, accent = "tex
   );
 }
 
-// ─── Mirror Status Panel ──────────────────────────────────────────────────────
+// ─── Cloud Sync Status Panel ──────────────────────────────────────────────────
 
-interface MirrorStatusProps {
+interface CloudSyncStatusProps {
   tournamentId: number;
 }
 
-function MirrorStatusPanel({ tournamentId }: MirrorStatusProps) {
+function CloudSyncStatus({ tournamentId }: CloudSyncStatusProps) {
   const { data: auctionState, dataUpdatedAt } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
@@ -164,49 +159,50 @@ function MirrorStatusPanel({ tournamentId }: MirrorStatusProps) {
 
   const lastPollTime = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
   const secondsAgo = lastPollTime ? Math.round((Date.now() - lastPollTime.getTime()) / 1000) : null;
-  const mirrorActive = auctionState?.status === "active" || auctionState?.status === "paused";
+  const isLive = auctionState?.status === "active" || auctionState?.status === "paused";
 
-  function statusLabel() {
-    if (!auctionState?.status) return "Not started";
+  function syncStatusLabel() {
+    if (!auctionState?.status) return "Not yet started";
     const map: Record<string, string> = {
       idle: "Waiting to start",
-      active: "Auction running",
-      paused: "Auction paused",
-      completed: "Auction finished",
+      active: "Live — syncing",
+      paused: "Paused",
+      completed: "Auction complete",
     };
-    return map[auctionState.status] ?? auctionState.status;
+    return map[auctionState.status] ?? "Connected";
   }
 
-  function pollLabel() {
-    if (secondsAgo === null) return "Not polled yet";
-    if (secondsAgo < 60) return `${secondsAgo}s ago`;
-    return `${Math.round(secondsAgo / 60)}m ago`;
+  function lastCheckedLabel() {
+    if (secondsAgo === null) return "Not checked yet";
+    if (secondsAgo < 5) return "Just now";
+    if (secondsAgo < 60) return `${secondsAgo} seconds ago`;
+    return `${Math.round(secondsAgo / 60)} minutes ago`;
   }
 
   return (
     <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Activity className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-base">Cloud Mirror Status</h3>
-        <span className="text-xs text-muted-foreground ml-auto">Polls every 10s</span>
+        <h3 className="font-semibold text-base">Cloud Sync Status</h3>
+        <span className="text-xs text-muted-foreground ml-auto">Checks every 10 seconds</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border/40">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Auction State</p>
-          <p className={`text-sm font-semibold ${mirrorActive ? "text-green-400" : "text-muted-foreground"}`}>
-            {statusLabel()}
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Auction Status</p>
+          <p className={`text-sm font-semibold ${isLive ? "text-green-400" : "text-muted-foreground"}`}>
+            {syncStatusLabel()}
           </p>
         </div>
         <div className="bg-muted/30 rounded-lg px-4 py-3 border border-border/40">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Last Polled</p>
-          <p className="text-sm font-semibold text-muted-foreground">{pollLabel()}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Last Checked</p>
+          <p className="text-sm font-semibold text-muted-foreground">{lastCheckedLabel()}</p>
         </div>
       </div>
 
       {auctionState?.currentPlayer && (
         <div className="bg-muted/30 px-3 py-2 rounded border border-border/40 text-xs text-muted-foreground">
-          Player on cloud:{" "}
+          Current player:{" "}
           <strong className="text-foreground">{auctionState.currentPlayer.name}</strong>
           {auctionState.currentBid
             ? ` — current bid ₹${Number(auctionState.currentBid).toLocaleString("en-IN")}`
@@ -215,9 +211,8 @@ function MirrorStatusPanel({ tournamentId }: MirrorStatusProps) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        When BidWar Local is running and has internet access, every bid and
-        state change automatically mirrors here in real time. Your LED display
-        and online viewers see live updates from this cloud URL.
+        While BidWar Local is running, every bid and player sale is automatically sent to this page in real time —
+        so your big screen and any online viewers stay in sync with what is happening at the venue.
       </p>
     </div>
   );
@@ -233,7 +228,6 @@ export default function LocalModePage() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  // Installer info (public endpoint)
   const [installerUrl, setInstallerUrl] = useState<string | null>(null);
   const [installerVersion, setInstallerVersion] = useState<string | null>(null);
   useEffect(() => {
@@ -246,7 +240,6 @@ export default function LocalModePage() {
       .catch(() => null);
   }, []);
 
-  // Per-step completion state (persisted to localStorage)
   const [completions, setCompletions] = useState<boolean[]>(() =>
     tournamentId ? loadCompletions(tournamentId) : [false, false, false, false, false, false]
   );
@@ -257,41 +250,39 @@ export default function LocalModePage() {
     saveCompletion(tournamentId, stepIndex + 1, next[stepIndex]);
   }
 
-  // Export tournament data
-  const [exporting, setExporting] = useState(false);
-  const [exportMsg, setExportMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadMsg, setDownloadMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
-  async function handleExport() {
-    setExporting(true);
-    setExportMsg(null);
+  async function handleDownloadData() {
+    setDownloading(true);
+    setDownloadMsg(null);
     try {
       const res = await fetch(`/api/tournaments/${tournamentId}/export`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Export failed" })) as { error?: string };
-        setExportMsg({ text: err.error ?? "Export failed", ok: false });
+        const err = await res.json().catch(() => ({ error: "Download failed" })) as { error?: string };
+        setDownloadMsg({ text: err.error ?? "Download failed", ok: false });
         return;
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `${tournament?.name?.replace(/\s+/g, "-").toLowerCase() ?? "tournament"}-export.json`;
+      a.href = downloadUrl;
+      a.download = `${tournament?.name?.replace(/\s+/g, "-").toLowerCase() ?? "tournament"}-data.json`;
       a.click();
-      URL.revokeObjectURL(url);
-      setExportMsg({
-        text: "File downloaded. Import it in BidWar Local to begin.",
+      URL.revokeObjectURL(downloadUrl);
+      setDownloadMsg({
+        text: "File downloaded. Go to Step 4 and import it in BidWar Local.",
         ok: true,
       });
-      // Auto-mark step 3 done on successful export
       if (!completions[2]) {
         const next = completions.map((v, i) => (i === 2 ? true : v));
         setCompletions(next);
         saveCompletion(tournamentId, 3, true);
       }
     } catch (e) {
-      setExportMsg({ text: `Error: ${e instanceof Error ? e.message : "Unknown error"}`, ok: false });
+      setDownloadMsg({ text: `Something went wrong. Please try again.`, ok: false });
     } finally {
-      setExporting(false);
+      setDownloading(false);
     }
   }
 
@@ -315,15 +306,15 @@ export default function LocalModePage() {
               BidWar Local Setup
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Run your auction without internet — on a local network at the venue.
+              Run your auction at the venue without needing a constant internet connection.
             </p>
           </div>
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-300">Local Mode is not enabled for this tournament</p>
+              <p className="font-semibold text-amber-300">BidWar Local is not enabled for this tournament</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Contact your BidWar administrator to enable Local Mode before proceeding.
+                Contact your BidWar administrator to turn on Local Mode before you begin setup.
               </p>
             </div>
           </div>
@@ -336,7 +327,7 @@ export default function LocalModePage() {
     <AppLayout tournamentId={tournamentId}>
       <div className="max-w-2xl space-y-6">
 
-        {/* Page header */}
+        {/* Header */}
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -344,15 +335,15 @@ export default function LocalModePage() {
               BidWar Local Setup
             </h1>
             <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1">
-              <Circle className="w-2 h-2 fill-current" /> Local Mode Enabled
+              <Circle className="w-2 h-2 fill-current" /> Local Mode On
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Follow these steps to run your auction offline at the venue. Tick each step as you complete it.
+            Follow each step below to get ready. Tick a step when you have completed it.
           </p>
         </div>
 
-        {/* Progress */}
+        {/* Progress bar */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
             <div
@@ -365,7 +356,7 @@ export default function LocalModePage() {
           </span>
         </div>
 
-        {/* ── Step 1: Download ── */}
+        {/* ── Step 1 — Download BidWar Local ── */}
         <StepCard
           number={1}
           icon={<Download className="w-4 h-4" />}
@@ -375,36 +366,48 @@ export default function LocalModePage() {
           accent="text-amber-400"
         >
           <p className="text-sm text-muted-foreground">
-            Download and install the BidWar Local desktop app on the Windows computer you will use at the venue.
+            Download the BidWar Local app and install it on the Windows computer you will use at the venue.
           </p>
           {installerUrl ? (
             <div className="flex items-center gap-3 flex-wrap">
-              <a href={installerUrl} target="_blank" rel="noreferrer" onClick={() => {
-                if (!completions[0]) {
-                  const next = completions.map((v, i) => (i === 0 ? true : v));
-                  setCompletions(next);
-                  saveCompletion(tournamentId, 1, true);
-                }
-              }}>
+              <a
+                href={installerUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  if (!completions[0]) {
+                    const next = completions.map((v, i) => (i === 0 ? true : v));
+                    setCompletions(next);
+                    saveCompletion(tournamentId, 1, true);
+                  }
+                }}
+              >
                 <Button size="sm" className="gap-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold">
                   <Download className="w-4 h-4" />
-                  Download Installer
-                  {installerVersion && <span className="opacity-70 font-normal">v{installerVersion}</span>}
+                  Download BidWar Local
+                  {installerVersion && (
+                    <span className="opacity-70 font-normal">v{installerVersion}</span>
+                  )}
                 </Button>
               </a>
-              <a href={installerUrl} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+              <a
+                href={installerUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              >
                 <ExternalLink className="w-3 h-3" /> Open link
               </a>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border/40">
               <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              No installer link configured yet. Contact your BidWar administrator.
+              No download link has been set up yet. Contact your BidWar administrator.
             </div>
           )}
         </StepCard>
 
-        {/* ── Step 2: Install ── */}
+        {/* ── Step 2 — Install the App ── */}
         <StepCard
           number={2}
           icon={<Package className="w-4 h-4" />}
@@ -414,119 +417,132 @@ export default function LocalModePage() {
           accent="text-blue-400"
         >
           <p className="text-sm text-muted-foreground">
-            Run the downloaded installer on the venue computer and follow the setup wizard.
+            Install BidWar Local on the auction computer and open it.
           </p>
           <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
-            <li>Double-click the <strong className="text-foreground">.exe</strong> installer file you downloaded.</li>
-            <li>If Windows shows a security prompt, click <strong className="text-foreground">More info</strong> then <strong className="text-foreground">Run anyway</strong>.</li>
-            <li>Follow the on-screen steps — the app will install and launch automatically.</li>
+            <li>Double-click the file you just downloaded.</li>
+            <li>If Windows shows a warning, click <strong className="text-foreground">More info</strong>, then <strong className="text-foreground">Run anyway</strong>.</li>
+            <li>Follow the on-screen steps until the installation finishes.</li>
+            <li>Open <strong className="text-foreground">BidWar Local</strong> from your Desktop.</li>
           </ol>
         </StepCard>
 
-        {/* ── Step 3: Export data ── */}
+        {/* ── Step 3 — Download Your Tournament Data ── */}
         <StepCard
           number={3}
           icon={<Download className="w-4 h-4" />}
-          title="Export Your Tournament Data"
+          title="Download Your Tournament Data"
           done={completions[2]}
           onToggle={() => toggle(2)}
           accent="text-green-400"
         >
           <p className="text-sm text-muted-foreground">
-            Download the tournament data file from here. This file contains all your teams, players, and categories.
-            It also includes a secure token so BidWar Local can send live updates back to the cloud display.
+            Download the data file for this tournament. It contains all your players and teams,
+            and connects the app to this tournament.
           </p>
           <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border/40">
-            The token in this file is valid for 48 hours. If you need to export again, the old token will be replaced.
+            This file is only valid for 48 hours. If you need to start over, come back here and download it again.
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <Button
-              onClick={handleExport}
-              disabled={exporting}
+              onClick={handleDownloadData}
+              disabled={downloading}
               size="sm"
               className="gap-2"
             >
-              {exporting ? (
+              {downloading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              {exporting ? "Preparing file..." : "Download Export File (.json)"}
+              {downloading ? "Preparing your file..." : "Download Your Tournament Data"}
             </Button>
           </div>
-          {exportMsg && (
-            <p className={`text-sm flex items-center gap-1.5 ${exportMsg.ok ? "text-green-400" : "text-destructive"}`}>
-              {exportMsg.ok
+          {downloadMsg && (
+            <p className={`text-sm flex items-center gap-1.5 ${downloadMsg.ok ? "text-green-400" : "text-destructive"}`}>
+              {downloadMsg.ok
                 ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-              {exportMsg.text}
+              {downloadMsg.text}
             </p>
           )}
         </StepCard>
 
-        {/* ── Step 4: Import ── */}
+        {/* ── Step 4 — Import Data into the App ── */}
         <StepCard
           number={4}
           icon={<FolderOpen className="w-4 h-4" />}
-          title="Import Data into BidWar Local"
+          title="Import Data into the App"
           done={completions[3]}
           onToggle={() => toggle(3)}
           accent="text-purple-400"
         >
           <p className="text-sm text-muted-foreground">
-            Open BidWar Local on the venue computer and load the file you just downloaded.
+            Load your tournament into BidWar Local using the file you just downloaded.
           </p>
           <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
-            <li>Open <strong className="text-foreground">BidWar Local</strong> on the laptop.</li>
-            <li>Click <strong className="text-foreground">Import Tournament</strong> on the home screen.</li>
-            <li>Select the <strong className="text-foreground">.json</strong> file you downloaded in Step 3.</li>
-            <li>BidWar Local will load all teams, players, and categories automatically.</li>
+            <li>Open <strong className="text-foreground">BidWar Local</strong> on the auction computer.</li>
+            <li>Click <strong className="text-foreground">Import Tournament</strong>.</li>
+            <li>Select the file you downloaded in Step 3.</li>
+            <li>Your tournament will load automatically — players, teams, and all.</li>
           </ol>
         </StepCard>
 
-        {/* ── Step 5: Connect devices ── */}
+        {/* ── Step 5 — Connect Devices ── */}
         <StepCard
           number={5}
           icon={<Wifi className="w-4 h-4" />}
-          title="Connect Devices on the Venue Network"
+          title="Connect Devices on the Same Network"
           done={completions[4]}
           onToggle={() => toggle(4)}
           accent="text-cyan-400"
         >
           <p className="text-sm text-muted-foreground">
-            All devices — owner phones, the LED display screen, and the operator laptop — must be on the same
-            Wi-Fi network. BidWar Local shows you the URLs to open on each device.
+            All devices — owner phones, the big display screen, and the auction computer — must be on
+            the <strong className="text-foreground">same Wi-Fi network</strong>.
+            BidWar Local will show you a QR code to make connecting easy.
           </p>
+
+          <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
+            <li>On the auction computer, open <strong className="text-foreground">BidWar Local</strong>.</li>
+            <li>You will see a <strong className="text-foreground">QR code</strong> on screen.</li>
+            <li>Each team owner scans the QR code with their phone or tablet to open the bidding screen.</li>
+            <li>The big display screen opens the link shown below the QR code in a browser, then goes full-screen.</li>
+          </ol>
+
+          <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded border border-border/40">
+            <QrCode className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">BidWar Local is the server.</strong> Every other device connects to it.
+              If a device cannot connect, check it is on the same Wi-Fi network as the auction computer.
+            </p>
+          </div>
 
           <LanDiagram />
 
           <div className="grid sm:grid-cols-3 gap-3 text-xs">
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-amber-300">
-                <Laptop className="w-3.5 h-3.5" /> Operator
+                <Laptop className="w-3.5 h-3.5" /> Auction Computer
               </div>
-              <p className="text-muted-foreground">Runs BidWar Local. Controls the auction from this computer.</p>
+              <p className="text-muted-foreground">Runs BidWar Local. This is where the operator controls the auction.</p>
             </div>
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-green-300">
                 <Smartphone className="w-3.5 h-3.5" /> Owner Phones
               </div>
-              <p className="text-muted-foreground">Open the owner panel URL in any phone browser. Tap to bid.</p>
+              <p className="text-muted-foreground">Scan the QR code. The bidding screen opens in the phone browser.</p>
             </div>
             <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-purple-300">
-                <Monitor className="w-3.5 h-3.5" /> LED Screen
+                <Monitor className="w-3.5 h-3.5" /> Big Screen
               </div>
-              <p className="text-muted-foreground">Open the display URL in full-screen mode on the big screen.</p>
+              <p className="text-muted-foreground">Open the link shown below the QR code. Make it full-screen.</p>
             </div>
           </div>
-
-          <p className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border/40">
-            BidWar Local shows you the exact URLs to share — look for the network address panel in the app.
-          </p>
         </StepCard>
 
-        {/* ── Step 6: Run the auction ── */}
+        {/* ── Step 6 — Run the Auction ── */}
         <StepCard
           number={6}
           icon={<Play className="w-4 h-4" />}
@@ -536,30 +552,23 @@ export default function LocalModePage() {
           accent="text-primary"
         >
           <p className="text-sm text-muted-foreground">
-            You are ready. Open the Operator Panel in BidWar Local and start the auction.
+            Everything is ready. Open the auction controls and begin.
           </p>
           <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
-            <li>In BidWar Local, click <strong className="text-foreground">Open Operator Panel</strong>.</li>
-            <li>Start bidding — every sold player is tracked locally and mirrored to the cloud.</li>
-            <li>When the auction is complete, click <strong className="text-foreground">Sync to Cloud</strong> to push final results back here.</li>
+            <li>Click <strong className="text-foreground">Operator Panel</strong> in BidWar Local to open the auction controls.</li>
+            <li>Click <strong className="text-foreground">Start Auction</strong> to begin.</li>
+            <li>Team owners will see the bidding screen on their devices automatically.</li>
           </ol>
-
-          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border/40">
-            <Globe className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
+          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded border border-border/40">
+            <Activity className="w-3.5 h-3.5 flex-shrink-0 text-primary mt-0.5" />
             <span>
-              As long as the venue laptop has internet access, live bid updates will mirror to this cloud URL
-              automatically — so your LED display and online viewers stay in sync.
+              When the auction is finished, click <strong className="text-foreground">Sync to Cloud</strong> in BidWar Local to save the final results back to this tournament.
             </span>
           </div>
         </StepCard>
 
-        {/* ── Mirror Status ── */}
-        <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <ArrowRight className="w-3 h-3" /> Cloud Mirror Status
-          </p>
-          <MirrorStatusPanel tournamentId={tournamentId} />
-        </div>
+        {/* ── Cloud Sync Status ── */}
+        <CloudSyncStatus tournamentId={tournamentId} />
 
       </div>
     </AppLayout>
