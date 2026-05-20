@@ -234,14 +234,16 @@ function JsonLd({ data }: { data: object }) {
 }
 
 export function HomeSchemaMarkup() {
-  return (
-    <>
-      <JsonLd data={SOFTWARE_APPLICATION_SCHEMA} />
-      <JsonLd data={FAQ_SCHEMA} />
-      <JsonLd data={ORGANIZATION_SCHEMA} />
-      <JsonLd data={WEBSITE_SCHEMA} />
-    </>
-  );
+  const graph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      SOFTWARE_APPLICATION_SCHEMA,
+      FAQ_SCHEMA,
+      ORGANIZATION_SCHEMA,
+      WEBSITE_SCHEMA,
+    ],
+  };
+  return <JsonLd data={graph} />;
 }
 
 export function SportLandingSchemaMarkup({
@@ -290,11 +292,14 @@ export function SportLandingSchemaMarkup({
     },
   };
 
-  return (
-    <>
-      <JsonLd data={faqSchema} />
-      <JsonLd data={softwareSchema} />
-      <JsonLd data={ORGANIZATION_SCHEMA} />
-    </>
-  );
+  const graph = {
+    "@context": "https://schema.org",
+    "@graph": [
+      faqSchema,
+      softwareSchema,
+      ORGANIZATION_SCHEMA,
+    ],
+  };
+
+  return <JsonLd data={graph} />;
 }
