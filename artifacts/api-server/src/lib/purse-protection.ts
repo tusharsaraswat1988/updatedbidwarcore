@@ -16,9 +16,14 @@ export interface PurseProtection {
  * minimum-squad slots.
  *
  * Formula:
- *   slotsRequired = max(0, minimumSquadSize - teamPlayerCount)
- *   reservePurse  = slotsRequired × lowestAvailableBasePrice
+ *   slotsRequired  = max(0, minimumSquadSize - teamPlayerCount)
+ *   reservePurse   = slotsRequired × tournament.minBid
  *   spendablePurse = max(0, purseRemaining - reservePurse)
+ *
+ * NOTE: The per-slot cost uses tournament.minBid (the absolute cheapest any
+ * player can sell for), NOT individual player.basePrice. Using basePrice was
+ * wrong — category base prices (e.g. ₹1L) would reserve the entire purse
+ * even when the tournament minimum is ₹10k.
  */
 export async function computeTeamPurseProtection(
   tournamentId: number,
@@ -27,12 +32,22 @@ export async function computeTeamPurseProtection(
     allPlayers?: Array<{ id: number; status: string; teamId: number | null; basePrice: number }>;
     minimumSquadSize?: number;
     maximumSquadSize?: number;
+    minBid?: number;
     team?: { purse: number; purseUsed: number };
   }
 ): Promise<PurseProtection> {
-  const tournamentRow = (opts?.minimumSquadSize === undefined || opts?.maximumSquadSize === undefined)
+  const needsTournamentRow =
+    opts?.minimumSquadSize === undefined ||
+    opts?.maximumSquadSize === undefined ||
+    opts?.minBid === undefined;
+
+  const tournamentRow = needsTournamentRow
     ? await db
-        .select({ minimumSquadSize: tournamentsTable.minimumSquadSize, maximumSquadSize: tournamentsTable.maximumSquadSize })
+        .select({
+          minimumSquadSize: tournamentsTable.minimumSquadSize,
+          maximumSquadSize: tournamentsTable.maximumSquadSize,
+          minBid: tournamentsTable.minBid,
+        })
         .from(tournamentsTable)
         .where(eq(tournamentsTable.id, tournamentId))
         .then(([t]) => t)
@@ -45,6 +60,15 @@ export async function computeTeamPurseProtection(
   const maxSquadSize = opts?.maximumSquadSize !== undefined
     ? opts.maximumSquadSize
     : (tournamentRow?.maximumSquadSize ?? 0);
+
+  // Per-slot reserve cost: use the tournament's minimum bid floor.
+  // This is the absolute cheapest any player can be sold for, so it gives
+  // teams the most room to bid while still protecting minimum-squad slots.
+  // (Using individual player.basePrice was wrong — it reserved at category
+  //  price e.g. ₹1L per slot, leaving spendable = ₹0 on a ₹10L purse.)
+  const tournamentMinBid = opts?.minBid !== undefined
+    ? opts.minBid
+    : (tournamentRow?.minBid ?? 0);
 
   const teamRow =
     opts?.team ??
@@ -78,18 +102,17 @@ export async function computeTeamPurseProtection(
   const slotsRequired = Math.max(0, minSquadSize - playerCount);
 
   if (slotsRequired === 0) {
-    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
+    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: tournamentMinBid, maximumSquadSize: maxSquadSize };
   }
 
-  const availablePrices = allPlayers
-    .filter((p) => p.status === "available")
-    .map((p) => p.basePrice);
-
-  const lowestBasePrice = availablePrices.length > 0 ? Math.min(...availablePrices) : 0;
-  const reservePurse = slotsRequired * lowestBasePrice;
+  // Reserve slotsRequired × tournament.minBid — the cheapest possible cost per
+  // unfilled slot.  Do NOT use player.basePrice here; category base prices are
+  // often 10–100× higher than the tournament minimum and would wrongly reserve
+  // the entire purse (e.g. 10 slots × ₹1L = ₹10L on a ₹10L purse → spendable ₹0).
+  const reservePurse = slotsRequired * tournamentMinBid;
   const spendablePurse = Math.max(0, purseRemaining - reservePurse);
 
-  return { purseRemaining, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, maximumSquadSize: maxSquadSize };
+  return { purseRemaining, reservePurse, spendablePurse, slotsRequired, lowestBasePrice: tournamentMinBid, maximumSquadSize: maxSquadSize };
 }
 
 /**
@@ -102,12 +125,17 @@ export async function computeAllTeamPurseProtections(
   teams: Array<{ id: number; purse: number; purseUsed: number }>
 ): Promise<Map<number, PurseProtection>> {
   const [tournamentRow] = await db
-    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize, maximumSquadSize: tournamentsTable.maximumSquadSize })
+    .select({
+      minimumSquadSize: tournamentsTable.minimumSquadSize,
+      maximumSquadSize: tournamentsTable.maximumSquadSize,
+      minBid: tournamentsTable.minBid,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
 
   const minimumSquadSize = tournamentRow?.minimumSquadSize ?? 0;
   const maximumSquadSize = tournamentRow?.maximumSquadSize ?? 0;
+  const minBid = tournamentRow?.minBid ?? 0;
 
   const allPlayers = await db
     .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice })
@@ -120,6 +148,7 @@ export async function computeAllTeamPurseProtections(
       allPlayers,
       minimumSquadSize,
       maximumSquadSize,
+      minBid,
       team,
     });
     result.set(team.id, protection);
