@@ -874,6 +874,33 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
+// ─── Password reset bypass (no OTP) — TODO: remove when Twilio is configured ──
+
+router.post("/auth/organizer-account/reset-password/bypass", async (req, res) => {
+  const body = z.object({
+    mobile: z.string().min(7),
+    newPassword: z.string().min(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile number and new password are required" }); return; }
+
+  const digits = body.data.mobile.replace(/\D/g, "");
+  const rows = await db.select().from(organizersTable)
+    .where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
+  if (rows.length === 0) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
+
+  const newHash = await hashPassword(body.data.newPassword);
+  const [updated] = await db.update(organizersTable)
+    .set({ passwordHash: newHash })
+    .where(eq(organizersTable.id, rows[0].id))
+    .returning();
+
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: updated.id, organizer: orgMap });
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
 router.get("/auth/google", (req, res) => {

@@ -401,3 +401,18 @@ export async function verifyOtpAndReset(mobile: string, code: string, newPasswor
     return { success: true, organizer: d.organizer };
   } catch { return { success: false, error: "Network error" }; }
 }
+
+// TODO: remove OTP bypass when Twilio is configured
+export async function bypassResetPassword(mobile: string, newPassword: string): Promise<{
+  success: boolean; error?: string;
+}> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/reset-password/bypass", {
+      method: "POST",
+      body: JSON.stringify({ mobile, newPassword }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Password reset failed" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}

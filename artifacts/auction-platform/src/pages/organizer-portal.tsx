@@ -10,6 +10,7 @@ import {
   updateOrganizerProfile,
   sendOtp,
   verifyOtpAndReset,
+  bypassResetPassword,
 } from "@/lib/auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -298,35 +299,24 @@ function CompleteProfileForm({
 // ─── Forgot Password Flow ─────────────────────────────────────────────────────
 
 function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
-  const [step, setStep] = useState<"mobile" | "code">("mobile");
   const [mobile, setMobile] = useState("");
-  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [done, setDone] = useState(false);
 
-  async function handleSendOtp(e: React.FormEvent) {
+  // TODO: remove OTP bypass when Twilio is configured
+  async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     if (!mobile.trim()) { setError("Enter your registered mobile number"); return; }
-    setLoading(true); setError("");
-    const r = await sendOtp(mobile.trim());
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Failed to send OTP"); return; }
-    setSuccess("OTP sent to your WhatsApp / SMS. Check your phone.");
-    setStep("code");
-  }
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-    if (code.length !== 6) { setError("Enter the 6-digit code"); return; }
     if (newPassword.length < 6) { setError("Password must be at least 6 characters"); return; }
     if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
     setLoading(true); setError("");
-    const r = await verifyOtpAndReset(mobile, code, newPassword);
+    const r = await bypassResetPassword(mobile.trim(), newPassword);
     setLoading(false);
-    if (!r.success) { setError(r.error || "Verification failed"); return; }
+    if (!r.success) { setError(r.error || "Password reset failed"); return; }
+    setDone(true);
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
   }
@@ -338,26 +328,20 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
       </button>
       <div className="flex items-center gap-2 mb-2">
         <KeyRound className="w-4 h-4 text-primary" />
-        <p className="font-semibold text-sm">Reset Password via OTP</p>
+        <p className="font-semibold text-sm">Reset Password</p>
       </div>
-      {step === "mobile" ? (
-        <form onSubmit={handleSendOtp} className="space-y-3">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400/80">
+        OTP verification is temporarily disabled. Enter your registered mobile and a new password to reset directly.
+      </div>
+      {done ? (
+        <p className="text-green-400 text-sm flex items-center gap-1.5">
+          <CheckCircle2 className="w-4 h-4" /> Password reset — signing you in...
+        </p>
+      ) : (
+        <form onSubmit={handleReset} className="space-y-3">
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Registered Mobile</Label>
-            <Input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" />
-          </div>
-          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <MessageSquare className="w-4 h-4 mr-2" />}
-            Send OTP via WhatsApp
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerify} className="space-y-3">
-          {success && <p className="text-green-400 text-xs flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" />{success}</p>}
-          <div className="space-y-2">
-            <Label className="text-sm">6-Digit OTP Code</Label>
-            <Input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} className="tracking-widest text-center text-lg font-mono" />
+            <Input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" autoFocus />
           </div>
           <div className="space-y-2">
             <Label className="text-sm">New Password</Label>
@@ -369,12 +353,9 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
           </div>
           {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-            Verify & Reset Password
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+            Reset Password
           </Button>
-          <button type="button" onClick={() => { setStep("mobile"); setSuccess(""); }} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors text-center">
-            Resend OTP
-          </button>
         </form>
       )}
     </div>
