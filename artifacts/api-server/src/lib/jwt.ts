@@ -29,7 +29,10 @@ function getSecret(): string {
 }
 
 export function signAuthJwt(claims: AuthClaims): string {
-  return jwt.sign(claims, getSecret(), { expiresIn: JWT_EXPIRY });
+  // Strip JWT-reserved fields (exp, iat, nbf) that may be present when
+  // re-signing a previously decoded payload — jsonwebtoken rejects duplicate exp.
+  const { exp: _exp, iat: _iat, nbf: _nbf, ...cleanClaims } = claims as AuthClaims & { exp?: unknown; iat?: unknown; nbf?: unknown };
+  return jwt.sign(cleanClaims, getSecret(), { expiresIn: JWT_EXPIRY });
 }
 
 export function verifyAuthJwt(token: string): AuthClaims | null {
