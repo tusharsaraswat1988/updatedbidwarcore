@@ -450,8 +450,12 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
 
   const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-  if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
+  // Auth: admin OR organizer with explicit access to this specific tournament.
+  // Broad organizerAccountId is intentionally excluded — it would allow any org-account
+  // holder to trigger SMS sends (including viewer URLs) for tournaments they don't own.
+  const isAdmin = !!req.jwtUser?.isAdmin;
+  const isOrgForTournament = !!(req.jwtUser?.organizer as Record<string, boolean> | undefined)?.[tidStr];
+  if (!isAdmin && !isOrgForTournament) { res.status(401).json({ error: "Not authorised" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
