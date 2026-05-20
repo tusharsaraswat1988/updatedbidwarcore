@@ -32,11 +32,11 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 function isMasterAdmin(req: import("express").Request): boolean {
-  return !!req.session.isAdmin && req.session.adminLevel === "master";
+  return !!req.jwtUser.isAdmin && req.jwtUser.adminLevel === "master";
 }
 
 function isAdminOrOrganizer(req: import("express").Request): boolean {
-  return !!(req.session.isAdmin || req.session.organizerAccountId);
+  return !!(req.jwtUser.isAdmin || req.jwtUser.organizerAccountId);
 }
 
 function newToken(): string {
@@ -74,10 +74,10 @@ router.post("/consent/generate", async (req, res) => {
   const { recipientType, recipientId, mobile, tournamentId } = parsed.data;
 
   // Organizer callers may only generate tokens for their own tournament
-  if (!req.session.isAdmin && req.session.organizerAccountId) {
+  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
     const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
       .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-    if (!t || t.organizerId !== req.session.organizerAccountId) {
+    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) {
       res.status(403).json({ error: "Not authorized for this tournament" });
       return;
     }
@@ -187,7 +187,7 @@ router.post("/consent/:token/confirm", async (req, res) => {
 // ─── Organizer Declaration (scoped to caller's own tournaments) ───────────────
 
 router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
-  if (!req.session.isAdmin && !req.session.organizerAccountId) {
+  if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) {
     res.status(403).json({ error: "Not authorized" }); return;
   }
   const schema = z.object({
@@ -200,15 +200,15 @@ router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const { recipientType, recipientId, tournamentId } = parsed.data;
   // Force orgId from session for organizer callers — never trust caller-supplied orgId
-  const orgId = req.session.isAdmin
-    ? (parsed.data.orgId ?? req.session.organizerAccountId ?? null)
-    : (req.session.organizerAccountId ?? null);
+  const orgId = req.jwtUser.isAdmin
+    ? (parsed.data.orgId ?? req.jwtUser.organizerAccountId ?? null)
+    : (req.jwtUser.organizerAccountId ?? null);
 
   // Scoping: non-admin organizers may only declare consent for recipients in their own tournaments
-  if (!req.session.isAdmin && req.session.organizerAccountId) {
+  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
     const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
       .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-    if (!t || t.organizerId !== req.session.organizerAccountId) {
+    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) {
       res.status(403).json({ error: "Not authorized for this tournament" }); return;
     }
 
@@ -402,7 +402,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 // ─── WhatsApp Template Config (admin-managed) ─────────────────────────────────
 
 router.get("/auth/admin/communicate/templates", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   const templates = await db.select().from(waTemplatesTable).orderBy(waTemplatesTable.templateName);
   res.json(templates);
 });
@@ -455,7 +455,7 @@ router.delete("/auth/admin/communicate/templates/:id", async (req, res) => {
 // ─── Communication Logs ────────────────────────────────────────────────────────
 
 router.get("/auth/admin/communicate/logs", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
 
   const tournamentId = req.query.tournamentId ? parseInt(String(req.query.tournamentId)) : null;
   const channel = String(req.query.channel || "");
@@ -482,7 +482,7 @@ router.get("/auth/admin/communicate/logs", async (req, res) => {
 });
 
 router.get("/auth/admin/communicate/logs/:id", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [log] = await db.select().from(commLogsTable).where(eq(commLogsTable.id, id));
@@ -493,7 +493,7 @@ router.get("/auth/admin/communicate/logs/:id", async (req, res) => {
 // ─── Automated Blast History ───────────────────────────────────────────────────
 
 router.get("/auth/admin/communicate/blasts", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   const tournamentId = req.query.tournamentId ? parseInt(String(req.query.tournamentId)) : null;
   const conds = tournamentId ? [eq(consentBlastLogTable.tournamentId, tournamentId)] : [];
   const entries = await db.select().from(consentBlastLogTable)
@@ -506,13 +506,13 @@ router.get("/auth/admin/communicate/blasts", async (req, res) => {
 // ─── Missing Contacts (players/teams with no mobile) ─────────────────────────
 
 router.get("/auth/admin/communicate/missing-contacts/:tournamentId", async (req, res) => {
-  if (!req.session.isAdmin && !req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+  if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  if (!req.session.isAdmin && req.session.organizerAccountId) {
+  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
     const [t] = await db.select({ organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-    if (!t || t.organizerId !== req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
   }
 
   const missingPlayers = await db
@@ -531,7 +531,7 @@ router.get("/auth/admin/communicate/missing-contacts/:tournamentId", async (req,
 // ─── Bulk In-Person Consent Declaration ──────────────────────────────────────
 
 router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => {
-  if (!req.session.isAdmin && !req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
+  if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
   const schema = z.object({
     tournamentId: z.number().int(),
     recipientType: z.enum(["player", "team_owner", "all"]),
@@ -540,13 +540,13 @@ router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => 
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const { tournamentId, recipientType } = parsed.data;
 
-  if (!req.session.isAdmin && req.session.organizerAccountId) {
+  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
     const [t] = await db.select({ organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-    if (!t || t.organizerId !== req.session.organizerAccountId) { res.status(403).json({ error: "Not authorized for this tournament" }); return; }
+    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized for this tournament" }); return; }
   }
 
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
-  const consentOrgId = req.session.organizerAccountId ?? null;
+  const consentOrgId = req.jwtUser.organizerAccountId ?? null;
   const consentData = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "organizer_declaration" as const, whatsappConsentIp: ip, whatsappConsentOrgId: consentOrgId };
   let playerCount = 0;
   let ownerCount = 0;
@@ -570,14 +570,14 @@ router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => 
     ownerCount = affected.length;
   }
 
-  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.session.organizerAccountId ?? (req.session.isAdmin ? "admin" : null) }, "Bulk organizer-declaration consent recorded");
+  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.jwtUser.organizerAccountId ?? (req.jwtUser.isAdmin ? "admin" : null) }, "Bulk organizer-declaration consent recorded");
   res.json({ success: true, playerCount, ownerCount });
 });
 
 // ─── Consent Status for a Tournament ─────────────────────────────────────────
 
 router.get("/auth/admin/communicate/consent-status/:tournamentId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 

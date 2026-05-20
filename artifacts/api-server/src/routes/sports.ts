@@ -79,7 +79,7 @@ router.get("/sports/roles/:roleId/specs", async (req, res) => {
 
 // ─── Admin: PATCH /auth/admin/sports/:sportId ─────────────────────────────────
 router.patch("/auth/admin/sports/:sportId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const sportId = parseInt(req.params.sportId);
   if (isNaN(sportId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({ name: z.string().optional(), active: z.boolean().optional() });
@@ -96,7 +96,7 @@ router.patch("/auth/admin/sports/:sportId", async (req, res) => {
 
 // ─── Admin: POST /auth/admin/sports/:sportId/roles ────────────────────────────
 router.post("/auth/admin/sports/:sportId/roles", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const sportId = parseInt(req.params.sportId);
   if (isNaN(sportId)) { res.status(400).json({ error: "Invalid sport ID" }); return; }
   const schema = z.object({ roleName: z.string().min(1), displayOrder: z.number().int().optional() });
@@ -111,7 +111,7 @@ router.post("/auth/admin/sports/:sportId/roles", async (req, res) => {
 
 // ─── Admin: PATCH /auth/admin/sport-roles/:roleId ─────────────────────────────
 router.patch("/auth/admin/sport-roles/:roleId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const roleId = parseInt(req.params.roleId);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({ roleName: z.string().optional(), displayOrder: z.number().int().optional(), active: z.boolean().optional() });
@@ -128,7 +128,7 @@ router.patch("/auth/admin/sport-roles/:roleId", async (req, res) => {
 
 // ─── Admin: POST /auth/admin/sport-roles/:roleId/spec-groups ─────────────────
 router.post("/auth/admin/sport-roles/:roleId/spec-groups", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const roleId = parseInt(req.params.roleId);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID" }); return; }
   const schema = z.object({
@@ -147,7 +147,7 @@ router.post("/auth/admin/sport-roles/:roleId/spec-groups", async (req, res) => {
 
 // ─── Admin: POST /auth/admin/spec-groups/:groupId/options ────────────────────
 router.post("/auth/admin/spec-groups/:groupId/options", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const groupId = parseInt(req.params.groupId);
   if (isNaN(groupId)) { res.status(400).json({ error: "Invalid group ID" }); return; }
   const schema = z.object({ optionName: z.string().min(1), displayOrder: z.number().int().optional() });
@@ -163,7 +163,7 @@ router.post("/auth/admin/spec-groups/:groupId/options", async (req, res) => {
 // ─── Admin: GET /auth/admin/sports-full ──────────────────────────────────────
 // Full sport hierarchy: sports → roles → spec groups → options (admin only)
 router.get("/auth/admin/sports-full", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const sports = await db.select().from(sportsTable).orderBy(sportsTable.name);
   const result = await Promise.all(sports.map(async (sport) => {
     const roles = await db
@@ -191,7 +191,7 @@ router.get("/auth/admin/sports-full", async (req, res) => {
 
 // ─── Admin: DELETE /auth/admin/spec-options/:optionId ────────────────────────
 router.delete("/auth/admin/spec-options/:optionId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const optionId = parseInt(req.params.optionId);
   if (isNaN(optionId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.update(roleSpecOptionsTable).set({ active: false }).where(eq(roleSpecOptionsTable.id, optionId));
@@ -200,7 +200,7 @@ router.delete("/auth/admin/spec-options/:optionId", async (req, res) => {
 
 // ─── Admin: DELETE /auth/admin/spec-groups/:groupId ──────────────────────────
 router.delete("/auth/admin/spec-groups/:groupId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const groupId = parseInt(req.params.groupId);
   if (isNaN(groupId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.update(roleSpecGroupsTable).set({ active: false }).where(eq(roleSpecGroupsTable.id, groupId));
@@ -209,7 +209,7 @@ router.delete("/auth/admin/spec-groups/:groupId", async (req, res) => {
 
 // ─── Admin: DELETE /auth/admin/sport-roles/:roleId ───────────────────────────
 router.delete("/auth/admin/sport-roles/:roleId", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   const roleId = parseInt(req.params.roleId);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.update(sportRolesTable).set({ active: false }).where(eq(sportRolesTable.id, roleId));

@@ -292,8 +292,8 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   // Auth check: must be an admin, or an organizer authenticated specifically for this tournament.
   // Broad organizerAccountId is intentionally excluded — it allows any org-account holder to
   // access any tournament, which would let them mint export tokens for unrelated tournaments.
-  const isAdmin = !!req.session.isAdmin;
-  const isOrgForTournament = !!(req.session.organizer as Record<string, boolean> | undefined)?.[String(id)];
+  const isAdmin = !!req.jwtUser.isAdmin;
+  const isOrgForTournament = !!(req.jwtUser.organizer as Record<string, boolean> | undefined)?.[String(id)];
   if (!isAdmin && !isOrgForTournament) {
     res.status(401).json({ error: "Authentication required to export tournament" });
     return;

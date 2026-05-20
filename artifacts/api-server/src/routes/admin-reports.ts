@@ -37,7 +37,7 @@ const router = Router();
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
 function requireMasterAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (req.session.isAdmin && req.session.adminLevel === "master") { next(); return; }
+  if (req.jwtUser.isAdmin && req.jwtUser.adminLevel === "master") { next(); return; }
   res.status(403).json({ error: "Master admin access required" });
 }
 

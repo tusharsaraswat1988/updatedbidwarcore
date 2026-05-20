@@ -6,6 +6,8 @@ import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limiters";
+import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from "../lib/jwt";
+import type { AuthClaims } from "../lib/jwt";
 
 const scryptAsync = promisify(scrypt);
 
@@ -28,23 +30,6 @@ async function _generateUniqueAuctionCode(name: string, auctionDate?: string | n
     if (ex.length === 0) return code;
   }
   return _buildAuctionCode(name, auctionDate) + String(Math.floor(Math.random() * 90) + 10);
-}
-
-declare module "express-session" {
-  interface SessionData {
-    isAdmin?: boolean;
-    adminLevel?: "master" | "data_entry";
-    organizer?: Record<string, true>;
-    organizerAccountId?: number;
-    googleOAuthState?: string;
-    pendingGoogleProfile?: {
-      name: string;
-      email: string;
-      googleId: string;
-      googleEmail: string;
-    };
-    pendingGoogleMobile?: string;
-  }
 }
 
 const router = Router();
@@ -81,11 +66,11 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 }
 
 function isMasterAdmin(req: import("express").Request): boolean {
-  return !!req.session.isAdmin && req.session.adminLevel === "master";
+  return !!req.jwtUser.isAdmin && req.jwtUser.adminLevel === "master";
 }
 
 function isAnyAdmin(req: import("express").Request): boolean {
-  return !!req.session.isAdmin;
+  return !!req.jwtUser.isAdmin;
 }
 
 const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
@@ -116,17 +101,13 @@ router.post("/auth/admin/login", authLimiter, (req, res) => {
   const { password } = body.data;
 
   if (masterPw && safeCompare(password, masterPw)) {
-    req.session.isAdmin = true;
-    req.session.adminLevel = "master";
-    if (!req.session.organizer) req.session.organizer = {};
+    setAuthCookie(res, { isAdmin: true, adminLevel: "master", organizer: req.jwtUser.organizer ?? {} });
     res.json({ success: true, adminLevel: "master" });
     return;
   }
 
   if (dataPw && safeCompare(password, dataPw)) {
-    req.session.isAdmin = true;
-    req.session.adminLevel = "data_entry";
-    if (!req.session.organizer) req.session.organizer = {};
+    setAuthCookie(res, { isAdmin: true, adminLevel: "data_entry", organizer: req.jwtUser.organizer ?? {} });
     res.json({ success: true, adminLevel: "data_entry" });
     return;
   }
@@ -134,16 +115,17 @@ router.post("/auth/admin/login", authLimiter, (req, res) => {
   res.status(401).json({ error: "Incorrect password" });
 });
 
-router.post("/auth/admin/logout", (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+router.post("/auth/admin/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.json({ success: true });
 });
 
 router.get("/auth/admin/me", (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.json({ isAdmin: false, adminLevel: null });
     return;
   }
-  res.json({ isAdmin: true, adminLevel: req.session.adminLevel ?? "master" });
+  res.json({ isAdmin: true, adminLevel: req.jwtUser.adminLevel ?? "master" });
 });
 
 // ─── Organizer (per tournament) ───────────────────────────────────────────────
@@ -158,19 +140,15 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   const dataPw = process.env.ADMIN_DATA_PASSWORD;
 
   if (masterPw && safeCompare(body.data.password, masterPw)) {
-    req.session.isAdmin = true;
-    req.session.adminLevel = "master";
-    if (!req.session.organizer) req.session.organizer = {};
-    req.session.organizer[String(tid)] = true;
+    const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
+    setAuthCookie(res, { isAdmin: true, adminLevel: "master", organizer, organizerAccountId: req.jwtUser.organizerAccountId });
     res.json({ success: true });
     return;
   }
 
   if (dataPw && safeCompare(body.data.password, dataPw)) {
-    req.session.isAdmin = true;
-    req.session.adminLevel = "data_entry";
-    if (!req.session.organizer) req.session.organizer = {};
-    req.session.organizer[String(tid)] = true;
+    const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
+    setAuthCookie(res, { isAdmin: true, adminLevel: "data_entry", organizer, organizerAccountId: req.jwtUser.organizerAccountId });
     res.json({ success: true });
     return;
   }
@@ -185,21 +163,22 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
     res.status(401).json({ error: "Incorrect password" });
     return;
   }
-  if (!req.session.organizer) req.session.organizer = {};
-  req.session.organizer[String(tid)] = true;
+  const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
+  setAuthCookie(res, { ...req.jwtUser, organizer });
   res.json({ success: true });
 });
 
 router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
   const tid = req.params.tournamentId;
-  if (req.session.organizer) delete req.session.organizer[tid];
-  if (req.session.isAdmin) req.session.isAdmin = undefined;
+  const organizer = { ...(req.jwtUser.organizer ?? {}) };
+  delete organizer[tid];
+  setAuthCookie(res, { ...req.jwtUser, isAdmin: undefined, adminLevel: undefined, organizer });
   res.json({ success: true });
 });
 
 router.get("/auth/organizer/:tournamentId/me", (req, res) => {
   const tid = req.params.tournamentId;
-  const isOrganizer = !!(req.session.isAdmin || (req.session.organizer && req.session.organizer[tid]));
+  const isOrganizer = !!(req.jwtUser.isAdmin || (req.jwtUser.organizer && req.jwtUser.organizer[tid]));
   res.json({ isOrganizer });
 });
 
@@ -209,7 +188,7 @@ router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session.organizer && req.session.organizer[tidStr]);
+  const isOrganizer = !!(req.jwtUser.organizer && req.jwtUser.organizer[tidStr]);
   if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
   const body = z.object({ password: z.string().min(4) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Password must be at least 4 characters" }); return; }
@@ -650,14 +629,11 @@ router.post("/auth/organizer-account/signup", async (req, res) => {
     maxTournaments: 1,
   }).returning();
 
-  req.session.organizerAccountId = organizer.id;
-  if (!req.session.organizer) req.session.organizer = {};
-
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-  for (const t of myTournaments) {
-    req.session.organizer[String(t.id)] = true;
-  }
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
 
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
@@ -684,25 +660,22 @@ router.post("/auth/organizer-account/login", authLimiter, async (req, res) => {
   const valid = await verifyPassword(password, organizer.passwordHash);
   if (!valid) { res.status(401).json({ error: "Incorrect password." }); return; }
 
-  req.session.organizerAccountId = organizer.id;
-  if (!req.session.organizer) req.session.organizer = {};
-
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-  for (const t of myTournaments) {
-    req.session.organizer[String(t.id)] = true;
-  }
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
 
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 router.get("/auth/organizer-account/me", async (req, res) => {
-  if (!req.session.organizerAccountId) {
+  if (!req.jwtUser.organizerAccountId) {
     res.json({ loggedIn: false });
     return;
   }
-  const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.session.organizerAccountId));
+  const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!organizer) {
-    req.session.organizerAccountId = undefined;
+    clearAuthCookie(res);
     res.json({ loggedIn: false });
     return;
   }
@@ -724,19 +697,19 @@ router.get("/auth/organizer-account/me", async (req, res) => {
   });
 });
 
-router.post("/auth/organizer-account/logout", (req, res) => {
-  req.session.organizerAccountId = undefined;
+router.post("/auth/organizer-account/logout", (_req, res) => {
+  clearAuthCookie(res);
   res.json({ success: true });
 });
 
 // ─── Organizer Account: Create tournament ─────────────────────────────────────
 
 router.post("/auth/organizer-account/tournaments", async (req, res) => {
-  if (!req.session.organizerAccountId) {
+  if (!req.jwtUser.organizerAccountId) {
     res.status(401).json({ error: "Not logged in" });
     return;
   }
-  const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.session.organizerAccountId));
+  const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
 
   const schema = z.object({
@@ -787,8 +760,8 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     licenseStatus: "trial",
   }).returning();
 
-  if (!req.session.organizer) req.session.organizer = {};
-  req.session.organizer[String(tournament.id)] = true;
+  const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
+  setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
 
   res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
 });
@@ -881,11 +854,11 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   const newHash = await hashPassword(body.data.newPassword);
   const [updated] = await db.update(organizersTable).set({ passwordHash: newHash }).where(eq(organizersTable.id, rows[0].id)).returning();
 
-  req.session.organizerAccountId = updated.id;
-  if (!req.session.organizer) req.session.organizer = {};
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
-  for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
 
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: updated.id, organizer: orgMap });
   res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
@@ -898,9 +871,14 @@ router.get("/auth/google", (req, res) => {
   const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
 
-  // Generate and store a random state token to prevent login CSRF
+  // Generate a random state token to prevent login CSRF
   const state = randomBytes(32).toString("hex");
-  req.session.googleOAuthState = state;
+  // Store state in a short-lived signed cookie — avoids any DB round-trip
+  setOAuthCookie(res, {
+    state,
+    pendingGoogleProfile: req.oauthState.pendingGoogleProfile,
+    pendingGoogleMobile: req.oauthState.pendingGoogleMobile,
+  });
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -911,17 +889,7 @@ router.get("/auth/google", (req, res) => {
     state,
   });
 
-  // Must save session to the DB *before* redirecting — the PostgreSQL store
-  // is async, and without an explicit save the state won't be persisted by the
-  // time Google redirects back to the callback.
-  req.session.save((err) => {
-    if (err) {
-      req.log.error({ err }, "Failed to save session before Google redirect");
-      res.redirect("/organizer?error=google_failed");
-      return;
-    }
-    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
-  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
 router.get("/auth/google/callback", async (req, res) => {
@@ -930,8 +898,9 @@ router.get("/auth/google/callback", async (req, res) => {
   if (!code) { res.redirect("/organizer?error=google_cancelled"); return; }
 
   // Validate state to prevent login CSRF attacks
-  const expectedState = req.session.googleOAuthState;
-  req.session.googleOAuthState = undefined;
+  const expectedState = req.oauthState.state;
+  // Clear the OAuth state cookie regardless of outcome
+  clearOAuthCookie(res);
   if (!expectedState || !returnedState || !safeCompare(expectedState, returnedState)) {
     res.redirect("/organizer?error=google_state_mismatch");
     return;
@@ -974,39 +943,28 @@ router.get("/auth/google/callback", async (req, res) => {
         organizer = linked;
       } else {
         // 3. New Google user — DO NOT create organizer record yet.
-        // Store pending Google profile in session and redirect to /complete-profile
+        // Store pending Google profile in the OAuth cookie and redirect to /complete-profile
         // where the organizer's mobile will be collected and OTP-verified before
         // the organizer record is created. This ensures mobile is never null.
-        req.session.pendingGoogleProfile = {
-          name: gUser.name ?? gUser.email.split("@")[0],
-          email: gUser.email,
-          googleId: gUser.id,
-          googleEmail: gUser.email,
-        };
-        req.session.save((saveErr) => {
-          if (saveErr) { res.redirect("/organizer?error=google_failed"); return; }
-          res.redirect("/complete-profile");
+        setOAuthCookie(res, {
+          pendingGoogleProfile: {
+            name: gUser.name ?? gUser.email.split("@")[0],
+            email: gUser.email,
+            googleId: gUser.id,
+            googleEmail: gUser.email,
+          },
         });
+        res.redirect("/complete-profile");
         return;
       }
     }
 
-    req.session.organizerAccountId = organizer!.id;
-    if (!req.session.organizer) req.session.organizer = {};
+    const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-    for (const t of myTournaments) req.session.organizer[String(t.id)] = true;
+    for (const t of myTournaments) orgMap[String(t.id)] = true;
 
-    const destination = "/organizer";
-    // Save session explicitly before redirect so the logged-in state is
-    // persisted in PostgreSQL before the browser follows the redirect.
-    req.session.save((err) => {
-      if (err) {
-        req.log.error({ err }, "Failed to save session after Google login");
-        res.redirect("/organizer?error=google_failed");
-        return;
-      }
-      res.redirect(destination);
-    });
+    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+    res.redirect("/organizer");
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     res.redirect("/organizer?error=google_failed");
@@ -1016,7 +974,7 @@ router.get("/auth/google/callback", async (req, res) => {
 // ─── Organizer Account: Update profile (mobile) ───────────────────────────────
 
 router.patch("/auth/organizer-account/profile", async (req, res) => {
-  if (!req.session.organizerAccountId) {
+  if (!req.jwtUser.organizerAccountId) {
     res.status(401).json({ error: "Not logged in" });
     return;
   }
@@ -1027,14 +985,14 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 
   const mobileExists = await db.select().from(organizersTable)
     .where(eq(organizersTable.mobile, body.data.mobile));
-  if (mobileExists.length > 0 && mobileExists[0].id !== req.session.organizerAccountId) {
+  if (mobileExists.length > 0 && mobileExists[0].id !== req.jwtUser.organizerAccountId) {
     res.status(409).json({ error: "This mobile number is already registered to another account." });
     return;
   }
 
   const [updated] = await db.update(organizersTable)
     .set({ mobile: body.data.mobile })
-    .where(eq(organizersTable.id, req.session.organizerAccountId))
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
     .returning();
 
   res.json({ success: true, organizer: organizerToJson(updated) });
@@ -1043,7 +1001,7 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 // ─── Admin: Set tournament license status ─────────────────────────────────────
 
 router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) => {
-  if (req.session.adminLevel !== "master") {
+  if (req.jwtUser.adminLevel !== "master") {
     res.status(403).json({ error: "Super admin access required" });
     return;
   }
@@ -1062,7 +1020,7 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
     .set({
       licenseStatus: body.data.status,
       licenseGrantedAt: body.data.status === "active" ? new Date() : undefined,
-      licenseGrantedBy: body.data.status === "active" ? (req.session.adminLevel ?? undefined) : undefined,
+      licenseGrantedBy: body.data.status === "active" ? (req.jwtUser.adminLevel ?? undefined) : undefined,
     })
     .where(eq(tournamentsTable.id, tournamentId));
 
@@ -1072,7 +1030,7 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
 // ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────
 
 router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) => {
-  const pending = req.session.pendingGoogleProfile;
+  const pending = req.oauthState.pendingGoogleProfile;
   if (!pending) {
     res.status(400).json({ error: "No pending Google profile — please sign in with Google first" });
     return;
@@ -1107,20 +1065,14 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
   const { sendSms } = await import("../lib/comm-sender");
   await sendSms(mobile, `BidWar: Your verification code is ${otp}. Valid for 10 minutes. Do not share.`);
 
-  req.session.pendingGoogleMobile = mobile;
-  req.session.save((saveErr) => {
-    if (saveErr) {
-      req.log.error({ saveErr }, "Session save error in complete-profile");
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-    res.json({ success: true });
-  });
+  // Persist the pending mobile in the OAuth state cookie
+  setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
+  res.json({ success: true });
 });
 
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
-  const pending = req.session.pendingGoogleProfile;
-  const mobile = req.session.pendingGoogleMobile;
+  const pending = req.oauthState.pendingGoogleProfile;
+  const mobile = req.oauthState.pendingGoogleMobile;
   if (!pending || !mobile) {
     res.status(400).json({ error: "No pending profile or mobile — please restart Google sign-in" });
     return;
@@ -1152,9 +1104,9 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     return;
   }
 
-  const [salt, stored] = session.otpHash.split(":");
-  if (!salt || !stored) { res.status(400).json({ error: "Invalid OTP state" }); return; }
-  const derivedKey = (await scryptAsync(parsed.data.otp, salt, 64)) as Buffer;
+  const [saltPart, stored] = session.otpHash.split(":");
+  if (!saltPart || !stored) { res.status(400).json({ error: "Invalid OTP state" }); return; }
+  const derivedKey = (await scryptAsync(parsed.data.otp, saltPart, 64)) as Buffer;
   const valid = timingSafeEqual(Buffer.from(stored, "hex"), derivedKey);
   if (!valid) { res.status(400).json({ error: "Invalid OTP" }); return; }
 
@@ -1181,20 +1133,10 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     maxTournaments: 1,
   }).returning();
 
-  // Clear pending state and establish session
-  req.session.pendingGoogleProfile = undefined;
-  req.session.pendingGoogleMobile = undefined;
-  req.session.organizerAccountId = organizer.id;
-  if (!req.session.organizer) req.session.organizer = {};
-
-  req.session.save((saveErr) => {
-    if (saveErr) {
-      req.log.error({ saveErr }, "Session save error after complete-profile verify");
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-    res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
-  });
+  // Clear OAuth state cookie and issue the full auth JWT
+  clearOAuthCookie(res);
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
+  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
 });
 
 export default router;

@@ -50,7 +50,7 @@ const updateInstallerSchema = z.object({
 });
 
 router.patch("/auth/admin/settings/installer-url", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.status(403).json({ error: "Admin required" });
     return;
   }
@@ -89,7 +89,7 @@ async function readGithubConfig() {
 
 // Admin: read GitHub config
 router.get("/auth/admin/builds/github-config", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.status(403).json({ error: "Admin required" });
     return;
   }
@@ -104,7 +104,7 @@ const updateGithubSchema = z.object({
 });
 
 router.patch("/auth/admin/builds/github-config", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.status(403).json({ error: "Admin required" });
     return;
   }
@@ -126,7 +126,7 @@ const triggerSchema = z.object({
 });
 
 router.post("/auth/admin/builds/trigger", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.status(403).json({ error: "Admin required" });
     return;
   }
@@ -196,7 +196,7 @@ interface GithubRunsResponse {
 }
 
 router.get("/auth/admin/builds/status", async (req, res) => {
-  if (!req.session.isAdmin) {
+  if (!req.jwtUser.isAdmin) {
     res.status(403).json({ error: "Admin required" });
     return;
   }

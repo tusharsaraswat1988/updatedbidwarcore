@@ -120,7 +120,7 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
   const players = await db
     .select()
@@ -145,7 +145,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   if (dupName) { res.status(400).json({ error: `A player named "${d.name}" is already registered in this tournament.` }); return; }
 
   // Block organizer from registering their own mobile as a player
-  const orgAccountId = req.session?.organizerAccountId;
+  const orgAccountId = req.jwtUser?.organizerAccountId;
   if (orgAccountId && d.mobileNumber) {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
     if (org?.mobile && org.mobile === d.mobileNumber) {
@@ -290,7 +290,7 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   const [player] = await db
     .select()
     .from(playersTable)
@@ -366,7 +366,7 @@ router.get("/tournaments/:tournamentId/import-sources", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const organizerAccountId = req.session?.organizerAccountId;
+  const organizerAccountId = req.jwtUser?.organizerAccountId;
 
   const baseQuery = db
     .select({
@@ -435,7 +435,7 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .orderBy(playersTable.name);
 
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
 
   const result = sourcePlayers.map((p) => ({
@@ -519,7 +519,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
     await db.insert(playerImportLogsTable).values({
       sourceTournamentId,
       targetTournamentId: tid,
-      organizerAccountId: req.session?.organizerAccountId ?? null,
+      organizerAccountId: req.jwtUser?.organizerAccountId ?? null,
       playerCount: imported,
     });
   }

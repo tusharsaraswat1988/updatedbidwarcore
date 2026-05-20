@@ -1,12 +1,11 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalLimiter } from "./lib/rate-limiters";
-import { pool } from "@workspace/db";
+import { jwtAuthMiddleware } from "./middleware/jwt-auth";
 
 const app: Express = express();
 
@@ -82,36 +81,16 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
-const sessionSecret = process.env.SESSION_SECRET;
-if (isProd && !sessionSecret) {
+if (isProd && !process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in production.");
 }
 
-const PgSession = connectPgSimple(session);
+// Parse cookies so the JWT middleware can read bidwar_auth / bidwar_oauth
+app.use(cookieParser());
+// Populate req.jwtUser and req.oauthState from signed JWT cookies
+app.use(jwtAuthMiddleware);
 
-app.use(
-  session({
-    store: new PgSession({
-      pool,
-      tableName: "sessions",
-      // Auto-creates the sessions table on first boot so the server is
-      // self-initialising without a separate migration step. Safe because
-      // connect-pg-simple only issues a CREATE TABLE IF NOT EXISTS DDL.
-      createTableIfMissing: true,
-    }),
-    secret: sessionSecret ?? "bidwar-dev-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isProd,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    },
-  }),
-);
-
-logger.info("Session store: PostgreSQL (persistent across restarts)");
+logger.info("Auth: stateless JWT cookies (bidwar_auth)");
 
 // Global rate limiter — catches spam on all non-auction routes.
 // Auction endpoints are automatically skipped inside globalLimiter

@@ -56,7 +56,7 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   const serializer: (t: typeof teamsTable.$inferSelect) => Record<string, unknown> =
     isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
@@ -93,7 +93,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   if (dupName) { res.status(400).json({ error: `A team named "${d.name}" is already registered in this tournament.` }); return; }
 
   // Block organizer from using their own mobile as team owner mobile
-  const orgAccountId = req.session?.organizerAccountId;
+  const orgAccountId = req.jwtUser?.organizerAccountId;
   if (orgAccountId) {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
     if (org?.mobile && org.mobile === d.ownerMobile) {
@@ -135,7 +135,7 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   const tidStr = String(tid);
-  const isOrganizer = !!(req.session?.isAdmin || req.session?.organizerAccountId || req.session?.organizer?.[tidStr]);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   res.json(isOrganizer ? teamToJson(team) : teamToPublicJson(team));
 });
 

@@ -19,7 +19,7 @@ router.get("/branding", async (_req, res) => {
 // ─── Admin: read settings ──────────────────────────────────────────────────────
 
 router.get("/auth/admin/branding", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   const [row] = await db.select().from(brandingSettingsTable).limit(1);
   if (!row) {
     res.json(null);
@@ -31,7 +31,7 @@ router.get("/auth/admin/branding", async (req, res) => {
 // ─── Admin: upsert settings ────────────────────────────────────────────────────
 
 router.put("/auth/admin/branding", async (req, res) => {
-  if (!req.session.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
 
   const d = req.body as Partial<typeof brandingSettingsTable.$inferInsert>;
 
