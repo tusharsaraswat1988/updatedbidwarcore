@@ -6,8 +6,10 @@ import {
   Gavel, Monitor, Smartphone, Users, Radio, Shuffle, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Award, Building2, GraduationCap, ChevronDown,
-  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus,
+  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
 } from "lucide-react";
+import { ProductShowcase } from "@/components/product-showcase";
+import { Testimonials } from "@/components/testimonials";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -487,6 +489,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Product Showcase ─────────────────────────────────────────── */}
+      <ProductShowcase />
+
       {/* ── Features ────────────────────────────────────────────────── */}
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
@@ -816,6 +821,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Testimonials ────────────────────────────────────────────── */}
+      <Testimonials />
+
       {/* ── CTA Banner ──────────────────────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-8">
@@ -849,6 +857,33 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── WhatsApp Float ──────────────────────────────────────────── */}
+      <a
+        href="https://wa.me/918707488250?text=Hi%2C%20I%20want%20to%20run%20a%20sports%20auction%20on%20BidWar.%20Can%20you%20help%20me%20set%20up%3F"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat on WhatsApp"
+        className="fixed bottom-6 right-6 z-50 group flex items-center gap-3"
+      >
+        <motion.span
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 2, duration: 0.4 }}
+          className="hidden sm:block bg-[#111113] border border-border text-xs font-semibold text-white px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap"
+        >
+          Chat with us on WhatsApp
+        </motion.span>
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 1.5, type: "spring", stiffness: 260, damping: 20 }}
+          className="w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_24px_rgba(37,211,102,0.4)] hover:shadow-[0_4px_32px_rgba(37,211,102,0.6)] transition-all hover:scale-110"
+          style={{ background: "linear-gradient(135deg, #25D366, #128C7E)" }}
+        >
+          <MessageCircle className="w-6 h-6 text-white fill-white" />
+        </motion.div>
+      </a>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-border/40 pt-14 pb-8 px-6">
