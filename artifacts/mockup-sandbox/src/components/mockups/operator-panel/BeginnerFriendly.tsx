@@ -335,7 +335,7 @@ export function BeginnerFriendly() {
                       <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {fmt(p.base)}</p>
                     )}
                     {!isSold && !isRetained && !isUnsold && (
-                      <p className="text-[10px] text-white/28 leading-tight mt-0.5">{p.role} · base {fmt(p.base)}</p>
+                      <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {fmt(p.base)}</p>
                     )}
                   </div>
 
