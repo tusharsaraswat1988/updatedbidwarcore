@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
+import { logger } from "../lib/logger";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -140,7 +141,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
             [tournament.name, team.name, accessCode, ownerUrl],
           );
         }
-      } catch { /* never block primary response */ }
+      } catch (err) { logger.error({ err, teamId: team.id }, "DLT team-owner SMS failed"); }
     })();
   }
 

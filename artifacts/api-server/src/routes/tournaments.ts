@@ -443,4 +443,45 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
   res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted });
 });
 
+// ─── Share viewer link — fire DLT SMS to organizer ───────────────────────────
+
+router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
+  const tid = Number(req.params.id);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+  const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
+  const viewerUrl = `https://${domain}/tournament/${tid}/display`;
+
+  const orgId = tournament.organizerId;
+  if (orgId != null) {
+    void (async () => {
+      try {
+        const { smsNotificationSettingsTable, organizersTable: orgsTable } = await import("@workspace/db");
+        const { sendDltSms } = await import("../lib/fast2sms");
+        const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+        if (settings?.dltEnabled && settings.viewerLinkEnabled && settings.viewerLinkTemplateId) {
+          const [organizer] = await db.select({ mobile: orgsTable.mobile }).from(orgsTable).where(eq(orgsTable.id, orgId));
+          const mobile = organizer?.mobile;
+          if (mobile && !mobile.startsWith("gid_")) {
+            await sendDltSms([mobile], settings.viewerLinkTemplateId, [tournament.name, viewerUrl]);
+          }
+        }
+      } catch (err) {
+        const { logger } = await import("../lib/logger");
+        logger.error({ err, tournamentId: tid }, "DLT viewer-link SMS failed");
+      }
+    })();
+  }
+
+  res.json({ success: true, viewerUrl });
+});
+
 export default router;
