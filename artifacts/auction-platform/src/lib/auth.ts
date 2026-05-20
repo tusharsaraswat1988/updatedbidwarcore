@@ -241,16 +241,30 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export async function signupOrganizerAccount(data: {
-  name: string; email?: string; mobile: string; password: string;
-}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
+export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
+
+export async function signupSendOtp(data: {
+  name: string; mobile: string; email?: string; password: string;
+}): Promise<{ success: boolean; error?: string }> {
   try {
-    const r = await apiFetch("/auth/organizer-account/signup", {
+    const r = await apiFetch("/auth/organizer-account/signup/send-otp", {
       method: "POST",
       body: JSON.stringify(data),
     });
     const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Signup failed" };
+    if (!r.ok) return { success: false, error: d.error || "Failed to send OTP" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function signupVerify(mobile: string, otp: string): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/signup/verify", {
+      method: "POST",
+      body: JSON.stringify({ mobile, otp }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Verification failed" };
     return { success: true, organizer: d.organizer };
   } catch { return { success: false, error: "Network error" }; }
 }
@@ -258,7 +272,7 @@ export async function signupOrganizerAccount(data: {
 export async function loginOrganizerAccount(
   identifier: string,
   password: string
-): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
+): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
   try {
     const r = await apiFetch("/auth/organizer-account/login", {
       method: "POST",
@@ -272,7 +286,7 @@ export async function loginOrganizerAccount(
 
 export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
-  organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
+  organizer?: OrganizerInfo;
   tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
@@ -288,7 +302,7 @@ export async function logoutOrganizerAccount(): Promise<void> {
 
 export async function updateOrganizerProfile(data: {
   mobile: string;
-}): Promise<{ success: boolean; error?: string; organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number } }> {
+}): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
   try {
     const r = await apiFetch("/auth/organizer-account/profile", {
       method: "PATCH",
@@ -387,9 +401,20 @@ export async function sendOtp(mobile: string): Promise<{ success: boolean; error
   } catch { return { success: false, error: "Network error" }; }
 }
 
+export async function resendOtp(mobile: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/otp/resend", {
+      method: "POST",
+      body: JSON.stringify({ mobile }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to resend OTP" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
 export async function verifyOtpAndReset(mobile: string, code: string, newPassword: string): Promise<{
-  success: boolean; error?: string;
-  organizer?: { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
+  success: boolean; error?: string; organizer?: OrganizerInfo;
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/otp/verify", {
@@ -402,17 +427,44 @@ export async function verifyOtpAndReset(mobile: string, code: string, newPasswor
   } catch { return { success: false, error: "Network error" }; }
 }
 
-// TODO: remove OTP bypass when Twilio is configured
-export async function bypassResetPassword(mobile: string, newPassword: string): Promise<{
-  success: boolean; error?: string;
-}> {
+// ─── Admin: SMS notification settings ────────────────────────────────────────
+
+export type SmsSettings = {
+  dltEnabled: boolean;
+  teamOwnerEnabled: boolean;
+  teamOwnerTemplateId: string | null;
+  playerSoldEnabled: boolean;
+  playerSoldTemplateId: string | null;
+  viewerLinkEnabled: boolean;
+  viewerLinkTemplateId: string | null;
+};
+
+export async function getAdminSmsSettings(): Promise<SmsSettings> {
   try {
-    const r = await apiFetch("/auth/organizer-account/reset-password/bypass", {
-      method: "POST",
-      body: JSON.stringify({ mobile, newPassword }),
+    const r = await apiFetch("/auth/admin/sms-settings");
+    if (!r.ok) return {
+      dltEnabled: false, teamOwnerEnabled: false, teamOwnerTemplateId: null,
+      playerSoldEnabled: false, playerSoldTemplateId: null,
+      viewerLinkEnabled: false, viewerLinkTemplateId: null,
+    };
+    return r.json();
+  } catch {
+    return {
+      dltEnabled: false, teamOwnerEnabled: false, teamOwnerTemplateId: null,
+      playerSoldEnabled: false, playerSoldTemplateId: null,
+      viewerLinkEnabled: false, viewerLinkTemplateId: null,
+    };
+  }
+}
+
+export async function updateAdminSmsSettings(data: Partial<SmsSettings>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/admin/sms-settings", {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
     const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Password reset failed" };
+    if (!r.ok) return { success: false, error: d.error || "Save failed" };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }

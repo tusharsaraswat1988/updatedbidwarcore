@@ -322,7 +322,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
 
     if (sessions.length > 0) {
       const session = sessions[0];
-      const valid = await verifyOtp(upper, session.otpHash);
+      const valid = session.otpHash ? await verifyOtp(upper, session.otpHash) : false;
       if (valid) {
         await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
 

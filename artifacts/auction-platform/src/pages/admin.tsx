@@ -63,6 +63,7 @@ import {
   ExternalLink,
   CircleCheck,
   XCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -87,6 +88,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 
@@ -2466,6 +2468,127 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
   );
 }
 
+// ─── SMS Notification Settings Panel ─────────────────────────────────────────
+
+type SmsSettings = {
+  dltEnabled: boolean;
+  teamOwnerEnabled: boolean;
+  teamOwnerTemplateId: string | null;
+  playerSoldEnabled: boolean;
+  playerSoldTemplateId: string | null;
+  viewerLinkEnabled: boolean;
+  viewerLinkTemplateId: string | null;
+};
+
+function SmsSettingsPanel() {
+  const [settings, setSettings] = useState<SmsSettings>({
+    dltEnabled: false,
+    teamOwnerEnabled: false,
+    teamOwnerTemplateId: null,
+    playerSoldEnabled: false,
+    playerSoldTemplateId: null,
+    viewerLinkEnabled: false,
+    viewerLinkTemplateId: null,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/admin/sms-settings", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: SmsSettings) => { setSettings(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true); setSaved(false); setError(null);
+    try {
+      const r = await fetch("/api/auth/admin/sms-settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      if (!r.ok) { const d = await r.json() as { error?: string }; throw new Error(d.error ?? "Save failed"); }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading SMS settings...</div>;
+  }
+
+  const master = settings.dltEnabled;
+
+  return (
+    <div className="p-6 space-y-5">
+      <div>
+        <h3 className="font-semibold text-sm mb-0.5">SMS Notifications</h3>
+        <p className="text-xs text-muted-foreground">DLT-registered Fast2SMS templates for event notifications. All off by default.</p>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">DLT SMS Master Switch</p>
+          <p className="text-xs text-muted-foreground">Enable to allow any DLT SMS to be sent</p>
+        </div>
+        <Switch
+          checked={master}
+          onCheckedChange={(v) => setSettings((s) => ({ ...s, dltEnabled: v }))}
+        />
+      </div>
+
+      {(["teamOwner", "playerSold", "viewerLink"] as const).map((key) => {
+        const labels: Record<typeof key, { title: string; desc: string }> = {
+          teamOwner: { title: "Team Owner Access Code", desc: "Sent when a team is created with an owner mobile" },
+          playerSold: { title: "Player Sold", desc: "Sent to player when marked SOLD in auction" },
+          viewerLink: { title: "Viewer Link", desc: "Sent to organizer when they share the live viewer URL" },
+        };
+        const enabledKey = `${key}Enabled` as "teamOwnerEnabled" | "playerSoldEnabled" | "viewerLinkEnabled";
+        const templateKey = `${key}TemplateId` as "teamOwnerTemplateId" | "playerSoldTemplateId" | "viewerLinkTemplateId";
+        return (
+          <div key={key} className="rounded-lg border border-border/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">{labels[key].title}</p>
+                <p className="text-xs text-muted-foreground">{labels[key].desc}</p>
+              </div>
+              <Switch
+                checked={settings[enabledKey]}
+                disabled={!master}
+                onCheckedChange={(v) => setSettings((s) => ({ ...s, [enabledKey]: v }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">DLT Template ID</Label>
+              <Input
+                value={settings[templateKey] ?? ""}
+                onChange={(e) => setSettings((s) => ({ ...s, [templateKey]: e.target.value || null }))}
+                placeholder="e.g. 1007xxxxxxxxxx"
+                disabled={!master || !settings[enabledKey]}
+                className="text-sm h-8"
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <Button size="sm" onClick={handleSave} disabled={saving}>
+        {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : saved ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : null}
+        {saved ? "Saved" : "Save SMS Settings"}
+      </Button>
+    </div>
+  );
+}
+
 // ─── Installer Settings Panel ────────────────────────────────────────────────
 
 function InstallerSettingsPanel() {
@@ -3141,6 +3264,7 @@ export default function AdminDashboard() {
           <SportsPanel />
         ) : adminTab === "settings" ? (
           <div className="flex-1 flex flex-col overflow-auto divide-y divide-border/40">
+            <SmsSettingsPanel />
             <InstallerSettingsPanel />
             <BuildTriggerPanel />
           </div>

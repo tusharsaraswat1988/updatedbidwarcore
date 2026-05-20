@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Phone, ShieldCheck, SkipForward } from "lucide-react";
+import { Loader2, Phone, ShieldCheck, RotateCcw } from "lucide-react";
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const r = await fetch(path, {
@@ -16,41 +16,33 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
   return { ok: r.ok, status: r.status, data };
 }
 
+const RESEND_COOLDOWN = 30;
+
 export default function CompleteProfile() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [skipping, setSkipping] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isBypass, setIsBypass] = useState(false);
-  const [autoVerifyState, setAutoVerifyState] = useState<"pending" | "failed" | "done">("pending");
-  const autoSubmitRef = useRef(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // TODO: remove OTP bypass when Twilio is configured
-  // When bypass is active, auto-verify with 000000 immediately after advancing to OTP step
-  useEffect(() => {
-    if (isBypass && step === "otp" && !autoSubmitRef.current) {
-      autoSubmitRef.current = true;
-      setOtp("000000");
-      void (async () => {
-        setLoading(true);
-        const { ok, data } = await apiFetch("/api/auth/google/complete-profile/verify", {
-          method: "POST",
-          body: JSON.stringify({ otp: "000000" }),
-        });
-        setLoading(false);
-        if (!ok) {
-          setAutoVerifyState("failed");
-          setError(data.error ?? "Auto-verification failed");
-          return;
+  function startCooldown() {
+    setResendCooldown(RESEND_COOLDOWN);
+    cooldownRef.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current!);
+          return 0;
         }
-        setAutoVerifyState("done");
-        setLocation("/organizer");
-      })();
-    }
-  }, [isBypass, step]);
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -65,11 +57,8 @@ export default function CompleteProfile() {
       setError(data.error ?? "Failed to send OTP");
       return;
     }
-    // TODO: remove OTP bypass when Twilio is configured
-    if (data.bypass) {
-      setIsBypass(true);
-    }
     setStep("otp");
+    startCooldown();
   }
 
   async function handleVerifyOtp(e: React.FormEvent) {
@@ -88,26 +77,20 @@ export default function CompleteProfile() {
     setLocation("/organizer");
   }
 
-  // TODO: remove OTP bypass when Twilio is configured
-  async function handleSkip() {
+  async function handleResend() {
+    if (resendCooldown > 0 || resending) return;
     setError(null);
-    setSkipping(true);
-    const { ok, data } = await apiFetch("/api/auth/google/complete-profile/skip", {
+    setResending(true);
+    const { ok, data } = await apiFetch("/api/auth/google/complete-profile", {
       method: "POST",
+      body: JSON.stringify({ mobile }),
     });
-    setSkipping(false);
+    setResending(false);
     if (!ok) {
-      setError(data.error ?? "Skip failed — please enter a mobile number");
+      setError(data.error ?? "Failed to resend OTP");
       return;
     }
-    setLocation("/organizer");
-  }
-
-  // Retry auto-verify after failure
-  function handleRetryAutoVerify() {
-    autoSubmitRef.current = false;
-    setAutoVerifyState("pending");
-    setError(null);
+    startCooldown();
   }
 
   return (
@@ -121,9 +104,7 @@ export default function CompleteProfile() {
           <CardDescription>
             {step === "mobile"
               ? "Enter your mobile number to verify your account."
-              : isBypass
-                ? "Verifying your account..."
-                : `Enter the 6-digit OTP sent to ${mobile}.`}
+              : `Enter the 6-digit OTP sent to ${mobile}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -155,37 +136,7 @@ export default function CompleteProfile() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Continue
               </Button>
-              {/* TODO: remove OTP bypass skip option when Twilio is configured */}
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-xs text-muted-foreground gap-1.5"
-                disabled={skipping}
-                onClick={handleSkip}
-              >
-                {skipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SkipForward className="w-3.5 h-3.5" />}
-                Skip for now — continue without mobile
-              </Button>
             </form>
-          ) : isBypass && autoVerifyState === "pending" ? (
-            <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Setting up your account...</span>
-            </div>
-          ) : isBypass && autoVerifyState === "failed" ? (
-            <div className="space-y-3">
-              <Button className="w-full" onClick={handleRetryAutoVerify}>
-                Retry
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-xs"
-                onClick={() => { setStep("mobile"); setError(null); autoSubmitRef.current = false; setAutoVerifyState("pending"); }}
-              >
-                Change mobile number
-              </Button>
-            </div>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="space-y-2">
@@ -206,14 +157,29 @@ export default function CompleteProfile() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Verify and create account
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-xs"
-                onClick={() => { setStep("mobile"); setOtp(""); setError(null); }}
-              >
-                Change mobile number
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-xs text-muted-foreground"
+                  onClick={() => { setStep("mobile"); setOtp(""); setError(null); }}
+                >
+                  Change mobile number
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs gap-1.5"
+                  disabled={resendCooldown > 0 || resending}
+                  onClick={handleResend}
+                >
+                  {resending
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <RotateCcw className="w-3.5 h-3.5" />}
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                </Button>
+              </div>
             </form>
           )}
         </CardContent>

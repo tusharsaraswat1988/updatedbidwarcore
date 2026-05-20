@@ -2,15 +2,16 @@ import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import {
-  signupOrganizerAccount,
+  signupSendOtp,
+  signupVerify,
   loginOrganizerAccount,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
   updateOrganizerProfile,
   sendOtp,
+  resendOtp,
   verifyOtpAndReset,
-  bypassResetPassword,
 } from "@/lib/auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, ArrowLeft, MessageSquare, KeyRound, CheckCheck,
+  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw,
 } from "lucide-react";
 
 type OrganizerInfo = {
@@ -345,21 +346,49 @@ function CompleteProfileForm({
 // ─── Forgot Password Flow ─────────────────────────────────────────────────────
 
 function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSuccess: (o: OrganizerInfo, t: Tournament[]) => void }) {
+  const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // TODO: remove OTP bypass when Twilio is configured
-  async function handleReset(e: React.FormEvent) {
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     if (!mobile.trim()) { setError("Enter your registered mobile number"); return; }
+    setLoading(true); setError("");
+    const r = await sendOtp(mobile.trim());
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Failed to send OTP"); return; }
+    setStep("otp");
+    setResendCooldown(30);
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true); setError("");
+    const r = await resendOtp(mobile.trim());
+    setResending(false);
+    if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
+    setResendCooldown(30);
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
     if (newPassword.length < 6) { setError("Password must be at least 6 characters"); return; }
     if (newPassword !== confirmPassword) { setError("Passwords do not match"); return; }
     setLoading(true); setError("");
-    const r = await bypassResetPassword(mobile.trim(), newPassword);
+    const r = await verifyOtpAndReset(mobile.trim(), otpCode, newPassword);
     setLoading(false);
     if (!r.success) { setError(r.error || "Password reset failed"); return; }
     setDone(true);
@@ -376,18 +405,46 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
         <KeyRound className="w-4 h-4 text-primary" />
         <p className="font-semibold text-sm">Reset Password</p>
       </div>
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400/80">
-        OTP verification is temporarily disabled. Enter your registered mobile and a new password to reset directly.
-      </div>
       {done ? (
         <p className="text-green-400 text-sm flex items-center gap-1.5">
           <CheckCircle2 className="w-4 h-4" /> Password reset — signing you in...
         </p>
-      ) : (
-        <form onSubmit={handleReset} className="space-y-3">
+      ) : step === "mobile" ? (
+        <form onSubmit={handleSendOtp} className="space-y-3">
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Registered Mobile</Label>
             <Input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" autoFocus />
+          </div>
+          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading || !mobile.trim()}>
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+            Send OTP
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleReset} className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-sm">OTP sent to {mobile}</Label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={otpCode}
+              onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
+              placeholder="6-digit OTP"
+              maxLength={6}
+              autoFocus
+            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0 || resending}
+                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                <RotateCcw className="w-3 h-3" />
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-sm">New Password</Label>
@@ -398,10 +455,17 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
             <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
           </div>
           {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
             {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
-            Reset Password
+            Verify &amp; Reset Password
           </Button>
+          <button
+            type="button"
+            onClick={() => { setStep("mobile"); setOtpCode(""); setError(""); }}
+            className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors"
+          >
+            Change mobile number
+          </button>
         </form>
       )}
     </div>
@@ -450,6 +514,16 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [signupForm, setSignupForm] = useState({ name: "", mobile: "", email: "", password: "", confirmPassword: "" });
+  const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
+  const [signupOtp, setSignupOtp] = useState("");
+  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
+  const [signupResending, setSignupResending] = useState(false);
+
+  useEffect(() => {
+    if (signupResendCooldown <= 0) return;
+    const t = setTimeout(() => setSignupResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [signupResendCooldown]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -463,19 +537,37 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
     if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
   }
 
-  async function handleSignup(e: React.FormEvent) {
+  async function handleSignupSendOtp(e: React.FormEvent) {
     e.preventDefault();
     const { name, mobile, email, password, confirmPassword } = signupForm;
     if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    setLoading(true);
-    setError("");
-    const r = await signupOrganizerAccount({ name, mobile, email: email || undefined, password });
+    setLoading(true); setError("");
+    const r = await signupSendOtp({ name, mobile, email: email || undefined, password });
     setLoading(false);
     if (!r.success) { setError(r.error || "Signup failed"); return; }
+    setSignupStep("otp");
+    setSignupResendCooldown(30);
+  }
+
+  async function handleSignupVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setError("");
+    const r = await signupVerify(signupForm.mobile, signupOtp);
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Verification failed"); return; }
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
+  }
+
+  async function handleSignupResend() {
+    if (signupResendCooldown > 0 || signupResending) return;
+    setSignupResending(true); setError("");
+    const r = await resendOtp(signupForm.mobile);
+    setSignupResending(false);
+    if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
+    setSignupResendCooldown(30);
   }
 
   return (
@@ -597,13 +689,62 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                   </div>
                   <GoogleSignInButton />
                 </motion.form>
+              ) : signupStep === "otp" ? (
+                <motion.form
+                  key="signup-otp"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  onSubmit={handleSignupVerify}
+                  className="space-y-4"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span></p>
+                    <p className="text-xs text-muted-foreground">Enter the 6-digit code to create your account</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">Verification Code</Label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={signupOtp}
+                      onChange={e => setSignupOtp(e.target.value.replace(/\D/g, ""))}
+                      placeholder="6-digit OTP"
+                      maxLength={6}
+                      autoFocus
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSignupResend}
+                        disabled={signupResendCooldown > 0 || signupResending}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
+                      </button>
+                    </div>
+                  </div>
+                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                  <Button type="submit" className="w-full" disabled={loading || signupOtp.length !== 6}>
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Create Account
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setSignupStep("form"); setSignupOtp(""); setError(""); }}
+                    className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors"
+                  >
+                    Back to edit details
+                  </button>
+                </motion.form>
               ) : (
                 <motion.form
                   key="signup"
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  onSubmit={handleSignup}
+                  onSubmit={handleSignupSendOtp}
                   className="space-y-4"
                 >
                   <div className="space-y-2">
@@ -655,7 +796,7 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                   {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Create Account
+                    Continue
                   </Button>
                   <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                     By continuing, you agree to BidWar{" "}
@@ -895,7 +1036,7 @@ function OrganizerDashboard({
                           className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                           onClick={e => { e.stopPropagation(); setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
                         >
-                          <MessageSquare className="w-3 h-3" />
+                          <CheckCheck className="w-3 h-3" />
                           Record in-person consent
                         </button>
                       </div>
@@ -922,7 +1063,7 @@ function OrganizerDashboard({
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-primary" /> Record In-Person Consent
+              <CheckCheck className="w-4 h-4 text-primary" /> Record In-Person Consent
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-muted-foreground">

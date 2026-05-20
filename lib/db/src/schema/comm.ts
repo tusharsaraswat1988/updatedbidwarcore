@@ -31,14 +31,17 @@ export const consentTokensTable = pgTable(
 );
 
 // ─── OTP Sessions ─────────────────────────────────────────────────────────────
-// Short-lived OTP for identity verification in the WhatsApp consent bot flow.
+// Short-lived OTP tracking for identity verification flows.
+// otpHash is nullable because Fast2SMS OTP API manages the OTP server-side.
+// payload holds JSON for flows that need to persist data between steps (e.g. signup).
 export const otpSessionsTable = pgTable(
   "otp_sessions",
   {
     id: serial("id").primaryKey(),
     mobile: text("mobile").notNull(),
-    otpHash: text("otp_hash").notNull(), // bcrypt hash of the 6-digit OTP
-    purpose: text("purpose").notNull().default("wa_consent"), // "wa_consent"
+    otpHash: text("otp_hash"), // nullable — only set when we generate OTP locally
+    purpose: text("purpose").notNull().default("wa_consent"), // "wa_consent"|"complete_profile"|"signup"
+    payload: text("payload"), // nullable JSON — extra data for multi-step flows
     used: boolean("used").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

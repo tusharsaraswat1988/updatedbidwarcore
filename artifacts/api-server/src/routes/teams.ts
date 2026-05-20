@@ -120,6 +120,30 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
       accessCode: genAccessCode(),
     })
     .returning();
+
+  // DLT SMS: notify team owner about their access code (fire-and-forget)
+  const ownerMobile = team.ownerMobile;
+  const accessCode = team.accessCode;
+  if (ownerMobile && accessCode) {
+    void (async () => {
+      try {
+        const { smsNotificationSettingsTable } = await import("@workspace/db");
+        const { sendDltSms } = await import("../lib/fast2sms");
+        const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+        if (settings?.dltEnabled && settings.teamOwnerEnabled && settings.teamOwnerTemplateId) {
+          const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+          const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
+          const ownerUrl = `https://${domain}/tournament/${tid}/owner/${team.id}`;
+          await sendDltSms(
+            [ownerMobile],
+            settings.teamOwnerTemplateId,
+            [tournament.name, team.name, accessCode, ownerUrl],
+          );
+        }
+      } catch { /* never block primary response */ }
+    })();
+  }
+
   res.status(201).json(teamToJson(team));
 });
 

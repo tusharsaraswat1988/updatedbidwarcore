@@ -11,6 +11,7 @@ import {
   bidsTable,
   tournamentsTable,
   categoriesTable,
+  organizersTable,
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
@@ -836,6 +837,25 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
   });
+
+  // DLT SMS: notify player about being sold (fire-and-forget)
+  if (soldPlayer?.mobileNumber) {
+    void (async () => {
+      try {
+        const { smsNotificationSettingsTable } = await import("@workspace/db");
+        const { sendDltSms } = await import("../lib/fast2sms");
+        const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+        if (settings?.dltEnabled && settings.playerSoldEnabled && settings.playerSoldTemplateId) {
+          const formatted = soldAmount.toLocaleString("en-IN");
+          await sendDltSms(
+            [soldPlayer.mobileNumber],
+            settings.playerSoldTemplateId,
+            [soldPlayer.name ?? "Player", team?.name ?? "Team", formatted, tournament?.name ?? ""],
+          );
+        }
+      } catch { /* never block primary response */ }
+    })();
+  }
 
   // Log player auction end (fire-and-forget)
   logPlayerAuctionEnd({
@@ -1814,6 +1834,49 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
   broadcastToTournament(tid, { type: "auction_state", state: fullState });
 
   res.json({ ok: true });
+});
+
+// ─── Share viewer link — sends DLT SMS to organizer ──────────────────────────
+
+router.post("/:id/share-viewer-link", async (req, res) => {
+  const tid = Number(req.params.id);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid tournament id" }); return; }
+
+  const tidStr = String(tid);
+  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+  const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
+  const viewerUrl = `https://${domain}/tournament/${tid}/display`;
+
+  // DLT SMS to organizer (fire-and-forget if configured)
+  const orgId = tournament.organizerId;
+  if (orgId != null) {
+    void (async () => {
+      try {
+        const { smsNotificationSettingsTable } = await import("@workspace/db");
+        const { sendDltSms } = await import("../lib/fast2sms");
+        const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+        if (settings?.dltEnabled && settings.viewerLinkEnabled && settings.viewerLinkTemplateId) {
+          const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, orgId));
+          const mobile = organizer?.mobile;
+          if (mobile && !mobile.startsWith("gid_")) {
+            await sendDltSms(
+              [mobile],
+              settings.viewerLinkTemplateId,
+              [tournament.name, viewerUrl],
+            );
+          }
+        }
+      } catch { /* fire-and-forget */ }
+    })();
+  }
+
+  res.json({ success: true, viewerUrl });
 });
 
 export default router;

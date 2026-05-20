@@ -8,6 +8,7 @@ import { promisify } from "util";
 import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limiters";
 import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
+import { sendOtp as fast2smsSendOtp, verifyOtp as fast2smsVerifyOtp, resendOtp as fast2smsResendOtp, sendDltSms } from "../lib/fast2sms";
 
 const scryptAsync = promisify(scrypt);
 
@@ -614,7 +615,8 @@ router.delete("/auth/admin/organizers/:id", async (req, res) => {
 
 // ─── Organizer Account (self-service portal) ──────────────────────────────────
 
-router.post("/auth/organizer-account/signup", async (req, res) => {
+// Step 1: validate credentials, check uniqueness, hash password, send OTP
+router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (req, res) => {
   const body = z.object({
     name: z.string().min(1),
     mobile: z.string().min(7),
@@ -625,25 +627,84 @@ router.post("/auth/organizer-account/signup", async (req, res) => {
 
   const { name, mobile, email, password } = body.data;
 
-  const mobileExists = await db.select().from(organizersTable).where(eq(organizersTable.mobile, mobile));
-  if (mobileExists.length > 0) {
+  const [mobileExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.mobile, mobile)).limit(1);
+  if (mobileExists) {
     res.status(409).json({ error: "An account with this mobile number already exists." });
     return;
   }
   if (email) {
-    const emailExists = await db.select().from(organizersTable).where(eq(organizersTable.email, email));
-    if (emailExists.length > 0) {
+    const [emailExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.email, email)).limit(1);
+    if (emailExists) {
       res.status(409).json({ error: "An account with this email already exists." });
       return;
     }
   }
 
   const passwordHash = await hashPassword(password);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const payload = JSON.stringify({ name, mobile, email: email ?? null, passwordHash });
+
+  const { otpSessionsTable } = await import("@workspace/db");
+  await db.insert(otpSessionsTable).values({ mobile, purpose: "signup", payload, expiresAt });
+
+  const result = await fast2smsSendOtp(mobile);
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
+  }
+
+  res.json({ success: true });
+});
+
+// Step 2: verify OTP, read pending session, create account, issue auth cookie
+router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (req, res) => {
+  const body = z.object({
+    mobile: z.string().min(7),
+    otp: z.string().length(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile and 6-digit OTP required" }); return; }
+
+  const { mobile, otp } = body.data;
+
+  const result = await fast2smsVerifyOtp(mobile, otp);
+  if (!result.success) {
+    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
+  }
+
+  const { otpSessionsTable } = await import("@workspace/db");
+  const { gt: drizzleGt, and: drizzleAnd, desc: drizzleDesc } = await import("drizzle-orm");
+
+  const [session] = await db
+    .select()
+    .from(otpSessionsTable)
+    .where(
+      drizzleAnd(
+        eq(otpSessionsTable.mobile, mobile),
+        eq(otpSessionsTable.purpose, "signup"),
+        eq(otpSessionsTable.used, false),
+        drizzleGt(otpSessionsTable.expiresAt, new Date()),
+      )
+    )
+    .orderBy(drizzleDesc(otpSessionsTable.createdAt))
+    .limit(1);
+
+  if (!session || !session.payload) {
+    res.status(400).json({ error: "Signup session expired — please start over" }); return;
+  }
+
+  const pendingData = JSON.parse(session.payload) as { name: string; mobile: string; email: string | null; passwordHash: string };
+
+  const [mobileExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.mobile, mobile)).limit(1);
+  if (mobileExists) {
+    res.status(409).json({ error: "An account with this mobile number already exists." }); return;
+  }
+
+  await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
+
   const [organizer] = await db.insert(organizersTable).values({
-    name,
-    mobile,
-    email: email ?? null,
-    passwordHash,
+    name: pendingData.name,
+    mobile: pendingData.mobile,
+    email: pendingData.email,
+    passwordHash: pendingData.passwordHash,
     licenseStatus: "pending",
     maxTournaments: 1,
   }).returning();
@@ -785,53 +846,25 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
 });
 
-// ─── OTP: Send code via Twilio Verify ────────────────────────────────────────
+// ─── OTP: Send code via Fast2SMS ──────────────────────────────────────────────
 
 router.post("/auth/organizer-account/otp/send", otpSendLimiter, async (req, res) => {
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-  if (!sid || !token || !serviceSid) {
-    res.status(503).json({ error: "OTP service not configured" }); return;
+  const { mobile } = body.data;
+  const digits = mobile.replace(/\D/g, "");
+
+  const [row] = await db.select({ id: organizersTable.id }).from(organizersTable)
+    .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, digits))).limit(1);
+  if (!row) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
+
+  const result = await fast2smsSendOtp(mobile);
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
 
-  const digits = body.data.mobile.replace(/\D/g, "");
-  const e164 = `+${digits.startsWith("91") ? digits : digits.startsWith("0") ? `91${digits.slice(1)}` : `91${digits}`}`;
-
-  // Check organizer exists
-  const rows = await db.select().from(organizersTable).where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
-  if (rows.length === 0) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
-
-  const url = `https://verify.twilio.com/v2/Services/${serviceSid}/Verifications`;
-  const params = new URLSearchParams({ To: e164, Channel: "whatsapp" });
-  const twilioRes = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params.toString(),
-  });
-  if (!twilioRes.ok) {
-    // Fallback to SMS if WhatsApp not enabled
-    const smsParams = new URLSearchParams({ To: e164, Channel: "sms" });
-    const smsRes = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: smsParams.toString(),
-    });
-    if (!smsRes.ok) {
-      res.status(500).json({ error: "Failed to send OTP. Please try again." }); return;
-    }
-  }
-
-  res.json({ success: true, message: "OTP sent to your WhatsApp / SMS" });
+  res.json({ success: true, message: "OTP sent" });
 });
 
 // ─── OTP: Verify code and reset password ─────────────────────────────────────
@@ -844,34 +877,21 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile, 6-digit code, and new password required" }); return; }
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-  if (!sid || !token || !serviceSid) { res.status(503).json({ error: "OTP service not configured" }); return; }
+  const { mobile, code, newPassword } = body.data;
+  const digits = mobile.replace(/\D/g, "");
 
-  const digits = body.data.mobile.replace(/\D/g, "");
-  const e164 = `+${digits.startsWith("91") ? digits : digits.startsWith("0") ? `91${digits.slice(1)}` : `91${digits}`}`;
-
-  const url = `https://verify.twilio.com/v2/Services/${serviceSid}/VerificationCheck`;
-  const params = new URLSearchParams({ To: e164, Code: body.data.code });
-  const twilioRes = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params.toString(),
-  });
-  const twilioData = await twilioRes.json() as { status?: string };
-  if (!twilioRes.ok || twilioData.status !== "approved") {
-    res.status(400).json({ error: "Invalid or expired OTP code" }); return;
+  const result = await fast2smsVerifyOtp(mobile, code);
+  if (!result.success) {
+    res.status(400).json({ error: result.error ?? "Invalid or expired OTP code" }); return;
   }
 
-  const rows = await db.select().from(organizersTable).where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
+  const rows = await db.select().from(organizersTable)
+    .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, digits)));
   if (rows.length === 0) { res.status(404).json({ error: "Account not found" }); return; }
 
-  const newHash = await hashPassword(body.data.newPassword);
-  const [updated] = await db.update(organizersTable).set({ passwordHash: newHash }).where(eq(organizersTable.id, rows[0].id)).returning();
+  const newHash = await hashPassword(newPassword);
+  const [updated] = await db.update(organizersTable).set({ passwordHash: newHash })
+    .where(eq(organizersTable.id, rows[0].id)).returning();
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
@@ -881,35 +901,68 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
-// ─── Password reset bypass (no OTP) — TODO: remove when Twilio is configured ──
+// ─── OTP: Resend code ─────────────────────────────────────────────────────────
 
-router.post("/auth/organizer-account/reset-password/bypass", async (req, res) => {
-  // TODO: remove OTP bypass when Twilio is configured
-  if (process.env.BYPASS_OTP !== "true") {
-    res.status(503).json({ error: "OTP service is required for password reset" }); return;
+router.post("/auth/organizer-account/otp/resend", otpSendLimiter, async (req, res) => {
+  const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
+
+  const result = await fast2smsResendOtp(body.data.mobile);
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to resend OTP" }); return;
   }
-  const body = z.object({
-    mobile: z.string().min(7),
-    newPassword: z.string().min(6),
-  }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Mobile number and new password are required" }); return; }
+  res.json({ success: true });
+});
 
-  const digits = body.data.mobile.replace(/\D/g, "");
-  const rows = await db.select().from(organizersTable)
-    .where(or(eq(organizersTable.mobile, body.data.mobile), eq(organizersTable.mobile, digits)));
-  if (rows.length === 0) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
+// ─── Admin: SMS notification settings ────────────────────────────────────────
 
-  const newHash = await hashPassword(body.data.newPassword);
-  const [updated] = await db.update(organizersTable)
-    .set({ passwordHash: newHash })
-    .where(eq(organizersTable.id, rows[0].id))
-    .returning();
+router.get("/auth/admin/sms-settings", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const { smsNotificationSettingsTable } = await import("@workspace/db");
+  const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
+  res.json(settings ?? {
+    dltEnabled: false,
+    teamOwnerEnabled: false,
+    teamOwnerTemplateId: null,
+    playerSoldEnabled: false,
+    playerSoldTemplateId: null,
+    viewerLinkEnabled: false,
+    viewerLinkTemplateId: null,
+  });
+});
 
-  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
-  for (const t of myTournaments) orgMap[String(t.id)] = true;
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: updated.id, organizer: orgMap });
-  res.json({ success: true, organizer: organizerToJson(updated) });
+router.patch("/auth/admin/sms-settings", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const schema = z.object({
+    dltEnabled: z.boolean().optional(),
+    teamOwnerEnabled: z.boolean().optional(),
+    teamOwnerTemplateId: z.string().min(1).nullable().optional(),
+    playerSoldEnabled: z.boolean().optional(),
+    playerSoldTemplateId: z.string().min(1).nullable().optional(),
+    viewerLinkEnabled: z.boolean().optional(),
+    viewerLinkTemplateId: z.string().min(1).nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const { smsNotificationSettingsTable } = await import("@workspace/db");
+  const [existing] = await db.select({ id: smsNotificationSettingsTable.id })
+    .from(smsNotificationSettingsTable).limit(1);
+
+  if (existing) {
+    const [updated] = await db
+      .update(smsNotificationSettingsTable)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(smsNotificationSettingsTable.id, existing.id))
+      .returning();
+    res.json(updated);
+  } else {
+    const [created] = await db
+      .insert(smsNotificationSettingsTable)
+      .values(parsed.data)
+      .returning();
+    res.json(created);
+  }
 });
 
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
@@ -1092,7 +1145,6 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
 
   const { mobile } = parsed.data;
 
-  // Prevent duplicate mobile number
   const [existing] = await db
     .select({ id: organizersTable.id })
     .from(organizersTable)
@@ -1102,25 +1154,13 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
     return;
   }
 
-  // TODO: remove OTP bypass when Twilio is configured
-  const isBypass = process.env.BYPASS_OTP === "true";
-  const otp = isBypass ? "000000" : String(Math.floor(100000 + Math.random() * 900000));
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = (await scryptAsync(otp, salt, 64)) as Buffer;
-  const otpHash = `${salt}:${derivedKey.toString("hex")}`;
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-  const { otpSessionsTable } = await import("@workspace/db");
-  await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "complete_profile", expiresAt });
-
-  if (!isBypass) {
-    const { sendSms } = await import("../lib/comm-sender");
-    await sendSms(mobile, `BidWar: Your verification code is ${otp}. Valid for 10 minutes. Do not share.`);
+  const result = await fast2smsSendOtp(mobile);
+  if (!result.success) {
+    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
 
-  // Persist the pending mobile in the OAuth state cookie
   setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
-  res.json({ success: true, bypass: isBypass });
+  res.json({ success: true });
 });
 
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
@@ -1135,37 +1175,11 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "OTP must be 6 digits" }); return; }
 
-  const { otpSessionsTable } = await import("@workspace/db");
-  const { gt: drizzleGt, and: drizzleAnd, desc: drizzleDesc } = await import("drizzle-orm");
-
-  const [session] = await db
-    .select()
-    .from(otpSessionsTable)
-    .where(
-      drizzleAnd(
-        eq(otpSessionsTable.mobile, mobile),
-        eq(otpSessionsTable.purpose, "complete_profile"),
-        eq(otpSessionsTable.used, false),
-        drizzleGt(otpSessionsTable.expiresAt, new Date()),
-      ),
-    )
-    .orderBy(drizzleDesc(otpSessionsTable.createdAt))
-    .limit(1);
-
-  if (!session) {
-    res.status(400).json({ error: "OTP expired or not found — request a new one" });
-    return;
+  const result = await fast2smsVerifyOtp(mobile, parsed.data.otp);
+  if (!result.success) {
+    res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
   }
 
-  const [saltPart, stored] = session.otpHash.split(":");
-  if (!saltPart || !stored) { res.status(400).json({ error: "Invalid OTP state" }); return; }
-  const derivedKey = (await scryptAsync(parsed.data.otp, saltPart, 64)) as Buffer;
-  const valid = timingSafeEqual(Buffer.from(stored, "hex"), derivedKey);
-  if (!valid) { res.status(400).json({ error: "Invalid OTP" }); return; }
-
-  await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
-
-  // Check for duplicate mobile one final time (race condition guard)
   const [dup] = await db
     .select({ id: organizersTable.id })
     .from(organizersTable)
@@ -1175,7 +1189,6 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     return;
   }
 
-  // Now create the organizer record with a verified mobile
   const [organizer] = await db.insert(organizersTable).values({
     name: pending.name,
     email: pending.email,
@@ -1186,14 +1199,12 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     maxTournaments: 1,
   }).returning();
 
-  // Clear OAuth state cookie and issue the full auth JWT
   clearOAuthCookie(res);
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
   res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
 });
 
-// TODO: remove OTP bypass when Twilio is configured
-// Allows Google OAuth users to complete account creation without a mobile number
+// Dev-only: allows Google OAuth users to skip mobile verification (BYPASS_OTP=true required)
 router.post("/auth/google/complete-profile/skip", async (req, res) => {
   if (process.env.BYPASS_OTP !== "true") {
     res.status(503).json({ error: "Mobile verification is required" }); return;
@@ -1204,9 +1215,6 @@ router.post("/auth/google/complete-profile/skip", async (req, res) => {
     return;
   }
 
-  // Create the organizer — mobile is required (NOT NULL UNIQUE) so use a unique
-  // placeholder that can never clash with a real 10-digit Indian mobile number.
-  // TODO: remove or clean up placeholder mobiles when Twilio is configured
   const [organizer] = await db.insert(organizersTable).values({
     name: pending.name,
     email: pending.email,

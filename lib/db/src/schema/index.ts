@@ -13,3 +13,4 @@ export * from "./sports";
 export * from "./branding";
 export * from "./push_subscriptions";
 export * from "./settings";
+export * from "./sms-settings";
