@@ -14,7 +14,8 @@ import {
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
-import { addSseClient, removeSseClient, broadcastToTournament } from "../lib/broadcast";
+import { addSseClient, removeSseClient, broadcastToTournament, getSseClientCount } from "../lib/broadcast";
+import { logger } from "../lib/logger";
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
@@ -341,8 +342,57 @@ async function buildAuctionState(tournamentId: number) {
   };
 }
 
+// ── Auction state cache ───────────────────────────────────────────────────────
+// Prevents reconnect storms and rapid polls from hammering Neon with identical
+// reads. A 500 ms TTL means all viewers who reconnect within the same half-second
+// share one DB snapshot. Mutations always call invalidateStateCache() first so
+// they bypass stale data and always broadcast a fresh snapshot.
+interface StateCacheEntry {
+  data: Awaited<ReturnType<typeof buildAuctionState>>;
+  cachedAt: number;
+}
+const _stateCache = new Map<number, StateCacheEntry>();
+const STATE_CACHE_TTL_MS = 500;
+let _cacheHits = 0;
+let _cacheMisses = 0;
+
+function invalidateStateCache(tournamentId: number) {
+  _stateCache.delete(tournamentId);
+}
+
+async function getCachedOrBuildState(tournamentId: number): Promise<Awaited<ReturnType<typeof buildAuctionState>>> {
+  const cached = _stateCache.get(tournamentId);
+  if (cached && Date.now() - cached.cachedAt < STATE_CACHE_TTL_MS) {
+    _cacheHits++;
+    return cached.data;
+  }
+  _cacheMisses++;
+  const t0 = Date.now();
+  const data = await buildAuctionState(tournamentId);
+  const elapsed = Date.now() - t0;
+  if (elapsed > 300) {
+    logger.warn({ tournamentId, elapsed, fn: "buildAuctionState" }, "auction state build slow");
+  }
+  _stateCache.set(tournamentId, { data, cachedAt: Date.now() });
+  return data;
+}
+
+// Log cache hit rate every 5 minutes
+setInterval(() => {
+  const total = _cacheHits + _cacheMisses;
+  if (total > 0) {
+    logger.info(
+      { cacheHits: _cacheHits, cacheMisses: _cacheMisses, hitRate: `${((_cacheHits / total) * 100) | 0}%` },
+      "auction state cache metrics",
+    );
+    _cacheHits = 0;
+    _cacheMisses = 0;
+  }
+}, 5 * 60 * 1000);
+
 async function broadcastState(tournamentId: number, invalidate: string[] = []) {
-  const state = await buildAuctionState(tournamentId);
+  invalidateStateCache(tournamentId);
+  const state = await getCachedOrBuildState(tournamentId);
   broadcastToTournament(tournamentId, { type: "auction_state", state, invalidate });
   return state;
 }
@@ -359,7 +409,8 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   res.flushHeaders();
 
   const client = addSseClient(tid, res);
-  const state = await buildAuctionState(tid);
+  logger.info({ tournamentId: tid, clientCount: getSseClientCount(tid) }, "SSE client connected");
+  const state = await getCachedOrBuildState(tid);
   res.write(`data: ${JSON.stringify({ type: "auction_state", state, invalidate: [] })}\n\n`);
 
   const heartbeat = setInterval(() => {
@@ -369,6 +420,7 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   req.on("close", () => {
     clearInterval(heartbeat);
     removeSseClient(client);
+    logger.info({ tournamentId: tid, clientCount: getSseClientCount(tid) }, "SSE client disconnected");
   });
 });
 
@@ -376,7 +428,7 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
 router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  res.json(await buildAuctionState(tid));
+  res.json(await getCachedOrBuildState(tid));
 });
 
 // POST start / resume auction

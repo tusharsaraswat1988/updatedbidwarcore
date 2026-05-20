@@ -29,3 +29,15 @@ export function broadcastToTournament(tournamentId: number, payload: object) {
     }
   }
 }
+
+export function getSseClientCount(tournamentId: number): number {
+  let count = 0;
+  for (const client of clients) {
+    if (client.tournamentId === tournamentId) count++;
+  }
+  return count;
+}
+
+export function getTotalSseClientCount(): number {
+  return clients.size;
+}

@@ -591,7 +591,7 @@ export default function LiveViewerPage() {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: isCompleted ? false : 2000,
+      refetchInterval: isCompleted ? false : 30000,
       staleTime: 0,
     },
   });
@@ -605,7 +605,7 @@ export default function LiveViewerPage() {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: isCompleted ? false : 8000,
+      refetchInterval: isCompleted ? false : 30000,
       staleTime: 0,
     },
   });

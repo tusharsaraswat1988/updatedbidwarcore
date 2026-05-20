@@ -1,0 +1,77 @@
+Implement the P0 realtime optimization plan using the existing SSE architecture (do NOT migrate to WebSockets).
+
+Goals:
+
+* reduce Neon database transfer
+* reduce redundant polling
+* improve scalability for 500–1000+ viewers
+* preserve current realtime auction responsiveness
+
+Tasks:
+
+1. Add SSE support to liveviewer.tsx
+
+* integrate the existing useAuctionSocket hook
+* remove/refactor the 2000ms auction_state polling
+* ensure state updates come from SSE cache updates
+* keep a low-frequency safety refetch only if absolutely necessary (15–30s max)
+
+2. Add SSE support to obs-overlay.tsx
+
+* integrate useAuctionSocket
+* remove the 1000ms auction_state polling
+* remove unnecessary teams polling during live auction
+* keep overlay updates fully realtime via SSE
+
+3. Add in-memory auction state cache on the server
+   Create:
+   Map<tournamentId, { data, cachedAt }>
+
+Behavior:
+
+* cache buildAuctionState() results
+* TTL: 500ms
+* GET /auction serves cached state if still fresh
+* mutations invalidate cache
+* broadcastState rebuilds once and shares same snapshot with all SSE clients
+
+Goal:
+
+* avoid repeated identical DB reads
+* prevent reconnect storms from hammering Neon
+
+4. Remove redundant operator polling
+   In auction-operator.tsx:
+
+* remove refetchInterval: 1500 for auction_state
+* rely on SSE updates instead
+* keep bids/team purse refreshes only if actually needed
+
+5. Reduce display-shell.tsx safety polling
+
+* change 3000ms safety polling to 10000ms
+* keep SSE as primary realtime transport
+
+6. Add instrumentation/logging
+   Add lightweight metrics logs:
+
+* SSE connection count per tournament
+* buildAuctionState execution time
+* cache hit/miss counts
+* auction_state request frequency
+
+7. Preserve existing behavior
+   Important:
+
+* no frontend UX regressions
+* no changes to owner access-code flow
+* no changes to auction logic
+* no websocket migration
+* keep SSE as the single realtime architecture
+
+After implementation:
+
+* run typecheck
+* verify operator panel, display shell, OBS overlay, liveviewer, and owner panel all update correctly in realtime
+* provide before/after polling reduction summary
+* provide estimated Neon query reduction

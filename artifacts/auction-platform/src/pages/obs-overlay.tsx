@@ -171,13 +171,13 @@ export default function ObsOverlay() {
   useAuctionSocket(tournamentId);
 
   const { data: state } = useGetAuctionState(tournamentId, {
-    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 1000 },
+    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teamsRaw } = useListTeams(tournamentId, {
-    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
+    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
   const [soldSnap, setSoldSnap] = useState<SoldSnap | null>(null);
