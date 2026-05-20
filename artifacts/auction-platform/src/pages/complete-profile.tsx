@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,30 @@ export default function CompleteProfile() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBypass, setIsBypass] = useState(false);
+  const autoSubmitRef = useRef(false);
+
+  // TODO: remove OTP bypass when Twilio is configured
+  // When bypass is active, auto-verify with 000000 immediately after advancing to OTP step
+  useEffect(() => {
+    if (isBypass && step === "otp" && !autoSubmitRef.current) {
+      autoSubmitRef.current = true;
+      setOtp("000000");
+      void (async () => {
+        setLoading(true);
+        const { ok, data } = await apiFetch("/api/auth/google/complete-profile/verify", {
+          method: "POST",
+          body: JSON.stringify({ otp: "000000" }),
+        });
+        setLoading(false);
+        if (!ok) {
+          setError(data.error ?? "Auto-verification failed");
+          return;
+        }
+        setLocation("/organizer");
+      })();
+    }
+  }, [isBypass, step]);
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +60,10 @@ export default function CompleteProfile() {
     if (!ok) {
       setError(data.error ?? "Failed to send OTP");
       return;
+    }
+    // TODO: remove OTP bypass when Twilio is configured
+    if (data.bypass) {
+      setIsBypass(true);
     }
     setStep("otp");
   }
@@ -67,7 +95,9 @@ export default function CompleteProfile() {
           <CardDescription>
             {step === "mobile"
               ? "Enter your mobile number to verify your account."
-              : `Enter the 6-digit OTP sent to ${mobile}.`}
+              : isBypass
+                ? "Verifying your account..."
+                : `Enter the 6-digit OTP sent to ${mobile}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,9 +127,14 @@ export default function CompleteProfile() {
               </div>
               <Button type="submit" className="w-full" disabled={loading || mobile.length < 10}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Send OTP
+                Continue
               </Button>
             </form>
+          ) : isBypass ? (
+            <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Setting up your account...</span>
+            </div>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="space-y-2">

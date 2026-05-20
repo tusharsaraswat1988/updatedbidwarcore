@@ -877,6 +877,10 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
 // ─── Password reset bypass (no OTP) — TODO: remove when Twilio is configured ──
 
 router.post("/auth/organizer-account/reset-password/bypass", async (req, res) => {
+  // TODO: remove OTP bypass when Twilio is configured
+  if (process.env.BYPASS_OTP !== "true") {
+    res.status(503).json({ error: "OTP service is required for password reset" }); return;
+  }
   const body = z.object({
     mobile: z.string().min(7),
     newPassword: z.string().min(6),
@@ -1091,8 +1095,9 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
     return;
   }
 
-  // Generate and hash OTP
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  // TODO: remove OTP bypass when Twilio is configured
+  const isBypass = process.env.BYPASS_OTP === "true";
+  const otp = isBypass ? "000000" : String(Math.floor(100000 + Math.random() * 900000));
   const salt = randomBytes(16).toString("hex");
   const derivedKey = (await scryptAsync(otp, salt, 64)) as Buffer;
   const otpHash = `${salt}:${derivedKey.toString("hex")}`;
@@ -1101,12 +1106,14 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
   const { otpSessionsTable } = await import("@workspace/db");
   await db.insert(otpSessionsTable).values({ mobile, otpHash, purpose: "complete_profile", expiresAt });
 
-  const { sendSms } = await import("../lib/comm-sender");
-  await sendSms(mobile, `BidWar: Your verification code is ${otp}. Valid for 10 minutes. Do not share.`);
+  if (!isBypass) {
+    const { sendSms } = await import("../lib/comm-sender");
+    await sendSms(mobile, `BidWar: Your verification code is ${otp}. Valid for 10 minutes. Do not share.`);
+  }
 
   // Persist the pending mobile in the OAuth state cookie
   setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
-  res.json({ success: true });
+  res.json({ success: true, bypass: isBypass });
 });
 
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {

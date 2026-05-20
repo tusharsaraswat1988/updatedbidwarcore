@@ -59,6 +59,7 @@ externalPort = 3000
 
 [userenv.shared]
 VAPID_PUBLIC_KEY = "BJcfqtvE_Q84CkO2-IO_jGiXJ4CZPnFpwmEODysaA8tQqxAgGEov0zjgohz_gaThlmaPm9hQ5Vx5mdXo_eY238A"
+BYPASS_OTP = "true"
 
 [userenv.production]
 APP_DOMAIN = "bidwar.in"
