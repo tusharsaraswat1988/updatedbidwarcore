@@ -1,0 +1,465 @@
+BIDWAR UX/UI & ONBOARDING RESTRUCTURE PLAN
+
+IMPORTANT:
+This is a UI/UX onboarding and flow improvement task ONLY.
+
+DO NOT break:
+- existing APIs
+- database schema
+- auction logic
+- socket events
+- timer logic
+- operator workflows
+- live sync
+- owner panel functionality
+- OBS/LED integrations
+- authentication flow
+- local mode/export architecture
+- tournament IDs
+- existing routes
+- role permissions
+- reports logic
+- current business logic
+
+This is NOT a backend rewrite.
+
+Goal:
+Make BIDWAR extremely beginner-friendly for first-time organisers while preserving ALL existing functionality and logic.
+
+---------------------------------------------------
+CORE PRINCIPLE
+---------------------------------------------------
+
+Every screen should answer:
+1. What is this?
+2. Why does it matter?
+3. What should I do next?
+
+The product should feel like:
+“Guided tournament setup”
+NOT
+“Complex auction software”
+
+---------------------------------------------------
+MAIN OBJECTIVE
+---------------------------------------------------
+
+A first-time organiser should be able to:
+- Login
+- Create tournament
+- Configure rules
+- Add teams
+- Add players
+- Start auction
+
+WITHOUT external training.
+
+---------------------------------------------------
+CRITICAL RULES
+---------------------------------------------------
+
+1. DO NOT REMOVE EXISTING FEATURES
+Even advanced settings must remain available.
+
+2. DO NOT CHANGE API CONTRACTS
+Frontend adaptation only unless absolutely required.
+
+3. DO NOT BREAK OLD TOURNAMENTS
+Backward compatibility required.
+
+4. KEEP EXISTING DATA STRUCTURE
+Only improve presentation, onboarding, defaults, and flow.
+
+5. ALL CURRENT FEATURES MUST STILL WORK
+Even if hidden behind “Advanced Settings”.
+
+---------------------------------------------------
+PHASE 1 — ONBOARDING EXPERIENCE
+---------------------------------------------------
+
+After Google Login:
+
+Instead of directly opening the dashboard,
+show:
+
+WELCOME SCREEN
+
+Heading:
+“Welcome to BIDWAR”
+
+Subtext:
+“Let’s setup your first auction tournament.”
+
+Primary CTA:
+[ Start Tournament Setup ]
+
+Secondary CTA:
+[ Explore Demo ]
+
+---------------------------------------------------
+PHASE 2 — GUIDED SETUP FLOW
+---------------------------------------------------
+
+Create a setup wizard with progress tracking.
+
+STEPS:
+
+Step 1 → Tournament Details
+Step 2 → Auction Rules
+Step 3 → Teams
+Step 4 → Players
+Step 5 → Ready for Live Auction
+
+Each step should show:
+- completion state
+- lock/unlock state
+- next action
+
+Example:
+✅ Tournament Setup
+🔒 Teams Locked Until Rules Complete
+
+---------------------------------------------------
+PHASE 3 — TOURNAMENT SETTINGS UX
+---------------------------------------------------
+
+Current settings modal is overwhelming.
+
+Split into:
+
+BEGINNER MODE (default)
+ADVANCED SETTINGS (expandable)
+
+---------------------------------------------------
+BEGINNER MODE FIELDS
+---------------------------------------------------
+
+MANDATORY ONLY:
+
+- Tournament Name
+- Sport
+- Total Points Per Team
+- Minimum Player Value
+- Bid Increment
+- First Bid Timer
+- Subsequent Bid Timer
+- Minimum Squad Size
+
+Hide advanced complexity initially.
+
+---------------------------------------------------
+TOOLTIPS / HELP SYSTEM
+---------------------------------------------------
+
+Every important field should have:
+ⓘ info icon
+
+Hover/click explanation.
+
+Examples:
+
+TOTAL POINTS PER TEAM
+“Each team gets this total purse for buying players.”
+
+MINIMUM PLAYER VALUE
+“No player can start below this amount.”
+
+BID INCREMENT
+“Every new bid increases by this amount.”
+
+FIRST BID TIMER
+“Time available before the first bid.”
+
+SUBSEQUENT TIMER
+“Timer reset after every new bid.”
+
+MINIMUM SQUAD SIZE
+“Minimum players every team must purchase.”
+
+---------------------------------------------------
+BID TIER LOGIC IMPROVEMENT
+---------------------------------------------------
+
+Current 3-layer tier system is confusing for beginners.
+
+NEW DEFAULT:
+Single increment system only.
+
+Example:
+Increment = ₹10,000
+
+Advanced users can enable:
+[ Enable Advanced Bid Tiers ]
+
+Then show:
+- Tier 1
+- Tier 2
+- Tier 3
+
+IMPORTANT:
+Do NOT remove existing tier logic.
+Only simplify initial experience.
+
+---------------------------------------------------
+SMART DEFAULTS
+---------------------------------------------------
+
+Pre-fill sensible defaults:
+
+Bid Increment = 10000
+First Bid Timer = 30
+Subsequent Timer = 15
+Minimum Squad = 11
+
+Organiser can edit later.
+
+---------------------------------------------------
+SAVE BUTTON IMPROVEMENT
+---------------------------------------------------
+
+Replace:
+“Save Changes”
+
+With:
+“Save & Continue”
+
+This improves flow clarity.
+
+---------------------------------------------------
+PHASE 4 — LOGICAL FLOW ENFORCEMENT
+---------------------------------------------------
+
+Prevent confusing navigation.
+
+RULES:
+
+Before Teams:
+Mandatory tournament setup must be complete.
+
+Before Players:
+Minimum 2 teams required.
+
+Before Live Auction:
+Require:
+- 2 teams
+- at least 1 player
+- required rules completed
+
+Show friendly instructional messages instead of errors.
+
+Example:
+“Please create at least 2 teams before adding players.”
+
+---------------------------------------------------
+PHASE 5 — EMPTY STATE UX
+---------------------------------------------------
+
+Avoid blank screens.
+
+Example:
+
+NO TEAMS SCREEN
+
+Icon
+Heading:
+“No Teams Added Yet”
+
+Description:
+“You need at least 2 teams before starting auction.”
+
+CTA:
+[ Add First Team ]
+
+---------------------------------------------------
+PHASE 6 — HUB / COMMAND CENTER
+---------------------------------------------------
+
+Current naming is unclear.
+
+Rename UI label to:
+“Tournament Command Center”
+OR
+“Auction Control Center”
+
+Add top help text:
+
+“This is your central control area for managing teams, players, live auction, displays and reports.”
+
+---------------------------------------------------
+PHASE 7 — CATEGORIES UX
+---------------------------------------------------
+
+Categories are optional but currently unclear.
+
+Add:
+OPTIONAL badge
+
+Description:
+“Use categories to group players like Batsman, Bowler, All-Rounder, Marquee Player etc.”
+
+Also show:
+“You can skip this step.”
+
+---------------------------------------------------
+PHASE 8 — BREAK TIMER EDUCATION
+---------------------------------------------------
+
+Add explanation:
+
+“Use this during lunch breaks, tea breaks or sponsor pauses.”
+
+---------------------------------------------------
+PHASE 9 — SHARE LINKS EDUCATION
+---------------------------------------------------
+
+Explain every link clearly.
+
+TEAM OWNER LINK
+“Owners use this link to join live bidding.”
+
+PLAYER REGISTRATION LINK
+“Players can self-register here.”
+
+LED DISPLAY LINK
+“Use this for projector or audience display.”
+
+---------------------------------------------------
+PHASE 10 — FORTUNE WHEEL EDUCATION
+---------------------------------------------------
+
+Add instructional description:
+
+“Use for lucky draws, sponsor activities or surprise rewards.”
+
+---------------------------------------------------
+PHASE 11 — SIDE MENU FIX
+---------------------------------------------------
+
+Current issue:
+Operator Panel appears permanently yellow.
+
+This creates active-tab confusion.
+
+Fix:
+- Only active tab should be highlighted yellow
+- Inactive tabs should remain neutral dark
+- Hover state should be subtle
+
+---------------------------------------------------
+PHASE 12 — DARK UI IMPROVEMENTS
+---------------------------------------------------
+
+Current form sections are too dark and visually merged.
+
+Improve:
+- card separation
+- contrast
+- spacing
+- readability
+- active field visibility
+
+INPUT IMPROVEMENTS:
+- slightly lighter input background
+- stronger border visibility
+- focused glow state
+
+MANDATORY FIELDS:
+Use:
+- red asterisk
+OR
+- “Required”
+
+---------------------------------------------------
+PHASE 13 — ADVANCED SETTINGS HANDLING
+---------------------------------------------------
+
+Do NOT remove advanced controls.
+
+Instead:
+Collapse them under:
+
+[ Advanced Auction Settings ]
+
+This keeps power users supported while reducing beginner anxiety.
+
+---------------------------------------------------
+PHASE 14 — CHECKLIST SYSTEM
+---------------------------------------------------
+
+Add persistent setup checklist.
+
+Example:
+
+✅ Tournament Created
+⬜ Auction Rules Configured
+⬜ Teams Added
+⬜ Players Added
+⬜ LED Display Ready
+⬜ Start Auction
+
+This checklist should dynamically update.
+
+---------------------------------------------------
+PHASE 15 — MICROCOPY REWRITE
+---------------------------------------------------
+
+Reduce technical language.
+
+Replace:
+
+“Bid Increment Tier”
+WITH
+“Bid Increase Rules”
+
+“Sequential Player Selection”
+WITH
+“Player Order”
+
+“Broadcast Recovery”
+WITH
+“Display Backup”
+
+Use simple organiser-friendly language everywhere.
+
+---------------------------------------------------
+PHASE 16 — SAFETY & STABILITY
+---------------------------------------------------
+
+VERY IMPORTANT:
+
+While implementing:
+- do not change backend validation unexpectedly
+- do not alter auction calculations
+- do not break websocket sync
+- do not remove old tournament compatibility
+- do not remove old settings from database
+- do not hardcode assumptions
+- preserve all existing APIs
+
+If UI flow changes require mapping/transformation:
+create adapter layer in frontend only.
+
+---------------------------------------------------
+PHASE 17 — TECHNICAL IMPLEMENTATION PREFERENCE
+---------------------------------------------------
+
+Preferred approach:
+- incremental UI refactor
+- reusable tooltip component
+- reusable onboarding step component
+- feature flags where necessary
+- preserve old endpoints
+- avoid migration-heavy changes
+
+---------------------------------------------------
+FINAL GOAL
+---------------------------------------------------
+
+The organiser should always feel:
+guided,
+confident,
+and in control.
+
+The software should feel:
+simple at first,
+powerful underneath.
