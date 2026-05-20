@@ -352,6 +352,7 @@ export default function Landing() {
             <a href="#use-cases" className="hover:text-white transition-colors">Use Cases</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <button onClick={() => navigate("/upcoming-auctions")} className="hover:text-white transition-colors text-primary font-semibold">Upcoming Auctions</button>
           </div>
           <div className="flex items-center gap-3">
             <button

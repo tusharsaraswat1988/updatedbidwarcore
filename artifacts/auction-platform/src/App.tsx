@@ -39,6 +39,7 @@ import CompleteProfile from "@/pages/complete-profile";
 import BreakTimerPage from "@/pages/break-timer";
 import LocalModePage from "@/pages/local-mode";
 import SeoSportLanding from "@/pages/seo-sport-landing";
+import UpcomingAuctions from "@/pages/upcoming-auctions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ function Router() {
     <Switch>
       {/* Public routes */}
       <Route path="/" component={Landing} />
+      <Route path="/upcoming-auctions" component={UpcomingAuctions} />
       <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
       <Route path="/tournament/new" component={NewTournament} />
       <Route path="/tournament/:id/login" component={OrganizerLogin} />
