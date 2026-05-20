@@ -89,6 +89,17 @@ export function BeginnerFriendly() {
   return (
     <div className="h-screen bg-[#0f1117] text-white flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
+      {/* ══════════ BIDWAR BRANDING BAR ═════════════════════════════════════ */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 h-9 bg-[#0a0c12] border-b border-white/6 z-20">
+        <div className="flex items-center gap-2.5">
+          <span className="text-base font-black tracking-tight leading-none">
+            <span className="text-yellow-400">BID</span><span className="text-white">WAR</span>
+          </span>
+          <span className="text-[10px] font-semibold text-white/20 uppercase tracking-widest border-l border-white/10 pl-2.5">Operator Panel</span>
+        </div>
+        <span className="text-[10px] text-white/18 font-mono tracking-wider">v2.0</span>
+      </div>
+
       {/* ══════════ TOP STATUS BAR ══════════════════════════════════════════ */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
 
@@ -653,11 +664,23 @@ export function BeginnerFriendly() {
         </div>
       </div>
 
-      {/* Keyboard shortcut strip */}
-      <div className="flex-shrink-0 h-7 bg-[#0d0f14] border-t border-white/5 flex items-center justify-center gap-6">
-        {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Pause Bidding","[N] Next Player","[Z] Undo"].map((s, i) => (
-          <span key={i} className="text-[10px] text-white/22 font-medium">{s}</span>
-        ))}
+      {/* Bottom bar — tournament name + keyboard shortcuts */}
+      <div className="flex-shrink-0 h-7 bg-[#0d0f14] border-t border-white/5 flex items-center px-4 gap-0">
+        {/* Tournament name — left */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Tournament</span>
+          <span className="text-[10px] font-semibold text-white/55 truncate max-w-[200px]">IPL 2025 — Mumbai Edition</span>
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-4 bg-white/8 mx-4 flex-shrink-0" />
+
+        {/* Keyboard shortcuts — centre */}
+        <div className="flex items-center gap-5 flex-1 justify-center">
+          {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Pause","[N] Next","[Z] Undo"].map((s, i) => (
+            <span key={i} className="text-[10px] text-white/20 font-medium whitespace-nowrap">{s}</span>
+          ))}
+        </div>
       </div>
 
     </div>
