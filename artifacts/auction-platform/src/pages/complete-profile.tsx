@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Phone, ShieldCheck } from "lucide-react";
+import { Loader2, Phone, ShieldCheck, SkipForward } from "lucide-react";
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const r = await fetch(path, {
@@ -22,8 +22,10 @@ export default function CompleteProfile() {
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBypass, setIsBypass] = useState(false);
+  const [autoVerifyState, setAutoVerifyState] = useState<"pending" | "failed" | "done">("pending");
   const autoSubmitRef = useRef(false);
 
   // TODO: remove OTP bypass when Twilio is configured
@@ -40,9 +42,11 @@ export default function CompleteProfile() {
         });
         setLoading(false);
         if (!ok) {
+          setAutoVerifyState("failed");
           setError(data.error ?? "Auto-verification failed");
           return;
         }
+        setAutoVerifyState("done");
         setLocation("/organizer");
       })();
     }
@@ -82,6 +86,28 @@ export default function CompleteProfile() {
       return;
     }
     setLocation("/organizer");
+  }
+
+  // TODO: remove OTP bypass when Twilio is configured
+  async function handleSkip() {
+    setError(null);
+    setSkipping(true);
+    const { ok, data } = await apiFetch("/api/auth/google/complete-profile/skip", {
+      method: "POST",
+    });
+    setSkipping(false);
+    if (!ok) {
+      setError(data.error ?? "Skip failed — please enter a mobile number");
+      return;
+    }
+    setLocation("/organizer");
+  }
+
+  // Retry auto-verify after failure
+  function handleRetryAutoVerify() {
+    autoSubmitRef.current = false;
+    setAutoVerifyState("pending");
+    setError(null);
   }
 
   return (
@@ -129,11 +155,36 @@ export default function CompleteProfile() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Continue
               </Button>
+              {/* TODO: remove OTP bypass skip option when Twilio is configured */}
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground gap-1.5"
+                disabled={skipping}
+                onClick={handleSkip}
+              >
+                {skipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SkipForward className="w-3.5 h-3.5" />}
+                Skip for now — continue without mobile
+              </Button>
             </form>
-          ) : isBypass ? (
+          ) : isBypass && autoVerifyState === "pending" ? (
             <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="text-sm">Setting up your account...</span>
+            </div>
+          ) : isBypass && autoVerifyState === "failed" ? (
+            <div className="space-y-3">
+              <Button className="w-full" onClick={handleRetryAutoVerify}>
+                Retry
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs"
+                onClick={() => { setStep("mobile"); setError(null); autoSubmitRef.current = false; setAutoVerifyState("pending"); }}
+              >
+                Change mobile number
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">

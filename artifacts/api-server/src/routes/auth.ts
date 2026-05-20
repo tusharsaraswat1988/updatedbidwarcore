@@ -1185,4 +1185,34 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
   res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
 });
 
+// TODO: remove OTP bypass when Twilio is configured
+// Allows Google OAuth users to complete account creation without a mobile number
+router.post("/auth/google/complete-profile/skip", async (req, res) => {
+  if (process.env.BYPASS_OTP !== "true") {
+    res.status(503).json({ error: "Mobile verification is required" }); return;
+  }
+  const pending = req.oauthState.pendingGoogleProfile;
+  if (!pending) {
+    res.status(400).json({ error: "No pending Google profile — please sign in with Google first" });
+    return;
+  }
+
+  // Create the organizer — mobile is required (NOT NULL UNIQUE) so use a unique
+  // placeholder that can never clash with a real 10-digit Indian mobile number.
+  // TODO: remove or clean up placeholder mobiles when Twilio is configured
+  const [organizer] = await db.insert(organizersTable).values({
+    name: pending.name,
+    email: pending.email,
+    mobile: `gid_${pending.googleId}`,
+    googleId: pending.googleId,
+    googleEmail: pending.googleEmail,
+    licenseStatus: "pending",
+    maxTournaments: 1,
+  }).returning();
+
+  clearOAuthCookie(res);
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
+  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
+});
+
 export default router;
