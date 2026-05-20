@@ -578,7 +578,6 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
     name: z.string().optional(),
     email: z.string().optional(),
     mobile: z.string().optional(),
-    newPassword: z.string().min(6).optional(),
     licenseStatus: z.enum(["pending", "active", "suspended"]).optional(),
     maxTournaments: z.number().int().min(0).optional(),
     notes: z.string().optional(),
@@ -594,7 +593,6 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
   if (d.licenseStatus !== undefined) updates.licenseStatus = d.licenseStatus;
   if (d.maxTournaments !== undefined) updates.maxTournaments = d.maxTournaments;
   if (d.notes !== undefined) updates.notes = d.notes;
-  if (d.newPassword) updates.passwordHash = await hashPassword(d.newPassword);
 
   const [updated] = await db.update(organizersTable).set(updates).where(eq(organizersTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }

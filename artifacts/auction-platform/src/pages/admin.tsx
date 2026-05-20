@@ -9,7 +9,6 @@ import {
   updateAdminTournament,
   createAdminTournament,
   deleteAdminTournament,
-  setOrganizerPassword,
   resetTournamentAsAdmin,
   setTournamentLicenseStatus,
   linkOrganizerToTournament,
@@ -402,8 +401,6 @@ function DetailPanel({
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [newPw, setNewPw] = useState("");
-  const [settingPw, setSettingPw] = useState(false);
   const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
   const [linking, setLinking] = useState(false);
   const [selectedLinkId, setSelectedLinkId] = useState<string>("__none__");
@@ -524,21 +521,7 @@ function DetailPanel({
     );
     setSaving(false);
     if (r.success) {
-      if (r.linkedOrganizerId) {
-        flash(
-          `Saved — linked to organizer account: ${r.linkedOrganizerName ?? `#${r.linkedOrganizerId}`}`,
-        );
-      } else if (
-        contactFieldsChanged &&
-        (ef.organizerMobile || ef.organizerEmail)
-      ) {
-        flash(
-          "Saved — no matching organizer account found for that mobile/email. Create one in the Organizers tab then link manually.",
-          false,
-        );
-      } else {
-        flash("Saved successfully");
-      }
+      flash("Saved successfully");
       setEditing(false);
       await load();
       onRefresh();
@@ -574,21 +557,6 @@ function DetailPanel({
       await load();
       onRefresh();
     } else flash(r.error || `${label} failed`, false);
-  }
-
-  async function handleSetPw() {
-    if (!newPw.trim() || newPw.length < 4) {
-      flash("Password must be at least 4 characters", false);
-      return;
-    }
-    setSettingPw(true);
-    const r = await setOrganizerPassword(tournamentId, newPw.trim());
-    setSettingPw(false);
-    if (r.success) {
-      flash("Password updated");
-      setNewPw("");
-      await load();
-    } else flash(r.error || "Failed", false);
   }
 
   if (loading) {
@@ -1260,6 +1228,7 @@ function DetailPanel({
                     </Select>
                     <Button
                       size="sm"
+                      variant="outline"
                       className="h-8 gap-1.5 text-xs"
                       onClick={handleLinkOrganizer}
                       disabled={linking}
@@ -1269,38 +1238,7 @@ function DetailPanel({
                       ) : (
                         <UserCheck className="w-3 h-3" />
                       )}
-                      {selectedLinkId === "__none__" ? "Unlink" : "Link"}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Quick password reset (outside edit mode) */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5" />
-                    Set Organizer Password
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="password"
-                      value={newPw}
-                      onChange={(e) => setNewPw(e.target.value)}
-                      placeholder="New password (min 4 chars)"
-                      className="h-8 text-sm"
-                      onKeyDown={(e) => e.key === "Enter" && handleSetPw()}
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1.5 text-xs"
-                      onClick={handleSetPw}
-                      disabled={settingPw || !newPw.trim()}
-                    >
-                      {settingPw ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Check className="w-3 h-3" />
-                      )}
-                      Set
+                      {selectedLinkId === "__none__" ? "Unlink" : "Reassign"}
                     </Button>
                   </div>
                 </div>
@@ -1750,7 +1688,6 @@ function OrganizerDetailPanel({
     email: org.email || "",
     mobile: org.mobile,
     notes: org.notes || "",
-    newPassword: "",
   });
 
   function flash(text: string, ok = true) {
@@ -1765,7 +1702,6 @@ function OrganizerDetailPanel({
       email: form.email || undefined,
       mobile: (form.mobile ?? undefined) || undefined,
       notes: form.notes || undefined,
-      newPassword: form.newPassword || undefined,
     };
     const r = await updateAdminOrganizer(org.id, payload);
     setSaving(false);
@@ -1918,19 +1854,6 @@ function OrganizerDetailPanel({
                     setForm((p) => ({ ...p, notes: e.target.value }))
                   }
                   placeholder="Any internal notes..."
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <KeyRound className="w-3 h-3" />
-                  New Password (leave blank to keep current)
-                </Label>
-                <Input
-                  type="password"
-                  className="h-8 text-sm"
-                  value={form.newPassword}
-                  onChange={f("newPassword")}
-                  placeholder="Set new password"
                 />
               </div>
             </>

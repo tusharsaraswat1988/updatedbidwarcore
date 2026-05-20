@@ -33,17 +33,6 @@ export async function logoutOrganizer(tournamentId: number): Promise<void> {
   try { await apiFetch(`/auth/organizer/${tournamentId}/logout`, { method: "POST" }); } catch { }
 }
 
-export async function setOrganizerPassword(tournamentId: number, password: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const r = await apiFetch(`/auth/organizer/${tournamentId}/password`, {
-      method: "PATCH",
-      body: JSON.stringify({ password }),
-    });
-    const data = await r.json();
-    if (!r.ok) return { success: false, error: data.error || "Failed to set password" };
-    return { success: true };
-  } catch { return { success: false, error: "Network error" }; }
-}
 
 export async function checkAdminAuth(): Promise<{ isAdmin: boolean; adminLevel: "master" | "data_entry" | null }> {
   try {
@@ -348,7 +337,7 @@ export async function listAdminOrganizers(): Promise<AdminOrganizerRow[]> {
 export async function updateAdminOrganizer(
   id: number,
   data: Partial<{
-    name: string; email: string; mobile: string; newPassword: string;
+    name: string; email: string; mobile: string;
     licenseStatus: "pending" | "active" | "suspended"; maxTournaments: number; notes: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
