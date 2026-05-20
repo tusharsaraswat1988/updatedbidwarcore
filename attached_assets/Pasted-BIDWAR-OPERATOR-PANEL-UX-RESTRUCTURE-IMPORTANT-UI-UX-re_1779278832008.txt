@@ -1,0 +1,484 @@
+BIDWAR — OPERATOR PANEL UX RESTRUCTURE
+(IMPORTANT: UI/UX redesign only. Do NOT break auction engine, timers, APIs, websocket events, hotkeys, live sync, LED sync or bidding logic.)
+
+CURRENT PROBLEM:
+The Operator Panel is visually powerful but mentally exhausting for a first-time operator.
+
+Issues:
+- Too much information visible simultaneously
+- No visual hierarchy
+- Critical actions mixed with secondary actions
+- Duplicate information repeated in multiple places
+- Important controls don’t stand out properly
+- New operator cannot instantly understand:
+  - where to focus
+  - what to click next
+  - what is currently happening
+  - what is safe vs dangerous
+
+The panel should feel like:
+“Auction Control Desk”
+NOT
+“A dense admin dashboard”
+
+====================================================
+PRIMARY UX GOAL
+====================================================
+
+During live auction:
+Operator should think ONLY about:
+1. Current Player
+2. Current Bid
+3. Timer
+4. Main Action Buttons
+
+Everything else should become secondary or collapsible.
+
+====================================================
+CRITICAL RULE
+====================================================
+
+DO NOT REMOVE FEATURES.
+
+Instead:
+- reorganize
+- prioritize
+- simplify visibility
+- reduce duplication
+- improve hierarchy
+
+Advanced operators should still have access to all controls.
+
+====================================================
+NEW UI STRUCTURE
+====================================================
+
+The screen should be divided into:
+
+----------------------------------------------------
+ZONE 1 — LIVE AUCTION CORE (CENTER)
+----------------------------------------------------
+
+This is the HEART of the system.
+
+Only most important things should dominate here.
+
+CENTER PRIORITY:
+1. Player Name
+2. Current Bid
+3. Timer
+4. Start/Pause bidding
+5. Sold / Unsold
+
+These should visually dominate the screen.
+
+====================================================
+REMOVE VISUAL NOISE
+====================================================
+
+Currently:
+- too many outlines
+- too many tiny labels
+- too many repeated categories
+- too many repeated player details
+- too many small sections competing equally
+
+Reduce:
+- borders
+- repeated text
+- tiny labels
+- unnecessary headings
+
+Use spacing instead of excessive boxes.
+
+====================================================
+CURRENT PLAYER CARD RESTRUCTURE
+====================================================
+
+Current player card contains too many small scattered details.
+
+NEW FORMAT:
+
+----------------------------------------------------
+PLAYER NAME (BIG)
+Category + Role (small)
+Base Price
+Age + City (secondary)
+----------------------------------------------------
+
+REMOVE DUPLICATES.
+
+If category already visible once,
+don’t repeat it elsewhere.
+
+Player image should become optional/minimal.
+
+====================================================
+CURRENT BID AREA
+====================================================
+
+This should become the BIGGEST visual focus.
+
+CURRENT BID should dominate center.
+
+Example hierarchy:
+
+₹2,00,000
+Current Bid
+
+Smaller below:
+Base Price ₹1,50,000
+
+Current raise info should be subtle.
+
+====================================================
+MAIN ACTION BUTTONS
+====================================================
+
+Current issue:
+Too many equal-weight buttons.
+
+NEW PRIORITY:
+
+PRIMARY ACTIONS:
+- START BIDDING
+- SOLD
+
+SECONDARY:
+- UNSOLD
+- DEFER
+
+TERTIARY:
+- MANUAL
+
+====================================================
+BUTTON COLOR LOGIC
+====================================================
+
+Green:
+Safe / progression actions
+
+Yellow:
+Attention / transition
+
+Red:
+Destructive/final
+
+Blue/Grey:
+Utility actions
+
+====================================================
+NEXT PLAYER BUTTON
+====================================================
+
+This should NOT dominate more than bidding controls.
+
+Currently oversized.
+
+Reduce visual weight slightly.
+
+====================================================
+TIMER UX
+====================================================
+
+Current timer visibility is weak.
+
+Timer should become:
+- bigger
+- cleaner
+- always visible
+- easier to understand under pressure
+
+Use:
+large circular countdown OR prominent top timer bar.
+
+Operator should instantly know:
+- running
+- paused
+- ended
+
+without reading text.
+
+====================================================
+TOP BAR CLEANUP
+====================================================
+
+Currently cluttered:
+ACTIVE | SOLD | UNSOLD | LEFT | CATEGORY etc.
+
+Too many tiny metrics.
+
+NEW STRUCTURE:
+
+LEFT:
+Auction Status
+
+CENTER:
+Current Auction Phase
+
+RIGHT:
+Quick Utilities
+
+Metrics should become compact pills.
+
+====================================================
+REMOVE DUPLICATE INFORMATION
+====================================================
+
+Currently repeated:
+- category
+- player count
+- labels
+- team info
+
+Audit entire panel and remove duplicate text.
+
+Rule:
+One information = one place only.
+
+====================================================
+PLAYER QUEUE PANEL
+====================================================
+
+Current left queue is overloaded.
+
+Problems:
+- too much text
+- low readability
+- hard scanning
+- equal emphasis everywhere
+
+====================================================
+NEW PLAYER QUEUE STRUCTURE
+====================================================
+
+Each row should show ONLY:
+
+- Player Name
+- Role
+- Base Price
+- Status badge
+
+Optional:
+small category color indicator
+
+REMOVE:
+extra stacked metadata.
+
+====================================================
+QUEUE SEARCH/FILTER
+====================================================
+
+Keep hidden/minimized unless used.
+
+Too many filters visible by default increases anxiety.
+
+Use:
+“Filters” expandable drawer.
+
+====================================================
+RIGHT SIDEBAR — TEAMS & PURSE
+====================================================
+
+Current cards are too dense.
+
+Simplify each team card:
+
+TEAM NAME
+Remaining Purse
+Players Bought
+
+That’s enough during bidding.
+
+Advanced metrics hidden on expand.
+
+====================================================
+LAST ACTIONS PANEL
+====================================================
+
+Current panel wastes space.
+
+Instead:
+show only last 3 meaningful actions.
+
+Example:
+- Rahul sold to SH for ₹2L
+- Bid raised by MH
+- Timer paused
+
+Minimal format.
+
+====================================================
+BREAK TIMER
+====================================================
+
+This should not permanently occupy important center space.
+
+Move into:
+Utilities drawer OR top quick actions.
+
+====================================================
+PRE-AUCTION BUTTON
+====================================================
+
+Low priority.
+
+Move into:
+Utilities / advanced controls.
+
+====================================================
+QUICK BID SECTION
+====================================================
+
+Current quick bid area is visually confusing.
+
+Improve:
+- larger team buttons
+- clearer active bidder
+- disabled states obvious
+
+When no bidding active:
+hide or collapse section.
+
+====================================================
+VISUAL HIERARCHY RULE
+====================================================
+
+Everything cannot look equally important.
+
+PRIORITY SCALE:
+
+LEVEL 1:
+Current Bid
+Timer
+Player Name
+Start/Sold
+
+LEVEL 2:
+Queue
+Team Purse
+
+LEVEL 3:
+Utilities
+Break timer
+Advanced controls
+Manual settings
+
+====================================================
+DARK MODE IMPROVEMENT
+====================================================
+
+Current UI is TOO dark.
+
+Problem:
+cards visually merge together.
+
+Improve:
+- contrast separation
+- softer backgrounds
+- subtle layering
+- elevated cards
+- lighter form surfaces
+
+Avoid:
+pure black everywhere.
+
+====================================================
+ACTIVE STATES
+====================================================
+
+Currently difficult to know:
+- what is active
+- what is clickable
+- what is disabled
+
+Improve:
+- hover states
+- active glow
+- disabled opacity
+- selected highlights
+
+====================================================
+PRESSURE MODE UX
+====================================================
+
+IMPORTANT:
+
+This panel is used during LIVE AUCTION PRESSURE.
+
+Operator cognition reduces under stress.
+
+Therefore:
+- fewer decisions visible simultaneously
+- fewer competing colors
+- fewer tiny texts
+- larger interaction targets
+- clear action hierarchy
+
+The UI should support:
+FAST CONFIDENT ACTIONS.
+
+====================================================
+BEGINNER MODE / PRO MODE
+====================================================
+
+Recommended:
+Add toggle:
+
+[ Beginner Mode ]
+[ Pro Mode ]
+
+BEGINNER MODE:
+- simplified controls
+- guided actions
+- reduced data
+
+PRO MODE:
+- all advanced controls visible
+
+====================================================
+GUIDED MICROCOPY
+====================================================
+
+Add subtle helper text.
+
+Examples:
+
+START BIDDING
+“Starts auction timer for current player”
+
+SOLD
+“Assign player to highest bidder”
+
+DEFER
+“Move player to revisit queue”
+
+====================================================
+KEYBOARD SHORTCUTS
+====================================================
+
+Display shortcut hints subtly.
+
+Example:
+[S] Sold
+[U] Unsold
+[Space] Start/Pause
+
+This improves professional operator speed.
+
+====================================================
+FINAL UX PHILOSOPHY
+====================================================
+
+The operator panel should feel:
+calm,
+focused,
+and pressure-resistant.
+
+At any moment the operator should instantly know:
+- who is being auctioned
+- current amount
+- timer state
+- next action
+
+WITHOUT searching the screen.

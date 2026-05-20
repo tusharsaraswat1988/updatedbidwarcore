@@ -1,0 +1,166 @@
+Before implementing the Operator Panel redesign, first create 3 different UI/UX layout concepts in Canva/Figma style mockup form.
+
+IMPORTANT:
+Do NOT directly code final UI yet.
+
+Goal:
+Explore different operator experiences first, then iterate and finalize.
+
+====================================================
+DELIVERABLE REQUIRED
+====================================================
+
+Create 3 different operator panel concepts:
+
+OPTION A → Beginner Friendly
+OPTION B → Broadcast / Premium Auction Style
+OPTION C → High-Speed Pro Operator Layout
+
+These should be:
+- visual mockups
+- wireframes
+- UI concepts
+- clickable flow ideas
+- layout systems
+
+NOT final frontend implementation yet.
+
+====================================================
+IMPORTANT
+====================================================
+
+Do NOT redesign randomly.
+
+Each option should solve:
+- clutter reduction
+- pressure handling
+- action clarity
+- operator confidence
+- visual hierarchy
+- quick decision making
+
+====================================================
+OPTION A — BEGINNER FRIENDLY
+====================================================
+
+Goal:
+A first-time operator should instantly understand:
+- where to look
+- what to click
+- what happens next
+
+Characteristics:
+- large buttons
+- guided labels
+- minimal visible controls
+- simplified hierarchy
+- instructional hints
+- clean spacing
+- low stress
+
+Focus:
+“Easy and safe operation”
+
+====================================================
+OPTION B — BROADCAST / PREMIUM STYLE
+====================================================
+
+Goal:
+Feel like a professional IPL-style auction control room.
+
+Characteristics:
+- cinematic
+- premium dark UI
+- cleaner typography
+- strong central bid area
+- premium motion ideas
+- visually impressive for events
+
+Focus:
+“Professional live event experience”
+
+====================================================
+OPTION C — PRO OPERATOR MODE
+====================================================
+
+Goal:
+Fastest possible live operation under pressure.
+
+Characteristics:
+- compact but clear
+- keyboard shortcut friendly
+- high information density
+- fast access controls
+- optimized for experienced operators
+
+Focus:
+“Speed and efficiency”
+
+====================================================
+COMMON REQUIREMENTS FOR ALL OPTIONS
+====================================================
+
+1. Preserve existing auction logic.
+2. Preserve all existing features.
+3. Preserve websocket/event structure.
+4. Preserve APIs.
+5. Preserve timer functionality.
+6. Preserve live sync logic.
+7. Preserve LED display compatibility.
+
+This phase is ONLY:
+- UX restructuring
+- visual hierarchy
+- onboarding simplification
+- operator flow optimization
+
+====================================================
+FOR EACH OPTION SHOW:
+====================================================
+
+1. Full panel layout
+2. Visual hierarchy
+3. Main action area
+4. Timer placement
+5. Queue structure
+6. Team purse structure
+7. Mobile/tablet considerations
+8. Beginner usability notes
+9. Stress handling logic
+10. Why this layout works
+
+====================================================
+ALSO REQUIRED
+====================================================
+
+For every option:
+mark sections as:
+
+PRIMARY
+SECONDARY
+TERTIARY
+
+based on operator importance during live auction.
+
+====================================================
+IMPORTANT UX PRINCIPLES
+====================================================
+
+The operator should ALWAYS instantly know:
+- current player
+- current bid
+- timer state
+- highest bidder
+- next action
+
+WITHOUT searching the screen.
+
+====================================================
+FINAL STEP
+====================================================
+
+After all 3 concepts are made:
+we will compare,
+iterate,
+merge best ideas,
+and then finalize ONE production-ready UX direction before coding.
