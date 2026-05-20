@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3, Coffee,
-  Link2, Shuffle, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown,
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -189,39 +189,39 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <Activity className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Operator Panel</span>}
                 </Link>
-                <Link
-                  href={`/tournament/${tournamentId}/break-timer`}
-                  title="Break Timer"
-                  className={navCls(`/tournament/${tournamentId}/break-timer`)}
-                >
-                  <Coffee className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Break Timer</span>}
-                </Link>
-                <Link
-                  href={`/tournament/${tournamentId}/display`}
-                  target="_blank"
-                  title="Open LED Display"
-                  className={`flex items-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all mt-1 ${
-                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                  }`}
-                >
-                  <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Open LED Display</span>}
-                </Link>
-                <Link href={`/tournament/${tournamentId}/fortune-wheel`} target="_blank" title="Fortune Wheel" className={navCls(`/tournament/${tournamentId}/fortune-wheel`)}>
-                  <Shuffle className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Fortune Wheel</span>}
-                </Link>
+                {!collapsed && (
+                  <Link
+                    href={`/tournament/${tournamentId}/break-timer`}
+                    title="Break Timer"
+                    className={navCls(`/tournament/${tournamentId}/break-timer`)}
+                  >
+                    <Coffee className="w-5 h-5 flex-shrink-0" />
+                    <span>Break Timer</span>
+                  </Link>
+                )}
+                {!collapsed && (
+                  <Link
+                    href={`/tournament/${tournamentId}/display`}
+                    target="_blank"
+                    title="Open LED Display"
+                    className="flex items-center gap-3 px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all mt-1"
+                  >
+                    <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+                    <span>Open LED Display</span>
+                  </Link>
+                )}
                 <Link href={`/tournament/${tournamentId}/links`} title="Share Links" className={navCls(`/tournament/${tournamentId}/links`)}>
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Share Links</span>}
                 </Link>
-                <Link href={`/tournament/${tournamentId}/reset`} title="Reset Auction" className={`flex items-center rounded-md transition-colors ${
-                  collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                } ${location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"}`}>
-                  <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Reset Auction</span>}
-                </Link>
+                {!collapsed && (
+                  <Link href={`/tournament/${tournamentId}/reset`} title="Reset Auction" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                    location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
+                  }`}>
+                    <RefreshCw className="w-5 h-5 flex-shrink-0" />
+                    <span>Reset Auction</span>
+                  </Link>
+                )}
                 {tournament?.localModeEnabled ? (
                   <Link
                     href={`/tournament/${tournamentId}/local-mode`}

@@ -32,6 +32,7 @@ import {
   CheckCircle2, Circle,
 } from "lucide-react";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
+import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -124,6 +125,21 @@ export default function TournamentHub() {
   const [exportLoading, setExportLoading] = useState(false);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
+
+  // Display theme — persisted per-tournament in localStorage, broadcasted to LED display
+  const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
+    try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
+    catch { return "default"; }
+  });
+  function handleDisplayThemeChange(t: DisplayThemeName) {
+    setDisplayTheme(t);
+    try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
+    try {
+      const ch = new BroadcastChannel("bidwar_display_theme");
+      ch.postMessage({ tournamentId, theme: t });
+      ch.close();
+    } catch { /* ignore */ }
+  }
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -990,6 +1006,32 @@ export default function TournamentHub() {
                     <p className="text-xs text-muted-foreground">Logos rotate in the LED display top-right corner every 2 seconds.</p>
                     <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} />
                   </div>
+
+                  {/* Display Theme */}
+                  <div className="border-t border-border/50 pt-4 space-y-2">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <Monitor className="w-4 h-4 text-muted-foreground" /> LED Display Theme
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Visual colour theme for the big screen. Changes take effect immediately on the live display.</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {DISPLAY_THEMES_LIST.map(t => (
+                        <button
+                          key={t.id}
+                          title={t.label}
+                          onClick={() => handleDisplayThemeChange(t.id)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                            displayTheme === t.id
+                              ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300"
+                              : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                          }`}
+                        >
+                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="border-t border-border pt-4 space-y-4">
                     {/* Master Audio toggle */}
                     <div className="flex items-center justify-between">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import {
   useGetAuctionState,
   useGetTeamPurses,
@@ -52,11 +52,10 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert, Star,
   PanelRightClose, PanelRightOpen, Tv2,
-  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings,
+  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
-import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 
 // ─── Countdown clock (live) ───────────────────────────────────────────────────
 
@@ -187,6 +186,7 @@ function StepIndicator({
 
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
+  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
 
@@ -205,38 +205,26 @@ export default function AuctionOperator() {
   const [countdownDialogType, setCountdownDialogType] = useState<"break" | "pre-auction">("break");
   const [countdownMinutes, setCountdownMinutes] = useState("5");
   const [countdownLabel, setCountdownLabel] = useState("");
-  // Settings dialog (display theme + open display)
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  // New: status-based left panel filter
+  // Status-based left panel filter
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+  // Player view filter popup
+  const [playerFilterOpen, setPlayerFilterOpen] = useState(false);
+  const [playerFilterStatus, setPlayerFilterStatus] = useState<"all" | "sold" | "unsold" | "available" | "retained">("all");
+  const [playerFilterTeamId, setPlayerFilterTeamId] = useState<number | null>(null);
+  const playerFilterContainerRef = useRef<HTMLDivElement>(null);
   // Per-team bid debounce
   const bidDebounce = useRef<Map<number, number>>(new Map());
 
-  // Display theme — persisted per-tournament in localStorage
-  const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
-    try {
-      return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName;
-    } catch {
-      return "default";
-    }
-  });
-  function handleDisplayThemeChange(t: DisplayThemeName) {
-    setDisplayTheme(t);
-    try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
-    try {
-      const ch = new BroadcastChannel("bidwar_display_theme");
-      ch.postMessage({ tournamentId, theme: t });
-      ch.close();
-    } catch { /* ignore */ }
-  }
-
-  // Close filter panel when clicking outside
+  // Close filter panels when clicking outside
   useEffect(() => {
     function onOutside(e: MouseEvent) {
       const root = filterBtnRef.current?.closest("[data-filter-root]");
       if (root && !root.contains(e.target as Node)) setShowFilterPanel(false);
+      if (playerFilterContainerRef.current && !playerFilterContainerRef.current.contains(e.target as Node)) {
+        setPlayerFilterOpen(false);
+      }
     }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
@@ -560,7 +548,8 @@ export default function AuctionOperator() {
           {categories && categories.length > 0 && (
             <button
               onClick={openCategoryFilter}
-              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-semibold transition-colors flex-shrink-0 ${
+              disabled={timerActive}
+              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-xs font-semibold transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
                 activeCategoryIds && activeCategoryIds.length > 0
                   ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
                   : "border-white/15 text-white/50 hover:text-white hover:bg-white/8"
@@ -602,10 +591,10 @@ export default function AuctionOperator() {
             <Undo2 className="w-3.5 h-3.5" />
           </button>
 
-          {/* Settings gear */}
+          {/* Settings gear → Tournament Control Center */}
           <button
-            title="Auction Settings"
-            onClick={() => setSettingsOpen(true)}
+            title="Tournament Settings"
+            onClick={() => navigate(`/tournament/${tournamentId}`)}
             className="h-7 w-7 flex items-center justify-center text-white/35 hover:text-white hover:bg-white/8 rounded-md transition-all flex-shrink-0"
           >
             <Settings className="w-4 h-4" />
@@ -636,8 +625,8 @@ export default function AuctionOperator() {
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/30 pr-1.5 border-r border-white/10 mr-0.5 leading-tight">LED<br/>SCREEN</span>
             <button
               onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } }); invalidate(); }}
-              disabled={setDisplayOverlay.isPending}
-              className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all ${
+              disabled={timerActive || setDisplayOverlay.isPending}
+              className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 !state?.displayOverlay
                   ? "bg-green-600 text-white shadow-md ring-1 ring-white/20"
                   : "text-white/40 hover:text-white hover:bg-white/8"
@@ -648,12 +637,98 @@ export default function AuctionOperator() {
             <div className="w-px h-5 bg-white/10 mx-0.5" />
             {ledOverlayButtons.map(({ mode, label, icon: Icon, bg }) => {
               const active = state?.displayOverlay === mode;
+              if (mode === "player") {
+                return (
+                  <div key="player" className="relative" ref={playerFilterContainerRef}>
+                    <button
+                      title={active ? "Player view active — click to filter" : "Show Player list on LED screen"}
+                      onClick={async () => {
+                        if (!active) {
+                          await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "player" } });
+                          invalidate();
+                        }
+                        setPlayerFilterOpen(v => !v);
+                      }}
+                      disabled={timerActive || setDisplayOverlay.isPending}
+                      className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                        active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" /> {label}
+                      <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+                    </button>
+                    {playerFilterOpen && (
+                      <div className="absolute top-full right-0 mt-1 w-56 rounded-xl border border-white/15 bg-[#1a1f2e] shadow-2xl z-50 p-3 space-y-3">
+                        <div className="space-y-1.5">
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-white/30">Status</p>
+                          <div className="flex flex-wrap gap-1">
+                            {(["all", "available", "sold", "unsold", "retained"] as const).map(opt => (
+                              <button
+                                key={opt}
+                                onClick={async () => {
+                                  setPlayerFilterStatus(opt);
+                                  setPlayerFilterTeamId(null);
+                                  await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: opt, teamId: null } });
+                                  invalidate();
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize transition-all ${
+                                  playerFilterStatus === opt && playerFilterTeamId === null
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
+                                }`}
+                              >
+                                {opt === "all" ? "All" : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {teams && teams.length > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-white/30">Team</p>
+                            <div className="flex flex-wrap gap-1">
+                              <button
+                                onClick={async () => {
+                                  setPlayerFilterTeamId(null);
+                                  await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: playerFilterStatus, teamId: null } });
+                                  invalidate();
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                  playerFilterTeamId === null ? "bg-blue-600 text-white" : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
+                                }`}
+                              >
+                                All
+                              </button>
+                              {teams.map(team => (
+                                <button
+                                  key={team.id}
+                                  onClick={async () => {
+                                    setPlayerFilterTeamId(team.id);
+                                    setPlayerFilterStatus("all");
+                                    await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: "all", teamId: team.id } });
+                                    invalidate();
+                                  }}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
+                                    playerFilterTeamId === team.id ? "bg-blue-600 text-white" : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
+                                  }`}
+                                  style={{ borderLeft: `2px solid ${team.color || "#888"}` }}
+                                >
+                                  {team.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <button key={mode}
                   title={active ? `Showing ${label} on LED — click to return to live` : `Show ${label} on LED screen`}
                   onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } }); invalidate(); }}
-                  disabled={setDisplayOverlay.isPending}
-                  className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all ${
+                  disabled={timerActive || setDisplayOverlay.isPending}
+                  className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                     active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
                   }`}
                 >
@@ -919,8 +994,8 @@ export default function AuctionOperator() {
 
                         {isAvail && !isNowOn && (
                           <button
-                            disabled={!isActive || nextPlayer.isPending || selectionMode !== "manual"}
-                            title={selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
+                            disabled={!isActive || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
+                            title={timerActive ? "Pause bidding first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
                             onClick={() => handleNextPlayer("sequential", player.id)}
                             className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
                           >
@@ -981,19 +1056,27 @@ export default function AuctionOperator() {
 
               <div className="flex-1" />
 
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/25 hidden sm:block">LED Countdown</span>
               <button
                 onClick={() => openCountdownDialog("break")}
-                className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
+                disabled={timerActive}
+                className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Coffee className="w-3 h-3" /> Break
               </button>
               <button
                 onClick={() => openCountdownDialog("pre-auction")}
-                disabled={isActive}
+                disabled={isActive || timerActive}
                 className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-white/15 bg-white/5 text-white/40 hover:text-white/65 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <AlarmClock className="w-3 h-3" /> Pre-Auction
+              </button>
+              <button
+                onClick={() => window.open(`/tournament/${tournamentId}/fortune-wheel`, "_blank")}
+                disabled={timerActive}
+                title="Open Fortune Wheel in new tab"
+                className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-purple-500/35 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Shuffle className="w-3 h-3" /> Fortune Wheel
               </button>
             </div>
 
@@ -1159,51 +1242,6 @@ export default function AuctionOperator() {
                   )}
                 </div>
 
-                {/* LED Countdown card */}
-                <div className="rounded-xl border border-white/10 bg-white/3 p-3">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">LED Countdown</p>
-                    {currentCountdown && (
-                      <button
-                        onClick={handleCancelCountdown}
-                        disabled={setBreakTimerMut.isPending || setPreAuctionMut.isPending}
-                        className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 disabled:opacity-40 transition-colors"
-                      >
-                        <X className="w-3 h-3" /> Cancel
-                      </button>
-                    )}
-                  </div>
-                  {currentCountdown ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {currentCountdown.type === "break" ? <Coffee className="w-4 h-4 text-amber-400 flex-shrink-0" /> : <AlarmClock className="w-4 h-4 text-yellow-400 flex-shrink-0" />}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">{currentCountdown.type === "break" ? "Break Timer" : "Pre-Auction Countdown"}</p>
-                          {currentCountdown.message && <p className="text-[10px] text-white/40 truncate">{currentCountdown.message}</p>}
-                        </div>
-                        {currentCountdown.endsAt && <CountdownClock endsAt={currentCountdown.endsAt} />}
-                      </div>
-                      {currentCountdown.type === "break" && (
-                        <button
-                          onClick={async () => { try { await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "extend", durationSeconds: 300 } }); } catch { /* ignore */ } }}
-                          disabled={setBreakTimerMut.isPending}
-                          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs font-semibold transition-colors disabled:opacity-40"
-                        >
-                          <PlusCircle className="w-3 h-3" /> Extend +5 min
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button onClick={() => openCountdownDialog("break")} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border border-amber-500/40 text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 text-xs font-semibold transition-colors">
-                        <Coffee className="w-3.5 h-3.5" /> Break Timer
-                      </button>
-                      <button onClick={() => openCountdownDialog("pre-auction")} disabled={isActive} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg border border-white/15 text-white/40 hover:text-white/65 hover:bg-white/5 text-xs font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                        <AlarmClock className="w-3.5 h-3.5" /> Pre-Auction
-                      </button>
-                    </div>
-                  )}
-                </div>
 
                 {/* Quick Bid */}
                 {teams && teams.length > 0 && (
@@ -1432,51 +1470,6 @@ export default function AuctionOperator() {
 
         {/* ══ DIALOGS ══════════════════════════════════════════════════════ */}
 
-        {/* Settings dialog — Display theme + Open Display */}
-        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogContent className="dark max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-yellow-400" /> Auction Settings
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Display Theme</Label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {DISPLAY_THEMES_LIST.map(t => (
-                    <button
-                      key={t.id}
-                      title={t.label}
-                      onClick={() => handleDisplayThemeChange(t.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                        displayTheme === t.id ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300" : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Display Screen</Label>
-                <a
-                  href={`/tournament/${tournamentId}/display?theme=${displayTheme}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setSettingsOpen(false)}
-                >
-                  <Button variant="outline" className="w-full gap-2">
-                    <Monitor className="w-4 h-4" />
-                    Open LED Display
-                    <ExternalLink className="w-3.5 h-3.5 opacity-50" />
-                  </Button>
-                </a>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Manual Sell dialog */}
         <Dialog open={manualSellOpen} onOpenChange={setManualSellOpen}>
