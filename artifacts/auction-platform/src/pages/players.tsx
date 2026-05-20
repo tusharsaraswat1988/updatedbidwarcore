@@ -528,7 +528,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Player Name *</Label>
+          <Label>Player Name <span className="text-destructive">*</span></Label>
           {player ? (
             <Input value={form.name} onChange={e => f("name", e.target.value)} required placeholder="Full name" />
           ) : (
@@ -567,7 +567,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       {/* Row 2: Mobile (required) | Role */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Mobile Number *</Label>
+          <Label>Mobile Number <span className="text-destructive">*</span></Label>
           <Input value={form.mobileNumber} onChange={e => { f("mobileNumber", e.target.value); if (mobileError) setMobileError(""); }} required placeholder="+91 98765 43210" />
           {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
         </div>
@@ -600,7 +600,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       {/* Row 4: Base Price | Jersey No */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Base Price (₹) *</Label>
+          <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
           <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
         </div>
         <div className="space-y-2">
@@ -616,7 +616,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
             if (!key) return null;
             return (
               <div key={group.id} className="space-y-2">
-                <Label>{group.groupName}{!group.optional && " *"}</Label>
+                <Label>{group.groupName}{!group.optional && <span className="text-destructive ml-0.5">*</span>}</Label>
                 {group.options.length > 0 ? (
                   <Select value={form[key]} onValueChange={v => f(key, v)}>
                     <SelectTrigger><SelectValue placeholder={`Select ${group.groupName}`} /></SelectTrigger>
