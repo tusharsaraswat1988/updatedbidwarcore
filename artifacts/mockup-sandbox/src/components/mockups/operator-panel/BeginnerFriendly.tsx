@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 function fmt(n: number) {
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(1).replace(/\.0$/, "")}Cr`;
@@ -38,18 +38,34 @@ const BIDS = [
 ];
 
 export function BeginnerFriendly() {
-  const [queueTab, setQueueTab]     = useState<"queue"|"sold"|"unsold">("queue");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [queueTab, setQueueTab]         = useState<"queue"|"sold"|"unsold">("queue");
+  const [roleFilter, setRoleFilter]     = useState("all");
   const [playerSearch, setPlayerSearch] = useState("");
-  const [timerSecs, setTimerSecs]   = useState("30");
-  const [breakActive, setBreakActive] = useState(false);
+  const [timerSecs, setTimerSecs]       = useState("30");
+  const [biddingRunning, setBiddingRunning] = useState(true);   // true = bidding is live
+  const [breakActive, setBreakActive]   = useState(false);
   const [showBreakRow, setShowBreakRow] = useState(false);
-  const [ledMode, setLedMode]       = useState<"off"|"team"|"player"|"top5">("off");
-  const [displayTheme, setDisplayTheme] = useState(0);
+  const [ledMode, setLedMode]           = useState<"off"|"team"|"player"|"top5">("off");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
 
-  const themes = [
-    { dot: "#eab308" }, { dot: "#3b82f6" }, { dot: "#ef4444" }, { dot: "#8b5cf6" }, { dot: "#10b981" },
-  ];
+  // Close filter panel when clicking outside
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (filterBtnRef.current && !filterBtnRef.current.closest("[data-filter-root]")?.contains(e.target as Node)) {
+        setShowFilterPanel(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const roleCounts = {
+    bat:  QUEUE.filter(p => p.role === "BAT").length,
+    bowl: QUEUE.filter(p => p.role === "BOWL").length,
+    ar:   QUEUE.filter(p => p.role === "AR").length,
+    wk:   QUEUE.filter(p => p.role === "WK").length,
+  };
 
   const filteredQueue = QUEUE.filter(p => {
     const matchRole =
@@ -61,19 +77,13 @@ export function BeginnerFriendly() {
     return matchRole && p.name.toLowerCase().includes(playerSearch.toLowerCase());
   });
 
-  const roleCounts = {
-    bat:  QUEUE.filter(p => p.role === "BAT").length,
-    bowl: QUEUE.filter(p => p.role === "BOWL").length,
-    ar:   QUEUE.filter(p => p.role === "AR").length,
-    wk:   QUEUE.filter(p => p.role === "WK").length,
-  };
-
   const currentPlayer = QUEUE[0];
   const currentBid    = 2400000;
   const leadingTeam   = TEAMS[0];
   const increment     = 200000;
   const timerSec      = 18;
-  const timerRunning  = true;
+
+  const activeFilterLabel = roleFilter === "all" ? null : roleFilter.toUpperCase();
 
   return (
     <div className="h-screen bg-[#0f1117] text-white flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -87,7 +97,7 @@ export function BeginnerFriendly() {
           ACTIVE
         </span>
 
-        {/* Stats pills */}
+        {/* Stats */}
         <div className="flex items-center gap-2 text-xs font-medium flex-shrink-0">
           <span className="text-white/40">SOLD <span className="text-green-400 font-bold">12</span></span>
           <span className="text-white/40">UNSOLD <span className="text-red-400 font-bold">3</span></span>
@@ -107,12 +117,7 @@ export function BeginnerFriendly() {
           ⬡ All Categories
         </button>
 
-        {/* Pause Session */}
-        <button className="h-7 px-3 flex items-center gap-1.5 text-xs font-bold rounded-md bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 hover:bg-yellow-400/25 transition-all flex-shrink-0">
-          ⏸ Pause Session
-        </button>
-
-        {/* Re-auction last player — replaces undo */}
+        {/* Re-auction last player */}
         <button
           title="Re-auction last sold/unsold player"
           className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-white/12 text-white/40 hover:text-white/80 hover:border-white/25 hover:bg-white/6 transition-all flex-shrink-0"
@@ -135,11 +140,10 @@ export function BeginnerFriendly() {
           Trial Mode
         </span>
 
-        {/* ── LED overlay controls — MAIN VIEW first, then Team / Player / Top 5 ── */}
+        {/* LED overlay controls — MAIN VIEW first */}
         <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-white/10 bg-white/4 flex-shrink-0">
           <span className="text-[10px] font-bold uppercase tracking-wider text-white/30 pr-1.5 border-r border-white/10 mr-0.5 leading-tight">LED<br/>SCREEN</span>
 
-          {/* MAIN View (Live) — always first */}
           <button
             onClick={() => setLedMode("off")}
             className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all ${
@@ -153,14 +157,12 @@ export function BeginnerFriendly() {
 
           <div className="w-px h-5 bg-white/10 mx-0.5" />
 
-          {/* Team / Player / Top 5 */}
           {([
-            { mode: "team"   as const, label: "Team",  icon: "🏆", activeClass: "bg-yellow-400 text-black" },
-            { mode: "player" as const, label: "Player", icon: "👤", activeClass: "bg-blue-500 text-white"  },
-            { mode: "top5"   as const, label: "Top 5",  icon: "★",  activeClass: "bg-purple-600 text-white"},
+            { mode: "team"   as const, label: "Team",   icon: "🏆", activeClass: "bg-yellow-400 text-black"  },
+            { mode: "player" as const, label: "Player",  icon: "👤", activeClass: "bg-blue-500 text-white"   },
+            { mode: "top5"   as const, label: "Top 5",   icon: "★",  activeClass: "bg-purple-600 text-white" },
           ]).map(({ mode, label, icon, activeClass }) => (
-            <button
-              key={mode}
+            <button key={mode}
               onClick={() => setLedMode(ledMode === mode ? "off" : mode)}
               className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all ${
                 ledMode === mode ? `${activeClass} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
@@ -170,20 +172,6 @@ export function BeginnerFriendly() {
             </button>
           ))}
         </div>
-
-        {/* Display theme dots */}
-        <div className="hidden sm:flex items-center gap-0.5 border border-white/10 rounded-md px-1.5 py-1.5 flex-shrink-0">
-          {themes.map((t, i) => (
-            <button key={i} onClick={() => setDisplayTheme(i)}
-              className={`w-3.5 h-3.5 rounded-full transition-all ${displayTheme === i ? "ring-1 ring-white ring-offset-1 ring-offset-[#141720] scale-110" : "opacity-40 hover:opacity-80"}`}
-              style={{ backgroundColor: t.dot }} />
-          ))}
-        </div>
-
-        {/* Open Display */}
-        <button className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-white/12 text-white/45 hover:text-white hover:border-white/25 transition-all flex-shrink-0">
-          📺 Open Display ↗
-        </button>
 
         {/* Connection status */}
         <div className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-green-500/40 bg-green-500/10 text-green-400 text-xs font-semibold flex-shrink-0">
@@ -203,9 +191,74 @@ export function BeginnerFriendly() {
         {/* ── LEFT: PLAYER QUEUE ──────────────────────────────────────────── */}
         <div className="w-56 flex-shrink-0 bg-[#141720] border-r border-white/8 flex flex-col min-h-0">
 
+          {/* Header: title + filter toggle + shuffle */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 flex-shrink-0">
             <span className="text-xs font-black uppercase tracking-widest text-white/40">Player Queue</span>
-            <button className="text-sm text-white/30 hover:text-white/60 transition-colors" title="Random next player">🔀</button>
+            <div className="flex items-center gap-1.5" data-filter-root>
+              {/* Filter toggle button */}
+              <div className="relative" data-filter-root>
+                <button
+                  ref={filterBtnRef}
+                  onClick={() => setShowFilterPanel(v => !v)}
+                  className={`flex items-center gap-1 h-6 px-2 rounded text-[11px] font-bold transition-all border ${
+                    showFilterPanel || roleFilter !== "all"
+                      ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300"
+                      : "border-white/12 text-white/35 hover:text-white/65 hover:border-white/25"
+                  }`}
+                >
+                  🎛
+                  {activeFilterLabel
+                    ? <span>{activeFilterLabel}</span>
+                    : <span>Filter</span>
+                  }
+                  <span className="text-[9px] opacity-60">{showFilterPanel ? "▲" : "▼"}</span>
+                </button>
+
+                {/* Filter flyout — opens to the right side, below the button */}
+                {showFilterPanel && (
+                  <div
+                    className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-white/12 bg-[#1a1f2e] shadow-2xl overflow-hidden"
+                    style={{ minWidth: "200px" }}
+                  >
+                    <div className="px-3 py-2 border-b border-white/8 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/35">Filter by Role</span>
+                      <button onClick={() => setShowFilterPanel(false)} className="text-white/25 hover:text-white/60 text-xs transition-colors">✕</button>
+                    </div>
+                    <div className="p-2 space-y-1">
+                      {([
+                        { k: "all",  l: "All Players",  c: QUEUE.length, icon: "○" },
+                        { k: "bat",  l: "Batsmen",      c: roleCounts.bat,  icon: "🏏" },
+                        { k: "bowl", l: "Bowlers",      c: roleCounts.bowl, icon: "⚾" },
+                        { k: "ar",   l: "All-rounders", c: roleCounts.ar,   icon: "⚡" },
+                        { k: "wk",   l: "Wicket-keepers",c: roleCounts.wk, icon: "🧤" },
+                      ]).map(({ k, l, c, icon }) => (
+                        <button key={k}
+                          onClick={() => { setRoleFilter(k); setShowFilterPanel(false); }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all text-left ${
+                            roleFilter === k
+                              ? "bg-yellow-400/15 border border-yellow-400/35 text-yellow-300"
+                              : "text-white/55 hover:bg-white/6 hover:text-white/85 border border-transparent"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">{icon} {l}</span>
+                          <span className={`text-xs font-mono ${roleFilter === k ? "text-yellow-400" : "text-white/30"}`}>{c}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {roleFilter !== "all" && (
+                      <div className="px-2 pb-2">
+                        <button onClick={() => { setRoleFilter("all"); setShowFilterPanel(false); }}
+                          className="w-full py-1.5 text-[11px] text-red-400/70 hover:text-red-400 transition-colors border border-red-500/15 rounded-lg hover:bg-red-500/8">
+                          Clear filter
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button className="text-sm text-white/30 hover:text-white/60 transition-colors" title="Random next player">🔀</button>
+            </div>
           </div>
 
           {/* Queue / Sold / Unsold tabs */}
@@ -213,7 +266,7 @@ export function BeginnerFriendly() {
             {(["queue","sold","unsold"] as const).map(t => (
               <button key={t} onClick={() => setQueueTab(t)}
                 className={`flex-1 text-[11px] py-1.5 font-bold capitalize transition-all ${queueTab === t ? "text-yellow-300 border-b-2 border-yellow-400 bg-yellow-400/5" : "text-white/30 hover:text-white/50"}`}>
-                {t === "queue" ? `Queue (${QUEUE.length})` : t === "sold" ? "Sold (12)" : "Unsold (3)"}
+                {t === "queue" ? `Queue (${filteredQueue.length})` : t === "sold" ? "Sold (12)" : "Unsold (3)"}
               </button>
             ))}
           </div>
@@ -221,25 +274,20 @@ export function BeginnerFriendly() {
           {/* Search */}
           <div className="px-2 py-1.5 flex-shrink-0 border-b border-white/5">
             <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
-              placeholder="Search player…"
+              placeholder={`Search${roleFilter !== "all" ? ` · ${roleFilter.toUpperCase()}` : ""}…`}
               className="w-full h-7 px-2 text-xs bg-white/5 border border-white/8 rounded text-white/60 placeholder:text-white/25 outline-none focus:border-yellow-400/30" />
           </div>
 
-          {/* Role filter */}
-          {queueTab === "queue" && (
-            <div className="flex gap-1 px-2 py-1.5 flex-shrink-0 flex-wrap border-b border-white/5">
-              {([
-                { k: "all",  l: "ALL",  c: QUEUE.length  },
-                { k: "bat",  l: "BAT",  c: roleCounts.bat  },
-                { k: "bowl", l: "BOWL", c: roleCounts.bowl },
-                { k: "ar",   l: "AR",   c: roleCounts.ar   },
-                { k: "wk",   l: "WK",   c: roleCounts.wk   },
-              ]).map(({ k, l, c }) => (
-                <button key={k} onClick={() => setRoleFilter(k)}
-                  className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wide transition-all ${roleFilter === k ? "bg-yellow-400 text-black" : "text-white/35 bg-white/5 hover:bg-white/8 hover:text-white/65"}`}>
-                  {l} <span className="opacity-60 font-mono">{c}</span>
-                </button>
-              ))}
+          {/* Active filter pill */}
+          {roleFilter !== "all" && (
+            <div className="px-2 py-1 flex-shrink-0 border-b border-white/5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-white/35">Showing:</span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-300 bg-yellow-400/12 border border-yellow-400/25 rounded-full px-2 py-0.5">
+                  {roleFilter.toUpperCase()}
+                  <button onClick={() => setRoleFilter("all")} className="text-yellow-400/50 hover:text-yellow-400 ml-0.5">✕</button>
+                </span>
+              </div>
             </div>
           )}
 
@@ -279,20 +327,30 @@ export function BeginnerFriendly() {
           {/* Bid timer bar */}
           <div className="flex-shrink-0 flex items-center gap-3 px-5 py-2.5 border-b border-white/8 bg-[#0f1117]">
             <span className="text-xs font-black uppercase tracking-widest text-white/30">Bid Timer</span>
+
             <div className="flex items-center gap-1">
               <input value={timerSecs} onChange={e => setTimerSecs(e.target.value)}
                 className="w-10 h-7 text-center text-sm font-mono font-bold bg-white/6 border border-white/12 rounded text-white/70 outline-none focus:border-yellow-400/40" />
               <span className="text-xs text-white/30">sec</span>
             </div>
-            {timerRunning ? (
-              <button className="h-7 px-3 flex items-center gap-1.5 text-xs font-bold rounded-lg bg-red-500/15 border border-red-500/35 text-red-400 hover:bg-red-500/25 transition-all">
-                ⏹ Stop Bidding
-              </button>
-            ) : (
-              <button className="h-7 px-3 flex items-center gap-1.5 text-xs font-bold rounded-lg bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/25 transition-all">
+
+            {/* Single Start / Pause toggle */}
+            {!biddingRunning ? (
+              <button
+                onClick={() => setBiddingRunning(true)}
+                className="h-8 px-4 flex items-center gap-2 text-sm font-black rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.4)] transition-all"
+              >
                 ▶ Start Bidding
               </button>
+            ) : (
+              <button
+                onClick={() => setBiddingRunning(false)}
+                className="h-8 px-4 flex items-center gap-2 text-sm font-black rounded-lg bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 transition-all"
+              >
+                ⏸ Pause Bidding
+              </button>
             )}
+
             <button className="h-7 px-2.5 text-xs font-semibold bg-white/5 border border-white/10 rounded-md text-white/40 hover:text-white/65 transition-all">
               +30s
             </button>
@@ -333,11 +391,18 @@ export function BeginnerFriendly() {
           {/* Step indicator */}
           <div className="flex-shrink-0 flex items-center gap-2 px-5 py-2 border-b border-white/5">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 text-xs font-semibold">
-              <span className="w-5 h-5 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[10px] font-black">2</span>
-              Bidding in progress
+              <span className="w-5 h-5 rounded-full bg-yellow-400 text-black flex items-center justify-center text-[10px] font-black">
+                {biddingRunning ? "2" : "1"}
+              </span>
+              {biddingRunning ? "Bidding in progress" : "Ready — press Start Bidding"}
             </div>
             <span className="text-white/25 text-xs">·</span>
-            <span className="text-white/35 text-sm">Stop bidding first, then click SOLD or UNSOLD to conclude</span>
+            <span className="text-white/35 text-sm">
+              {biddingRunning
+                ? "Pause bidding first, then click SOLD or UNSOLD to conclude"
+                : "Click Start Bidding to open the bid window, or load the next player"
+              }
+            </span>
           </div>
 
           {/* Scrollable core */}
@@ -376,17 +441,20 @@ export function BeginnerFriendly() {
                   <div className="relative w-28 h-28">
                     <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112">
                       <circle cx="56" cy="56" r="46" fill="none" stroke="white" strokeOpacity="0.06" strokeWidth="7" />
-                      <circle cx="56" cy="56" r="46" fill="none" stroke="#facc15" strokeWidth="7"
-                        strokeLinecap="round"
+                      <circle cx="56" cy="56" r="46" fill="none"
+                        stroke={biddingRunning ? "#facc15" : "#ffffff30"}
+                        strokeWidth="7" strokeLinecap="round"
                         strokeDasharray={`${(timerSec / 30) * 2 * Math.PI * 46} ${2 * Math.PI * 46}`} />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-5xl font-black tabular-nums text-white leading-none">{timerSec}</span>
+                      <span className="text-5xl font-black tabular-nums text-white leading-none">{biddingRunning ? timerSec : timerSecs}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 mt-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                    <span className="text-sm font-semibold text-yellow-300">Timer running</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${biddingRunning ? "bg-yellow-400 animate-pulse" : "bg-white/20"}`} />
+                    <span className={`text-sm font-semibold ${biddingRunning ? "text-yellow-300" : "text-white/30"}`}>
+                      {biddingRunning ? "Bidding open" : "Timer paused"}
+                    </span>
                   </div>
                   <p className="text-xs text-white/25 mt-0.5">of {timerSecs}s bid window</p>
                 </div>
@@ -423,15 +491,24 @@ export function BeginnerFriendly() {
                 ))}
               </div>
 
-              {/* NEXT PLAYER + START/STOP BIDDING */}
+              {/* NEXT PLAYER + START/PAUSE BIDDING */}
               <div className="grid grid-cols-5 gap-2">
                 <button className="col-span-3 flex items-center justify-center gap-3 py-4 rounded-xl font-black text-xl transition-all bg-gradient-to-r from-yellow-500/90 to-yellow-400 text-black hover:from-yellow-400 hover:to-yellow-300 shadow-[0_0_28px_rgba(234,179,8,0.4)] hover:scale-[1.01]">
                   ⏭ NEXT PLAYER
                   <span className="text-sm font-normal opacity-60 font-mono">N</span>
                 </button>
-                <button className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-lg transition-all bg-emerald-600 text-white hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.01]">
-                  ▶ START BIDDING
-                </button>
+
+                {!biddingRunning ? (
+                  <button onClick={() => setBiddingRunning(true)}
+                    className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-lg transition-all bg-emerald-600 text-white hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.01]">
+                    ▶ START BIDDING
+                  </button>
+                ) : (
+                  <button onClick={() => setBiddingRunning(false)}
+                    className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-black text-lg transition-all bg-amber-500/20 border-2 border-amber-400/60 text-amber-300 hover:bg-amber-500/30 hover:scale-[1.01]">
+                    ⏸ PAUSE BIDDING
+                  </button>
+                )}
               </div>
 
               {/* Quick Bid */}
@@ -472,7 +549,7 @@ export function BeginnerFriendly() {
         {/* ── RIGHT: TEAMS + BID HISTORY ──────────────────────────────────── */}
         <div className="w-64 flex-shrink-0 border-l border-white/8 bg-[#141720] flex flex-col min-h-0">
 
-          {/* ── Teams & Purse ── */}
+          {/* Teams & Purse */}
           <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "52%" }}>
             <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 flex-shrink-0">
               <span className="text-xs font-black uppercase tracking-wider text-white/50">Teams &amp; Purse</span>
@@ -491,15 +568,11 @@ export function BeginnerFriendly() {
                       boxShadow: t.leading ? `0 0 12px ${t.color}33` : undefined,
                       background: `${t.color}0c`,
                     }}>
-
-                    {/* Team name row */}
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
                       <span className="text-sm font-bold text-white/85 truncate leading-tight">{t.name}</span>
                       {t.leading && <span className="w-2 h-2 rounded-full animate-pulse flex-shrink-0 ml-auto" style={{ backgroundColor: t.color }} />}
                     </div>
-
-                    {/* Max bid + squad */}
                     <div className="flex items-baseline justify-between gap-2">
                       <div>
                         <p className={`text-lg font-black font-mono leading-none ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
@@ -514,11 +587,8 @@ export function BeginnerFriendly() {
                         <p className="text-[10px] text-white/35 leading-tight mt-0.5">players</p>
                       </div>
                     </div>
-
-                    {/* Purse bar */}
                     <div className="mt-2 h-1.5 bg-white/8 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${usedPct}%`, backgroundColor: t.color }} />
+                      <div className="h-full rounded-full transition-all" style={{ width: `${usedPct}%`, backgroundColor: t.color }} />
                     </div>
                   </div>
                 );
@@ -526,17 +596,14 @@ export function BeginnerFriendly() {
             </div>
           </div>
 
-          {/* ── Last Actions / Bid History ── */}
+          {/* Last Actions / Bid History */}
           <div className="flex-1 flex flex-col min-h-0 border-t border-white/8 overflow-hidden">
             <div className="flex items-center px-3 py-2 border-b border-white/8 flex-shrink-0">
               <span className="text-xs font-black uppercase tracking-wider text-white/50">Last Actions</span>
             </div>
-
-            {/* Latest action highlight */}
             <div className="px-3 py-1.5 bg-yellow-400/5 border-b border-yellow-400/10 flex-shrink-0">
               <p className="text-xs text-yellow-300/70 font-medium truncate">Bid raised → Mumbai Heroes · {fmt(currentBid)}</p>
             </div>
-
             <div className="flex-1 overflow-y-auto">
               {BIDS.map((b, i) => (
                 <div key={i} className="flex items-center justify-between py-2 px-3 border-b border-white/5 last:border-0 gap-2">
@@ -550,18 +617,14 @@ export function BeginnerFriendly() {
                   <span className="text-sm font-mono font-semibold text-yellow-400/80 flex-shrink-0">{fmt(b.amt)}</span>
                 </div>
               ))}
-              {BIDS.length === 0 && (
-                <p className="text-center text-sm text-white/25 py-6">No bids yet</p>
-              )}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* ══════════ KEYBOARD SHORTCUT STRIP ═════════════════════════════════ */}
+      {/* Keyboard shortcut strip */}
       <div className="flex-shrink-0 h-7 bg-[#0d0f14] border-t border-white/5 flex items-center justify-center gap-6">
-        {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Stop Bidding","[N] Next Player","[Z] Undo"].map((s, i) => (
+        {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Pause Bidding","[N] Next Player","[Z] Undo"].map((s, i) => (
           <span key={i} className="text-[10px] text-white/22 font-medium">{s}</span>
         ))}
       </div>
