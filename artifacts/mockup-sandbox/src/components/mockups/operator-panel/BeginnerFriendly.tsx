@@ -19,15 +19,18 @@ const TEAMS = [
   { id: 6, name: "Punjab Power",    color: "#f97316", purse: 6000000, used: 2000000, max: 8000000, players: 3,  maxSquad: 15, leading: false },
 ];
 const QUEUE = [
-  { id: 1, name: "Rohit Sharma",     role: "BAT",  cat: "Platinum", catColor: "#eab308", base: 2000000, jersey: "45", active: true  },
-  { id: 2, name: "Jasprit Bumrah",   role: "BOWL", cat: "Platinum", catColor: "#eab308", base: 1800000, jersey: "93", active: false },
-  { id: 3, name: "KL Rahul",         role: "WK",   cat: "Gold",     catColor: "#f59e0b", base: 1500000, jersey: "1",  active: false },
-  { id: 4, name: "Hardik Pandya",    role: "AR",   cat: "Platinum", catColor: "#eab308", base: 1600000, jersey: "33", active: false },
-  { id: 5, name: "Y. Chahal",        role: "BOWL", cat: "Gold",     catColor: "#f59e0b", base: 1000000, jersey: "3",  active: false },
-  { id: 6, name: "Shubman Gill",     role: "BAT",  cat: "Gold",     catColor: "#f59e0b", base: 1200000, jersey: "77", active: false },
-  { id: 7, name: "Sanju Samson",     role: "WK",   cat: "Gold",     catColor: "#f59e0b", base: 1400000, jersey: "8",  active: false },
-  { id: 8, name: "R. Ashwin",        role: "BOWL", cat: "Silver",   catColor: "#94a3b8", base: 800000,  jersey: "99", active: false },
-  { id: 9, name: "S. Iyer",          role: "BAT",  cat: "Gold",     catColor: "#f59e0b", base: 1100000, jersey: "41", active: false },
+  { id:  1, name: "Rohit Sharma",    role: "BAT",  cat: "Platinum", catColor: "#eab308", base: 2000000, jersey: "45", status: "active",    soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id:  2, name: "Jasprit Bumrah",  role: "BOWL", cat: "Platinum", catColor: "#eab308", base: 1800000, jersey: "93", status: "available", soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id:  3, name: "KL Rahul",        role: "WK",   cat: "Gold",     catColor: "#f59e0b", base: 1500000, jersey: "1",  status: "available", soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id:  4, name: "Hardik Pandya",   role: "AR",   cat: "Platinum", catColor: "#eab308", base: 1600000, jersey: "33", status: "sold",      soldAmt: 2100000, soldTeam: "Mumbai Heroes", retainedAmt: null   },
+  { id:  5, name: "Y. Chahal",       role: "BOWL", cat: "Gold",     catColor: "#f59e0b", base: 1000000, jersey: "3",  status: "unsold",    soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id:  6, name: "Shubman Gill",    role: "BAT",  cat: "Gold",     catColor: "#f59e0b", base: 1200000, jersey: "77", status: "sold",      soldAmt: 1400000, soldTeam: "Punjab Power",  retainedAmt: null   },
+  { id:  7, name: "Sanju Samson",    role: "WK",   cat: "Gold",     catColor: "#f59e0b", base: 1400000, jersey: "8",  status: "retained",  soldAmt: null,    soldTeam: "Delhi Dons",    retainedAmt: 1800000},
+  { id:  8, name: "R. Ashwin",       role: "BOWL", cat: "Silver",   catColor: "#94a3b8", base: 800000,  jersey: "99", status: "available", soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id:  9, name: "S. Iyer",         role: "BAT",  cat: "Gold",     catColor: "#f59e0b", base: 1100000, jersey: "41", status: "sold",      soldAmt: 1600000, soldTeam: "Chennai Kings", retainedAmt: null   },
+  { id: 10, name: "V. Kohli",        role: "BAT",  cat: "Platinum", catColor: "#eab308", base: 2000000, jersey: "18", status: "retained",  soldAmt: null,    soldTeam: "Bangalore Bulls",retainedAmt:2000000},
+  { id: 11, name: "M. Shami",        role: "BOWL", cat: "Gold",     catColor: "#f59e0b", base: 1200000, jersey: "11", status: "unsold",    soldAmt: null,    soldTeam: null,           retainedAmt: null    },
+  { id: 12, name: "R. Pant",         role: "WK",   cat: "Gold",     catColor: "#f59e0b", base: 1500000, jersey: "17", status: "available", soldAmt: null,    soldTeam: null,           retainedAmt: null    },
 ];
 const BIDS = [
   { player: "Rohit Sharma",     team: "Mumbai Heroes",   color: "#3b82f6", amt: 2400000 },
@@ -38,8 +41,7 @@ const BIDS = [
 ];
 
 export function BeginnerFriendly() {
-  const [queueTab, setQueueTab]         = useState<"queue"|"sold"|"unsold">("queue");
-  const [roleFilter, setRoleFilter]     = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [playerSearch, setPlayerSearch] = useState("");
   const [timerSecs, setTimerSecs]       = useState("30");
   const [biddingRunning, setBiddingRunning] = useState(true);   // true = bidding is live
@@ -60,21 +62,20 @@ export function BeginnerFriendly() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const roleCounts = {
-    bat:  QUEUE.filter(p => p.role === "BAT").length,
-    bowl: QUEUE.filter(p => p.role === "BOWL").length,
-    ar:   QUEUE.filter(p => p.role === "AR").length,
-    wk:   QUEUE.filter(p => p.role === "WK").length,
+  const statusCounts = {
+    all:       QUEUE.length,
+    available: QUEUE.filter(p => p.status === "available" || p.status === "active").length,
+    sold:      QUEUE.filter(p => p.status === "sold").length,
+    unsold:    QUEUE.filter(p => p.status === "unsold").length,
+    retained:  QUEUE.filter(p => p.status === "retained").length,
   };
 
   const filteredQueue = QUEUE.filter(p => {
-    const matchRole =
-      roleFilter === "all"  ? true :
-      roleFilter === "bat"  ? p.role === "BAT"  :
-      roleFilter === "bowl" ? p.role === "BOWL" :
-      roleFilter === "ar"   ? p.role === "AR"   :
-      roleFilter === "wk"   ? p.role === "WK"   : true;
-    return matchRole && p.name.toLowerCase().includes(playerSearch.toLowerCase());
+    const matchStatus =
+      statusFilter === "all"       ? true :
+      statusFilter === "available" ? (p.status === "available" || p.status === "active") :
+      p.status === statusFilter;
+    return matchStatus && p.name.toLowerCase().includes(playerSearch.toLowerCase());
   });
 
   const currentPlayer = QUEUE[0];
@@ -83,7 +84,7 @@ export function BeginnerFriendly() {
   const increment     = 200000;
   const timerSec      = 18;
 
-  const activeFilterLabel = roleFilter === "all" ? null : roleFilter.toUpperCase();
+  const activeFilterLabel = statusFilter === "all" ? null : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1);
 
   return (
     <div className="h-screen bg-[#0f1117] text-white flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -189,67 +190,67 @@ export function BeginnerFriendly() {
       <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* ── LEFT: PLAYER QUEUE ──────────────────────────────────────────── */}
-        <div className="w-56 flex-shrink-0 bg-[#141720] border-r border-white/8 flex flex-col min-h-0">
+        <div className="w-60 flex-shrink-0 bg-[#141720] border-r border-white/8 flex flex-col min-h-0">
 
           {/* Header: title + filter toggle + shuffle */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 flex-shrink-0">
-            <span className="text-xs font-black uppercase tracking-widest text-white/40">Player Queue</span>
-            <div className="flex items-center gap-1.5" data-filter-root>
+            <span className="text-xs font-black uppercase tracking-widest text-white/40">
+              Players
+              <span className="ml-1.5 text-white/25 font-normal normal-case tracking-normal">({filteredQueue.length})</span>
+            </span>
+            <div className="flex items-center gap-1.5">
               {/* Filter toggle button */}
               <div className="relative" data-filter-root>
                 <button
                   ref={filterBtnRef}
                   onClick={() => setShowFilterPanel(v => !v)}
                   className={`flex items-center gap-1 h-6 px-2 rounded text-[11px] font-bold transition-all border ${
-                    showFilterPanel || roleFilter !== "all"
+                    showFilterPanel || statusFilter !== "all"
                       ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300"
                       : "border-white/12 text-white/35 hover:text-white/65 hover:border-white/25"
                   }`}
                 >
                   🎛
-                  {activeFilterLabel
-                    ? <span>{activeFilterLabel}</span>
-                    : <span>Filter</span>
-                  }
-                  <span className="text-[9px] opacity-60">{showFilterPanel ? "▲" : "▼"}</span>
+                  <span>{activeFilterLabel ?? "Filter"}</span>
+                  <span className="text-[9px] opacity-50">{showFilterPanel ? "▲" : "▼"}</span>
                 </button>
 
-                {/* Filter flyout — opens to the right side, below the button */}
+                {/* Status filter flyout */}
                 {showFilterPanel && (
-                  <div
-                    className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-white/12 bg-[#1a1f2e] shadow-2xl overflow-hidden"
-                    style={{ minWidth: "200px" }}
-                  >
+                  <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-white/12 bg-[#1a1f2e] shadow-2xl overflow-hidden" style={{ minWidth: "210px" }}>
                     <div className="px-3 py-2 border-b border-white/8 flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/35">Filter by Role</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/35">Filter by Status</span>
                       <button onClick={() => setShowFilterPanel(false)} className="text-white/25 hover:text-white/60 text-xs transition-colors">✕</button>
                     </div>
-                    <div className="p-2 space-y-1">
+                    <div className="p-2 space-y-0.5">
                       {([
-                        { k: "all",  l: "All Players",  c: QUEUE.length, icon: "○" },
-                        { k: "bat",  l: "Batsmen",      c: roleCounts.bat,  icon: "🏏" },
-                        { k: "bowl", l: "Bowlers",      c: roleCounts.bowl, icon: "⚾" },
-                        { k: "ar",   l: "All-rounders", c: roleCounts.ar,   icon: "⚡" },
-                        { k: "wk",   l: "Wicket-keepers",c: roleCounts.wk, icon: "🧤" },
-                      ]).map(({ k, l, c, icon }) => (
+                        { k: "all",       l: "All Players", c: statusCounts.all,       dot: "#ffffff50", textCls: "text-white/60"   },
+                        { k: "available", l: "Available",   c: statusCounts.available, dot: "#60a5fa",   textCls: "text-blue-300"   },
+                        { k: "sold",      l: "Sold",        c: statusCounts.sold,      dot: "#4ade80",   textCls: "text-green-300"  },
+                        { k: "unsold",    l: "Unsold",      c: statusCounts.unsold,    dot: "#f87171",   textCls: "text-red-300"    },
+                        { k: "retained",  l: "Retained",    c: statusCounts.retained,  dot: "#c084fc",   textCls: "text-purple-300" },
+                      ]).map(({ k, l, c, dot, textCls }) => (
                         <button key={k}
-                          onClick={() => { setRoleFilter(k); setShowFilterPanel(false); }}
+                          onClick={() => { setStatusFilter(k); setShowFilterPanel(false); }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all text-left ${
-                            roleFilter === k
+                            statusFilter === k
                               ? "bg-yellow-400/15 border border-yellow-400/35 text-yellow-300"
-                              : "text-white/55 hover:bg-white/6 hover:text-white/85 border border-transparent"
+                              : `${textCls} hover:bg-white/6 border border-transparent`
                           }`}
                         >
-                          <span className="flex items-center gap-2">{icon} {l}</span>
-                          <span className={`text-xs font-mono ${roleFilter === k ? "text-yellow-400" : "text-white/30"}`}>{c}</span>
+                          <span className="flex items-center gap-2.5">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
+                            {l}
+                          </span>
+                          <span className={`text-xs font-mono ${statusFilter === k ? "text-yellow-400" : "text-white/30"}`}>{c}</span>
                         </button>
                       ))}
                     </div>
-                    {roleFilter !== "all" && (
+                    {statusFilter !== "all" && (
                       <div className="px-2 pb-2">
-                        <button onClick={() => { setRoleFilter("all"); setShowFilterPanel(false); }}
-                          className="w-full py-1.5 text-[11px] text-red-400/70 hover:text-red-400 transition-colors border border-red-500/15 rounded-lg hover:bg-red-500/8">
-                          Clear filter
+                        <button onClick={() => { setStatusFilter("all"); setShowFilterPanel(false); }}
+                          className="w-full py-1.5 text-[11px] text-white/30 hover:text-white/55 transition-colors border border-white/8 rounded-lg hover:bg-white/5">
+                          Show all players
                         </button>
                       </div>
                     )}
@@ -261,63 +262,93 @@ export function BeginnerFriendly() {
             </div>
           </div>
 
-          {/* Queue / Sold / Unsold tabs */}
-          <div className="flex border-b border-white/6 flex-shrink-0">
-            {(["queue","sold","unsold"] as const).map(t => (
-              <button key={t} onClick={() => setQueueTab(t)}
-                className={`flex-1 text-[11px] py-1.5 font-bold capitalize transition-all ${queueTab === t ? "text-yellow-300 border-b-2 border-yellow-400 bg-yellow-400/5" : "text-white/30 hover:text-white/50"}`}>
-                {t === "queue" ? `Queue (${filteredQueue.length})` : t === "sold" ? "Sold (12)" : "Unsold (3)"}
-              </button>
-            ))}
-          </div>
-
           {/* Search */}
           <div className="px-2 py-1.5 flex-shrink-0 border-b border-white/5">
             <input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)}
-              placeholder={`Search${roleFilter !== "all" ? ` · ${roleFilter.toUpperCase()}` : ""}…`}
+              placeholder="Search player…"
               className="w-full h-7 px-2 text-xs bg-white/5 border border-white/8 rounded text-white/60 placeholder:text-white/25 outline-none focus:border-yellow-400/30" />
           </div>
 
           {/* Active filter pill */}
-          {roleFilter !== "all" && (
-            <div className="px-2 py-1 flex-shrink-0 border-b border-white/5">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-white/35">Showing:</span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-300 bg-yellow-400/12 border border-yellow-400/25 rounded-full px-2 py-0.5">
-                  {roleFilter.toUpperCase()}
-                  <button onClick={() => setRoleFilter("all")} className="text-yellow-400/50 hover:text-yellow-400 ml-0.5">✕</button>
-                </span>
-              </div>
+          {statusFilter !== "all" && (
+            <div className="px-2 py-1 flex-shrink-0 border-b border-white/5 flex items-center gap-1.5">
+              <span className="text-[10px] text-white/30">Showing:</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-300 bg-yellow-400/12 border border-yellow-400/25 rounded-full px-2 py-0.5">
+                {activeFilterLabel}
+                <button onClick={() => setStatusFilter("all")} className="text-yellow-400/50 hover:text-yellow-400 ml-0.5 transition-colors">✕</button>
+              </span>
+            </div>
+          )}
+
+          {/* Re-auction all unsold — shown when filtered to unsold */}
+          {statusFilter === "unsold" && statusCounts.unsold > 0 && (
+            <div className="px-2 py-2 border-b border-white/6 flex-shrink-0">
+              <button className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all">
+                ↻ Re-auction all {statusCounts.unsold} unsold
+              </button>
             </div>
           )}
 
           {/* Player list */}
           <div className="flex-1 overflow-y-auto">
-            {queueTab === "unsold" && (
-              <div className="px-2 py-2 border-b border-white/6">
-                <button className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all">
-                  ↻ Re-auction all 3 unsold
-                </button>
-              </div>
+            {filteredQueue.length === 0 && (
+              <p className="text-center text-xs text-white/25 py-8">No players</p>
             )}
-            {filteredQueue.map((p, idx) => (
-              <div key={p.id}
-                className={`flex items-center gap-2 px-2 py-2.5 border-b border-white/4 transition-all cursor-pointer group ${p.active ? "bg-yellow-400/8 border-yellow-400/15" : "hover:bg-white/4"}`}>
-                <span className="text-[10px] text-white/20 w-4 text-right flex-shrink-0 font-mono">{idx + 1}</span>
-                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: p.catColor }} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    {p.jersey && <span className="text-[10px] text-white/25 font-mono">#{p.jersey}</span>}
-                    <p className={`text-xs font-semibold truncate ${p.active ? "text-yellow-200" : "text-white/65 group-hover:text-white/85"}`}>{p.name}</p>
+            {filteredQueue.map((p, idx) => {
+              const isActive   = p.status === "active";
+              const isSold     = p.status === "sold";
+              const isUnsold   = p.status === "unsold";
+              const isRetained = p.status === "retained";
+
+              return (
+                <div key={p.id}
+                  className={`flex items-start gap-2 px-2 py-2.5 border-b border-white/4 transition-all cursor-pointer group ${isActive ? "bg-yellow-400/8 border-yellow-400/15" : "hover:bg-white/4"}`}>
+
+                  {/* Row number */}
+                  <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{idx + 1}</span>
+
+                  {/* Jersey number badge */}
+                  <span className="text-[10px] font-mono font-bold text-white/30 w-7 text-right flex-shrink-0 pt-0.5">#{p.jersey}</span>
+
+                  {/* Main info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold truncate leading-tight ${isActive ? "text-yellow-200" : isSold ? "text-white/70" : isUnsold ? "text-white/40" : isRetained ? "text-purple-200" : "text-white/65 group-hover:text-white/85"}`}>
+                      {p.name}
+                    </p>
+
+                    {/* Contextual second line */}
+                    {isSold && p.soldAmt && p.soldTeam && (
+                      <p className="text-[10px] leading-tight mt-0.5">
+                        <span className="text-green-400 font-mono font-bold">{fmt(p.soldAmt)}</span>
+                        <span className="text-white/30 mx-1">→</span>
+                        <span className="text-white/45 truncate">{p.soldTeam}</span>
+                      </p>
+                    )}
+                    {isRetained && p.retainedAmt && p.soldTeam && (
+                      <p className="text-[10px] leading-tight mt-0.5">
+                        <span className="text-purple-400 font-mono font-bold">{fmt(p.retainedAmt)}</span>
+                        <span className="text-white/30 mx-1">·</span>
+                        <span className="text-white/40 truncate">{p.soldTeam}</span>
+                      </p>
+                    )}
+                    {isUnsold && (
+                      <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {fmt(p.base)}</p>
+                    )}
+                    {!isSold && !isRetained && !isUnsold && (
+                      <p className="text-[10px] text-white/28 leading-tight mt-0.5">{p.role} · base {fmt(p.base)}</p>
+                    )}
                   </div>
-                  <p className="text-[10px] text-white/30">{p.role} · {fmt(p.base)}</p>
+
+                  {/* Status indicator */}
+                  <div className="flex-shrink-0 pt-1">
+                    {isActive  && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />}
+                    {isSold    && <span className="text-[8px] font-black text-green-400 bg-green-400/12 px-1 py-0.5 rounded">SOLD</span>}
+                    {isUnsold  && <span className="text-[8px] font-black text-red-400/70 bg-red-400/10 px-1 py-0.5 rounded">UNSOLD</span>}
+                    {isRetained&& <span className="text-[8px] font-black text-purple-400 bg-purple-400/12 px-1 py-0.5 rounded">RET</span>}
+                  </div>
                 </div>
-                {p.active
-                  ? <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
-                  : <span className="text-white/15 text-xs opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">▶</span>
-                }
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
