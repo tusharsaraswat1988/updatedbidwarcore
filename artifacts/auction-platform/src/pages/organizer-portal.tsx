@@ -58,6 +58,23 @@ function TournamentLicenseBadge({ status }: { status: string }) {
   );
 }
 
+// ─── Indian number words helper ───────────────────────────────────────────────
+
+function toIndianWords(raw: string): string {
+  const n = parseInt(raw, 10);
+  if (!n || isNaN(n) || n <= 0) return "";
+  const crore = Math.floor(n / 10000000);
+  const lakh = Math.floor((n % 10000000) / 100000);
+  const thousand = Math.floor((n % 100000) / 1000);
+  const rest = n % 1000;
+  const parts: string[] = [];
+  if (crore) parts.push(`${crore} crore`);
+  if (lakh) parts.push(`${lakh} lakh`);
+  if (thousand) parts.push(`${thousand} thousand`);
+  if (rest) parts.push(String(rest));
+  return parts.join(" ");
+}
+
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
 function CreateTournamentModal({
@@ -73,7 +90,7 @@ function CreateTournamentModal({
     venue: "",
     auctionDate: "",
     auctionTime: "",
-    basePurse: "1000000",
+    basePurse: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -90,14 +107,32 @@ function CreateTournamentModal({
 
   function handleClose() {
     setCreatedCode(null);
-    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", auctionTime: "", basePurse: "1000000" });
+    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", auctionTime: "", basePurse: "" });
     setError("");
     onClose();
+  }
+
+  // datetime-local value combined from date + time
+  const datetimeValue = form.auctionDate
+    ? form.auctionTime ? `${form.auctionDate}T${form.auctionTime}` : form.auctionDate
+    : "";
+
+  function handleDatetimeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value; // "2026-05-31T14:00" or ""
+    setForm(f => ({
+      ...f,
+      auctionDate: val ? val.slice(0, 10) : "",
+      auctionTime: val.length >= 16 ? val.slice(11, 16) : "",
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
+    if (!form.basePurse || parseInt(form.basePurse) <= 0) {
+      setError("Total Points per Team is required.");
+      return;
+    }
     setLoading(true);
     setError("");
     const r = await createOrganizerTournament({
@@ -106,13 +141,15 @@ function CreateTournamentModal({
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
       auctionTime: form.auctionTime || undefined,
-      basePurse: parseInt(form.basePurse) || 1000000,
+      basePurse: parseInt(form.basePurse),
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
     setCreatedCode(r.tournament?.auctionCode ?? null);
     onCreated();
   }
+
+  const purseWords = toIndianWords(form.basePurse);
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
@@ -170,39 +207,48 @@ function CreateTournamentModal({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Auction Date</Label>
+                <Label>Venue</Label>
                 <Input
-                  type="date"
-                  value={form.auctionDate}
-                  onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Auction Time</Label>
-                <Input
-                  type="time"
-                  value={form.auctionTime}
-                  onChange={e => setForm(f => ({ ...f, auctionTime: e.target.value }))}
+                  value={form.venue}
+                  onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                  placeholder="Stadium name or city"
                 />
               </div>
             </div>
+
+            {/* Single datetime-local picker — avoids the HH:MM:SS problem on mobile */}
             <div className="space-y-2">
-              <Label>Venue</Label>
+              <Label>Auction Date &amp; Time</Label>
               <Input
-                value={form.venue}
-                onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-                placeholder="Stadium name or city"
+                type="datetime-local"
+                value={datetimeValue}
+                onChange={handleDatetimeChange}
+                step="60"
               />
+              {form.auctionDate && (
+                <p className="text-xs text-muted-foreground">
+                  {new Date(`${form.auctionDate}T${form.auctionTime || "00:00"}`).toLocaleString("en-IN", {
+                    dateStyle: "long", timeStyle: form.auctionTime ? "short" : undefined,
+                  })}
+                </p>
+              )}
             </div>
+
             <div className="space-y-2">
-              <Label>Total Purse per Team (₹)</Label>
+              <Label>Total Points per Team *</Label>
               <Input
                 type="number"
                 value={form.basePurse}
                 onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-                placeholder="1000000"
+                placeholder="e.g. 1000000"
+                min={1}
+                required
               />
+              {purseWords && (
+                <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
+              )}
             </div>
+
             {error && (
               <div className="flex items-center gap-2 text-destructive text-sm">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
