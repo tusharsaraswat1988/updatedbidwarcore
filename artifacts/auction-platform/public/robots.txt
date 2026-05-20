@@ -1,2 +1,23 @@
 User-agent: *
 Allow: /
+
+# Block internal auction and admin routes from indexing
+Disallow: /tournament/
+Disallow: /admin/
+Disallow: /admin
+Disallow: /organizer
+Disallow: /complete-profile
+Disallow: /wa-consent/
+Disallow: /api/
+
+# Allow public SEO landing pages
+Allow: /cricket-auction-software
+Allow: /football-player-auction
+Allow: /kabaddi-auction-platform
+Allow: /esports-auction-system
+Allow: /business-league-auction
+Allow: /live-player-bidding
+Allow: /tournament-auction-platform
+Allow: /legal/
+
+Sitemap: https://www.bidwar.in/sitemap.xml

@@ -38,6 +38,7 @@ import WaConsent from "@/pages/wa-consent";
 import CompleteProfile from "@/pages/complete-profile";
 import BreakTimerPage from "@/pages/break-timer";
 import LocalModePage from "@/pages/local-mode";
+import SeoSportLanding from "@/pages/seo-sport-landing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,15 @@ function Router() {
       <Route path="/complete-profile" component={CompleteProfile} />
       <Route path="/organizer" component={OrganizerPortal} />
       <Route path="/legal/:slug" component={LegalPage} />
+
+      {/* SEO landing pages */}
+      <Route path="/cricket-auction-software">{() => <SeoSportLanding slug="cricket-auction-software" />}</Route>
+      <Route path="/football-player-auction">{() => <SeoSportLanding slug="football-player-auction" />}</Route>
+      <Route path="/kabaddi-auction-platform">{() => <SeoSportLanding slug="kabaddi-auction-platform" />}</Route>
+      <Route path="/esports-auction-system">{() => <SeoSportLanding slug="esports-auction-system" />}</Route>
+      <Route path="/business-league-auction">{() => <SeoSportLanding slug="business-league-auction" />}</Route>
+      <Route path="/live-player-bidding">{() => <SeoSportLanding slug="live-player-bidding" />}</Route>
+      <Route path="/tournament-auction-platform">{() => <SeoSportLanding slug="tournament-auction-platform" />}</Route>
 
       {/* Organizer-protected routes */}
       <Route path="/tournament/:id">

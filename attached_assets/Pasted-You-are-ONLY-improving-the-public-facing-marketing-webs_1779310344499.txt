@@ -1,0 +1,196 @@
+You are ONLY improving the public-facing marketing website, SEO architecture, discoverability, branding, analytics, and landing pages for BIDWAR.
+
+IMPORTANT:
+DO NOT modify, break, refactor, or interfere with:
+
+* auction engine logic
+* bidding logic
+* websocket/SSE systems
+* live sync systems
+* operator workflows
+* auction calculations
+* pricing formulas
+* team logic
+* database auction flow
+* live screen functionality
+* existing business logic
+* authentication flow
+* admin/operator internal systems
+
+Treat the auction core system as production-critical and LOCKED.
+
+You may ONLY work on:
+
+* public homepage
+* marketing sections
+* SEO structure
+* metadata
+* landing pages
+* discoverability
+* analytics integrations
+* UI polish for public pages
+* performance optimization for public pages
+* schema markup
+* FAQ sections
+* content architecture
+
+========================================
+GOAL
+====
+
+Position BIDWAR globally as:
+
+“India’s Live Sports & Tournament Auction Platform”
+
+The website should feel:
+
+* premium
+* scalable
+* globally modern
+* SaaS-grade
+* fast
+* discoverable on Google
+
+WITHOUT touching the internal auction system.
+
+========================================
+SAFE AREAS ONLY
+===============
+
+Allowed:
+
+* homepage redesign/refinement
+* feature sections
+* FAQ sections
+* landing pages
+* SEO improvements
+* metadata
+* sitemap
+* robots.txt
+* schema.org
+* analytics
+* Clarity integration
+* image optimization
+* public UI improvements
+
+NOT ALLOWED:
+
+* changing auction functionality
+* changing internal workflows
+* changing live bidding logic
+* changing realtime infrastructure
+* changing backend auction APIs
+* changing access code systems
+* changing operator panel functionality
+* changing live sync behavior
+
+If any improvement risks affecting auction flow:
+DO NOT TOUCH IT.
+
+========================================
+SEO IMPLEMENTATION
+==================
+
+Implement modern global SaaS SEO standards.
+
+Add:
+
+* semantic HTML
+* proper H1/H2 hierarchy
+* dynamic metadata
+* Open Graph
+* Twitter/X cards
+* canonical URLs
+* sitemap.xml
+* robots.txt
+* structured schema markup
+
+Implement schema:
+
+* Organization
+* SoftwareApplication
+* FAQPage
+* WebSite
+
+========================================
+LANDING PAGES
+=============
+
+Create SEO landing pages ONLY if isolated safely from auction logic:
+
+/cricket-auction-software
+/football-player-auction
+/kabaddi-auction-platform
+/esports-auction-system
+/business-league-auction
+/live-player-bidding
+/tournament-auction-platform
+
+These pages should:
+
+* reuse safe frontend components
+* not affect backend logic
+* be statically optimized for SEO
+
+========================================
+HOMEPAGE POSITIONING
+====================
+
+Primary Heading:
+“Run Professional Sports Auctions Live”
+
+Subheading:
+“IPL-grade live auction infrastructure for cricket, football, kabaddi, esports, and franchise tournaments with real-time bidding, operator controls, and live audience screens.”
+
+Maintain premium dark modern UI.
+
+========================================
+ANALYTICS
+=========
+
+Safely integrate:
+
+* Google Analytics 4
+* Microsoft Clarity
+
+Requirements:
+
+* no duplicate loading
+* globally initialized
+* performance optimized
+* no interference with auction functionality
+
+========================================
+PERFORMANCE
+===========
+
+Optimize ONLY public pages for:
+
+* Lighthouse score
+* SEO score
+* accessibility
+* image loading
+* bundle optimization
+
+DO NOT optimize or modify realtime auction systems.
+
+========================================
+FINAL RULE
+==========
+
+The internal auction system is the heart of BIDWAR.
+
+DO NOT break, rewrite, refactor, or “improve” anything related to:
+
+* auction execution
+* live bidding
+* realtime updates
+* operator actions
+* auction synchronization
+
+Focus ONLY on:
+discoverability,
+branding,
+SEO,
+public website quality,
+and marketing architecture.
