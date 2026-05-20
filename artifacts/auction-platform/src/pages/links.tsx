@@ -94,17 +94,17 @@ export default function LinksPage() {
             <LinkRow
               label="LED Big Screen Display"
               url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Full-screen broadcast view — shows current player, live bid, and team logos. Open this on your projector or venue TV and press F11 for full-screen."
+              description="The main big-screen view for your venue. Shows the current player card, live bid amount, and team logos in broadcast quality. Open on your projector or TV and press F11 for full screen."
             />
             <LinkRow
               label="OBS Camera Overlay"
               url={`${base}/tournament/${tournamentId}/obs`}
-              description="For live streaming to YouTube or Facebook. Add this as a Browser Source in OBS Studio (1920x1080). It overlays auction details on your camera feed with a transparent background."
+              description="For live-streaming to YouTube, Instagram, or Facebook. Add this URL as a Browser Source in OBS Studio (1920×1080, transparent background) — it overlays the auction details on top of your camera feed."
             />
             <LinkRow
               label="Fortune Wheel"
               url={`${base}/tournament/${tournamentId}/fortune-wheel`}
-              description="Spin wheel for tie-breaks or random draws. Project this on your screen and spin in front of the audience for a fair, transparent result."
+              description="A spin wheel for tie-breaks, draft order draws, or any random selection. Loaded with your team names by default. Spin it live in front of the audience for a transparent result."
             />
           </CardContent>
         </Card>

@@ -554,6 +554,86 @@ export default function TournamentHub() {
           </Card>
         </div>
 
+        {/* Setup Checklist — visible during setup phase only */}
+        {tournament?.status === "setup" && (
+          <div className="rounded-xl border border-border bg-card/30 p-5 space-y-4">
+            <div>
+              <h2 className="text-base font-display font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-primary" /> Setup Checklist
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Complete these steps before going live.</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                {
+                  done: true,
+                  label: "Tournament created",
+                  desc: "Name, sport, date and purse are configured.",
+                  link: undefined as string | undefined,
+                  linkLabel: undefined as string | undefined,
+                },
+                {
+                  done: (teamPurses?.length ?? 0) >= 2,
+                  label: "Add at least 2 teams",
+                  desc: (teamPurses?.length ?? 0) >= 2
+                    ? `${teamPurses?.length} teams added — good to go.`
+                    : "You need at least 2 franchise teams to run an auction.",
+                  link: `/tournament/${tournamentId}/teams`,
+                  linkLabel: "Add teams",
+                },
+                {
+                  done: (summary?.totalPlayers ?? 0) > 0,
+                  label: "Add players",
+                  desc: (summary?.totalPlayers ?? 0) > 0
+                    ? `${summary?.totalPlayers} players in the pool.`
+                    : "Add the athletes who will be auctioned off.",
+                  link: `/tournament/${tournamentId}/players`,
+                  linkLabel: "Add players",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border ${
+                    item.done
+                      ? "border-green-500/20 bg-green-500/5"
+                      : "border-border/50 bg-muted/10"
+                  }`}
+                >
+                  {item.done
+                    ? <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    : <Circle className="w-4 h-4 text-muted-foreground/40 flex-shrink-0 mt-0.5" />}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${item.done ? "text-green-400" : "text-foreground"}`}>
+                      {item.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                  </div>
+                  {!item.done && item.link && (
+                    <button
+                      onClick={() => navigate(item.link!)}
+                      className="text-xs text-primary hover:underline flex-shrink-0 font-medium mt-0.5"
+                    >
+                      {item.linkLabel} →
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {(teamPurses?.length ?? 0) >= 2 && (summary?.totalPlayers ?? 0) > 0 && (
+              <div className="flex items-center gap-3 pt-1 border-t border-border/40">
+                <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+                <p className="text-sm font-medium flex-1">All set — you can start the auction.</p>
+                <button
+                  onClick={() => navigate(`/tournament/${tournamentId}/auction`)}
+                  className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
+                >
+                  Open Operator Panel →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Team Purses */}
         <div>
           <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2">

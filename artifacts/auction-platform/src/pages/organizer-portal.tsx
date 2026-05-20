@@ -814,9 +814,17 @@ function OrganizerDashboard({
                       </div>
                     ))}
                   </div>
-                  <Button onClick={() => setCreateOpen(true)} size="lg" className="gap-2">
-                    <Plus className="w-4 h-4" /> Start Tournament Setup
-                  </Button>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <Button onClick={() => setCreateOpen(true)} size="lg" className="gap-2">
+                      <Plus className="w-4 h-4" /> Start Tournament Setup
+                    </Button>
+                    <a
+                      href="/"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> See how it works
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

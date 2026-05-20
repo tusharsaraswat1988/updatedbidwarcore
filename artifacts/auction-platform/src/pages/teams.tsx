@@ -345,6 +345,18 @@ export default function Teams() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8">
+        {/* T011: flow guard — remind organiser once exactly 1 team added */}
+        {!isLoading && (teams?.length ?? 0) === 1 && !isAuctionEnded && (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-xl">
+            <Users className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-300 text-sm">Add one more team</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                An auction needs at least 2 teams bidding against each other. Add a second franchise to continue.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3">
