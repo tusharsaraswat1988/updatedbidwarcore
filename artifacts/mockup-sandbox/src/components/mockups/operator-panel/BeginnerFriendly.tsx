@@ -89,17 +89,6 @@ export function BeginnerFriendly() {
   return (
     <div className="h-screen bg-[#0f1117] text-white flex flex-col overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-      {/* ══════════ BIDWAR BRANDING BAR ═════════════════════════════════════ */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 h-9 bg-[#0a0c12] border-b border-white/6 z-20">
-        <div className="flex items-center gap-2.5">
-          <span className="text-base font-black tracking-tight leading-none">
-            <span className="text-yellow-400">BID</span><span className="text-white">WAR</span>
-          </span>
-          <span className="text-[10px] font-semibold text-white/20 uppercase tracking-widest border-l border-white/10 pl-2.5">Operator Panel</span>
-        </div>
-        <span className="text-[10px] text-white/18 font-mono tracking-wider">v2.0</span>
-      </div>
-
       {/* ══════════ TOP STATUS BAR ══════════════════════════════════════════ */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
 
@@ -145,7 +134,22 @@ export function BeginnerFriendly() {
           ⚙
         </button>
 
-        <div className="flex-1 min-w-0" />
+        {/* ── BIDWAR branding — centred between Settings and Trial Mode ── */}
+        <div className="flex-1 min-w-0 flex items-center justify-center">
+          <div className="flex items-center gap-2 select-none">
+            {/* Gavel icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+              <path d="M14 4L20 10L10 20L4 14L14 4Z" stroke="#eab308" strokeWidth="2" strokeLinejoin="round"/>
+              <path d="M20 10L22 12" stroke="#eab308" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M4 14L2 16" stroke="#eab308" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M8 20H4V16" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {/* Wordmark */}
+            <span className="text-lg font-black tracking-tight leading-none">
+              <span className="text-yellow-400">BID</span><span className="text-white">WAR</span>
+            </span>
+          </div>
+        </div>
 
         {/* Trial badge */}
         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 flex-shrink-0">
@@ -680,6 +684,17 @@ export function BeginnerFriendly() {
           {["[S] Sold","[U] Unsold","[D] Defer","[M] Manual","[Space] Start/Pause","[N] Next","[Z] Undo"].map((s, i) => (
             <span key={i} className="text-[10px] text-white/20 font-medium whitespace-nowrap">{s}</span>
           ))}
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-4 bg-white/8 mx-4 flex-shrink-0" />
+
+        {/* Powered by — right */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] text-white/20">Operator Panel · Powered by</span>
+          <span className="text-[10px] font-black tracking-tight">
+            <span className="text-yellow-400/60">BID</span><span className="text-white/40">WAR</span>
+          </span>
         </div>
       </div>
 
