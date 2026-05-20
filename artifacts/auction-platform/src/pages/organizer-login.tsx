@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -18,11 +18,19 @@ export default function OrganizerLogin() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  const { login } = useOrganizerAuth(tournamentId);
+  const { isLoggedIn, isLoading: authLoading, login } = useOrganizerAuth(tournamentId);
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // If already authenticated (e.g. organizer-account owner who just created this tournament),
+  // skip the login gate entirely
+  useEffect(() => {
+    if (!authLoading && isLoggedIn && tournamentId) {
+      navigate(`/tournament/${tournamentId}`);
+    }
+  }, [authLoading, isLoggedIn, tournamentId, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

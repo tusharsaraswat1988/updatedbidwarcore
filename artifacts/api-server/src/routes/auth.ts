@@ -167,6 +167,13 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  // Organizer-account owners already have organizer access via JWT — no password needed
+  if (req.jwtUser.organizer?.[String(tid)]) {
+    res.json({ success: true });
+    return;
+  }
+
   if (!tournament.organizerPassword) {
     res.status(403).json({ error: "Organizer access is not yet configured for this tournament." });
     return;
