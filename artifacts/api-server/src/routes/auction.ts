@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { cheerLimiter } from "../lib/rate-limiters";
 import { validateExportToken } from "../lib/export-token";
@@ -436,6 +437,7 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
@@ -486,6 +488,7 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const session = await getOrCreateSession(tid);
 
   // Capture remaining timer so it can be restored on resume
@@ -507,6 +510,7 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const schema = z.object({
     playerId: z.number().int().optional(),
@@ -654,11 +658,11 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const schema = z.object({ teamId: z.number().int(), amount: z.number().int() });
+  const schema = z.object({ teamId: z.number().int(), amount: z.number().int(), accessCode: z.string().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const { teamId, amount } = parsed.data;
+  const { teamId, amount, accessCode } = parsed.data;
   const session = await getOrCreateSession(tid);
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
@@ -679,6 +683,15 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }
   if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
+
+  // Access-code gate: if the team has a code set the caller must supply it correctly.
+  // This binds each bid to the verified owner, preventing anonymous team impersonation.
+  if (team.accessCode) {
+    if (!accessCode || team.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
+      res.status(403).json({ error: "Invalid access code" });
+      return;
+    }
+  }
 
   // Trial mode: only the first 2 teams (by ID) may bid
   if (tournament?.licenseStatus !== "active") {
@@ -789,6 +802,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
   if (!session.currentPlayerId || !session.currentBidTeamId) {
@@ -884,6 +898,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const schema = z.object({ teamId: z.number().int(), amount: z.number().int().min(0) });
   const parsed = schema.safeParse(req.body);
@@ -975,6 +990,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
 router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
@@ -1036,6 +1052,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const schema = z.object({
     playerId: z.number().int(),
@@ -1102,6 +1119,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
 router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const unsoldPlayers = await db
     .select()
@@ -1246,6 +1264,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
 router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
   if (!session.currentPlayerId) {
@@ -1403,6 +1422,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
 router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const lastBid = await db
     .select()
@@ -1447,6 +1467,7 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
 router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({ mode: z.enum(["off", "team", "player", "top5"]) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
@@ -1465,6 +1486,7 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
 router.post("/tournaments/:tournamentId/auction/display-player-filter", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({
     status: z.enum(["all", "sold", "unsold", "available", "retained"]),
     categoryId: z.number().int().nullable().optional(),
@@ -1490,6 +1512,7 @@ router.post("/tournaments/:tournamentId/auction/display-player-filter", async (r
 router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({
     active: z.boolean().optional(),
     spinning: z.boolean().optional(),
@@ -1533,6 +1556,7 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
 router.post("/tournaments/:tournamentId/auction/category-filter", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({
     categoryIds: z.array(z.number().int()).nullable().optional(),
   }).safeParse(req.body);
@@ -1552,6 +1576,7 @@ router.post("/tournaments/:tournamentId/auction/category-filter", async (req, re
 router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const session = await getOrCreateSession(tid);
   await db
     .update(auctionSessionsTable)
@@ -1575,6 +1600,7 @@ router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) =>
 router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({ seconds: z.number().int().min(5).max(300) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
@@ -1602,6 +1628,7 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
 router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({
     action: z.enum(["start", "cancel", "extend"]),
     durationSeconds: z.number().int().min(10).max(3600).optional(),
@@ -1655,6 +1682,7 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
 router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const body = z.object({
     action: z.enum(["start", "cancel"]).optional().default("start"),
     message: z.string().max(60).optional(),

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
@@ -133,6 +134,7 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
@@ -242,6 +244,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const schema = z.object({
     players: z.array(playerInputSchema).min(1).max(500),
@@ -303,6 +306,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const schema = z.object({
     categoryId: z.number().int().optional(),
     name: z.string().optional(),
@@ -358,6 +362,7 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   await db.delete(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   res.status(204).send();
 });
@@ -451,6 +456,7 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
 router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const schema = z.object({
     sourceTournamentId: z.number().int(),

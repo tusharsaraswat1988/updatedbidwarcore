@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -71,6 +72,7 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
 router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const schema = z.object({
     name: z.string().min(1),
     shortCode: z.string().min(1).max(5),
@@ -168,6 +170,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const schema = z.object({
     name: z.string().optional(),
     shortCode: z.string().optional(),
@@ -220,6 +223,7 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   await db.delete(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   res.status(204).send();
 });
