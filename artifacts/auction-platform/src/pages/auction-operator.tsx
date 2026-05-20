@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
+import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 
 function CountdownClock({ endsAt }: { endsAt: string }) {
   const [display, setDisplay] = useState(() => {
@@ -100,6 +101,20 @@ export default function AuctionOperator() {
   const [countdownLabel, setCountdownLabel] = useState("");
   // Per-team bid debounce: maps teamId → timestamp of last bid click
   const bidDebounce = useRef<Map<number, number>>(new Map());
+
+  // Display theme — persisted per-tournament in localStorage, appended to the
+  // Open Display URL so the LED screen loads with the chosen aesthetic.
+  const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
+    try {
+      return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName;
+    } catch {
+      return "default";
+    }
+  });
+  function handleDisplayThemeChange(t: DisplayThemeName) {
+    setDisplayTheme(t);
+    try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
+  }
 
   const { connectionStatus } = useAuctionSocket(tournamentId);
 
@@ -532,14 +547,36 @@ export default function AuctionOperator() {
             )}
           </div>
 
-          {/* Open Display */}
-          <a href={`/tournament/${tournamentId}/display`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs px-2 sm:px-2.5">
-              <Monitor className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Open Display</span>
-              <ExternalLink className="w-2.5 h-2.5 opacity-50 hidden sm:inline" />
-            </Button>
-          </a>
+          {/* Display theme dots + Open Display */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="hidden sm:flex items-center gap-0.5 border border-border/50 rounded-md px-1.5 py-1">
+              {DISPLAY_THEMES_LIST.map(t => (
+                <button
+                  key={t.id}
+                  title={t.label}
+                  onClick={() => handleDisplayThemeChange(t.id)}
+                  className={`w-3.5 h-3.5 rounded-full transition-all ${
+                    displayTheme === t.id
+                      ? "ring-1 ring-white ring-offset-1 ring-offset-background scale-110"
+                      : "opacity-50 hover:opacity-90"
+                  }`}
+                  style={{ backgroundColor: t.dot }}
+                />
+              ))}
+            </div>
+            <a
+              href={`/tournament/${tournamentId}/display?theme=${displayTheme}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0"
+            >
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs px-2 sm:px-2.5">
+                <Monitor className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Open Display</span>
+                <ExternalLink className="w-2.5 h-2.5 opacity-50 hidden sm:inline" />
+              </Button>
+            </a>
+          </div>
 
           {/* Connection status dot */}
           <div

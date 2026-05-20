@@ -17,6 +17,7 @@ import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { FullscreenLayout } from "@/components/layout";
 import { StaticBackground } from "./static-background";
 import { AuctionHeader } from "./auction-header";
+import type { DisplayTheme } from "@/lib/display-theme";
 import { PlayerCard } from "./player-card";
 import { BidDisplay } from "./bid-display";
 import { IdleScreen } from "./idle-screen";
@@ -66,7 +67,7 @@ const EMPTY_WHEEL_ITEMS: WheelItem[] = [];
  * the slices they need, so the shell's own rerenders (from any auction
  * state change) cost nothing for components whose inputs are unchanged.
  */
-export function DisplayShell({ tournamentId }: { tournamentId: number }) {
+export function DisplayShell({ tournamentId, theme }: { tournamentId: number; theme?: DisplayTheme }) {
   // ── Corner connection indicator toggle (off by default) ──────────────
   const [showConnectionIndicator, setShowConnectionIndicator] = useState(false);
 
@@ -263,13 +264,14 @@ export function DisplayShell({ tournamentId }: { tournamentId: number }) {
           to { transform: translateX(-50%); }
         }
       `}</style>
-      <StaticBackground teamColor={teamColor}>
+      <StaticBackground teamColor={teamColor} theme={theme}>
         <AuctionHeader
           tournament={tournament ?? undefined}
           status={state?.status}
           soldCount={state?.soldPlayersCount || 0}
           remainingCount={state?.remainingPlayersCount || 0}
           sponsorLogos={sponsorLogos}
+          themeAccent={theme?.accentColor}
         />
 
         {/* Main Content Area */}

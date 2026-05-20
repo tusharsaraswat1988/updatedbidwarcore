@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Trophy, Calendar, Dices } from "lucide-react";
+import { Trophy, Calendar } from "lucide-react";
 import { SponsorCarousel } from "./sponsor-carousel";
 import { useBranding } from "@/hooks/use-branding";
 
@@ -25,16 +25,19 @@ export const AuctionHeader = memo(function AuctionHeader({
   soldCount,
   remainingCount,
   sponsorLogos,
+  themeAccent,
 }: {
   tournament: TournamentLite | undefined;
   status: string | null | undefined;
   soldCount: number;
   remainingCount: number;
   sponsorLogos: { url: string; name: string }[];
+  themeAccent?: string;
 }) {
   const isActive = status === "active";
   const isPaused = status === "paused";
   const { logos, brandName } = useBranding();
+  const accent = themeAccent ?? "#a78bfa";
 
   return (
     <div className="relative flex items-center justify-between px-4 md:px-8 py-2 border-b border-border/40 bg-black/40 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
@@ -57,7 +60,13 @@ export const AuctionHeader = memo(function AuctionHeader({
 
       {/* Center: BidWar brand — always visible */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 flex-shrink-0 pointer-events-none">
-        <div className="flex items-center gap-2 px-4 py-1 rounded-full bg-primary/10 border border-primary/30">
+        <div
+          className="flex items-center gap-2 px-4 py-1 rounded-full"
+          style={{
+            backgroundColor: `${accent}18`,
+            border: `1px solid ${accent}40`,
+          }}
+        >
           <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-7 md:h-9 w-auto flex-shrink-0" />
           <span className="font-display font-black text-base md:text-lg tracking-widest text-white uppercase">{brandName.toUpperCase()}</span>
         </div>
