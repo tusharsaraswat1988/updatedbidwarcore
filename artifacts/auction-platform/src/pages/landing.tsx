@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { ProductShowcase } from "@/components/product-showcase";
 import { Testimonials } from "@/components/testimonials";
+import { DemoRequest } from "@/components/demo-request";
+import { HomeSchemaMarkup } from "@/components/schema-markup";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -334,6 +336,9 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
+
+      {/* ── Schema Markup ───────────────────────────────────────────── */}
+      <HomeSchemaMarkup />
 
       {/* ── Nav ─────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
@@ -820,6 +825,9 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── Demo Request ────────────────────────────────────────────── */}
+      <DemoRequest />
 
       {/* ── Testimonials ────────────────────────────────────────────── */}
       <Testimonials />

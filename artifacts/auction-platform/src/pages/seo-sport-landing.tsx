@@ -7,6 +7,7 @@ import {
   ShieldCheck, Clock, ChevronRight, Trophy, BarChart3, Tv,
 } from "lucide-react";
 import { SeoHead } from "@/components/seo-head";
+import { SportLandingSchemaMarkup } from "@/components/schema-markup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -340,6 +341,12 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
         description={config.description}
         canonical={config.canonical}
         ogImage="https://www.bidwar.in/opengraph.jpg"
+      />
+      <SportLandingSchemaMarkup
+        name={config.breadcrumbLabel}
+        url={config.canonical}
+        description={config.description}
+        faqs={config.faqs}
       />
 
       <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
