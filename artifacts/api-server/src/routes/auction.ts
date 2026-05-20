@@ -1485,6 +1485,8 @@ router.post("/tournaments/:tournamentId/auction/display-player-filter", async (r
 });
 
 // POST fortune wheel sync (active, items, winner)
+// When spinning=true the server picks a random winner from the current pool —
+// the operator cannot choose or influence which item wins.
 router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1492,17 +1494,31 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
     active: z.boolean().optional(),
     spinning: z.boolean().optional(),
     items: z.array(z.object({ label: z.string(), color: z.string() })).optional(),
+    // winner field is intentionally ignored when spinning=true (server picks)
     winner: z.string().nullable().optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-  await getOrCreateSession(tid);
+  const session = await getOrCreateSession(tid);
   const patch: Record<string, unknown> = {};
   if (body.data.active !== undefined) patch.fortuneWheelActive = body.data.active;
   if (body.data.spinning !== undefined) patch.wheelSpinning = body.data.spinning;
   if (body.data.items !== undefined) patch.wheelItemsJson = JSON.stringify(body.data.items);
-  if ("winner" in body.data) patch.wheelWinner = body.data.winner ?? null;
-  // When spin starts, clear winner; when deactivating, reset spin state
-  if (body.data.spinning === true) patch.wheelWinner = null;
+  if ("winner" in body.data && body.data.spinning !== true) patch.wheelWinner = body.data.winner ?? null;
+  // Server-side random draw: when spinning starts, pick a winner from the pool
+  if (body.data.spinning === true) {
+    // Use items from request if provided, otherwise fall back to session
+    const poolJson = body.data.items !== undefined
+      ? JSON.stringify(body.data.items)
+      : (session.wheelItemsJson ?? "[]");
+    let pool: { label: string; color: string }[] = [];
+    try { pool = JSON.parse(poolJson); } catch { pool = []; }
+    if (pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      patch.wheelWinner = pool[idx].label;
+    } else {
+      patch.wheelWinner = null;
+    }
+  }
   if (body.data.active === false) { patch.wheelSpinning = false; patch.wheelWinner = null; }
   if (Object.keys(patch).length > 0) {
     await db
