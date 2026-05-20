@@ -114,6 +114,13 @@ export default function AuctionOperator() {
   function handleDisplayThemeChange(t: DisplayThemeName) {
     setDisplayTheme(t);
     try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
+    // Broadcast to any already-open display tabs so they update instantly
+    // without needing a page reload.
+    try {
+      const ch = new BroadcastChannel("bidwar_display_theme");
+      ch.postMessage({ tournamentId, theme: t });
+      ch.close();
+    } catch { /* ignore — unsupported browser */ }
   }
 
   const { connectionStatus } = useAuctionSocket(tournamentId);
