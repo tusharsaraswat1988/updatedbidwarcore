@@ -1,5 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { useRoute, useLocation } from "wouter";
+
+const FortuneWheelModal = lazy(() =>
+  import("@/components/fortune-wheel-modal").then((m) => ({ default: m.FortuneWheelModal }))
+);
 import {
   useGetAuctionState,
   useGetTeamPurses,
@@ -201,6 +205,7 @@ export default function AuctionOperator() {
   const [mobilePanel, setMobilePanel] = useState<"queue" | "control" | "teams">("control");
   const [rightCollapsed, setRightCollapsed] = useState(false);
   // Break timer / pre-auction countdown dialog
+  const [showFortuneWheel, setShowFortuneWheel] = useState(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
   const [countdownDialogType, setCountdownDialogType] = useState<"break" | "pre-auction">("break");
   const [countdownMinutes, setCountdownMinutes] = useState("5");
@@ -1071,9 +1076,9 @@ export default function AuctionOperator() {
                 <AlarmClock className="w-3 h-3" /> Pre-Auction
               </button>
               <button
-                onClick={() => window.open(`/tournament/${tournamentId}/fortune-wheel`, "_blank")}
+                onClick={() => setShowFortuneWheel(true)}
                 disabled={timerActive}
-                title="Open Fortune Wheel in new tab"
+                title="Open Fortune Wheel"
                 className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-purple-500/35 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Shuffle className="w-3 h-3" /> Fortune Wheel
@@ -1591,6 +1596,18 @@ export default function AuctionOperator() {
         </Dialog>
 
       </div>
+
+      {/* Fortune Wheel inline modal — lazy loaded, no new tab */}
+      {showFortuneWheel && (
+        <Suspense fallback={null}>
+          <FortuneWheelModal
+            open={showFortuneWheel}
+            onClose={() => setShowFortuneWheel(false)}
+            tournamentId={tournamentId}
+          />
+        </Suspense>
+      )}
+
     </AppLayout>
   );
 }
