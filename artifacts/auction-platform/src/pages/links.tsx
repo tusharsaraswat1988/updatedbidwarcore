@@ -86,24 +86,25 @@ export default function LinksPage() {
         {/* Broadcast Links */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-1">
               <Monitor className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Broadcast</h2>
+              <h2 className="font-display font-bold text-lg">Screens &amp; Display</h2>
             </div>
+            <p className="text-xs text-muted-foreground mb-4">Open these on a projector, TV, or streaming setup during the live auction.</p>
             <LinkRow
               label="LED Big Screen Display"
               url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Open this on the projector or big screen TV during the auction."
+              description="Full-screen broadcast view — shows current player, live bid, and team logos. Open this on your projector or venue TV and press F11 for full-screen."
             />
             <LinkRow
               label="OBS Camera Overlay"
               url={`${base}/tournament/${tournamentId}/obs`}
-              description="Camera overlay for YouTube live streaming. Add as Browser Source in OBS (1920x1080). Transparent top, animated auction details at the bottom."
+              description="For live streaming to YouTube or Facebook. Add this as a Browser Source in OBS Studio (1920x1080). It overlays auction details on your camera feed with a transparent background."
             />
             <LinkRow
               label="Fortune Wheel"
               url={`${base}/tournament/${tournamentId}/fortune-wheel`}
-              description="Tiebreaker spin wheel — project this for fair draws."
+              description="Spin wheel for tie-breaks or random draws. Project this on your screen and spin in front of the audience for a fair, transparent result."
             />
           </CardContent>
         </Card>
@@ -111,24 +112,25 @@ export default function LinksPage() {
         {/* Admin Links */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-1">
               <ClipboardList className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Admin & Operations</h2>
+              <h2 className="font-display font-bold text-lg">Operator &amp; Admin</h2>
             </div>
+            <p className="text-xs text-muted-foreground mb-4">Links for the person running the auction and the organizer.</p>
             <LinkRow
               label="Operator Panel"
               url={`${base}/tournament/${tournamentId}/auction`}
-              description="Main auction control panel. Keep this open on the host's device."
+              description="The main auction control screen. The operator uses this to start the auction, call players, accept bids, and mark players as sold. Keep this open on the host's laptop or tablet."
             />
             <LinkRow
-              label="Reports"
+              label="Reports &amp; Analytics"
               url={`${base}/tournament/${tournamentId}/reports`}
-              description="Auction analytics, team purse breakdown, top bids."
+              description="Summary after the auction — which team spent how much, top players sold, unsold players, and purse breakdown charts."
             />
             <LinkRow
               label="Player Registration Form"
               url={`${base}/tournament/${tournamentId}/register`}
-              description={`Send this link to players to self-register. They fill their own details.${regSuffix}`}
+              description={`Share this link with players so they can fill in their own details (name, role, phone, photo). You review and approve before the auction.${regSuffix}`}
             />
             {regStatus && (
               <div className="-mt-3 mb-1 ml-0">
@@ -154,12 +156,12 @@ export default function LinksPage() {
         {teams && teams.length > 0 && (
           <Card className="border-border">
             <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-1">
                 <Users className="w-5 h-5 text-primary" />
                 <h2 className="font-display font-bold text-lg">Team Owner Panels</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Share each team's link with their respective owner. They can view stats and place bids from their phone.
+                Send each team owner their personal link. They open it on their phone or tablet to place bids in real time during the auction — no login required.
               </p>
               {teams.map(team => (
                 <LinkRow
@@ -176,10 +178,11 @@ export default function LinksPage() {
         {/* Viewer Links */}
         <Card className="border-border">
           <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-1">
               <Radio className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Viewer Links</h2>
+              <h2 className="font-display font-bold text-lg">Spectator Links</h2>
             </div>
+            <p className="text-xs text-muted-foreground mb-4">Share these with fans and family who want to watch the auction live from their phone.</p>
             {tournament?.auctionCode && (
               <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-400">
                 <Lock className="w-3.5 h-3.5 flex-shrink-0" />
@@ -191,12 +194,12 @@ export default function LinksPage() {
             <LinkRow
               label="Live Auction Viewer"
               url={`${base}/tournament/${tournamentId}/liveviewer${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Public spectator screen — live bids, animated player card, team grid with squad details, and optional sound effects. Works on any mobile, tablet, or laptop."
+              description="Watch the auction live from any device — shows current player, live bid amount, and team updates in real time. Works on phones, tablets, and laptops."
             />
             <LinkRow
               label="LED Big Screen Display"
               url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Fullscreen broadcast display for projectors and big-screen TVs."
+              description="Full-screen venue display — the same broadcast view shown on the big screen. Share with guests who want a larger view on their own screen."
             />
           </CardContent>
         </Card>

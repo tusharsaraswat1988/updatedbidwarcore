@@ -790,16 +790,36 @@ function OrganizerDashboard({
           </div>
 
           {tournaments.length === 0 ? (
-            <Card className="border-border/50 bg-card/20">
-              <CardContent className="py-16 text-center">
-                <Trophy className="w-12 h-12 mx-auto mb-4 opacity-20 text-muted-foreground" />
-                <p className="font-semibold text-foreground mb-1">No tournaments yet</p>
-                <p className="text-sm text-muted-foreground mb-4">Create your first tournament to get started.</p>
-                <Button onClick={() => setCreateOpen(true)} size="sm">
-                  <Plus className="w-4 h-4 mr-2" /> Create Tournament
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              {/* Welcome banner for first-time organizers */}
+              <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card/40 to-card/20 p-8">
+                <div className="max-w-lg">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-3">Welcome to BidWar</p>
+                  <h2 className="text-2xl font-display font-black text-foreground mb-2">Set up your first auction</h2>
+                  <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                    You are a few steps away from running a professional live sports auction. Create your tournament, add teams and players, then go live — it takes less than 30 minutes.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-xs">
+                    {[
+                      { step: "1", label: "Create tournament", desc: "Name, sport, teams budget" },
+                      { step: "2", label: "Add teams & players", desc: "Franchises and player pool" },
+                      { step: "3", label: "Go live", desc: "Operator panel + big screen" },
+                    ].map(s => (
+                      <div key={s.step} className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5 flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">{s.step}</span>
+                        <div>
+                          <p className="font-semibold text-foreground">{s.label}</p>
+                          <p className="text-muted-foreground">{s.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button onClick={() => setCreateOpen(true)} size="lg" className="gap-2">
+                    <Plus className="w-4 h-4" /> Start Tournament Setup
+                  </Button>
+                </div>
+              </div>
+            </div>
           ) : filteredTournaments.length === 0 ? (
             <Card className="border-border/50 bg-card/20">
               <CardContent className="py-12 text-center">

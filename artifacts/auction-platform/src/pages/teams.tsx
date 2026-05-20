@@ -386,6 +386,22 @@ export default function Teams() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-52" />)}
           </div>
+        ) : teams?.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-16 px-8 text-center max-w-xl mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-primary/60" />
+            </div>
+            <h3 className="font-display font-bold text-xl mb-2">Add your first team</h3>
+            <p className="text-muted-foreground text-sm mb-1">
+              Teams are the franchises that will bid in the auction. Each team gets a budget (purse) to spend on players.
+            </p>
+            <p className="text-xs text-muted-foreground mb-6">
+              You need at least 2 teams before you can add players.
+            </p>
+            <Button className="gap-2" onClick={() => { setEditing(null); setOpen(true); }}>
+              <Plus className="w-4 h-4" /> Add First Team
+            </Button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {teams?.map(team => {

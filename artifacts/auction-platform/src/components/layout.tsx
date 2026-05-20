@@ -124,15 +124,20 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
           {tournamentId && (
             <>
               {!collapsed && (
-                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                <div className="px-4 mt-7 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
                   {tournament?.name || "Tournament"}
+                </div>
+              )}
+              {!collapsed && (
+                <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
+                  Setup
                 </div>
               )}
               {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-                <Link href={`/tournament/${tournamentId}`} title="Hub / Command" className={navCls(`/tournament/${tournamentId}`)}>
+                <Link href={`/tournament/${tournamentId}`} title="Auction Control Center" className={navCls(`/tournament/${tournamentId}`)}>
                   <Activity className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">Hub / Command</span>}
+                  {!collapsed && <span className="font-medium">Control Center</span>}
                 </Link>
                 <Link href={`/tournament/${tournamentId}/teams`} title="Teams" className={navCls(`/tournament/${tournamentId}/teams`)}>
                   <Users className="w-5 h-5 flex-shrink-0" />
@@ -170,18 +175,16 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
               </nav>
 
               {!collapsed && (
-                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-primary uppercase tracking-wider">
-                  Live Action
+                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Run the Auction
                 </div>
               )}
-              {collapsed && <div className="mt-6 mb-2 border-t border-primary/30 mx-2" />}
+              {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
                 <Link
                   href={`/tournament/${tournamentId}/auction`}
                   title="Operator Panel"
-                  className={`flex items-center rounded-md bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all shadow-[0_0_12px_rgba(234,179,8,0.25)] ${
-                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2.5"
-                  }`}
+                  className={navCls(`/tournament/${tournamentId}/auction`) + ` font-bold`}
                 >
                   <Activity className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Operator Panel</span>}

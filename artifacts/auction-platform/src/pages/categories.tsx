@@ -270,8 +270,13 @@ export default function Categories() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">Categories</h1>
-            <p className="text-muted-foreground mt-2">Group players into tiers or filter categories. Set min value and increment to override hub settings during auction.</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-4xl font-bold tracking-tight">Categories</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted/60 text-muted-foreground border border-border/50 tracking-wide">OPTIONAL</span>
+            </div>
+            <p className="text-muted-foreground mt-2">
+              Group players into tiers (e.g. Platinum, Gold, Silver) and set different minimum values or bid increments per tier. Skip this section if all players have the same rules.
+            </p>
           </div>
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
@@ -291,6 +296,22 @@ export default function Categories() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1,2,3].map(i => <Skeleton key={i} className="h-36" />)}
+          </div>
+        ) : categories?.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-14 px-8 text-center max-w-xl">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+              <Tag className="w-7 h-7 text-amber-500/60" />
+            </div>
+            <h3 className="font-display font-bold text-lg mb-2">No categories yet — and that is fine</h3>
+            <p className="text-muted-foreground text-sm mb-1">
+              Categories let you group players into tiers (e.g. Platinum, Gold, Silver) with different minimum values and bid increments.
+            </p>
+            <p className="text-xs text-muted-foreground mb-6">
+              This step is optional. If you skip it, all players will use the tournament-level defaults.
+            </p>
+            <Button className="gap-2" onClick={() => { setEditing(null); setOpen(true); }}>
+              <Plus className="w-4 h-4" /> Add Category
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

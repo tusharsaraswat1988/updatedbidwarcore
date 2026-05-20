@@ -116,8 +116,12 @@ export default function BreakTimerPage() {
         <div>
           <h1 className="text-2xl font-display font-black text-foreground">Break Timer</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Control break and pre-auction countdown displays on the LED screen.
+            Put a countdown on the big screen during breaks so the audience knows when bidding resumes.
           </p>
+          <div className="mt-3 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
+            <p><strong className="text-foreground">How it works:</strong> Set a duration and a label (e.g. "Lunch Break — 15 min"), then press Start. The countdown appears on the LED display screen. When time is up, the screen switches back to the auction automatically.</p>
+            <p>You can extend the timer or cancel it at any time from this page.</p>
+          </div>
         </div>
 
         {error && (

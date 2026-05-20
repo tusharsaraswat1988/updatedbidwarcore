@@ -240,7 +240,7 @@ export default function FortuneWheel() {
             <h1 className="text-4xl font-bold tracking-tight flex items-center gap-3">
               <Dices className="w-8 h-8 text-primary" /> Fortune Wheel
             </h1>
-            <p className="text-muted-foreground mt-2">Tiebreaker spin — for fair random draws between teams or players.</p>
+            <p className="text-muted-foreground mt-2">Spin to pick a random winner — useful for tie-breaks, draft order, or any fair draw.</p>
           </div>
           <Button
             variant={broadcasting ? "default" : "outline"}
@@ -251,6 +251,11 @@ export default function FortuneWheel() {
             <Radio className="w-4 h-4" />
             {broadcasting ? "Broadcasting to LED" : "Not Broadcasting"}
           </Button>
+        </div>
+
+        <div className="rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
+          <p><strong className="text-foreground">How it works:</strong> The wheel is automatically loaded with all your teams. Add extra entries if needed (e.g. player names). Press <strong className="text-foreground">Spin</strong> and the wheel picks a winner at random.</p>
+          <p>Turn on <strong className="text-foreground">Broadcasting to LED</strong> to show the spinning wheel on your big screen during the event.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

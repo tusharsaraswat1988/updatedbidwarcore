@@ -28,8 +28,10 @@ import {
   Building2, Timer, PlusCircle, Trash2, Download,
   Settings, Megaphone, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
-  Volume2, VolumeX, Play, Coffee,
+  Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
+  CheckCircle2, Circle,
 } from "lucide-react";
+import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -121,6 +123,7 @@ export default function TournamentHub() {
   ]);
   const [exportLoading, setExportLoading] = useState(false);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
+  const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -408,6 +411,7 @@ export default function TournamentHub() {
         {/* Title + Quick Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Auction Control Center</p>
             <div className="flex items-center gap-3 flex-wrap">
               {tournament?.logoUrl && (
                 <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
@@ -427,6 +431,9 @@ export default function TournamentHub() {
               {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
               {tournament?.venue && <span>· {tournament.venue}</span>}
               <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
+              This is your central control area. Manage teams, players, live auction, displays and reports — all from here.
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -592,14 +599,14 @@ export default function TournamentHub() {
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Settings className="w-5 h-5 text-primary" /> Tournament Settings
             </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">Configure identity, auction rules, broadcast branding and recovery — all changes apply on Save.</p>
+            <p className="text-xs text-muted-foreground mt-1">All changes take effect when you click Save at the bottom.</p>
           </DialogHeader>
 
           {/* Sticky tab strip */}
           <div className="flex border-b border-border bg-background/50 flex-shrink-0 overflow-x-auto">
             {[
               { id: "identity" as const, label: "Identity", icon: Building2 },
-              { id: "auction" as const, label: "Auction", icon: Gavel },
+              { id: "auction" as const, label: "Auction Rules", icon: Gavel },
               { id: "broadcast" as const, label: "Broadcast", icon: Megaphone },
               { id: "recovery" as const, label: "Recovery", icon: ShieldAlert },
             ].map(tab => {
@@ -752,97 +759,79 @@ export default function TournamentHub() {
 
               {activeSection === "auction" && (
                 <>
+                  {/* ── Beginner fields — always visible ── */}
+                  <div className="space-y-1 pb-1">
+                    <p className="text-xs text-muted-foreground">These are the most important settings. Set them before your auction starts.</p>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Total Points Per Team (₹)</Label>
+                      <Label className="flex items-center gap-1">
+                        Team Budget (₹)
+                        <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
+                      </Label>
                       <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Min Value of a Player (₹)</Label>
+                      <Label className="flex items-center gap-1">
+                        Minimum Player Value (₹)
+                        <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
+                      </Label>
                       <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
                     </div>
                   </div>
-                  <div className="space-y-3 border-t border-border pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-sm font-semibold">Bid Increment Tiers</Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">Increment rises as bids grow. Last tier has no upper limit.</p>
+
+                  {/* Bid Increase Amount */}
+                  <div className="space-y-2 border-t border-border pt-4">
+                    <Label className="flex items-center gap-1 text-sm font-semibold">
+                      Bid Increase Amount (₹)
+                      <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
+                    </Label>
+                    <p className="text-xs text-muted-foreground">How much each bid raise adds to the current amount.</p>
+                    {/* Show simple increment only if tiers are just 1 row */}
+                    {bidTiers.length === 1 ? (
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="number"
+                          className="max-w-[200px]"
+                          value={bidTiers[0]?.increment || ""}
+                          onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])}
+                          placeholder="e.g. 10000"
+                        />
+                        <span className="text-xs text-muted-foreground">added with every raise</span>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}
-                      >
-                        + Add Tier
-                      </Button>
-                    </div>
-                    {bidTiers.map((tier, i) => {
-                      const isLast = i === bidTiers.length - 1;
-                      return (
-                        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">{isLast ? "Above all — Increment (₹)" : `Tier ${i + 1} — Up to (₹)`}</Label>
-                            {isLast ? (
-                              <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No limit</div>
-                            ) : (
-                              <Input
-                                type="number"
-                                value={tier.upTo ?? ""}
-                                onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
-                                placeholder="e.g. 100000"
-                              />
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">Increment (₹)</Label>
-                            <Input
-                              type="number"
-                              value={tier.increment || ""}
-                              onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
-                              placeholder="e.g. 25000"
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                            disabled={bidTiers.length <= 1}
-                            onClick={() => setBidTiers(t => {
-                              const next = t.filter((_, j) => j !== i);
-                              if (next.length === 0) return t;
-                              const last = { ...next[next.length - 1] };
-                              delete last.upTo;
-                              return [...next.slice(0, -1), last];
-                            })}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
+                    ) : (
+                      <div className="px-3 py-2 rounded-lg bg-muted/20 border border-border/50 text-xs text-muted-foreground">
+                        Advanced bid tiers are enabled — see below to adjust.
+                      </div>
+                    )}
                   </div>
+
+                  {/* Bid Timers */}
                   <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        <Timer className="w-3.5 h-3.5 text-muted-foreground" /> First Bid Timer (seconds)
+                      <Label className="flex items-center gap-1">
+                        <Timer className="w-3.5 h-3.5 text-muted-foreground" /> Opening Timer (seconds)
+                        <FieldTooltip text="Countdown shown when a new player appears on screen before anyone bids. If no one bids in time, the player is passed." />
                       </Label>
                       <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
-                      <p className="text-xs text-muted-foreground">Timer when a new player is presented (no bids yet)</p>
+                      <p className="text-xs text-muted-foreground">Time before first bid — recommended: 30 seconds</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        <Timer className="w-3.5 h-3.5 text-primary" /> Subsequent Bid Timer (seconds)
+                      <Label className="flex items-center gap-1">
+                        <Timer className="w-3.5 h-3.5 text-primary" /> Bid Timer (seconds)
+                        <FieldTooltip text="After each bid, this timer resets. When it runs out, the highest bidder wins the player. Shorter timers create more urgency — recommended: 15 seconds." />
                       </Label>
                       <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
-                      <p className="text-xs text-muted-foreground">Auto-restarts after every bid — owner panel bidding locks when it expires</p>
+                      <p className="text-xs text-muted-foreground">Time between bids — recommended: 15 seconds</p>
                     </div>
                   </div>
+
+                  {/* Player Order */}
                   <div className="space-y-2 border-t border-border pt-4">
-                    <Label className="flex items-center gap-1.5">
-                      <Dices className="w-3.5 h-3.5 text-muted-foreground" /> Player Selection Mode
+                    <Label className="flex items-center gap-1">
+                      <Dices className="w-3.5 h-3.5 text-muted-foreground" /> Player Order
+                      <FieldTooltip text="Controls which player comes up next when the operator presses Next Player. Sequential = in the order you added them. Random = random draw each time. Manual = operator picks from a list." />
                     </Label>
                     <Select
                       value={editForm.playerSelectionMode as string || "sequential"}
@@ -850,52 +839,141 @@ export default function TournamentHub() {
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent className="dark">
-                        <SelectItem value="sequential">Sequential — players come in order (by ID)</SelectItem>
-                        <SelectItem value="random">Random — randomized draw each time</SelectItem>
-                        <SelectItem value="manual">Manual — operator picks player from the queue</SelectItem>
+                        <SelectItem value="sequential">In order — players come up one by one as added</SelectItem>
+                        <SelectItem value="random">Random draw — a different player each time</SelectItem>
+                        <SelectItem value="manual">Manual — operator picks from the queue list</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Controls what "Next Player" does in the operator panel. Manual hides the Next button — operator must select from the queue list.
-                    </p>
                   </div>
-                  <div className="space-y-3 border-t border-border pt-4">
-                    <div>
-                      <Label className="text-sm font-semibold flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400/70" /> Squad Rules
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Reserve purse protection and player count limits. Set 0 to disable each rule.
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs">Minimum Squad Size</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={editForm.minimumSquadSize as string ?? "0"}
-                          onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                          Reserve purse is held for unfilled slots. Calculated using the lowest available base price at auction time.
-                        </p>
+
+                  {/* ── Advanced — collapsible ── */}
+                  <div className="border-t border-border pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedAuction(v => !v)}
+                      className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+                    >
+                      {showAdvancedAuction
+                        ? <ChevronDown className="w-4 h-4" />
+                        : <ChevronRightIcon className="w-4 h-4" />}
+                      Advanced Settings
+                      <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">Squad limits, tiered bid increments</span>
+                    </button>
+
+                    {showAdvancedAuction && (
+                      <div className="mt-4 space-y-5">
+
+                        {/* Tiered bid increments */}
+                        <div className="space-y-3">
+                          <div>
+                            <Label className="text-sm font-semibold flex items-center gap-1">
+                              Tiered Bid Increase Rules
+                              <FieldTooltip text="For advanced leagues: set different bid increments at different price points. For example, bids under ₹1L go up by ₹10K, bids over ₹1L go up by ₹25K. Most organisers don't need this — leave it as one tier." />
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              The bid amount added per raise changes as bids grow higher. Most auctions only need one tier.
+                            </p>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}
+                            >
+                              + Add Tier
+                            </Button>
+                          </div>
+                          {bidTiers.map((tier, i) => {
+                            const isLast = i === bidTiers.length - 1;
+                            return (
+                              <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-muted-foreground">{isLast ? "Any amount above — Raise by (₹)" : `Up to (₹) — Tier ${i + 1}`}</Label>
+                                  {isLast ? (
+                                    <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      value={tier.upTo ?? ""}
+                                      onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
+                                      placeholder="e.g. 100000"
+                                    />
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
+                                  <Input
+                                    type="number"
+                                    value={tier.increment || ""}
+                                    onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
+                                    placeholder="e.g. 25000"
+                                  />
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                  disabled={bidTiers.length <= 1}
+                                  onClick={() => setBidTiers(t => {
+                                    const next = t.filter((_, j) => j !== i);
+                                    if (next.length === 0) return t;
+                                    const last = { ...next[next.length - 1] };
+                                    delete last.upTo;
+                                    return [...next.slice(0, -1), last];
+                                  })}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Squad Rules */}
+                        <div className="space-y-3 border-t border-border pt-4">
+                          <div>
+                            <Label className="text-sm font-semibold flex items-center gap-1.5">
+                              <ShieldAlert className="w-3.5 h-3.5 text-amber-400/70" /> Squad Size Limits
+                              <FieldTooltip text="Control how many players each team must or can buy. Minimum: teams must reach this count — the system reserves budget for unfilled slots. Maximum: teams cannot bid once full. Set 0 to disable." />
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Set 0 to disable each limit.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Minimum Players per Team</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={editForm.minimumSquadSize as string ?? "0"}
+                                onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
+                              />
+                              <p className="text-[10px] text-muted-foreground">
+                                Budget is reserved for unfilled slots so teams can't overbid early.
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Maximum Players per Team</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={editForm.maximumSquadSize as string ?? "0"}
+                                onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
+                              />
+                              <p className="text-[10px] text-muted-foreground">
+                                Teams cannot bid once they reach this count.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Maximum Squad Size</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={editForm.maximumSquadSize as string ?? "0"}
-                          onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                          Hard cap — teams cannot bid once they reach this many players.
-                        </p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </>
               )}

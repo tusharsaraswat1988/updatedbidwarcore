@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, DatabaseZap, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, DatabaseZap, Loader2, AlertTriangle } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
@@ -954,10 +954,23 @@ export default function Players() {
   const retainedCount = (players || []).filter(p => p.status === "retained").length;
 
   const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+  const teamCount = teams?.length ?? 0;
 
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
+        {/* Phase 4: flow guard — need 2+ teams before adding players makes sense */}
+        {!isLoading && teamCount < 2 && (players?.length ?? 0) === 0 && (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5 flex items-start gap-3 max-w-xl">
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-300 text-sm">Add at least 2 teams first</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                You need at least 2 franchise teams before adding players — otherwise there is no one to bid against each other. Go to the <strong className="text-foreground">Teams</strong> page in the sidebar to add them.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="flex items-center gap-3">
@@ -1135,10 +1148,27 @@ export default function Players() {
                 </Card>
               );
             })}
-            {filtered.length === 0 && (
-              <div className="text-center py-16 text-muted-foreground">
+            {filtered.length === 0 && (players?.length ?? 0) === 0 && (
+              <div className="rounded-xl border border-dashed border-border/60 bg-card/20 py-16 px-8 text-center col-span-full max-w-xl mx-auto">
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
+                  <User className="w-8 h-8 text-blue-500/60" />
+                </div>
+                <h3 className="font-display font-bold text-xl mb-2">Add your first player</h3>
+                <p className="text-muted-foreground text-sm mb-1">
+                  Players are the athletes who will be auctioned off to the teams. Add them one by one, or use Bulk Upload to paste a list.
+                </p>
+                <p className="text-xs text-muted-foreground mb-6">
+                  Make sure you have added at least 2 teams first — players cannot be sold without teams to buy them.
+                </p>
+                <Button className="gap-2" onClick={() => setOpen(true)}>
+                  <Plus className="w-4 h-4" /> Add First Player
+                </Button>
+              </div>
+            )}
+            {filtered.length === 0 && (players?.length ?? 0) > 0 && (
+              <div className="text-center py-16 text-muted-foreground col-span-full">
                 <User className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p>No players found</p>
+                <p>No players match your search</p>
               </div>
             )}
           </div>
