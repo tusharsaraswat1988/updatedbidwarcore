@@ -128,6 +128,18 @@ router.get("/auth/admin/me", (req, res) => {
   res.json({ isAdmin: true, adminLevel: req.jwtUser.adminLevel ?? "master" });
 });
 
+// ─── Unified /auth/me — returns current JWT claims without any DB lookup ───────
+// Used by the frontend to restore session state on page load.
+
+router.get("/auth/me", (req, res) => {
+  res.json({
+    isAdmin: req.jwtUser.isAdmin ?? false,
+    adminLevel: req.jwtUser.adminLevel ?? null,
+    organizerAccountId: req.jwtUser.organizerAccountId ?? null,
+    organizer: req.jwtUser.organizer ?? {},
+  });
+});
+
 // ─── Organizer (per tournament) ───────────────────────────────────────────────
 
 router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res) => {
