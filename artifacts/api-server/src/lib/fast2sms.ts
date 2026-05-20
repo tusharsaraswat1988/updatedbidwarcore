@@ -3,7 +3,7 @@ import { logger } from "./logger";
 const BASE = "https://www.fast2sms.com/dev";
 
 function apiKey(): string {
-  return process.env.BULKSMS_KEY ?? "";
+  return process.env.BULKSMS_KEY ?? process.env.BULKSMS_PASSWORD ?? "";
 }
 
 function otpTemplateId(): string {
