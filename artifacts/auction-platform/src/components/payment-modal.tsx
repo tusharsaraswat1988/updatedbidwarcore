@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, QrCode, MessageCircle, Smartphone, Copy, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -17,21 +17,56 @@ interface PaymentModalProps {
 const UPI_ID = "pinelabs.stq4617963@pineaxis";
 
 export function PaymentModal({ plan, onClose }: PaymentModalProps) {
-  const [showQR, setShowQR] = useState(false);
+  // Default QR open on desktop (≥640px), collapsed on mobile
+  const [showQR, setShowQR] = useState(() => typeof window !== "undefined" && window.innerWidth >= 640);
   const [copied, setCopied] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
+  // Keyboard: Escape to close + Tab focus trap
   useEffect(() => {
     if (!plan) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => !el.hasAttribute("disabled"));
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    // Move focus into modal on open
+    const firstFocusable = modalRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [plan, onClose]);
 
-  // Reset QR state when plan changes
+  // Reset state when plan changes (new plan opened)
   useEffect(() => {
-    setShowQR(false);
+    setShowQR(typeof window !== "undefined" && window.innerWidth >= 640);
     setCopied(false);
   }, [plan?.label]);
 
@@ -76,6 +111,7 @@ export function PaymentModal({ plan, onClose }: PaymentModalProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 340, damping: 30 }}
+              ref={modalRef}
               className="pointer-events-auto w-full sm:max-w-sm bg-[#111113] border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
