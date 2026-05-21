@@ -7,7 +7,9 @@ import {
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Award, Building2, GraduationCap, ChevronDown,
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
+  MapPin, Calendar,
 } from "lucide-react";
+import { UPCOMING, formatDate, formatPurse, SPORT_LABEL } from "@/data/upcoming-auctions";
 import { ProductShowcase } from "@/components/product-showcase";
 import { Testimonials } from "@/components/testimonials";
 import { DemoRequest } from "@/components/demo-request";
@@ -483,6 +485,88 @@ export default function Landing() {
             </div>
           </div>
         </motion.div>
+      </section>
+
+      {/* ── Upcoming Auctions Strip ──────────────────────────────── */}
+      <section className="py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <div className="text-primary text-xs font-bold uppercase tracking-widest mb-1">Live on BidWar</div>
+              <h2 className="text-2xl font-display font-black text-white">Upcoming Auctions</h2>
+            </div>
+            <button
+              onClick={() => navigate("/upcoming-auctions")}
+              className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline underline-offset-4 flex-shrink-0"
+            >
+              View all {UPCOMING.length} <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none -mx-2 px-2">
+            {UPCOMING.slice(0, 4).map(t => (
+              <div
+                key={t.id}
+                className="flex-shrink-0 w-64 rounded-xl border overflow-hidden bg-[#111113] hover:border-white/20 transition-all duration-200 hover:shadow-[0_0_24px_rgba(0,0,0,0.5)]"
+                style={{ borderColor: `${t.accent}22` }}
+              >
+                {/* Accent header band */}
+                <div
+                  className="px-4 py-3 flex items-center justify-between"
+                  style={{
+                    background: `linear-gradient(135deg, ${t.primary}cc 0%, ${t.primary}66 100%)`,
+                    borderBottom: `1px solid ${t.accent}22`,
+                  }}
+                >
+                  <span
+                    className="text-xs font-mono font-bold tracking-widest px-2 py-0.5 rounded"
+                    style={{ background: `${t.accent}22`, color: t.accent, border: `1px solid ${t.accent}44` }}
+                  >
+                    {t.code}
+                  </span>
+                  <span className="text-[10px] font-semibold text-white/40">{SPORT_LABEL[t.sport]}</span>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 flex flex-col gap-2.5">
+                  <p className="font-bold text-sm text-white leading-snug line-clamp-2" style={{ minHeight: "2.5rem" }}>
+                    {t.name}
+                  </p>
+
+                  <div className="flex flex-col gap-1.5 text-xs text-white/50">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
+                      <span className="text-white/70 font-medium">{t.city}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
+                      <span className="text-white/70 font-medium">{formatDate(t.date)}</span>
+                      <span className="text-white/30">{t.time} IST</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-xs">
+                    <span className="text-white/40">{t.teams} Teams</span>
+                    <span className="font-bold" style={{ color: t.accent }}>{formatPurse(t.purse)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* "View all" ghost card */}
+            <button
+              onClick={() => navigate("/upcoming-auctions")}
+              className="flex-shrink-0 w-44 rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-3 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 group min-h-[180px]"
+            >
+              <div className="w-10 h-10 rounded-full border border-white/10 group-hover:border-primary/40 flex items-center justify-center group-hover:bg-primary/10 transition-all">
+                <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-primary transition-colors" />
+              </div>
+              <span className="text-xs font-semibold text-white/40 group-hover:text-primary transition-colors text-center leading-snug px-4">
+                View all {UPCOMING.length} upcoming auctions
+              </span>
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* ── Trust Strip ─────────────────────────────────────────────── */}

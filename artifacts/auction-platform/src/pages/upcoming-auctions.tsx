@@ -1,251 +1,14 @@
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { MapPin, Users, Calendar, IndianRupee, ArrowLeft, Trophy } from "lucide-react";
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-type Sport = "cricket" | "football" | "kabaddi";
-
-interface UpcomingTournament {
-  id: number;
-  name: string;
-  code: string;
-  sport: Sport;
-  city: string;
-  date: string;
-  time: string;
-  purse: number;
-  playersPerTeam: number;
-  teams: number;
-  primary: string;
-  accent: string;
-}
-
-const UPCOMING: UpcomingTournament[] = [
-  {
-    id: 1,
-    name: "Lucknow Premier League Season 4",
-    code: "LPL",
-    sport: "cricket",
-    city: "Lucknow",
-    date: "2026-06-05",
-    time: "18:00",
-    purse: 3000000,
-    playersPerTeam: 14,
-    teams: 12,
-    primary: "#1a3a6b",
-    accent: "#f5c842",
-  },
-  {
-    id: 2,
-    name: "Kashi Cricket Cup 2026",
-    code: "KCC",
-    sport: "cricket",
-    city: "Varanasi",
-    date: "2026-06-12",
-    time: "17:30",
-    purse: 2000000,
-    playersPerTeam: 11,
-    teams: 10,
-    primary: "#7b1a1a",
-    accent: "#f97316",
-  },
-  {
-    id: 3,
-    name: "Agra Kings Premier League",
-    code: "AKPL",
-    sport: "cricket",
-    city: "Agra",
-    date: "2026-06-15",
-    time: "19:00",
-    purse: 2500000,
-    playersPerTeam: 13,
-    teams: 8,
-    primary: "#1a4d2e",
-    accent: "#22c55e",
-  },
-  {
-    id: 4,
-    name: "Prayagraj Champions Trophy",
-    code: "PCT",
-    sport: "cricket",
-    city: "Prayagraj",
-    date: "2026-06-20",
-    time: "15:00",
-    purse: 1500000,
-    playersPerTeam: 11,
-    teams: 8,
-    primary: "#2d1a6b",
-    accent: "#a78bfa",
-  },
-  {
-    id: 5,
-    name: "Mathura Warriors Super League",
-    code: "MWSL",
-    sport: "football",
-    city: "Mathura",
-    date: "2026-06-22",
-    time: "20:00",
-    purse: 1800000,
-    playersPerTeam: 16,
-    teams: 10,
-    primary: "#1a3a3a",
-    accent: "#06b6d4",
-  },
-  {
-    id: 6,
-    name: "Meerut Premier Cricket League",
-    code: "MPCL",
-    sport: "cricket",
-    city: "Meerut",
-    date: "2026-06-28",
-    time: "16:00",
-    purse: 1200000,
-    playersPerTeam: 12,
-    teams: 8,
-    primary: "#4a1a1a",
-    accent: "#fb7185",
-  },
-  {
-    id: 7,
-    name: "Noida Super League Season 2",
-    code: "NSL",
-    sport: "cricket",
-    city: "Noida",
-    date: "2026-07-05",
-    time: "18:30",
-    purse: 3500000,
-    playersPerTeam: 14,
-    teams: 14,
-    primary: "#1a2a4a",
-    accent: "#38bdf8",
-  },
-  {
-    id: 8,
-    name: "Ghaziabad Cricket Federation Cup",
-    code: "GCFC",
-    sport: "cricket",
-    city: "Ghaziabad",
-    date: "2026-07-10",
-    time: "17:00",
-    purse: 1000000,
-    playersPerTeam: 11,
-    teams: 8,
-    primary: "#1a3a1a",
-    accent: "#84cc16",
-  },
-  {
-    id: 9,
-    name: "Bareilly Premier League",
-    code: "BPL",
-    sport: "cricket",
-    city: "Bareilly",
-    date: "2026-07-15",
-    time: "19:30",
-    purse: 2000000,
-    playersPerTeam: 12,
-    teams: 10,
-    primary: "#3a1a4a",
-    accent: "#e879f9",
-  },
-  {
-    id: 10,
-    name: "Gorakhpur T20 Super Series",
-    code: "GTSS",
-    sport: "cricket",
-    city: "Gorakhpur",
-    date: "2026-07-18",
-    time: "16:30",
-    purse: 1500000,
-    playersPerTeam: 11,
-    teams: 8,
-    primary: "#2a1a0a",
-    accent: "#fb923c",
-  },
-  {
-    id: 11,
-    name: "Aligarh Kabaddi Mahotsav 2026",
-    code: "AKM",
-    sport: "kabaddi",
-    city: "Aligarh",
-    date: "2026-07-22",
-    time: "14:00",
-    purse: 800000,
-    playersPerTeam: 12,
-    teams: 8,
-    primary: "#0a2a3a",
-    accent: "#14b8a6",
-  },
-  {
-    id: 12,
-    name: "Jhansi Warriors Cricket League",
-    code: "JWCL",
-    sport: "cricket",
-    city: "Jhansi",
-    date: "2026-07-26",
-    time: "18:00",
-    purse: 1200000,
-    playersPerTeam: 11,
-    teams: 8,
-    primary: "#1a0a2a",
-    accent: "#c084fc",
-  },
-  {
-    id: 13,
-    name: "Kanpur Premier League Season 5",
-    code: "KPL",
-    sport: "cricket",
-    city: "Kanpur",
-    date: "2026-08-02",
-    time: "19:00",
-    purse: 4000000,
-    playersPerTeam: 15,
-    teams: 14,
-    primary: "#1a1a0a",
-    accent: "#eab308",
-  },
-  {
-    id: 14,
-    name: "Moradabad Box Cricket League",
-    code: "MBCL",
-    sport: "cricket",
-    city: "Moradabad",
-    date: "2026-08-08",
-    time: "17:00",
-    purse: 800000,
-    playersPerTeam: 10,
-    teams: 8,
-    primary: "#0a1a2a",
-    accent: "#60a5fa",
-  },
-  {
-    id: 15,
-    name: "Firozabad Cricket Cup Season 2",
-    code: "FCC",
-    sport: "cricket",
-    city: "Firozabad",
-    date: "2026-08-14",
-    time: "16:00",
-    purse: 1000000,
-    playersPerTeam: 11,
-    teams: 8,
-    primary: "#1a2a1a",
-    accent: "#4ade80",
-  },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function formatPurse(amount: number): string {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(0)} Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(0)} Lakh`;
-  return `₹${amount.toLocaleString("en-IN")}`;
-}
+import {
+  UPCOMING,
+  formatDate,
+  formatPurse,
+  SPORT_LABEL,
+  type Sport,
+  type UpcomingTournament,
+} from "@/data/upcoming-auctions";
 
 // ─── SVG Logo Badge ───────────────────────────────────────────────────────────
 
@@ -264,7 +27,6 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
 
   return (
     <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" role="img" aria-label={`${t.name} logo`}>
-      {/* Shield shape */}
       <defs>
         <linearGradient id={`grad-${t.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor={t.primary} />
@@ -276,7 +38,6 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
         </linearGradient>
       </defs>
 
-      {/* Outer shield */}
       <path
         d="M24 2 L44 10 L44 28 C44 38 34 45 24 47 C14 45 4 38 4 28 L4 10 Z"
         fill={`url(#grad-${t.id})`}
@@ -284,8 +45,6 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
-
-      {/* Inner border ring */}
       <path
         d="M24 5 L41 12 L41 28 C41 37 32 43 24 45 C16 43 7 37 7 28 L7 12 Z"
         fill="none"
@@ -294,62 +53,18 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
         strokeOpacity="0.4"
         strokeLinejoin="round"
       />
-
-      {/* Accent top bar */}
       <rect x="4" y="8.5" width="40" height="3" rx="1" fill={t.accent} opacity="0.25" />
 
-      {/* Main initials */}
       {extra ? (
         <>
-          <text
-            x="24"
-            y="26"
-            textAnchor="middle"
-            fontFamily="Arial Black, Arial, sans-serif"
-            fontWeight="900"
-            fontSize="12"
-            fill="white"
-            letterSpacing="0"
-          >
-            {letters}
-          </text>
-          <text
-            x="24"
-            y="36"
-            textAnchor="middle"
-            fontFamily="Arial Black, Arial, sans-serif"
-            fontWeight="900"
-            fontSize="7"
-            fill={t.accent}
-            letterSpacing="1"
-          >
-            {extra}
-          </text>
+          <text x="24" y="26" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="12" fill="white" letterSpacing="0">{letters}</text>
+          <text x="24" y="36" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="7" fill={t.accent} letterSpacing="1">{extra}</text>
         </>
       ) : (
-        <text
-          x="24"
-          y="31"
-          textAnchor="middle"
-          fontFamily="Arial Black, Arial, sans-serif"
-          fontWeight="900"
-          fontSize="14"
-          fill="white"
-          letterSpacing="1"
-        >
-          {letters}
-        </text>
+        <text x="24" y="31" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="14" fill="white" letterSpacing="1">{letters}</text>
       )}
 
-      {/* Small sport icon hint at bottom */}
-      <path
-        d={sportPath[t.sport]}
-        fill={t.accent}
-        opacity="0.18"
-        transform="translate(0, 0) scale(0.55) translate(20, 22)"
-      />
-
-      {/* Stars accent top */}
+      <path d={sportPath[t.sport]} fill={t.accent} opacity="0.18" transform="translate(0, 0) scale(0.55) translate(20, 22)" />
       <circle cx="12" cy="14" r="1.2" fill={t.accent} opacity="0.6" />
       <circle cx="36" cy="14" r="1.2" fill={t.accent} opacity="0.6" />
     </svg>
@@ -359,15 +74,9 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
 // ─── Tournament Card ──────────────────────────────────────────────────────────
 
 function TournamentCard({ t }: { t: UpcomingTournament }) {
-  const sportLabel: Record<Sport, string> = {
-    cricket: "Cricket",
-    football: "Football",
-    kabaddi: "Kabaddi",
-  };
-
   return (
     <div
-      className="relative bg-[#111113] border border-white/8 rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col"
+      className="relative bg-[#111113] border rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.6)] flex flex-col"
       style={{ borderColor: `${t.accent}18` }}
     >
       {/* Logo area */}
@@ -378,33 +87,22 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
           height: "160px",
         }}
       >
-        {/* Subtle texture lines */}
         <div
           className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `repeating-linear-gradient(45deg, ${t.accent} 0px, ${t.accent} 1px, transparent 1px, transparent 12px)`,
-          }}
+          style={{ backgroundImage: `repeating-linear-gradient(45deg, ${t.accent} 0px, ${t.accent} 1px, transparent 1px, transparent 12px)` }}
         />
-
-        {/* Logo badge */}
         <div className="relative z-10" style={{ width: 88, height: 88 }}>
           <LogoBadge t={t} />
         </div>
-
-        {/* Tournament code chip */}
         <div
           className="absolute bottom-3 left-3 px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-widest"
           style={{ background: `${t.accent}22`, color: t.accent, border: `1px solid ${t.accent}40` }}
         >
           {t.code}
         </div>
-
-        {/* Sport tag */}
-        <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded text-[10px] font-semibold bg-white/8 text-white/50 border border-white/10">
-          {sportLabel[t.sport]}
+        <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-white/50 border border-white/10">
+          {SPORT_LABEL[t.sport]}
         </div>
-
-        {/* Upcoming badge */}
         <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
           <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Upcoming</span>
@@ -413,21 +111,15 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
 
       {/* Content */}
       <div className="flex flex-col gap-3 p-4 flex-1">
-        {/* Name */}
         <h3 className="font-bold text-sm leading-snug text-white line-clamp-2" style={{ minHeight: "2.5rem" }}>
           {t.name}
         </h3>
-
-        {/* Divider */}
         <div className="border-t border-white/5" />
-
-        {/* Metadata rows */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs text-white/50">
             <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
             <span className="font-medium text-white/70">{t.city}, Uttar Pradesh</span>
           </div>
-
           <div className="flex items-center gap-2 text-xs text-white/50">
             <IndianRupee className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
             <span>
@@ -435,7 +127,6 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
               <span className="ml-1">per team purse</span>
             </span>
           </div>
-
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-white/50">
               <Users className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
@@ -449,7 +140,6 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
               <span>{t.teams} Teams</span>
             </div>
           </div>
-
           <div className="flex items-center gap-2 text-xs text-white/50 pt-1 border-t border-white/5">
             <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
             <span>
@@ -471,7 +161,6 @@ export default function UpcomingAuctions() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
-      {/* SEO */}
       <title>Upcoming Auctions | {brandName}</title>
 
       {/* Nav */}
@@ -567,7 +256,6 @@ export default function UpcomingAuctions() {
         </div>
       </section>
 
-      {/* Footer note */}
       <div className="pb-10 text-center">
         <p className="text-xs text-white/20">
           Tournament dates and details are subject to change. Contact respective organizers for confirmation.
