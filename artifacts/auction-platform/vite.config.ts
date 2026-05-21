@@ -14,6 +14,25 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // Production-only: make the compiled Tailwind CSS non-render-blocking.
+    // Transforms <link rel="stylesheet"> → preload + onload swap so the CSS
+    // downloads in parallel with JS instead of blocking the render tree.
+    // The inline critical CSS in index.html prevents FOUC during this window.
+    {
+      name: "defer-non-critical-css",
+      apply: "build" as const,
+      transformIndexHtml: {
+        order: "post" as const,
+        handler(html: string) {
+          return html.replace(
+            /<link rel="stylesheet" crossorigin href="(\/[^"]+\.css)">/g,
+            (_, href) =>
+              `<link rel="preload" as="style" href="${href}" onload="this.onload=null;this.rel='stylesheet'">` +
+              `<noscript><link rel="stylesheet" crossorigin href="${href}"></noscript>`,
+          );
+        },
+      },
+    },
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

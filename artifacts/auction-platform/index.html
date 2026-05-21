@@ -56,12 +56,18 @@
       })(window, document, "clarity", "script", "wu86zkys2f");
     </script>
 
-    <!-- Fonts: non-render-blocking (preload + print swap) -->
+    <!-- Critical CSS: prevents white flash before React + full stylesheet load -->
+    <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}#root{min-height:100vh;background:#09090b}</style>
+
+    <!-- Fonts: non-render-blocking (preconnect + preload + print-swap).
+         Both Inter and Space Grotesk loaded here — no @import url() in CSS.
+         Space Grotesk: only weights 600;700 used for headings (was 300-700). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" /></noscript>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" /></noscript>
+
     <!-- Preload above-fold logo (WebP) -->
     <link rel="preload" as="image" href="/bidwar-logo-transparent.webp" type="image/webp" />
 
