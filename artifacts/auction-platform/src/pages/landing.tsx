@@ -721,6 +721,32 @@ export default function Landing() {
             <h2 className="text-4xl md:text-5xl font-display font-black">One-time per-tournament pricing</h2>
             <p className="text-muted-foreground text-lg">Pay once per event. No monthly fees. No recurring charges.</p>
           </div>
+          {/* ── 10% Discount Banner ──────────────────────────────── */}
+          <div className="relative mb-8 rounded-2xl overflow-hidden border border-primary/25">
+            <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(234,179,8,0.1) 0%, rgba(234,179,8,0.04) 50%, rgba(234,179,8,0.1) 100%)" }} />
+            <motion.div
+              animate={{ x: ["-100%", "200%"] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "linear", repeatDelay: 2 }}
+              className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none"
+            />
+            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3 py-4 px-6 text-center">
+              <motion.div
+                animate={{ scale: [1, 1.07, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="px-3 py-1 rounded-full bg-primary text-black text-sm font-black uppercase tracking-wide flex-shrink-0"
+              >
+                10% OFF
+              </motion.div>
+              <span className="text-white font-semibold text-sm">
+                Limited-Time Offer — Save on all paid plans today
+              </span>
+              <div className="flex items-center gap-1 text-xs text-white/40 flex-shrink-0">
+                <Clock className="w-3 h-3" />
+                <span>Limited period only</span>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {pricing.map((p, i) => (
               <motion.div
@@ -761,7 +787,11 @@ export default function Landing() {
                   <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
                 </div>
                 <button
-                  onClick={() => navigate("/organizer")}
+                  onClick={() =>
+                    p.discountedPrice
+                      ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
+                      : navigate("/organizer")
+                  }
                   className={`mt-auto w-full py-2 rounded-xl text-sm font-bold transition-all ${
                     p.highlight
                       ? "bg-primary text-black hover:bg-primary/90"
@@ -1006,6 +1036,8 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
     </div>
   );
 }
