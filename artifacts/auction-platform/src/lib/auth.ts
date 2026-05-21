@@ -457,3 +457,65 @@ export async function updateAdminSmsSettings(data: Partial<SmsSettings>): Promis
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }
+
+// ─── Display Auctions (landing page showcase) ─────────────────────────────────
+
+export type DisplayAuction = {
+  id: number;
+  name: string;
+  code: string;
+  sport: string;
+  city: string;
+  state: string;
+  purse: number;
+  playersPerTeam: number;
+  teamsCount: number;
+  scheduledDate: string;
+  scheduledTime: string;
+  primaryColor: string;
+  accentColor: string;
+  status: string;
+  showOnLanding: boolean;
+  tournamentId: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listAdminDisplayAuctions(): Promise<DisplayAuction[]> {
+  try {
+    const r = await apiFetch("/auth/admin/display-auctions");
+    if (!r.ok) return [];
+    return r.json();
+  } catch { return []; }
+}
+
+export async function createDisplayAuction(data: Partial<DisplayAuction>): Promise<DisplayAuction | null> {
+  try {
+    const r = await apiFetch("/auth/admin/display-auctions", { method: "POST", body: JSON.stringify(data) });
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
+}
+
+export async function updateDisplayAuction(id: number, data: Partial<DisplayAuction>): Promise<DisplayAuction | null> {
+  try {
+    const r = await apiFetch(`/auth/admin/display-auctions/${id}`, { method: "PUT", body: JSON.stringify(data) });
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
+}
+
+export async function deleteDisplayAuction(id: number): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/auth/admin/display-auctions/${id}`, { method: "DELETE" });
+    return r.ok;
+  } catch { return false; }
+}
+
+export async function seedDisplayAuctions(): Promise<{ seeded: number; static: number; real: number } | null> {
+  try {
+    const r = await apiFetch("/auth/admin/display-auctions/seed", { method: "POST" });
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
+}

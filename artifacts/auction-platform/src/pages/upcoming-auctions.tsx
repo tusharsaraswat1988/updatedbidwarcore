@@ -1,14 +1,34 @@
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { MapPin, Users, Calendar, IndianRupee, ArrowLeft, Trophy } from "lucide-react";
 import {
-  UPCOMING,
   formatDate,
   formatPurse,
   SPORT_LABEL,
   type Sport,
   type UpcomingTournament,
 } from "@/data/upcoming-auctions";
+import type { DisplayAuction } from "@/lib/auth";
+
+// ─── Adapter ──────────────────────────────────────────────────────────────────
+
+function toUpcoming(d: DisplayAuction): UpcomingTournament {
+  return {
+    id: d.id,
+    name: d.name,
+    code: d.code || d.name.split(" ").map(w => w[0]).join("").slice(0, 4).toUpperCase(),
+    sport: d.sport as Sport,
+    city: d.city + (d.state ? `, ${d.state}` : ""),
+    date: d.scheduledDate,
+    time: d.scheduledTime,
+    purse: d.purse,
+    playersPerTeam: d.playersPerTeam,
+    teams: d.teamsCount,
+    primary: d.primaryColor,
+    accent: d.accentColor,
+  };
+}
 
 // ─── SVG Logo Badge ───────────────────────────────────────────────────────────
 
@@ -16,7 +36,7 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
   const letters = t.code.slice(0, 2);
   const extra = t.code.length > 2 ? t.code[2] : "";
 
-  const sportPath: Record<Sport, string> = {
+  const sportPath: Record<string, string> = {
     cricket:
       "M28 14 C28 14 20 20 18 28 C16 36 20 40 20 40 L24 36 C24 36 22 32 24 26 C26 20 30 18 30 18 Z M30 18 L34 22 L22 38 L18 34 Z",
     football:
@@ -24,6 +44,8 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
     kabaddi:
       "M24 13 C21 13 19 15 19 18 C19 21 21 23 24 23 C27 23 29 21 29 18 C29 15 27 13 24 13 Z M17 27 C17 24 19 22 22 22 L24 24 L26 22 C29 22 31 24 31 27 L31 36 L26 36 L26 30 L24 32 L22 30 L22 36 L17 36 Z",
   };
+
+  const path = sportPath[t.sport] || sportPath.cricket;
 
   return (
     <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" className="w-full h-full" role="img" aria-label={`${t.name} logo`}>
@@ -64,7 +86,7 @@ function LogoBadge({ t }: { t: UpcomingTournament }) {
         <text x="24" y="31" textAnchor="middle" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="14" fill="white" letterSpacing="1">{letters}</text>
       )}
 
-      <path d={sportPath[t.sport]} fill={t.accent} opacity="0.18" transform="translate(0, 0) scale(0.55) translate(20, 22)" />
+      <path d={path} fill={t.accent} opacity="0.18" transform="translate(0, 0) scale(0.55) translate(20, 22)" />
       <circle cx="12" cy="14" r="1.2" fill={t.accent} opacity="0.6" />
       <circle cx="36" cy="14" r="1.2" fill={t.accent} opacity="0.6" />
     </svg>
@@ -101,7 +123,7 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
           {t.code}
         </div>
         <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-white/50 border border-white/10">
-          {SPORT_LABEL[t.sport]}
+          {SPORT_LABEL[t.sport as Sport] ?? t.sport}
         </div>
         <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
@@ -118,7 +140,7 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs text-white/50">
             <MapPin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
-            <span className="font-medium text-white/70">{t.city}, Uttar Pradesh</span>
+            <span className="font-medium text-white/70">{t.city}</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-white/50">
             <IndianRupee className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
@@ -137,14 +159,14 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
             </div>
             <div className="flex items-center gap-1.5 text-xs text-white/40">
               <span className="w-1 h-1 rounded-full bg-white/20 inline-block" />
-              <span>{t.teams} Teams</span>
+              <span>+ {t.teams} Teams</span>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-white/50 pt-1 border-t border-white/5">
             <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: t.accent, opacity: 0.8 }} />
             <span>
-              <span className="font-bold text-white/80">{formatDate(t.date)}</span>
-              <span className="ml-2 text-white/40">{t.time} IST</span>
+              <span className="font-bold text-white/80">{t.date ? formatDate(t.date) : "TBD"}</span>
+              {t.time && <span className="ml-2 text-white/40">{t.time} IST</span>}
             </span>
           </div>
         </div>
@@ -158,6 +180,18 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
 export default function UpcomingAuctions() {
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
+  const [items, setItems] = useState<UpcomingTournament[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/display-auctions")
+      .then(r => r.json())
+      .then((data: DisplayAuction[]) => {
+        setItems(data.map(toUpcoming));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
@@ -210,17 +244,19 @@ export default function UpcomingAuctions() {
                 </span>
               </h1>
               <p className="text-white/50 mt-2 text-sm max-w-md">
-                Live franchise auctions happening across Uttar Pradesh. Powered by BidWar's real-time auction platform.
+                Live franchise auctions happening across India. Powered by BidWar's real-time auction platform.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                <span className="text-xs font-semibold text-white/70">
-                  {UPCOMING.length} Auctions Scheduled
-                </span>
+            {!loading && items.length > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                  <span className="text-xs font-semibold text-white/70">
+                    {items.length} Auction{items.length !== 1 ? "s" : ""} Scheduled
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -228,11 +264,24 @@ export default function UpcomingAuctions() {
       {/* Grid */}
       <section className="px-6 pb-20">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {UPCOMING.map(t => (
-              <TournamentCard key={t.id} t={t} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="h-72 rounded-2xl bg-white/5 animate-pulse" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <Trophy className="w-12 h-12 text-white/10" />
+              <p className="text-white/40 text-sm">No upcoming auctions at the moment. Check back soon.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {items.map(t => (
+                <TournamentCard key={t.id} t={t} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

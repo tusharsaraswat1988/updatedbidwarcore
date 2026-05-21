@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +9,8 @@ import {
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
   MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet,
 } from "lucide-react";
-import { UPCOMING, formatDate, formatPurse, SPORT_LABEL } from "@/data/upcoming-auctions";
+import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
+import type { DisplayAuction } from "@/lib/auth";
 import { ProductShowcase } from "@/components/product-showcase";
 import { Testimonials } from "@/components/testimonials";
 import { DemoRequest } from "@/components/demo-request";
@@ -344,6 +345,29 @@ export default function Landing() {
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
+  const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
+
+  useEffect(() => {
+    fetch("/api/display-auctions")
+      .then(r => r.json())
+      .then((data: DisplayAuction[]) => {
+        setDisplayAuctions(data.map(d => ({
+          id: d.id,
+          name: d.name,
+          code: d.code || d.name.split(" ").map(w => w[0]).join("").slice(0, 4).toUpperCase(),
+          sport: d.sport as Sport,
+          city: d.city + (d.state ? `, ${d.state}` : ""),
+          date: d.scheduledDate,
+          time: d.scheduledTime,
+          purse: d.purse,
+          playersPerTeam: d.playersPerTeam,
+          teams: d.teamsCount,
+          primary: d.primaryColor,
+          accent: d.accentColor,
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
@@ -499,12 +523,12 @@ export default function Landing() {
               onClick={() => navigate("/upcoming-auctions")}
               className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline underline-offset-4 flex-shrink-0"
             >
-              View all {UPCOMING.length} <ChevronRight className="w-4 h-4" />
+              {displayAuctions.length > 0 ? `View all ${displayAuctions.length}` : "View all"} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none -mx-2 px-2">
-            {UPCOMING.slice(0, 4).map(t => (
+            {displayAuctions.slice(0, 4).map(t => (
               <div
                 key={t.id}
                 className="flex-shrink-0 w-64 rounded-xl border overflow-hidden bg-[#111113] hover:border-white/20 transition-all duration-200 hover:shadow-[0_0_24px_rgba(0,0,0,0.5)]"
@@ -562,7 +586,7 @@ export default function Landing() {
                 <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-primary transition-colors" />
               </div>
               <span className="text-xs font-semibold text-white/40 group-hover:text-primary transition-colors text-center leading-snug px-4">
-                View all {UPCOMING.length} upcoming auctions
+                View all {displayAuctions.length > 0 ? displayAuctions.length : ""} upcoming auctions
               </span>
             </button>
           </div>
