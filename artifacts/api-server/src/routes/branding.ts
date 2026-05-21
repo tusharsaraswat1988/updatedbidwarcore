@@ -34,7 +34,10 @@ router.put("/auth/admin/branding", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
 
   try {
-    const d = req.body as Partial<typeof brandingSettingsTable.$inferInsert>;
+    // Strip server-managed fields (id, createdAt, updatedAt) so Drizzle does not
+    // receive ISO-string timestamps from the client and fail mapToDriverValue.
+    const { id: _id, createdAt: _ca, updatedAt: _ua, ...safeBody } = req.body as Record<string, unknown>;
+    const d = safeBody as Partial<typeof brandingSettingsTable.$inferInsert>;
 
     const [existing] = await db.select({ id: brandingSettingsTable.id }).from(brandingSettingsTable).limit(1);
 
