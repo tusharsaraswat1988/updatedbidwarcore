@@ -4,6 +4,7 @@ import { TeamOverlay } from "./team-overlay";
 import { PlayerOverlay } from "./player-overlay";
 import { Top5Overlay } from "./top5-overlay";
 import { FortuneWheelOverlay } from "./fortune-wheel-overlay";
+import { BannerOverlay } from "./banner-overlay";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
 
 /**
@@ -39,6 +40,8 @@ export const OverlayManager = memo(function OverlayManager({
   wheelItems,
   wheelWinner,
   wheelSpinning,
+  bannerUrl,
+  bannerFit,
 }: {
   overlayMode: string | null | undefined;
   stripPurses: PurseRow[];
@@ -51,6 +54,8 @@ export const OverlayManager = memo(function OverlayManager({
   wheelItems: WheelItem[];
   wheelWinner: string | null | undefined;
   wheelSpinning: boolean | null | undefined;
+  bannerUrl: string | null | undefined;
+  bannerFit: string | null | undefined;
 }) {
   return (
     <>
@@ -104,6 +109,18 @@ export const OverlayManager = memo(function OverlayManager({
               purses={stripPurses}
               tournamentName={tournamentName ?? undefined}
             />
+          </motion.div>
+        )}
+        {overlayMode === "banner" && (
+          <motion.div
+            key="overlay-banner"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55 }}
+            className="absolute inset-0"
+          >
+            <BannerOverlay bannerUrl={bannerUrl} fit={bannerFit} />
           </motion.div>
         )}
       </AnimatePresence>

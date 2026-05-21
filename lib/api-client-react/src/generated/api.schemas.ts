@@ -28,6 +28,17 @@ export const TournamentStatus = {
   completed: "completed",
 } as const;
 
+/**
+ * Image fit mode for the banner on the LED screen
+ */
+export type TournamentMainBannerFit =
+  (typeof TournamentMainBannerFit)[keyof typeof TournamentMainBannerFit];
+
+export const TournamentMainBannerFit = {
+  cover: "cover",
+  contain: "contain",
+} as const;
+
 export interface Tournament {
   id: number;
   name: string;
@@ -95,6 +106,15 @@ export interface Tournament {
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
+  /**
+   * Cloudinary URL of the uploaded main banner image
+   * @nullable
+   */
+  mainBannerUrl?: string | null;
+  /** When true, the LED display shows only the main banner full-screen */
+  mainBannerEnabled?: boolean;
+  /** Image fit mode for the banner on the LED screen */
+  mainBannerFit?: TournamentMainBannerFit;
   /** Whether BidWar Local offline auction mode is enabled for this tournament */
   localModeEnabled?: boolean;
   createdAt: string;
@@ -120,6 +140,14 @@ export const TournamentInputPlayerSelectionMode = {
   sequential: "sequential",
   random: "random",
   manual: "manual",
+} as const;
+
+export type TournamentInputMainBannerFit =
+  (typeof TournamentInputMainBannerFit)[keyof typeof TournamentInputMainBannerFit];
+
+export const TournamentInputMainBannerFit = {
+  cover: "cover",
+  contain: "contain",
 } as const;
 
 export interface TournamentInput {
@@ -156,6 +184,9 @@ export interface TournamentInput {
   breakEndMusicEnabled?: boolean;
   breakEndMusicUrl?: string;
   breakEndMusicVolume?: number;
+  mainBannerUrl?: string;
+  mainBannerEnabled?: boolean;
+  mainBannerFit?: TournamentInputMainBannerFit;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -165,6 +196,14 @@ export const TournamentUpdatePlayerSelectionMode = {
   sequential: "sequential",
   random: "random",
   manual: "manual",
+} as const;
+
+export type TournamentUpdateMainBannerFit =
+  (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
+
+export const TournamentUpdateMainBannerFit = {
+  cover: "cover",
+  contain: "contain",
 } as const;
 
 export interface TournamentUpdate {
@@ -210,6 +249,10 @@ export interface TournamentUpdate {
   /** @nullable */
   breakEndMusicUrl?: string | null;
   breakEndMusicVolume?: number;
+  /** @nullable */
+  mainBannerUrl?: string | null;
+  mainBannerEnabled?: boolean;
+  mainBannerFit?: TournamentUpdateMainBannerFit;
 }
 
 export interface Team {
@@ -553,6 +596,7 @@ export const AuctionStateDisplayOverlay = {
   team: "team",
   player: "player",
   top5: "top5",
+  banner: "banner",
 } as const;
 
 export type AuctionStatePlayerSelectionMode =
@@ -952,6 +996,7 @@ export const SetDisplayOverlayBodyMode = {
   team: "team",
   player: "player",
   top5: "top5",
+  banner: "banner",
 } as const;
 
 export type SetDisplayOverlayBody = {

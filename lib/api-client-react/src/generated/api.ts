@@ -3466,7 +3466,7 @@ export const useResetTrialAuction = <
 };
 
 /**
- * @summary Set the LED display overlay mode (team/player/top5/off)
+ * @summary Set the LED display overlay mode (team/player/top5/banner/off)
  */
 export const getSetDisplayOverlayUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/display-overlay`;
@@ -3530,7 +3530,7 @@ export type SetDisplayOverlayMutationBody = BodyType<SetDisplayOverlayBody>;
 export type SetDisplayOverlayMutationError = ErrorType<unknown>;
 
 /**
- * @summary Set the LED display overlay mode (team/player/top5/off)
+ * @summary Set the LED display overlay mode (team/player/top5/banner/off)
  */
 export const useSetDisplayOverlay = <
   TError = ErrorType<unknown>,

@@ -55,7 +55,7 @@ import {
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert, Star,
-  PanelRightClose, PanelRightOpen, Tv2,
+  PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
   Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
@@ -493,9 +493,10 @@ export default function AuctionOperator() {
 
   // LED overlay buttons
   const ledOverlayButtons = [
-    { mode: "team"   as const, label: "Team",   icon: LayoutGrid, bg: "bg-primary text-black"   },
-    { mode: "player" as const, label: "Player", icon: Users,      bg: "bg-blue-600 text-white"  },
-    { mode: "top5"   as const, label: "Top5",   icon: Crown,      bg: "bg-purple-600 text-white"},
+    { mode: "team"   as const, label: "Team",   icon: LayoutGrid,  bg: "bg-primary text-black"    },
+    { mode: "player" as const, label: "Player", icon: Users,       bg: "bg-blue-600 text-white"   },
+    { mode: "top5"   as const, label: "Top5",   icon: Crown,       bg: "bg-purple-600 text-white" },
+    { mode: "banner" as const, label: "Banner", icon: Clapperboard, bg: "bg-amber-600 text-white" },
   ];
 
   const timerSecsNum = parseInt(timerSecs) || 30;

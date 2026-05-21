@@ -81,6 +81,20 @@ export const ListTournamentsResponseItem = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  mainBannerUrl: zod
+    .string()
+    .nullish()
+    .describe("Cloudinary URL of the uploaded main banner image"),
+  mainBannerEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the LED display shows only the main banner full-screen",
+    ),
+  mainBannerFit: zod
+    .enum(["cover", "contain"])
+    .optional()
+    .describe("Image fit mode for the banner on the LED screen"),
   localModeEnabled: zod
     .boolean()
     .optional()
@@ -128,6 +142,9 @@ export const CreateTournamentBody = zod.object({
   breakEndMusicEnabled: zod.boolean().optional(),
   breakEndMusicUrl: zod.string().optional(),
   breakEndMusicVolume: zod.number().optional(),
+  mainBannerUrl: zod.string().optional(),
+  mainBannerEnabled: zod.boolean().optional(),
+  mainBannerFit: zod.enum(["cover", "contain"]).optional(),
 });
 
 /**
@@ -186,6 +203,20 @@ export const GetTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  mainBannerUrl: zod
+    .string()
+    .nullish()
+    .describe("Cloudinary URL of the uploaded main banner image"),
+  mainBannerEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the LED display shows only the main banner full-screen",
+    ),
+  mainBannerFit: zod
+    .enum(["cover", "contain"])
+    .optional()
+    .describe("Image fit mode for the banner on the LED screen"),
   localModeEnabled: zod
     .boolean()
     .optional()
@@ -240,6 +271,9 @@ export const UpdateTournamentBody = zod.object({
   breakEndMusicEnabled: zod.boolean().optional(),
   breakEndMusicUrl: zod.string().nullish(),
   breakEndMusicVolume: zod.number().optional(),
+  mainBannerUrl: zod.string().nullish(),
+  mainBannerEnabled: zod.boolean().optional(),
+  mainBannerFit: zod.enum(["cover", "contain"]).optional(),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -291,6 +325,20 @@ export const UpdateTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  mainBannerUrl: zod
+    .string()
+    .nullish()
+    .describe("Cloudinary URL of the uploaded main banner image"),
+  mainBannerEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, the LED display shows only the main banner full-screen",
+    ),
+  mainBannerFit: zod
+    .enum(["cover", "contain"])
+    .optional()
+    .describe("Image fit mode for the banner on the LED screen"),
   localModeEnabled: zod
     .boolean()
     .optional()
@@ -376,6 +424,20 @@ export const ExportTournamentForLocalResponse = zod.object({
     breakEndMusicVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
     cheerMessagePresets: zod.string().nullish(),
+    mainBannerUrl: zod
+      .string()
+      .nullish()
+      .describe("Cloudinary URL of the uploaded main banner image"),
+    mainBannerEnabled: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When true, the LED display shows only the main banner full-screen",
+      ),
+    mainBannerFit: zod
+      .enum(["cover", "contain"])
+      .optional()
+      .describe("Image fit mode for the banner on the LED screen"),
     localModeEnabled: zod
       .boolean()
       .optional()
@@ -1139,6 +1201,7 @@ export const GetAuctionStateResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1266,6 +1329,7 @@ export const StartAuctionResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1393,6 +1457,7 @@ export const PauseAuctionResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1525,6 +1590,7 @@ export const NextPlayerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1661,6 +1727,7 @@ export const PlaceBidResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1788,6 +1855,7 @@ export const SellPlayerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -1920,6 +1988,7 @@ export const ManualSellResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2047,6 +2116,7 @@ export const MarkUnsoldResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2179,6 +2249,7 @@ export const ReAuctionPlayerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2306,6 +2377,7 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2433,6 +2505,7 @@ export const UndoLastActionResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2564,6 +2637,7 @@ export const ResetTrialAuctionResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2620,14 +2694,14 @@ export const ResetTrialAuctionResponse = zod.object({
 });
 
 /**
- * @summary Set the LED display overlay mode (team/player/top5/off)
+ * @summary Set the LED display overlay mode (team/player/top5/banner/off)
  */
 export const SetDisplayOverlayParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
 export const SetDisplayOverlayBody = zod.object({
-  mode: zod.enum(["off", "team", "player", "top5"]),
+  mode: zod.enum(["off", "team", "player", "top5", "banner"]),
 });
 
 export const SetDisplayOverlayResponse = zod.object({
@@ -2695,6 +2769,7 @@ export const SetDisplayOverlayResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2828,6 +2903,7 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -2985,6 +3061,7 @@ export const SyncFortuneWheelResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3116,6 +3193,7 @@ export const SetCategoryFilterResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3259,6 +3337,7 @@ export const SetBreakTimerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3395,6 +3474,7 @@ export const SetPreAuctionCountdownResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3532,6 +3612,7 @@ export const StartTimerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3659,6 +3740,7 @@ export const StopTimerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()
@@ -3786,6 +3868,7 @@ export const DeferPlayerResponse = zod.object({
       zod.literal("team"),
       zod.literal("player"),
       zod.literal("top5"),
+      zod.literal("banner"),
       zod.literal(null),
     ])
     .nullish()

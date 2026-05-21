@@ -97,6 +97,9 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
   breakEndMusicUrl: t.breakEndMusicUrl ?? null,
   breakEndMusicVolume: t.breakEndMusicVolume ?? 80,
+  mainBannerUrl: t.mainBannerUrl ?? null,
+  mainBannerEnabled: t.mainBannerEnabled ?? false,
+  mainBannerFit: t.mainBannerFit ?? "cover",
   localModeEnabled: t.localModeEnabled ?? false,
   createdAt: t.createdAt.toISOString(),
 });
@@ -224,6 +227,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     breakEndMusicEnabled: z.boolean().optional(),
     breakEndMusicUrl: z.string().nullable().optional(),
     breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
+    mainBannerUrl: z.string().nullable().optional(),
+    mainBannerEnabled: z.boolean().optional(),
+    mainBannerFit: z.enum(["cover", "contain"]).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -268,6 +274,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.breakEndMusicEnabled !== undefined) updates.breakEndMusicEnabled = d.breakEndMusicEnabled;
   if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl;
   if (d.breakEndMusicVolume !== undefined) updates.breakEndMusicVolume = d.breakEndMusicVolume;
+  if (d.mainBannerUrl !== undefined) updates.mainBannerUrl = d.mainBannerUrl;
+  if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
+  if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

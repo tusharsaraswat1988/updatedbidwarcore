@@ -924,7 +924,7 @@ paths:
     post:
       operationId: setDisplayOverlay
       tags: [auction]
-      summary: Set the LED display overlay mode (team/player/top5/off)
+      summary: Set the LED display overlay mode (team/player/top5/banner/off)
       parameters:
         - name: tournamentId
           in: path
@@ -941,7 +941,7 @@ paths:
               properties:
                 mode:
                   type: string
-                  enum: [off, team, player, top5]
+                  enum: [off, team, player, top5, banner]
       responses:
         "200":
           description: State updated
@@ -1580,6 +1580,16 @@ components:
           type: boolean
         cheerMessagePresets:
           type: ["string", "null"]
+        mainBannerUrl:
+          type: ["string", "null"]
+          description: "Cloudinary URL of the uploaded main banner image"
+        mainBannerEnabled:
+          type: boolean
+          description: "When true, the LED display shows only the main banner full-screen"
+        mainBannerFit:
+          type: string
+          enum: [cover, contain]
+          description: "Image fit mode for the banner on the LED screen"
         localModeEnabled:
           type: boolean
           description: "Whether BidWar Local offline auction mode is enabled for this tournament"
@@ -1670,6 +1680,13 @@ components:
           type: string
         breakEndMusicVolume:
           type: integer
+        mainBannerUrl:
+          type: string
+        mainBannerEnabled:
+          type: boolean
+        mainBannerFit:
+          type: string
+          enum: [cover, contain]
 
     TournamentUpdate:
       type: object
@@ -1750,6 +1767,13 @@ components:
           type: ["string", "null"]
         breakEndMusicVolume:
           type: integer
+        mainBannerUrl:
+          type: ["string", "null"]
+        mainBannerEnabled:
+          type: boolean
+        mainBannerFit:
+          type: string
+          enum: [cover, contain]
 
     # Team schemas
     Team:
@@ -2208,7 +2232,7 @@ components:
           type: boolean
         displayOverlay:
           type: ["string", "null"]
-          enum: [team, player, top5, null]
+          enum: [team, player, top5, banner, null]
           description: Active LED overlay mode. null/absent means no overlay.
         displayPlayerFilter:
           $ref: "#/components/schemas/DisplayPlayerFilter"

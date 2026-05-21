@@ -1468,7 +1468,7 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
-  const body = z.object({ mode: z.enum(["off", "team", "player", "top5"]) }).safeParse(req.body);
+  const body = z.object({ mode: z.enum(["off", "team", "player", "top5", "banner"]) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
   const overlay = body.data.mode === "off" ? null : body.data.mode;

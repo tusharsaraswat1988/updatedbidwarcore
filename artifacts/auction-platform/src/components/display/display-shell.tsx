@@ -393,6 +393,8 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}
+          bannerUrl={tournament?.mainBannerUrl ?? null}
+          bannerFit={tournament?.mainBannerFit ?? "cover"}
         />
       </StaticBackground>
     </FullscreenLayout>

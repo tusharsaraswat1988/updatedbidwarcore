@@ -62,6 +62,10 @@ export const tournamentsTable = pgTable("tournaments", {
   // Cheer messages (live viewer interactive reactions)
   cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
+  // Main Banner — full-screen broadcast overlay for felicitation/announcements
+  mainBannerUrl: text("main_banner_url"),
+  mainBannerEnabled: boolean("main_banner_enabled").notNull().default(false),
+  mainBannerFit: text("main_banner_fit").notNull().default("cover"),
   // BidWar Local — premium offline auction feature
   localModeEnabled: boolean("local_mode_enabled").notNull().default(false),
   exportToken: text("export_token"),
