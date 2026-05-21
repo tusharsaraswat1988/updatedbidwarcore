@@ -1,0 +1,159 @@
+IMPORTANT:
+Implement ONLY the following changes related to Google OAuth compliance and homepage trust improvements.
+
+STRICT RULES:
+- DO NOT touch auction logic
+- DO NOT modify bidding system
+- DO NOT modify backend APIs unrelated to auth/pages
+- DO NOT modify database schema unless absolutely required
+- DO NOT modify existing operator/admin/live auction functionality
+- DO NOT refactor unrelated files
+- DO NOT change app design theme
+- DO NOT break SEO
+
+====================================================
+TASK 1 — ADD “ABOUT BIDWAR” SECTION ON LANDING PAGE
+====================================================
+
+On homepage landing page, add a new section BELOW Features/Use Cases and ABOVE Footer.
+
+Section title:
+About BidWar
+
+Section content:
+
+BidWar is a cloud-based sports auction and tournament management platform designed for cricket, football, kabaddi, and franchise leagues.
+
+The platform allows organizers to:
+• conduct live player auctions
+• manage teams and tournaments
+• display live bidding screens
+• operate organizer and owner panels
+• manage auction data securely
+
+Google Sign-In is used only for secure authentication and organizer account access.
+
+Requirements:
+- Premium dark theme matching existing UI
+- Responsive
+- Clean spacing
+- Use existing typography/colors
+- No heavy animations
+- Keep lightweight for PageSpeed
+
+====================================================
+TASK 2 — PRIVACY POLICY UPDATE
+====================================================
+
+In Privacy Policy page, ADD this section:
+
+Title:
+Google User Data
+
+Content:
+If users choose Google Sign-In, BidWar may receive basic profile information including name, email address, and profile image solely for authentication and account access purposes.
+
+BidWar does not sell Google user data to third parties.
+
+Requirements:
+- Preserve existing legal formatting
+- Do not rewrite other legal sections
+- Only append/add this section cleanly
+
+====================================================
+TASK 3 — ADD CONTACT US PAGE
+====================================================
+
+Create lightweight public page:
+/contact
+
+Content should include:
+
+- Support Email
+- Phone Number
+- Business Name:
+  CWP Detailers & Motors
+- Website:
+  https://bidwar.in
+- Address:
+  Gurudham Colony, Bhelupura, Varanasi, Uttar Pradesh, India
+
+Also add:
+“Typically responds within 24 hours.”
+
+Requirements:
+- Publicly accessible without login
+- Mobile responsive
+- Dark theme matching landing page
+- Lightweight
+- SEO friendly
+- Add proper title/meta tags
+
+====================================================
+TASK 4 — FOOTER UPDATE
+====================================================
+
+In footer add:
+- Contact Us link
+- Ensure all legal links work:
+  - Privacy Policy
+  - Terms & Conditions
+  - Refund Policy
+  - Disclaimer
+  - Acceptable Use
+
+Do NOT add broken links.
+
+====================================================
+TASK 5 — VERIFY ALL PUBLIC PAGES
+====================================================
+
+Ensure these pages load publicly without authentication:
+- /
+- /legal/privacy
+- /legal/terms
+- /legal/refund-policy
+- /legal/disclaimer
+- /legal/acceptable-use
+- /contact
+
+====================================================
+TASK 6 — SEO + GOOGLE REVIEWER FRIENDLY
+====================================================
+
+Ensure:
+- Proper page titles
+- Meta descriptions
+- No “under construction” text
+- No broken buttons
+- No console errors on public pages
+- Social/contact info visible
+- Fast-loading implementation
+
+====================================================
+IMPORTANT FINAL RULES
+====================================================
+
+DO NOT:
+- modify auction core
+- modify live bidding flow
+- modify backend auction APIs
+- modify tournament logic
+- modify operator logic
+- modify owner panel
+- modify socket systems
+- modify SSE systems
+- modify DB structure unnecessarily
+
+Keep changes MINIMAL and SCOPED only to:
+- landing/public pages
+- legal pages
+- footer
+- SEO/meta
+- contact page
+
+After implementation:
+- verify build passes
+- verify all routes work
+- verify no TypeScript errors
+- verify mobile responsiveness

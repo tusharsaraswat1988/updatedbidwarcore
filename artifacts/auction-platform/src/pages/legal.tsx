@@ -142,6 +142,10 @@ const POLICIES: Record<PolicySlug, Policy> = {
         heading: "Policy Updates",
         body: "BidWar reserves the right to modify this Privacy Policy at any time without prior notice. Continued usage of the platform shall constitute acceptance of updated terms.",
       },
+      {
+        heading: "Google User Data",
+        body: "If users choose Google Sign-In, BidWar may receive basic profile information including name, email address, and profile image solely for authentication and account access purposes.\n\nBidWar does not sell Google user data to third parties.",
+      },
       { heading: "Contact Information", body: CONTACT_BLOCK },
     ],
   },

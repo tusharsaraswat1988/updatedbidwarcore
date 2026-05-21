@@ -40,6 +40,7 @@ const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
+const ContactPage = lazy(() => import("@/pages/contact"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -76,6 +77,7 @@ function Router() {
         {/* Public routes */}
         <Route path="/" component={Landing} />
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
+        <Route path="/contact" component={ContactPage} />
         <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
