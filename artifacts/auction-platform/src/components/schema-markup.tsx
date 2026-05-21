@@ -238,7 +238,6 @@ export function HomeSchemaMarkup() {
     "@context": "https://schema.org",
     "@graph": [
       SOFTWARE_APPLICATION_SCHEMA,
-      FAQ_SCHEMA,
       ORGANIZATION_SCHEMA,
       WEBSITE_SCHEMA,
     ],
