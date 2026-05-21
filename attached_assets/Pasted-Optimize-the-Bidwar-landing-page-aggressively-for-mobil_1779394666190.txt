@@ -1,0 +1,130 @@
+Optimize the Bidwar landing page aggressively for mobile performance WITHOUT breaking auction logic, backend logic, admin panel, operator panel, socket systems, authentication, APIs, database, or live auction features.
+
+IMPORTANT:
+Do NOT modify any business logic.
+Do NOT change auction calculations, formulas, bidding systems, backend routes, auth flow, database schema, or operator functionality.
+Only optimize frontend loading and rendering.
+
+GOALS:
+
+* Improve Google PageSpeed mobile score from ~49 to 85+
+* Reduce LCP from 16s to below 4s
+* Reduce JS bundle size massively
+* Improve TV browser compatibility
+* Keep exact same UI/branding/design style
+
+CRITICAL ISSUES FOUND:
+
+1. Main JS bundle is over 2MB
+2. Homepage loads unnecessary modules
+3. Hero/logo image is over 2MB
+4. Render-blocking CSS
+5. Too much unused JavaScript
+6. Heavy hydration causing weak browsers/TV browsers to lag
+
+DO THESE OPTIMIZATIONS:
+
+1. HOMEPAGE CODE SPLITTING
+
+* Split homepage bundle aggressively
+* Use dynamic imports/lazy loading for:
+
+  * admin components
+  * operator panel
+  * analytics
+  * charts
+  * wheel
+  * live auction systems
+  * heavy dialogs/modals
+  * non-visible sections
+* Homepage should load ONLY:
+
+  * navbar
+  * hero section
+  * CTA
+  * pricing
+  * testimonials
+  * footer
+
+2. IMAGE OPTIMIZATION
+
+* Compress all landing page images
+* Convert large PNG/JPG images to WebP automatically
+* Use responsive image sizes
+* Add lazy loading to below-fold images
+* Optimize Cloudinary URLs using:
+
+  * f_auto
+  * q_auto
+  * proper width sizing
+* Target hero image size under 150KB
+
+3. RENDER PERFORMANCE
+
+* Prevent unnecessary React re-renders
+* Memoize expensive components
+* Optimize animations
+* Reduce forced reflows/layout thrashing
+* Use requestAnimationFrame where appropriate
+
+4. CSS OPTIMIZATION
+
+* Remove unused CSS/Tailwind classes
+* Inline critical above-the-fold CSS
+* Defer non-critical styles
+* Reduce render-blocking CSS
+
+5. FONT OPTIMIZATION
+
+* Keep only required font weights
+* Use font-display: swap
+* Add preconnect for Google Fonts
+* Remove duplicate font requests
+
+6. JAVASCRIPT OPTIMIZATION
+
+* Remove unused imports
+* Tree-shake aggressively
+* Reduce hydration cost
+* Minimize homepage JS execution time
+* Avoid loading dashboard/admin code on public landing page
+
+7. ACCESSIBILITY FIXES
+
+* Add labels to form/select inputs
+* Fix contrast issues
+* Add semantic landmarks
+
+8. TV BROWSER COMPATIBILITY
+
+* Reduce heavy animations on initial load
+* Make login page lightweight
+* Improve weak-browser compatibility
+* Ensure Google auth works smoothly on low-power browsers
+
+9. CACHING
+
+* Add proper cache headers for JS/CSS/images
+* Enable compression (gzip/brotli)
+
+10. IMPORTANT SAFETY
+
+* DO NOT break:
+
+  * auction flow
+  * authentication
+  * Google login
+  * live bidding
+  * operator controls
+  * APIs
+  * backend routes
+  * admin functionality
+  * database
+  * socket events
+
+After optimization:
+
+* Show bundle size improvements
+* Show estimated PageSpeed improvements
+* Show which components were lazy loaded
+* Keep all functionality intact.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
 import type { DisplayAuction } from "@/lib/auth";
-import { ProductShowcase } from "@/components/product-showcase";
-import { Testimonials } from "@/components/testimonials";
-import { DemoRequest } from "@/components/demo-request";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
-import { PaymentModal, type PaymentPlan } from "@/components/payment-modal";
+import type { PaymentPlan } from "@/components/payment-modal";
+
+const ProductShowcase = lazy(() => import("@/components/product-showcase").then(m => ({ default: m.ProductShowcase })));
+const Testimonials = lazy(() => import("@/components/testimonials").then(m => ({ default: m.Testimonials })));
+const DemoRequest = lazy(() => import("@/components/demo-request").then(m => ({ default: m.DemoRequest })));
+const PaymentModal = lazy(() => import("@/components/payment-modal").then(m => ({ default: m.PaymentModal })));
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -379,7 +381,7 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-auto" />
+            <img src={logos.mini || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={200} height={75} />
             <span className="font-display font-black text-xl tracking-tight text-white">{brandName.toUpperCase()}</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
@@ -614,7 +616,9 @@ export default function Landing() {
       </section>
 
       {/* ── Product Showcase ─────────────────────────────────────────── */}
-      <ProductShowcase />
+      <Suspense fallback={<div className="h-96" />}>
+        <ProductShowcase />
+      </Suspense>
 
       {/* ── Features ────────────────────────────────────────────────── */}
       <section id="features" className="py-24 px-6">
@@ -986,10 +990,14 @@ export default function Landing() {
       </section>
 
       {/* ── Demo Request ────────────────────────────────────────────── */}
-      <DemoRequest />
+      <Suspense fallback={null}>
+        <DemoRequest />
+      </Suspense>
 
       {/* ── Testimonials ────────────────────────────────────────────── */}
-      <Testimonials />
+      <Suspense fallback={null}>
+        <Testimonials />
+      </Suspense>
 
       {/* ── CTA Banner ──────────────────────────────────────────────── */}
       <section className="py-24 px-6">
@@ -1062,7 +1070,7 @@ export default function Landing() {
             {/* Brand */}
             <div className="space-y-4 md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-auto" />
+                <img src={logos.mini || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={200} height={75} />
                 <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1145,7 +1153,9 @@ export default function Landing() {
         </div>
       </footer>
 
-      <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
+      <Suspense fallback={null}>
+        <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
+      </Suspense>
     </div>
   );
 }
