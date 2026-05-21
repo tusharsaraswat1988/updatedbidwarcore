@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, DatabaseZap, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
@@ -232,7 +232,7 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
           <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}</div>
         ) : (sources || []).length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <DatabaseZap className="w-10 h-10 mx-auto mb-3 opacity-25" />
+            <Users className="w-10 h-10 mx-auto mb-3 opacity-25" />
             <p className="font-medium">No other tournaments found</p>
             <p className="text-xs mt-1">Other tournaments with registered players will appear here.</p>
           </div>
@@ -373,7 +373,7 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
           {importMutation.isPending ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing...</>
           ) : (
-            <><DatabaseZap className="w-4 h-4 mr-2" /> Import {selectedIds.size} Player{selectedIds.size !== 1 ? "s" : ""}</>
+            <><Upload className="w-4 h-4 mr-2" /> Import {selectedIds.size} Player{selectedIds.size !== 1 ? "s" : ""}</>
           )}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -540,7 +540,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
               />
               {filledFromProfile && (
                 <p className="text-xs text-primary flex items-center gap-1">
-                  <DatabaseZap className="w-3 h-3" />
+                  <Sparkles className="w-3 h-3" />
                   Filled from player history
                   <button
                     type="button"
@@ -1001,7 +1001,7 @@ export default function Players() {
               className="gap-2"
               onClick={() => setImportOpen(true)}
             >
-              <DatabaseZap className="w-4 h-4" /> Import Players
+              <Upload className="w-4 h-4" /> Import Players
             </Button>
             <Button
               variant="outline"
@@ -1196,7 +1196,7 @@ export default function Players() {
         <DialogContent className="max-w-2xl dark max-h-[92vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DatabaseZap className="w-5 h-5" /> Import Players from Tournament
+              <Upload className="w-5 h-5" /> Import Players from Tournament
             </DialogTitle>
           </DialogHeader>
           <TournamentImportDialog

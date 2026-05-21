@@ -3,11 +3,11 @@ import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Gavel, Monitor, Smartphone, Users, Radio, Shuffle, Zap,
+  Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
-  Globe, Cloud, Award, Building2, GraduationCap, ChevronDown,
+  Globe, Cloud, Building2, GraduationCap, ChevronDown,
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
-  MapPin, Calendar,
+  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet,
 } from "lucide-react";
 import { UPCOMING, formatDate, formatPurse, SPORT_LABEL } from "@/data/upcoming-auctions";
 import { ProductShowcase } from "@/components/product-showcase";
@@ -25,7 +25,7 @@ const features = [
     desc: "Full-screen LED display mode with animated player cards, live bid counter, team purse strip, and SOLD stamp. Plug into any projector or TV — broadcast-ready out of the box.",
   },
   {
-    icon: Users,
+    icon: Wallet,
     title: "Team Owner Bidding Panel",
     desc: "Every team owner gets a mobile-optimized bidding panel. One-tap bid button, real-time purse tracker, squad overview — bid from any smartphone, no app needed.",
   },
@@ -35,7 +35,7 @@ const features = [
     desc: "Run the entire auction from a tablet. Nominate players, start bid timers, accept quick bids, mark SOLD or UNSOLD, and undo the last action — full control, zero cables.",
   },
   {
-    icon: Radio,
+    icon: Cast,
     title: "OBS Streaming Overlay",
     desc: "Transparent overlay for YouTube and Facebook Live streams. Shows hexagon player photo, live bid bar, and team ticker — turn your auction into a broadcast event.",
   },
@@ -45,12 +45,12 @@ const features = [
     desc: "Post-auction reports with bar charts, purse utilization, top sold players, and team-wise spend breakdown. Export data and share results instantly.",
   },
   {
-    icon: Shuffle,
+    icon: Dices,
     title: "Fortune Wheel & Tiebreakers",
     desc: "Animated full-screen spin wheel for lucky draws and tiebreakers. Crowd-pleasing, tournament-ready, and configurable with your team names.",
   },
   {
-    icon: Zap,
+    icon: QrCode,
     title: "Player Self-Registration",
     desc: "Players register via a public QR code link — name, photo, role, and stats. Auto-fills your auction roster. No manual data entry for the organizer.",
   },
@@ -166,17 +166,17 @@ const steps = [
 
 const useCases = [
   {
-    icon: Trophy,
+    icon: Target,
     title: "Cricket Leagues",
     desc: "T20, T10, and box cricket franchise auctions with IPL-style player categories, purse limits, and live bid counters.",
   },
   {
-    icon: Globe,
+    icon: CircleDot,
     title: "Football Auctions",
     desc: "Franchise football league drafts with team budgets, player roles, and real-time bidding panels for each team owner.",
   },
   {
-    icon: Award,
+    icon: Swords,
     title: "Kabaddi Tournaments",
     desc: "PKL-inspired kabaddi league auctions with full team management, category-based bidding, and LED display support.",
   },
@@ -191,7 +191,7 @@ const useCases = [
     desc: "Corporate cricket and football leagues with franchise bidding, sponsor branding, and streaming overlay for events.",
   },
   {
-    icon: Users,
+    icon: Heart,
     title: "Community Tournaments",
     desc: "Local club and residential society leagues with simple setup, mobile bidding, and projector display for live audiences.",
   },
