@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
+import { PageTracking } from "@/components/page-tracking";
 
 import Landing from "@/pages/landing";
 
@@ -196,6 +197,7 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <BrandingEffects />
+          <PageTracking />
           <Router />
         </WouterRouter>
         <Toaster />

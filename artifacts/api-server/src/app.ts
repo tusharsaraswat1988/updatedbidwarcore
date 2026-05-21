@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -15,6 +16,10 @@ const isProd = process.env.NODE_ENV === "production";
 // This tells Express to trust the X-Forwarded-For header so that
 // rate limiting and secure cookies work correctly.
 app.set("trust proxy", 1);
+
+// Gzip compression for all API JSON responses (level 6, skip payloads < 1 KB).
+// WebSocket upgrade requests are not HTTP responses so they are unaffected.
+app.use(compression({ level: 6, threshold: 1024 }));
 
 function buildAllowedOrigins(): string[] {
   const origins: string[] = [
