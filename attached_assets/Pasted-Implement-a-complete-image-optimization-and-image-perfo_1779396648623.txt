@@ -1,0 +1,209 @@
+Implement a complete image optimization and image performance system for Bidwar.
+
+OBJECTIVE:
+Bidwar is a real-time live auction platform where images are one of the biggest performance bottlenecks.
+
+The platform must remain smooth even if:
+- 20 tournaments run simultaneously
+- hundreds of viewers watch live
+- banners/logos/photos change frequently
+
+This task focuses ONLY on image handling, rendering, optimization, caching, and performance.
+
+DO NOT modify existing auction business logic.
+
+--------------------------------------------------
+1. GLOBAL IMAGE OPTIMIZATION PIPELINE
+--------------------------------------------------
+
+Apply this system to ALL uploads:
+- player photos
+- team logos
+- sponsor logos
+- main banners
+- tournament graphics
+
+When image uploads happen:
+
+Automatically:
+- compress images
+- resize oversized images
+- generate optimized formats
+- reduce memory usage
+- preserve visual quality
+
+Preferred:
+- WEBP generation
+- fallback support if needed
+
+Upload Rules:
+- max raw upload: 15MB
+- reject corrupted files
+- validate mime types
+
+Target optimized sizes:
+- logos → under 150KB
+- player photos → under 300KB
+- banners → under 500KB
+
+IMPORTANT:
+Never directly use original high-resolution uploads on live screens.
+
+--------------------------------------------------
+2. RESPONSIVE IMAGE VARIANTS
+--------------------------------------------------
+
+Generate multiple image sizes automatically.
+
+Examples:
+- thumbnail
+- medium
+- large
+- fullscreen
+
+Recommended examples:
+- logo: 128x128
+- player card: 400x400
+- fullscreen banner: 1920x1080
+- thumbnails: 80x80
+
+System should automatically serve appropriate size depending on usage.
+
+Avoid serving giant images unnecessarily.
+
+--------------------------------------------------
+3. SMART DISPLAY HANDLING
+--------------------------------------------------
+
+Operators may upload images of any dimensions.
+
+System must prevent:
+- stretched images
+- squeezed images
+- distorted aspect ratios
+- extremely tiny renders
+
+Use responsive rendering.
+
+Preferred CSS:
+- object-fit: cover
+- object-position: center
+
+Add optional modes:
+- Fit
+- Crop to Fill
+
+Default:
+Crop to Fill
+
+--------------------------------------------------
+4. IMAGE CACHING + DELIVERY OPTIMIZATION
+--------------------------------------------------
+
+Implement proper caching strategy.
+
+Need:
+- cache headers
+- immutable asset strategy
+- hashed filenames/versioning
+
+Prevent repeated unnecessary downloads.
+
+IMPORTANT:
+If image has not changed:
+- do not resend image data
+- do not trigger unnecessary rerenders
+
+Realtime systems should send only image URLs/references.
+
+--------------------------------------------------
+5. LAZY LOADING
+--------------------------------------------------
+
+Implement lazy loading where appropriate.
+
+Especially:
+- player lists
+- sold player grids
+- galleries
+- archive sections
+
+Use viewport-based loading.
+
+Avoid loading hundreds of images initially.
+
+--------------------------------------------------
+6. LIVE SCREEN PERFORMANCE OPTIMIZATION
+--------------------------------------------------
+
+LED/live screens must remain lightweight.
+
+Optimize specifically for:
+- older GPUs
+- low-power mini PCs
+- kiosk browsers
+
+Avoid:
+- giant transparent PNGs
+- unnecessary animations
+- oversized renders
+
+Prefer optimized WEBP rendering.
+
+--------------------------------------------------
+7. MEMORY LEAK PREVENTION
+--------------------------------------------------
+
+Audit image lifecycle carefully.
+
+Prevent:
+- unreleased blobs
+- repeated object URLs
+- duplicated image memory
+- stale cached assets
+
+Ensure image cleanup happens properly during:
+- player switching
+- tournament switching
+- banner switching
+- screen mode changes
+
+--------------------------------------------------
+8. OPERATOR EXPERIENCE
+--------------------------------------------------
+
+Operator upload experience should feel simple.
+
+Features:
+- upload preview
+- auto optimization
+- drag-drop upload
+- progress indicator
+- replace image
+- delete image
+
+Optional:
+- crop before save
+- safe center preview
+
+--------------------------------------------------
+9. TECHNICAL REQUIREMENTS
+--------------------------------------------------
+
+IMPORTANT:
+- Do NOT break existing auction logic
+- Do NOT break socket architecture
+- Keep backward compatibility
+- Use efficient browser rendering
+- Minimize rerenders
+- Optimize React image components if applicable
+
+Need detailed implementation for:
+- frontend
+- backend
+- storage
+- caching
+- rendering
+
+Goal:
+Bidwar should remain visually smooth and responsive even under heavy real-time tournament load.

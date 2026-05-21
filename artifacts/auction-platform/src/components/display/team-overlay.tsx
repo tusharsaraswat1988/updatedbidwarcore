@@ -2,6 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { Wallet, Gavel, Star } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import type { PurseRow } from "./types";
 import { useBranding } from "@/hooks/use-branding";
 
@@ -63,7 +64,13 @@ export const TeamOverlay = memo(function TeamOverlay({
 
         {/* BidWar brand mark — top right */}
         <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-10 md:h-14 w-auto flex-shrink-0" />
+          <img
+            src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"}
+            alt={brandName}
+            className="h-10 md:h-14 w-auto flex-shrink-0"
+            loading="eager"
+            decoding="async"
+          />
           <span className="font-display font-black text-lg md:text-2xl tracking-tight text-white leading-none">
             {brandName.toUpperCase()}
           </span>
@@ -128,10 +135,12 @@ export const TeamOverlay = memo(function TeamOverlay({
                   <div className="flex items-center gap-2 md:gap-3 min-w-0">
                     {team.logoUrl ? (
                       <img
-                        src={team.logoUrl}
+                        src={cldUrl(team.logoUrl, "teamLogo")}
                         alt={team.teamName}
                         className="w-9 h-9 md:w-12 md:h-12 rounded-lg object-contain flex-shrink-0"
                         style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.7))" }}
+                        loading="eager"
+                        decoding="async"
                       />
                     ) : (
                       <div

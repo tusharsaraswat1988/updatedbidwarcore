@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * Large player photo card (left of the main display).
@@ -43,7 +44,13 @@ export const PlayerCard = memo(function PlayerCard({
         }}
       >
         {photoUrl ? (
-          <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+          <img
+            src={cldUrl(photoUrl, "playerCard")}
+            alt={name}
+            className="w-full h-full object-cover"
+            loading="eager"
+            decoding="async"
+          />
         ) : (
           <div className="w-full h-full bg-card flex flex-col items-center justify-center gap-3">
             <User className="w-24 h-24 text-muted-foreground opacity-20" />

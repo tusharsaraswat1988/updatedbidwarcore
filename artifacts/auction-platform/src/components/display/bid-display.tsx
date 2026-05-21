@@ -2,6 +2,7 @@ import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import { AuctionCountdown } from "./auction-countdown";
 
 /**
@@ -107,10 +108,12 @@ export const BidDisplay = memo(function BidDisplay({
         >
           {currentBidTeamLogoUrl ? (
             <img
-              src={currentBidTeamLogoUrl}
+              src={cldUrl(currentBidTeamLogoUrl, "teamLogo")}
               alt={currentBidTeamName}
               className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
               style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+              loading="eager"
+              decoding="async"
               onError={e => (e.currentTarget.style.display = "none")}
             />
           ) : (

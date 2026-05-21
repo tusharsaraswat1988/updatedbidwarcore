@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * Rotating sponsor logo carousel — top-right corner of LED display.
@@ -37,10 +38,12 @@ export const SponsorCarousel = memo(function SponsorCarousel({ logos }: {
       >
         <img
           key={current.url}
-          src={current.url}
+          src={cldUrl(current.url, "teamLogo")}
           alt={current.name || "Sponsor"}
           className="h-24 max-w-[330px] object-contain"
           style={{ filter: "brightness(1.25) drop-shadow(0 0 12px rgba(255,255,255,0.25))" }}
+          loading="eager"
+          decoding="async"
           onError={e => (e.currentTarget.style.display = "none")}
         />
       </div>

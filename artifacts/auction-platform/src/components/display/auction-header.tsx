@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Trophy, Calendar } from "lucide-react";
 import { SponsorCarousel } from "./sponsor-carousel";
 import { useBranding } from "@/hooks/use-branding";
+import { cldUrl } from "@/lib/cloudinary";
 
 type TournamentLite = {
   name?: string | null;
@@ -44,7 +45,13 @@ export const AuctionHeader = memo(function AuctionHeader({
       {/* Left: tournament identity */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {tournament?.logoUrl ? (
-          <img src={tournament.logoUrl} alt={tournament.name ?? ""} className="h-10 w-10 md:h-14 md:w-14 object-contain rounded-lg flex-shrink-0" />
+          <img
+            src={cldUrl(tournament.logoUrl, "headerLogo")}
+            alt={tournament.name ?? ""}
+            className="h-10 w-10 md:h-14 md:w-14 object-contain rounded-lg flex-shrink-0"
+            loading="eager"
+            decoding="async"
+          />
         ) : (
           <Trophy className="w-8 h-8 md:w-10 md:h-10 text-primary flex-shrink-0" />
         )}
@@ -67,7 +74,13 @@ export const AuctionHeader = memo(function AuctionHeader({
             border: `1px solid ${accent}40`,
           }}
         >
-          <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-7 md:h-9 w-auto flex-shrink-0" />
+          <img
+            src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"}
+            alt={brandName}
+            className="h-7 md:h-9 w-auto flex-shrink-0"
+            loading="eager"
+            decoding="async"
+          />
           <span className="font-display font-black text-base md:text-lg tracking-widest text-white uppercase">{brandName.toUpperCase()}</span>
         </div>
       </div>

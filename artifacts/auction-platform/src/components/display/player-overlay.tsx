@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Users as UsersIcon } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/use-branding";
+import { cldUrl } from "@/lib/cloudinary";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow } from "./types";
 
 /**
@@ -158,7 +159,13 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                     </div>
                     <div className="col-span-4 md:col-span-3 flex items-center gap-2 md:gap-3 min-w-0">
                       {p.photoUrl ? (
-                        <img src={p.photoUrl} alt={p.name} className="w-8 h-8 md:w-11 md:h-11 rounded-full object-cover flex-shrink-0 border-2 border-white/20" />
+                        <img
+                          src={cldUrl(p.photoUrl, "thumbnail")}
+                          alt={p.name}
+                          className="w-8 h-8 md:w-11 md:h-11 rounded-full object-cover flex-shrink-0 border-2 border-white/20"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : (
                         <div className="w-8 h-8 md:w-11 md:h-11 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 md:w-5 md:h-5 text-white/40" />

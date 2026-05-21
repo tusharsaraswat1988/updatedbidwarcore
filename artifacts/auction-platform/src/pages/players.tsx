@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 
@@ -110,7 +111,7 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
             >
               <div className="w-8 h-8 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {p.photoUrl ? (
-                  <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                  <img src={cldUrl(p.photoUrl, "thumbnail")} alt={p.name} className="w-full h-full object-cover" decoding="async" />
                 ) : (
                   <User className="w-4 h-4 text-muted-foreground/40" />
                 )}
@@ -340,7 +341,7 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
             </div>
             <div className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
               {p.photoUrl ? (
-                <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                <img src={cldUrl(p.photoUrl, "thumbnail")} alt={p.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <User className="w-3.5 h-3.5 text-muted-foreground/40" />
               )}
@@ -1070,7 +1071,7 @@ export default function Players() {
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {player.photoUrl ? (
-                        <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
+                        <img src={cldUrl(player.photoUrl, "thumbnail")} alt={player.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       ) : (
                         <User className="w-5 h-5 text-muted-foreground" />
                       )}

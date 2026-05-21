@@ -104,6 +104,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
   // When true we show an inline "~25 MB download" confirmation strip before
   // kicking off background removal for the first time.
   const [confirmBgRemove, setConfirmBgRemove] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Track object URLs we created so we can revoke them on unmount/replace.
   const objectUrlRef = useRef<string | null>(null);
@@ -149,6 +150,26 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setRotation(0);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onPickFile(file);
   }
 
   const onCropComplete = useCallback((_area: Area, areaPixels: Area) => {
@@ -270,7 +291,13 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-6 py-5 space-y-4">
             {/* Cropper or empty state */}
-            <div className="relative w-full h-[320px] rounded-lg border border-border bg-black/40 overflow-hidden">
+            <div
+              className={`relative w-full h-[320px] rounded-lg border overflow-hidden transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border bg-black/40"}`}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               {src ? (
                 <Cropper
                   image={src}
@@ -288,7 +315,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
                   <ImageIcon className="w-12 h-12 opacity-30" />
-                  <p className="text-sm">No image yet — click Upload Photo to begin.</p>
+                  <p className="text-sm">Drag an image here, or click Upload Photo to begin.</p>
                 </div>
               )}
               {processing && (

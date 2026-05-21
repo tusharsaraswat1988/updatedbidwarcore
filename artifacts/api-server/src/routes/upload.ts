@@ -3,12 +3,17 @@ import multer from "multer";
 
 const router = Router();
 
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp",
+  "image/gif", "image/svg+xml", "image/heic", "image/heif",
+]);
+
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB raw; client compresses to <400 KB first
   fileFilter(_req, file, cb) {
-    if (!file.mimetype.startsWith("image/")) {
-      cb(new Error("Only image files are allowed"));
+    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+      cb(new Error("Unsupported file type. Upload a JPEG, PNG, WebP, GIF, or SVG image."));
       return;
     }
     cb(null, true);
@@ -66,7 +71,12 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
   try {
     const url = await new Promise<string>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder: "bidwar", resource_type: "image" },
+        {
+          folder: "bidwar",
+          resource_type: "image",
+          quality: "auto",        // store at optimal quality
+          fetch_format: "auto",   // allow auto-format on CDN delivery
+        },
         (error, result) => {
           if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
           else resolve(result.secure_url);

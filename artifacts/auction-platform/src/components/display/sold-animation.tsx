@@ -2,6 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import type { SoldRecord } from "./types";
 
 /**
@@ -65,7 +66,13 @@ export const SoldCard = memo(function SoldCard({ record }: { record: SoldRecord 
             }}
           >
             {record.photoUrl ? (
-              <img src={record.photoUrl} alt={record.playerName} className="w-full h-full object-cover" />
+              <img
+                src={cldUrl(record.photoUrl, "soldCard")}
+                alt={record.playerName}
+                className="w-full h-full object-cover"
+                loading="eager"
+                decoding="async"
+              />
             ) : (
               <div className="w-full h-full bg-card flex items-center justify-center">
                 <User className="w-24 h-24 text-muted-foreground opacity-20" />

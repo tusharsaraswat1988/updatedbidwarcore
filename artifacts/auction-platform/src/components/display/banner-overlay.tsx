@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { ImageOff } from "lucide-react";
+import { cldUrl } from "@/lib/cloudinary";
 
 /**
  * BannerOverlay — full-screen broadcast banner for felicitation moments,
@@ -28,7 +29,7 @@ export const BannerOverlay = memo(function BannerOverlay({
       {bannerUrl ? (
         <motion.img
           key={bannerUrl}
-          src={bannerUrl}
+          src={cldUrl(bannerUrl, "banner")}
           alt="Main Banner"
           initial={{ opacity: 0, scale: isCover ? 1.04 : 1 }}
           animate={{ opacity: 1, scale: 1 }}
