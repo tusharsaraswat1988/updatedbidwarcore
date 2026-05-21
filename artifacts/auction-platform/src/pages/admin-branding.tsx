@@ -425,8 +425,12 @@ export default function AdminBranding() {
         }),
       });
       if (!r.ok) {
-        const d = await r.json() as { error?: string };
-        setSaveError(d.error ?? "Save failed");
+        let message = `Save failed (${r.status})`;
+        try {
+          const d = await r.json() as { error?: string };
+          if (d.error) message = d.error;
+        } catch { /* non-JSON body — keep the status message */ }
+        setSaveError(message);
       } else {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);

@@ -33,24 +33,29 @@ router.get("/auth/admin/branding", async (req, res) => {
 router.put("/auth/admin/branding", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
 
-  const d = req.body as Partial<typeof brandingSettingsTable.$inferInsert>;
+  try {
+    const d = req.body as Partial<typeof brandingSettingsTable.$inferInsert>;
 
-  const [existing] = await db.select({ id: brandingSettingsTable.id }).from(brandingSettingsTable).limit(1);
+    const [existing] = await db.select({ id: brandingSettingsTable.id }).from(brandingSettingsTable).limit(1);
 
-  const now = new Date();
+    const now = new Date();
 
-  if (existing) {
-    const [updated] = await db
-      .update(brandingSettingsTable)
-      .set({ ...d, updatedAt: now })
-      .returning();
-    res.json(updated);
-  } else {
-    const [created] = await db
-      .insert(brandingSettingsTable)
-      .values({ ...d, updatedAt: now })
-      .returning();
-    res.json(created);
+    if (existing) {
+      const [updated] = await db
+        .update(brandingSettingsTable)
+        .set({ ...d, updatedAt: now })
+        .returning();
+      res.json(updated);
+    } else {
+      const [created] = await db
+        .insert(brandingSettingsTable)
+        .values({ ...d, updatedAt: now })
+        .returning();
+      res.json(created);
+    }
+  } catch (err) {
+    req.log.error({ err }, "branding save failed");
+    res.status(500).json({ error: "Failed to save branding settings" });
   }
 });
 
