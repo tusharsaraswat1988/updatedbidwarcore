@@ -12,6 +12,7 @@ import { ProductShowcase } from "@/components/product-showcase";
 import { Testimonials } from "@/components/testimonials";
 import { DemoRequest } from "@/components/demo-request";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
+import { PaymentModal, type PaymentPlan } from "@/components/payment-modal";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: null as number | null,
   },
   {
     label: "Starter",
@@ -83,6 +85,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: 4500,
   },
   {
     label: "Pro",
@@ -93,6 +96,7 @@ const pricing = [
     highlight: true,
     color: "border-primary bg-primary/5",
     badge: "Most Popular",
+    discountedPrice: 5400,
   },
   {
     label: "Advanced",
@@ -103,6 +107,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: 7200,
   },
   {
     label: "Elite",
@@ -113,6 +118,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: 8100,
   },
   {
     label: "Premium",
@@ -123,6 +129,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: 9900,
   },
   {
     label: "Champion",
@@ -133,6 +140,7 @@ const pricing = [
     highlight: false,
     color: "border-border bg-card/30",
     badge: null,
+    discountedPrice: 10800,
   },
 ];
 
@@ -333,6 +341,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 export default function Landing() {
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
+  const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
@@ -353,6 +362,7 @@ export default function Landing() {
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <button onClick={() => navigate("/upcoming-auctions")} className="hover:text-white transition-colors text-primary font-semibold">Upcoming Auctions</button>
+            <button onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-white transition-colors font-semibold text-primary">Pay</button>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -728,10 +738,20 @@ export default function Landing() {
                 )}
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">{p.label}</p>
-                  <p className="text-2xl font-display font-black">{p.price}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    per auction{p.gst && <span className="text-primary/80"> + GST</span>}
-                  </p>
+                  {p.discountedPrice ? (
+                    <>
+                      <p className="text-2xl font-display font-black">
+                        ₹{p.discountedPrice.toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-xs text-white/30 line-through leading-none mt-0.5">{p.price}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">per auction · all taxes included</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-display font-black">{p.price}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">free forever</p>
+                    </>
+                  )}
                 </div>
                 <div className="border-t border-border/50 pt-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
@@ -980,8 +1000,8 @@ export default function Landing() {
             <p className="text-xs text-muted-foreground">
               &copy; {new Date().getFullYear()} BidWar. All rights reserved.
             </p>
-            <p className="text-xs text-muted-foreground">
-              Sports Auction Software · India's Live Auction Platform
+            <p className="text-xs text-muted-foreground text-center">
+              BidWar is a product operated and billed by CWP DETAILER'S AND MOTORS.
             </p>
           </div>
         </div>
