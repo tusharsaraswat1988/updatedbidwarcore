@@ -1,123 +1,146 @@
 /**
- * Self-managed OTP via Fast2SMS DLT route (fast2sms.com/dev/bulkV2).
+ * OTP service using Fast2SMS OTP SMS (/dev/otp/send, /dev/otp/verify, /dev/otp/resend).
  *
- * OTPs are generated server-side (crypto.randomInt), hashed with scrypt, and
- * stored in otp_sessions.otp_hash.  Delivery uses Fast2SMS DLT SMS so the
- * approved template handles the message body — only the OTP digit is passed
- * as variables_values.
+ * Fast2SMS generates and tracks the OTP code — we don't hash it locally.
+ * We do maintain an otp_sessions row for every send so multi-step flows
+ * (e.g. signup) can store a payload (name/email/password hash) alongside
+ * the OTP and read it back after successful verification.
  *
- * Required secrets (already configured):
- *   BULKSMS_KEY          — Fast2SMS API key
- *   BULKSMS_SENDER       — DLT-approved sender ID (BIDWRR)
- *   BULKSMS_TEMPLATE_ID  — Fast2SMS internal template ID (e.g. 215926)
+ * Required secrets:
+ *   BULKSMS_KEY          — Fast2SMS API key (header: authorization)
+ *   BULKSMS_TEMPLATE_ID  — Fast2SMS OTP template ID (e.g. 2adf37c5b4)
+ *
+ * Fast2SMS OTP endpoints:
+ *   POST /dev/otp/send   { mobile, otp_id, otp_expiry, otp_length }
+ *   POST /dev/otp/verify { mobile, otp }
+ *   POST /dev/otp/resend { mobile }
  */
 
-import { randomInt, scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
 import { db } from "@workspace/db";
 import { otpSessionsTable } from "@workspace/db";
 import { eq, and, gt, desc } from "drizzle-orm";
-import { sendDltSms } from "./fast2sms";
 import { logger } from "./logger";
-
-const scryptAsync = promisify(scrypt);
 
 export type OtpResult = { success: boolean; error?: string };
 export type OtpVerifyResult = OtpResult & { sessionId?: number; payload?: string | null };
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── Fast2SMS OTP helpers ─────────────────────────────────────────────────────
 
-function generateOtp(): string {
-  return String(randomInt(100000, 999999));
+const F2S_BASE = "https://www.fast2sms.com/dev";
+
+function f2sApiKey(): string {
+  return process.env.BULKSMS_KEY ?? "";
 }
 
-async function hashOtp(otp: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex");
-  const key = (await scryptAsync(otp, salt, 32)) as Buffer;
-  return `${salt}:${key.toString("hex")}`;
-}
-
-async function checkOtpHash(otp: string, hash: string): Promise<boolean> {
-  try {
-    const [salt, stored] = hash.split(":");
-    if (!salt || !stored) return false;
-    const key = (await scryptAsync(otp, salt, 32)) as Buffer;
-    const storedBuf = Buffer.from(stored, "hex");
-    if (key.length !== storedBuf.length) return false;
-    return timingSafeEqual(key, storedBuf);
-  } catch {
-    return false;
-  }
+function f2sTemplateId(): string {
+  return process.env.BULKSMS_TEMPLATE_ID ?? "";
 }
 
 function normaliseMobile(mobile: string): string {
   const digits = mobile.replace(/\D/g, "");
-  if (digits.length === 12 && digits.startsWith("91")) return digits;
-  if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
-  if (digits.length === 10) return `91${digits}`;
-  return digits;
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+  return digits.slice(-10);
+}
+
+type F2SResponse = { return?: boolean; message?: string | string[] };
+
+function f2sError(data: F2SResponse): string {
+  if (!data.message) return "Unknown error";
+  return Array.isArray(data.message) ? data.message.join(", ") : data.message;
+}
+
+async function f2sPost(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; data: F2SResponse }> {
+  const key = f2sApiKey();
+  if (!key) {
+    logger.warn({ path }, "Fast2SMS: BULKSMS_KEY not set");
+    return { ok: false, data: { message: "OTP service not configured" } };
+  }
+  try {
+    const res = await fetch(`${F2S_BASE}${path}`, {
+      method: "POST",
+      headers: { authorization: key, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12_000),
+    });
+    const data = (await res.json().catch(() => ({}))) as F2SResponse;
+    return { ok: res.ok && !!data.return, data };
+  } catch (err) {
+    logger.error({ err, path }, "Fast2SMS request error");
+    return { ok: false, data: { message: "OTP service unavailable" } };
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Generate a 6-digit OTP, store its hash in otp_sessions, and send it via
- * Fast2SMS DLT route using the approved template (BULKSMS_TEMPLATE_ID).
- * The OTP is passed as variables_values — Fast2SMS substitutes it into {#var#}.
+ * Send an OTP via Fast2SMS. Creates a local session row so callers can store
+ * a payload (e.g. signup form data) that is returned after successful verify.
  *
- * @param mobile  Raw mobile string — normalised internally
- * @param purpose Stored in otp_sessions.purpose for scoped lookups
- * @param payload Optional JSON payload (e.g. serialised signup form data)
+ * @param mobile  Raw mobile — normalised to 10 digits for Fast2SMS
+ * @param purpose Scopes the session: "signup" | "password_reset" | "complete_profile"
+ * @param payload Optional JSON string stored alongside the session
  */
 export async function sendOtp(
   mobile: string,
   purpose: string,
   payload?: string | null,
 ): Promise<OtpResult> {
-  const templateId = process.env.BULKSMS_TEMPLATE_ID;
+  const templateId = f2sTemplateId();
   if (!templateId) {
-    logger.error({ purpose }, "bulksms-otp: BULKSMS_TEMPLATE_ID not set");
-    return { success: false, error: "OTP service not configured" };
+    return { success: false, error: "OTP template not configured (BULKSMS_TEMPLATE_ID missing)" };
   }
 
-  const otp = generateOtp();
-  const otpHash = await hashOtp(otp);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-  const normalised = normaliseMobile(mobile);
+  const mobile10 = normaliseMobile(mobile);
+  // Store as 91XXXXXXXXXX in DB for consistent lookup
+  const mobileDb = mobile10.length === 10 ? `91${mobile10}` : mobile10;
 
   await db.insert(otpSessionsTable).values({
-    mobile: normalised,
-    otpHash,
+    mobile: mobileDb,
+    otpHash: null, // Fast2SMS manages the OTP — no local hash needed
     purpose,
     payload: payload ?? null,
     expiresAt,
   });
 
-  // Fast2SMS DLT: message = template ID, variables_values = the OTP digit string
-  const result = await sendDltSms([mobile], templateId, [otp]);
+  const { ok, data } = await f2sPost("/otp/send", {
+    mobile: mobile10,
+    otp_id: templateId,
+    otp_expiry: 15,
+    otp_length: 6,
+  });
 
-  if (!result.success) {
-    logger.error({ mobile: normalised, purpose, err: result.error }, "bulksms-otp: send failed");
-    return { success: false, error: result.error ?? "Failed to send OTP. Please try again." };
+  if (!ok) {
+    logger.error({ mobile: mobile10, purpose, err: f2sError(data) }, "Fast2SMS OTP send failed");
+    return { success: false, error: f2sError(data) };
   }
 
-  logger.info({ mobile: normalised, purpose }, "bulksms-otp: OTP sent via Fast2SMS DLT");
+  logger.info({ mobile: mobile10, purpose }, "Fast2SMS OTP sent");
   return { success: true };
 }
 
 /**
- * Verify a 6-digit OTP for a given mobile + optional purpose.
- * On success, marks the session as used and returns the stored payload.
+ * Verify an OTP via Fast2SMS, then read the local session for the stored payload.
+ * Marks the session as used on success.
  */
 export async function verifyOtp(
   mobile: string,
   otp: string,
   purpose?: string,
 ): Promise<OtpVerifyResult> {
-  const normalised = normaliseMobile(mobile);
+  const mobile10 = normaliseMobile(mobile);
 
+  // Fast2SMS does the OTP check
+  const { ok, data } = await f2sPost("/otp/verify", { mobile: mobile10, otp });
+  if (!ok) {
+    return { success: false, error: f2sError(data) || "Invalid or expired OTP" };
+  }
+
+  // Read the local session for payload + mark used
+  const mobileDb = mobile10.length === 10 ? `91${mobile10}` : mobile10;
   const conditions = [
-    eq(otpSessionsTable.mobile, normalised),
+    eq(otpSessionsTable.mobile, mobileDb),
     eq(otpSessionsTable.used, false),
     gt(otpSessionsTable.expiresAt, new Date()),
   ];
@@ -130,44 +153,32 @@ export async function verifyOtp(
     .orderBy(desc(otpSessionsTable.createdAt))
     .limit(1);
 
-  if (!session || !session.otpHash) {
-    return { success: false, error: "OTP expired or not found. Please request a new one." };
+  if (!session) {
+    // OTP was valid but session expired — still a success for pure OTP verify use cases
+    logger.warn({ mobile: mobile10, purpose }, "OTP verified but no local session found");
+    return { success: true, payload: null };
   }
 
-  const valid = await checkOtpHash(otp, session.otpHash);
-  if (!valid) {
-    return { success: false, error: "Invalid OTP. Please check and try again." };
-  }
+  await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
 
-  await db
-    .update(otpSessionsTable)
-    .set({ used: true })
-    .where(eq(otpSessionsTable.id, session.id));
-
-  logger.info({ mobile: normalised, purpose }, "bulksms-otp: OTP verified");
+  logger.info({ mobile: mobile10, purpose }, "Fast2SMS OTP verified");
   return { success: true, sessionId: session.id, payload: session.payload };
 }
 
 /**
- * Invalidate any active OTP sessions for this mobile + purpose, then generate
- * and send a fresh OTP.
+ * Ask Fast2SMS to resend the OTP for this mobile number.
+ * The local session stays active — no DB changes needed.
  */
 export async function resendOtp(
   mobile: string,
-  purpose: string,
+  _purpose?: string,
 ): Promise<OtpResult> {
-  const normalised = normaliseMobile(mobile);
-
-  await db
-    .update(otpSessionsTable)
-    .set({ used: true })
-    .where(
-      and(
-        eq(otpSessionsTable.mobile, normalised),
-        eq(otpSessionsTable.purpose, purpose),
-        eq(otpSessionsTable.used, false),
-      ),
-    );
-
-  return sendOtp(mobile, purpose);
+  const mobile10 = normaliseMobile(mobile);
+  const { ok, data } = await f2sPost("/otp/resend", { mobile: mobile10 });
+  if (!ok) {
+    logger.error({ mobile: mobile10, err: f2sError(data) }, "Fast2SMS OTP resend failed");
+    return { success: false, error: f2sError(data) };
+  }
+  logger.info({ mobile: mobile10 }, "Fast2SMS OTP resent");
+  return { success: true };
 }
