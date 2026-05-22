@@ -714,6 +714,9 @@ router.patch("/auth/admin/tournaments/:tournamentId/cheer-settings", requireMast
   const schema = z.object({
     cheerMessagesEnabled: z.boolean().optional(),
     cheerMessagePresets: z.array(z.string().max(120)).min(8).max(10).optional(),
+    cheerCooldownSeconds: z.number().int().min(3).max(60).optional(),
+    cheerHeatMeterEnabled: z.boolean().optional(),
+    cheerFanBattleEnabled: z.boolean().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -728,6 +731,15 @@ router.patch("/auth/admin/tournaments/:tournamentId/cheer-settings", requireMast
   }
   if (parsed.data.cheerMessagePresets !== undefined) {
     updates.cheerMessagePresets = JSON.stringify(parsed.data.cheerMessagePresets);
+  }
+  if (parsed.data.cheerCooldownSeconds !== undefined) {
+    updates.cheerCooldownSeconds = parsed.data.cheerCooldownSeconds;
+  }
+  if (parsed.data.cheerHeatMeterEnabled !== undefined) {
+    updates.cheerHeatMeterEnabled = parsed.data.cheerHeatMeterEnabled;
+  }
+  if (parsed.data.cheerFanBattleEnabled !== undefined) {
+    updates.cheerFanBattleEnabled = parsed.data.cheerFanBattleEnabled;
   }
 
   if (Object.keys(updates).length === 0) {

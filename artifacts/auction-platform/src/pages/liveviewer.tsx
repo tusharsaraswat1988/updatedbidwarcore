@@ -16,16 +16,15 @@ import {
 import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/use-branding";
 
-import { DEFAULT_CHEER_PRESETS, CHEER_MESSAGE_TTL_MS } from "@/lib/cheer-constants";
+import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 
-type CheerEntry = { id: string; senderName: string; message: string; timestamp: number };
+type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
 
 // ── Sound utilities (module-level, no hooks) ──────────────────────────────────
 
@@ -535,6 +534,135 @@ function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
   );
 }
 
+// ── Cheer sub-components ──────────────────────────────────────────────────────
+
+function HeatBadge({ level }: { level: string }) {
+  const configs: Record<string, string> = {
+    ACTIVE:     "border-green-500/30 bg-green-500/10 text-green-400",
+    HEATED:     "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    "WAR MODE": "border-red-500/30 bg-red-500/10 text-red-400",
+  };
+  const cls = configs[level] ?? "border-border/30 bg-border/10 text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cls}`}>
+      <Flame className="w-2.5 h-2.5" />
+      {level}
+    </span>
+  );
+}
+
+function FanBattleStrip({ fanBattle, teams }: { fanBattle: Record<string, number>; teams: TeamPurse[] }) {
+  const sorted = Object.entries(fanBattle)
+    .map(([id, count]) => {
+      const team = teams.find((t) => String(t.teamId) === id);
+      return { id, count, team };
+    })
+    .filter((x): x is { id: string; count: number; team: TeamPurse } => !!x.team)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+  const total = sorted.reduce((sum, x) => sum + x.count, 0) || 1;
+  if (sorted.length === 0) return null;
+  return (
+    <div className="mt-2 space-y-1.5">
+      {sorted.map(({ id, count, team }) => {
+        const tc = team.color || "#F59E0B";
+        const pct = Math.round((count / total) * 100);
+        return (
+          <div key={id} className="flex items-center gap-2">
+            <span className="text-[9px] font-bold uppercase w-14 flex-shrink-0 truncate" style={{ color: tc }}>
+              {team.shortCode || team.teamName.slice(0, 6)}
+            </span>
+            <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: tc }}
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ type: "spring", stiffness: 120, damping: 20 }}
+              />
+            </div>
+            <span className="text-[9px] text-muted-foreground tabular-nums w-5 text-right">{count}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CheerCard({ entry }: { entry: CheerEntry }) {
+  const tc = entry.teamColor || "#F59E0B";
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 24, scale: 0.92 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.88 }}
+      transition={{ type: "spring", stiffness: 400, damping: 28 }}
+      className="rounded-xl border px-3 py-2.5 flex-shrink-0"
+      style={{ backgroundColor: `${tc}0e`, borderColor: `${tc}38`, boxShadow: `0 0 8px ${tc}12` }}
+    >
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc }} />
+        <span className="font-bold text-[10px] tracking-wider uppercase truncate" style={{ color: tc }}>
+          {entry.supporterLabel}
+        </span>
+      </div>
+      <p className="text-white/75 leading-snug text-xs">{entry.message}</p>
+    </motion.div>
+  );
+}
+
+function CheerFeedRail({
+  messages,
+  teams,
+  heatLevel,
+  fanBattle,
+  heatMeterEnabled,
+  fanBattleEnabled,
+}: {
+  messages: CheerEntry[];
+  teams: TeamPurse[];
+  heatLevel: string | null;
+  fanBattle: Record<string, number>;
+  heatMeterEnabled: boolean;
+  fanBattleEnabled: boolean;
+}) {
+  return (
+    <div className="hidden xl:flex fixed right-0 top-0 bottom-0 w-72 z-20 flex-col border-l border-white/8 bg-black/55 backdrop-blur-2xl">
+      {/* Rail header */}
+      <div className="flex-shrink-0 px-4 py-3.5 border-b border-white/8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Cheer</span>
+          </div>
+          {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
+            <HeatBadge level={heatLevel} />
+          )}
+        </div>
+        {fanBattleEnabled && Object.keys(fanBattle).length > 0 && (
+          <FanBattleStrip fanBattle={fanBattle} teams={teams} />
+        )}
+      </div>
+      {/* Feed */}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+        {messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
+            <MessageCircle className="w-8 h-8 text-muted-foreground/20 mb-3" />
+            <p className="text-xs text-muted-foreground/40">No cheers yet</p>
+            <p className="text-[10px] text-muted-foreground/25 mt-1">Be the first to cheer!</p>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {[...messages].reverse().map((m) => (
+              <CheerCard key={m.id} entry={m} />
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
 export default function LiveViewerPage() {
@@ -544,15 +672,15 @@ export default function LiveViewerPage() {
 
   // ── Cheer state (declared early so the socket callback is stable) ─────────
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
-  const [cheerName, setCheerName] = useState<string>(() => {
-    try { return localStorage.getItem("bidwar-viewer-name") ?? ""; } catch { return ""; }
+  const [cheerTeamId, setCheerTeamId] = useState<number | null>(() => {
+    try { const v = localStorage.getItem("bidwar-cheer-team"); return v ? parseInt(v) : null; } catch { return null; }
   });
-  const [showNameDialog, setShowNameDialog] = useState(false);
-  const [nameInput, setNameInput] = useState("");
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [cheerCooldown, setCheerCooldown] = useState(false);
-  const [pendingPresetIndex, setPendingPresetIndex] = useState<number | null>(null);
   const [cheerBlockedMsg, setCheerBlockedMsg] = useState<string | null>(null);
   const [cheerOpen, setCheerOpen] = useState(false);
+  const [heatLevel, setHeatLevel] = useState<string | null>(null);
+  const [fanBattle, setFanBattle] = useState<Record<string, number>>({});
 
   const handleCheerMessage = useCallback((msg: CheerMessage) => {
     setCheerMessages((prev) => {
@@ -560,23 +688,18 @@ export default function LiveViewerPage() {
         ...prev,
         {
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          senderName: msg.senderName,
+          supporterLabel: msg.supporterLabel,
           message: msg.message,
+          teamColor: msg.teamColor,
+          teamId: msg.teamId,
           timestamp: Date.now(),
         },
       ];
-      return next.slice(-8);
+      return next.slice(-10);
     });
+    if (msg.heatLevel) setHeatLevel(msg.heatLevel);
+    if (msg.fanBattle) setFanBattle(msg.fanBattle);
   }, []);
-
-  useEffect(() => {
-    if (cheerMessages.length === 0) return;
-    const timer = setInterval(() => {
-      const cutoff = Date.now() - CHEER_MESSAGE_TTL_MS;
-      setCheerMessages((prev) => prev.filter((m) => m.timestamp > cutoff));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cheerMessages.length]);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   useAuctionSocket(tournamentId, handleCheerMessage);
@@ -637,6 +760,9 @@ export default function LiveViewerPage() {
 
   // ── Cheer logic ────────────────────────────────────────────────────────────
   const cheerEnabled = tournament?.cheerMessagesEnabled !== false;
+  const cheerCooldownSeconds = (tournament as { cheerCooldownSeconds?: number } | undefined)?.cheerCooldownSeconds ?? 8;
+  const heatMeterEnabled = (tournament as { cheerHeatMeterEnabled?: boolean } | undefined)?.cheerHeatMeterEnabled ?? false;
+  const fanBattleEnabled = (tournament as { cheerFanBattleEnabled?: boolean } | undefined)?.cheerFanBattleEnabled ?? false;
   const cheerPresets = useMemo<string[]>(() => {
     const raw = tournament?.cheerMessagePresets;
     if (!raw) return DEFAULT_CHEER_PRESETS;
@@ -647,55 +773,47 @@ export default function LiveViewerPage() {
     return DEFAULT_CHEER_PRESETS;
   }, [tournament?.cheerMessagePresets]);
 
+  const cheerTeam = useMemo(
+    () => (teamPurses ?? []).find((t) => t.teamId === cheerTeamId) ?? null,
+    [teamPurses, cheerTeamId],
+  );
+  const cheerSupporterLabel = cheerTeam
+    ? `${(cheerTeam.shortCode || cheerTeam.teamName.slice(0, 4)).toUpperCase()} FANS`
+    : null;
+
   function showCheerError(msg: string) {
     setCheerBlockedMsg(msg);
     setTimeout(() => setCheerBlockedMsg(null), 2500);
   }
 
-  async function postCheer(senderName: string, idx: number) {
+  async function postCheer(teamId: number, reactionId: number) {
     try {
       const r = await fetch(`/api/tournaments/${tournamentId}/cheer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderName, messageIndex: idx }),
+        body: JSON.stringify({ teamId, reactionId }),
       });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
         if (r.status === 429) showCheerError("Slow down!");
-        else if (r.status === 400) showCheerError(d.error === "Name contains disallowed words" ? "Name not allowed" : "Could not send");
         else if (r.status === 403) showCheerError("Cheers are disabled");
+        else showCheerError("Could not send");
       }
     } catch {}
   }
 
   function sendCheer(idx: number) {
     if (cheerCooldown) return;
-    if (!cheerName) {
-      setPendingPresetIndex(idx);
-      setNameInput("");
-      setShowNameDialog(true);
+    if (!cheerTeamId) {
+      setShowTeamSelector(true);
       setCheerOpen(false);
       return;
     }
     setCheerCooldown(true);
-    setTimeout(() => setCheerCooldown(false), 500);
+    const localCooldownMs = Math.max(500, (cheerCooldownSeconds - 1) * 1000);
+    setTimeout(() => setCheerCooldown(false), localCooldownMs);
     setCheerOpen(false);
-    void postCheer(cheerName, idx);
-  }
-
-  function saveNameAndCheer() {
-    const trimmed = nameInput.trim();
-    if (!trimmed) return;
-    try { localStorage.setItem("bidwar-viewer-name", trimmed); } catch {}
-    setCheerName(trimmed);
-    setShowNameDialog(false);
-    const idx = pendingPresetIndex;
-    setPendingPresetIndex(null);
-    if (idx !== null) {
-      setCheerCooldown(true);
-      setTimeout(() => setCheerCooldown(false), 500);
-      void postCheer(trimmed, idx);
-    }
+    void postCheer(cheerTeamId, idx);
   }
 
   // ── UI state ─────────────────────────────────────────────────────────────
@@ -910,7 +1028,7 @@ export default function LiveViewerPage() {
       )}
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-4 py-3 pb-6">
+      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-4 py-3 pb-28">
 
         {/* Stats bar */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 py-4">
@@ -1397,61 +1515,60 @@ export default function LiveViewerPage() {
         toggle={toggleSound}
       />
 
-      {/* ── Floating cheer strip ──────────────────────────────────────────── */}
+      {/* ── Mobile cheer toasts — xl+ uses the feed rail ─────────────────── */}
       {cheerEnabled && cheerMessages.length > 0 && (
-        <div className="fixed bottom-24 right-4 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-72 max-w-[60vw]">
+        <div className="xl:hidden fixed bottom-24 right-4 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-64 max-w-[58vw]">
           <AnimatePresence mode="popLayout">
-            {cheerMessages.map((m) => (
+            {cheerMessages.slice(-3).map((m) => (
               <motion.div
                 key={m.id}
                 initial={{ opacity: 0, y: 24, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -16, scale: 0.88 }}
                 transition={{ type: "spring", stiffness: 380, damping: 26 }}
-                className="bg-black/75 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5 text-xs text-white flex items-center gap-1.5 min-w-0"
+                className="rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 min-w-0 border"
+                style={{
+                  backgroundColor: `${m.teamColor || "#F59E0B"}18`,
+                  borderColor: `${m.teamColor || "#F59E0B"}40`,
+                }}
               >
-                <span className="font-bold text-amber-400 truncate flex-shrink-0 max-w-[90px]">
-                  {m.senderName}
+                <span
+                  className="font-bold uppercase text-[10px] tracking-wide truncate flex-shrink-0 max-w-[72px]"
+                  style={{ color: m.teamColor || "#F59E0B" }}
+                >
+                  {m.supporterLabel}
                 </span>
-                <span className="truncate text-white/80">{m.message}</span>
+                <span className="truncate text-white/75">{m.message}</span>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
       )}
 
-      {/* ── Cheer FAB ─────────────────────────────────────────────────────── */}
+      {/* ── CHEER LIVE pill button ────────────────────────────────────────── */}
       {cheerEnabled && (
-        <motion.button
-          onClick={() => setCheerOpen((o) => !o)}
-          whileTap={{ scale: 0.88 }}
-          className="fixed bottom-5 right-4 z-50 w-14 h-14 rounded-full bg-amber-500 flex items-center justify-center"
-          style={{ boxShadow: "0 0 24px rgba(245,158,11,0.55), 0 4px 16px rgba(0,0,0,0.5)" }}
-        >
-          <AnimatePresence mode="wait">
-            {cheerOpen ? (
-              <motion.span
-                key="x"
-                initial={{ rotate: -90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: 90, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <X className="w-6 h-6 text-black" />
-              </motion.span>
-            ) : (
-              <motion.span
-                key="msg"
-                initial={{ rotate: 90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: -90, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <MessageCircle className="w-6 h-6 text-black" />
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.button>
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+          {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
+            <div className="xl:hidden">
+              <HeatBadge level={heatLevel} />
+            </div>
+          )}
+          <motion.button
+            onClick={() => {
+              if (!cheerTeamId) {
+                setShowTeamSelector(true);
+              } else {
+                setCheerOpen((o) => !o);
+              }
+            }}
+            whileTap={{ scale: 0.92 }}
+            className="flex items-center gap-2 px-7 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-black font-display font-black text-sm tracking-wider shadow-lg"
+            style={{ boxShadow: "0 0 30px rgba(245,158,11,0.45), 0 4px 18px rgba(0,0,0,0.55)" }}
+          >
+            <Flame className="w-4 h-4" />
+            CHEER LIVE
+          </motion.button>
+        </div>
       )}
 
       {/* ── Cheer panel ───────────────────────────────────────────────────── */}
@@ -1476,25 +1593,29 @@ export default function LiveViewerPage() {
                 <div className="w-10 h-1 rounded-full bg-white/25" />
               </div>
               <div className="px-5 pb-10 pt-3">
-                {cheerName ? (
-                  <div className="text-center mb-4">
-                    <span className="text-sm text-muted-foreground">
-                      Cheering as{" "}
-                      <span className="text-amber-400 font-semibold">{cheerName}</span>
+                {cheerTeam ? (
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    {cheerTeam.logoUrl ? (
+                      <img src={cheerTeam.logoUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div
+                        className="w-5 h-5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: cheerTeam.color || "#F59E0B" }}
+                      />
+                    )}
+                    <span className="text-sm font-bold" style={{ color: cheerTeam.color || "#F59E0B" }}>
+                      {cheerSupporterLabel}
                     </span>
                     <button
-                      className="ml-2 text-xs text-muted-foreground/60 underline"
-                      onClick={() => {
-                        setCheerName("");
-                        try { localStorage.removeItem("bidwar-viewer-name"); } catch {}
-                      }}
+                      className="text-xs text-muted-foreground/60 underline ml-1"
+                      onClick={() => { setCheerOpen(false); setShowTeamSelector(true); }}
                     >
                       change
                     </button>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center mb-4">
-                    Tap a message to join the cheer.
+                    Choose your side to join the cheer.
                   </p>
                 )}
                 <AnimatePresence>
@@ -1538,46 +1659,94 @@ export default function LiveViewerPage() {
         />
       )}
 
-      {/* ── Cheer name dialog ─────────────────────────────────────────────── */}
-      <Dialog
-        open={showNameDialog}
-        onOpenChange={(open) => {
-          if (!open) { setShowNameDialog(false); setPendingPresetIndex(null); }
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Enter your display name</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground mt-1">
-            Your name will appear alongside your cheer. Max 30 characters.
-          </p>
-          <Input
-            className="mt-3"
-            placeholder="Your name..."
-            maxLength={30}
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") saveNameAndCheer(); }}
-            autoFocus
-          />
-          <div className="flex gap-2 mt-3 justify-end">
-            <button
-              className="text-xs text-muted-foreground px-3 py-1.5 rounded hover:bg-muted/20 transition-colors"
-              onClick={() => { setShowNameDialog(false); setPendingPresetIndex(null); }}
+      {/* ── Team selector — "Choose your side" ───────────────────────────── */}
+      <AnimatePresence>
+        {showTeamSelector && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60"
+              onClick={() => setShowTeamSelector(false)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#111] border-t border-white/10 rounded-t-2xl"
             >
-              Cancel
-            </button>
-            <button
-              disabled={!nameInput.trim()}
-              className="text-xs bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold px-3 py-1.5 rounded transition-colors"
-              onClick={saveNameAndCheer}
-            >
-              Join Cheer
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/25" />
+              </div>
+              <div className="px-5 pb-10 pt-3 max-h-[75vh] overflow-y-auto">
+                <h3 className="text-center font-display font-black text-lg mb-1">Choose your side</h3>
+                <p className="text-center text-xs text-muted-foreground mb-5">Your cheer will represent this team</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(teamPurses ?? []).map((team) => {
+                    const tc = team.color || "#F59E0B";
+                    const isSelected = cheerTeamId === team.teamId;
+                    return (
+                      <button
+                        key={team.teamId}
+                        onClick={() => {
+                          setCheerTeamId(team.teamId);
+                          try { localStorage.setItem("bidwar-cheer-team", String(team.teamId)); } catch {}
+                          setShowTeamSelector(false);
+                          setTimeout(() => setCheerOpen(true), 80);
+                        }}
+                        className="flex items-center gap-3 rounded-2xl border p-4 text-left transition-all active:scale-[0.97]"
+                        style={{
+                          borderColor: isSelected ? `${tc}88` : "rgba(255,255,255,0.1)",
+                          backgroundColor: isSelected ? `${tc}18` : "transparent",
+                          boxShadow: isSelected ? `0 0 16px ${tc}28` : "none",
+                        }}
+                      >
+                        {team.logoUrl ? (
+                          <img src={team.logoUrl} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center font-display font-black text-sm flex-shrink-0"
+                            style={{ backgroundColor: `${tc}25`, color: tc }}
+                          >
+                            {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm leading-tight truncate" style={{ color: tc }}>
+                            {team.shortCode || team.teamName.slice(0, 10)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {(team.shortCode || team.teamName.slice(0, 4)).toUpperCase()} FANS
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div className="ml-auto flex-shrink-0 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Cheer feed rail — desktop only ───────────────────────────────── */}
+      {cheerEnabled && (
+        <CheerFeedRail
+          messages={cheerMessages}
+          teams={teamPurses ?? []}
+          heatLevel={heatLevel}
+          fanBattle={fanBattle}
+          heatMeterEnabled={heatMeterEnabled}
+          fanBattleEnabled={fanBattleEnabled}
+        />
+      )}
     </div>
   );
 }

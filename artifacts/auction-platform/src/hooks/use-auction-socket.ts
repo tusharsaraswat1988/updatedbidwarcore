@@ -7,7 +7,15 @@ import {
   getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 
-export type CheerMessage = { senderName: string; message: string };
+export type CheerMessage = {
+  supporterLabel: string;
+  message: string;
+  teamColor: string | null;
+  teamId: number;
+  timestamp: number;
+  heatLevel?: string;
+  fanBattle?: Record<string, number>;
+};
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
 export function useAuctionSocket(
@@ -93,8 +101,13 @@ export function useAuctionSocket(
 
           if (msg.type === "cheer_message" && onCheerRef.current) {
             onCheerRef.current({
-              senderName: msg.senderName as string,
+              supporterLabel: msg.supporterLabel as string,
               message: msg.message as string,
+              teamColor: (msg.teamColor as string | null) ?? null,
+              teamId: msg.teamId as number,
+              timestamp: (msg.timestamp as number) ?? Date.now(),
+              heatLevel: msg.heatLevel as string | undefined,
+              fanBattle: msg.fanBattle as Record<string, number> | undefined,
             });
           }
         } catch {

@@ -1,0 +1,375 @@
+Implement a premium broadcast-safe LIVE FAN CHEER SYSTEM for BidWar without changing the core auction/player/bid/timer layout.
+
+IMPORTANT:
+
+* Keep existing auction UI untouched
+* Do NOT resize or disturb player card, bid amount, timer, controls, or auction workflow
+* Cheer system should behave like a realtime audience engagement overlay
+* Existing tournament-wise preset cheer message system already exists in admin panel — KEEP IT
+
+==================================================
+PROJECT GOAL
+============
+
+Transform the current cheer feature into a:
+
+* stadium-style
+* esports-style
+* IPL-like
+* premium live audience interaction layer
+
+while keeping it:
+
+* safe
+* scalable
+* moderation-friendly
+* broadcast-ready
+
+==================================================
+CURRENT SYSTEM STATUS
+=====================
+
+Already exists:
+
+* Tournament-wise preset cheer messages
+* Live cheer functionality
+* Floating cheer trigger
+* Realtime message appearance
+
+Problems:
+
+1. Custom display names are unsafe
+2. Floating button unclear
+3. Messages disappear too quickly
+4. Feed lacks entertainment feel
+5. Current system feels like simple chat instead of stadium engagement
+
+==================================================
+
+1. REMOVE CUSTOM DISPLAY NAME INPUT
+   ==================================================
+
+REMOVE:
+"Enter your display name"
+
+Do NOT allow arbitrary text input.
+
+Reason:
+
+* vulgarity
+* political abuse
+* impersonation
+* sponsor spam
+* unsafe public broadcast content
+
+==================================================
+2. TEAM-BASED SUPPORTER IDENTITIES
+==================================
+
+When user opens cheer system:
+
+Show modal:
+"Choose your side"
+
+Automatically generate supporter identities from tournament teams.
+
+Examples:
+
+* INDU CHAMPIONS FANS
+* TUSHAR WARRIORS FANS
+* ROYAL TITANS FANS
+
+Viewer selects one identity.
+
+Store supporter selection:
+
+* locally
+  OR
+* session-based
+
+NO manual name entry.
+
+==================================================
+3. KEEP EXISTING PRESET MESSAGE SYSTEM
+======================================
+
+Existing admin-configurable preset cheer messages should remain unchanged.
+
+Examples:
+
+* What a bid! 🔥
+* Go go go! 💪
+* Bidding war! ⚔️
+* Value pick! 💎
+* Heated auction! 🚀
+
+Tournament admins should continue managing these messages from admin panel.
+
+==================================================
+4. BACKEND MESSAGE STRUCTURE (IMPORTANT)
+========================================
+
+Frontend must NEVER send:
+
+* raw text
+* free-form names
+* arbitrary message content
+
+Frontend should ONLY send:
+
+{
+"teamId": 2,
+"reactionId": "heated_auction"
+}
+
+Backend should:
+
+1. validate reactionId
+2. validate teamId
+3. resolve team supporter label
+4. resolve preset message
+5. resolve team color/accent
+6. apply cooldown validation
+7. broadcast sanitized output
+
+Backend-generated final structure:
+
+{
+"supporterLabel": "TW FANS",
+"message": "🔥 Heated auction!",
+"teamColor": "#3B82F6",
+"timestamp": 1710000000
+}
+
+Frontend should render ONLY backend-approved content.
+
+This ensures:
+
+* no abuse
+* no unsafe text
+* no injection
+* no impersonation
+
+==================================================
+5. CHEER BUTTON UX IMPROVEMENT
+==============================
+
+Current tiny bottom-right icon looks like support/help widget.
+
+Replace with visible CTA:
+
+"🔥 CHEER LIVE"
+
+Requirements:
+
+* sporty premium pill/button
+* subtle pulse glow
+* dark-theme compatible
+* visible but non-intrusive
+* should feel like live crowd interaction
+
+Preferred placement:
+
+* bottom center
+  OR
+* bottom left
+
+NOT customer-support style.
+
+==================================================
+6. PERSISTENT LIVE FEED
+=======================
+
+Current issue:
+Messages disappear after few seconds.
+
+Instead:
+Create persistent stacked cheer feed.
+
+Desktop:
+
+* keep last 8–10 messages visible
+
+Mobile:
+
+* keep last 4–6 visible
+
+Behavior:
+
+* new messages push older upward
+* oldest removed only when limit exceeded
+
+Do NOT auto-clear feed every few seconds.
+
+==================================================
+7. FEED PLACEMENT RULES
+=======================
+
+Feed must NOT overlap:
+
+* current bid
+* player image
+* timer
+* auction controls
+
+Desktop:
+
+* right-side vertical feed rail
+
+Mobile:
+
+* bottom expandable drawer/sheet
+
+Feed should feel like:
+"live audience overlay"
+
+NOT core auction content.
+
+==================================================
+8. VISUAL ENTERTAINMENT STYLE
+=============================
+
+Each cheer card should include:
+
+* team color accent
+* glow border
+* compact sporty card
+* slide-in animation
+* subtle pop/fade effect
+
+Example card:
+
+[TW FANS]
+🔥 What a bid!
+
+Design direction:
+
+* esports
+* IPL
+* premium stadium
+* dark sports broadcast UI
+
+==================================================
+9. OPTIONAL LIVE ENERGY FEATURES
+================================
+
+A. Heat Meter
+
+States:
+
+* CALM
+* ACTIVE
+* HEATED
+* WAR MODE 🔥
+
+Increase based on:
+
+* cheer frequency
+* bidding activity
+
+B. Fan Battle Counter
+
+Example:
+TW FANS — 182 cheers
+IC FANS — 164 cheers
+
+Realtime updates.
+
+==================================================
+10. ANTI-SPAM PROTECTION
+========================
+
+Backend-enforced cooldown:
+
+* one cheer every 5–10 seconds per viewer
+
+Prevent:
+
+* spam clicking
+* flooding
+* cheer abuse
+
+==================================================
+11. REALTIME REQUIREMENTS
+=========================
+
+Use existing realtime/socket/event infrastructure if available.
+
+Requirements:
+
+* instant sync
+* all viewers receive updates live
+* minimal latency
+
+==================================================
+12. PERFORMANCE REQUIREMENTS
+============================
+
+Cheer system must:
+
+* avoid unnecessary rerenders
+* avoid layout shifts
+* avoid API polling spam
+* isolate updates to cheer components only
+
+Use:
+
+* memoization
+* efficient state updates
+* lightweight animations
+
+Do NOT affect:
+
+* auction responsiveness
+* bidding speed
+* timer performance
+
+==================================================
+13. RESPONSIVENESS
+==================
+
+Must work properly on:
+
+* desktop
+* mobile
+* TV/live screen
+
+TV mode should feel:
+
+* cinematic
+* energetic
+* readable from distance
+
+==================================================
+14. ADMIN PANEL REQUIREMENTS
+============================
+
+Keep existing admin preset-message editor.
+
+Add optional controls:
+
+* enable/disable cheer system
+* set cooldown duration
+* enable/disable heat meter
+* enable/disable fan battle stats
+
+Tournament-specific configuration preferred.
+
+==================================================
+15. FINAL EXPERIENCE TARGET
+===========================
+
+Viewer should feel:
+"I am part of a live stadium crowd."
+
+System should feel:
+
+* premium
+* sporty
+* entertaining
+* safe
+* scalable
+* broadcast-grade
+* TV-friendly
+
+WITHOUT disturbing the existing auction experience.

@@ -443,6 +443,9 @@ function DetailPanel({
   // Cheer settings
   const [cheerEnabled, setCheerEnabled] = useState(true);
   const [cheerPresets, setCheerPresets] = useState<string[]>([]);
+  const [cheerCooldownSeconds, setCheerCooldownSeconds] = useState(8);
+  const [cheerHeatMeterEnabled, setCheerHeatMeterEnabled] = useState(false);
+  const [cheerFanBattleEnabled, setCheerFanBattleEnabled] = useState(false);
   const [savingCheer, setSavingCheer] = useState(false);
   const [cheerExpanded, setCheerExpanded] = useState(false);
 
@@ -477,6 +480,9 @@ function DetailPanel({
       );
       // Initialize cheer settings
       setCheerEnabled(d.tournament.cheerMessagesEnabled ?? true);
+      setCheerCooldownSeconds((d.tournament as { cheerCooldownSeconds?: number }).cheerCooldownSeconds ?? 8);
+      setCheerHeatMeterEnabled((d.tournament as { cheerHeatMeterEnabled?: boolean }).cheerHeatMeterEnabled ?? false);
+      setCheerFanBattleEnabled((d.tournament as { cheerFanBattleEnabled?: boolean }).cheerFanBattleEnabled ?? false);
       if (d.tournament.cheerMessagePresets) {
         try {
           const p = JSON.parse(d.tournament.cheerMessagePresets) as unknown;
@@ -512,6 +518,9 @@ function DetailPanel({
           body: JSON.stringify({
             cheerMessagesEnabled: cheerEnabled,
             cheerMessagePresets: presetsToSave,
+            cheerCooldownSeconds,
+            cheerHeatMeterEnabled,
+            cheerFanBattleEnabled,
           }),
         },
       );
@@ -1303,6 +1312,75 @@ function DetailPanel({
                         <span
                           className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
                             cheerEnabled ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Cooldown */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">Cheer cooldown</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Seconds between cheers from the same viewer
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          className="w-6 h-6 rounded bg-muted/40 hover:bg-muted/70 text-sm font-bold transition-colors flex items-center justify-center"
+                          onClick={() => setCheerCooldownSeconds((v) => Math.max(1, v - 1))}
+                        >
+                          -
+                        </button>
+                        <span className="text-sm font-bold tabular-nums w-6 text-center">{cheerCooldownSeconds}</span>
+                        <button
+                          className="w-6 h-6 rounded bg-muted/40 hover:bg-muted/70 text-sm font-bold transition-colors flex items-center justify-center"
+                          onClick={() => setCheerCooldownSeconds((v) => Math.min(60, v + 1))}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Heat meter toggle */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">Heat Meter</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Show crowd heat level badge on the feed rail
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setCheerHeatMeterEnabled((v) => !v)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${
+                          cheerHeatMeterEnabled ? "bg-amber-500" : "bg-muted/50"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
+                            cheerHeatMeterEnabled ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Fan battle toggle */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">Fan Battle Counter</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Show per-team cheer count bars on the feed rail
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setCheerFanBattleEnabled((v) => !v)}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${
+                          cheerFanBattleEnabled ? "bg-amber-500" : "bg-muted/50"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform mt-0.5 ${
+                            cheerFanBattleEnabled ? "translate-x-4" : "translate-x-0.5"
                           }`}
                         />
                       </button>

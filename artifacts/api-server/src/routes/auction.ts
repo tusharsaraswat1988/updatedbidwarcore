@@ -1737,14 +1737,30 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
 
 // ── Cheer messages ────────────────────────────────────────────────────────────
 
+// Per-IP cooldown tracker (cleaned up every minute)
 const cheerRateLimiter = new Map<string, number>();
-const CHEER_COOLDOWN_MS = 500;
 setInterval(() => {
-  const cutoff = Date.now() - 30_000;
+  const cutoff = Date.now() - 120_000;
   for (const [ip, ts] of cheerRateLimiter) {
     if (ts < cutoff) cheerRateLimiter.delete(ip);
   }
 }, 60_000);
+
+// Fan battle: per-tournament, per-team cheer counts (in-memory, resets on server restart)
+const fanBattleCounters = new Map<number, Map<number, number>>();
+
+// Heat tracker: per-tournament sliding window of recent cheer timestamps
+const recentCheerTimestamps = new Map<number, number[]>();
+
+function getHeatLevel(tournamentId: number): string {
+  const timestamps = recentCheerTimestamps.get(tournamentId) ?? [];
+  const cutoff = Date.now() - 30_000;
+  const recent = timestamps.filter((t) => t > cutoff).length;
+  if (recent >= 13) return "WAR MODE";
+  if (recent >= 7) return "HEATED";
+  if (recent >= 3) return "ACTIVE";
+  return "CALM";
+}
 
 // Cheer is the only auction-adjacent route with a rate limit — 30/min is
 // generous for audience interaction but prevents simple spam loops.
@@ -1755,30 +1771,16 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
     return;
   }
 
-  const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").replace("::ffff:", "");
-  const now = Date.now();
-  const last = cheerRateLimiter.get(ip) ?? 0;
-  if (now - last < CHEER_COOLDOWN_MS) {
-    res.status(429).json({ error: "Too many requests" });
-    return;
-  }
-  cheerRateLimiter.set(ip, now);
-
   const bodySchema = z.object({
-    senderName: z.string().trim().min(1).max(30),
-    messageIndex: z.number().int().min(0).max(9),
+    teamId: z.number().int().positive(),
+    reactionId: z.number().int().min(0).max(9),
   });
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
   }
-  const { senderName, messageIndex } = parsed.data;
-
-  if (!isNameClean(senderName)) {
-    res.status(400).json({ error: "Name contains disallowed words" });
-    return;
-  }
+  const { teamId, reactionId } = parsed.data;
 
   const [tournament] = await db
     .select()
@@ -1793,6 +1795,31 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
     return;
   }
 
+  // Per-IP cooldown — uses tournament's configured value (default 8s)
+  const cooldownMs = (tournament.cheerCooldownSeconds ?? 8) * 1000;
+  const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").replace("::ffff:", "");
+  const now = Date.now();
+  const last = cheerRateLimiter.get(ip) ?? 0;
+  if (now - last < cooldownMs) {
+    res.status(429).json({
+      error: "Too many requests",
+      cooldownSeconds: tournament.cheerCooldownSeconds ?? 8,
+    });
+    return;
+  }
+  cheerRateLimiter.set(ip, now);
+
+  // Validate team belongs to this tournament
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!team) {
+    res.status(400).json({ error: "Team not found in this tournament" });
+    return;
+  }
+
+  // Resolve preset message
   let presets: string[] = CHEER_DEFAULT_PRESETS;
   if (tournament.cheerMessagePresets) {
     try {
@@ -1802,14 +1829,40 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
       // use defaults
     }
   }
-
-  const message = presets[messageIndex];
+  const message = presets[reactionId];
   if (!message) {
-    res.status(400).json({ error: "Invalid message index" });
+    res.status(400).json({ error: "Invalid reaction ID" });
     return;
   }
 
-  broadcastToTournament(tid, { type: "cheer_message", senderName, message, messageIndex });
+  // Build supporter label: shortCode + " FANS"
+  const supporterLabel = `${(team.shortCode ?? team.name.slice(0, 4)).toUpperCase()} FANS`;
+
+  // Update fan battle counter
+  if (!fanBattleCounters.has(tid)) fanBattleCounters.set(tid, new Map());
+  const tmap = fanBattleCounters.get(tid)!;
+  tmap.set(teamId, (tmap.get(teamId) ?? 0) + 1);
+  const fanBattle: Record<string, number> = {};
+  for (const [k, v] of tmap) fanBattle[String(k)] = v;
+
+  // Update heat timestamps
+  if (!recentCheerTimestamps.has(tid)) recentCheerTimestamps.set(tid, []);
+  const tsArr = recentCheerTimestamps.get(tid)!;
+  tsArr.push(now);
+  // Keep only the last 5 minutes
+  recentCheerTimestamps.set(tid, tsArr.filter((t) => t > now - 300_000));
+  const heatLevel = getHeatLevel(tid);
+
+  broadcastToTournament(tid, {
+    type: "cheer_message",
+    supporterLabel,
+    message,
+    teamColor: team.color ?? null,
+    teamId,
+    timestamp: now,
+    heatLevel,
+    fanBattle,
+  });
   res.json({ ok: true });
 });
 

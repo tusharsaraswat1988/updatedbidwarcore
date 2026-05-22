@@ -81,6 +81,18 @@ export const ListTournamentsResponseItem = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  cheerCooldownSeconds: zod
+    .number()
+    .optional()
+    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+  cheerHeatMeterEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show heat level indicator on the live viewer"),
+  cheerFanBattleEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show per-team cheer battle counter on the live viewer"),
   mainBannerUrl: zod
     .string()
     .nullish()
@@ -203,6 +215,18 @@ export const GetTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  cheerCooldownSeconds: zod
+    .number()
+    .optional()
+    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+  cheerHeatMeterEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show heat level indicator on the live viewer"),
+  cheerFanBattleEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show per-team cheer battle counter on the live viewer"),
   mainBannerUrl: zod
     .string()
     .nullish()
@@ -325,6 +349,18 @@ export const UpdateTournamentResponse = zod.object({
   breakEndMusicVolume: zod.number().optional(),
   cheerMessagesEnabled: zod.boolean().optional(),
   cheerMessagePresets: zod.string().nullish(),
+  cheerCooldownSeconds: zod
+    .number()
+    .optional()
+    .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+  cheerHeatMeterEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show heat level indicator on the live viewer"),
+  cheerFanBattleEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Show per-team cheer battle counter on the live viewer"),
   mainBannerUrl: zod
     .string()
     .nullish()
@@ -424,6 +460,18 @@ export const ExportTournamentForLocalResponse = zod.object({
     breakEndMusicVolume: zod.number().optional(),
     cheerMessagesEnabled: zod.boolean().optional(),
     cheerMessagePresets: zod.string().nullish(),
+    cheerCooldownSeconds: zod
+      .number()
+      .optional()
+      .describe("Per-viewer cheer cooldown in seconds (3–60)"),
+    cheerHeatMeterEnabled: zod
+      .boolean()
+      .optional()
+      .describe("Show heat level indicator on the live viewer"),
+    cheerFanBattleEnabled: zod
+      .boolean()
+      .optional()
+      .describe("Show per-team cheer battle counter on the live viewer"),
     mainBannerUrl: zod
       .string()
       .nullish()
@@ -3951,17 +3999,16 @@ export const SendCheerMessageParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
-export const sendCheerMessageBodySenderNameMax = 30;
-
-export const sendCheerMessageBodyMessageIndexMin = 0;
-export const sendCheerMessageBodyMessageIndexMax = 9;
+export const sendCheerMessageBodyReactionIdMin = 0;
+export const sendCheerMessageBodyReactionIdMax = 9;
 
 export const SendCheerMessageBody = zod.object({
-  senderName: zod.string().min(1).max(sendCheerMessageBodySenderNameMax),
-  messageIndex: zod
+  teamId: zod.number().describe("ID of the team the viewer is supporting"),
+  reactionId: zod
     .number()
-    .min(sendCheerMessageBodyMessageIndexMin)
-    .max(sendCheerMessageBodyMessageIndexMax),
+    .min(sendCheerMessageBodyReactionIdMin)
+    .max(sendCheerMessageBodyReactionIdMax)
+    .describe("Index of the preset message to send"),
 });
 
 /**

@@ -106,6 +106,12 @@ export interface Tournament {
   cheerMessagesEnabled?: boolean;
   /** @nullable */
   cheerMessagePresets?: string | null;
+  /** Per-viewer cheer cooldown in seconds (3–60) */
+  cheerCooldownSeconds?: number;
+  /** Show heat level indicator on the live viewer */
+  cheerHeatMeterEnabled?: boolean;
+  /** Show per-team cheer battle counter on the live viewer */
+  cheerFanBattleEnabled?: boolean;
   /**
    * Cloudinary URL of the uploaded main banner image
    * @nullable
@@ -121,16 +127,14 @@ export interface Tournament {
 }
 
 export interface CheerInput {
+  /** ID of the team the viewer is supporting */
+  teamId: number;
   /**
-   * @minLength 1
-   * @maxLength 30
-   */
-  senderName: string;
-  /**
+   * Index of the preset message to send
    * @minimum 0
    * @maximum 9
    */
-  messageIndex: number;
+  reactionId: number;
 }
 
 export type TournamentInputPlayerSelectionMode =
