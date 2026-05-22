@@ -663,6 +663,133 @@ function CheerFeedRail({
   );
 }
 
+function MobileCheerFeed({
+  messages,
+  teams,
+  heatLevel,
+  fanBattle,
+  heatMeterEnabled,
+  fanBattleEnabled,
+}: {
+  messages: CheerEntry[];
+  teams: TeamPurse[];
+  heatLevel: string | null;
+  fanBattle: Record<string, number>;
+  heatMeterEnabled: boolean;
+  fanBattleEnabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const prevCountRef = useRef(messages.length);
+
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    prevCountRef.current = messages.length;
+    if (messages.length <= prev) return;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), 700);
+    return () => clearTimeout(t);
+  }, [messages.length]);
+
+  const recentMessages = [...messages].reverse().slice(0, 6);
+
+  return (
+    <>
+      {/* Right-edge pull tab — visible when drawer is closed */}
+      <AnimatePresence>
+        {!open && (
+          <motion.button
+            key="feed-tab"
+            initial={{ x: 56 }}
+            animate={{ x: 0, scale: flash ? [1, 1.12, 1] : 1 }}
+            exit={{ x: 56 }}
+            transition={{ type: "spring", stiffness: 340, damping: 28 }}
+            onClick={() => setOpen(true)}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 px-2.5 py-3.5 bg-[#18181b] border border-white/12 border-r-0 rounded-l-xl shadow-2xl"
+          >
+            <motion.div animate={flash ? { scale: [1, 1.3, 1] } : {}} transition={{ duration: 0.5 }}>
+              <Flame className="w-4 h-4 text-amber-400" />
+            </motion.div>
+            {messages.length > 0 && (
+              <span className="text-[9px] font-black text-amber-400 tabular-nums leading-none">
+                {messages.length > 99 ? "99+" : messages.length}
+              </span>
+            )}
+            <span
+              className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+            >
+              LIVE
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Slide-in drawer from the right */}
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div
+              key="feed-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              key="feed-drawer"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              className="fixed right-0 top-0 bottom-0 z-50 w-72 max-w-[82vw] bg-[#111] border-l border-white/10 flex flex-col"
+            >
+              {/* Drawer header */}
+              <div className="flex-shrink-0 px-4 py-3.5 border-b border-white/8 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Cheer</span>
+                  {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
+                    <HeatBadge level={heatLevel} />
+                  )}
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+              {fanBattleEnabled && Object.keys(fanBattle).length > 0 && (
+                <div className="flex-shrink-0 px-4 pt-2.5 pb-2 border-b border-white/5">
+                  <FanBattleStrip fanBattle={fanBattle} teams={teams} />
+                </div>
+              )}
+              {/* Feed — last 6, newest first */}
+              <div className="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+                {recentMessages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
+                    <MessageCircle className="w-8 h-8 text-muted-foreground/20 mb-3" />
+                    <p className="text-xs text-muted-foreground/40">No cheers yet</p>
+                    <p className="text-[10px] text-muted-foreground/25 mt-1">Be the first to cheer!</p>
+                  </div>
+                ) : (
+                  <AnimatePresence mode="popLayout">
+                    {recentMessages.map((m) => (
+                      <CheerCard key={m.id} entry={m} />
+                    ))}
+                  </AnimatePresence>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 // ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
 export default function LiveViewerPage() {
@@ -1028,7 +1155,7 @@ export default function LiveViewerPage() {
       )}
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl mx-auto w-full px-4 py-3 pb-28">
+      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full px-4 py-3 pb-28">
 
         {/* Stats bar */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 py-4">
@@ -1515,33 +1642,17 @@ export default function LiveViewerPage() {
         toggle={toggleSound}
       />
 
-      {/* ── Mobile cheer toasts — xl+ uses the feed rail ─────────────────── */}
-      {cheerEnabled && cheerMessages.length > 0 && (
-        <div className="xl:hidden fixed bottom-24 right-4 z-50 flex flex-col-reverse gap-1.5 pointer-events-none w-64 max-w-[58vw]">
-          <AnimatePresence mode="popLayout">
-            {cheerMessages.slice(-3).map((m) => (
-              <motion.div
-                key={m.id}
-                initial={{ opacity: 0, y: 24, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -16, scale: 0.88 }}
-                transition={{ type: "spring", stiffness: 380, damping: 26 }}
-                className="rounded-full px-3 py-1.5 text-xs flex items-center gap-1.5 min-w-0 border"
-                style={{
-                  backgroundColor: `${m.teamColor || "#F59E0B"}18`,
-                  borderColor: `${m.teamColor || "#F59E0B"}40`,
-                }}
-              >
-                <span
-                  className="font-bold uppercase text-[10px] tracking-wide truncate flex-shrink-0 max-w-[72px]"
-                  style={{ color: m.teamColor || "#F59E0B" }}
-                >
-                  {m.supporterLabel}
-                </span>
-                <span className="truncate text-white/75">{m.message}</span>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+      {/* ── Mobile cheer feed rail — collapsible right-edge drawer (xl+ uses the fixed CheerFeedRail) ─── */}
+      {cheerEnabled && (
+        <div className="xl:hidden">
+          <MobileCheerFeed
+            messages={cheerMessages}
+            teams={teamPurses ?? []}
+            heatLevel={heatLevel}
+            fanBattle={fanBattle}
+            heatMeterEnabled={heatMeterEnabled}
+            fanBattleEnabled={fanBattleEnabled}
+          />
         </div>
       )}
 
