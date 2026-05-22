@@ -29,7 +29,7 @@ export type SendResult = {
 // ─── BulkSMS Gateway ──────────────────────────────────────────────────────────
 
 const BULKSMS_USER = "bidwarsms";
-const BULKSMS_API  = "http://api.bulksmsgateway.in/sendmessage.php";
+const BULKSMS_API  = "https://api.bulksmsgateway.in/sendmessage.php";
 
 /**
  * Apply the character substitutions required by BulkSMS Gateway for message bodies.
