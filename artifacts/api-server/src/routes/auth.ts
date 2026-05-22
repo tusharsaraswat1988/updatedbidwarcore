@@ -78,10 +78,11 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
   id: o.id,
   name: o.name,
   email: o.email,
-  mobile: o.mobile,
+  mobile: (o.mobile && !o.mobile.startsWith("eml:") && !o.mobile.startsWith("gid_")) ? o.mobile : null,
   licenseStatus: o.licenseStatus,
   maxTournaments: o.maxTournaments,
   notes: o.notes,
+  hasPassword: !!o.passwordHash,
   createdAt: o.createdAt.toISOString(),
 });
 
@@ -196,10 +197,30 @@ router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
   res.json({ success: true });
 });
 
-router.get("/auth/organizer/:tournamentId/me", (req, res) => {
+router.get("/auth/organizer/:tournamentId/me", async (req, res) => {
   const tid = req.params.tournamentId;
-  const isOrganizer = !!(req.jwtUser.isAdmin || (req.jwtUser.organizer && req.jwtUser.organizer[tid]));
-  res.json({ isOrganizer });
+  const tidNum = parseInt(tid, 10);
+
+  if (req.jwtUser.isAdmin || (req.jwtUser.organizer && req.jwtUser.organizer[tid])) {
+    res.json({ isOrganizer: true });
+    return;
+  }
+
+  if (req.jwtUser.organizerAccountId && !isNaN(tidNum)) {
+    const [tournament] = await db
+      .select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tidNum))
+      .limit(1);
+    if (tournament?.organizerId === req.jwtUser.organizerAccountId) {
+      const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [tid]: true as const };
+      setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
+      res.json({ isOrganizer: true });
+      return;
+    }
+  }
+
+  res.json({ isOrganizer: false });
 });
 
 // ─── Set organizer password (organizer only — admin cannot set this) ──────────
@@ -653,6 +674,43 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
   res.json({ success: true });
 });
 
+// Email + password signup — no OTP required
+router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res) => {
+  const body = z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    password: z.string().min(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Name, email, and password (min 6 chars) are required." }); return; }
+
+  const { name, email, password } = body.data;
+
+  const [emailExists] = await db
+    .select({ id: organizersTable.id })
+    .from(organizersTable)
+    .where(eq(organizersTable.email, email))
+    .limit(1);
+  if (emailExists) {
+    res.status(409).json({ error: "An account with this email already exists." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  const [organizer] = await db.insert(organizersTable).values({
+    name,
+    email,
+    mobile: `eml:${email}`,
+    passwordHash,
+    licenseStatus: "pending",
+    maxTournaments: 1,
+  }).returning();
+
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  res.json({ success: true, organizer: organizerToJson(organizer) });
+});
+
 // Step 2: verify OTP, read pending session, create account, issue auth cookie
 router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (req, res) => {
   const body = z.object({
@@ -778,6 +836,34 @@ router.get("/auth/organizer-account/me", async (req, res) => {
 router.post("/auth/organizer-account/logout", (_req, res) => {
   clearAuthCookie(res);
   res.json({ success: true });
+});
+
+// Set backup password — only for accounts without a password (e.g. Google-only users)
+router.post("/auth/organizer-account/set-password", async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const body = z.object({ password: z.string().min(6) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Password must be at least 6 characters." }); return; }
+
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+  if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
+  if (organizer.passwordHash) {
+    res.status(409).json({ error: "Use the password reset flow to change your existing password." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(body.data.password);
+  const [updated] = await db
+    .update(organizersTable)
+    .set({ passwordHash })
+    .where(eq(organizersTable.id, organizer.id))
+    .returning();
+  res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
 // ─── Organizer Account: Create tournament ─────────────────────────────────────

@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import {
-  signupSendOtp,
-  signupVerify,
+  signupEmail,
+  setOrganizerPassword,
   loginOrganizerAccount,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
@@ -30,7 +30,7 @@ import {
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
-  licenseStatus: string; maxTournaments: number;
+  licenseStatus: string; maxTournaments: number; hasPassword?: boolean;
 };
 type Tournament = {
   id: number; name: string; sport: string; status: string;
@@ -504,7 +504,7 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 
 // ─── Auth Form ────────────────────────────────────────────────────────────────
 
-function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string }) {
+function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; next?: string }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
@@ -513,17 +513,7 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
   const { logos, brandName } = useBranding();
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ name: "", mobile: "", email: "", password: "", confirmPassword: "" });
-  const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
-  const [signupOtp, setSignupOtp] = useState("");
-  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
-  const [signupResending, setSignupResending] = useState(false);
-
-  useEffect(() => {
-    if (signupResendCooldown <= 0) return;
-    const t = setTimeout(() => setSignupResendCooldown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [signupResendCooldown]);
+  const [signupForm, setSignupForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -534,40 +524,27 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
     setLoading(false);
     if (!r.success) { setError(r.error || "Login failed"); return; }
     const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
+    if (me.loggedIn && me.organizer) {
+      onSuccess(me.organizer, me.tournaments ?? []);
+      if (next && next.startsWith("/")) navigate(next);
+    }
   }
 
-  async function handleSignupSendOtp(e: React.FormEvent) {
+  async function handleSignupEmail(e: React.FormEvent) {
     e.preventDefault();
-    const { name, mobile, email, password, confirmPassword } = signupForm;
-    if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
+    const { name, email, password, confirmPassword } = signupForm;
+    if (!name || !email || !password) { setError("Name, email, and password are required."); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError("");
-    const r = await signupSendOtp({ name, mobile, email: email || undefined, password });
+    const r = await signupEmail({ name, email, password });
     setLoading(false);
     if (!r.success) { setError(r.error || "Signup failed"); return; }
-    setSignupStep("otp");
-    setSignupResendCooldown(30);
-  }
-
-  async function handleSignupVerify(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true); setError("");
-    const r = await signupVerify(signupForm.mobile, signupOtp);
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Verification failed"); return; }
     const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) onSuccess(me.organizer, me.tournaments ?? []);
-  }
-
-  async function handleSignupResend() {
-    if (signupResendCooldown > 0 || signupResending) return;
-    setSignupResending(true); setError("");
-    const r = await resendOtp(signupForm.mobile);
-    setSignupResending(false);
-    if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
-    setSignupResendCooldown(30);
+    if (me.loggedIn && me.organizer) {
+      onSuccess(me.organizer, me.tournaments ?? []);
+      if (next && next.startsWith("/")) navigate(next);
+    }
   }
 
   return (
@@ -689,62 +666,13 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                   </div>
                   <GoogleSignInButton />
                 </motion.form>
-              ) : signupStep === "otp" ? (
-                <motion.form
-                  key="signup-otp"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  onSubmit={handleSignupVerify}
-                  className="space-y-4"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span></p>
-                    <p className="text-xs text-muted-foreground">Enter the 6-digit code to create your account</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Verification Code</Label>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={signupOtp}
-                      onChange={e => setSignupOtp(e.target.value.replace(/\D/g, ""))}
-                      placeholder="6-digit OTP"
-                      maxLength={6}
-                      autoFocus
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSignupResend}
-                        disabled={signupResendCooldown > 0 || signupResending}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
-                      </button>
-                    </div>
-                  </div>
-                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-                  <Button type="submit" className="w-full" disabled={loading || signupOtp.length !== 6}>
-                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Create Account
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => { setSignupStep("form"); setSignupOtp(""); setError(""); }}
-                    className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors"
-                  >
-                    Back to edit details
-                  </button>
-                </motion.form>
               ) : (
                 <motion.form
                   key="signup"
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  onSubmit={handleSignupSendOtp}
+                  onSubmit={handleSignupEmail}
                   className="space-y-4"
                 >
                   <div className="space-y-2">
@@ -753,24 +681,17 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                       value={signupForm.name}
                       onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
                       placeholder="Your full name"
+                      autoFocus
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number * (primary ID)</Label>
-                    <Input
-                      value={signupForm.mobile}
-                      onChange={e => setSignupForm(f => ({ ...f, mobile: e.target.value }))}
-                      placeholder="+91 98765 43210"
-                      inputMode="tel"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Email (optional)</Label>
+                    <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
                     <Input
                       type="email"
                       value={signupForm.email}
                       onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
                       placeholder="name@example.com"
+                      autoComplete="username"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -781,6 +702,7 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                         value={signupForm.password}
                         onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
                         placeholder="Min 6 chars"
+                        autoComplete="new-password"
                       />
                     </div>
                     <div className="space-y-2">
@@ -790,13 +712,14 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
                         value={signupForm.confirmPassword}
                         onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
                         placeholder="Repeat"
+                        autoComplete="new-password"
                       />
                     </div>
                   </div>
                   {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Continue
+                    Create Account
                   </Button>
                   <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                     By continuing, you agree to BidWar{" "}
@@ -825,17 +748,39 @@ function AuthForm({ onSuccess, initialError }: { onSuccess: (o: OrganizerInfo, t
 // ─── Organizer Dashboard ──────────────────────────────────────────────────────
 
 function OrganizerDashboard({
-  organizer, tournaments, onLogout, onRefresh,
+  organizer, tournaments, onLogout, onRefresh, onPasswordSet,
 }: {
   organizer: OrganizerInfo;
   tournaments: Tournament[];
   onLogout: () => void;
   onRefresh: () => void;
+  onPasswordSet: (org: OrganizerInfo) => void;
 }) {
   const [, navigate] = useLocation();
   const { logos, brandName, miniBrandText, poweredByText } = useBranding();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  const [spDismissed, setSpDismissed] = useState(false);
+  const [spPassword, setSpPassword] = useState("");
+  const [spConfirm, setSpConfirm] = useState("");
+  const [spLoading, setSpLoading] = useState(false);
+  const [spError, setSpError] = useState("");
+  const [spDone, setSpDone] = useState(false);
+
+  const showSetPassword = !organizer.hasPassword && !spDismissed && !spDone;
+
+  async function handleSetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (spPassword.length < 6) { setSpError("Password must be at least 6 characters."); return; }
+    if (spPassword !== spConfirm) { setSpError("Passwords do not match."); return; }
+    setSpLoading(true); setSpError("");
+    const r = await setOrganizerPassword(spPassword);
+    setSpLoading(false);
+    if (!r.success) { setSpError(r.error || "Failed to set password."); return; }
+    setSpDone(true);
+    if (r.organizer) onPasswordSet(r.organizer);
+  }
   const [declareOpen, setDeclareOpen] = useState(false);
   const [declareTid, setDeclareTid] = useState<number | null>(null);
   const [declaring, setDeclaring] = useState(false);
@@ -919,6 +864,65 @@ function OrganizerDashboard({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+        {/* Set password banner for Google-only accounts */}
+        {showSetPassword && (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <p className="text-sm font-semibold text-amber-300">Set a backup password</p>
+              </div>
+              <button
+                onClick={() => setSpDismissed(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              You signed in with Google. Add a password so you can also log in with your email directly.
+            </p>
+            {spDone ? (
+              <p className="text-green-400 text-sm flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> Password set — you can now sign in with your email.
+              </p>
+            ) : (
+              <form onSubmit={handleSetPassword} className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1 flex-1 min-w-[140px]">
+                  <Label className="text-xs text-muted-foreground">Password</Label>
+                  <Input
+                    type="password"
+                    value={spPassword}
+                    onChange={e => { setSpPassword(e.target.value); setSpError(""); }}
+                    placeholder="Min 6 characters"
+                    className="h-8 text-sm"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="space-y-1 flex-1 min-w-[140px]">
+                  <Label className="text-xs text-muted-foreground">Confirm</Label>
+                  <Input
+                    type="password"
+                    value={spConfirm}
+                    onChange={e => { setSpConfirm(e.target.value); setSpError(""); }}
+                    placeholder="Repeat password"
+                    className="h-8 text-sm"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <Button type="submit" size="sm" className="h-8" disabled={spLoading || !spPassword || !spConfirm}>
+                  {spLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Save Password"}
+                </Button>
+                {spError && (
+                  <p className="w-full text-destructive text-xs flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />{spError}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="p-4 rounded-xl border border-border bg-card/30 text-center">
@@ -1105,6 +1109,11 @@ export default function OrganizerPortal() {
   const [checking, setChecking] = useState(true);
   const [needsMobile, setNeedsMobile] = useState(false);
   const search = useSearch();
+  const [, navigate] = useLocation();
+
+  const nextParam = (() => {
+    try { return new URLSearchParams(search).get("next") ?? ""; } catch { return ""; }
+  })();
 
   async function refresh() {
     const me = await checkOrganizerAccountAuth();
@@ -1155,11 +1164,16 @@ export default function OrganizerPortal() {
     setOrganizer(org);
     setTournaments(tours);
     if (!org.mobile) setNeedsMobile(true);
+    if (nextParam && nextParam.startsWith("/")) navigate(nextParam);
   }
 
   function handleProfileComplete(org: OrganizerInfo) {
     setOrganizer(org);
     setNeedsMobile(false);
+  }
+
+  function handlePasswordSet(org: OrganizerInfo) {
+    setOrganizer(org);
   }
 
   if (checking) {
@@ -1186,11 +1200,12 @@ export default function OrganizerPortal() {
               tournaments={tournaments}
               onLogout={handleLogout}
               onRefresh={refresh}
+              onPasswordSet={handlePasswordSet}
             />
           </motion.div>
         ) : (
           <motion.div key="auth" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} />
+            <AuthForm onSuccess={handleAuthSuccess} initialError={googleError} next={nextParam} />
           </motion.div>
         )}
       </AnimatePresence>

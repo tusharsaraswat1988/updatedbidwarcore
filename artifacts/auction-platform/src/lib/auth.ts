@@ -230,7 +230,7 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number };
+export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean };
 
 export async function signupSendOtp(data: {
   name: string; mobile: string; email?: string; password: string;
@@ -243,6 +243,32 @@ export async function signupSendOtp(data: {
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Failed to send OTP" };
     return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function signupEmail(data: {
+  name: string; email: string; password: string;
+}): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/signup/email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Signup failed" };
+    return { success: true, organizer: d.organizer };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function setOrganizerPassword(password: string): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/set-password", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to set password" };
+    return { success: true, organizer: d.organizer };
   } catch { return { success: false, error: "Network error" }; }
 }
 

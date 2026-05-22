@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
+import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 
@@ -23,7 +24,8 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 
   async function handleLogout() {
     await logout();
-    navigate(`/tournament/${tournamentId}/login`);
+    await logoutOrganizerAccount();
+    navigate("/organizer");
   }
 
   if (iconOnly) {

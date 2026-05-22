@@ -9,11 +9,13 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
   const [, navigate] = useLocation();
 
+  const [location] = useLocation();
+
   useEffect(() => {
     if (!isLoading && !isLoggedIn && tournamentId) {
-      navigate(`/tournament/${tournamentId}/login`);
+      navigate(`/organizer?next=${encodeURIComponent(location)}`);
     }
-  }, [isLoggedIn, isLoading, tournamentId, navigate]);
+  }, [isLoggedIn, isLoading, tournamentId, navigate, location]);
 
   if (isLoading) {
     return (
