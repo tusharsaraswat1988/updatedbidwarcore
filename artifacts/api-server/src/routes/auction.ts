@@ -716,11 +716,12 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   // Max squad check — count players already on this team
   if (maximumSquadSize > 0) {
     const allPlayers = await db
-      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId })
+      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, isNonPlayingMember: playersTable.isNonPlayingMember })
       .from(playersTable)
       .where(eq(playersTable.tournamentId, tid));
+    // Non-playing members don't count toward squad-slot limits
     const playersBought = allPlayers.filter(
-      (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained")
+      (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember
     ).length;
     if (playersBought >= maximumSquadSize) {
       res.status(400).json({ error: `Maximum squad size reached — this team already has ${playersBought} player${playersBought !== 1 ? "s" : ""} (limit: ${maximumSquadSize})` });
@@ -740,8 +741,8 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
         .from(categoriesTable)
         .where(eq(categoriesTable.id, bidPlayer.categoryId));
       if (bidCat?.maxPlayers && bidCat.maxPlayers > 0) {
-        const catPlayerCount = await db
-          .select({ id: playersTable.id })
+        const catPlayers = await db
+          .select({ id: playersTable.id, isNonPlayingMember: playersTable.isNonPlayingMember })
           .from(playersTable)
           .where(
             and(
@@ -751,7 +752,9 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
               inArray(playersTable.status, ["sold", "retained"])
             )
           );
-        if (catPlayerCount.length >= bidCat.maxPlayers) {
+        // Non-playing members don't count toward category limits either
+        const catPlayerCount = catPlayers.filter((p) => !p.isNonPlayingMember).length;
+        if (catPlayerCount >= bidCat.maxPlayers) {
           res.status(400).json({
             error: `Category limit reached — your team already has the maximum ${bidCat.maxPlayers} player${bidCat.maxPlayers !== 1 ? "s" : ""} in the "${bidCat.name}" category`,
           });

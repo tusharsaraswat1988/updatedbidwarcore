@@ -45,9 +45,13 @@ export type PlayerLite = {
   photoUrl?: string | null;
   basePrice: number;
   soldPrice?: number | null;
+  retainedPrice?: number | null;
   status: string;
   teamId?: number | null;
   categoryId?: number | null;
+  playerTag?: string | null;
+  playerTagTeamId?: number | null;
+  isNonPlayingMember?: boolean;
 };
 
 export type CategoryLite = { id: number; name: string };

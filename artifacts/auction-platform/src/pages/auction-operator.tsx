@@ -959,13 +959,21 @@ export default function AuctionOperator() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <p className={`text-xs font-semibold truncate leading-tight ${
                             isNowOn ? "text-yellow-200" : isSold ? "text-white/70" : isUnsold ? "text-white/40" : isRetained ? "text-purple-200" : "text-white/65"
                           }`}>
                             {player.name}
                           </p>
                           {isDeferred && <Hourglass className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 opacity-70" />}
+                          {(player as any).playerTag && (
+                            <span className="flex-shrink-0 text-[7px] font-black tracking-wider px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 uppercase leading-none">
+                              {(player as any).playerTag === "vice_captain" ? "VC" : (player as any).playerTag === "captain" ? "CAPT" : (player as any).playerTag === "star_player" ? "STAR" : (player as any).playerTag === "co_owner" ? "CO-OWN" : ((player as any).playerTag as string).replace("_", " ").toUpperCase()}
+                            </span>
+                          )}
+                          {(player as any).isNonPlayingMember && (
+                            <span className="flex-shrink-0 text-[7px] font-bold tracking-wider px-1 py-0.5 rounded bg-slate-500/15 border border-slate-400/20 text-slate-400 uppercase leading-none">NP</span>
+                          )}
                           {cat && <span className="text-[8px] font-semibold flex-shrink-0" style={{ color: cat.colorCode || "#888" }}>{cat.name}</span>}
                         </div>
 
@@ -976,11 +984,11 @@ export default function AuctionOperator() {
                             {team && <><span className="text-white/30 mx-1">→</span><span className="text-white/45 truncate">{team.name}</span></>}
                           </p>
                         )}
-                        {isRetained && team && (
+                        {isRetained && (
                           <p className="text-[10px] leading-tight mt-0.5">
-                            <span className="text-purple-400 font-mono font-bold">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
-                            <span className="text-white/30 mx-1">·</span>
-                            <span className="text-white/40 truncate">{team.name}</span>
+                            <span className="text-purple-400 font-mono font-bold">{formatShortIndianRupee((player as any).retainedPrice || player.basePrice)}</span>
+                            {team && <><span className="text-white/30 mx-1">→</span><span className="font-semibold truncate" style={{ color: team.color || "#a78bfa" }}>{team.name}</span></>}
+                            {!team && <span className="text-white/40 ml-1">No team assigned</span>}
                           </p>
                         )}
                         {isUnsold && (

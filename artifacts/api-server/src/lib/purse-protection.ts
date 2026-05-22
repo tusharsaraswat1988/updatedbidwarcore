@@ -29,7 +29,7 @@ export async function computeTeamPurseProtection(
   tournamentId: number,
   teamId: number,
   opts?: {
-    allPlayers?: Array<{ id: number; status: string; teamId: number | null; basePrice: number }>;
+    allPlayers?: Array<{ id: number; status: string; teamId: number | null; basePrice: number; isNonPlayingMember?: boolean }>;
     minimumSquadSize?: number;
     maximumSquadSize?: number;
     minBid?: number;
@@ -91,12 +91,13 @@ export async function computeTeamPurseProtection(
   const allPlayers =
     opts?.allPlayers ??
     (await db
-      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice })
+      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice, isNonPlayingMember: playersTable.isNonPlayingMember })
       .from(playersTable)
       .where(eq(playersTable.tournamentId, tournamentId)));
 
+  // Non-playing members are excluded from squad-slot counts
   const playerCount = allPlayers.filter(
-    (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained")
+    (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember
   ).length;
 
   const slotsRequired = Math.max(0, minSquadSize - playerCount);
@@ -138,7 +139,7 @@ export async function computeAllTeamPurseProtections(
   const minBid = tournamentRow?.minBid ?? 0;
 
   const allPlayers = await db
-    .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice })
+    .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice, isNonPlayingMember: playersTable.isNonPlayingMember })
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tournamentId));
 

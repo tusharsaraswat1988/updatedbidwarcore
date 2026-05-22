@@ -534,6 +534,27 @@ export const ExportTournamentForLocalResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     }),
   ),
@@ -949,6 +970,24 @@ export const ListPlayersResponseItem = zod.object({
   mobileNumber: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
   createdAt: zod.string(),
 });
 export const ListPlayersResponse = zod.array(ListPlayersResponseItem);
@@ -977,6 +1016,7 @@ export const CreatePlayerBody = zod.object({
   cricheroUrl: zod.string().optional(),
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
+  teamId: zod.number().nullish(),
   status: zod.string().optional(),
   whatsappConsent: zod
     .boolean()
@@ -984,6 +1024,19 @@ export const CreatePlayerBody = zod.object({
     .describe(
       "Player opts in to WhatsApp notifications via web registration form",
     ),
+  playerTag: zod
+    .enum([
+      "captain",
+      "vice_captain",
+      "owner",
+      "co_owner",
+      "booster",
+      "icon",
+      "star_player",
+    ])
+    .optional(),
+  playerTagTeamId: zod.number().optional(),
+  isNonPlayingMember: zod.boolean().optional(),
 });
 
 /**
@@ -1030,6 +1083,7 @@ export const RegisterPlayerBody = zod.object({
   cricheroUrl: zod.string().optional(),
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
+  teamId: zod.number().nullish(),
   status: zod.string().optional(),
   whatsappConsent: zod
     .boolean()
@@ -1037,6 +1091,19 @@ export const RegisterPlayerBody = zod.object({
     .describe(
       "Player opts in to WhatsApp notifications via web registration form",
     ),
+  playerTag: zod
+    .enum([
+      "captain",
+      "vice_captain",
+      "owner",
+      "co_owner",
+      "booster",
+      "icon",
+      "star_player",
+    ])
+    .optional(),
+  playerTagTeamId: zod.number().optional(),
+  isNonPlayingMember: zod.boolean().optional(),
 });
 
 /**
@@ -1065,6 +1132,7 @@ export const BulkCreatePlayersBody = zod.object({
       cricheroUrl: zod.string().optional(),
       availabilityDates: zod.string().optional(),
       retainedPrice: zod.number().optional(),
+      teamId: zod.number().nullish(),
       status: zod.string().optional(),
       whatsappConsent: zod
         .boolean()
@@ -1072,6 +1140,19 @@ export const BulkCreatePlayersBody = zod.object({
         .describe(
           "Player opts in to WhatsApp notifications via web registration form",
         ),
+      playerTag: zod
+        .enum([
+          "captain",
+          "vice_captain",
+          "owner",
+          "co_owner",
+          "booster",
+          "icon",
+          "star_player",
+        ])
+        .optional(),
+      playerTagTeamId: zod.number().optional(),
+      isNonPlayingMember: zod.boolean().optional(),
     }),
   ),
 });
@@ -1112,6 +1193,24 @@ export const GetPlayerResponse = zod.object({
   mobileNumber: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
   createdAt: zod.string(),
 });
 
@@ -1142,6 +1241,19 @@ export const UpdatePlayerBody = zod.object({
   retainedPrice: zod.number().optional(),
   status: zod.string().optional(),
   teamId: zod.number().nullish(),
+  playerTag: zod
+    .enum([
+      "captain",
+      "vice_captain",
+      "owner",
+      "co_owner",
+      "booster",
+      "icon",
+      "star_player",
+    ])
+    .optional(),
+  playerTagTeamId: zod.number().optional(),
+  isNonPlayingMember: zod.boolean().optional(),
 });
 
 export const UpdatePlayerResponse = zod.object({
@@ -1166,6 +1278,24 @@ export const UpdatePlayerResponse = zod.object({
   mobileNumber: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
   createdAt: zod.string(),
 });
 
@@ -1210,6 +1340,27 @@ export const GetAuctionStateResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1338,6 +1489,27 @@ export const StartAuctionResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1466,6 +1638,27 @@ export const PauseAuctionResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1599,6 +1792,27 @@ export const NextPlayerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1736,6 +1950,27 @@ export const PlaceBidResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1864,6 +2099,27 @@ export const SellPlayerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1997,6 +2253,27 @@ export const ManualSellResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2125,6 +2402,27 @@ export const MarkUnsoldResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2258,6 +2556,27 @@ export const ReAuctionPlayerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2386,6 +2705,27 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2514,6 +2854,27 @@ export const UndoLastActionResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2646,6 +3007,27 @@ export const ResetTrialAuctionResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2778,6 +3160,27 @@ export const SetDisplayOverlayResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2912,6 +3315,27 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3070,6 +3494,27 @@ export const SyncFortuneWheelResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3202,6 +3647,27 @@ export const SetCategoryFilterResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3346,6 +3812,27 @@ export const SetBreakTimerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3483,6 +3970,27 @@ export const SetPreAuctionCountdownResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3621,6 +4129,27 @@ export const StartTimerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3749,6 +4278,27 @@ export const StopTimerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3877,6 +4427,27 @@ export const DeferPlayerResponse = zod.object({
       mobileNumber: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
+      playerTag: zod
+        .union([
+          zod.literal("captain"),
+          zod.literal("vice_captain"),
+          zod.literal("owner"),
+          zod.literal("co_owner"),
+          zod.literal("booster"),
+          zod.literal("icon"),
+          zod.literal("star_player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Cosmetic tag — no calculation impact"),
+      playerTagTeamId: zod
+        .number()
+        .nullish()
+        .describe("Team this tag applies to"),
+      isNonPlayingMember: zod
+        .boolean()
+        .optional()
+        .describe("Excluded from squad-slot counts but visible in team roster"),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4021,6 +4592,7 @@ export const GetTournamentSummaryParams = zod.object({
 export const GetTournamentSummaryResponse = zod.object({
   totalPlayers: zod.number(),
   soldPlayers: zod.number(),
+  retainedPlayers: zod.number(),
   unsoldPlayers: zod.number(),
   availablePlayers: zod.number(),
   totalSpent: zod.number(),

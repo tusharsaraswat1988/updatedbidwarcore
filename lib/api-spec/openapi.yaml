@@ -2097,6 +2097,16 @@ components:
           type: ["string", "null"]
         availabilityDates:
           type: ["string", "null"]
+        playerTag:
+          type: ["string", "null"]
+          enum: [captain, vice_captain, owner, co_owner, booster, icon, star_player, null]
+          description: Cosmetic tag — no calculation impact
+        playerTagTeamId:
+          type: ["integer", "null"]
+          description: Team this tag applies to
+        isNonPlayingMember:
+          type: boolean
+          description: Excluded from squad-slot counts but visible in team roster
         createdAt:
           type: string
 
@@ -2136,11 +2146,20 @@ components:
           type: string
         retainedPrice:
           type: integer
+        teamId:
+          type: ["integer", "null"]
         status:
           type: string
         whatsappConsent:
           type: boolean
           description: Player opts in to WhatsApp notifications via web registration form
+        playerTag:
+          type: string
+          enum: [captain, vice_captain, owner, co_owner, booster, icon, star_player]
+        playerTagTeamId:
+          type: integer
+        isNonPlayingMember:
+          type: boolean
 
     PlayerUpdate:
       type: object
@@ -2181,6 +2200,13 @@ components:
           type: string
         teamId:
           type: ["integer", "null"]
+        playerTag:
+          type: string
+          enum: [captain, vice_captain, owner, co_owner, booster, icon, star_player]
+        playerTagTeamId:
+          type: integer
+        isNonPlayingMember:
+          type: boolean
 
     BulkPlayerInput:
       type: object
@@ -2433,11 +2459,13 @@ components:
 
     TournamentSummary:
       type: object
-      required: [totalPlayers, soldPlayers, unsoldPlayers, availablePlayers, totalSpent, totalTeams, avgBidAmount]
+      required: [totalPlayers, soldPlayers, retainedPlayers, unsoldPlayers, availablePlayers, totalSpent, totalTeams, avgBidAmount]
       properties:
         totalPlayers:
           type: integer
         soldPlayers:
+          type: integer
+        retainedPlayers:
           type: integer
         unsoldPlayers:
           type: integer

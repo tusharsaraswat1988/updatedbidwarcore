@@ -38,6 +38,26 @@ async function computeRegistrationStatus(tid: number) {
 
 const router = Router();
 
+/**
+ * Recalculate and persist team.purseUsed from the current player records.
+ * Called whenever a player's retained status or teamId changes so that the
+ * purse figures are always consistent without requiring a manual reset.
+ */
+async function recalcTeamPurseUsed(tournamentId: number, teamId: number): Promise<void> {
+  const players = await db
+    .select({ status: playersTable.status, soldPrice: playersTable.soldPrice, retainedPrice: playersTable.retainedPrice })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tournamentId), eq(playersTable.teamId, teamId)));
+
+  const purseUsed = players.reduce((sum, p) => {
+    if (p.status === "sold") return sum + (p.soldPrice ?? 0);
+    if (p.status === "retained") return sum + (p.retainedPrice ?? 0);
+    return sum;
+  }, 0);
+
+  await db.update(teamsTable).set({ purseUsed }).where(eq(teamsTable.id, teamId));
+}
+
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id,
   tournamentId: p.tournamentId,
@@ -60,6 +80,9 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   mobileNumber: p.mobileNumber,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
+  playerTag: p.playerTag ?? null,
+  playerTagTeamId: p.playerTagTeamId ?? null,
+  isNonPlayingMember: p.isNonPlayingMember ?? false,
   createdAt: p.createdAt.toISOString(),
 });
 
@@ -85,6 +108,9 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   achievements: p.achievements,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
+  playerTag: p.playerTag ?? null,
+  playerTagTeamId: p.playerTagTeamId ?? null,
+  isNonPlayingMember: p.isNonPlayingMember ?? false,
   createdAt: p.createdAt.toISOString(),
 });
 
@@ -96,8 +122,11 @@ const cloudinaryImageUrl = z
     "Image URL must be a valid HTTPS URL",
   );
 
+const PLAYER_TAG_VALUES = ["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"] as const;
+
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
+  teamId: z.number().int().nullable().optional(),
   name: z.string().min(1),
   city: z.string().optional(),
   role: z.string().optional(),
@@ -115,6 +144,9 @@ const playerInputSchema = z.object({
   retainedPrice: z.number().int().optional(),
   status: z.string().optional(),
   whatsappConsent: z.boolean().optional(),
+  playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
+  playerTagTeamId: z.number().int().nullable().optional(),
+  isNonPlayingMember: z.boolean().optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -175,9 +207,19 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
+      teamId: d.teamId ?? null,
       status: (d.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+      playerTag: (d.playerTag ?? null) as string | null,
+      playerTagTeamId: d.playerTagTeamId ?? null,
+      isNonPlayingMember: d.isNonPlayingMember ?? false,
     })
     .returning();
+
+  // If newly retained, sync team.purseUsed
+  if (player.status === "retained" && player.teamId) {
+    await recalcTeamPurseUsed(tid, player.teamId);
+  }
+
   res.status(201).json(playerToJson(player));
 });
 
@@ -326,11 +368,29 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     retainedPrice: z.number().int().nullable().optional(),
     status: z.string().optional(),
     teamId: z.number().int().nullable().optional(),
+    playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
+    playerTagTeamId: z.number().int().nullable().optional(),
+    isNonPlayingMember: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const updates: Record<string, unknown> = {};
   const d = parsed.data;
+
+  // Fetch current player to know if retained team changes
+  const [existing] = await db
+    .select({ status: playersTable.status, teamId: playersTable.teamId })
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Validate: retained status requires a team + price
+  const newStatus = d.status ?? existing.status;
+  const newTeamId = d.teamId !== undefined ? d.teamId : existing.teamId;
+  if (newStatus === "retained") {
+    if (!newTeamId) { res.status(400).json({ error: "A retained player must be assigned to a team" }); return; }
+  }
+
+  const updates: Record<string, unknown> = {};
   if (d.categoryId !== undefined) updates.categoryId = d.categoryId;
   if (d.name !== undefined) updates.name = d.name;
   if (d.city !== undefined) updates.city = d.city;
@@ -349,12 +409,28 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.retainedPrice !== undefined) updates.retainedPrice = d.retainedPrice;
   if (d.status !== undefined) updates.status = d.status;
   if (d.teamId !== undefined) updates.teamId = d.teamId;
+  if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
+  if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
+  if (d.isNonPlayingMember !== undefined) updates.isNonPlayingMember = d.isNonPlayingMember;
+
   const [player] = await db
     .update(playersTable)
     .set(updates)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
     .returning();
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Recalc purseUsed for any team affected by a retention change
+  const teamsToRecalc = new Set<number>();
+  if (player.status === "retained" && player.teamId) teamsToRecalc.add(player.teamId);
+  // If player was previously retained on a different team, recalc that team too
+  if (existing.status === "retained" && existing.teamId && existing.teamId !== player.teamId) {
+    teamsToRecalc.add(existing.teamId);
+  }
+  for (const tid2 of teamsToRecalc) {
+    await recalcTeamPurseUsed(tid, tid2);
+  }
+
   res.json(playerToJson(player));
 });
 

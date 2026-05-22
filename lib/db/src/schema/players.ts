@@ -29,6 +29,12 @@ export const playersTable = pgTable(
     // Global identity — links this tournament-scoped player to a cross-tournament
     // canonical identity in global_players. Null until manually or automatically linked.
     globalPlayerId: text("global_player_id"),
+    // Player tag — purely cosmetic, no calc impact (captain, vice_captain, owner, co_owner, booster, icon, star_player)
+    playerTag: text("player_tag"),
+    // Which team the tag applies to (tag is per-team, different from the team they're sold/retained to)
+    playerTagTeamId: integer("player_tag_team_id"),
+    // Non-playing member — shows in team roster but excluded from squad size / category limit counts
+    isNonPlayingMember: boolean("is_non_playing_member").notNull().default(false),
     // WhatsApp consent (Meta-compliant opt-in)
     whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
     whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),

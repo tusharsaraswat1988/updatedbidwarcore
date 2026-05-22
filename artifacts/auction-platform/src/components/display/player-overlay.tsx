@@ -172,7 +172,17 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="font-display font-bold text-sm md:text-base leading-tight truncate text-white">{p.name}</p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-display font-bold text-sm md:text-base leading-tight truncate text-white">{p.name}</p>
+                          {p.playerTag && (
+                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-black tracking-wider bg-amber-500/20 border border-amber-400/40 text-amber-300 uppercase">
+                              {p.playerTag === "vice_captain" ? "VC" : p.playerTag === "captain" ? "CAPT" : p.playerTag === "star_player" ? "STAR" : p.playerTag === "co_owner" ? "CO-OWN" : p.playerTag.toUpperCase()}
+                            </span>
+                          )}
+                          {p.isNonPlayingMember && (
+                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] font-bold tracking-wider bg-slate-500/20 border border-slate-400/30 text-slate-400 uppercase">NP</span>
+                          )}
+                        </div>
                         {p.city && <p className="text-[10px] md:text-xs text-white/50 truncate">{p.city}</p>}
                       </div>
                     </div>
@@ -186,7 +196,9 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                       <p className="text-xs md:text-sm font-display font-bold tabular-nums text-white/70">{formatShortIndianRupee(p.basePrice)}</p>
                     </div>
                     <div className="col-span-2 text-right">
-                      {p.soldPrice ? (
+                      {p.status === "retained" && p.retainedPrice ? (
+                        <p className="text-sm md:text-lg font-display font-black tabular-nums text-purple-300">{formatShortIndianRupee(p.retainedPrice)}</p>
+                      ) : p.soldPrice ? (
                         <p className="text-sm md:text-lg font-display font-black tabular-nums text-emerald-300">{formatShortIndianRupee(p.soldPrice)}</p>
                       ) : (
                         <span className="text-xs text-white/30">—</span>

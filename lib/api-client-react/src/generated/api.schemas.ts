@@ -392,6 +392,24 @@ export const PlayerStatus = {
   retained: "retained",
 } as const;
 
+/**
+ * Cosmetic tag — no calculation impact
+ * @nullable
+ */
+export type PlayerPlayerTag =
+  | (typeof PlayerPlayerTag)[keyof typeof PlayerPlayerTag]
+  | null;
+
+export const PlayerPlayerTag = {
+  captain: "captain",
+  vice_captain: "vice_captain",
+  owner: "owner",
+  co_owner: "co_owner",
+  booster: "booster",
+  icon: "icon",
+  star_player: "star_player",
+} as const;
+
 export interface Player {
   id: number;
   tournamentId: number;
@@ -430,8 +448,33 @@ export interface Player {
   cricheroUrl?: string | null;
   /** @nullable */
   availabilityDates?: string | null;
+  /**
+   * Cosmetic tag — no calculation impact
+   * @nullable
+   */
+  playerTag?: PlayerPlayerTag;
+  /**
+   * Team this tag applies to
+   * @nullable
+   */
+  playerTagTeamId?: number | null;
+  /** Excluded from squad-slot counts but visible in team roster */
+  isNonPlayingMember?: boolean;
   createdAt: string;
 }
+
+export type PlayerInputPlayerTag =
+  (typeof PlayerInputPlayerTag)[keyof typeof PlayerInputPlayerTag];
+
+export const PlayerInputPlayerTag = {
+  captain: "captain",
+  vice_captain: "vice_captain",
+  owner: "owner",
+  co_owner: "co_owner",
+  booster: "booster",
+  icon: "icon",
+  star_player: "star_player",
+} as const;
 
 export interface PlayerInput {
   categoryId?: number;
@@ -450,10 +493,28 @@ export interface PlayerInput {
   cricheroUrl?: string;
   availabilityDates?: string;
   retainedPrice?: number;
+  /** @nullable */
+  teamId?: number | null;
   status?: string;
   /** Player opts in to WhatsApp notifications via web registration form */
   whatsappConsent?: boolean;
+  playerTag?: PlayerInputPlayerTag;
+  playerTagTeamId?: number;
+  isNonPlayingMember?: boolean;
 }
+
+export type PlayerUpdatePlayerTag =
+  (typeof PlayerUpdatePlayerTag)[keyof typeof PlayerUpdatePlayerTag];
+
+export const PlayerUpdatePlayerTag = {
+  captain: "captain",
+  vice_captain: "vice_captain",
+  owner: "owner",
+  co_owner: "co_owner",
+  booster: "booster",
+  icon: "icon",
+  star_player: "star_player",
+} as const;
 
 export interface PlayerUpdate {
   categoryId?: number;
@@ -475,6 +536,9 @@ export interface PlayerUpdate {
   status?: string;
   /** @nullable */
   teamId?: number | null;
+  playerTag?: PlayerUpdatePlayerTag;
+  playerTagTeamId?: number;
+  isNonPlayingMember?: boolean;
 }
 
 export interface BulkPlayerInput {
@@ -729,6 +793,7 @@ export interface RegistrationStatus {
 export interface TournamentSummary {
   totalPlayers: number;
   soldPlayers: number;
+  retainedPlayers: number;
   unsoldPlayers: number;
   availablePlayers: number;
   totalSpent: number;

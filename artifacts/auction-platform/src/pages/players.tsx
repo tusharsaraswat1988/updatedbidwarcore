@@ -385,10 +385,25 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
 
 // ─── Player Form ───────────────────────────────────────────────────────────────
 
-function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
+const PLAYER_TAGS = [
+  { value: "captain",      label: "Captain" },
+  { value: "vice_captain", label: "Vice Captain" },
+  { value: "owner",        label: "Owner" },
+  { value: "co_owner",     label: "Co-Owner" },
+  { value: "booster",      label: "Booster" },
+  { value: "icon",         label: "Icon" },
+  { value: "star_player",  label: "Star Player" },
+] as const;
+
+export function playerTagLabel(tag: string | null | undefined) {
+  return PLAYER_TAGS.find(t => t.value === tag)?.label ?? null;
+}
+
+function PlayerForm({ tournamentId, player, categories, teams, tournament, onClose }: {
   tournamentId: number;
   player?: any;
   categories: any[];
+  teams: any[];
   tournament?: any;
   onClose: () => void;
 }) {
@@ -440,8 +455,12 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     cricheroUrl: player?.cricheroUrl || "",
     availabilityDates: player?.availabilityDates || "",
     retainedPrice: player?.retainedPrice ? String(player.retainedPrice) : "",
+    retainedTeamId: player?.teamId && player?.status === "retained" ? String(player.teamId) : "",
     status: player?.status || "available",
     categoryId: player?.categoryId ? String(player.categoryId) : "",
+    playerTag: player?.playerTag || "",
+    playerTagTeamId: player?.playerTagTeamId ? String(player.playerTagTeamId) : "",
+    isNonPlayingMember: player?.isNonPlayingMember ?? false,
   });
 
   const [submitError, setSubmitError] = useState("");
@@ -486,8 +505,12 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       cricheroUrl: form.cricheroUrl || undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
+      teamId: form.status === "retained" && form.retainedTeamId ? parseInt(form.retainedTeamId) : undefined,
       status: form.status,
       categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
+      playerTag: (form.playerTag || undefined) as any,
+      playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
+      isNonPlayingMember: form.isNonPlayingMember || undefined,
     };
     try {
       if (player) {
@@ -503,7 +526,7 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
     }
   }
 
-  const f = (key: string, val: string | number) => setForm(prev => ({ ...prev, [key]: val }));
+  const f = (key: string, val: string | number | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
   function fillFromProfile(p: SuggestionProfile) {
     setForm(prev => ({
@@ -719,8 +742,8 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
       </div>
 
       {/* Retained player section */}
-      <div className="pt-2 border-t border-border">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Retained Player (Optional)</p>
+      <div className="pt-2 border-t border-border space-y-4">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Retained Player (Optional)</p>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Status</Label>
@@ -734,11 +757,73 @@ function PlayerForm({ tournamentId, player, categories, tournament, onClose }: {
           </div>
           {form.status === "retained" && (
             <div className="space-y-2">
-              <Label>Retained Price (₹)</Label>
+              <Label>Retained Price (₹) <span className="text-destructive">*</span></Label>
               <Input type="number" value={form.retainedPrice} onChange={e => f("retainedPrice", e.target.value)} placeholder="e.g. 1000000" />
             </div>
           )}
         </div>
+        {form.status === "retained" && (
+          <div className="space-y-2">
+            <Label>Retained By Team <span className="text-destructive">*</span></Label>
+            <Select value={form.retainedTeamId} onValueChange={v => f("retainedTeamId", v)}>
+              <SelectTrigger><SelectValue placeholder="Select team..." /></SelectTrigger>
+              <SelectContent className="dark">
+                {teams.map(t => (
+                  <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      {/* Player tag section */}
+      <div className="pt-2 border-t border-border space-y-4">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player Tag (Optional — display only)</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Tag</Label>
+            <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="No tag" /></SelectTrigger>
+              <SelectContent className="dark">
+                <SelectItem value="_none">No tag</SelectItem>
+                {PLAYER_TAGS.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {form.playerTag && (
+            <div className="space-y-2">
+              <Label>Tag Team</Label>
+              <Select value={form.playerTagTeamId || "_none"} onValueChange={v => f("playerTagTeamId", v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Any team" /></SelectTrigger>
+                <SelectContent className="dark">
+                  <SelectItem value="_none">Any team</SelectItem>
+                  {teams.map(t => (
+                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Non-playing member toggle */}
+      <div className="pt-2 border-t border-border">
+        <label className="flex items-start gap-3 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={form.isNonPlayingMember}
+            onChange={e => f("isNonPlayingMember", e.target.checked)}
+            className="mt-1 w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
+          />
+          <div>
+            <p className="text-sm font-semibold group-hover:text-foreground transition-colors">Is Non-Playing Member?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Shows in team roster for display purposes only. Not counted in squad size, category limits, or statistics.</p>
+          </div>
+        </label>
       </div>
 
       {submitError && (
@@ -1031,6 +1116,7 @@ export default function Players() {
                   tournamentId={tournamentId}
                   player={editing}
                   categories={categories || []}
+                  teams={teams || []}
                   tournament={tournament}
                   onClose={() => { setOpen(false); setEditing(null); }}
                 />
@@ -1083,6 +1169,16 @@ export default function Players() {
                           <span className="text-xs text-muted-foreground font-mono">#{player.jerseyNumber}</span>
                         )}
                         <Badge variant="outline" className={statusColors[player.status] || ""}>{player.status}</Badge>
+                        {player.playerTag && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-500/30 uppercase tracking-wide">
+                            {playerTagLabel(player.playerTag)}
+                          </Badge>
+                        )}
+                        {player.isNonPlayingMember && (
+                          <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-400 border-slate-500/20">
+                            Non-Playing
+                          </Badge>
+                        )}
                         {cat && (
                           <Badge
                             variant="outline"
@@ -1128,7 +1224,8 @@ export default function Players() {
                       {player.status === "retained" ? (
                         <>
                           <p className="font-mono font-bold text-purple-400">{player.retainedPrice ? `₹${(player.retainedPrice/100000).toFixed(1)}L` : "Retained"}</p>
-                          <p className="text-xs text-muted-foreground">retained</p>
+                          {team && <p className="text-xs font-semibold mt-0.5" style={{ color: team.color || "#a78bfa" }}>{team.name}</p>}
+                          {!team && <p className="text-xs text-muted-foreground">retained</p>}
                         </>
                       ) : (
                         <>

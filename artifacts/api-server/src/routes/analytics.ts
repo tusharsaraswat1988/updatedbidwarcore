@@ -31,12 +31,17 @@ router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
     .where(eq(bidsTable.tournamentId, tid));
 
   const soldPlayers = players.filter((p) => p.status === "sold");
+  const retainedPlayers = players.filter((p) => p.status === "retained");
   const unsoldPlayers = players.filter((p) => p.status === "unsold");
   const availablePlayers = players.filter((p) => p.status === "available");
 
-  const totalSpent = soldPlayers.reduce((sum, p) => sum + (p.soldPrice ?? 0), 0);
-  const avgBidAmount = soldPlayers.length > 0 ? Math.round(totalSpent / soldPlayers.length) : 0;
-  const highestBid = soldPlayers.reduce((max, p) => Math.max(max, p.soldPrice ?? 0), 0);
+  const soldSpent = soldPlayers.reduce((sum, p) => sum + (p.soldPrice ?? 0), 0);
+  const retainedSpent = retainedPlayers.reduce((sum, p) => sum + (p.retainedPrice ?? 0), 0);
+  const totalSpent = soldSpent + retainedSpent;
+  const avgBidAmount = soldPlayers.length > 0 ? Math.round(soldSpent / soldPlayers.length) : 0;
+  const highestSoldBid = soldPlayers.reduce((max, p) => Math.max(max, p.soldPrice ?? 0), 0);
+  const highestRetainedBid = retainedPlayers.reduce((max, p) => Math.max(max, p.retainedPrice ?? 0), 0);
+  const highestBid = Math.max(highestSoldBid, highestRetainedBid);
 
   // Most active team (most bids)
   const teamBidCounts: Record<number, number> = {};
@@ -60,6 +65,7 @@ router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
   res.json({
     totalPlayers: players.length,
     soldPlayers: soldPlayers.length,
+    retainedPlayers: retainedPlayers.length,
     unsoldPlayers: unsoldPlayers.length,
     availablePlayers: availablePlayers.length,
     totalSpent,
@@ -97,14 +103,21 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
     const teamSoldRetained = players.filter(
       (p) => p.teamId === team.id && (p.status === "sold" || p.status === "retained")
     );
-    const playersBought = teamSoldRetained.length;
+    // Non-playing members are shown in the roster but not counted as squad slots
+    const playersBought = teamSoldRetained.filter((p) => !p.isNonPlayingMember).length;
     const retainedCount = players.filter(
       (p) => p.teamId === team.id && p.status === "retained"
     ).length;
 
-    // Highest-paid player for this team
+    // Highest-paid player for this team — compare soldPrice (sold) vs retainedPrice (retained)
     const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>(
-      (best, p) => (!best || (p.soldPrice ?? 0) > (best.soldPrice ?? 0) ? p : best),
+      (best, p) => {
+        const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
+        const bAmt = best
+          ? (best.status === "retained" ? (best.retainedPrice ?? 0) : (best.soldPrice ?? 0))
+          : -1;
+        return pAmt > bAmt ? p : best;
+      },
       null
     );
 
@@ -128,7 +141,9 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
       maximumSquadSize: p?.maximumSquadSize ?? 0,
       topPlayerName: topPlayer?.name ?? null,
-      topPlayerAmount: topPlayer?.soldPrice ?? null,
+      topPlayerAmount: topPlayer
+        ? (topPlayer.status === "retained" ? (topPlayer.retainedPrice ?? null) : (topPlayer.soldPrice ?? null))
+        : null,
     };
   });
 
