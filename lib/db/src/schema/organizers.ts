@@ -13,6 +13,7 @@ export const organizersTable = pgTable("organizers", {
   licenseStatus: text("license_status").notNull().default("pending"),
   maxTournaments: integer("max_tournaments").notNull().default(1),
   notes: text("notes"),
+  photoUrl: text("photo_url"),
   // WhatsApp consent (Meta-compliant opt-in for organizer account)
   whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
   whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),

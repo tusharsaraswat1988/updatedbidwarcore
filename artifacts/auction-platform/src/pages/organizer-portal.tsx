@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import {
@@ -28,12 +28,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw,
+  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings,
 } from "lucide-react";
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
-  licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean;
+  photoUrl?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean;
 };
 type Tournament = {
   id: number; name: string; sport: string; status: string;
@@ -941,6 +941,66 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   );
 }
 
+// ─── Organizer Avatar Menu ────────────────────────────────────────────────────
+
+function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const initials = organizer.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-accent transition-colors"
+        aria-label="Account menu"
+      >
+        {organizer.photoUrl ? (
+          <img src={organizer.photoUrl} alt={organizer.name} className="w-7 h-7 rounded-full object-cover border border-border/60" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-[11px] font-bold text-primary">
+            {initials}
+          </div>
+        )}
+        <span className="text-xs font-medium text-foreground max-w-[100px] truncate hidden sm:inline">{organizer.name}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-border/60 bg-card shadow-xl z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/40">
+            <p className="text-sm font-semibold text-foreground truncate">{organizer.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{organizer.email ?? organizer.mobile ?? ""}</p>
+          </div>
+          <div className="py-1">
+            <button
+              onClick={() => { setOpen(false); navigate("/organizer/profile"); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
+            >
+              <Settings className="w-4 h-4 text-muted-foreground" /> Account Settings
+            </button>
+            <button
+              onClick={() => { setOpen(false); onLogout(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors text-left"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Organizer Dashboard ──────────────────────────────────────────────────────
 
 function OrganizerDashboard({
@@ -1047,14 +1107,7 @@ function OrganizerDashboard({
             <Button size="sm" variant="ghost" className="gap-1.5 text-xs h-8" onClick={onRefresh}>
               <RefreshCw className="w-3 h-3" /> Refresh
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1.5 text-xs h-8 text-destructive hover:text-destructive"
-              onClick={onLogout}
-            >
-              <LogOut className="w-3 h-3" /> Sign Out
-            </Button>
+            <OrganizerAvatarMenu organizer={organizer} onLogout={onLogout} />
           </div>
         </div>
       </div>

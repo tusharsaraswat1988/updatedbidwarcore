@@ -31,6 +31,7 @@ const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
 const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
+const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LegalPage = lazy(() => import("@/pages/legal"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
@@ -106,6 +107,7 @@ function Router() {
         <Route path="/wa-consent/:token" component={WaConsent} />
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/organizer" component={OrganizerPortal} />
+        <Route path="/organizer/profile" component={OrganizerProfile} />
         <Route path="/legal/:slug" component={LegalPage} />
 
         {/* SEO landing pages */}

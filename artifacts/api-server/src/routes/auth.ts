@@ -79,6 +79,7 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
   name: o.name,
   email: o.email,
   mobile: (o.mobile && !o.mobile.startsWith("eml:") && !o.mobile.startsWith("gid_")) ? o.mobile : null,
+  photoUrl: o.photoUrl ?? null,
   licenseStatus: o.licenseStatus,
   maxTournaments: o.maxTournaments,
   notes: o.notes,
@@ -1186,19 +1187,84 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
     return;
   }
   const body = z.object({
-    mobile: z.string().min(7),
+    name: z.string().min(1).max(120).optional(),
+    email: z.string().email().optional().nullable(),
+    mobile: z.string().min(7).optional(),
+    photoUrl: z.string().url().max(1000).optional().nullable(),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "A valid mobile number is required." }); return; }
+  if (!body.success) { res.status(400).json({ error: "Invalid profile data." }); return; }
 
-  const mobileExists = await db.select().from(organizersTable)
-    .where(eq(organizersTable.mobile, body.data.mobile));
-  if (mobileExists.length > 0 && mobileExists[0].id !== req.jwtUser.organizerAccountId) {
-    res.status(409).json({ error: "This mobile number is already registered to another account." });
+  const { name, email, mobile, photoUrl } = body.data;
+
+  if (mobile) {
+    const mobileExists = await db.select().from(organizersTable)
+      .where(eq(organizersTable.mobile, mobile));
+    if (mobileExists.length > 0 && mobileExists[0].id !== req.jwtUser.organizerAccountId) {
+      res.status(409).json({ error: "This mobile number is already registered to another account." });
+      return;
+    }
+  }
+
+  if (email) {
+    const emailExists = await db.select().from(organizersTable)
+      .where(eq(organizersTable.email, email));
+    if (emailExists.length > 0 && emailExists[0].id !== req.jwtUser.organizerAccountId) {
+      res.status(409).json({ error: "This email is already registered to another account." });
+      return;
+    }
+  }
+
+  const updates: Partial<typeof organizersTable.$inferInsert> = {};
+  if (name !== undefined) updates.name = name;
+  if (email !== undefined) updates.email = email;
+  if (mobile !== undefined) updates.mobile = mobile;
+  if (photoUrl !== undefined) updates.photoUrl = photoUrl;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update." });
     return;
   }
 
   const [updated] = await db.update(organizersTable)
-    .set({ mobile: body.data.mobile })
+    .set(updates)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
+    .returning();
+
+  res.json({ success: true, organizer: organizerToJson(updated) });
+});
+
+// ─── Organizer Account: Change password ───────────────────────────────────────
+
+router.post("/auth/organizer-account/change-password", authLimiter, async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const body = z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6),
+  }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Current password and a new password (min 6 chars) are required." }); return; }
+
+  const [organizer] = await db.select().from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+  if (!organizer) { res.status(404).json({ error: "Account not found." }); return; }
+  if (!organizer.passwordHash) {
+    res.status(400).json({ error: "No password set on this account. Use set-password instead." });
+    return;
+  }
+
+  const [storedHash, salt] = organizer.passwordHash.split(":");
+  if (!storedHash || !salt) { res.status(500).json({ error: "Invalid stored password hash." }); return; }
+
+  const inputHash = (await scryptAsync(body.data.currentPassword, salt, 64) as Buffer).toString("hex");
+  const isMatch = timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(inputHash, "hex"));
+  if (!isMatch) { res.status(401).json({ error: "Current password is incorrect." }); return; }
+
+  const newSalt = randomBytes(16).toString("hex");
+  const newHash = (await scryptAsync(body.data.newPassword, newSalt, 64) as Buffer).toString("hex");
+  const [updated] = await db.update(organizersTable)
+    .set({ passwordHash: `${newHash}:${newSalt}` })
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
     .returning();
 

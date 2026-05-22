@@ -230,7 +230,7 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
+export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; photoUrl?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
 
 export async function signupSendOtp(data: {
   name: string; mobile: string; email?: string; password: string;
@@ -324,7 +324,7 @@ export async function logoutOrganizerAccount(): Promise<void> {
 }
 
 export async function updateOrganizerProfile(data: {
-  mobile: string;
+  name?: string; email?: string | null; mobile?: string; photoUrl?: string | null;
 }): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
   try {
     const r = await apiFetch("/auth/organizer-account/profile", {
@@ -334,6 +334,20 @@ export async function updateOrganizerProfile(data: {
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Update failed" };
     return { success: true, organizer: d.organizer };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function changeOrganizerPassword(data: {
+  currentPassword: string; newPassword: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/change-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to change password" };
+    return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }
 
