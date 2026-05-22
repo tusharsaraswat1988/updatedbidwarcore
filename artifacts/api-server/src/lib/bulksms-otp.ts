@@ -1,14 +1,15 @@
 /**
- * Self-managed OTP via BulkSMS Gateway (bulksmsgateway.in).
+ * Self-managed OTP via Fast2SMS DLT route (fast2sms.com/dev/bulkV2).
  *
  * OTPs are generated server-side (crypto.randomInt), hashed with scrypt, and
- * stored in otp_sessions.otp_hash.  The BulkSMS-approved DLT template text is
- * configured via BULKSMS_OTP_TEMPLATE — set it to match your DLT registration
- * exactly, using {#var#} as the OTP placeholder, e.g.:
+ * stored in otp_sessions.otp_hash.  Delivery uses Fast2SMS DLT SMS so the
+ * approved template handles the message body — only the OTP digit is passed
+ * as variables_values.
  *
- *   BULKSMS_OTP_TEMPLATE="Your BidWar OTP is {#var#}. Valid for 10 minutes. Do not share."
- *
- * Requires: BULKSMS_PASSWORD, BULKSMS_SENDER, BULKSMS_TEMPLATE_ID (already set).
+ * Required secrets (already configured):
+ *   BULKSMS_KEY          — Fast2SMS API key
+ *   BULKSMS_SENDER       — DLT-approved sender ID (BIDWRR)
+ *   BULKSMS_TEMPLATE_ID  — Fast2SMS internal template ID (e.g. 215926)
  */
 
 import { randomInt, scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -16,7 +17,7 @@ import { promisify } from "util";
 import { db } from "@workspace/db";
 import { otpSessionsTable } from "@workspace/db";
 import { eq, and, gt, desc } from "drizzle-orm";
-import { sendSms } from "./comm-sender";
+import { sendDltSms } from "./fast2sms";
 import { logger } from "./logger";
 
 const scryptAsync = promisify(scrypt);
@@ -49,15 +50,6 @@ async function checkOtpHash(otp: string, hash: string): Promise<boolean> {
   }
 }
 
-function buildOtpMessage(otp: string): string {
-  // Default matches the approved DLT template (BIDOTP / template ID 1207177936789936242).
-  // Override via BULKSMS_OTP_TEMPLATE if the DLT template text ever changes.
-  const template =
-    process.env.BULKSMS_OTP_TEMPLATE ??
-    "Welcome to Bidwar.in\nYour OTP is {#var#}\nDo not share this OTP with anyone.";
-  return template.replace(/\{#var#\}/g, otp);
-}
-
 function normaliseMobile(mobile: string): string {
   const digits = mobile.replace(/\D/g, "");
   if (digits.length === 12 && digits.startsWith("91")) return digits;
@@ -70,9 +62,10 @@ function normaliseMobile(mobile: string): string {
 
 /**
  * Generate a 6-digit OTP, store its hash in otp_sessions, and send it via
- * BulkSMS Gateway using the approved DLT template.
+ * Fast2SMS DLT route using the approved template (BULKSMS_TEMPLATE_ID).
+ * The OTP is passed as variables_values — Fast2SMS substitutes it into {#var#}.
  *
- * @param mobile  Raw mobile string — normalised internally to 91XXXXXXXXXX
+ * @param mobile  Raw mobile string — normalised internally
  * @param purpose Stored in otp_sessions.purpose for scoped lookups
  * @param payload Optional JSON payload (e.g. serialised signup form data)
  */
@@ -81,6 +74,12 @@ export async function sendOtp(
   purpose: string,
   payload?: string | null,
 ): Promise<OtpResult> {
+  const templateId = process.env.BULKSMS_TEMPLATE_ID;
+  if (!templateId) {
+    logger.error({ purpose }, "bulksms-otp: BULKSMS_TEMPLATE_ID not set");
+    return { success: false, error: "OTP service not configured" };
+  }
+
   const otp = generateOtp();
   const otpHash = await hashOtp(otp);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -94,15 +93,15 @@ export async function sendOtp(
     expiresAt,
   });
 
-  const message = buildOtpMessage(otp);
-  const result = await sendSms(normalised, message);
+  // Fast2SMS DLT: message = template ID, variables_values = the OTP digit string
+  const result = await sendDltSms([mobile], templateId, [otp]);
 
   if (!result.success) {
-    logger.error({ mobile: normalised, purpose, err: result.error }, "bulksms-otp: SMS send failed");
+    logger.error({ mobile: normalised, purpose, err: result.error }, "bulksms-otp: send failed");
     return { success: false, error: result.error ?? "Failed to send OTP. Please try again." };
   }
 
-  logger.info({ mobile: normalised, purpose }, "bulksms-otp: OTP sent");
+  logger.info({ mobile: normalised, purpose }, "bulksms-otp: OTP sent via Fast2SMS DLT");
   return { success: true };
 }
 
