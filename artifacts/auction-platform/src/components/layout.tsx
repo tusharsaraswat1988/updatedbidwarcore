@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3, Coffee,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal,
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -155,6 +155,10 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 <Link href={`/tournament/${tournamentId}/categories`} title="Categories" className={navCls(`/tournament/${tournamentId}/categories`)}>
                   <Settings className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Categories</span>}
+                </Link>
+                <Link href={`/tournament/${tournamentId}/settings`} title="Tournament Settings" className={navCls(`/tournament/${tournamentId}/settings`)}>
+                  <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
                 {tournament?.status === "completed" ? (
                   <Link href={`/tournament/${tournamentId}/reports`} title="Reports" className={navCls(`/tournament/${tournamentId}/reports`)}>
