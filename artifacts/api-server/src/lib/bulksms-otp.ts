@@ -50,9 +50,11 @@ async function checkOtpHash(otp: string, hash: string): Promise<boolean> {
 }
 
 function buildOtpMessage(otp: string): string {
+  // Default matches the approved DLT template (BIDOTP / template ID 1207177936789936242).
+  // Override via BULKSMS_OTP_TEMPLATE if the DLT template text ever changes.
   const template =
     process.env.BULKSMS_OTP_TEMPLATE ??
-    "Your BidWar OTP is {#var#}. Valid for 10 minutes. Do not share with anyone.";
+    "Welcome to Bidwar.in\nYour OTP is {#var#}\nDo not share this OTP with anyone.";
   return template.replace(/\{#var#\}/g, otp);
 }
 
