@@ -19,12 +19,7 @@ run = "pnpm --filter @workspace/auction-platform run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/auction-platform", "run", "build" ]
-publicDir = "artifacts/auction-platform/dist/public"
-serve = "static"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+run = "node artifacts/auction-platform/server.cjs"
 
 [services.env]
 PORT = "24755"

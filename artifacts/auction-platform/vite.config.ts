@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { compression } from "vite-plugin-compression2";
 
 const rawPort = process.env.PORT ?? "3000";
 const port = Number(rawPort);
@@ -14,6 +15,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // Pre-compress JS/CSS/HTML/SVG/JSON with both Brotli and Gzip at build
+    // time. The production server (server.cjs) serves the .br / .gz sidecar
+    // files and sets Content-Encoding accordingly, with no runtime CPU cost.
+    compression({
+      algorithm: "brotliCompress",
+      include: /\.(js|css|html|svg|json|woff2?)$/,
+      threshold: 1024,
+    }),
+    compression({
+      algorithm: "gzip",
+      include: /\.(js|css|html|svg|json|woff2?)$/,
+      threshold: 1024,
+    }),
     // Production-only: make the compiled Tailwind CSS non-render-blocking.
     // Transforms <link rel="stylesheet"> → preload + onload swap so the CSS
     // downloads in parallel with JS instead of blocking the render tree.
