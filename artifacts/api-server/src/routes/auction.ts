@@ -686,7 +686,9 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
 
   // Access-code gate: if the team has a code set the caller must supply it correctly.
   // This binds each bid to the verified owner, preventing anonymous team impersonation.
-  if (team.accessCode) {
+  // Organizers and admins are exempt — they are already authenticated server-side and
+  // use the operator panel quick-bid buttons without an owner access code.
+  if (team.accessCode && !isOrganizerOrAdmin(req, tid)) {
     if (!accessCode || team.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
       res.status(403).json({ error: "Invalid access code" });
       return;
