@@ -50,12 +50,12 @@ function toBulkSmsMobile(mobile: string): string {
 
 /** Send an SMS via BulkSMS Gateway (bulksmsgateway.in). */
 async function sendBulkSms(to: string, body: string): Promise<SendResult> {
-  const password   = process.env.BULKSMS_PASSWORD;
+  const password   = process.env.BULKSMS_KEY ?? process.env.BULKSMS_PASSWORD;
   const sender     = process.env.BULKSMS_SENDER;
   const templateId = process.env.BULKSMS_TEMPLATE_ID;
 
   if (!password || !sender || !templateId) {
-    logger.warn({ to, missingVars: [!password && "BULKSMS_PASSWORD", !sender && "BULKSMS_SENDER", !templateId && "BULKSMS_TEMPLATE_ID"].filter(Boolean) }, "BulkSMS not configured — stub mode");
+    logger.warn({ to, missingVars: [!password && "BULKSMS_KEY", !sender && "BULKSMS_SENDER", !templateId && "BULKSMS_TEMPLATE_ID"].filter(Boolean) }, "BulkSMS not configured — stub mode");
     return { success: true, stub: true, messageSid: `stub_sms_${Date.now()}` };
   }
 
