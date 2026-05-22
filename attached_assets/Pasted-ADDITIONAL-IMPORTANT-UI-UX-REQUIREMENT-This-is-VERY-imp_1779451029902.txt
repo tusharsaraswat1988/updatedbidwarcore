@@ -1,0 +1,155 @@
+ADDITIONAL IMPORTANT UI/UX REQUIREMENT
+
+This is VERY important.
+
+Current issue across the software:
+Most cards, containers, input boxes and dark surfaces are using almost the SAME background color.
+
+Because of this:
+- editable vs non-editable areas are unclear
+- forms feel flat
+- operators get confused where typing is possible
+- everything visually blends together
+
+--------------------------------------------------
+GLOBAL DESIGN SYSTEM CHANGE
+--------------------------------------------------
+
+Apply a proper dark-surface hierarchy ACROSS THE ENTIRE SOFTWARE.
+
+This is not only for Tournament Settings.
+
+This must be updated globally everywhere in the product where these dark boxes/cards/inputs are used.
+
+--------------------------------------------------
+REQUIRED VISUAL HIERARCHY
+--------------------------------------------------
+
+1. PAGE BACKGROUND
+Use darkest shade.
+
+2. SECTION CARDS / PANELS
+Slightly lighter than page background.
+
+3. INPUT FIELDS / EDITABLE BOXES
+Slightly lighter than cards.
+
+4. ACTIVE / FOCUSED INPUT
+Gold border + subtle glow.
+
+--------------------------------------------------
+VERY IMPORTANT
+--------------------------------------------------
+
+Editable fields must visually feel editable.
+
+Right now:
+- containers
+- cards
+- inputs
+- readonly areas
+
+all visually merge together.
+
+This creates confusion.
+
+--------------------------------------------------
+IMPLEMENT GLOBALLY
+--------------------------------------------------
+
+Apply this improved contrast system everywhere:
+- Tournament Settings
+- Tournament Creation
+- Team Forms
+- Player Forms
+- Registration Forms
+- Operator Inputs
+- Search Inputs
+- Modals
+- Settings Sections
+- Dropdowns
+- Textareas
+- Login Forms
+- Filters
+- Side panels
+- all dark cards and boxes
+
+EVERYWHERE consistently.
+
+--------------------------------------------------
+DESIGN DIRECTION
+--------------------------------------------------
+
+Goal is:
+premium dark UI with clear depth hierarchy.
+
+NOT flat black-on-black surfaces.
+
+--------------------------------------------------
+INPUT FIELD STYLE
+--------------------------------------------------
+
+Editable input fields should have:
+- slightly brighter dark background
+- visible subtle border
+- clearer separation from parent card
+- soft inset feeling
+- stronger focus state
+
+Focus state:
+gold border + soft glow.
+
+--------------------------------------------------
+PLACEHOLDER & LABEL HIERARCHY
+--------------------------------------------------
+
+Labels:
+more readable.
+
+Placeholders:
+muted but visible.
+
+Helper text:
+smaller + lower contrast.
+
+--------------------------------------------------
+CONSISTENCY RULE
+--------------------------------------------------
+
+Create a reusable design token system / shared classes for:
+- page background
+- panel background
+- input background
+- hover state
+- focus state
+- border colors
+
+Then apply globally instead of manually screen-by-screen.
+
+--------------------------------------------------
+IMPORTANT
+--------------------------------------------------
+
+Do NOT make UI brighter overall.
+
+Keep premium dark aesthetic.
+
+Only improve:
+- contrast hierarchy
+- depth separation
+- editable clarity
+- visual layering
+
+--------------------------------------------------
+EXPECTED RESULT
+--------------------------------------------------
+
+After implementation:
+users should instantly understand:
+- what is editable
+- what is clickable
+- what is readonly
+- what is active
+- what is important
+
+without mentally scanning the UI.

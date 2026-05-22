@@ -1,0 +1,182 @@
+MAJOR UI/UX RESTRUCTURE — STEP 1 ONLY
+
+IMPORTANT:
+This is a structural architecture refactor.
+Do NOT redesign everything at once.
+Do NOT modify auction logic.
+Do NOT change backend behavior.
+Do NOT touch overview/dashboard content yet.
+
+Current problem:
+Tournament Settings currently opens as a giant modal over the dashboard. This creates:
+- operator confusion
+- nested scroll fatigue
+- poor navigation clarity
+- dashboard/settings mixing
+- popup trapped feeling
+
+We are fixing ONLY the architecture in this step.
+
+--------------------------------------------------
+GOAL OF STEP 1
+--------------------------------------------------
+
+Separate:
+1. Tournament Overview Dashboard
+2. Tournament Settings
+
+into completely different pages/routes.
+
+Tournament Settings must NO LONGER open as a modal.
+
+--------------------------------------------------
+REQUIRED NEW STRUCTURE
+--------------------------------------------------
+
+CURRENT:
+Dashboard
+→ Open giant settings modal
+
+NEW:
+Tournament Dashboard Page
+→ Click "Tournament Settings"
+→ Open dedicated full page
+
+Example route structure:
+
+/tournament/:id
+= Tournament Overview Dashboard
+
+/tournament/:id/settings
+= Tournament Settings Page
+
+--------------------------------------------------
+VERY IMPORTANT RULES
+--------------------------------------------------
+
+1. DO NOT redesign overview dashboard yet.
+Only separate settings architecture.
+
+2. Keep all existing settings functionality exactly working:
+- identity
+- auction rules
+- broadcast
+- audio
+- recovery
+- sponsor logos
+- LED themes
+- sounds
+etc.
+
+3. Only migrate them from modal → dedicated page.
+
+4. Existing save functionality must remain intact.
+
+5. Existing backend APIs should continue working.
+
+6. No business logic changes.
+
+--------------------------------------------------
+NEW SETTINGS PAGE LAYOUT
+--------------------------------------------------
+
+Create a dedicated full-page settings experience.
+
+Top section:
+
+← Back to Tournament Overview
+
+Tournament Settings
+
+Small subtitle:
+"Configure all settings related to your tournament."
+
+Top-right:
+[ Save Changes ]
+
+Optional:
+last saved timestamp
+
+--------------------------------------------------
+SETTINGS NAVIGATION
+--------------------------------------------------
+
+DO NOT use a huge left sidebar.
+
+Inside settings page, use clean horizontal tabs:
+
+[ Identity ]
+[ Auction Rules ]
+[ Broadcast ]
+[ Audio & LED ]
+[ Recovery ]
+
+Tabs should remain sticky at top while scrolling.
+
+--------------------------------------------------
+IMPORTANT UX CHANGES
+--------------------------------------------------
+
+1. Remove modal completely.
+
+2. Remove internal modal scrollbar.
+
+3. Entire browser page should scroll naturally.
+
+4. User should never feel trapped inside popup.
+
+5. Settings page should feel calm and focused.
+
+--------------------------------------------------
+INPUT FIELD IMPROVEMENTS
+--------------------------------------------------
+
+Current issue:
+Editable fields blend with background.
+
+Fix:
+- input fields slightly lighter than cards
+- clearer borders
+- better contrast
+- focused gold border/glow
+- labels more readable
+- placeholders muted
+
+Goal:
+User should instantly understand:
+"this is editable"
+
+--------------------------------------------------
+DO NOT CHANGE YET
+--------------------------------------------------
+
+DO NOT:
+- redesign overview dashboard
+- modify operator panel
+- modify LED display
+- modify sidebar structure globally
+- modify auction flow
+- add analytics widgets
+- redesign quick actions
+
+Those changes will come later separately.
+
+--------------------------------------------------
+SUCCESS CRITERIA
+--------------------------------------------------
+
+After this step:
+
+Tournament Overview
+and
+Tournament Settings
+
+must feel like two completely separate workspaces.
+
+Settings should feel like:
+"configuration center"
+
+NOT:
+"popup over dashboard"
+
+Keep UI dark, premium, minimal and operational.
