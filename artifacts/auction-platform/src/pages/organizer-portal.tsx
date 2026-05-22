@@ -477,10 +477,11 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
 
 // ─── Google Sign-In Button ────────────────────────────────────────────────────
 
-function GoogleSignInButton() {
+function GoogleSignInButton({ next }: { next?: string }) {
+  const href = next ? `/api/auth/google?next=${encodeURIComponent(next)}` : "/api/auth/google";
   return (
     <a
-      href="/api/auth/google"
+      href={href}
       className="flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
     >
       <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
@@ -727,7 +728,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                     <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
                     <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
                   </div>
-                  <GoogleSignInButton />
+                  <GoogleSignInButton next={next} />
                 </motion.form>
               ) : (
                 <motion.div
@@ -820,7 +821,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                         <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
                         <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
                       </div>
-                      <GoogleSignInButton />
+                      <GoogleSignInButton next={next} />
                     </form>
                   )}
 

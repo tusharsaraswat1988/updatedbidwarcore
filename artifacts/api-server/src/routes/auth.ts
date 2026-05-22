@@ -1068,11 +1068,16 @@ router.get("/auth/google", (req, res) => {
   const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
 
+  // Preserve the ?next= redirect destination through the OAuth round-trip
+  const rawNext = req.query.next as string | undefined;
+  const next = rawNext && rawNext.startsWith("/") ? rawNext : undefined;
+
   // Generate a random state token to prevent login CSRF
   const state = randomBytes(32).toString("hex");
-  // Store state in a short-lived signed cookie — avoids any DB round-trip
+  // Store state (+ optional next path) in a short-lived signed cookie — avoids any DB round-trip
   setOAuthCookie(res, {
     state,
+    next,
     pendingGoogleProfile: req.oauthState.pendingGoogleProfile,
     pendingGoogleMobile: req.oauthState.pendingGoogleMobile,
   });
@@ -1143,7 +1148,9 @@ router.get("/auth/google/callback", async (req, res) => {
         // Store pending Google profile in the OAuth cookie and redirect to /complete-profile
         // where the organizer's mobile will be collected and OTP-verified before
         // the organizer record is created. This ensures mobile is never null.
+        const pendingNext = req.oauthState.next;
         setOAuthCookie(res, {
+          next: pendingNext,
           pendingGoogleProfile: {
             name: gUser.name ?? gUser.email.split("@")[0],
             email: gUser.email,
@@ -1151,7 +1158,8 @@ router.get("/auth/google/callback", async (req, res) => {
             googleEmail: gUser.email,
           },
         });
-        res.redirect("/complete-profile");
+        const cpRedirect = pendingNext ? `/complete-profile?next=${encodeURIComponent(pendingNext)}` : "/complete-profile";
+        res.redirect(cpRedirect);
         return;
       }
     }
@@ -1161,7 +1169,9 @@ router.get("/auth/google/callback", async (req, res) => {
     for (const t of myTournaments) orgMap[String(t.id)] = true;
 
     setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
-    res.redirect("/organizer");
+    const successNext = req.oauthState.next;
+    const successRedirect = successNext ? `/organizer?next=${encodeURIComponent(successNext)}` : "/organizer";
+    res.redirect(successRedirect);
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
     res.redirect("/organizer?error=google_failed");

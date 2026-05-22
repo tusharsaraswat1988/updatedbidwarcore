@@ -20,6 +20,9 @@ const RESEND_COOLDOWN = 30;
 
 export default function CompleteProfile() {
   const [, setLocation] = useLocation();
+  const nextParam = (() => {
+    try { const p = new URLSearchParams(window.location.search).get("next"); return p && p.startsWith("/") ? p : ""; } catch { return ""; }
+  })();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -74,7 +77,7 @@ export default function CompleteProfile() {
       setError(data.error ?? "OTP verification failed");
       return;
     }
-    setLocation("/organizer");
+    setLocation(nextParam || "/organizer");
   }
 
   async function handleResend() {

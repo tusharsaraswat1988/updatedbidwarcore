@@ -15,6 +15,7 @@ export interface AuthClaims {
 
 export interface OAuthState {
   state?: string;
+  next?: string;
   pendingGoogleProfile?: {
     name: string;
     email: string;
