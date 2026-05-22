@@ -230,7 +230,7 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean };
+export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
 
 export async function signupSendOtp(data: {
   name: string; mobile: string; email?: string; password: string;
@@ -244,6 +244,14 @@ export async function signupSendOtp(data: {
     if (!r.ok) return { success: false, error: d.error || "Failed to send OTP" };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function fetchAuthConfig(): Promise<{ smsOtpEnabled: boolean }> {
+  try {
+    const r = await apiFetch("/auth/config");
+    if (!r.ok) return { smsOtpEnabled: false };
+    return r.json();
+  } catch { return { smsOtpEnabled: false }; }
 }
 
 export async function signupEmail(data: {

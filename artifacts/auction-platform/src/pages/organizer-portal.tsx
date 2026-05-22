@@ -3,7 +3,10 @@ import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import {
   signupEmail,
+  signupSendOtp,
+  signupVerify,
   setOrganizerPassword,
+  fetchAuthConfig,
   loginOrganizerAccount,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
@@ -30,7 +33,7 @@ import {
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
-  licenseStatus: string; maxTournaments: number; hasPassword?: boolean;
+  licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean;
 };
 type Tournament = {
   id: number; name: string; sport: string; status: string;
@@ -513,7 +516,24 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const { logos, brandName } = useBranding();
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [signupForm, setSignupForm] = useState({ name: "", email: "", mobile: "", password: "", confirmPassword: "" });
+  const [signupMethod, setSignupMethod] = useState<"email" | "mobile">("email");
+  const [signupStep, setSignupStep] = useState<"form" | "otp">("form");
+  const [signupOtp, setSignupOtp] = useState("");
+  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
+  const [signupResending, setSignupResending] = useState(false);
+
+  const [smsOtpEnabled, setSmsOtpEnabled] = useState(false);
+
+  useEffect(() => {
+    fetchAuthConfig().then(cfg => setSmsOtpEnabled(cfg.smsOtpEnabled));
+  }, []);
+
+  useEffect(() => {
+    if (signupResendCooldown <= 0) return;
+    const t = setTimeout(() => setSignupResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [signupResendCooldown]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -545,6 +565,42 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
       onSuccess(me.organizer, me.tournaments ?? []);
       if (next && next.startsWith("/")) navigate(next);
     }
+  }
+
+  async function handleSignupSendOtp(e: React.FormEvent) {
+    e.preventDefault();
+    const { name, mobile, email, password, confirmPassword } = signupForm;
+    if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    setLoading(true); setError("");
+    const r = await signupSendOtp({ name, mobile, email: email || undefined, password });
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Signup failed"); return; }
+    setSignupStep("otp");
+    setSignupResendCooldown(30);
+  }
+
+  async function handleSignupVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setError("");
+    const r = await signupVerify(signupForm.mobile, signupOtp);
+    setLoading(false);
+    if (!r.success) { setError(r.error || "Verification failed"); return; }
+    const me = await checkOrganizerAccountAuth();
+    if (me.loggedIn && me.organizer) {
+      onSuccess(me.organizer, me.tournaments ?? []);
+      if (next && next.startsWith("/")) navigate(next);
+    }
+  }
+
+  async function handleSignupResend() {
+    if (signupResendCooldown > 0 || signupResending) return;
+    setSignupResending(true); setError("");
+    const r = await resendOtp(signupForm.mobile);
+    setSignupResending(false);
+    if (!r.success) { setError(r.error || "Failed to resend OTP"); return; }
+    setSignupResendCooldown(30);
   }
 
   return (
@@ -585,6 +641,13 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
             >
               Create Account
             </button>
+          </div>
+        )}
+
+        {next && view !== "forgot" && (
+          <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            <Lock className="w-4 h-4 shrink-0" />
+            Please log in to continue.
           </div>
         )}
 
@@ -667,75 +730,207 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                   <GoogleSignInButton />
                 </motion.form>
               ) : (
-                <motion.form
+                <motion.div
                   key="signup"
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  onSubmit={handleSignupEmail}
                   className="space-y-4"
                 >
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
-                    <Input
-                      value={signupForm.name}
-                      onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
-                      placeholder="Your full name"
-                      autoFocus
-                    />
+                  {/* Method selector */}
+                  <div className="flex rounded-lg bg-muted/20 p-0.5 border border-border/40">
+                    <button
+                      type="button"
+                      onClick={() => { setSignupMethod("email"); setSignupStep("form"); setError(""); }}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${signupMethod === "email" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Email
+                    </button>
+                    {smsOtpEnabled ? (
+                      <button
+                        type="button"
+                        onClick={() => { setSignupMethod("mobile"); setSignupStep("form"); setError(""); }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${signupMethod === "mobile" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        Mobile OTP
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex-1 py-1.5 text-xs font-semibold rounded-md text-muted-foreground/40 cursor-not-allowed"
+                        title="Mobile OTP signup is not yet available"
+                      >
+                        Mobile OTP
+                        <span className="ml-1 text-[10px] opacity-60">(coming soon)</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
-                    <Input
-                      type="email"
-                      value={signupForm.email}
-                      onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
-                      placeholder="name@example.com"
-                      autoComplete="username"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
-                      <Input
-                        type="password"
-                        value={signupForm.password}
-                        onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                        placeholder="Min 6 chars"
-                        autoComplete="new-password"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm">Confirm</Label>
-                      <Input
-                        type="password"
-                        value={signupForm.confirmPassword}
-                        onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                        placeholder="Repeat"
-                        autoComplete="new-password"
-                      />
-                    </div>
-                  </div>
-                  {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Create Account
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-                    By continuing, you agree to BidWar{" "}
-                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
-                    {", "}
-                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
-                    {", and "}
-                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
-                    .
-                  </p>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
-                  </div>
-                  <GoogleSignInButton />
-                </motion.form>
+
+                  {/* Email signup form */}
+                  {signupMethod === "email" && (
+                    <form onSubmit={handleSignupEmail} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
+                        <Input
+                          value={signupForm.name}
+                          onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Your full name"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
+                        <Input
+                          type="email"
+                          value={signupForm.email}
+                          onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="name@example.com"
+                          autoComplete="username"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
+                          <Input
+                            type="password"
+                            value={signupForm.password}
+                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="Min 6 chars"
+                            autoComplete="new-password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Confirm</Label>
+                          <Input
+                            type="password"
+                            value={signupForm.confirmPassword}
+                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                            placeholder="Repeat"
+                            autoComplete="new-password"
+                          />
+                        </div>
+                      </div>
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Create Account
+                      </Button>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                        <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                      </div>
+                      <GoogleSignInButton />
+                    </form>
+                  )}
+
+                  {/* Mobile OTP signup form (only shown when smsOtpEnabled) */}
+                  {signupMethod === "mobile" && smsOtpEnabled && signupStep === "form" && (
+                    <form onSubmit={handleSignupSendOtp} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
+                        <Input
+                          value={signupForm.name}
+                          onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Your full name"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile *</Label>
+                        <Input
+                          type="tel"
+                          value={signupForm.mobile}
+                          onChange={e => setSignupForm(f => ({ ...f, mobile: e.target.value }))}
+                          placeholder="10-digit mobile number"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email (optional)</Label>
+                        <Input
+                          type="email"
+                          value={signupForm.email}
+                          onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="name@example.com"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
+                          <Input
+                            type="password"
+                            value={signupForm.password}
+                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                            placeholder="Min 6 chars"
+                            autoComplete="new-password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Confirm</Label>
+                          <Input
+                            type="password"
+                            value={signupForm.confirmPassword}
+                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                            placeholder="Repeat"
+                            autoComplete="new-password"
+                          />
+                        </div>
+                      </div>
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Send OTP
+                      </Button>
+                    </form>
+                  )}
+
+                  {/* OTP verification step */}
+                  {signupMethod === "mobile" && smsOtpEnabled && signupStep === "otp" && (
+                    <form onSubmit={handleSignupVerify} className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Enter the OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>.</p>
+                      <div className="space-y-2">
+                        <Label className="text-sm">OTP</Label>
+                        <Input
+                          value={signupOtp}
+                          onChange={e => setSignupOtp(e.target.value)}
+                          placeholder="6-digit OTP"
+                          maxLength={6}
+                          autoFocus
+                        />
+                      </div>
+                      {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Verify & Create Account
+                      </Button>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <button type="button" onClick={() => { setSignupStep("form"); setError(""); }} className="hover:text-foreground transition-colors">
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSignupResend}
+                          disabled={signupResendCooldown > 0 || signupResending}
+                          className="hover:text-foreground transition-colors disabled:opacity-40"
+                        >
+                          {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : signupResending ? "Sending..." : "Resend OTP"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {signupMethod === "email" ? null : (
+                    <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                      By continuing, you agree to BidWar{" "}
+                      <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                      {", "}
+                      <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                      {", and "}
+                      <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                      .
+                    </p>
+                  )}
+                </motion.div>
               )}
             </AnimatePresence>
           </CardContent>
@@ -1120,9 +1315,7 @@ export default function OrganizerPortal() {
     if (me.loggedIn && me.organizer) {
       setOrganizer(me.organizer);
       setTournaments(me.tournaments ?? []);
-      if (!me.organizer.mobile) {
-        setNeedsMobile(true);
-      }
+      setNeedsMobile(!!me.organizer.needsMobile);
     } else {
       setOrganizer(null);
       setTournaments([]);
@@ -1163,7 +1356,7 @@ export default function OrganizerPortal() {
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
     setOrganizer(org);
     setTournaments(tours);
-    if (!org.mobile) setNeedsMobile(true);
+    setNeedsMobile(!!org.needsMobile);
     if (nextParam && nextParam.startsWith("/")) navigate(nextParam);
   }
 

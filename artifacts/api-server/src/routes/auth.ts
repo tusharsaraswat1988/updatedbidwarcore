@@ -83,6 +83,7 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
   maxTournaments: o.maxTournaments,
   notes: o.notes,
   hasPassword: !!o.passwordHash,
+  needsMobile: !!o.googleId && (!o.mobile || o.mobile.startsWith("gid_")),
   createdAt: o.createdAt.toISOString(),
 });
 
@@ -674,8 +675,17 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
   res.json({ success: true });
 });
 
-// Email + password signup — no OTP required
+// Public config flags used by the organizer portal UI
+router.get("/auth/config", (_req, res) => {
+  res.json({ smsOtpEnabled: process.env.SMS_OTP_ENABLED === "true" });
+});
+
+// Email + password signup — available when SMS OTP is not configured
 router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res) => {
+  if (process.env.SMS_OTP_ENABLED === "true") {
+    res.status(503).json({ error: "Email signup is not available when SMS OTP is enabled. Please use mobile signup." });
+    return;
+  }
   const body = z.object({
     name: z.string().min(1),
     email: z.string().email(),
