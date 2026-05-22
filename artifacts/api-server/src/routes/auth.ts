@@ -8,7 +8,8 @@ import { promisify } from "util";
 import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limiters";
 import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
-import { sendOtp as fast2smsSendOtp, verifyOtp as fast2smsVerifyOtp, resendOtp as fast2smsResendOtp, sendDltSms } from "../lib/fast2sms";
+import { sendDltSms } from "../lib/fast2sms";
+import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
 
 const scryptAsync = promisify(scrypt);
 
@@ -663,13 +664,9 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
   }
 
   const passwordHash = await hashPassword(password);
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   const payload = JSON.stringify({ name, mobile, email: email ?? null, passwordHash });
 
-  const { otpSessionsTable } = await import("@workspace/db");
-  await db.insert(otpSessionsTable).values({ mobile, purpose: "signup", payload, expiresAt });
-
-  const result = await fast2smsSendOtp(mobile);
+  const result = await bulkSmsOtpSend(mobile, "signup", payload);
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
@@ -733,40 +730,21 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
 
   const { mobile, otp } = body.data;
 
-  const result = await fast2smsVerifyOtp(mobile, otp);
+  const result = await bulkSmsOtpVerify(mobile, otp, "signup");
   if (!result.success) {
     res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
   }
 
-  const { otpSessionsTable } = await import("@workspace/db");
-  const { gt: drizzleGt, and: drizzleAnd, desc: drizzleDesc } = await import("drizzle-orm");
-
-  const [session] = await db
-    .select()
-    .from(otpSessionsTable)
-    .where(
-      drizzleAnd(
-        eq(otpSessionsTable.mobile, mobile),
-        eq(otpSessionsTable.purpose, "signup"),
-        eq(otpSessionsTable.used, false),
-        drizzleGt(otpSessionsTable.expiresAt, new Date()),
-      )
-    )
-    .orderBy(drizzleDesc(otpSessionsTable.createdAt))
-    .limit(1);
-
-  if (!session || !session.payload) {
+  if (!result.payload) {
     res.status(400).json({ error: "Signup session expired — please start over" }); return;
   }
 
-  const pendingData = JSON.parse(session.payload) as { name: string; mobile: string; email: string | null; passwordHash: string };
+  const pendingData = JSON.parse(result.payload) as { name: string; mobile: string; email: string | null; passwordHash: string };
 
   const [mobileExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.mobile, mobile)).limit(1);
   if (mobileExists) {
     res.status(409).json({ error: "An account with this mobile number already exists." }); return;
   }
-
-  await db.update(otpSessionsTable).set({ used: true }).where(eq(otpSessionsTable.id, session.id));
 
   const [organizer] = await db.insert(organizersTable).values({
     name: pendingData.name,
@@ -942,7 +920,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
 });
 
-// ─── OTP: Send code via Fast2SMS ──────────────────────────────────────────────
+// ─── OTP: Send code via BulkSMS Gateway ──────────────────────────────────────
 
 router.post("/auth/organizer-account/otp/send", otpSendLimiter, async (req, res) => {
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
@@ -955,7 +933,7 @@ router.post("/auth/organizer-account/otp/send", otpSendLimiter, async (req, res)
     .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, digits))).limit(1);
   if (!row) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
 
-  const result = await fast2smsSendOtp(mobile);
+  const result = await bulkSmsOtpSend(mobile, "password_reset");
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
@@ -976,7 +954,7 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   const { mobile, code, newPassword } = body.data;
   const digits = mobile.replace(/\D/g, "");
 
-  const result = await fast2smsVerifyOtp(mobile, code);
+  const result = await bulkSmsOtpVerify(mobile, code, "password_reset");
   if (!result.success) {
     res.status(400).json({ error: result.error ?? "Invalid or expired OTP code" }); return;
   }
@@ -1003,7 +981,7 @@ router.post("/auth/organizer-account/otp/resend", otpSendLimiter, async (req, re
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  const result = await fast2smsResendOtp(body.data.mobile);
+  const result = await bulkSmsOtpResend(body.data.mobile, "password_reset");
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to resend OTP" }); return;
   }
@@ -1324,7 +1302,7 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
     return;
   }
 
-  const result = await fast2smsSendOtp(mobile);
+  const result = await bulkSmsOtpSend(mobile, "complete_profile");
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
@@ -1345,7 +1323,7 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "OTP must be 6 digits" }); return; }
 
-  const result = await fast2smsVerifyOtp(mobile, parsed.data.otp);
+  const result = await bulkSmsOtpVerify(mobile, parsed.data.otp, "complete_profile");
   if (!result.success) {
     res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
   }
