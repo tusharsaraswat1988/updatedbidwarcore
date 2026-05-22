@@ -48,12 +48,15 @@ import type {
   PlayerUpdate,
   ReAuctionInput,
   RegistrationStatus,
+  ReorderShowcaseEventsBody,
   ResetTrialAuctionBody,
   SearchGlobalPlayersParams,
   SetBreakTimerBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
   SetPreAuctionCountdownBody,
+  ShowcaseEvent,
+  ShowcaseEventInput,
   Team,
   TeamInput,
   TeamPurse,
@@ -5299,6 +5302,501 @@ export const useImportPlayersFromTournament = <
   TContext
 > => {
   return useMutation(getImportPlayersFromTournamentMutationOptions(options));
+};
+
+/**
+ * @summary List active showcase events (public)
+ */
+export const getListShowcaseEventsUrl = () => {
+  return `/api/showcase-events`;
+};
+
+export const listShowcaseEvents = async (
+  options?: RequestInit,
+): Promise<ShowcaseEvent[]> => {
+  return customFetch<ShowcaseEvent[]>(getListShowcaseEventsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListShowcaseEventsQueryKey = () => {
+  return [`/api/showcase-events`] as const;
+};
+
+export const getListShowcaseEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listShowcaseEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listShowcaseEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListShowcaseEventsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listShowcaseEvents>>
+  > = ({ signal }) => listShowcaseEvents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listShowcaseEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListShowcaseEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listShowcaseEvents>>
+>;
+export type ListShowcaseEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active showcase events (public)
+ */
+
+export function useListShowcaseEvents<
+  TData = Awaited<ReturnType<typeof listShowcaseEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listShowcaseEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListShowcaseEventsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all showcase events including inactive (admin only)
+ */
+export const getListAdminShowcaseEventsUrl = () => {
+  return `/api/auth/admin/showcase-events`;
+};
+
+export const listAdminShowcaseEvents = async (
+  options?: RequestInit,
+): Promise<ShowcaseEvent[]> => {
+  return customFetch<ShowcaseEvent[]>(getListAdminShowcaseEventsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminShowcaseEventsQueryKey = () => {
+  return [`/api/auth/admin/showcase-events`] as const;
+};
+
+export const getListAdminShowcaseEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminShowcaseEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminShowcaseEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminShowcaseEventsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminShowcaseEvents>>
+  > = ({ signal }) => listAdminShowcaseEvents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminShowcaseEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminShowcaseEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminShowcaseEvents>>
+>;
+export type ListAdminShowcaseEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all showcase events including inactive (admin only)
+ */
+
+export function useListAdminShowcaseEvents<
+  TData = Awaited<ReturnType<typeof listAdminShowcaseEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminShowcaseEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminShowcaseEventsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a showcase event (admin only)
+ */
+export const getCreateShowcaseEventUrl = () => {
+  return `/api/auth/admin/showcase-events`;
+};
+
+export const createShowcaseEvent = async (
+  showcaseEventInput: ShowcaseEventInput,
+  options?: RequestInit,
+): Promise<ShowcaseEvent> => {
+  return customFetch<ShowcaseEvent>(getCreateShowcaseEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(showcaseEventInput),
+  });
+};
+
+export const getCreateShowcaseEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createShowcaseEvent>>,
+    TError,
+    { data: BodyType<ShowcaseEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createShowcaseEvent>>,
+  TError,
+  { data: BodyType<ShowcaseEventInput> },
+  TContext
+> => {
+  const mutationKey = ["createShowcaseEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createShowcaseEvent>>,
+    { data: BodyType<ShowcaseEventInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createShowcaseEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateShowcaseEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createShowcaseEvent>>
+>;
+export type CreateShowcaseEventMutationBody = BodyType<ShowcaseEventInput>;
+export type CreateShowcaseEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a showcase event (admin only)
+ */
+export const useCreateShowcaseEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createShowcaseEvent>>,
+    TError,
+    { data: BodyType<ShowcaseEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createShowcaseEvent>>,
+  TError,
+  { data: BodyType<ShowcaseEventInput> },
+  TContext
+> => {
+  return useMutation(getCreateShowcaseEventMutationOptions(options));
+};
+
+/**
+ * @summary Update a showcase event (admin only)
+ */
+export const getUpdateShowcaseEventUrl = (id: number) => {
+  return `/api/auth/admin/showcase-events/${id}`;
+};
+
+export const updateShowcaseEvent = async (
+  id: number,
+  showcaseEventInput: ShowcaseEventInput,
+  options?: RequestInit,
+): Promise<ShowcaseEvent> => {
+  return customFetch<ShowcaseEvent>(getUpdateShowcaseEventUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(showcaseEventInput),
+  });
+};
+
+export const getUpdateShowcaseEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateShowcaseEvent>>,
+    TError,
+    { id: number; data: BodyType<ShowcaseEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateShowcaseEvent>>,
+  TError,
+  { id: number; data: BodyType<ShowcaseEventInput> },
+  TContext
+> => {
+  const mutationKey = ["updateShowcaseEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateShowcaseEvent>>,
+    { id: number; data: BodyType<ShowcaseEventInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateShowcaseEvent(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateShowcaseEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateShowcaseEvent>>
+>;
+export type UpdateShowcaseEventMutationBody = BodyType<ShowcaseEventInput>;
+export type UpdateShowcaseEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a showcase event (admin only)
+ */
+export const useUpdateShowcaseEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateShowcaseEvent>>,
+    TError,
+    { id: number; data: BodyType<ShowcaseEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateShowcaseEvent>>,
+  TError,
+  { id: number; data: BodyType<ShowcaseEventInput> },
+  TContext
+> => {
+  return useMutation(getUpdateShowcaseEventMutationOptions(options));
+};
+
+/**
+ * @summary Delete a showcase event (admin only)
+ */
+export const getDeleteShowcaseEventUrl = (id: number) => {
+  return `/api/auth/admin/showcase-events/${id}`;
+};
+
+export const deleteShowcaseEvent = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteShowcaseEventUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteShowcaseEventMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteShowcaseEvent>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteShowcaseEvent>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteShowcaseEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteShowcaseEvent>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteShowcaseEvent(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteShowcaseEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteShowcaseEvent>>
+>;
+
+export type DeleteShowcaseEventMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a showcase event (admin only)
+ */
+export const useDeleteShowcaseEvent = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteShowcaseEvent>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteShowcaseEvent>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteShowcaseEventMutationOptions(options));
+};
+
+/**
+ * @summary Reorder showcase events (admin only)
+ */
+export const getReorderShowcaseEventsUrl = () => {
+  return `/api/auth/admin/showcase-events/reorder`;
+};
+
+export const reorderShowcaseEvents = async (
+  reorderShowcaseEventsBody: ReorderShowcaseEventsBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getReorderShowcaseEventsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderShowcaseEventsBody),
+  });
+};
+
+export const getReorderShowcaseEventsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderShowcaseEvents>>,
+    TError,
+    { data: BodyType<ReorderShowcaseEventsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderShowcaseEvents>>,
+  TError,
+  { data: BodyType<ReorderShowcaseEventsBody> },
+  TContext
+> => {
+  const mutationKey = ["reorderShowcaseEvents"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderShowcaseEvents>>,
+    { data: BodyType<ReorderShowcaseEventsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reorderShowcaseEvents(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderShowcaseEventsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderShowcaseEvents>>
+>;
+export type ReorderShowcaseEventsMutationBody =
+  BodyType<ReorderShowcaseEventsBody>;
+export type ReorderShowcaseEventsMutationError = ErrorType<void>;
+
+/**
+ * @summary Reorder showcase events (admin only)
+ */
+export const useReorderShowcaseEvents = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderShowcaseEvents>>,
+    TError,
+    { data: BodyType<ReorderShowcaseEventsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderShowcaseEvents>>,
+  TError,
+  { data: BodyType<ReorderShowcaseEventsBody> },
+  TContext
+> => {
+  return useMutation(getReorderShowcaseEventsMutationOptions(options));
 };
 
 /**

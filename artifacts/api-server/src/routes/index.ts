@@ -19,6 +19,7 @@ import brandingRouter from "./branding";
 import pushRouter from "./push";
 import settingsRouter from "./settings";
 import displayAuctionsRouter from "./display-auctions";
+import showcaseRouter from "./showcase";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(webhooksRouter);
 router.use(sportsRouter);
 router.use(settingsRouter);
 router.use(displayAuctionsRouter);
+router.use(showcaseRouter);
 
 export default router;

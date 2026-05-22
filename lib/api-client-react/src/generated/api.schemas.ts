@@ -974,6 +974,36 @@ export interface InstallerUrlSettings {
   releasedAt?: string | null;
 }
 
+export interface ShowcaseEvent {
+  id: number;
+  imageUrl: string;
+  sportName: string;
+  tournamentName: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  altText?: string | null;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShowcaseEventInput {
+  imageUrl: string;
+  /** @maxLength 60 */
+  sportName: string;
+  /** @maxLength 120 */
+  tournamentName: string;
+  /** @maxLength 300 */
+  description?: string;
+  /** @maxLength 200 */
+  altText?: string;
+  /** @minimum 0 */
+  displayOrder?: number;
+  active?: boolean;
+}
+
 export type UploadImageBody = {
   /** Image file (PNG, JPG, WebP, etc.) */
   file: Blob;
@@ -1066,4 +1096,8 @@ export type ListImportCandidatesParams = {
    * Optional name/mobile filter
    */
   q?: string;
+};
+
+export type ReorderShowcaseEventsBody = {
+  ids: number[];
 };

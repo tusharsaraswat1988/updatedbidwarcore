@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
@@ -300,6 +300,50 @@ const faqs = [
 
 // ─── FAQ Item Component ────────────────────────────────────────────────────────
 
+function GalleryCard({
+  item,
+  index,
+  animate,
+}: {
+  item: { img: string; caption: string; tag: string; alt: string; description?: string | null };
+  index: number;
+  animate: boolean;
+}) {
+  const card = (
+    <div className="relative rounded-2xl overflow-hidden border border-border group cursor-default">
+      <img
+        src={item.img}
+        alt={item.alt}
+        loading="lazy"
+        width={600}
+        height={380}
+        className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 p-4">
+        <div className="inline-block px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider mb-1.5">
+          {item.tag}
+        </div>
+        <p className="font-display font-bold text-white text-sm leading-tight">{item.caption}</p>
+        {item.description && (
+          <p className="text-[11px] text-white/60 mt-0.5 leading-tight line-clamp-2">{item.description}</p>
+        )}
+      </div>
+    </div>
+  );
+  if (!animate) return card;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.07 }}
+    >
+      {card}
+    </motion.div>
+  );
+}
+
 function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
   const [open, setOpen] = useState(false);
   return (
@@ -344,11 +388,63 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+interface ShowcaseItem {
+  id: number;
+  imageUrl: string;
+  sportName: string;
+  tournamentName: string;
+  description?: string | null;
+  altText?: string | null;
+}
+
 export default function Landing() {
   const [, navigate] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
   const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[] | null>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/showcase-events")
+      .then((r) => r.json())
+      .then((data: ShowcaseItem[]) => { if (Array.isArray(data)) setShowcaseItems(data); })
+      .catch(() => {});
+  }, []);
+
+  const activeGallery: Array<{ img: string; caption: string; tag: string; alt: string; description?: string | null }> =
+    showcaseItems !== null && showcaseItems.length > 0
+      ? showcaseItems.map((s) => ({
+          img: s.imageUrl,
+          caption: s.tournamentName,
+          tag: s.sportName,
+          alt: s.altText ?? `${s.sportName} auction event — ${s.tournamentName}`,
+          description: s.description,
+        }))
+      : galleryItems;
+
+  const isCarousel = activeGallery.length > 6;
+  const CARDS_PER_PAGE = 3;
+  const totalPages = Math.ceil(activeGallery.length / CARDS_PER_PAGE);
+
+  const advanceCarousel = useCallback(() => {
+    setCarouselIndex((prev) => (prev + 1) % totalPages);
+  }, [totalPages]);
+
+  useEffect(() => {
+    if (!isCarousel) return;
+    carouselTimer.current = setInterval(advanceCarousel, 4000);
+    return () => {
+      if (carouselTimer.current) clearInterval(carouselTimer.current);
+    };
+  }, [isCarousel, advanceCarousel]);
+
+  function goToPage(page: number) {
+    setCarouselIndex(page);
+    if (carouselTimer.current) clearInterval(carouselTimer.current);
+    carouselTimer.current = setInterval(advanceCarousel, 4000);
+  }
 
   useEffect(() => {
     fetch("/api/display-auctions")
@@ -759,7 +855,7 @@ export default function Landing() {
       </section>
 
       {/* ── Gallery / Past Auctions ──────────────────────────────────── */}
-      <section id="gallery" className="py-24 px-6 border-t border-border/40">
+      <section id="gallery" className="py-24 px-6 border-t border-border/40" aria-label="Events Powered by BidWar">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 space-y-4">
             <div className="text-primary text-xs font-bold uppercase tracking-widest">Auction Highlights</div>
@@ -768,32 +864,57 @@ export default function Landing() {
               From school championships to professional franchise leagues — BidWar brings the auction experience to life.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {galleryItems.map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.07 }}
-                className="relative rounded-2xl overflow-hidden border border-border group cursor-default"
-              >
-                <img
-                  src={item.img}
-                  alt={item.alt}
-                  loading="lazy"
-                  className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="inline-block px-2 py-0.5 rounded-full bg-primary/20 border border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                    {item.tag}
-                  </div>
-                  <p className="font-display font-bold text-white text-sm leading-tight">{item.caption}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+
+          {isCarousel ? (
+            /* ── Auto-sliding carousel (>6 items) ── */
+            <div className="relative">
+              <div className="overflow-hidden rounded-2xl">
+                <motion.div
+                  className="flex"
+                  animate={{ x: `-${carouselIndex * 100}%` }}
+                  transition={{ type: "tween", duration: 0.5, ease: "easeInOut" }}
+                  style={{ width: `${totalPages * 100}%` }}
+                >
+                  {Array.from({ length: totalPages }).map((_, pageIdx) => (
+                    <div
+                      key={pageIdx}
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 px-0.5"
+                      style={{ width: `${100 / totalPages}%` }}
+                    >
+                      {activeGallery
+                        .slice(pageIdx * CARDS_PER_PAGE, pageIdx * CARDS_PER_PAGE + CARDS_PER_PAGE)
+                        .map((item, i) => (
+                          <GalleryCard key={`${pageIdx}-${i}`} item={item} index={i} animate={false} />
+                        ))}
+                    </div>
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* Dot navigation */}
+              <div className="flex items-center justify-center gap-2 mt-8">
+                {Array.from({ length: totalPages }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => goToPage(idx)}
+                    aria-label={`Go to page ${idx + 1}`}
+                    className={`rounded-full transition-all duration-300 ${
+                      idx === carouselIndex
+                        ? "w-6 h-2 bg-primary"
+                        : "w-2 h-2 bg-white/20 hover:bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* ── Static grid (≤6 items) ── */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {activeGallery.map((item, i) => (
+                <GalleryCard key={i} item={item} index={i} animate />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

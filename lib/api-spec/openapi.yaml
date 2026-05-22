@@ -1438,6 +1438,123 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportPlayersResult"
 
+  # ─── SHOWCASE EVENTS ─────────────────────────────────────────────────────────
+  /showcase-events:
+    get:
+      operationId: listShowcaseEvents
+      tags: [showcase]
+      summary: List active showcase events (public)
+      responses:
+        "200":
+          description: Active showcase events ordered by displayOrder
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShowcaseEvent"
+
+  /auth/admin/showcase-events:
+    get:
+      operationId: listAdminShowcaseEvents
+      tags: [showcase]
+      summary: List all showcase events including inactive (admin only)
+      responses:
+        "200":
+          description: All showcase events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShowcaseEvent"
+    post:
+      operationId: createShowcaseEvent
+      tags: [showcase]
+      summary: Create a showcase event (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShowcaseEventInput"
+      responses:
+        "201":
+          description: Created showcase event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShowcaseEvent"
+        "403":
+          description: Admin required
+
+  /auth/admin/showcase-events/{id}:
+    patch:
+      operationId: updateShowcaseEvent
+      tags: [showcase]
+      summary: Update a showcase event (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShowcaseEventInput"
+      responses:
+        "200":
+          description: Updated showcase event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShowcaseEvent"
+        "403":
+          description: Admin required
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteShowcaseEvent
+      tags: [showcase]
+      summary: Delete a showcase event (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Admin required
+
+  /auth/admin/showcase-events/reorder:
+    post:
+      operationId: reorderShowcaseEvents
+      tags: [showcase]
+      summary: Reorder showcase events (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "200":
+          description: Reordered
+        "403":
+          description: Admin required
+
   # ─── SETTINGS ───────────────────────────────────────────────────────────────
   /settings/installer-url:
     get:
@@ -2677,3 +2794,54 @@ components:
         releasedAt:
           type: ["string", "null"]
           description: ISO date of release e.g. "2026-05-19"
+
+    ShowcaseEvent:
+      type: object
+      required: [id, imageUrl, sportName, tournamentName, displayOrder, active, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        imageUrl:
+          type: string
+        sportName:
+          type: string
+        tournamentName:
+          type: string
+        description:
+          type: ["string", "null"]
+        altText:
+          type: ["string", "null"]
+        displayOrder:
+          type: integer
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ShowcaseEventInput:
+      type: object
+      required: [imageUrl, sportName, tournamentName]
+      properties:
+        imageUrl:
+          type: string
+        sportName:
+          type: string
+          maxLength: 60
+        tournamentName:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 300
+        altText:
+          type: string
+          maxLength: 200
+        displayOrder:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean

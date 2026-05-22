@@ -74,6 +74,10 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Images,
+  ChevronUp,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -3530,6 +3534,374 @@ function DisplayAuctionsPanel() {
   );
 }
 
+// ─── Showcase Events Panel ───────────────────────────────────────────────────
+
+interface ShowcaseEventRow {
+  id: number;
+  imageUrl: string;
+  sportName: string;
+  tournamentName: string;
+  description?: string | null;
+  altText?: string | null;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function ShowcasePanel() {
+  const [events, setEvents] = useState<ShowcaseEventRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editItem, setEditItem] = useState<ShowcaseEventRow | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [sportName, setSportName] = useState("");
+  const [tournamentName, setTournamentName] = useState("");
+  const [description, setDescription] = useState("");
+  const [altText, setAltText] = useState("");
+  const [active, setActive] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const r = await fetch("/api/auth/admin/showcase-events", { credentials: "include" });
+    if (r.ok) setEvents(await r.json());
+    setLoading(false);
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  function openAdd() {
+    setEditItem(null);
+    setImageUrl(""); setSportName(""); setTournamentName(""); setDescription(""); setAltText(""); setActive(true);
+    setError(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(item: ShowcaseEventRow) {
+    setEditItem(item);
+    setImageUrl(item.imageUrl); setSportName(item.sportName); setTournamentName(item.tournamentName);
+    setDescription(item.description ?? ""); setAltText(item.altText ?? ""); setActive(item.active);
+    setError(null);
+    setFormOpen(true);
+  }
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" });
+    const d = await r.json() as { url?: string };
+    if (r.ok && d.url) setImageUrl(d.url);
+    setUploading(false);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    const body = {
+      imageUrl,
+      sportName,
+      tournamentName,
+      description: description.trim() || undefined,
+      altText: altText.trim() || undefined,
+      active,
+    };
+    const url = editItem
+      ? `/api/auth/admin/showcase-events/${editItem.id}`
+      : "/api/auth/admin/showcase-events";
+    const method = editItem ? "PATCH" : "POST";
+    const r = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      credentials: "include",
+    });
+    if (r.ok) {
+      setFormOpen(false);
+      void load();
+    } else {
+      const d = await r.json().catch(() => ({})) as { error?: string };
+      setError(d.error ?? "Save failed");
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(id: number) {
+    setDeleting(id);
+    await fetch(`/api/auth/admin/showcase-events/${id}`, { method: "DELETE", credentials: "include" });
+    setDeleting(null);
+    void load();
+  }
+
+  async function handleToggleActive(item: ShowcaseEventRow) {
+    await fetch(`/api/auth/admin/showcase-events/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !item.active }),
+      credentials: "include",
+    });
+    void load();
+  }
+
+  async function handleMove(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= events.length) return;
+    const ids = events.map((e) => e.id);
+    const tmp = ids[target];
+    ids[target] = ids[index];
+    ids[index] = tmp;
+    await fetch("/api/auth/admin/showcase-events/reorder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+      credentials: "include",
+    });
+    void load();
+  }
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-display font-bold text-lg text-white flex items-center gap-2">
+              <Images className="w-5 h-5 text-primary" />
+              Events Powered by BidWar
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Manage showcase cards on the public landing page. When more than 6 active cards exist, the page shows an auto-sliding carousel.
+            </p>
+          </div>
+          <Button size="sm" className="gap-1.5 flex-shrink-0" onClick={openAdd}>
+            <Plus className="w-3.5 h-3.5" /> Add Event
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground border border-dashed border-border/40 rounded-2xl">
+            <Images className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">No events yet. Add your first showcase event.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {events.map((ev, i) => (
+              <motion.div
+                key={ev.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-card/50 group"
+              >
+                <img
+                  src={ev.imageUrl}
+                  alt={ev.altText ?? ev.tournamentName}
+                  className="w-16 h-12 rounded-lg object-cover flex-shrink-0 border border-border/30"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{ev.sportName}</span>
+                    {!ev.active && (
+                      <Badge variant="outline" className="text-[9px] text-muted-foreground h-4 px-1">Hidden</Badge>
+                    )}
+                  </div>
+                  <p className="font-semibold text-sm text-white truncate">{ev.tournamentName}</p>
+                  {ev.description && (
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{ev.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm" variant="ghost" className="h-7 w-7 p-0"
+                    disabled={i === 0}
+                    onClick={() => void handleMove(i, -1)}
+                    title="Move up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 w-7 p-0"
+                    disabled={i === events.length - 1}
+                    onClick={() => void handleMove(i, 1)}
+                    title="Move down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 w-7 p-0"
+                    onClick={() => void handleToggleActive(ev)}
+                    title={ev.active ? "Hide from landing page" : "Show on landing page"}
+                  >
+                    {ev.active
+                      ? <Eye className="w-3.5 h-3.5 text-green-400" />
+                      : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost" className="h-7 w-7 p-0"
+                    onClick={() => openEdit(ev)}
+                    title="Edit"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => void handleDelete(ev.id)}
+                    disabled={deleting === ev.id}
+                    title="Delete"
+                  >
+                    {deleting === ev.id
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {events.length > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            {events.filter((e) => e.active).length} active
+            {events.filter((e) => e.active).length > 6 && " — carousel enabled on landing page"}
+          </p>
+        )}
+      </div>
+
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editItem ? "Edit Showcase Event" : "Add Showcase Event"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Event Photo</Label>
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt="Preview"
+                  className="w-full h-36 object-cover rounded-lg border border-border/30"
+                />
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="text-sm flex-1"
+                />
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (f) await handleUpload(f);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 pointer-events-none"
+                    disabled={uploading}
+                  >
+                    {uploading
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <Plus className="w-3.5 h-3.5" />}
+                    Upload
+                  </Button>
+                </label>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Paste a URL or upload a photo (JPEG, PNG, WebP — max 15 MB)</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Sport</Label>
+                <Input
+                  value={sportName}
+                  onChange={(e) => setSportName(e.target.value)}
+                  placeholder="Cricket"
+                  className="text-sm"
+                  maxLength={60}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Visibility</Label>
+                <div className="flex items-center gap-2 h-9">
+                  <Switch checked={active} onCheckedChange={setActive} />
+                  <span className="text-sm text-muted-foreground">{active ? "Visible" : "Hidden"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Tournament Name</Label>
+              <Input
+                value={tournamentName}
+                onChange={(e) => setTournamentName(e.target.value)}
+                placeholder="Mumbai Premier League 2025"
+                className="text-sm"
+                maxLength={120}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Description (optional)</Label>
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="16-team franchise auction, 200+ players"
+                className="text-sm"
+                maxLength={300}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">SEO Alt Text (optional)</Label>
+              <Input
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                placeholder="Cricket franchise auction event photo"
+                className="text-sm"
+                maxLength={200}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Shown to screen readers and search engines. Auto-generated from sport + tournament name if left blank.
+              </p>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> {error}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={saving || !imageUrl || !sportName || !tournamentName}
+              className="gap-1.5"
+            >
+              {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              {saving ? "Saving..." : "Save Event"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -3547,7 +3919,7 @@ export default function AdminDashboard() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [, navigate] = useLocation();
-  const [adminTab, setAdminTab] = useState<"tournaments" | "organizers" | "sports" | "settings" | "display-auctions">(
+  const [adminTab, setAdminTab] = useState<"tournaments" | "organizers" | "sports" | "settings" | "display-auctions" | "showcase">(
     "tournaments",
   );
 
@@ -3740,6 +4112,14 @@ export default function AdminDashboard() {
           >
             <Tv className="w-3.5 h-3.5" /> Upcoming Display
           </Button>
+          <Button
+            size="sm"
+            variant={adminTab === "showcase" ? "default" : "ghost"}
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => setAdminTab("showcase")}
+          >
+            <Images className="w-3.5 h-3.5" /> Showcase
+          </Button>
         </div>
 
         {/* Body */}
@@ -3749,6 +4129,8 @@ export default function AdminDashboard() {
           <SportsPanel />
         ) : adminTab === "display-auctions" ? (
           <DisplayAuctionsPanel />
+        ) : adminTab === "showcase" ? (
+          <ShowcasePanel />
         ) : adminTab === "settings" ? (
           <div className="flex-1 flex flex-col overflow-auto divide-y divide-border/40">
             <SmsSettingsPanel />

@@ -4207,6 +4207,133 @@ export const ImportPlayersFromTournamentResponse = zod.object({
 });
 
 /**
+ * @summary List active showcase events (public)
+ */
+export const ListShowcaseEventsResponseItem = zod.object({
+  id: zod.number(),
+  imageUrl: zod.string(),
+  sportName: zod.string(),
+  tournamentName: zod.string(),
+  description: zod.string().nullish(),
+  altText: zod.string().nullish(),
+  displayOrder: zod.number(),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListShowcaseEventsResponse = zod.array(
+  ListShowcaseEventsResponseItem,
+);
+
+/**
+ * @summary List all showcase events including inactive (admin only)
+ */
+export const ListAdminShowcaseEventsResponseItem = zod.object({
+  id: zod.number(),
+  imageUrl: zod.string(),
+  sportName: zod.string(),
+  tournamentName: zod.string(),
+  description: zod.string().nullish(),
+  altText: zod.string().nullish(),
+  displayOrder: zod.number(),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListAdminShowcaseEventsResponse = zod.array(
+  ListAdminShowcaseEventsResponseItem,
+);
+
+/**
+ * @summary Create a showcase event (admin only)
+ */
+export const createShowcaseEventBodySportNameMax = 60;
+
+export const createShowcaseEventBodyTournamentNameMax = 120;
+
+export const createShowcaseEventBodyDescriptionMax = 300;
+
+export const createShowcaseEventBodyAltTextMax = 200;
+
+export const createShowcaseEventBodyDisplayOrderMin = 0;
+
+export const CreateShowcaseEventBody = zod.object({
+  imageUrl: zod.string(),
+  sportName: zod.string().max(createShowcaseEventBodySportNameMax),
+  tournamentName: zod.string().max(createShowcaseEventBodyTournamentNameMax),
+  description: zod
+    .string()
+    .max(createShowcaseEventBodyDescriptionMax)
+    .optional(),
+  altText: zod.string().max(createShowcaseEventBodyAltTextMax).optional(),
+  displayOrder: zod
+    .number()
+    .min(createShowcaseEventBodyDisplayOrderMin)
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a showcase event (admin only)
+ */
+export const UpdateShowcaseEventParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateShowcaseEventBodySportNameMax = 60;
+
+export const updateShowcaseEventBodyTournamentNameMax = 120;
+
+export const updateShowcaseEventBodyDescriptionMax = 300;
+
+export const updateShowcaseEventBodyAltTextMax = 200;
+
+export const updateShowcaseEventBodyDisplayOrderMin = 0;
+
+export const UpdateShowcaseEventBody = zod.object({
+  imageUrl: zod.string(),
+  sportName: zod.string().max(updateShowcaseEventBodySportNameMax),
+  tournamentName: zod.string().max(updateShowcaseEventBodyTournamentNameMax),
+  description: zod
+    .string()
+    .max(updateShowcaseEventBodyDescriptionMax)
+    .optional(),
+  altText: zod.string().max(updateShowcaseEventBodyAltTextMax).optional(),
+  displayOrder: zod
+    .number()
+    .min(updateShowcaseEventBodyDisplayOrderMin)
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+export const UpdateShowcaseEventResponse = zod.object({
+  id: zod.number(),
+  imageUrl: zod.string(),
+  sportName: zod.string(),
+  tournamentName: zod.string(),
+  description: zod.string().nullish(),
+  altText: zod.string().nullish(),
+  displayOrder: zod.number(),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a showcase event (admin only)
+ */
+export const DeleteShowcaseEventParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Reorder showcase events (admin only)
+ */
+export const ReorderShowcaseEventsBody = zod.object({
+  ids: zod.array(zod.number()),
+});
+
+/**
  * @summary Get BidWar Local installer URL and version (public)
  */
 export const GetInstallerUrlResponse = zod.object({
