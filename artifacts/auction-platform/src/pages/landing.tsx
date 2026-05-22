@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
+import { cldUrl } from "@/lib/cloudinary";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
@@ -345,7 +346,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function Landing() {
   const [, navigate] = useLocation();
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, loading: brandingLoading } = useBranding();
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
   const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
 
@@ -381,7 +382,9 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src={logos.mini || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={200} height={75} />
+            {brandingLoading
+              ? <div className="h-9 w-9 flex-shrink-0" />
+              : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
             <span className="font-display font-black text-xl tracking-tight text-white">{brandName.toUpperCase()}</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
@@ -1121,7 +1124,9 @@ export default function Landing() {
             {/* Brand */}
             <div className="space-y-4 md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <img src={logos.mini || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={200} height={75} />
+                {brandingLoading
+                  ? <div className="h-9 w-9 flex-shrink-0" />
+                  : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
                 <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">

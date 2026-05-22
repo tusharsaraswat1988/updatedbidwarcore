@@ -8,6 +8,7 @@ import {
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { cldUrl } from "@/lib/cloudinary";
 
 interface LayoutProps {
   children: ReactNode;
@@ -50,7 +51,7 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 
 export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, loading: brandingLoading } = useBranding();
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
@@ -94,7 +95,9 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             </button>
           ) : (
             <>
-              <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-9 object-contain flex-shrink-0" />
+              {brandingLoading
+                ? <div className="h-9 w-9 flex-shrink-0" />
+                : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-9 object-contain flex-shrink-0" />}
               <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">{brandName.toUpperCase()}</span>
               <button
                 onClick={toggleCollapsed}
