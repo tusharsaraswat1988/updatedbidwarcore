@@ -1191,16 +1191,48 @@ export default function AuctionOperator() {
                 {/* SOLD / UNSOLD / DEFER / MANUAL */}
                 <div className="grid grid-cols-4 gap-2">
                   {[
-                    { label: "SOLD",   icon: CheckCircle,  sub: "Assign [S]",        disabled: !hasBid || timerActive || sellPlayer.isPending,    onClick: handleSell,     bg: "bg-green-600/15", border: "border-green-600/60", text: "text-green-400", glow: "0 0 16px rgba(34,197,94,0.25)" },
-                    { label: "UNSOLD", icon: XCircle,      sub: "No bids [U]",        disabled: !hasPlayer || timerActive || markUnsold.isPending, onClick: handleUnsold,   bg: "bg-red-600/10",   border: "border-red-600/50",   text: "text-red-400",   glow: "" },
-                    { label: "DEFER",  icon: Hourglass,    sub: "Back queue [D]",     disabled: !hasPlayer || timerActive || deferPlayerMut.isPending, onClick: handleDeferPlayer, bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", glow: "" },
-                    { label: "MANUAL", icon: Settings2,    sub: "Set amount [M]",     disabled: !hasPlayer || timerActive,                         onClick: () => { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); }, bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", glow: "" },
-                  ].map(({ label, icon: Icon, sub, disabled, onClick, bg, border, text, glow }) => (
+                    {
+                      label: "SOLD",
+                      icon: CheckCircle,
+                      sub: timerActive ? "Pause first [S]" : !hasBid ? "Bid first [S]" : `${state?.currentBidTeamName ?? ""} [S]`.trim(),
+                      title: timerActive ? "Pause bidding first, then click SOLD" : !hasBid ? "Place a bid first — use Start Bidding, then a team bid button" : undefined,
+                      disabled: !hasBid || timerActive || sellPlayer.isPending,
+                      onClick: handleSell,
+                      bg: "bg-green-600/15", border: "border-green-600/60", text: "text-green-400", glow: "0 0 16px rgba(34,197,94,0.25)",
+                    },
+                    {
+                      label: "UNSOLD",
+                      icon: XCircle,
+                      sub: timerActive ? "Pause first [U]" : "No bid [U]",
+                      title: timerActive ? "Pause bidding first" : undefined,
+                      disabled: !hasPlayer || timerActive || markUnsold.isPending,
+                      onClick: handleUnsold,
+                      bg: "bg-red-600/10", border: "border-red-600/50", text: "text-red-400", glow: "",
+                    },
+                    {
+                      label: "DEFER",
+                      icon: Hourglass,
+                      sub: timerActive ? "Pause first [D]" : "Back queue [D]",
+                      title: timerActive ? "Pause bidding first" : undefined,
+                      disabled: !hasPlayer || timerActive || deferPlayerMut.isPending,
+                      onClick: handleDeferPlayer,
+                      bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", glow: "",
+                    },
+                    {
+                      label: "MANUAL",
+                      icon: Settings2,
+                      sub: timerActive ? "Pause first [M]" : "Set amount [M]",
+                      title: timerActive ? "Pause bidding first" : undefined,
+                      disabled: !hasPlayer || timerActive,
+                      onClick: () => { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); },
+                      bg: "bg-blue-500/10", border: "border-blue-500/40", text: "text-blue-400", glow: "",
+                    },
+                  ].map(({ label, icon: Icon, sub, title, disabled, onClick, bg, border, text, glow }) => (
                     <button
                       key={label}
                       disabled={disabled}
                       onClick={onClick}
-                      title={timerActive ? "Stop bidding first" : undefined}
+                      title={title}
                       className={`col-span-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed ${bg} ${border} ${text} hover:scale-[1.02] enabled:hover:scale-[1.02]`}
                       style={{ boxShadow: glow || undefined }}
                     >
