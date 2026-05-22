@@ -434,6 +434,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       playerSelectionMode: tournament.playerSelectionMode,
       bidTiers: tournament.bidTiers,
       hasPassword: !!tournament.organizerPassword,
+      organizerPassword: tournament.organizerPassword ?? null,
       resetCount: tournament.resetCount ?? 0,
       lastResetAt: tournament.lastResetAt ? tournament.lastResetAt.toISOString() : null,
       lastResetBy: tournament.lastResetBy ?? null,
@@ -1254,12 +1255,11 @@ router.post("/auth/organizer-account/change-password", authLimiter, async (req, 
     return;
   }
 
-  const [storedHash, salt] = organizer.passwordHash.split(":");
-  if (!storedHash || !salt) { res.status(500).json({ error: "Invalid stored password hash." }); return; }
-
-  const inputHash = (await scryptAsync(body.data.currentPassword, salt, 64) as Buffer).toString("hex");
-  const isMatch = timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(inputHash, "hex"));
+  const isMatch = await verifyPassword(body.data.currentPassword, organizer.passwordHash);
   if (!isMatch) { res.status(401).json({ error: "Current password is incorrect." }); return; }
+
+  const isSame = await verifyPassword(body.data.newPassword, organizer.passwordHash);
+  if (isSame) { res.status(400).json({ error: "New password cannot be the same as your current password." }); return; }
 
   const newSalt = randomBytes(16).toString("hex");
   const newHash = (await scryptAsync(body.data.newPassword, newSalt, 64) as Buffer).toString("hex");

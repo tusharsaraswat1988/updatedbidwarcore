@@ -386,6 +386,31 @@ function CreateTournamentModal({
   );
 }
 
+// ─── Tournament Password Row (admin-only eye toggle) ─────────────────────────
+
+function TournamentPasswordRow({ password }: { password: string | null }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground text-xs w-24 flex-shrink-0">Password</span>
+      {password ? (
+        <span className="font-medium text-xs flex items-center gap-1.5">
+          <span className="font-mono">{show ? password : "••••••••"}</span>
+          <button
+            type="button"
+            onClick={() => setShow(v => !v)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        </span>
+      ) : (
+        <span className="text-xs text-muted-foreground">Not set</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Detail Panel ─────────────────────────────────────────────────────────────
 
 function DetailPanel({
@@ -1170,7 +1195,6 @@ function DetailPanel({
                       ["Organizer", t.organizerName || "—"],
                       ["Mobile", t.organizerMobile || "—"],
                       ["Email", t.organizerEmail || "—"],
-                      ["Password", t.hasPassword ? "Set" : "Not set"],
                       ["Base Purse", formatIndianRupee(t.basePurse)],
                       ["Min Bid", formatIndianRupee(t.minBid)],
                       ["First Timer", `${t.timerSeconds}s`],
@@ -1186,6 +1210,7 @@ function DetailPanel({
                         </span>
                       </div>
                     ))}
+                    <TournamentPasswordRow password={t.organizerPassword} />
                   </div>
                 </div>
 

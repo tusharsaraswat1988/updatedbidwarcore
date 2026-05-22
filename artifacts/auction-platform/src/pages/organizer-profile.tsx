@@ -43,18 +43,58 @@ function OrganizerAvatar({ organizer, size = 64 }: { organizer: OrganizerInfo; s
 
 // ─── Section: Profile info ────────────────────────────────────────────────────
 
+function resizeImageToDataUrl(file: File, maxPx = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = ev.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; onSaved: (o: OrganizerInfo) => void }) {
   const [name, setName] = useState(organizer.name);
   const [email, setEmail] = useState(organizer.email ?? "");
   const [photoUrl, setPhotoUrl] = useState(organizer.photoUrl ?? "");
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const hasChanges =
     name !== organizer.name ||
     email !== (organizer.email ?? "") ||
     photoUrl !== (organizer.photoUrl ?? "");
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("Image must be under 5 MB."); return; }
+    setUploading(true); setError("");
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 256);
+      setPhotoUrl(dataUrl);
+    } catch {
+      setError("Could not read image file.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -63,7 +103,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
     const r = await updateOrganizerProfile({
       name: name.trim(),
       email: email.trim() || null,
-      photoUrl: photoUrl.trim() || null,
+      photoUrl: photoUrl || null,
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to save."); return; }
@@ -81,20 +121,46 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSave} className="space-y-5">
-          {/* Avatar preview */}
+          {/* Avatar + upload */}
           <div className="flex items-center gap-4">
-            <OrganizerAvatar organizer={{ ...organizer, name, photoUrl: photoUrl || null }} size={56} />
-            <div className="flex-1 space-y-1.5">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Camera className="w-3 h-3" /> Photo URL
-              </Label>
-              <Input
-                value={photoUrl}
-                onChange={e => setPhotoUrl(e.target.value)}
-                placeholder="https://example.com/photo.jpg"
-                className="text-sm"
+            <div className="relative flex-shrink-0">
+              <OrganizerAvatar organizer={{ ...organizer, name, photoUrl: photoUrl || null }} size={56} />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg border-2 border-background hover:bg-primary/90 transition-colors"
+                title="Change photo"
+              >
+                {uploading
+                  ? <RefreshCw className="w-3 h-3 text-primary-foreground animate-spin" />
+                  : <Camera className="w-3 h-3 text-primary-foreground" />}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
               />
-              <p className="text-[11px] text-muted-foreground">Paste a direct link to your profile photo.</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">{name || organizer.name}</p>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="text-xs text-primary hover:underline mt-0.5"
+              >
+                {photoUrl ? "Change photo" : "Upload photo"}
+              </button>
+              {photoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrl("")}
+                  className="text-xs text-muted-foreground hover:text-destructive ml-3 mt-0.5"
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
 
@@ -155,6 +221,7 @@ function ChangePasswordSection({ organizer, onSaved }: { organizer: OrganizerInf
   const [confirm, setConfirm] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNext, setShowNext] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -246,13 +313,23 @@ function ChangePasswordSection({ organizer, onSaved }: { organizer: OrganizerInf
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Confirm *</Label>
-              <Input
-                type="password"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-                placeholder="Repeat password"
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirm ? "text" : "password"}
+                  value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder="Repeat password"
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
 

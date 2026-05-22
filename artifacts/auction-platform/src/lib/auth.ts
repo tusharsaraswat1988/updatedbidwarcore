@@ -207,7 +207,7 @@ export type AdminTournamentDetail = {
     licenseGrantedAt: string | null; adminLockedAt: string | null;
     basePurse: number; minBid: number; timerSeconds: number;
     bidTimerSeconds: number; playerSelectionMode: string;
-    bidTiers: string | null; hasPassword: boolean;
+    bidTiers: string | null; hasPassword: boolean; organizerPassword: string | null;
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
     localModeEnabled: boolean;

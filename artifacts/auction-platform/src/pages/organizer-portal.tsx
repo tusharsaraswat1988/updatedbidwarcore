@@ -354,6 +354,8 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
@@ -451,11 +453,21 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
           </div>
           <div className="space-y-2">
             <Label className="text-sm">New Password</Label>
-            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+            <div className="relative">
+              <Input type={showNewPw ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" className="pr-10" />
+              <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-sm">Confirm Password</Label>
-            <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
+            <div className="relative">
+              <Input type={showConfirmPw ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" className="pr-10" />
+              <button type="button" onClick={() => setShowConfirmPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
           <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
@@ -513,6 +525,8 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
   const [showPw, setShowPw] = useState(false);
+  const [showSignupPw, setShowSignupPw] = useState(false);
+  const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
 
@@ -793,23 +807,35 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
-                          <Input
-                            type="password"
-                            value={signupForm.password}
-                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="Min 6 chars"
-                            autoComplete="new-password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showSignupPw ? "text" : "password"}
+                              value={signupForm.password}
+                              onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                              placeholder="Min 6 chars"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+                            <button type="button" onClick={() => setShowSignupPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                              {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm">Confirm</Label>
-                          <Input
-                            type="password"
-                            value={signupForm.confirmPassword}
-                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                            placeholder="Repeat"
-                            autoComplete="new-password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showSignupConfirm ? "text" : "password"}
+                              value={signupForm.confirmPassword}
+                              onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                              placeholder="Repeat"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+                            <button type="button" onClick={() => setShowSignupConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                              {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
@@ -858,23 +884,35 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label className="flex items-center gap-2 text-sm"><Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password *</Label>
-                          <Input
-                            type="password"
-                            value={signupForm.password}
-                            onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="Min 6 chars"
-                            autoComplete="new-password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showSignupPw ? "text" : "password"}
+                              value={signupForm.password}
+                              onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                              placeholder="Min 6 chars"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+                            <button type="button" onClick={() => setShowSignupPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                              {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm">Confirm</Label>
-                          <Input
-                            type="password"
-                            value={signupForm.confirmPassword}
-                            onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                            placeholder="Repeat"
-                            autoComplete="new-password"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showSignupConfirm ? "text" : "password"}
+                              value={signupForm.confirmPassword}
+                              onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                              placeholder="Repeat"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+                            <button type="button" onClick={() => setShowSignupConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                              {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
@@ -1020,6 +1058,8 @@ function OrganizerDashboard({
   const [spDismissed, setSpDismissed] = useState(false);
   const [spPassword, setSpPassword] = useState("");
   const [spConfirm, setSpConfirm] = useState("");
+  const [spShowPw, setSpShowPw] = useState(false);
+  const [spShowConfirm, setSpShowConfirm] = useState(false);
   const [spLoading, setSpLoading] = useState(false);
   const [spError, setSpError] = useState("");
   const [spDone, setSpDone] = useState(false);
@@ -1139,25 +1179,35 @@ function OrganizerDashboard({
               <form onSubmit={handleSetPassword} className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1 flex-1 min-w-[140px]">
                   <Label className="text-xs text-muted-foreground">Password</Label>
-                  <Input
-                    type="password"
-                    value={spPassword}
-                    onChange={e => { setSpPassword(e.target.value); setSpError(""); }}
-                    placeholder="Min 6 characters"
-                    className="h-8 text-sm"
-                    autoComplete="new-password"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={spShowPw ? "text" : "password"}
+                      value={spPassword}
+                      onChange={e => { setSpPassword(e.target.value); setSpError(""); }}
+                      placeholder="Min 6 characters"
+                      className="h-8 text-sm pr-8"
+                      autoComplete="new-password"
+                    />
+                    <button type="button" onClick={() => setSpShowPw(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {spShowPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1 flex-1 min-w-[140px]">
                   <Label className="text-xs text-muted-foreground">Confirm</Label>
-                  <Input
-                    type="password"
-                    value={spConfirm}
-                    onChange={e => { setSpConfirm(e.target.value); setSpError(""); }}
-                    placeholder="Repeat password"
-                    className="h-8 text-sm"
-                    autoComplete="new-password"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={spShowConfirm ? "text" : "password"}
+                      value={spConfirm}
+                      onChange={e => { setSpConfirm(e.target.value); setSpError(""); }}
+                      placeholder="Repeat password"
+                      className="h-8 text-sm pr-8"
+                      autoComplete="new-password"
+                    />
+                    <button type="button" onClick={() => setSpShowConfirm(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      {spShowConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" size="sm" className="h-8" disabled={spLoading || !spPassword || !spConfirm}>
                   {spLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Save Password"}
