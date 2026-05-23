@@ -35,7 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
-import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
+import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 
@@ -1190,8 +1190,6 @@ export default function Players() {
                             border: `1px solid ${tagTheme.border}`,
                             color: tagTheme.color,
                             animation: TAG_PULSE_ANIMATION,
-                            transform: "translateZ(0)",
-                            willChange: "opacity",
                           }}>
                             {tagTheme.label}
                           </span>

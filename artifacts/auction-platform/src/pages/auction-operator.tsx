@@ -983,8 +983,6 @@ export default function AuctionOperator() {
                                 border: `1px solid ${tt.border}`,
                                 color: tt.color,
                                 animation: TAG_PULSE_ANIMATION,
-                                transform: "translateZ(0)",
-                                willChange: "opacity",
                                 whiteSpace: "nowrap",
                                 lineHeight: 1,
                               }}>

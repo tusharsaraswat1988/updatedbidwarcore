@@ -25,8 +25,6 @@ function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; 
         filter: `blur(8px)`,
         opacity: tag ? 0.75 : 0.6,
         animation: tag ? TAG_PULSE_ANIMATION : undefined,
-        willChange: tag ? "opacity" : undefined,
-        transform: "translateZ(0)",
       }} />
       {/* Border */}
       <div style={{
@@ -425,8 +423,6 @@ export default function ObsOverlay() {
                       color: tt.color,
                       boxShadow: `0 0 10px ${tt.glow}`,
                       animation: TAG_PULSE_ANIMATION,
-                      transform: "translateZ(0)",
-                      willChange: "opacity",
                     }}>
                       {tt.label}
                     </div>
@@ -511,7 +507,6 @@ export default function ObsOverlay() {
 
       <style>{`
         @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        @keyframes softPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.92; } }
       `}</style>
     </div>
   );

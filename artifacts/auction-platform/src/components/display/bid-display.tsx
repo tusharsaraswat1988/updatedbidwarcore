@@ -88,8 +88,6 @@ export const BidDisplay = memo(function BidDisplay({
                   color: tag.color,
                   boxShadow: `0 0 10px ${tag.glow}`,
                   animation: TAG_PULSE_ANIMATION,
-                  willChange: "opacity",
-                  transform: "translateZ(0)",
                   flexShrink: 0,
                 }}
               >

@@ -4,7 +4,7 @@ import { User, Users as UsersIcon } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
-import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
+import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow } from "./types";
 
 /**
@@ -71,7 +71,6 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
   return (
     <div className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
       style={{ background: "radial-gradient(ellipse at top, #082f49 0%, #020617 60%, #000 100%)" }}>
-      <style>{TAG_PULSE_KEYFRAMES}</style>
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
@@ -204,8 +203,6 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                                 border: `1px solid ${tagTheme.border}`,
                                 color: tagTheme.color,
                                 animation: TAG_PULSE_ANIMATION,
-                                transform: "translateZ(0)",
-                                willChange: "opacity",
                                 whiteSpace: "nowrap",
                               }}
                             >

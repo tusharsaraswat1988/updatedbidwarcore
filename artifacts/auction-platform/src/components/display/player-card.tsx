@@ -85,14 +85,13 @@ export const PlayerCard = memo(function PlayerCard({
           className="absolute left-1/2 z-10 whitespace-nowrap"
           style={{
             bottom: 0,
-            transform: "translateX(-50%) translateZ(0)",
+            transform: "translateX(-50%)",
             padding: "5px 20px",
             borderRadius: 999,
             background: `linear-gradient(135deg, ${tag.bg}, rgba(0,0,0,0.55))`,
             border: `1.5px solid ${tag.border}`,
             boxShadow: `0 2px 18px ${tag.glow}`,
             animation: TAG_PULSE_ANIMATION,
-            willChange: "opacity",
           }}
         >
           <span style={{
