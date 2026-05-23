@@ -78,6 +78,9 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   mobileNumber: p.mobileNumber,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
+  playerTag: p.playerTag ?? null,
+  playerTagTeamId: p.playerTagTeamId ?? null,
+  isNonPlayingMember: p.isNonPlayingMember ?? false,
   createdAt: p.createdAt.toISOString(),
 });
 
