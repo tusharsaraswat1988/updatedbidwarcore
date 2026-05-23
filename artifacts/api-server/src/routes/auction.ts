@@ -860,8 +860,8 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     tournamentName: tournament?.name ?? "the tournament",
   });
 
-  // DLT SMS: notify player about being sold (fire-and-forget)
-  if (soldPlayer?.mobileNumber) {
+  // DLT SMS: notify player about being sold (fire-and-forget, live tournaments only)
+  if (tournament?.licenseStatus === "active" && soldPlayer?.mobileNumber) {
     const playerMobile = soldPlayer.mobileNumber;
     void (async () => {
       try {
