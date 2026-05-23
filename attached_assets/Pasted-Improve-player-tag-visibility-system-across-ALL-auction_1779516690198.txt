@@ -1,0 +1,323 @@
+Improve player tag visibility system across ALL auction-facing screens (LED Screen View, Team Panel, OBS View, Live Viewer View, Current Player Card, Player Listing Cards) while keeping rendering extremely lightweight and GPU-safe for low-end TVs/projectors.
+
+OBJECTIVE:
+If a player has any Tag assigned (Icon, Captain, Star Player, Booster, Owner, etc.), the tag should become visually premium and instantly noticeable around the player's photo and in player metadata.
+
+IMPORTANT:
+Do NOT use heavy animations, particle systems, SVG filters, canvas rendering, video effects, or expensive blur animations.
+This system must remain smooth during live auctions with many real-time updates.
+
+====================================================
+1. TAG VISUAL SYSTEM (GLOBAL)
+====================================================
+
+Create a centralized lightweight tag styling system.
+
+Example tags:
+- ICON
+- STAR PLAYER
+- CAPTAIN
+- VICE CAPTAIN
+- BOOSTER
+- OWNER
+- CO-OWNER
+
+Each tag should have:
+- unique glow color
+- border color
+- badge background
+- subtle aura effect
+
+Suggested colors:
+
+ICON:
+- primary: #fbbf24
+- glow: rgba(251,191,36,0.45)
+
+STAR PLAYER:
+- primary: #a855f7
+- glow: rgba(168,85,247,0.40)
+
+CAPTAIN:
+- primary: #22c55e
+- glow: rgba(34,197,94,0.35)
+
+VICE CAPTAIN:
+- primary: #06b6d4
+- glow: rgba(6,182,212,0.35)
+
+BOOSTER:
+- primary: #ef4444
+- glow: rgba(239,68,68,0.35)
+
+OWNER:
+- primary: #3b82f6
+- glow: rgba(59,130,246,0.35)
+
+CO-OWNER:
+- primary: #f97316
+- glow: rgba(249,115,22,0.35)
+
+Fallback:
+- primary: #eab308
+
+====================================================
+2. PLAYER PHOTO TAG EFFECT
+====================================================
+
+When a player has a tag:
+
+A) Add glowing border around photo
+- 2px solid border
+- outer box-shadow glow
+- NO animated blur
+- use static glow only
+
+Example:
+box-shadow:
+0 0 12px rgba(251,191,36,0.35),
+0 0 24px rgba(251,191,36,0.15);
+
+B) Add small tag plate attached to photo frame
+Placement:
+- bottom center of image
+OR
+- top-right corner
+
+Design:
+- compact
+- premium
+- pill shape
+- uppercase text
+- bold font
+- slight inner gradient
+
+Height:
+~28px desktop
+~22px TV compact mode
+
+Example:
+[ ICON ]
+
+C) Add ultra-light pulse every 4s
+IMPORTANT:
+Use opacity pulse only.
+DO NOT animate blur radius or shadow size.
+
+Example:
+@keyframes softPulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.92; }
+}
+
+animation:
+softPulse 4s ease-in-out infinite;
+
+Apply ONLY to:
+- tag badge
+OR
+- outer glow wrapper
+
+====================================================
+3. CURRENT PLAYER DISPLAY VIEW
+====================================================
+
+File likely:
+- Display Screen
+- Auction Screen
+- OBS Layout
+- Live Screen
+
+For current player:
+- make tag extremely premium
+- glow around image
+- badge attached to frame
+
+Also add tag beside player specifications line.
+
+CURRENT:
+ALL-ROUNDER • LEFT HAND • SPIN • NAGPUR
+
+NEW:
+ALL-ROUNDER • LEFT HAND • SPIN • NAGPUR • [ ICON ]
+
+The tag badge here should:
+- have filled background
+- slightly brighter than metadata
+- tighter padding
+- uppercase
+- letter spacing
+
+Example:
+padding: 3px 10px;
+font-size: 11px;
+font-weight: 700;
+border-radius: 999px;
+
+====================================================
+4. PLAYER LIST / TEAM PANEL
+====================================================
+
+In player cards/list rows:
+
+If player has tag:
+- add mini tag badge near name
+- add subtle left glow border on row
+- optionally glow player avatar slightly
+
+DO NOT make every card too bright.
+
+Use:
+border-left: 2px solid tagColor;
+
+Optional:
+background:
+linear-gradient(
+90deg,
+rgba(tagColor,0.10),
+transparent 35%
+);
+
+====================================================
+5. OBS MODE OPTIMIZATION
+====================================================
+
+VERY IMPORTANT FOR PERFORMANCE.
+
+DO:
+- static shadows
+- static gradients
+- opacity animation only
+- transform: translateZ(0)
+- will-change: opacity
+
+DO NOT:
+- animated box-shadow
+- animated blur()
+- CSS backdrop-filter animations
+- large radial gradients
+- canvas effects
+- particles
+- continuously rotating borders
+
+The display should remain smooth on:
+- Smart TVs
+- OBS browser source
+- low-end GPUs
+- projector systems
+
+====================================================
+6. IMPLEMENTATION STRUCTURE
+====================================================
+
+Create reusable utility:
+
+getTagTheme(tag)
+
+Returns:
+{
+  color,
+  glow,
+  border,
+  textColor,
+  bg
+}
+
+Create reusable components:
+- TagBadge
+- PlayerTagFrame
+- PlayerTagGlow
+
+====================================================
+7. APPLY IN THESE SCREENS
+====================================================
+
+Apply tag visuals in:
+
+1. Live Auction Display Screen
+2. OBS View
+3. Team Panel
+4. Player Listing
+5. Retained Player Cards
+6. Sold Player Cards
+7. Live Viewer Mode
+8. Current Player Popup
+9. Auction Overlay Cards
+
+====================================================
+8. IMPORTANT UI RULES
+====================================================
+
+- Keep UI elegant and premium
+- Avoid gaming-style overeffects
+- Glow should feel IPL-broadcast inspired
+- Maintain readability from distance
+- TV viewers should instantly identify special players
+
+====================================================
+9. RESPONSIVE RULES
+====================================================
+
+Desktop:
+- full glow
+- badge visible
+
+TV mode:
+- slightly stronger glow
+- larger tag text
+
+Mobile:
+- smaller compact badge
+- reduce glow intensity
+
+====================================================
+10. DATA LOGIC
+====================================================
+
+If:
+player.tag exists && player.tag !== "No tag"
+
+Then:
+- activate tag theme
+- show badge
+- enable glow frame
+
+Else:
+- render normal player card
+
+====================================================
+11. EXAMPLE FOR CURRENT PLAYER
+====================================================
+
+Example:
+Gaurav Soni tagged as ICON
+
+Expected result:
+- golden glowing border around image
+- ICON badge attached to frame
+- ICON badge also visible in metadata row
+- player row highlighted subtly in listing
+- all effects lightweight and render-safe
+
+====================================================
+12. EXTRA POLISH
+====================================================
+
+Optional:
+Add tiny shimmer line on badge hover ONLY in admin panels.
+DO NOT enable hover animations in live display screens.
+
+====================================================
+13. MOST IMPORTANT
+====================================================
+
+This should look:
+- premium
+- broadcast-ready
+- IPL inspired
+- visible from distance
+
+BUT:
+- lightweight
+- stable
+- zero lag during live auction

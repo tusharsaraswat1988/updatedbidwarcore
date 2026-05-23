@@ -4,6 +4,7 @@ import { User, Users as UsersIcon } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
+import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow } from "./types";
 
 /**
@@ -70,6 +71,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
   return (
     <div className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
       style={{ background: "radial-gradient(ellipse at top, #082f49 0%, #020617 60%, #000 100%)" }}>
+      <style>{TAG_PULSE_KEYFRAMES}</style>
       <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
@@ -145,13 +147,18 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                 const color = team?.color || "#64748b";
                 const cat = p.categoryId ? catMap.get(p.categoryId) : null;
                 const status = statusStyle(p.status);
+                const tagTheme = getTagTheme(p.playerTag);
                 return (
                   <motion.div
                     key={p.id}
                     initial={false}
-                    className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center border-b border-white/5"
+                    className="grid grid-cols-12 gap-2 py-2.5 pr-4 items-center border-b border-white/5"
                     style={{
-                      backgroundColor: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+                      background: tagTheme
+                        ? `linear-gradient(90deg, ${tagTheme.bg} 0%, transparent 45%)`
+                        : i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent",
+                      paddingLeft: tagTheme ? "14px" : "16px",
+                      borderLeft: `2px solid ${tagTheme ? tagTheme.color : "transparent"}`,
                     }}
                   >
                     <div className="col-span-1 text-center text-xs md:text-sm font-display font-black tabular-nums text-white/40">
@@ -162,21 +169,47 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                         <img
                           src={cldUrl(p.photoUrl, "thumbnail")}
                           alt={p.name}
-                          className="w-8 h-8 md:w-11 md:h-11 rounded-full object-cover flex-shrink-0 border-2 border-white/20"
+                          className="w-8 h-8 md:w-11 md:h-11 rounded-full object-cover flex-shrink-0 border-2"
+                          style={{
+                            borderColor: tagTheme ? tagTheme.color : "rgba(255,255,255,0.2)",
+                            boxShadow: tagTheme ? `0 0 8px ${tagTheme.glow}` : undefined,
+                          }}
                           loading="lazy"
                           decoding="async"
                         />
                       ) : (
-                        <div className="w-8 h-8 md:w-11 md:h-11 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <div
+                          className="w-8 h-8 md:w-11 md:h-11 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 border-2"
+                          style={{
+                            borderColor: tagTheme ? tagTheme.color : "transparent",
+                          }}
+                        >
                           <User className="w-4 h-4 md:w-5 md:h-5 text-white/40" />
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                           <p className="font-display font-bold text-sm md:text-base leading-tight truncate text-white">{p.name}</p>
-                          {p.playerTag && (
-                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-black tracking-wider bg-amber-500/20 border border-amber-400/40 text-amber-300 uppercase">
-                              {p.playerTag === "vice_captain" ? "VC" : p.playerTag === "captain" ? "CAPT" : p.playerTag === "star_player" ? "STAR" : p.playerTag === "co_owner" ? "CO-OWN" : p.playerTag.toUpperCase()}
+                          {tagTheme && (
+                            <span
+                              style={{
+                                flexShrink: 0,
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                fontSize: "8px",
+                                fontWeight: 800,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                background: tagTheme.bg,
+                                border: `1px solid ${tagTheme.border}`,
+                                color: tagTheme.color,
+                                animation: TAG_PULSE_ANIMATION,
+                                transform: "translateZ(0)",
+                                willChange: "opacity",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {tagTheme.abbrev}
                             </span>
                           )}
                           {p.isNonPlayingMember && (

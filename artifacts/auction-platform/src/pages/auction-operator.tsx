@@ -59,6 +59,7 @@ import {
   Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 
 // ─── Countdown clock (live) ───────────────────────────────────────────────────
@@ -966,11 +967,31 @@ export default function AuctionOperator() {
                             {player.name}
                           </p>
                           {isDeferred && <Hourglass className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 opacity-70" />}
-                          {(player as any).playerTag && (
-                            <span className="flex-shrink-0 text-[7px] font-black tracking-wider px-1 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 uppercase leading-none">
-                              {(player as any).playerTag === "vice_captain" ? "VC" : (player as any).playerTag === "captain" ? "CAPT" : (player as any).playerTag === "star_player" ? "STAR" : (player as any).playerTag === "co_owner" ? "CO-OWN" : ((player as any).playerTag as string).replace("_", " ").toUpperCase()}
-                            </span>
-                          )}
+                          {(player as any).playerTag && (() => {
+                            const tt = getTagTheme((player as any).playerTag);
+                            if (!tt) return null;
+                            return (
+                              <span style={{
+                                flexShrink: 0,
+                                padding: "2px 7px",
+                                borderRadius: 999,
+                                fontSize: "7px",
+                                fontWeight: 800,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                background: tt.bg,
+                                border: `1px solid ${tt.border}`,
+                                color: tt.color,
+                                animation: TAG_PULSE_ANIMATION,
+                                transform: "translateZ(0)",
+                                willChange: "opacity",
+                                whiteSpace: "nowrap",
+                                lineHeight: 1,
+                              }}>
+                                {tt.abbrev}
+                              </span>
+                            );
+                          })()}
                           {(player as any).isNonPlayingMember && (
                             <span className="flex-shrink-0 text-[7px] font-bold tracking-wider px-1 py-0.5 rounded bg-slate-500/15 border border-slate-400/20 text-slate-400 uppercase leading-none">NP</span>
                           )}

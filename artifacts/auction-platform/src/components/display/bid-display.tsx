@@ -4,6 +4,7 @@ import { Calendar } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { AuctionCountdown } from "./auction-countdown";
+import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 
 /**
  * Right column of the main broadcast — player name, specs, current bid,
@@ -36,6 +37,7 @@ export const BidDisplay = memo(function BidDisplay({
   bidIncrement,
   timerEndsAt,
   timerType,
+  playerTag,
 }: {
   playerId: number;
   playerName: string;
@@ -51,7 +53,9 @@ export const BidDisplay = memo(function BidDisplay({
   bidIncrement: number | null | undefined;
   timerEndsAt: string | null | undefined;
   timerType: string | null | undefined;
+  playerTag?: string | null;
 }) {
+  const tag = getTagTheme(playerTag);
   return (
     <motion.div
       key={`info-${playerId}`}
@@ -61,10 +65,38 @@ export const BidDisplay = memo(function BidDisplay({
       className="flex-1 text-center md:text-left space-y-4"
     >
       <div>
-        {playerSpecs.length > 0 && (
-          <p className="text-xs md:text-sm font-mono text-muted-foreground uppercase tracking-widest mb-2">
-            {playerSpecs.join(" · ")}
-          </p>
+        {(playerSpecs.length > 0 || tag) && (
+          <div className="flex items-center gap-3 flex-wrap mb-2">
+            {playerSpecs.length > 0 && (
+              <p className="text-xs md:text-sm font-mono text-muted-foreground uppercase tracking-widest">
+                {playerSpecs.join(" · ")}
+              </p>
+            )}
+            {tag && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "3px 12px",
+                  borderRadius: 999,
+                  fontSize: "clamp(10px, 1vw, 13px)",
+                  fontWeight: 800,
+                  letterSpacing: "0.15em",
+                  textTransform: "uppercase",
+                  background: tag.bg,
+                  border: `1.5px solid ${tag.border}`,
+                  color: tag.color,
+                  boxShadow: `0 0 10px ${tag.glow}`,
+                  animation: TAG_PULSE_ANIMATION,
+                  willChange: "opacity",
+                  transform: "translateZ(0)",
+                  flexShrink: 0,
+                }}
+              >
+                {tag.label}
+              </span>
+            )}
+          </div>
         )}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
           {playerName}

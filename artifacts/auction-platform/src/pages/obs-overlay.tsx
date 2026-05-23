@@ -8,25 +8,31 @@ import {
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 
 // ─── Hexagon clip-path player photo ──────────────────────────────────────────
-function HexPhoto({ src, color, size = 180 }: { src?: string | null; color: string; size?: number }) {
+function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; color: string; size?: number; playerTag?: string | null }) {
   const hex = "polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)";
+  const tag = getTagTheme(playerTag);
+  const glowColor = tag?.color ?? color;
   return (
     <div style={{ position: "relative", width: size, height: size * 1.08, flexShrink: 0 }}>
-      {/* Glow ring */}
+      {/* Glow ring — uses tag colour when available */}
       <div style={{
         position: "absolute", inset: -3,
         clipPath: hex,
-        background: color,
+        background: glowColor,
         filter: `blur(8px)`,
-        opacity: 0.6,
+        opacity: tag ? 0.75 : 0.6,
+        animation: tag ? TAG_PULSE_ANIMATION : undefined,
+        willChange: tag ? "opacity" : undefined,
+        transform: "translateZ(0)",
       }} />
       {/* Border */}
       <div style={{
         position: "absolute", inset: -2,
         clipPath: hex,
-        background: color,
+        background: glowColor,
         opacity: 0.9,
       }} />
       {/* Photo */}
@@ -379,7 +385,12 @@ export default function ObsOverlay() {
               gap: 32,
             }}>
               {/* Hexagonal player photo */}
-              <HexPhoto src={state?.currentPlayer?.photoUrl} color={isActive ? bidColor : "#666"} size={110} />
+              <HexPhoto
+                src={state?.currentPlayer?.photoUrl}
+                color={isActive ? bidColor : "#666"}
+                size={110}
+                playerTag={(state?.currentPlayer as { playerTag?: string | null } | undefined)?.playerTag}
+              />
 
               {/* Player info */}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -396,6 +407,31 @@ export default function ObsOverlay() {
                 <div style={{ fontSize: 42, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {state?.currentPlayer?.name}
                 </div>
+                {(() => {
+                  const pt = (state?.currentPlayer as { playerTag?: string | null } | undefined)?.playerTag;
+                  const tt = getTagTheme(pt);
+                  return tt ? (
+                    <div style={{
+                      display: "inline-flex", alignItems: "center",
+                      marginTop: 8,
+                      padding: "4px 14px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      background: tt.bg,
+                      border: `1.5px solid ${tt.border}`,
+                      color: tt.color,
+                      boxShadow: `0 0 10px ${tt.glow}`,
+                      animation: TAG_PULSE_ANIMATION,
+                      transform: "translateZ(0)",
+                      willChange: "opacity",
+                    }}>
+                      {tt.label}
+                    </div>
+                  ) : null;
+                })()}
                 <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 5, display: "flex", gap: 12 }}>
                   {state?.currentPlayer?.role && <span>{state.currentPlayer.role}</span>}
                   {state?.currentPlayer?.city && <span style={{ opacity: 0.6 }}>· {state.currentPlayer.city}</span>}
@@ -475,6 +511,7 @@ export default function ObsOverlay() {
 
       <style>{`
         @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes softPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.92; } }
       `}</style>
     </div>
   );

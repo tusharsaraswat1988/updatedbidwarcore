@@ -8,6 +8,12 @@
   to   { transform: translateX(-50%); }
 }
 
+/* GPU-safe opacity pulse for player tag badges (no blur/shadow/transform animation) */
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.92; }
+}
+
 @keyframes accordion-down {
   from { height: 0; overflow: hidden; }
   to   { height: var(--radix-accordion-content-height); overflow: hidden; }

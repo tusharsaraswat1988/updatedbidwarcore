@@ -263,6 +263,10 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           from { transform: translateX(0); }
           to { transform: translateX(-50%); }
         }
+        @keyframes softPulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.92; }
+        }
       `}</style>
       <StaticBackground teamColor={teamColor} theme={theme}>
         <AuctionHeader
@@ -308,6 +312,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                   photoUrl={state.currentPlayer.photoUrl}
                   jerseyNumber={state.currentPlayer.jerseyNumber}
                   teamColor={teamColor}
+                  playerTag={(state.currentPlayer as { playerTag?: string | null }).playerTag ?? null}
                 />
                 <BidDisplay
                   playerId={state.currentPlayer.id}
@@ -324,6 +329,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                   bidIncrement={state.bidIncrement}
                   timerEndsAt={state.timerEndsAt}
                   timerType={state.timerType}
+                  playerTag={(state.currentPlayer as { playerTag?: string | null }).playerTag ?? null}
                 />
               </div>
             </div>

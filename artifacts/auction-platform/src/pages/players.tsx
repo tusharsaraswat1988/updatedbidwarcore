@@ -35,6 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
+import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 
@@ -1152,8 +1153,16 @@ export default function Players() {
             {filtered.map(player => {
               const cat = player.categoryId ? catMap[player.categoryId] : null;
               const team = player.teamId ? teamMap[player.teamId] : null;
+              const tagTheme = getTagTheme(player.playerTag);
               return (
-                <Card key={player.id} className="border-border hover:border-primary/20 transition-all">
+                <Card
+                  key={player.id}
+                  className="border-border hover:border-primary/20 transition-all"
+                  style={{
+                    borderLeft: tagTheme ? `3px solid ${tagTheme.color}` : undefined,
+                    background: tagTheme ? `linear-gradient(90deg, ${tagTheme.bg} 0%, transparent 40%)` : undefined,
+                  }}
+                >
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {player.photoUrl ? (
@@ -1169,10 +1178,23 @@ export default function Players() {
                           <span className="text-xs text-muted-foreground font-mono">#{player.jerseyNumber}</span>
                         )}
                         <Badge variant="outline" className={statusColors[player.status] || ""}>{player.status}</Badge>
-                        {player.playerTag && (
-                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-300 border-amber-500/30 uppercase tracking-wide">
-                            {playerTagLabel(player.playerTag)}
-                          </Badge>
+                        {tagTheme && (
+                          <span style={{
+                            padding: "2px 9px",
+                            borderRadius: 999,
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            background: tagTheme.bg,
+                            border: `1px solid ${tagTheme.border}`,
+                            color: tagTheme.color,
+                            animation: TAG_PULSE_ANIMATION,
+                            transform: "translateZ(0)",
+                            willChange: "opacity",
+                          }}>
+                            {tagTheme.label}
+                          </span>
                         )}
                         {player.isNonPlayingMember && (
                           <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-400 border-slate-500/20">
