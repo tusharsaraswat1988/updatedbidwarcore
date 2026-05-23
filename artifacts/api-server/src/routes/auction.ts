@@ -869,11 +869,16 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         const { sendDltSms } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
         if (settings?.dltEnabled && settings.playerSoldEnabled && settings.playerSoldTemplateId) {
-          const formatted = soldAmount.toLocaleString("en-IN");
+          // Template vars (must match approved DLT sample exactly):
+          // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
+          const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
+          const appUrl = process.env.APP_DOMAIN?.trim()
+            ? `https://${process.env.APP_DOMAIN.trim()}`
+            : `https://${domains[0]?.trim() || "bidwar.in"}`;
           await sendDltSms(
             [playerMobile],
             settings.playerSoldTemplateId,
-            [soldPlayer.name ?? "Player", team?.name ?? "Team", formatted, tournament?.name ?? ""],
+            [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
           );
         }
       } catch (err) { logger.error({ err, playerId }, "DLT player-sold SMS failed"); }
