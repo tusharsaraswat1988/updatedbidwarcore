@@ -326,7 +326,7 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   await db.update(tournamentsTable).set({ exportToken, exportTokenExpiresAt }).where(eq(tournamentsTable.id, id));
 
   // Derive the cloud base URL so the local app knows where to mirror back
-  const host = process.env.REPLIT_DOMAINS?.split(",")[0] || req.get("host") || "localhost";
+  const host = process.env.APP_DOMAIN?.split(",")[0]?.trim() || req.get("host") || "localhost";
   const cloudBaseUrl = `https://${host}`;
 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
@@ -473,7 +473,7 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const domain = process.env.APP_DOMAIN?.trim() || "bidwar.in";
+  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "bidwar.in";
   const viewerUrl = `https://${domain}/tournament/${tid}/display`;
 
   const orgId = tournament.organizerId;
