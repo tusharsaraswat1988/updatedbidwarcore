@@ -45,8 +45,14 @@ async function f2sPost(path: string, body: Record<string, unknown>): Promise<{ o
       headers: { authorization: key, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = (await res.json().catch(() => ({}))) as Fast2SmsResponse;
-    return { ok: res.ok && !!data.return, data };
+    const rawText = await res.text().catch(() => "");
+    let data: Fast2SmsResponse = {};
+    try { data = JSON.parse(rawText) as Fast2SmsResponse; } catch { /* non-JSON response */ }
+    const ok = res.ok && !!data.return;
+    if (!ok) {
+      logger.error({ path, httpStatus: res.status, rawResponse: rawText.slice(0, 500), parsed: data }, "fast2sms API error response");
+    }
+    return { ok, data };
   } catch (err) {
     logger.error({ err, path }, "fast2sms request error");
     return { ok: false, data: { message: "SMS service unavailable" } };
