@@ -522,8 +522,13 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
       onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || "Failed to save player";
-      setSubmitError(msg);
+      const body = err?.response?.data;
+      const msg = body?.error || err?.message || "Failed to save player";
+      if (body?.field === "mobileNumber") {
+        setMobileError(msg);
+      } else {
+        setSubmitError(msg);
+      }
     }
   }
 

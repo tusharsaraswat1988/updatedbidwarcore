@@ -178,12 +178,23 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     .where(and(eq(playersTable.tournamentId, tid), sql`lower(${playersTable.name}) = lower(${d.name})`));
   if (dupName) { res.status(400).json({ error: `A player named "${d.name}" is already registered in this tournament.` }); return; }
 
+  // Duplicate mobile check within the same tournament
+  if (d.mobileNumber) {
+    const [dupMobile] = await db
+      .select({ id: playersTable.id, name: playersTable.name })
+      .from(playersTable)
+      .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.mobileNumber, d.mobileNumber)));
+    if (dupMobile) {
+      res.status(400).json({ error: `Mobile number ${d.mobileNumber} is already registered for player "${dupMobile.name}" in this tournament.`, field: "mobileNumber" }); return;
+    }
+  }
+
   // Block organizer from registering their own mobile as a player
   const orgAccountId = req.jwtUser?.organizerAccountId;
   if (orgAccountId && d.mobileNumber) {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
     if (org?.mobile && org.mobile === d.mobileNumber) {
-      res.status(400).json({ error: "You cannot register the organizer's own mobile number as a player." }); return;
+      res.status(400).json({ error: "You cannot register the organizer's own mobile number as a player.", field: "mobileNumber" }); return;
     }
   }
 
@@ -382,6 +393,21 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Duplicate mobile check within the same tournament (exclude self)
+  if (d.mobileNumber) {
+    const [dupMobile] = await db
+      .select({ id: playersTable.id, name: playersTable.name })
+      .from(playersTable)
+      .where(and(
+        eq(playersTable.tournamentId, tid),
+        eq(playersTable.mobileNumber, d.mobileNumber),
+        sql`${playersTable.id} != ${playerId}`,
+      ));
+    if (dupMobile) {
+      res.status(400).json({ error: `Mobile number ${d.mobileNumber} is already registered for player "${dupMobile.name}" in this tournament.`, field: "mobileNumber" }); return;
+    }
+  }
 
   // Validate: retained status requires a team + price
   const newStatus = d.status ?? existing.status;
