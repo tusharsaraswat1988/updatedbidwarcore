@@ -180,7 +180,7 @@ export function OwnerRoute() {
   async function verifyCode(enteredCode: string): Promise<boolean> {
     try {
       const r = await fetch(
-        `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access-code`,
+        `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`,
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },

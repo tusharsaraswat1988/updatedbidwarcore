@@ -77,7 +77,10 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
               value={code}
               onChange={e => { setCode(e.target.value.toUpperCase()); setError(""); }}
               placeholder="ACCESS CODE"
-              autoComplete="off"
+              autoComplete="one-time-code"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck={false}
               autoFocus
               className="w-full px-6 py-6 rounded-2xl border border-[#3f3f46] text-center font-display font-bold text-3xl tracking-[0.35em] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none transition-colors"
               style={{ borderColor: code ? teamColor : undefined }}
