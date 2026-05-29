@@ -869,7 +869,16 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         const { sendDltSms, playerSoldTemplateId } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
         // Env var takes priority over DB setting so the template ID is universal
-        const templateId = playerSoldTemplateId() || settings?.playerSoldTemplateId;
+        const envTemplateId = playerSoldTemplateId();
+        const templateId = envTemplateId || settings?.playerSoldTemplateId;
+        logger.info({
+          playerId,
+          dltEnabled: settings?.dltEnabled,
+          playerSoldEnabled: settings?.playerSoldEnabled,
+          templateIdSource: envTemplateId ? "env" : "db",
+          templateId,
+          mobile: playerMobile.slice(0, 4) + "xxxxxx",
+        }, "DLT player-sold SMS: pre-flight check");
         if (settings?.dltEnabled && settings.playerSoldEnabled && templateId) {
           // Template vars (must match approved DLT sample exactly):
           // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
@@ -879,9 +888,23 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
             templateId,
             [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
           );
+          logger.info({ playerId, templateId, mobile: playerMobile.slice(0, 4) + "xxxxxx" }, "DLT player-sold SMS: sent");
+        } else {
+          logger.warn({
+            playerId,
+            dltEnabled: settings?.dltEnabled,
+            playerSoldEnabled: settings?.playerSoldEnabled,
+            templateId,
+          }, "DLT player-sold SMS: skipped (condition not met)");
         }
       } catch (err) { logger.error({ err, playerId }, "DLT player-sold SMS failed"); }
     })();
+  } else {
+    logger.info({
+      playerId,
+      licenseStatus: tournament?.licenseStatus,
+      hasMobile: !!soldPlayer?.mobileNumber,
+    }, "DLT player-sold SMS: not attempted (no mobile or not active)");
   }
 
   // Log player auction end (fire-and-forget)
