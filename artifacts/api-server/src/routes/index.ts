@@ -20,6 +20,7 @@ import pushRouter from "./push";
 import settingsRouter from "./settings";
 import displayAuctionsRouter from "./display-auctions";
 import showcaseRouter from "./showcase";
+import teamReportsRouter from "./team-reports";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(sportsRouter);
 router.use(settingsRouter);
 router.use(displayAuctionsRouter);
 router.use(showcaseRouter);
+router.use(teamReportsRouter);
 
 export default router;

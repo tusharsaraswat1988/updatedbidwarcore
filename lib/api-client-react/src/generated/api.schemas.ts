@@ -39,6 +39,17 @@ export const TournamentMainBannerFit = {
   contain: "contain",
 } as const;
 
+/**
+ * License status: trial (limited) or active (full access)
+ */
+export type TournamentLicenseStatus =
+  (typeof TournamentLicenseStatus)[keyof typeof TournamentLicenseStatus];
+
+export const TournamentLicenseStatus = {
+  trial: "trial",
+  active: "active",
+} as const;
+
 export interface Tournament {
   id: number;
   name: string;
@@ -123,6 +134,10 @@ export interface Tournament {
   mainBannerFit?: TournamentMainBannerFit;
   /** Whether BidWar Local offline auction mode is enabled for this tournament */
   localModeEnabled?: boolean;
+  /** License status: trial (limited) or active (full access) */
+  licenseStatus?: TournamentLicenseStatus;
+  /** Whether the tournament has been locked by a master admin */
+  adminLocked?: boolean;
   createdAt: string;
 }
 
@@ -1102,6 +1117,108 @@ export interface ShowcaseEvent {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TeamReportListItem {
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+  ownerName: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  color?: string | null;
+  purse: number;
+  purseUsed: number;
+  retainedCount: number;
+  preSoldCount: number;
+  nonPlayingCount: number;
+}
+
+export interface TeamReportPlayer {
+  id: number;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  age?: number | null;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  mobileNumber?: string | null;
+  /** @nullable */
+  jerseyNumber?: string | null;
+  /** @nullable */
+  categoryId?: number | null;
+  /** @nullable */
+  categoryName?: string | null;
+  /** @nullable */
+  categoryColor?: string | null;
+  /** @nullable */
+  soldPrice?: number | null;
+  /** @nullable */
+  retainedPrice?: number | null;
+  status: string;
+  isNonPlayingMember: boolean;
+}
+
+export type TeamReportDataTournament = {
+  id: number;
+  name: string;
+  sport: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  licenseStatus: string;
+  minimumSquadSize: number;
+  maximumSquadSize: number;
+};
+
+export type TeamReportDataTeam = {
+  id: number;
+  name: string;
+  shortCode: string;
+  ownerName: string;
+  ownerMobile: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  color?: string | null;
+  purse: number;
+  purseUsed: number;
+};
+
+export type TeamReportDataPurgeSummary = {
+  totalPurse: number;
+  retainedSpend: number;
+  preSoldSpend: number;
+  remainingPurse: number;
+};
+
+export type TeamReportDataCategoriesItem = {
+  id: number;
+  name: string;
+  /** @nullable */
+  colorCode?: string | null;
+};
+
+export type TeamReportDataSquadInfo = {
+  totalAcquired: number;
+  slotsRemaining: number;
+  planningRows: number;
+};
+
+export interface TeamReportData {
+  isLicensed: boolean;
+  tournament: TeamReportDataTournament;
+  team: TeamReportDataTeam;
+  purgeSummary: TeamReportDataPurgeSummary;
+  retainedPlayers: TeamReportPlayer[];
+  preSoldPlayers: TeamReportPlayer[];
+  nonPlayingMembers: TeamReportPlayer[];
+  categories: TeamReportDataCategoriesItem[];
+  squadInfo: TeamReportDataSquadInfo;
 }
 
 export interface ShowcaseEventInput {

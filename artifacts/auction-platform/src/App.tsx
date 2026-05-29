@@ -40,6 +40,7 @@ const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
+const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
@@ -161,6 +162,12 @@ function Router() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid}><Reports /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/team-reports">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><TeamReports /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/links">

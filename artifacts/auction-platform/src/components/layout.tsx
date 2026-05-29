@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3, Coffee,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText,
 } from "lucide-react";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
@@ -161,9 +161,9 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
                 {tournament?.status === "completed" ? (
-                  <Link href={`/tournament/${tournamentId}/reports`} title="Reports" className={navCls(`/tournament/${tournamentId}/reports`)}>
+                  <Link href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={navCls(`/tournament/${tournamentId}/reports`)}>
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="font-medium">Reports</span>}
+                    {!collapsed && <span className="font-medium">Reports & Analytics</span>}
                   </Link>
                 ) : (
                   <div
@@ -175,8 +175,29 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && (
                       <>
-                        <span className="font-medium">Reports</span>
+                        <span className="font-medium">Reports & Analytics</span>
                         <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Locked</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                {tournament?.licenseStatus === "active" ? (
+                  <Link href={`/tournament/${tournamentId}/team-reports`} title="Team Reports" className={navCls(`/tournament/${tournamentId}/team-reports`)}>
+                    <FileText className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Team Reports</span>}
+                  </Link>
+                ) : (
+                  <div
+                    title="Team Reports available only for licensed tournaments"
+                    className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
+                      collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
+                    }`}
+                  >
+                    <FileText className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="font-medium">Team Reports</span>
+                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Licensed</span>
                       </>
                     )}
                   </div>

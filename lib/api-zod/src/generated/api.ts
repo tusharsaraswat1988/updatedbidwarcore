@@ -113,6 +113,14 @@ export const ListTournamentsResponseItem = zod.object({
     .describe(
       "Whether BidWar Local offline auction mode is enabled for this tournament",
     ),
+  licenseStatus: zod
+    .enum(["trial", "active"])
+    .optional()
+    .describe("License status: trial (limited) or active (full access)"),
+  adminLocked: zod
+    .boolean()
+    .optional()
+    .describe("Whether the tournament has been locked by a master admin"),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -247,6 +255,14 @@ export const GetTournamentResponse = zod.object({
     .describe(
       "Whether BidWar Local offline auction mode is enabled for this tournament",
     ),
+  licenseStatus: zod
+    .enum(["trial", "active"])
+    .optional()
+    .describe("License status: trial (limited) or active (full access)"),
+  adminLocked: zod
+    .boolean()
+    .optional()
+    .describe("Whether the tournament has been locked by a master admin"),
   createdAt: zod.string(),
 });
 
@@ -381,6 +397,14 @@ export const UpdateTournamentResponse = zod.object({
     .describe(
       "Whether BidWar Local offline auction mode is enabled for this tournament",
     ),
+  licenseStatus: zod
+    .enum(["trial", "active"])
+    .optional()
+    .describe("License status: trial (limited) or active (full access)"),
+  adminLocked: zod
+    .boolean()
+    .optional()
+    .describe("Whether the tournament has been locked by a master admin"),
   createdAt: zod.string(),
 });
 
@@ -492,6 +516,14 @@ export const ExportTournamentForLocalResponse = zod.object({
       .describe(
         "Whether BidWar Local offline auction mode is enabled for this tournament",
       ),
+    licenseStatus: zod
+      .enum(["trial", "active"])
+      .optional()
+      .describe("License status: trial (limited) or active (full access)"),
+    adminLocked: zod
+      .boolean()
+      .optional()
+      .describe("Whether the tournament has been locked by a master admin"),
     createdAt: zod.string(),
   }),
   teams: zod.array(
@@ -4824,6 +4856,137 @@ export const ImportPlayersFromTournamentResponse = zod.object({
   imported: zod.number(),
   skipped: zod.number(),
   total: zod.number(),
+});
+
+/**
+ * @summary List all teams with pre-auction report stats (license required)
+ */
+export const GetTeamReportListParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const GetTeamReportListResponseItem = zod.object({
+  teamId: zod.number(),
+  teamName: zod.string(),
+  shortCode: zod.string(),
+  ownerName: zod.string(),
+  logoUrl: zod.string().nullish(),
+  color: zod.string().nullish(),
+  purse: zod.number(),
+  purseUsed: zod.number(),
+  retainedCount: zod.number(),
+  preSoldCount: zod.number(),
+  nonPlayingCount: zod.number(),
+});
+export const GetTeamReportListResponse = zod.array(
+  GetTeamReportListResponseItem,
+);
+
+/**
+ * @summary Full pre-auction team report data (license required)
+ */
+export const GetTeamReportParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  teamId: zod.coerce.number(),
+});
+
+export const GetTeamReportResponse = zod.object({
+  isLicensed: zod.boolean(),
+  tournament: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    sport: zod.string(),
+    logoUrl: zod.string().nullish(),
+    licenseStatus: zod.string(),
+    minimumSquadSize: zod.number(),
+    maximumSquadSize: zod.number(),
+  }),
+  team: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    shortCode: zod.string(),
+    ownerName: zod.string(),
+    ownerMobile: zod.string(),
+    logoUrl: zod.string().nullish(),
+    color: zod.string().nullish(),
+    purse: zod.number(),
+    purseUsed: zod.number(),
+  }),
+  purgeSummary: zod.object({
+    totalPurse: zod.number(),
+    retainedSpend: zod.number(),
+    preSoldSpend: zod.number(),
+    remainingPurse: zod.number(),
+  }),
+  retainedPlayers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      role: zod.string().nullish(),
+      city: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      jerseyNumber: zod.string().nullish(),
+      categoryId: zod.number().nullish(),
+      categoryName: zod.string().nullish(),
+      categoryColor: zod.string().nullish(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.string(),
+      isNonPlayingMember: zod.boolean(),
+    }),
+  ),
+  preSoldPlayers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      role: zod.string().nullish(),
+      city: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      jerseyNumber: zod.string().nullish(),
+      categoryId: zod.number().nullish(),
+      categoryName: zod.string().nullish(),
+      categoryColor: zod.string().nullish(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.string(),
+      isNonPlayingMember: zod.boolean(),
+    }),
+  ),
+  nonPlayingMembers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      role: zod.string().nullish(),
+      city: zod.string().nullish(),
+      age: zod.number().nullish(),
+      photoUrl: zod.string().nullish(),
+      mobileNumber: zod.string().nullish(),
+      jerseyNumber: zod.string().nullish(),
+      categoryId: zod.number().nullish(),
+      categoryName: zod.string().nullish(),
+      categoryColor: zod.string().nullish(),
+      soldPrice: zod.number().nullish(),
+      retainedPrice: zod.number().nullish(),
+      status: zod.string(),
+      isNonPlayingMember: zod.boolean(),
+    }),
+  ),
+  categories: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      colorCode: zod.string().nullish(),
+    }),
+  ),
+  squadInfo: zod.object({
+    totalAcquired: zod.number(),
+    slotsRemaining: zod.number(),
+    planningRows: zod.number(),
+  }),
 });
 
 /**

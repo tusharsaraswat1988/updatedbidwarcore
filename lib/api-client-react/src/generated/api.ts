@@ -61,6 +61,8 @@ import type {
   Team,
   TeamInput,
   TeamPurse,
+  TeamReportData,
+  TeamReportListItem,
   TeamUpdate,
   TimerInput,
   TopBidEntry,
@@ -5392,6 +5394,199 @@ export const useImportPlayersFromTournament = <
 > => {
   return useMutation(getImportPlayersFromTournamentMutationOptions(options));
 };
+
+/**
+ * @summary List all teams with pre-auction report stats (license required)
+ */
+export const getGetTeamReportListUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/team-reports`;
+};
+
+export const getTeamReportList = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<TeamReportListItem[]> => {
+  return customFetch<TeamReportListItem[]>(
+    getGetTeamReportListUrl(tournamentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTeamReportListQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/team-reports`] as const;
+};
+
+export const getGetTeamReportListQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeamReportList>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamReportList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeamReportListQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTeamReportList>>
+  > = ({ signal }) =>
+    getTeamReportList(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeamReportList>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeamReportListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeamReportList>>
+>;
+export type GetTeamReportListQueryError = ErrorType<void>;
+
+/**
+ * @summary List all teams with pre-auction report stats (license required)
+ */
+
+export function useGetTeamReportList<
+  TData = Awaited<ReturnType<typeof getTeamReportList>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamReportList>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeamReportListQueryOptions(tournamentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Full pre-auction team report data (license required)
+ */
+export const getGetTeamReportUrl = (tournamentId: number, teamId: number) => {
+  return `/api/tournaments/${tournamentId}/team-reports/${teamId}`;
+};
+
+export const getTeamReport = async (
+  tournamentId: number,
+  teamId: number,
+  options?: RequestInit,
+): Promise<TeamReportData> => {
+  return customFetch<TeamReportData>(
+    getGetTeamReportUrl(tournamentId, teamId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTeamReportQueryKey = (
+  tournamentId: number,
+  teamId: number,
+) => {
+  return [`/api/tournaments/${tournamentId}/team-reports/${teamId}`] as const;
+};
+
+export const getGetTeamReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeamReport>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  teamId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeamReportQueryKey(tournamentId, teamId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamReport>>> = ({
+    signal,
+  }) => getTeamReport(tournamentId, teamId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(tournamentId && teamId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeamReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeamReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeamReport>>
+>;
+export type GetTeamReportQueryError = ErrorType<void>;
+
+/**
+ * @summary Full pre-auction team report data (license required)
+ */
+
+export function useGetTeamReport<
+  TData = Awaited<ReturnType<typeof getTeamReport>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  teamId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeamReportQueryOptions(
+    tournamentId,
+    teamId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List active showcase events (public)

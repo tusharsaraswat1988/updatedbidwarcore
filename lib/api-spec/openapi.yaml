@@ -1459,6 +1459,58 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportPlayersResult"
 
+  # ─── TEAM REPORTS ────────────────────────────────────────────────────────────
+  /tournaments/{tournamentId}/team-reports:
+    get:
+      operationId: getTeamReportList
+      tags: [team-reports]
+      summary: List all teams with pre-auction report stats (license required)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team report summary list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamReportListItem"
+        "403":
+          description: Active license required
+
+  /tournaments/{tournamentId}/team-reports/{teamId}:
+    get:
+      operationId: getTeamReport
+      tags: [team-reports]
+      summary: Full pre-auction team report data (license required)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full team report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamReportData"
+        "403":
+          description: Active license required
+        "404":
+          description: Team not found
+
   # ─── SHOWCASE EVENTS ─────────────────────────────────────────────────────────
   /showcase-events:
     get:
@@ -1740,6 +1792,13 @@ components:
         localModeEnabled:
           type: boolean
           description: "Whether BidWar Local offline auction mode is enabled for this tournament"
+        licenseStatus:
+          type: string
+          enum: [trial, active]
+          description: "License status: trial (limited) or active (full access)"
+        adminLocked:
+          type: boolean
+          description: "Whether the tournament has been locked by a master admin"
         createdAt:
           type: string
 
@@ -2955,6 +3014,161 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    TeamReportListItem:
+      type: object
+      required: [teamId, teamName, shortCode, ownerName, purse, purseUsed, retainedCount, preSoldCount, nonPlayingCount]
+      properties:
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        shortCode:
+          type: string
+        ownerName:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        color:
+          type: ["string", "null"]
+        purse:
+          type: integer
+        purseUsed:
+          type: integer
+        retainedCount:
+          type: integer
+        preSoldCount:
+          type: integer
+        nonPlayingCount:
+          type: integer
+
+    TeamReportPlayer:
+      type: object
+      required: [id, name, status, isNonPlayingMember]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        age:
+          type: ["integer", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        mobileNumber:
+          type: ["string", "null"]
+        jerseyNumber:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        categoryName:
+          type: ["string", "null"]
+        categoryColor:
+          type: ["string", "null"]
+        soldPrice:
+          type: ["integer", "null"]
+        retainedPrice:
+          type: ["integer", "null"]
+        status:
+          type: string
+        isNonPlayingMember:
+          type: boolean
+
+    TeamReportData:
+      type: object
+      required: [isLicensed, tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, categories, squadInfo]
+      properties:
+        isLicensed:
+          type: boolean
+        tournament:
+          type: object
+          required: [id, name, sport, licenseStatus, minimumSquadSize, maximumSquadSize]
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            sport:
+              type: string
+            logoUrl:
+              type: ["string", "null"]
+            licenseStatus:
+              type: string
+            minimumSquadSize:
+              type: integer
+            maximumSquadSize:
+              type: integer
+        team:
+          type: object
+          required: [id, name, shortCode, ownerName, ownerMobile, purse, purseUsed]
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            shortCode:
+              type: string
+            ownerName:
+              type: string
+            ownerMobile:
+              type: string
+            logoUrl:
+              type: ["string", "null"]
+            color:
+              type: ["string", "null"]
+            purse:
+              type: integer
+            purseUsed:
+              type: integer
+        purgeSummary:
+          type: object
+          required: [totalPurse, retainedSpend, preSoldSpend, remainingPurse]
+          properties:
+            totalPurse:
+              type: integer
+            retainedSpend:
+              type: integer
+            preSoldSpend:
+              type: integer
+            remainingPurse:
+              type: integer
+        retainedPlayers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamReportPlayer"
+        preSoldPlayers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamReportPlayer"
+        nonPlayingMembers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamReportPlayer"
+        categories:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              colorCode:
+                type: ["string", "null"]
+        squadInfo:
+          type: object
+          required: [totalAcquired, slotsRemaining, planningRows]
+          properties:
+            totalAcquired:
+              type: integer
+            slotsRemaining:
+              type: integer
+            planningRows:
+              type: integer
 
     ShowcaseEventInput:
       type: object
