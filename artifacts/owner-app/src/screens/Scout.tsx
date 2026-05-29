@@ -165,7 +165,7 @@ function TeamRow({
 export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted }: Props) {
   const [tab, setTab] = useState<Tab>("teams");
 
-  const { data, isLoading, isError } = useGetTeamScout(tournamentId, {
+  const { data, isLoading, isError, refetch } = useGetTeamScout(tournamentId, {
     query: {
       queryKey: getGetTeamScoutQueryKey(tournamentId),
       enabled: !!tournamentId,
@@ -205,7 +205,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
             className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/20 border-b border-green-500/30"
           >
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <p className="text-sm font-bold text-green-400">Player going live — returning to bid screen...</p>
+            <p className="text-sm font-bold text-green-400">Auction started — returning to bid screen</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -259,13 +259,31 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
       {/* Content */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading && (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: teamColor, borderTopColor: "transparent" }} />
+          <div className="px-4 py-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-[#27272a] bg-[#18181b] px-4 py-3.5 flex items-center gap-3 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-[#27272a] flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 rounded-full bg-[#27272a]" style={{ width: `${45 + i * 12}%` }} />
+                  <div className="h-2.5 rounded-full bg-[#27272a] w-1/3" />
+                </div>
+                <div className="space-y-1.5 items-end flex flex-col flex-shrink-0">
+                  <div className="h-3.5 w-14 rounded-full bg-[#27272a]" />
+                  <div className="h-2 w-10 rounded-full bg-[#27272a]" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
         {isError && (
-          <div className="flex items-center justify-center h-40 px-6 text-center">
-            <p className="text-sm text-[#52525b]">Failed to load scout data. Pull down to retry.</p>
+          <div className="flex flex-col items-center justify-center gap-4 h-48 px-6 text-center">
+            <p className="text-sm text-[#52525b]">Failed to load scout data.</p>
+            <button
+              onClick={() => void refetch()}
+              className="px-5 py-2.5 rounded-xl text-sm font-bold border border-[#3f3f46] text-[#a1a1aa] hover:bg-[#18181b] hover:text-white transition-colors active:scale-95"
+            >
+              Retry
+            </button>
           </div>
         )}
 

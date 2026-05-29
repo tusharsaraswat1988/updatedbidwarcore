@@ -163,7 +163,7 @@ export function OwnerRoute() {
       const t = setTimeout(() => {
         setScoutAutoReturn(false);
         setScreen("live");
-      }, 2000);
+      }, 500);
       return () => clearTimeout(t);
     }
     return;
