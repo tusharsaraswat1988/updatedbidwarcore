@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert,
-  AlertTriangle, Users, Coffee, RefreshCw, X, XCircle,
+  AlertTriangle, Users, Coffee, RefreshCw, X, XCircle, Telescope,
 } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -88,6 +88,7 @@ interface Props {
   bidErrorMsg?: string;
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
+  onViewScout: () => void;
   onSignOut: () => void;
   onSync: () => void;
   isSyncError?: boolean;
@@ -409,7 +410,7 @@ function BrandMini({ logos, brandName, miniBrandText }: {
 // ── Main component ────────────────────────────────────────────────────────────
 export function LiveBid({
   state, team, tournament, teamPurse, teamId,
-  isFetching, bidErrorMsg, onBid, onViewSquad, onSignOut, onSync, isSyncError,
+  isFetching, bidErrorMsg, onBid, onViewSquad, onViewScout, onSignOut, onSync, isSyncError,
 }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
@@ -606,6 +607,13 @@ export function LiveBid({
               title="My squad"
             >
               <Users className="w-6 h-6" />
+            </button>
+            <button
+              onClick={onViewScout}
+              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
+              title="Scout rivals"
+            >
+              <Telescope className="w-6 h-6" />
             </button>
             <button
               onClick={() => setShowSignOutConfirm(true)}
@@ -905,6 +913,9 @@ export function LiveBid({
             </button>
             <button onClick={onViewSquad} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="My squad">
               <Users className="w-5 h-5" />
+            </button>
+            <button onClick={onViewScout} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Scout rivals">
+              <Telescope className="w-5 h-5" />
             </button>
             <button onClick={() => setShowSignOutConfirm(true)} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]">
               <LogOut className="w-5 h-5" />

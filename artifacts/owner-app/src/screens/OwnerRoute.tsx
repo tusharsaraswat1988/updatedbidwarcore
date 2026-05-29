@@ -14,9 +14,10 @@ import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
 import { Squad } from "./Squad";
+import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 
-type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "completed";
+type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
 function sessionKey(teamId: number) {
   return `owner_verified_${teamId}`;
@@ -92,7 +93,7 @@ export function OwnerRoute() {
   });
 
   // Auction state polling — declared early so the save effect below can read it
-  const pollInterval = screen === "live" || screen === "squad" ? 1000 : 5000;
+  const pollInterval = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching, isError: stateIsError } = useGetAuctionState(tournamentId, {
     query: {
       queryKey:       getGetAuctionStateQueryKey(tournamentId),
@@ -152,6 +153,22 @@ export function OwnerRoute() {
     const done = state.licenseStatus === "completed" || state.status === "completed";
     if (done && screen === "live") setScreen("completed");
   }, [state, screen]);
+
+  // Auto-return from scout to live when a player goes active
+  const [scoutAutoReturn, setScoutAutoReturn] = useState(false);
+  useEffect(() => {
+    if (screen !== "scout") return;
+    if (state?.status === "active" && state?.currentPlayer) {
+      setScoutAutoReturn(true);
+      const t = setTimeout(() => {
+        setScoutAutoReturn(false);
+        setScreen("live");
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+    return;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.status, (state?.currentPlayer as { id?: number } | null | undefined)?.id, screen]);
 
   const isCompleted = state?.licenseStatus === "completed" || state?.status === "completed";
 
@@ -286,6 +303,18 @@ export function OwnerRoute() {
     );
   }
 
+  if (screen === "scout") {
+    return (
+      <Scout
+        tournamentId={tournamentId}
+        teamId={teamId}
+        teamColor={teamColor}
+        onBack={() => setScreen("live")}
+        auctionStarted={scoutAutoReturn}
+      />
+    );
+  }
+
   return (
     <LiveBid
       state={state ?? null}
@@ -297,6 +326,7 @@ export function OwnerRoute() {
       bidErrorMsg={lastBidError}
       onBid={handleBid}
       onViewSquad={() => setScreen("squad")}
+      onViewScout={() => setScreen("scout")}
       onSync={handleSync}
       isSyncError={stateIsError}
       onSignOut={() => {

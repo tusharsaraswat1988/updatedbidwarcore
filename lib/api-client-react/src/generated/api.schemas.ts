@@ -301,6 +301,56 @@ export interface TeamUpdate {
   regenerateCode?: boolean;
 }
 
+export interface ScoutSquadPlayer {
+  id: number;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  status: string;
+  /** @nullable */
+  soldPrice?: number | null;
+  isNonPlayingMember?: boolean;
+}
+
+export interface ScoutTeam {
+  id: number;
+  name: string;
+  /** @nullable */
+  shortCode?: string | null;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  purse: number;
+  purseRemaining: number;
+  reservePurse: number;
+  spendablePurse: number;
+  slotsRequired: number;
+  playersBought: number;
+  maximumSquadSize: number;
+  maxBidCapacity: number;
+  players: ScoutSquadPlayer[];
+}
+
+export interface ScoutUnsoldPlayer {
+  id: number;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  basePrice: number;
+  /** @nullable */
+  categoryId?: number | null;
+  /** @nullable */
+  categoryName?: string | null;
+  /** @nullable */
+  categoryColor?: string | null;
+}
+
+export interface ScoutData {
+  teams: ScoutTeam[];
+  unsoldPlayers: ScoutUnsoldPlayer[];
+}
+
 export interface Category {
   id: number;
   tournamentId: number;

@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
-import { teamsTable, tournamentsTable, organizersTable } from "@workspace/db";
+import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
+import { computeAllTeamPurseProtections } from "../lib/purse-protection";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -148,6 +149,58 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   }
 
   res.status(201).json(teamToJson(team));
+});
+
+// Scout endpoint — returns all teams with purse/squad data + unsold players.
+// Must appear before the /:teamId route so "scout" isn't matched as a teamId.
+router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [teams, allPlayers, categories] = await Promise.all([
+    db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.createdAt),
+    db.select({
+      id: playersTable.id,
+      name: playersTable.name,
+      role: playersTable.role,
+      status: playersTable.status,
+      teamId: playersTable.teamId,
+      categoryId: playersTable.categoryId,
+      basePrice: playersTable.basePrice,
+      soldPrice: playersTable.soldPrice,
+      isNonPlayingMember: playersTable.isNonPlayingMember,
+    }).from(playersTable).where(eq(playersTable.tournamentId, tid)),
+    db.select({ id: categoriesTable.id, name: categoriesTable.name, colorCode: categoriesTable.colorCode, sortOrder: categoriesTable.sortOrder })
+      .from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder),
+  ]);
+
+  const purseMap = await computeAllTeamPurseProtections(tid, teams.map(t => ({ id: t.id, purse: t.purse, purseUsed: t.purseUsed })));
+  const catMap   = new Map(categories.map(c => [c.id, c]));
+
+  const scoutTeams = teams.map(team => {
+    const p           = purseMap.get(team.id) ?? { purseRemaining: team.purse - team.purseUsed, reservePurse: 0, spendablePurse: team.purse - team.purseUsed, slotsRequired: 0, maximumSquadSize: 0, lowestBasePrice: 0 };
+    const squadPlayers = allPlayers.filter(pl => pl.teamId === team.id && (pl.status === "sold" || pl.status === "retained"));
+    const playersBought = squadPlayers.filter(pl => !pl.isNonPlayingMember).length;
+    const maxBidCapacity = p.slotsRequired > 0 ? Math.floor(p.spendablePurse / p.slotsRequired) : p.spendablePurse;
+    return {
+      id: team.id, name: team.name, shortCode: team.shortCode, color: team.color, logoUrl: team.logoUrl,
+      purse: team.purse, purseRemaining: p.purseRemaining, reservePurse: p.reservePurse,
+      spendablePurse: p.spendablePurse, slotsRequired: p.slotsRequired,
+      playersBought, maximumSquadSize: p.maximumSquadSize, maxBidCapacity,
+      players: squadPlayers.map(pl => ({ id: pl.id, name: pl.name, role: pl.role, status: pl.status, soldPrice: pl.soldPrice, isNonPlayingMember: pl.isNonPlayingMember })),
+    };
+  });
+
+  const unsoldPlayers = allPlayers
+    .filter(pl => pl.status === "unsold")
+    .map(pl => {
+      const cat = pl.categoryId ? catMap.get(pl.categoryId) : null;
+      return { id: pl.id, name: pl.name, role: pl.role, basePrice: pl.basePrice, categoryId: pl.categoryId ?? null, categoryName: cat?.name ?? null, categoryColor: cat?.colorCode ?? null, _sort: (cat?.sortOrder ?? 999) * 1e9 + pl.name.charCodeAt(0) };
+    })
+    .sort((a, b) => a._sort - b._sort || a.name.localeCompare(b.name))
+    .map(({ _sort: _, ...rest }) => rest);
+
+  res.json({ teams: scoutTeams, unsoldPlayers });
 });
 
 // GET single team — organizers get full data; unauthenticated callers get the

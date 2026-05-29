@@ -50,6 +50,7 @@ import type {
   RegistrationStatus,
   ReorderShowcaseEventsBody,
   ResetTrialAuctionBody,
+  ScoutData,
   SearchGlobalPlayersParams,
   SetBreakTimerBody,
   SetCategoryFilterBody,
@@ -1111,6 +1112,94 @@ export const useCreateTeam = <
 > => {
   return useMutation(getCreateTeamMutationOptions(options));
 };
+
+/**
+ * @summary Scout intelligence — all teams' squads, purses, and unsold players
+ */
+export const getGetTeamScoutUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/teams/scout`;
+};
+
+export const getTeamScout = async (
+  tournamentId: number,
+  options?: RequestInit,
+): Promise<ScoutData> => {
+  return customFetch<ScoutData>(getGetTeamScoutUrl(tournamentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTeamScoutQueryKey = (tournamentId: number) => {
+  return [`/api/tournaments/${tournamentId}/teams/scout`] as const;
+};
+
+export const getGetTeamScoutQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeamScout>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamScout>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeamScoutQueryKey(tournamentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamScout>>> = ({
+    signal,
+  }) => getTeamScout(tournamentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeamScout>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeamScoutQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeamScout>>
+>;
+export type GetTeamScoutQueryError = ErrorType<void>;
+
+/**
+ * @summary Scout intelligence — all teams' squads, purses, and unsold players
+ */
+
+export function useGetTeamScout<
+  TData = Awaited<ReturnType<typeof getTeamScout>>,
+  TError = ErrorType<void>,
+>(
+  tournamentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeamScout>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeamScoutQueryOptions(tournamentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a team by ID

@@ -298,6 +298,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/Team"
 
+  /tournaments/{tournamentId}/teams/scout:
+    get:
+      operationId: getTeamScout
+      tags: [teams]
+      summary: Scout intelligence — all teams' squads, purses, and unsold players
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Scout data with all teams' squads, purse info, and unsold players
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoutData"
+        "400":
+          description: Invalid tournament ID
+
   /tournaments/{tournamentId}/teams/{teamId}:
     get:
       operationId: getTeam
@@ -1973,6 +1994,91 @@ components:
           type: boolean
         regenerateCode:
           type: boolean
+
+    # Scout schemas
+    ScoutData:
+      type: object
+      required: [teams, unsoldPlayers]
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoutTeam"
+        unsoldPlayers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoutUnsoldPlayer"
+
+    ScoutTeam:
+      type: object
+      required: [id, name, purse, purseRemaining, reservePurse, spendablePurse, slotsRequired, playersBought, maximumSquadSize, maxBidCapacity, players]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        shortCode:
+          type: ["string", "null"]
+        color:
+          type: ["string", "null"]
+        logoUrl:
+          type: ["string", "null"]
+        purse:
+          type: integer
+        purseRemaining:
+          type: integer
+        reservePurse:
+          type: integer
+        spendablePurse:
+          type: integer
+        slotsRequired:
+          type: integer
+        playersBought:
+          type: integer
+        maximumSquadSize:
+          type: integer
+        maxBidCapacity:
+          type: integer
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoutSquadPlayer"
+
+    ScoutSquadPlayer:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: ["string", "null"]
+        status:
+          type: string
+        soldPrice:
+          type: ["integer", "null"]
+        isNonPlayingMember:
+          type: boolean
+
+    ScoutUnsoldPlayer:
+      type: object
+      required: [id, name, basePrice]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          type: ["string", "null"]
+        basePrice:
+          type: integer
+        categoryId:
+          type: ["integer", "null"]
+        categoryName:
+          type: ["string", "null"]
+        categoryColor:
+          type: ["string", "null"]
 
     # Category schemas
     Category:

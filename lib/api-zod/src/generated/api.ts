@@ -717,6 +717,54 @@ export const CreateTeamBody = zod.object({
 });
 
 /**
+ * @summary Scout intelligence — all teams' squads, purses, and unsold players
+ */
+export const GetTeamScoutParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const GetTeamScoutResponse = zod.object({
+  teams: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      shortCode: zod.string().nullish(),
+      color: zod.string().nullish(),
+      logoUrl: zod.string().nullish(),
+      purse: zod.number(),
+      purseRemaining: zod.number(),
+      reservePurse: zod.number(),
+      spendablePurse: zod.number(),
+      slotsRequired: zod.number(),
+      playersBought: zod.number(),
+      maximumSquadSize: zod.number(),
+      maxBidCapacity: zod.number(),
+      players: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+          role: zod.string().nullish(),
+          status: zod.string(),
+          soldPrice: zod.number().nullish(),
+          isNonPlayingMember: zod.boolean().optional(),
+        }),
+      ),
+    }),
+  ),
+  unsoldPlayers: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      role: zod.string().nullish(),
+      basePrice: zod.number(),
+      categoryId: zod.number().nullish(),
+      categoryName: zod.string().nullish(),
+      categoryColor: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a team by ID
  */
 export const GetTeamParams = zod.object({
