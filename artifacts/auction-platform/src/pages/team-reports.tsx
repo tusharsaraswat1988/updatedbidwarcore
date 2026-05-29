@@ -434,7 +434,7 @@ export default function TeamReportsPage() {
           <div>
             <h2 className="text-xl font-bold mb-1">Team Reports — Licensed Feature</h2>
             <p className="text-muted-foreground text-sm max-w-md">
-              Pre-auction team reports are available only for licensed tournaments. Contact your admin to activate the license for this tournament.
+              Pre-auction team reports are available only for licensed tournaments. Contact support to activate the license for this tournament.
             </p>
           </div>
         </div>

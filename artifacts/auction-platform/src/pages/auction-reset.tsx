@@ -78,17 +78,17 @@ export default function AuctionReset() {
               <h2 className={`font-bold text-lg ${isFirstReset ? "text-red-300" : "text-purple-300"}`}>
                 {isFirstReset
                   ? "First reset — operator password required"
-                  : `Already reset ${resetCount} time${resetCount === 1 ? "" : "s"} — super admin password required`}
+                  : `Already reset ${resetCount} time${resetCount === 1 ? "" : "s"} — platform authorization required`}
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {isFirstReset
-                  ? "An operator can reset the auction once using the tournament's organizer password. After that, only the super admin can reset it again."
-                  : "This tournament has already been reset. To run another reset you must provide the super admin password."}
+                  ? "An operator can reset the auction once using the tournament's organizer password. After that, platform-level authorization is required."
+                  : "This tournament has already been reset. To run another reset you must provide the platform authorization password."}
               </p>
               {lastResetAt && (
                 <p className="text-xs text-muted-foreground/80 pt-1">
                   Last reset on <span className="font-semibold text-foreground/90">{lastResetAt.toLocaleString()}</span>
-                  {lastResetBy && <> by <span className="font-semibold text-foreground/90">{lastResetBy === "super_admin" ? "Super Admin" : "Operator"}</span></>}
+                  {lastResetBy && <> by <span className="font-semibold text-foreground/90">{lastResetBy === "super_admin" ? "Platform" : "Operator"}</span></>}
                 </p>
               )}
             </div>
@@ -123,14 +123,14 @@ export default function AuctionReset() {
             <div className="space-y-2">
               <Label htmlFor="reset-password" className="text-sm font-semibold flex items-center gap-2">
                 <Lock className="w-4 h-4 text-muted-foreground" />
-                {isFirstReset ? "Operator password" : "Super admin password"}
+                {isFirstReset ? "Operator password" : "Authorization password"}
               </Label>
               <Input
                 id="reset-password"
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(null); setSuccess(false); }}
-                placeholder={isFirstReset ? "Enter the organizer password for this tournament" : "Enter the super admin password"}
+                placeholder={isFirstReset ? "Enter the organizer password for this tournament" : "Enter the authorization password"}
                 className="bg-card border-border"
                 autoComplete="current-password"
               />

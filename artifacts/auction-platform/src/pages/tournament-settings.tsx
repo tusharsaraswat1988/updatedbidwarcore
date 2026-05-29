@@ -705,7 +705,7 @@ export default function TournamentSettings() {
             </div>
 
             <p className="text-[11px] text-muted-foreground border-t border-border/40 pt-3">
-              Organizer account, login password and contact details are managed from the super-admin panel.
+              Organizer account, login password and contact details are managed by the platform support team.
             </p>
           </>
         )}
@@ -1251,7 +1251,7 @@ export default function TournamentSettings() {
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                  <span className="text-[11px] text-muted-foreground font-normal">Password-protected — operator gets one free reset, super admin override available.</span>
+                  <span className="text-[11px] text-muted-foreground font-normal">Password-protected — operator gets one free reset before platform-level authorization is required.</span>
                 </div>
               </Button>
             </div>
