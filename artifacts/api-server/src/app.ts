@@ -36,10 +36,7 @@ app.use(
 );
 
 function buildAllowedOrigins(): string[] {
-  const origins: string[] = [
-    "https://bidwar.in",
-    "https://www.bidwar.in",
-  ];
+  const origins: string[] = [];
 
   // APP_DOMAIN is a comma-separated list of allowed origins, e.g. "bidwar.in,www.bidwar.in"
   const appDomain = process.env.APP_DOMAIN ?? "";

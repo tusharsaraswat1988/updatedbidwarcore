@@ -134,7 +134,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         const { sendDltSms } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
         if (settings?.dltEnabled && settings.teamOwnerEnabled && settings.teamOwnerTemplateId) {
-          const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "bidwar.in";
+          const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
           const ownerUrl = `https://${domain}/tournament/${tid}/owner/${team.id}`;
           await sendDltSms(
             [ownerMobile],

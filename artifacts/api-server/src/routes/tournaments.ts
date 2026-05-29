@@ -473,7 +473,7 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "bidwar.in";
+  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
   const viewerUrl = `https://${domain}/tournament/${tid}/display`;
 
   const orgId = tournament.organizerId;
