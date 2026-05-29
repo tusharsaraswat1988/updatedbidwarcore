@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
+import { useInactivityLock } from "@/hooks/use-inactivity-lock";
+import { AdminLockScreen } from "@/components/admin-lock-screen";
 import { useBranding } from "@/hooks/use-branding";
 import {
   listAdminTournaments,
@@ -3925,9 +3927,17 @@ export default function AdminDashboard() {
     adminLevel,
     isMaster,
     isLoading: authLoading,
+    login,
     logout,
   } = useAdminAuth();
+  const { locked, unlock } = useInactivityLock(isLoggedIn);
   const { logos, brandName, miniBrandText } = useBranding();
+
+  async function handleUnlock(password: string) {
+    const result = await login(password);
+    if (result.success) unlock();
+    return result;
+  }
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -4329,6 +4339,11 @@ export default function AdminDashboard() {
             onCreated={load}
           />
         )}
+      </AnimatePresence>
+
+      {/* Inactivity lock screen — shown after 2 min of no interaction */}
+      <AnimatePresence>
+        {locked && <AdminLockScreen onUnlock={handleUnlock} />}
       </AnimatePresence>
     </FullscreenLayout>
   );
