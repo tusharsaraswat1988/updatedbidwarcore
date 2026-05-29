@@ -4,13 +4,17 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.NEON_DATABASE_URL) {
+const connectionString =
+  process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+
+if (!connectionString) {
   throw new Error(
-    "NEON_DATABASE_URL must be set. Add your Neon PostgreSQL connection string as a secret.",
+    "Database connection string required. " +
+      "Set NEON_DATABASE_URL or DATABASE_URL to your PostgreSQL connection string.",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.NEON_DATABASE_URL });
+export const pool = new Pool({ connectionString });
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";

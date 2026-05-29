@@ -80,7 +80,7 @@ export async function sendPushToTournament(
 ) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
 
-  const domain  = (process.env.REPLIT_DOMAINS ?? "").split(",")[0]?.trim() ?? "";
+  const domain = process.env.APP_DOMAIN?.trim() ?? "";
   const baseUrl = domain ? `https://${domain}` : "";
 
   try {

@@ -871,10 +871,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         if (settings?.dltEnabled && settings.playerSoldEnabled && settings.playerSoldTemplateId) {
           // Template vars (must match approved DLT sample exactly):
           // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
-          const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
-          const appUrl = process.env.APP_DOMAIN?.trim()
-            ? `https://${process.env.APP_DOMAIN.trim()}`
-            : `https://${domains[0]?.trim() || "bidwar.in"}`;
+          const appUrl = `https://${process.env.APP_DOMAIN?.trim() || "bidwar.in"}`;
           await sendDltSms(
             [playerMobile],
             settings.playerSoldTemplateId,

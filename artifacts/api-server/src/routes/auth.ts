@@ -1044,8 +1044,7 @@ router.patch("/auth/admin/sms-settings", async (req, res) => {
 router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
-  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
-  const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
+  const domain = process.env.APP_DOMAIN?.trim() || "localhost";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
@@ -1090,8 +1089,7 @@ router.get("/auth/google/callback", async (req, res) => {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const domains = (process.env.REPLIT_DOMAINS ?? process.env.REPLIT_DEV_DOMAIN ?? "").split(",");
-  const domain = process.env.APP_DOMAIN?.trim() || domains[0]?.trim() || "";
+  const domain = process.env.APP_DOMAIN?.trim() || "localhost";
   const redirectUri = `https://${domain}/api/auth/google/callback`;
   if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
 

@@ -1,13 +1,13 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startConsentBlastScheduler } from "./lib/scheduler";
+import { checkRequiredEnv } from "./lib/env-check";
 
-const rawPort = process.env["PORT"];
+// Validate required env vars at startup — exits with a clear message if any
+// critical variable is missing. Runs before the first request can be handled.
+checkRequiredEnv();
 
-if (!rawPort) {
-  throw new Error("PORT environment variable is required but was not provided.");
-}
-
+const rawPort = process.env["PORT"] ?? "3000";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
