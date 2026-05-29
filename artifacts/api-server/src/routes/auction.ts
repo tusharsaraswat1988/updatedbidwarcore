@@ -866,15 +866,17 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     void (async () => {
       try {
         const { smsNotificationSettingsTable } = await import("@workspace/db");
-        const { sendDltSms } = await import("../lib/fast2sms");
+        const { sendDltSms, playerSoldTemplateId } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
-        if (settings?.dltEnabled && settings.playerSoldEnabled && settings.playerSoldTemplateId) {
+        // Env var takes priority over DB setting so the template ID is universal
+        const templateId = playerSoldTemplateId() || settings?.playerSoldTemplateId;
+        if (settings?.dltEnabled && settings.playerSoldEnabled && templateId) {
           // Template vars (must match approved DLT sample exactly):
           // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
           const appUrl = `https://${process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost"}`;
           await sendDltSms(
             [playerMobile],
-            settings.playerSoldTemplateId,
+            templateId,
             [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
           );
         }

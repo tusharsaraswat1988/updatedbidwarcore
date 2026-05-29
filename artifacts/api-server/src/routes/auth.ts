@@ -994,14 +994,23 @@ router.get("/auth/admin/sms-settings", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const { smsNotificationSettingsTable } = await import("@workspace/db");
   const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
-  res.json(settings ?? {
-    dltEnabled: false,
-    teamOwnerEnabled: false,
-    teamOwnerTemplateId: null,
-    playerSoldEnabled: false,
-    playerSoldTemplateId: null,
-    viewerLinkEnabled: false,
-    viewerLinkTemplateId: null,
+  // Surface which template IDs are configured via env var so the UI can show them
+  const envTemplates = {
+    playerSoldTemplateIdFromEnv: process.env.BULKSMS_PLAYER_SOLD_TEMPLATE_ID || null,
+    teamOwnerTemplateIdFromEnv:  process.env.BULKSMS_TEAM_OWNER_TEMPLATE_ID  || null,
+    viewerLinkTemplateIdFromEnv: process.env.BULKSMS_VIEWER_LINK_TEMPLATE_ID || null,
+  };
+  res.json({
+    ...(settings ?? {
+      dltEnabled: false,
+      teamOwnerEnabled: false,
+      teamOwnerTemplateId: null,
+      playerSoldEnabled: false,
+      playerSoldTemplateId: null,
+      viewerLinkEnabled: false,
+      viewerLinkTemplateId: null,
+    }),
+    ...envTemplates,
   });
 });
 

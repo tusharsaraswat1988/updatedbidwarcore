@@ -481,13 +481,14 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
     void (async () => {
       try {
         const { smsNotificationSettingsTable, organizersTable: orgsTable } = await import("@workspace/db");
-        const { sendDltSms } = await import("../lib/fast2sms");
+        const { sendDltSms, viewerLinkTemplateId } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
-        if (settings?.dltEnabled && settings.viewerLinkEnabled && settings.viewerLinkTemplateId) {
+        const templateId = viewerLinkTemplateId() || settings?.viewerLinkTemplateId;
+        if (settings?.dltEnabled && settings.viewerLinkEnabled && templateId) {
           const [organizer] = await db.select({ mobile: orgsTable.mobile }).from(orgsTable).where(eq(orgsTable.id, orgId));
           const mobile = organizer?.mobile;
           if (mobile && !mobile.startsWith("gid_")) {
-            await sendDltSms([mobile], settings.viewerLinkTemplateId, [tournament.name, viewerUrl]);
+            await sendDltSms([mobile], templateId, [tournament.name, viewerUrl]);
           }
         }
       } catch (err) {

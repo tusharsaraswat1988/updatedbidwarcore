@@ -131,14 +131,15 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     void (async () => {
       try {
         const { smsNotificationSettingsTable } = await import("@workspace/db");
-        const { sendDltSms } = await import("../lib/fast2sms");
+        const { sendDltSms, teamOwnerTemplateId } = await import("../lib/fast2sms");
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
-        if (settings?.dltEnabled && settings.teamOwnerEnabled && settings.teamOwnerTemplateId) {
+        const templateId = teamOwnerTemplateId() || settings?.teamOwnerTemplateId;
+        if (settings?.dltEnabled && settings.teamOwnerEnabled && templateId) {
           const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
           const ownerUrl = `https://${domain}/tournament/${tid}/owner/${team.id}`;
           await sendDltSms(
             [ownerMobile],
-            settings.teamOwnerTemplateId,
+            templateId,
             [tournament.name, team.name, accessCode, ownerUrl],
           );
         }

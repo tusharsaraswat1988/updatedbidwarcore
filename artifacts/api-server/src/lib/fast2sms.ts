@@ -14,6 +14,22 @@ function senderId(): string {
   return process.env.BULKSMS_SENDER ?? "";
 }
 
+// ── Per-notification DLT template ID helpers ──────────────────────────────────
+// Set these env vars to configure template IDs globally (no admin-panel entry needed).
+// The env var always takes priority; the DB setting is the fallback.
+
+export function playerSoldTemplateId(): string {
+  return process.env.BULKSMS_PLAYER_SOLD_TEMPLATE_ID ?? "";
+}
+
+export function teamOwnerTemplateId(): string {
+  return process.env.BULKSMS_TEAM_OWNER_TEMPLATE_ID ?? "";
+}
+
+export function viewerLinkTemplateId(): string {
+  return process.env.BULKSMS_VIEWER_LINK_TEMPLATE_ID ?? "";
+}
+
 function normalizeMobile(mobile: string): string {
   const digits = mobile.replace(/\D/g, "");
   return digits.length === 12 && digits.startsWith("91")

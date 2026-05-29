@@ -2515,10 +2515,13 @@ type SmsSettings = {
   dltEnabled: boolean;
   teamOwnerEnabled: boolean;
   teamOwnerTemplateId: string | null;
+  teamOwnerTemplateIdFromEnv: string | null;
   playerSoldEnabled: boolean;
   playerSoldTemplateId: string | null;
+  playerSoldTemplateIdFromEnv: string | null;
   viewerLinkEnabled: boolean;
   viewerLinkTemplateId: string | null;
+  viewerLinkTemplateIdFromEnv: string | null;
 };
 
 function SmsSettingsPanel() {
@@ -2526,10 +2529,13 @@ function SmsSettingsPanel() {
     dltEnabled: false,
     teamOwnerEnabled: false,
     teamOwnerTemplateId: null,
+    teamOwnerTemplateIdFromEnv: null,
     playerSoldEnabled: false,
     playerSoldTemplateId: null,
+    playerSoldTemplateIdFromEnv: null,
     viewerLinkEnabled: false,
     viewerLinkTemplateId: null,
+    viewerLinkTemplateIdFromEnv: null,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -2594,6 +2600,8 @@ function SmsSettingsPanel() {
         };
         const enabledKey = `${key}Enabled` as "teamOwnerEnabled" | "playerSoldEnabled" | "viewerLinkEnabled";
         const templateKey = `${key}TemplateId` as "teamOwnerTemplateId" | "playerSoldTemplateId" | "viewerLinkTemplateId";
+        const envKey = `${key}TemplateIdFromEnv` as "teamOwnerTemplateIdFromEnv" | "playerSoldTemplateIdFromEnv" | "viewerLinkTemplateIdFromEnv";
+        const envVal = settings[envKey];
         return (
           <div key={key} className="rounded-lg border border-border/40 p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -2609,13 +2617,20 @@ function SmsSettingsPanel() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">DLT Template ID</Label>
-              <Input
-                value={settings[templateKey] ?? ""}
-                onChange={(e) => setSettings((s) => ({ ...s, [templateKey]: e.target.value || null }))}
-                placeholder="e.g. 1007xxxxxxxxxx"
-                disabled={!master || !settings[enabledKey]}
-                className="text-sm h-8"
-              />
+              {envVal ? (
+                <div className="flex items-center gap-2">
+                  <Input value={envVal} readOnly className="text-sm h-8 font-mono bg-muted/50 cursor-default" />
+                  <span className="text-xs text-emerald-500 whitespace-nowrap shrink-0">env var</span>
+                </div>
+              ) : (
+                <Input
+                  value={settings[templateKey] ?? ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, [templateKey]: e.target.value || null }))}
+                  placeholder="e.g. 215964"
+                  disabled={!master || !settings[enabledKey]}
+                  className="text-sm h-8"
+                />
+              )}
             </div>
           </div>
         );
