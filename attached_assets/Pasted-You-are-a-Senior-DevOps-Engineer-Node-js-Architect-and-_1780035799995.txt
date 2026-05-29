@@ -1,0 +1,238 @@
+You are a Senior DevOps Engineer, Node.js Architect, and Deployment Specialist.
+
+My project was originally built and run on Replit.
+
+The application currently has deployment issues outside Replit.
+
+I want this entire project converted into a fully portable production-grade application that can be deployed on:
+
+- Hostinger Node.js Hosting
+- VPS (Ubuntu)
+- Railway
+- Render
+- DigitalOcean
+- AWS
+
+without any dependency on Replit.
+
+Perform a complete audit of the codebase and automatically fix all deployment blockers.
+
+--------------------------------------------------
+PHASE 1: REPLIT DEPENDENCY REMOVAL
+--------------------------------------------------
+
+Find and remove every Replit-specific dependency including:
+
+- .replit assumptions
+- replit packages
+- replit database integrations
+- replit secrets integrations
+- replit environment assumptions
+- replit startup commands
+- replit networking assumptions
+- replit-specific build processes
+
+Remove any code that depends on Replit runtime.
+
+--------------------------------------------------
+PHASE 2: WORKSPACE / MONOREPO AUDIT
+--------------------------------------------------
+
+Inspect:
+
+- pnpm-workspace.yaml
+- package.json
+- lock files
+- workspace structure
+
+Determine whether this project is using:
+
+- monorepo
+- workspace
+- multi-package architecture
+
+If the workspace structure creates deployment problems:
+
+Convert project into a deployable structure.
+
+If needed:
+
+- flatten workspace
+- merge packages
+- simplify dependencies
+- eliminate deployment blockers
+
+Generate a final structure that works on standard hosting.
+
+--------------------------------------------------
+PHASE 3: CONTAINERIZATION AUDIT
+--------------------------------------------------
+
+Search entire project for:
+
+Docker
+Container
+Dev Container
+Workspace Container
+Container-specific configs
+
+Check for:
+
+- Dockerfile
+- docker-compose
+- container references
+- environment assumptions
+
+If deployment depends on containers:
+
+Create a non-container deployment path.
+
+Ensure project runs directly with:
+
+npm install
+npm run build
+npm start
+
+without Docker.
+
+--------------------------------------------------
+PHASE 4: ENVIRONMENT VARIABLES
+--------------------------------------------------
+
+Replit stores secrets internally.
+
+Replace every secret reference with standard .env variables.
+
+Create:
+
+.env.example
+
+containing every required variable.
+
+Move all secrets to environment variables.
+
+Add validation on startup.
+
+Application should clearly report:
+
+"Missing required environment variable: VARIABLE_NAME"
+
+instead of crashing.
+
+--------------------------------------------------
+PHASE 5: DATABASE
+--------------------------------------------------
+
+Inspect database architecture.
+
+Identify whether project uses:
+
+- PostgreSQL
+- Neon
+- Supabase
+- Drizzle
+- Prisma
+- Replit DB
+
+Convert configuration to standard DATABASE_URL approach.
+
+Support:
+
+- Neon
+- Supabase
+- PostgreSQL
+- Hostinger PostgreSQL
+
+Generate migration instructions.
+
+--------------------------------------------------
+PHASE 6: BUILD SYSTEM
+--------------------------------------------------
+
+Inspect:
+
+- Vite
+- React
+- Next.js
+- Express
+- TypeScript
+
+Fix:
+
+- build errors
+- import errors
+- path issues
+- alias issues
+- dependency conflicts
+
+Ensure:
+
+npm install
+npm run build
+
+completes successfully.
+
+--------------------------------------------------
+PHASE 7: SERVER CONFIGURATION
+--------------------------------------------------
+
+Ensure application uses:
+
+const PORT = process.env.PORT || 3000;
+
+and listens on:
+
+0.0.0.0
+
+Remove all hardcoded Replit ports.
+
+Remove localhost-only binding issues.
+
+--------------------------------------------------
+PHASE 8: DEPLOYMENT READINESS
+--------------------------------------------------
+
+Generate working scripts:
+
+npm install
+npm run build
+npm start
+
+Verify project can start on a clean Linux server.
+
+Fix all startup blockers.
+
+--------------------------------------------------
+PHASE 9: HOSTINGER COMPATIBILITY
+--------------------------------------------------
+
+Prepare project specifically for Hostinger Business Hosting.
+
+Ensure:
+
+- Node.js support works
+- build process works
+- static assets serve correctly
+- backend starts correctly
+- environment variables can be configured from Hostinger panel
+
+--------------------------------------------------
+FINAL DELIVERABLES
+--------------------------------------------------
+
+Provide:
+
+1. Files modified.
+2. Files removed.
+3. Replit dependencies removed.
+4. Deployment blockers found.
+5. Fixes applied.
+6. Required .env variables.
+7. Final deployment steps.
+8. Confirmation that project is deployable outside Replit.
+
+Do not only analyze.
+
+Apply all fixes directly in the codebase.
+
+Keep modifying code until the project builds successfully and can run on a standard Node.js host without Replit.
