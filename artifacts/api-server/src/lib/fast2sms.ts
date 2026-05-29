@@ -126,7 +126,7 @@ export async function sendDltSms(
   const normalizedNumbers = numbers.map(normalizeMobile).filter(n => n.length === 10);
   if (normalizedNumbers.length === 0) return { success: false, error: "No valid mobile numbers" };
 
-  const { ok, data } = await f2sPost("/bulkv2", {
+  const { ok, data } = await f2sPost("/bulkV2", {
     sender_id: sender,
     message: templateId,
     variables_values: variables.join("|"),
