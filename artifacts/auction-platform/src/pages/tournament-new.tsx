@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, Loader2, Hash } from "lucide-react";
+import { ArrowLeft, Loader2, Hash, Info, X, CalendarDays } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -27,6 +28,11 @@ const formSchema = z.object({
   minimumSquadSize: z.coerce.number().min(0).max(100).optional(),
   maximumSquadSize: z.coerce.number().min(0).max(100).optional(),
 });
+
+function formatMatchDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
 
 // Client-side preview only — server generates the real unique code
 function previewAuctionCode(name: string, date: string): string {
@@ -61,6 +67,17 @@ export default function NewTournament() {
   const { toast } = useToast();
   const createTournament = useCreateTournament();
   const sports = useSportsList();
+  const [matchDatesArr, setMatchDatesArr] = useState<string[]>([]);
+  const [datePickerVal, setDatePickerVal] = useState("");
+
+  function addMatchDate() {
+    if (!datePickerVal || matchDatesArr.includes(datePickerVal)) return;
+    setMatchDatesArr(prev => [...prev, datePickerVal].sort());
+    setDatePickerVal("");
+  }
+  function removeMatchDate(d: string) {
+    setMatchDatesArr(prev => prev.filter(x => x !== d));
+  }
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -86,7 +103,7 @@ export default function NewTournament() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     createTournament.mutate(
-      { data: values },
+      { data: { ...values, matchDates: matchDatesArr.length > 0 ? matchDatesArr.join(",") : undefined } },
       {
         onSuccess: (data) => {
           toast({
@@ -349,6 +366,44 @@ export default function NewTournament() {
                       )}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-amber-400" />
+                      Match Schedule
+                      <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1.5 flex items-start gap-2">
+                      <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
+                      Add the dates when matches will be played. When set, player availability will be collected as per-match-day checkboxes instead of a free-text field — making it easy to know which players are available on which day. Leave empty to hide availability from all forms.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={datePickerVal}
+                      onChange={e => setDatePickerVal(e.target.value)}
+                      className="w-auto"
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addMatchDate(); } }}
+                    />
+                    <Button type="button" variant="outline" onClick={addMatchDate} disabled={!datePickerVal}>
+                      Add Date
+                    </Button>
+                  </div>
+                  {matchDatesArr.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {matchDatesArr.map(d => (
+                        <Badge key={d} variant="secondary" className="gap-1.5 pr-1.5 text-sm">
+                          {formatMatchDate(d)}
+                          <button type="button" onClick={() => removeMatchDate(d)} className="ml-0.5 hover:text-destructive rounded-sm">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Button type="submit" className="w-full" disabled={createTournament.isPending}>

@@ -101,6 +101,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   mainBannerEnabled: t.mainBannerEnabled ?? false,
   mainBannerFit: t.mainBannerFit ?? "cover",
   localModeEnabled: t.localModeEnabled ?? false,
+  matchDates: t.matchDates ?? null,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -135,7 +136,7 @@ const tournamentInputSchema = z.object({
   breakEndMusicEnabled: z.boolean().optional(),
   breakEndMusicUrl: z.string().optional(),
   breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
-
+  matchDates: z.string().nullable().optional(),
 });
 
 router.get("/tournaments", async (_req, res) => {
@@ -170,6 +171,7 @@ router.post("/tournaments", async (req, res) => {
       bidTimerSeconds: d.bidTimerSeconds ?? 15,
       minimumSquadSize: d.minimumSquadSize ?? 0,
       maximumSquadSize: d.maximumSquadSize ?? 0,
+      matchDates: d.matchDates ?? null,
       status: "setup",
     })
     .returning();
@@ -230,6 +232,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     mainBannerUrl: z.string().nullable().optional(),
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
+    matchDates: z.string().nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -277,6 +280,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.mainBannerUrl !== undefined) updates.mainBannerUrl = d.mainBannerUrl;
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
+  if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

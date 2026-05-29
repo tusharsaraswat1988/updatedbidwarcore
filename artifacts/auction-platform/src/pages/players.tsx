@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
@@ -454,7 +454,9 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber || "",
     cricheroUrl: player?.cricheroUrl || "",
-    availabilityDates: player?.availabilityDates || "",
+    availabilityDates: player
+      ? (player.availabilityDates || "")
+      : (tournament?.matchDates || ""),
     retainedPrice: player?.retainedPrice ? String(player.retainedPrice) : "",
     retainedTeamId: player?.teamId && player?.status === "retained" ? String(player.teamId) : "",
     status: player?.status || "available",
@@ -734,10 +736,48 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             onSave={url => f("photoUrl", url)}
           />
         </div>
-      <div className="space-y-2">
-        <Label>Availability Dates</Label>
-        <Input value={form.availabilityDates} onChange={e => f("availabilityDates", e.target.value)} placeholder="18, 19, 20 March 2025" />
-      </div>
+      {(() => {
+        const matchDates: string[] = (tournament?.matchDates || "").split(",").filter(Boolean) as string[];
+        if (matchDates.length === 0) return null;
+        const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean) as string[];
+        const selectedSet = new Set<string>(selectedDates);
+        function toggleAvailDate(iso: string) {
+          const next = new Set<string>(selectedSet);
+          if (next.has(iso)) next.delete(iso); else next.add(iso);
+          const kept: string[] = [];
+          next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
+          f("availabilityDates", kept.join(","));
+        }
+        return (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+              Match Availability
+            </Label>
+            <p className="text-xs text-muted-foreground">Check the match days this player will be available to play. All days are selected by default.</p>
+            <div className="flex flex-wrap gap-2">
+              {matchDates.map((iso: string) => {
+                const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                const checked = selectedSet.has(iso);
+                return (
+                  <label
+                    key={iso}
+                    className={`flex items-center gap-1.5 cursor-pointer text-sm px-2.5 py-1.5 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleAvailDate(iso)}
+                      className="accent-amber-400"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
       <div className="space-y-2">
         <Label>Crichero URL</Label>
         <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." />

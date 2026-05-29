@@ -29,6 +29,7 @@ export const BidDisplay = memo(function BidDisplay({
   playerAvailabilityDates,
   playerAchievements,
   playerSpecs,
+  tournamentMatchDates,
   teamColor,
   currentBid,
   currentBidTeamId,
@@ -45,6 +46,7 @@ export const BidDisplay = memo(function BidDisplay({
   playerAvailabilityDates: string | null | undefined;
   playerAchievements: string | null | undefined;
   playerSpecs: string[];
+  tournamentMatchDates: string | null | undefined;
   teamColor: string;
   currentBid: number | null | undefined;
   currentBidTeamId: number | null | undefined;
@@ -99,12 +101,28 @@ export const BidDisplay = memo(function BidDisplay({
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
           {playerName}
         </h1>
-        {playerAvailabilityDates && (
-          <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5" />
-            Available: {playerAvailabilityDates}
-          </p>
-        )}
+        {(() => {
+          const matchDates = (tournamentMatchDates || "").split(",").filter(Boolean) as string[];
+          if (matchDates.length === 0) return null;
+          const availSet = new Set<string>((playerAvailabilityDates || "").split(",").filter(Boolean) as string[]);
+          return (
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+              {matchDates.map((iso: string) => {
+                const avail = availSet.has(iso);
+                const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                return (
+                  <span
+                    key={iso}
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${avail ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300" : "border-red-500/40 bg-red-500/10 text-red-400 line-through opacity-60"}`}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       <div>

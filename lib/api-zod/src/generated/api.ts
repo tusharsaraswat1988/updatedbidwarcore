@@ -121,6 +121,12 @@ export const ListTournamentsResponseItem = zod.object({
     .boolean()
     .optional()
     .describe("Whether the tournament has been locked by a master admin"),
+  matchDates: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+    ),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -165,6 +171,12 @@ export const CreateTournamentBody = zod.object({
   mainBannerUrl: zod.string().optional(),
   mainBannerEnabled: zod.boolean().optional(),
   mainBannerFit: zod.enum(["cover", "contain"]).optional(),
+  matchDates: zod
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'",
+    ),
 });
 
 /**
@@ -263,6 +275,12 @@ export const GetTournamentResponse = zod.object({
     .boolean()
     .optional()
     .describe("Whether the tournament has been locked by a master admin"),
+  matchDates: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+    ),
   createdAt: zod.string(),
 });
 
@@ -314,6 +332,12 @@ export const UpdateTournamentBody = zod.object({
   mainBannerUrl: zod.string().nullish(),
   mainBannerEnabled: zod.boolean().optional(),
   mainBannerFit: zod.enum(["cover", "contain"]).optional(),
+  matchDates: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'",
+    ),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -405,6 +429,12 @@ export const UpdateTournamentResponse = zod.object({
     .boolean()
     .optional()
     .describe("Whether the tournament has been locked by a master admin"),
+  matchDates: zod
+    .string()
+    .nullish()
+    .describe(
+      "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+    ),
   createdAt: zod.string(),
 });
 
@@ -524,6 +554,12 @@ export const ExportTournamentForLocalResponse = zod.object({
       .boolean()
       .optional()
       .describe("Whether the tournament has been locked by a master admin"),
+    matchDates: zod
+      .string()
+      .nullish()
+      .describe(
+        "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+      ),
     createdAt: zod.string(),
   }),
   teams: zod.array(

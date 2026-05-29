@@ -78,6 +78,10 @@ export const tournamentsTable = pgTable("tournaments", {
   exportTokenSyncedAt: timestamp("export_token_synced_at", { withTimezone: true }),
   // Operational visibility: updated on every successful /mirror call.
   exportTokenLastMirrorAt: timestamp("export_token_last_mirror_at", { withTimezone: true }),
+  // Match schedule — comma-separated ISO dates e.g. "2025-03-18,2025-03-19"
+  // When set, player availability is shown as date checkboxes instead of free text.
+  // When null/empty, availability field is hidden everywhere.
+  matchDates: text("match_dates"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },

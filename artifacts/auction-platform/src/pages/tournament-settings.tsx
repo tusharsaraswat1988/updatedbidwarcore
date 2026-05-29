@@ -24,8 +24,9 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type SponsorLogo = { url: string; name: string };
 type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
@@ -126,6 +127,7 @@ export default function TournamentSettings() {
   ]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
+  const [datePickerVal, setDatePickerVal] = useState("");
   const [mainBannerUploading, setMainBannerUploading] = useState(false);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
@@ -177,6 +179,7 @@ export default function TournamentSettings() {
       mainBannerUrl: tournament.mainBannerUrl ?? "",
       mainBannerEnabled: tournament.mainBannerEnabled ?? false,
       mainBannerFit: tournament.mainBannerFit ?? "cover",
+      matchDates: tournament.matchDates ?? "",
     };
     setEditForm(initialForm);
     setOrigForm(initialForm);
@@ -412,6 +415,7 @@ export default function TournamentSettings() {
         mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
         mainBannerEnabled: editForm.mainBannerEnabled === true,
         mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
+        matchDates: (editForm.matchDates as string).trim() || null,
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -595,6 +599,76 @@ export default function TournamentSettings() {
                 <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
                 <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
               </div>
+            </div>
+
+            {/* Match Schedule */}
+            <div className="border-t border-border/60 pt-4 space-y-3">
+              <div>
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+                  Match Schedule
+                  <Badge variant="outline" className="text-xs font-normal ml-0.5">Optional</Badge>
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1.5">
+                  <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400" />
+                  Add the dates when matches will be played. When set, player availability is shown as per-day checkboxes instead of a free-text field. Leave empty to hide availability from all player forms and views.
+                </p>
+              </div>
+              {(() => {
+                const settingsMatchDates = (editForm.matchDates as string || "").split(",").filter(Boolean);
+                return (
+                  <>
+                    <div className="flex gap-2">
+                      <Input
+                        type="date"
+                        value={datePickerVal}
+                        onChange={e => setDatePickerVal(e.target.value)}
+                        className="w-auto"
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
+                            setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
+                            setDatePickerVal("");
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)}
+                        onClick={() => {
+                          if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
+                          setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
+                          setDatePickerVal("");
+                        }}
+                      >
+                        Add Date
+                      </Button>
+                    </div>
+                    {settingsMatchDates.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {settingsMatchDates.map(d => {
+                          const label = new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                          return (
+                            <Badge key={d} variant="secondary" className="gap-1.5 pr-1.5">
+                              {label}
+                              <button
+                                type="button"
+                                className="hover:text-destructive rounded-sm"
+                                onClick={() => setEditForm(f => ({ ...f, matchDates: settingsMatchDates.filter(x => x !== d).join(",") }))}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="border-t border-border/60 pt-4 space-y-3">

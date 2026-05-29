@@ -315,6 +315,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                   playerName={state.currentPlayer.name}
                   playerBasePrice={state.currentPlayer.basePrice}
                   playerAvailabilityDates={state.currentPlayer.availabilityDates}
+                  tournamentMatchDates={tournament?.matchDates}
                   playerAchievements={state.currentPlayer.achievements}
                   playerSpecs={playerSpecs}
                   teamColor={teamColor}

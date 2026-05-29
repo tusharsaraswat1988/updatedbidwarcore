@@ -138,6 +138,11 @@ export interface Tournament {
   licenseStatus?: TournamentLicenseStatus;
   /** Whether the tournament has been locked by a master admin */
   adminLocked?: boolean;
+  /**
+   * Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty/null hides availability everywhere.
+   * @nullable
+   */
+  matchDates?: string | null;
   createdAt: string;
 }
 
@@ -206,6 +211,8 @@ export interface TournamentInput {
   mainBannerUrl?: string;
   mainBannerEnabled?: boolean;
   mainBannerFit?: TournamentInputMainBannerFit;
+  /** Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19' */
+  matchDates?: string;
 }
 
 export type TournamentUpdatePlayerSelectionMode =
@@ -272,6 +279,11 @@ export interface TournamentUpdate {
   mainBannerUrl?: string | null;
   mainBannerEnabled?: boolean;
   mainBannerFit?: TournamentUpdateMainBannerFit;
+  /**
+   * Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'
+   * @nullable
+   */
+  matchDates?: string | null;
 }
 
 export interface Team {

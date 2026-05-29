@@ -1799,6 +1799,9 @@ components:
         adminLocked:
           type: boolean
           description: "Whether the tournament has been locked by a master admin"
+        matchDates:
+          type: ["string", "null"]
+          description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty/null hides availability everywhere."
         createdAt:
           type: string
 
@@ -1893,6 +1896,9 @@ components:
         mainBannerFit:
           type: string
           enum: [cover, contain]
+        matchDates:
+          type: string
+          description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'"
 
     TournamentUpdate:
       type: object
@@ -1980,6 +1986,9 @@ components:
         mainBannerFit:
           type: string
           enum: [cover, contain]
+        matchDates:
+          type: ["string", "null"]
+          description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'"
 
     # Team schemas
     Team:
