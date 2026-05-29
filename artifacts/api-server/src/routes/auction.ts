@@ -883,12 +883,16 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
           // Template vars (must match approved DLT sample exactly):
           // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
           const appUrl = `https://${process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost"}`;
-          await sendDltSms(
+          const result = await sendDltSms(
             [playerMobile],
             templateId,
             [soldPlayer.name ?? "Player", team?.name ?? "Team", String(soldAmount), appUrl],
           );
-          logger.info({ playerId, templateId, mobile: playerMobile.slice(0, 4) + "xxxxxx" }, "DLT player-sold SMS: sent");
+          if (result.success) {
+            logger.info({ playerId, templateId, mobile: playerMobile.slice(0, 4) + "xxxxxx" }, "DLT player-sold SMS: sent");
+          } else {
+            logger.error({ playerId, templateId, err: result.error }, "DLT player-sold SMS: API rejected");
+          }
         } else {
           logger.warn({
             playerId,
