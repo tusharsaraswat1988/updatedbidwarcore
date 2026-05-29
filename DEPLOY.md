@@ -237,12 +237,38 @@ services:
 
 ---
 
-## Real-time auction (SSE) — important notes
+## Real-Time Architecture (SSE)
 
-- BidWar uses **Server-Sent Events (SSE)** for live auction updates. SSE is plain HTTP — no WebSocket upgrade is required. It works on all platforms listed above.
-- **Single-process only**: the SSE client registry is in-memory. If you run multiple Node instances behind a load balancer, clients on one instance will not receive events broadcast from another. Use a single process (no round-robin). Scale vertically if needed.
-- The Node app sends a **heartbeat every 20 seconds** to keep connections alive through proxies.
-- The `nginx.conf.example` includes the required `proxy_buffering off` and `proxy_read_timeout 3600` for the SSE endpoint — use it as-is.
+### Technology
+
+BidWar uses **Server-Sent Events (SSE)** for all live auction updates — operator panel, LED display, owner panel, and live viewer. SSE is plain HTTP; **no WebSocket upgrade handshake is required**. This means it works out of the box on every platform in this guide.
+
+### Platform compatibility
+
+| Platform | Status |
+|---|---|
+| Railway | Confirmed — long-lived HTTP connections are fully supported |
+| Render | Confirmed — long-lived HTTP connections are fully supported |
+| DigitalOcean App Platform | Confirmed — long-lived HTTP connections are fully supported |
+| VPS + nginx | Confirmed — use `nginx.conf.example` as-is (SSE block included) |
+| Hostinger Business (Node.js) | Confirmed — SSE is plain HTTP, no special server support needed |
+| Docker | Confirmed — same as VPS; add nginx in front if needed |
+
+### Critical: single-process deployment
+
+The SSE client registry (`broadcast.ts`) is stored in Node.js process memory. **Do not enable round-robin load balancing across multiple Node instances.** If a bid POST hits instance A and the browser's SSE connection is on instance B, the client never receives the event.
+
+- Run **one process** on one server. Scale vertically (more CPU/RAM) if needed.
+- A future Redis pub/sub upgrade path would remove this constraint — see `artifacts/api-server/src/lib/broadcast.ts`.
+
+### Reconnection and heartbeat
+
+- **Client reconnects every 3 seconds** on error. On browser tab focus-restore, the client also force-reconnects immediately.
+- **Server sends a keep-alive heartbeat every 20 seconds** (an HTTP comment line). This prevents nginx and other proxies from closing idle SSE connections — the `nginx.conf.example` `proxy_read_timeout 3600s` provides an extra safety margin.
+
+### nginx configuration
+
+The `nginx.conf.example` already includes a dedicated location block for the SSE endpoint (before the general `/api` block) with `proxy_buffering off`, `proxy_cache off`, `proxy_read_timeout 3600s`, and `X-Accel-Buffering: no`. Use it as-is — no manual tuning required.
 
 ---
 
