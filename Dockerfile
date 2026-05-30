@@ -8,7 +8,7 @@
 # pre-built Vite frontends (auction-platform at / and owner-app at /owner-app/).
 
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -31,7 +31,7 @@ RUN pnpm run build
 RUN pnpm --filter @workspace/api-server deploy --prod /deploy
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-FROM node:20-alpine
+FROM node:22-alpine
 
 ENV NODE_ENV=production
 ENV PORT=3000
