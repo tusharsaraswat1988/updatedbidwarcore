@@ -19,6 +19,11 @@ import {
   Settings, Download, CheckCircle2, Circle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  getReadinessChecklistItems,
+  tournamentToReadinessInput,
+  type AuctionReadinessCheckId,
+} from "@workspace/api-base/auction-readiness";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -56,6 +61,32 @@ export default function TournamentHub() {
       setExportLoading(false);
     }
   }
+
+  const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
+  const settingsPath = `/tournament/${tournamentId}/settings`;
+  const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
+    teams: `/tournament/${tournamentId}/teams`,
+    players: `/tournament/${tournamentId}/players`,
+    minBid: settingsPath,
+    openingTimer: settingsPath,
+    bidTimer: settingsPath,
+    playerOrder: settingsPath,
+    bidTiers: settingsPath,
+    minSquad: settingsPath,
+    maxSquad: settingsPath,
+    squadRange: settingsPath,
+  };
+  const readinessInput = tournament
+    ? tournamentToReadinessInput(
+        tournament,
+        teamPurses?.length ?? 0,
+        summary?.totalPlayers ?? 0,
+      )
+    : null;
+  const readinessChecks = readinessInput
+    ? getReadinessChecklistItems(readinessInput, readinessMode, readinessLinks)
+    : [];
+  const readinessComplete = readinessChecks.length > 0 && readinessChecks.every((c) => c.done);
 
   if (loadingTournament) {
     return (
@@ -211,35 +242,16 @@ export default function TournamentHub() {
               <p className="text-xs text-muted-foreground mt-0.5">Complete these steps before going live.</p>
             </div>
             <div className="space-y-2">
-              {[
-                {
-                  done: true,
-                  label: "Tournament created",
-                  desc: "Name, sport, date and purse are configured.",
-                  link: undefined as string | undefined,
-                  linkLabel: undefined as string | undefined,
-                },
-                {
-                  done: (teamPurses?.length ?? 0) >= 2,
-                  label: "Add at least 2 teams",
-                  desc: (teamPurses?.length ?? 0) >= 2
-                    ? `${teamPurses?.length} teams added — good to go.`
-                    : "You need at least 2 franchise teams to run an auction.",
-                  link: `/tournament/${tournamentId}/teams`,
-                  linkLabel: "Add teams",
-                },
-                {
-                  done: (summary?.totalPlayers ?? 0) > 0,
-                  label: "Add players",
-                  desc: (summary?.totalPlayers ?? 0) > 0
-                    ? `${summary?.totalPlayers} players in the pool.`
-                    : "Add the athletes who will be auctioned off.",
-                  link: `/tournament/${tournamentId}/players`,
-                  linkLabel: "Add players",
-                },
-              ].map((item, i) => (
+              <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-green-500/20 bg-green-500/5">
+                <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-green-400">Tournament created</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Name, sport, date and purse are configured.</p>
+                </div>
+              </div>
+              {readinessChecks.map((item) => (
                 <div
-                  key={i}
+                  key={item.id}
                   className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border ${
                     item.done
                       ? "border-green-500/20 bg-green-500/5"
@@ -253,23 +265,24 @@ export default function TournamentHub() {
                     <p className={`text-sm font-medium ${item.done ? "text-green-400" : "text-foreground"}`}>
                       {item.label}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                   </div>
                   {!item.done && item.link && (
                     <button
                       onClick={() => navigate(item.link!)}
                       className="text-xs text-primary hover:underline flex-shrink-0 font-medium mt-0.5"
                     >
-                      {item.linkLabel} →
+                      Fix →
                     </button>
                   )}
                 </div>
               ))}
             </div>
-            {(teamPurses?.length ?? 0) >= 2 && (summary?.totalPlayers ?? 0) > 0 && (
+            {readinessComplete && (
               <div className="flex items-center gap-3 pt-1 border-t border-border/40">
                 <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                <p className="text-sm font-medium flex-1">All set — you can start the auction.</p>
+                <p className="text-sm font-medium flex-1">
+                  All set — you can start the {readinessMode === "trial" ? "trial" : "live"} auction.
+                </p>
                 <button
                   onClick={() => navigate(`/tournament/${tournamentId}/auction`)}
                   className="text-xs text-primary font-semibold hover:underline flex-shrink-0"

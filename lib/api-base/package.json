@@ -8,6 +8,7 @@
     "./vite-proxy": "./src/vite-proxy.ts",
     "./dev-cors": "./src/dev-cors.ts",
     "./auction-bid": "./src/auction-bid.ts",
+    "./auction-readiness": "./src/auction-readiness.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts"
   },

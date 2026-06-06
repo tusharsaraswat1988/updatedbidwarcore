@@ -1,4 +1,10 @@
 import { Router } from "express";
+import {
+  DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+  DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+  DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
+  DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+} from "@workspace/api-base/auction-readiness";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
@@ -40,7 +46,11 @@ export function createTournamentsRouter(db: LocalDb) {
     const [row] = await db.insert(tournamentsTable).values({
       name: d.name, sport: d.sport ?? "cricket",
       venue: d.venue ?? null, auctionDate: d.auctionDate ?? null,
-      basePurse: d.basePurse ?? 10000000, timerSeconds: d.timerSeconds ?? 30,
+      basePurse: d.basePurse ?? 10000000,
+      bidTiers: DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+      timerSeconds: d.timerSeconds ?? DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+      bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+      playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
     }).returning();
     res.status(201).json(tournamentToJson(row));
   });

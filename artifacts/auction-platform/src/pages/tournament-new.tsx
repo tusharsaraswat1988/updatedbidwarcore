@@ -91,7 +91,7 @@ export default function NewTournament() {
       basePurse: 10000000,
       minBid: 10000,
       bidIncrement: 5000,
-      timerSeconds: 15,
+      timerSeconds: 10,
       minimumSquadSize: 0,
       maximumSquadSize: 0,
     },

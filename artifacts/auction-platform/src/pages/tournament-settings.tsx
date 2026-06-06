@@ -121,9 +121,7 @@ export default function TournamentSettings() {
   const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
-    { upTo: 100000, increment: 25000 },
-    { upTo: 200000, increment: 50000 },
-    { increment: 100000 },
+    { increment: 0 },
   ]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);

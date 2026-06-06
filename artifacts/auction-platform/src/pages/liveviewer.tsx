@@ -1480,7 +1480,7 @@ export default function LiveViewerPage() {
               {isPaused ? (
                 <>
                   <p className="font-display font-bold text-lg text-amber-400">Auction Paused</p>
-                  <p className="text-sm text-muted-foreground">The operator has paused bidding.</p>
+                  <p className="text-sm text-muted-foreground">The operator has paused the auction.</p>
                 </>
               ) : (
                 <>

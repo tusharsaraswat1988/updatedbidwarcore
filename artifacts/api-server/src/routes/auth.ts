@@ -11,6 +11,12 @@ import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
 import { buildPublicUrl } from "../lib/runtime-env";
+import {
+  DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+  DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+  DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
+  DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+} from "@workspace/api-base/auction-readiness";
 
 const scryptAsync = promisify(scrypt);
 
@@ -300,8 +306,12 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     organizerEmail: d.organizerEmail,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
-    timerSeconds: d.timerSeconds ?? 30,
-    bidTimerSeconds: d.bidTimerSeconds ?? 15,
+    bidTiers: DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+    timerSeconds: d.timerSeconds ?? DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+    bidTimerSeconds: d.bidTimerSeconds ?? DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+    playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
+    minimumSquadSize: 0,
+    maximumSquadSize: 0,
   }).returning();
   res.json({ success: true, id: t.id });
 });
@@ -910,8 +920,12 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerEmail: organizer.email ?? null,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
-    timerSeconds: 30,
-    bidTimerSeconds: 15,
+    bidTiers: DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+    timerSeconds: DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+    bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+    playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
+    minimumSquadSize: 0,
+    maximumSquadSize: 0,
     licenseStatus: "trial",
   }).returning();
 

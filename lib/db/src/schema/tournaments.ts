@@ -29,9 +29,9 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTier2Increment: integer("bid_tier2_increment").notNull().default(50000),
   bidTier3Increment: integer("bid_tier3_increment").notNull().default(100000),
   bidTiers: text("bid_tiers"),
-  timerSeconds: integer("timer_seconds").notNull().default(30),
-  bidTimerSeconds: integer("bid_timer_seconds").notNull().default(15),
-  playerSelectionMode: text("player_selection_mode").notNull().default("sequential"),
+  timerSeconds: integer("timer_seconds").notNull().default(10),
+  bidTimerSeconds: integer("bid_timer_seconds").notNull().default(10),
+  playerSelectionMode: text("player_selection_mode").notNull().default("random"),
   status: text("status").notNull().default("setup"),
   // Player registration link controls
   registrationDeadline: text("registration_deadline"),

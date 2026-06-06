@@ -1,7 +1,11 @@
 import { Router, type Response, type NextFunction, type Request } from "express";
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import {
+  tournamentToReadinessInput,
+  validateAuctionReadiness,
+} from "@workspace/api-base/auction-readiness";
 import type { LocalDb } from "@workspace/db-local";
 import {
   auctionSessionsTable, playersTable, teamsTable, bidsTable, tournamentsTable,
@@ -220,6 +224,30 @@ export function createAuctionRouter(db: LocalDb) {
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const session = await getOrCreateSession(tid);
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
+    if (session.status === "idle" && tournament) {
+      const [{ count: teamCount }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamsTable)
+        .where(eq(teamsTable.tournamentId, tid));
+      const [{ count: playerCount }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(playersTable)
+        .where(eq(playersTable.tournamentId, tid));
+
+      const issues = validateAuctionReadiness(
+        tournamentToReadinessInput(tournament, teamCount, playerCount),
+        "live",
+      );
+      if (issues.length > 0) {
+        res.status(400).json({
+          error: "Auction is not ready.",
+          issues: issues.map((i) => i.message),
+        });
+        return;
+      }
+    }
+
     const timerSecs = tournament?.timerSeconds ?? 30;
     const patch: Record<string, unknown> = { status: "active", lastAction: "Auction resumed", timerSeconds: timerSecs };
     if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {

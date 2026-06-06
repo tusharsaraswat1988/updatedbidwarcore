@@ -1,4 +1,10 @@
 import { Router } from "express";
+import {
+  DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+  DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+  DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
+  DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+} from "@workspace/api-base/auction-readiness";
 import { randomBytes } from "crypto";
 import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
@@ -168,8 +174,10 @@ router.post("/tournaments", async (req, res) => {
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,
-      timerSeconds: d.timerSeconds ?? 30,
-      bidTimerSeconds: d.bidTimerSeconds ?? 15,
+      bidTiers: d.bidTiers ?? DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+      timerSeconds: d.timerSeconds ?? DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
+      bidTimerSeconds: d.bidTimerSeconds ?? DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
+      playerSelectionMode: d.playerSelectionMode ?? DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
       minimumSquadSize: d.minimumSquadSize ?? 0,
       maximumSquadSize: d.maximumSquadSize ?? 0,
       matchDates: d.matchDates ?? null,

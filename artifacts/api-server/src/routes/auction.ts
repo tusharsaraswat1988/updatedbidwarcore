@@ -14,7 +14,7 @@ import {
   categoriesTable,
   organizersTable,
 } from "@workspace/db";
-import { eq, and, asc, desc, inArray, notInArray } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, broadcastToTournament, getSseClientCount } from "../lib/broadcast";
 import { logger } from "../lib/logger";
@@ -30,6 +30,11 @@ import {
   logTimerEvent,
 } from "../lib/auction-logger";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import {
+  tournamentToReadinessInput,
+  validateAuctionReadiness,
+  type AuctionReadinessMode,
+} from "@workspace/api-base/auction-readiness";
 
 const router = Router();
 
@@ -503,6 +508,32 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     await db.update(tournamentsTable)
       .set({ adminLocked: false, adminLockedAt: null })
       .where(eq(tournamentsTable.id, tid));
+  }
+
+  // Readiness gate — first start only (idle → active). Resume from pause skips validation.
+  if (session.status === "idle" && tournament) {
+    const [{ count: teamCount }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(teamsTable)
+      .where(eq(teamsTable.tournamentId, tid));
+    const [{ count: playerCount }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid));
+
+    const readinessMode: AuctionReadinessMode =
+      tournament.licenseStatus === "active" ? "live" : "trial";
+    const issues = validateAuctionReadiness(
+      tournamentToReadinessInput(tournament, teamCount, playerCount),
+      readinessMode,
+    );
+    if (issues.length > 0) {
+      res.status(400).json({
+        error: "Auction is not ready.",
+        issues: issues.map((i) => i.message),
+      });
+      return;
+    }
   }
 
   const timerSecs = tournament?.timerSeconds ?? 30;
