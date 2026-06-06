@@ -32,6 +32,7 @@ import {
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock,
 } from "lucide-react";
+import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
@@ -81,6 +82,31 @@ function toIndianWords(raw: string): string {
   return parts.join(" ");
 }
 
+type TimePeriod = "AM" | "PM";
+
+function to24HourTime(hour12: number, minute: number, period: TimePeriod): string {
+  let h = hour12 % 12;
+  if (period === "PM") h += 12;
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatAuctionSchedulePreview(date: string, hour12: number, minute: number, period: TimePeriod): string {
+  const d = new Date(`${date}T${to24HourTime(hour12, minute, period)}:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const TIME_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
 function CreateTournamentModal({
@@ -95,8 +121,13 @@ function CreateTournamentModal({
     sport: "cricket",
     venue: "",
     auctionDate: "",
-    auctionTime: "",
+    timeHour: "",
+    timeMinute: "00",
+    timePeriod: "PM" as TimePeriod,
     basePurse: "",
+    minimumSquadSize: "",
+    minBid: "",
+    bidIncrement: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -113,30 +144,49 @@ function CreateTournamentModal({
 
   function handleClose() {
     setCreatedCode(null);
-    setForm({ name: "", sport: "cricket", venue: "", auctionDate: "", auctionTime: "", basePurse: "" });
+    setForm({
+      name: "", sport: "cricket", venue: "", auctionDate: "",
+      timeHour: "", timeMinute: "00", timePeriod: "PM",
+      basePurse: "", minimumSquadSize: "", minBid: "", bidIncrement: "",
+    });
     setError("");
     onClose();
   }
 
-  // datetime-local value combined from date + time
-  const datetimeValue = form.auctionDate
-    ? form.auctionTime ? `${form.auctionDate}T${form.auctionTime}` : form.auctionDate
+  const auctionTime = form.timeHour
+    ? to24HourTime(parseInt(form.timeHour, 10), parseInt(form.timeMinute, 10) || 0, form.timePeriod)
     : "";
-
-  function handleDatetimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value; // "2026-05-31T14:00" or ""
-    setForm(f => ({
-      ...f,
-      auctionDate: val ? val.slice(0, 10) : "",
-      auctionTime: val.length >= 16 ? val.slice(11, 16) : "",
-    }));
-  }
+  const schedulePreview = form.auctionDate && form.timeHour
+    ? formatAuctionSchedulePreview(
+        form.auctionDate,
+        parseInt(form.timeHour, 10),
+        parseInt(form.timeMinute, 10) || 0,
+        form.timePeriod,
+      )
+    : form.auctionDate
+      ? new Date(`${form.auctionDate}T12:00:00`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+      : "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
     if (!form.basePurse || parseInt(form.basePurse) <= 0) {
       setError("Total Points per Team is required.");
+      return;
+    }
+    const minSquad = parseInt(form.minimumSquadSize, 10);
+    if (!form.minimumSquadSize || Number.isNaN(minSquad) || minSquad < 1) {
+      setError("Minimum players per team is required (at least 1).");
+      return;
+    }
+    const minBid = parseInt(form.minBid, 10);
+    if (!form.minBid || Number.isNaN(minBid) || minBid < 1) {
+      setError("Minimum player value is required.");
+      return;
+    }
+    const bidIncrement = parseInt(form.bidIncrement, 10);
+    if (!form.bidIncrement || Number.isNaN(bidIncrement) || bidIncrement < 1) {
+      setError("Bid increase amount is required.");
       return;
     }
     setLoading(true);
@@ -146,8 +196,11 @@ function CreateTournamentModal({
       sport: form.sport,
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
-      auctionTime: form.auctionTime || undefined,
+      auctionTime: auctionTime || undefined,
       basePurse: parseInt(form.basePurse),
+      minimumSquadSize: minSquad,
+      minBid,
+      bidIncrement,
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
@@ -159,7 +212,7 @@ function CreateTournamentModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-md dark">
+      <DialogContent className="max-w-lg dark">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gavel className="w-4 h-4 text-primary" />
@@ -187,7 +240,7 @@ function CreateTournamentModal({
               <Input
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Rotary Cricket League 2025"
+                placeholder="Enter the name of your tournament"
                 required
               />
             </div>
@@ -222,37 +275,107 @@ function CreateTournamentModal({
               </div>
             </div>
 
-            {/* Single datetime-local picker — avoids the HH:MM:SS problem on mobile */}
             <div className="space-y-2">
-              <Label>Auction Date &amp; Time</Label>
+              <Label>Auction Date</Label>
               <Input
-                type="datetime-local"
-                value={datetimeValue}
-                onChange={handleDatetimeChange}
-                step="60"
+                type="date"
+                value={form.auctionDate}
+                onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
               />
-              {form.auctionDate && (
-                <p className="text-xs text-muted-foreground">
-                  {new Date(`${form.auctionDate}T${form.auctionTime || "00:00"}`).toLocaleString("en-IN", {
-                    dateStyle: "long", timeStyle: form.auctionTime ? "short" : undefined,
-                  })}
-                </p>
-              )}
             </div>
-
             <div className="space-y-2">
-              <Label>Total Points per Team *</Label>
-              <Input
-                type="number"
-                value={form.basePurse}
-                onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-                placeholder="e.g. 1000000"
-                min={1}
-                required
-              />
-              {purseWords && (
-                <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
-              )}
+              <Label>Auction Time</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Select value={form.timeHour || undefined} onValueChange={v => setForm(f => ({ ...f, timeHour: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_HOURS.map(h => (
+                      <SelectItem key={h} value={String(h)}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={form.timeMinute} onValueChange={v => setForm(f => ({ ...f, timeMinute: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_MINUTES.map(m => (
+                      <SelectItem key={m} value={String(m).padStart(2, "0")}>
+                        {String(m).padStart(2, "0")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={form.timePeriod} onValueChange={v => setForm(f => ({ ...f, timePeriod: v as TimePeriod }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {schedulePreview && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Scheduled: <span className="text-foreground font-medium">{schedulePreview}</span>
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Total Points per Team *</Label>
+                <Input
+                  type="number"
+                  value={form.basePurse}
+                  onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
+                  placeholder="e.g. 1000000"
+                  min={1}
+                  required
+                />
+                {purseWords && (
+                  <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum Players per Team *</Label>
+                <Input
+                  type="number"
+                  value={form.minimumSquadSize}
+                  onChange={e => setForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
+                  placeholder="e.g. 11"
+                  min={1}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Each team must buy at least this many players.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum Player Value (₹) *</Label>
+                <Input
+                  type="number"
+                  value={form.minBid}
+                  onChange={e => setForm(f => ({ ...f, minBid: e.target.value }))}
+                  placeholder="e.g. 10000"
+                  min={1}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Bidding starts at this amount for each player.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Bid Increase Amount (₹) *</Label>
+                <Input
+                  type="number"
+                  value={form.bidIncrement}
+                  onChange={e => setForm(f => ({ ...f, bidIncrement: e.target.value }))}
+                  placeholder="e.g. 5000"
+                  min={1}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Added with every raise. Multi-tier increments can be set later in Tournament Settings.</p>
+              </div>
             </div>
 
             {error && (
@@ -287,10 +410,11 @@ function CompleteProfileForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!mobile.trim()) { setError("Mobile number is required."); return; }
+    const mobileResult = parseIndianMobile(mobile);
+    if (!mobileResult.ok) { setError(mobileResult.error); return; }
     setLoading(true);
     setError("");
-    const r = await updateOrganizerProfile({ mobile: mobile.trim() });
+    const r = await updateOrganizerProfile({ mobile: mobileResult.normalized });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to save."); return; }
     if (r.organizer) onComplete(r.organizer);
@@ -324,10 +448,12 @@ function CompleteProfileForm({
                   <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number *
                 </Label>
                 <Input
+                  type="tel"
                   value={mobile}
-                  onChange={e => setMobile(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  inputMode="tel"
+                  onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
+                  placeholder="10-digit mobile (e.g. 9876543210)"
+                  inputMode="numeric"
+                  maxLength={10}
                   autoFocus
                 />
               </div>
@@ -372,11 +498,13 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!mobile.trim()) { setError("Enter your registered mobile number"); return; }
+    const mobileResult = parseIndianMobile(mobile);
+    if (!mobileResult.ok) { setError(mobileResult.error); return; }
     setLoading(true); setError("");
-    const r = await sendOtp(mobile.trim());
+    const r = await sendOtp(mobileResult.normalized);
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to send OTP"); return; }
+    setMobile(mobileResult.normalized);
     setStep("otp");
     setResendCooldown(30);
   }
@@ -420,7 +548,15 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
         <form onSubmit={handleSendOtp} className="space-y-3">
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Registered Mobile</Label>
-            <Input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" inputMode="tel" autoFocus />
+            <Input
+              type="tel"
+              value={mobile}
+              onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
+              placeholder="10-digit mobile (e.g. 9876543210)"
+              inputMode="numeric"
+              maxLength={10}
+              autoFocus
+            />
           </div>
           {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
           <Button type="submit" className="w-full" disabled={loading || !mobile.trim()}>
@@ -648,12 +784,15 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
     e.preventDefault();
     const { name, mobile, email, password, confirmPassword } = signupForm;
     if (!name || !mobile || !password) { setError("Name, mobile, and password are required."); return; }
+    const mobileResult = parseIndianMobile(mobile);
+    if (!mobileResult.ok) { setError(mobileResult.error); return; }
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError("");
-    const r = await signupSendOtp({ name, mobile, email: email || undefined, password });
+    const r = await signupSendOtp({ name, mobile: mobileResult.normalized, email: email || undefined, password });
     setLoading(false);
     if (!r.success) { setError(r.error || "Signup failed"); return; }
+    setSignupForm(f => ({ ...f, mobile: mobileResult.normalized }));
     setSignupStep("otp");
     setSignupResendCooldown(30);
   }
@@ -957,8 +1096,10 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                         <Input
                           type="tel"
                           value={signupForm.mobile}
-                          onChange={e => setSignupForm(f => ({ ...f, mobile: e.target.value }))}
-                          placeholder="10-digit mobile number"
+                          onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
+                          placeholder="10-digit mobile (e.g. 9876543210)"
+                          inputMode="numeric"
+                          maxLength={10}
                         />
                       </div>
                       <div className="space-y-2">

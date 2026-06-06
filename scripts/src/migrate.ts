@@ -23,6 +23,10 @@ const migrations: Array<{ label: string; sql: string }> = [
     sql: `CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)`,
   },
   {
+    label: "teams_owner_photo_url",
+    sql: `ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_url text`,
+  },
+  {
     label: "create_sessions_table",
     sql: `
       CREATE TABLE IF NOT EXISTS "sessions" (

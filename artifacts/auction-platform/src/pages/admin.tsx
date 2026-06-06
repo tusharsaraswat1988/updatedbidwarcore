@@ -27,6 +27,8 @@ import {
   AdminTournamentDetail,
   AdminOrganizerRow,
 } from "@/lib/auth";
+import { LicenseModeControl } from "@/components/admin/license-mode-control";
+import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -110,7 +112,7 @@ import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function LicenseBadge({ status }: { status: string }) {
+export function LicenseBadge({ status }: { status: string }) {
   if (status === "active") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]">
@@ -132,7 +134,7 @@ function LicenseBadge({ status }: { status: string }) {
   );
 }
 
-function LockBadge({ locked }: { locked: boolean }) {
+export function LockBadge({ locked }: { locked: boolean }) {
   if (!locked) return null;
   return (
     <Badge className="bg-red-500/15 text-red-400 border-red-500/30 gap-1 text-[10px]">
@@ -141,7 +143,7 @@ function LockBadge({ locked }: { locked: boolean }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     setup: "bg-muted/30 text-muted-foreground",
     active: "bg-green-500/20 text-green-400",
@@ -157,7 +159,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
-function CreateTournamentModal({
+export function CreateTournamentModal({
   onClose,
   onCreated,
 }: {
@@ -191,6 +193,15 @@ function CreateTournamentModal({
       setError("Tournament name is required");
       return;
     }
+    let organizerMobile: string | undefined;
+    if (form.organizerMobile.trim()) {
+      const mobileResult = parseIndianMobile(form.organizerMobile);
+      if (!mobileResult.ok) {
+        setError(mobileResult.error);
+        return;
+      }
+      organizerMobile = mobileResult.normalized;
+    }
     setLoading(true);
     setError("");
     const r = await createAdminTournament({
@@ -200,7 +211,7 @@ function CreateTournamentModal({
       auctionDate: form.auctionDate || undefined,
       auctionTime: form.auctionTime || undefined,
       organizerName: form.organizerName || undefined,
-      organizerMobile: form.organizerMobile || undefined,
+      organizerMobile,
       organizerEmail: form.organizerEmail || undefined,
       basePurse: Number(form.basePurse) || 10000000,
       minBid: Number(form.minBid) || 100000,
@@ -327,9 +338,12 @@ function CreateTournamentModal({
                   Mobile
                 </Label>
                 <Input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={form.organizerMobile}
-                  onChange={f("organizerMobile")}
-                  placeholder="+91..."
+                  onChange={e => setForm(p => ({ ...p, organizerMobile: sanitizeMobileInput(e.target.value) }))}
+                  placeholder="10-digit mobile"
                 />
               </div>
               <div className="space-y-1.5">
@@ -471,7 +485,9 @@ function DetailPanel({
         auctionDate: d.tournament.auctionDate || "",
         auctionTime: d.tournament.auctionTime || "",
         organizerName: d.tournament.organizerName || "",
-        organizerMobile: d.tournament.organizerMobile || "",
+        organizerMobile: d.tournament.organizerMobile
+          ? sanitizeMobileInput(d.tournament.organizerMobile)
+          : "",
         organizerEmail: d.tournament.organizerEmail || "",
         basePurse: d.tournament.basePurse,
         minBid: d.tournament.minBid,
@@ -553,8 +569,20 @@ function DetailPanel({
       payload.auctionTime = ef.auctionTime as string;
     if (ef.organizerName !== undefined)
       payload.organizerName = ef.organizerName as string;
-    if (ef.organizerMobile !== undefined)
-      payload.organizerMobile = ef.organizerMobile as string;
+    if (ef.organizerMobile !== undefined) {
+      const raw = String(ef.organizerMobile).trim();
+      if (raw) {
+        const mobileResult = parseIndianMobile(raw);
+        if (!mobileResult.ok) {
+          flash(mobileResult.error, false);
+          setSaving(false);
+          return;
+        }
+        payload.organizerMobile = mobileResult.normalized;
+      } else {
+        payload.organizerMobile = "";
+      }
+    }
     if (ef.organizerEmail !== undefined)
       payload.organizerEmail = ef.organizerEmail as string;
     if (ef.basePurse) payload.basePurse = Number(ef.basePurse);
@@ -676,77 +704,6 @@ function DetailPanel({
 
       {/* Action bar */}
       <div className="px-4 py-2.5 border-b border-border/40 flex items-center gap-2 flex-wrap flex-shrink-0 bg-muted/10">
-        {/* License status buttons (master admin only) */}
-        {isMaster && t.licenseStatus !== "trial" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-            disabled={actionLoading === "Set Trial"}
-            onClick={() =>
-              doAction("Set Trial", () =>
-                setTournamentLicenseStatus(tournamentId, "trial"),
-              )
-            }
-          >
-            {actionLoading === "Set Trial" ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <AlertTriangle className="w-3 h-3" />
-            )}
-            Set Trial
-          </Button>
-        )}
-        {isMaster && t.licenseStatus !== "active" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-xs border-green-500/40 text-green-400 hover:bg-green-500/10"
-            disabled={actionLoading === "Set Active"}
-            onClick={() =>
-              doAction("Set Active", () =>
-                setTournamentLicenseStatus(tournamentId, "active"),
-              )
-            }
-          >
-            {actionLoading === "Set Active" ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <BadgeCheck className="w-3 h-3" />
-            )}
-            Set Live
-          </Button>
-        )}
-        {isMaster && t.licenseStatus !== "completed" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-xs border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
-            disabled={actionLoading === "Set Completed"}
-            onClick={async () => {
-              if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-              setActionLoading("Set Completed");
-              try {
-                const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
-                if (!r1.success) { flash(r1.error || "Set Completed failed", false); return; }
-                const r2 = await lockTournament(tournamentId);
-                if (!r2.success) { flash("Licence set to completed but lock failed — please retry", false); }
-                else { flash("Set Completed done"); }
-              } finally {
-                setActionLoading(null);
-                await load();
-                onRefresh();
-              }
-            }}
-          >
-            {actionLoading === "Set Completed" ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <Check className="w-3 h-3" />
-            )}
-            Set Completed
-          </Button>
-        )}
         {/* Re-open escape hatch — only shown when tournament is locked */}
         {isLocked && (
           <Button
@@ -1012,11 +969,14 @@ function DetailPanel({
                     </Label>
                     <Input
                       className="h-8 text-sm"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
                       value={(editForm.organizerMobile as string) || ""}
                       onChange={(e) =>
                         setEditForm((f) => ({
                           ...f,
-                          organizerMobile: e.target.value,
+                          organizerMobile: sanitizeMobileInput(e.target.value),
                         }))
                       }
                     />
@@ -1154,42 +1114,54 @@ function DetailPanel({
                   ))}
                 </div>
 
-                {/* License / lock status */}
+                <LicenseModeControl
+                  licenseStatus={t.licenseStatus}
+                  isMaster={isMaster}
+                  actionLoading={actionLoading}
+                  onSwitchToTrial={() =>
+                    doAction("Switch to Trial", () =>
+                      setTournamentLicenseStatus(tournamentId, "trial"),
+                    )
+                  }
+                  onSwitchToLive={() =>
+                    doAction("Switch to Live", () =>
+                      setTournamentLicenseStatus(tournamentId, "active"),
+                    )
+                  }
+                  onEndAuction={async () => {
+                    if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
+                    setActionLoading("End auction");
+                    try {
+                      const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
+                      if (!r1.success) { flash(r1.error || "End auction failed", false); return; }
+                      const r2 = await lockTournament(tournamentId);
+                      if (!r2.success) flash("Marked completed but lock failed — please retry", false);
+                      else flash("Auction ended");
+                    } finally {
+                      setActionLoading(null);
+                      await load();
+                      onRefresh();
+                    }
+                  }}
+                />
+
                 <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Admin Status
+                    Lock status
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-xs w-28">
-                        License
-                      </span>
-                      <LicenseBadge status={t.licenseStatus} />
-                    </div>
-                    {t.licenseGrantedAt && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs w-28">
-                          Granted at
-                        </span>
-                        <span className="text-xs">
-                          {new Date(t.licenseGrantedAt).toLocaleDateString(
-                            "en-IN",
-                          )}
-                        </span>
-                      </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    {isLocked ? (
+                      <LockBadge locked />
+                    ) : (
+                      <Badge className="text-[10px] bg-muted/20 text-muted-foreground">
+                        Unlocked
+                      </Badge>
                     )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-xs w-28">
-                        Lock status
+                    {t.licenseGrantedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        Licence granted {new Date(t.licenseGrantedAt).toLocaleDateString("en-IN")}
                       </span>
-                      {isLocked ? (
-                        <LockBadge locked />
-                      ) : (
-                        <Badge className="text-[10px] bg-muted/20 text-muted-foreground">
-                          Unlocked
-                        </Badge>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -1806,7 +1778,9 @@ function OrganizerDetailPanel({
   const [form, setForm] = useState({
     name: org.name,
     email: org.email || "",
-    mobile: org.mobile,
+    mobile: org.mobile && !org.mobile.startsWith("eml:") && !org.mobile.startsWith("gid_")
+      ? sanitizeMobileInput(org.mobile)
+      : "",
     notes: org.notes || "",
   });
 
@@ -1820,9 +1794,17 @@ function OrganizerDetailPanel({
     const payload: Parameters<typeof updateAdminOrganizer>[1] = {
       name: form.name || undefined,
       email: form.email || undefined,
-      mobile: (form.mobile ?? undefined) || undefined,
       notes: form.notes || undefined,
     };
+    if (form.mobile?.trim()) {
+      const mobileResult = parseIndianMobile(form.mobile);
+      if (!mobileResult.ok) {
+        flash(mobileResult.error, false);
+        setSaving(false);
+        return;
+      }
+      payload.mobile = mobileResult.normalized;
+    }
     const r = await updateAdminOrganizer(org.id, payload);
     setSaving(false);
     if (r.success) {
@@ -1946,8 +1928,11 @@ function OrganizerDetailPanel({
                   </Label>
                   <Input
                     className="h-8 text-sm"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={form.mobile ?? ""}
-                    onChange={f("mobile")}
+                    onChange={e => setForm(p => ({ ...p, mobile: sanitizeMobileInput(e.target.value) }))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -2072,7 +2057,7 @@ type AdminSpecGroup = { id: number; groupName: string; displayOrder: number; opt
 type AdminSportRole = { id: number; roleName: string; displayOrder: number; active: boolean; specGroups: AdminSpecGroup[] };
 type AdminSport = { id: number; name: string; slug: string; active: boolean; roles: AdminSportRole[] };
 
-function SportsPanel() {
+export function SportsPanel() {
   const [sports, setSports] = useState<AdminSport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSportId, setSelectedSportId] = useState<number | null>(null);
@@ -2526,7 +2511,7 @@ type SmsSettings = {
   viewerLinkTemplateIdFromEnv: string | null;
 };
 
-function SmsSettingsPanel() {
+export function SmsSettingsPanel() {
   const [settings, setSettings] = useState<SmsSettings>({
     dltEnabled: false,
     teamOwnerEnabled: false,
@@ -2649,7 +2634,7 @@ function SmsSettingsPanel() {
 
 // ─── Installer Settings Panel ────────────────────────────────────────────────
 
-function InstallerSettingsPanel() {
+export function InstallerSettingsPanel() {
   const [url, setUrl] = useState("");
   const [version, setVersion] = useState("");
   const [releasedAt, setReleasedAt] = useState("");
@@ -2855,7 +2840,7 @@ function buildStatusBadge(status: BuildStatus) {
   return <Badge className="bg-muted text-muted-foreground text-xs">{s}</Badge>;
 }
 
-function BuildTriggerPanel() {
+export function BuildTriggerPanel() {
   const [config, setConfig] = useState<GithubConfig>({ owner: "", repo: "", workflowFile: "build-electron.yml" });
   const [configLoading, setConfigLoading] = useState(true);
   const [configSaving, setConfigSaving] = useState(false);
@@ -3319,7 +3304,7 @@ function DisplayAuctionForm({
 
 // ─── Display Auctions Panel ───────────────────────────────────────────────────
 
-function DisplayAuctionsPanel() {
+export function DisplayAuctionsPanel() {
   const [items, setItems] = useState<DisplayAuction[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -3566,7 +3551,7 @@ interface ShowcaseEventRow {
   updatedAt: string;
 }
 
-function ShowcasePanel() {
+export function ShowcasePanel() {
   const [events, setEvents] = useState<ShowcaseEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -3949,10 +3934,29 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const path = typeof window !== "undefined" ? window.location.pathname : location;
+  const routeInitialTab = path.includes("/admin/organisers")
+    ? "organizers"
+    : path.includes("/admin/tournaments/sports")
+      ? "sports"
+      : path.includes("/admin/settings/system/upcoming-display")
+        ? "display-auctions"
+        : path.includes("/admin/settings/system/showcase")
+          ? "showcase"
+          : path.includes("/admin/settings/system")
+            ? "settings"
+            : "tournaments";
   const [adminTab, setAdminTab] = useState<"tournaments" | "organizers" | "sports" | "settings" | "display-auctions" | "showcase">(
-    "tournaments",
+    routeInitialTab,
   );
+
+  useEffect(() => {
+    setAdminTab(routeInitialTab);
+    const tournamentMatch = path.match(/\/admin\/tournaments\/(\d+)/);
+    if (tournamentMatch) setSelectedId(Number(tournamentMatch[1]));
+    if (path === "/admin/tournaments/new") setCreateOpen(true);
+  }, [path, routeInitialTab]);
 
   async function load() {
     setLoading(true);
@@ -4062,7 +4066,7 @@ export default function AdminDashboard() {
               size="sm"
               variant="outline"
               className="gap-2 border-green-500/40 text-green-400 hover:bg-green-500/10"
-              onClick={() => navigate("/admin/communicate")}
+              onClick={() => navigate("/admin/settings/communication")}
             >
               <MessageSquare className="w-4 h-4" /> Communicate
             </Button>
@@ -4070,7 +4074,7 @@ export default function AdminDashboard() {
               size="sm"
               variant="outline"
               className="gap-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10"
-              onClick={() => navigate("/admin/intelligence")}
+              onClick={() => navigate("/admin/settings/intelligence")}
             >
               <Activity className="w-4 h-4" /> Intelligence
             </Button>
@@ -4078,7 +4082,7 @@ export default function AdminDashboard() {
               size="sm"
               variant="outline"
               className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
-              onClick={() => navigate("/admin/reports")}
+              onClick={() => navigate("/admin/settings/reports")}
             >
               <FileBarChart className="w-4 h-4" /> Report Center
             </Button>
@@ -4086,7 +4090,7 @@ export default function AdminDashboard() {
               size="sm"
               variant="outline"
               className="gap-2 border-violet-500/40 text-violet-400 hover:bg-violet-500/10"
-              onClick={() => navigate("/admin/branding")}
+              onClick={() => navigate("/admin/settings/branding")}
             >
               <Palette className="w-4 h-4" /> Branding
             </Button>
@@ -4107,7 +4111,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "tournaments" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("tournaments")}
+            onClick={() => navigate("/admin/tournaments")}
           >
             <Trophy className="w-3.5 h-3.5" /> Tournaments
           </Button>
@@ -4115,7 +4119,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "organizers" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("organizers")}
+            onClick={() => navigate("/admin/organisers")}
           >
             <Users className="w-3.5 h-3.5" /> Organizers
           </Button>
@@ -4123,7 +4127,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "sports" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("sports")}
+            onClick={() => navigate("/admin/tournaments/sports")}
           >
             <Sliders className="w-3.5 h-3.5" /> Sports & Specs
           </Button>
@@ -4131,7 +4135,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "settings" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("settings")}
+            onClick={() => navigate("/admin/settings/system/sms")}
           >
             <MonitorDown className="w-3.5 h-3.5" /> Local App
           </Button>
@@ -4139,7 +4143,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "display-auctions" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("display-auctions")}
+            onClick={() => navigate("/admin/settings/system/upcoming-display")}
           >
             <Tv className="w-3.5 h-3.5" /> Upcoming Display
           </Button>
@@ -4147,7 +4151,7 @@ export default function AdminDashboard() {
             size="sm"
             variant={adminTab === "showcase" ? "default" : "ghost"}
             className="h-7 gap-1.5 text-xs"
-            onClick={() => setAdminTab("showcase")}
+            onClick={() => navigate("/admin/settings/system/showcase")}
           >
             <Images className="w-3.5 h-3.5" /> Showcase
           </Button>

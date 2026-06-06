@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, categoriesTable, playersTable } from "@workspace/db";
+import { brandingSettingsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
@@ -26,6 +27,27 @@ function fmtShort(n: number | null | undefined): string {
   if (n >= 100000) return `\u20B9${(n / 100000).toFixed(2)} L`;
   if (n >= 1000) return `\u20B9${(n / 1000).toFixed(1)} K`;
   return `\u20B9${n}`;
+}
+
+async function fetchBranding() {
+  const [row] = await db.select().from(brandingSettingsTable).limit(1);
+  return {
+    brandName: row?.brandName ?? "BidWar",
+    poweredByText: row?.poweredByText ?? "Powered by BidWar",
+    miniBrandText: row?.miniBrandText ?? "BW",
+    miniLogoUrl: row?.miniLogoUrl ?? row?.mainLogoUrl ?? null,
+    showBrandingPdf: row?.showBrandingPdf ?? true,
+  };
+}
+
+async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
 }
 
 function isOrganizer(req: Request, tid: number): boolean {
@@ -134,6 +156,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
       shortCode: team.shortCode,
       ownerName: team.ownerName,
       ownerMobile: team.ownerMobile,
+      ownerPhotoUrl: team.ownerPhotoUrl ?? null,
       logoUrl: team.logoUrl ?? null,
       color: team.color ?? null,
       purse: team.purse,
@@ -220,7 +243,11 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
-  const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 28, bufferPages: true });
+  const branding = await fetchBranding();
+  const brandLogoBuffer = branding.miniLogoUrl ? await fetchImageBuffer(branding.miniLogoUrl) : null;
+  const ownerPhotoBuffer = team.ownerPhotoUrl ? await fetchImageBuffer(team.ownerPhotoUrl) : null;
+
+  const doc = new PDFDocument({ size: "A4", layout: "portrait", margin: 28, bufferPages: true });
   doc.pipe(res);
 
   const W = doc.page.width - doc.page.margins.left - doc.page.margins.right;
@@ -257,9 +284,13 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   doc.fillColor("#0f172a").roundedRect(LEFT, hdrY, thirdW - 6, 80, 4).fill();
   doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(13).text(team.name, LEFT + 10, hdrY + 10, { width: thirdW - 20 });
   doc.fillColor("#94a3b8").font("Helvetica").fontSize(9).text(team.shortCode, LEFT + 10, hdrY + 28);
-  doc.fillColor("#e2e8f0").font("Helvetica-Bold").fontSize(9).text("Owner: " + team.ownerName, LEFT + 10, hdrY + 44, { width: thirdW - 20 });
+  const ownerTextX = ownerPhotoBuffer ? LEFT + 34 : LEFT + 10;
+  if (ownerPhotoBuffer) {
+    doc.image(ownerPhotoBuffer, LEFT + 10, hdrY + 40, { width: 18, height: 18 });
+  }
+  doc.fillColor("#e2e8f0").font("Helvetica-Bold").fontSize(9).text("Owner: " + team.ownerName, ownerTextX, hdrY + 44, { width: thirdW - (ownerTextX - LEFT) - 10 });
   if (team.ownerMobile) {
-    doc.fillColor("#94a3b8").font("Helvetica").fontSize(8).text(team.ownerMobile, LEFT + 10, hdrY + 58, { width: thirdW - 20 });
+    doc.fillColor("#94a3b8").font("Helvetica").fontSize(8).text(team.ownerMobile, ownerTextX, hdrY + 58, { width: thirdW - (ownerTextX - LEFT) - 10 });
   }
   doc.restore();
 
@@ -410,9 +441,10 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
 
   const planCols = [
     { label: "S.No", w: 0.4 },
-    { label: "Player Name", w: 2.4 },
-    { label: "Category", w: 1.0 },
-    { label: "Amount", w: 1.0 },
+    { label: "Player Name", w: 2.0 },
+    { label: "Category", w: 0.9 },
+    { label: "Amount", w: 0.9 },
+    { label: "Balance", w: 0.9 },
   ];
   const planTotal = planCols.reduce((s, c) => s + c.w, 0);
   const planWidths = planCols.map(c => (c.w / planTotal) * W);
@@ -455,8 +487,15 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
 
     doc.save();
     doc.fillColor("#0a0a0a").rect(LEFT, ph - doc.page.margins.bottom + 4, W, 18).fill();
-    doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(7)
-      .text("Powered by BidWar", LEFT + 6, ph - doc.page.margins.bottom + 9);
+    const footerY = ph - doc.page.margins.bottom + 9;
+    if (branding.showBrandingPdf) {
+      const brandTextX = brandLogoBuffer ? LEFT + 22 : LEFT + 6;
+      if (brandLogoBuffer) {
+        doc.image(brandLogoBuffer, LEFT + 6, footerY - 2, { width: 12, height: 12 });
+      }
+      doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(7)
+        .text(branding.poweredByText, brandTextX, footerY);
+    }
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5)
       .text(`Page ${i + 1} of ${range.count}  ·  ${team.name} Pre-Auction Report  ·  Confidential`, LEFT, ph - doc.page.margins.bottom + 9, { width: W - 6, align: "right" });
     doc.restore();

@@ -2,11 +2,12 @@ import { Router } from "express";
 import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable } from "@workspace/db";
-import { eq, and, ne, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
+import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { buildPublicUrl } from "../lib/runtime-env";
 
 const cloudinaryLogoUrl = z
@@ -32,21 +33,20 @@ function isUniqueViolation(err: unknown): boolean {
 
 async function findDuplicateOwnerMobileTeam(
   tournamentId: number,
-  ownerMobile: string,
+  normalizedMobile: string,
   excludeTeamId?: number,
 ) {
-  const conditions = [
-    eq(teamsTable.tournamentId, tournamentId),
-    eq(teamsTable.ownerMobile, ownerMobile),
-  ];
-  if (excludeTeamId !== undefined) {
-    conditions.push(ne(teamsTable.id, excludeTeamId));
-  }
-  const [existing] = await db
-    .select({ id: teamsTable.id })
+  const teams = await db
+    .select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile })
     .from(teamsTable)
-    .where(and(...conditions));
-  return existing;
+    .where(eq(teamsTable.tournamentId, tournamentId));
+
+  for (const team of teams) {
+    if (excludeTeamId !== undefined && team.id === excludeTeamId) continue;
+    const other = parseIndianMobile(team.ownerMobile);
+    if (other.ok && other.normalized === normalizedMobile) return team;
+  }
+  return null;
 }
 
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
@@ -56,6 +56,7 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   shortCode: t.shortCode,
   ownerName: t.ownerName,
   ownerMobile: t.ownerMobile,
+  ownerPhotoUrl: t.ownerPhotoUrl,
   color: t.color,
   logoUrl: t.logoUrl,
   purse: t.purse,
@@ -107,12 +108,17 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     shortCode: z.string().min(1).max(5),
     ownerName: z.string().min(1),
     ownerMobile: z.string().min(1, "Owner mobile is required for communication features"),
+    ownerPhotoUrl: cloudinaryLogoUrl,
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
   const d = parsed.data;
+
+  const mobileParsed = parseIndianMobile(d.ownerMobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const ownerMobile = mobileParsed.normalized;
 
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
   if (existing.length > 0) { res.status(400).json({ error: `Short code "${d.shortCode.toUpperCase()}" is already used by another team` }); return; }
@@ -128,12 +134,12 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const orgAccountId = req.jwtUser?.organizerAccountId;
   if (orgAccountId) {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
-    if (org?.mobile && org.mobile === d.ownerMobile) {
+    if (org?.mobile && mobilesMatch(org.mobile, ownerMobile)) {
       res.status(400).json({ error: "You cannot use the organizer's own mobile number as a team owner mobile." }); return;
     }
   }
 
-  const dupMobile = await findDuplicateOwnerMobileTeam(tid, d.ownerMobile);
+  const dupMobile = await findDuplicateOwnerMobileTeam(tid, ownerMobile);
   if (dupMobile) {
     res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
     return;
@@ -151,7 +157,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         name: d.name,
         shortCode: d.shortCode.toUpperCase(),
         ownerName: d.ownerName,
-        ownerMobile: d.ownerMobile ?? null,
+        ownerMobile,
+        ownerPhotoUrl: d.ownerPhotoUrl || null,
         color: d.color ?? "#3B82F6",
         logoUrl: d.logoUrl ?? null,
         purse: tournament.basePurse,
@@ -271,6 +278,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     shortCode: z.string().optional(),
     ownerName: z.string().optional(),
     ownerMobile: z.string().min(1).optional(),
+    ownerPhotoUrl: cloudinaryLogoUrl,
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
     purse: z.number().int().optional(),
@@ -278,30 +286,40 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     regenerateCode: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+    return;
+  }
   const updates: Record<string, unknown> = {};
   const d = parsed.data;
   if (d.name !== undefined) updates.name = d.name;
   if (d.shortCode !== undefined) updates.shortCode = d.shortCode;
   if (d.ownerName !== undefined) updates.ownerName = d.ownerName;
-  if (d.ownerMobile !== undefined) updates.ownerMobile = d.ownerMobile;
+  let normalizedOwnerMobile: string | undefined;
+  if (d.ownerMobile !== undefined) {
+    const mobileParsed = parseIndianMobile(d.ownerMobile);
+    if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+    normalizedOwnerMobile = mobileParsed.normalized;
+    updates.ownerMobile = normalizedOwnerMobile;
+  }
+  if (d.ownerPhotoUrl !== undefined) updates.ownerPhotoUrl = d.ownerPhotoUrl || null;
   if (d.color !== undefined) updates.color = d.color;
-  if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
+  if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl || null;
   if (d.purse !== undefined) updates.purse = d.purse;
   if (d.isBiddingEnabled !== undefined) updates.isBiddingEnabled = d.isBiddingEnabled;
   if (d.regenerateCode) updates.accessCode = genAccessCode();
 
-  if (d.ownerMobile !== undefined) {
+  if (normalizedOwnerMobile !== undefined) {
     const orgAccountId = req.jwtUser?.organizerAccountId;
     if (orgAccountId) {
       const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
-      if (org?.mobile && org.mobile === d.ownerMobile) {
+      if (org?.mobile && mobilesMatch(org.mobile, normalizedOwnerMobile)) {
         res.status(400).json({ error: "You cannot use the organizer's own mobile number as a team owner mobile." });
         return;
       }
     }
 
-    const dupMobile = await findDuplicateOwnerMobileTeam(tid, d.ownerMobile, teamId);
+    const dupMobile = await findDuplicateOwnerMobileTeam(tid, normalizedOwnerMobile, teamId);
     if (dupMobile) {
       res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
       return;

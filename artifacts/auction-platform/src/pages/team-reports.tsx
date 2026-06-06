@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
+import { cn } from "@/lib/utils";
+import { useBranding } from "@/hooks/use-branding";
 import {
   FileText, Printer, Download, Lock, Users, ChevronRight,
   User, AlertTriangle, Loader2,
@@ -67,7 +69,7 @@ type ReportPlayer = {
 type ReportData = {
   isLicensed: boolean;
   tournament: { id: number; name: string; sport: string; logoUrl: string | null; licenseStatus: string; minimumSquadSize: number; maximumSquadSize: number };
-  team: { id: number; name: string; shortCode: string; ownerName: string; ownerMobile: string; logoUrl: string | null; color: string | null; purse: number; purseUsed: number };
+  team: { id: number; name: string; shortCode: string; ownerName: string; ownerMobile: string; ownerPhotoUrl: string | null; logoUrl: string | null; color: string | null; purse: number; purseUsed: number };
   purgeSummary: { totalPurse: number; retainedSpend: number; preSoldSpend: number; remainingPurse: number };
   retainedPlayers: ReportPlayer[];
   preSoldPlayers: ReportPlayer[];
@@ -110,23 +112,23 @@ function PlayerTable({
   let balance = initialBalance;
 
   return (
-    <div className="mb-6 print-section">
+    <div className="mb-4 flex-shrink-0 print-section">
       <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 px-1 print-section-heading">{sectionLabel}</h3>
-      <table className="w-full text-sm border-collapse">
+      <table className="w-full table-fixed border-collapse border border-gray-400 text-sm">
         <thead>
           <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider w-10">S.No</th>
-            {showPhoto && <th className="py-2 px-2 w-12" />}
-            <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Player Name</th>
-            {cols.has("age") && <th className="text-center py-2 px-2 text-xs font-bold uppercase tracking-wider w-14">Age</th>}
-            {cols.has("city") && <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">City</th>}
-            {cols.has("mobileNumber") && <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Mobile</th>}
-            {cols.has("categoryName") && <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Category</th>}
-            {cols.has("role") && <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Role</th>}
-            {cols.has("jerseyNumber") && <th className="text-center py-2 px-2 text-xs font-bold uppercase tracking-wider w-16">Jersey</th>}
-            {cols.has("status") && <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Type</th>}
-            <th className="text-right py-2 px-2 text-xs font-bold uppercase tracking-wider">Amount</th>
-            {cols.has("remainingBalance") && <th className="text-right py-2 px-2 text-xs font-bold uppercase tracking-wider">Balance</th>}
+            <th className="w-12 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">S.No</th>
+            {showPhoto && <th className="w-14 border border-gray-400 px-2 py-2" />}
+            <th className="border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Player Name</th>
+            {cols.has("age") && <th className="w-14 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Age</th>}
+            {cols.has("city") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">City</th>}
+            {cols.has("mobileNumber") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Mobile</th>}
+            {cols.has("categoryName") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Category</th>}
+            {cols.has("role") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Role</th>}
+            {cols.has("jerseyNumber") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Jersey</th>}
+            {cols.has("status") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Type</th>}
+            <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
+            {cols.has("remainingBalance") && <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Balance</th>}
           </tr>
         </thead>
         <tbody>
@@ -134,39 +136,40 @@ function PlayerTable({
             const price = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
             balance -= price;
             const rowBalance = balance;
+            const cell = "border border-gray-400 px-3 py-2 align-top";
             return (
-              <tr key={p.id} className={`border-b border-gray-100 print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                <td className="py-2 px-2 text-gray-500 text-xs">{startSno + i}</td>
+              <tr key={p.id} className={`print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                <td className={`${cell} text-xs text-gray-500`}>{startSno + i}</td>
                 {showPhoto && (
-                  <td className="py-1 px-2">
+                  <td className={`${cell} py-1`}>
                     <PlayerPhoto url={p.photoUrl} name={p.name} small />
                   </td>
                 )}
-                <td className="py-2 px-2 font-semibold text-gray-900">{p.name}</td>
-                {cols.has("age") && <td className="py-2 px-2 text-center text-gray-600">{p.age ?? "-"}</td>}
-                {cols.has("city") && <td className="py-2 px-2 text-gray-600">{p.city || "-"}</td>}
-                {cols.has("mobileNumber") && <td className="py-2 px-2 text-gray-600 font-mono text-xs">{p.mobileNumber || "-"}</td>}
+                <td className={`${cell} font-semibold text-gray-900`}>{p.name}</td>
+                {cols.has("age") && <td className={`${cell} text-center text-gray-600`}>{p.age ?? "-"}</td>}
+                {cols.has("city") && <td className={`${cell} text-gray-600`}>{p.city || "-"}</td>}
+                {cols.has("mobileNumber") && <td className={`${cell} font-mono text-xs text-gray-600`}>{p.mobileNumber || "-"}</td>}
                 {cols.has("categoryName") && (
-                  <td className="py-2 px-2">
+                  <td className={cell}>
                     {p.categoryName ? (
-                      <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: (p.categoryColor || "#3B82F6") + "22", color: p.categoryColor || "#3B82F6" }}>
+                      <span className="rounded px-1.5 py-0.5 text-xs font-medium" style={{ backgroundColor: (p.categoryColor || "#3B82F6") + "22", color: p.categoryColor || "#3B82F6" }}>
                         {p.categoryName}
                       </span>
                     ) : "-"}
                   </td>
                 )}
-                {cols.has("role") && <td className="py-2 px-2 text-gray-600 capitalize">{p.role?.replace(/_/g, " ") || "-"}</td>}
-                {cols.has("jerseyNumber") && <td className="py-2 px-2 text-center text-gray-600">{p.jerseyNumber || "-"}</td>}
+                {cols.has("role") && <td className={`${cell} capitalize text-gray-600`}>{p.role?.replace(/_/g, " ") || "-"}</td>}
+                {cols.has("jerseyNumber") && <td className={`${cell} text-center text-gray-600`}>{p.jerseyNumber || "-"}</td>}
                 {cols.has("status") && (
-                  <td className="py-2 px-2">
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                  <td className={cell}>
+                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                       {p.status === "retained" ? "Retained" : "Pre-Sold"}
                     </span>
                   </td>
                 )}
-                <td className="py-2 px-2 text-right font-mono font-semibold text-gray-900">{formatShortIndianRupee(price)}</td>
+                <td className={`${cell} text-right font-mono font-semibold text-gray-900`}>{formatShortIndianRupee(price)}</td>
                 {cols.has("remainingBalance") && (
-                  <td className="py-2 px-2 text-right font-mono font-semibold text-emerald-700">{formatShortIndianRupee(rowBalance)}</td>
+                  <td className={`${cell} text-right font-mono font-semibold text-emerald-700`}>{formatShortIndianRupee(rowBalance)}</td>
                 )}
               </tr>
             );
@@ -177,42 +180,76 @@ function PlayerTable({
   );
 }
 
-function AuctionPlanningTable({ planningRows, startSno }: { planningRows: number; startSno: number }) {
+function AuctionPlanningTable({
+  planningRows,
+  startSno,
+  className,
+}: {
+  planningRows: number;
+  startSno: number;
+  className?: string;
+}) {
+  const headCell = "border border-gray-400 px-3 py-2 text-xs font-bold uppercase tracking-wider";
+  const bodyCell = "border border-gray-400 px-3 py-2 align-top";
+
   return (
-    <div className="mb-6 print-section">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 px-1">Auction Working Sheet — {planningRows} Slots</h3>
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider w-10">S.No</th>
-            <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider">Player Name</th>
-            <th className="text-left py-2 px-2 text-xs font-bold uppercase tracking-wider w-32">Category</th>
-            <th className="text-right py-2 px-2 text-xs font-bold uppercase tracking-wider w-28">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: planningRows }, (_, i) => (
-            <tr key={i} className={`border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`} style={{ height: "32px" }}>
-              <td className="py-2 px-2 text-gray-400 text-xs">{startSno + i}</td>
-              <td className="py-2 px-2" />
-              <td className="py-2 px-2" />
-              <td className="py-2 px-2" />
+    <div className={cn("print-section flex min-h-0 flex-col", className)}>
+      <h3 className="mb-2 flex-shrink-0 px-1 text-xs font-bold uppercase tracking-widest text-gray-500">
+        Auction Working Sheet — {planningRows} Slots
+      </h3>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-sm">
+          <colgroup>
+            <col style={{ width: "48px" }} />
+            <col />
+            <col style={{ width: "28%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "18%" }} />
+          </colgroup>
+          <thead>
+            <tr className="bg-slate-800 text-yellow-400 print-table-header">
+              <th className={`${headCell} text-left`}>S.No</th>
+              <th className={`${headCell} text-left`}>Player Name</th>
+              <th className={`${headCell} text-left`}>Category</th>
+              <th className={`${headCell} text-right`}>Amount</th>
+              <th className={`${headCell} text-right`}>Balance</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="h-full">
+            {Array.from({ length: planningRows }, (_, i) => (
+              <tr
+                key={i}
+                className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                style={{ height: `${100 / planningRows}%` }}
+              >
+                <td className={`${bodyCell} text-xs text-gray-500`}>{startSno + i}</td>
+                <td className={bodyCell}>&nbsp;</td>
+                <td className={bodyCell}>&nbsp;</td>
+                <td className={bodyCell}>&nbsp;</td>
+                <td className={bodyCell}>&nbsp;</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey> }) {
   const { tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, squadInfo } = report;
+  const { logos, brandName, poweredByText, miniBrandText, loading: brandingLoading, visibility } = useBranding();
   const showPhoto = cols.has("photo");
   const allAcquired = retainedPlayers.length + preSoldPlayers.length;
   const isLicensed = report.isLicensed;
+  const brandLogoUrl = cldUrl(logos.mini || logos.main, "headerLogo") || logos.mini || logos.main;
 
   return (
-    <div id="print-report" className="bg-white text-gray-900 relative" style={{ minHeight: "297mm" }}>
+    <div
+      id="print-report"
+      className="relative flex min-h-[297mm] flex-col bg-white text-gray-900"
+      style={{ height: "297mm", width: "210mm", maxWidth: "100%", margin: "0 auto" }}
+    >
       {!isLicensed && (
         <div
           className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 overflow-hidden"
@@ -234,7 +271,7 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
       )}
 
       {/* Header */}
-      <div className="print-header bg-slate-900 text-white px-6 py-4">
+      <div className="print-header flex-shrink-0 bg-slate-900 px-6 py-4 text-white">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             {tournament.logoUrl ? (
@@ -265,13 +302,17 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
             <div>
               <p className="font-black text-lg leading-tight" style={{ color: team.color || "#FBBF24" }}>{team.name}</p>
               <p className="text-slate-400 text-xs">{team.shortCode}</p>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                  <User className="w-3 h-3 text-slate-400" />
-                </div>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                {team.ownerPhotoUrl && (
+                  <img
+                    src={cldUrl(team.ownerPhotoUrl, "playerCard") || team.ownerPhotoUrl}
+                    alt={team.ownerName}
+                    className="h-6 w-6 flex-shrink-0 rounded-full border border-slate-600 object-cover"
+                  />
+                )}
                 <div>
-                  <p className="text-slate-200 text-xs font-semibold">{team.ownerName}</p>
-                  {team.ownerMobile && <p className="text-slate-400 text-xs font-mono">{team.ownerMobile}</p>}
+                  <p className="text-xs font-semibold text-slate-200">{team.ownerName}</p>
+                  {team.ownerMobile && <p className="font-mono text-xs text-slate-400">{team.ownerMobile}</p>}
                 </div>
               </div>
             </div>
@@ -315,9 +356,9 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
       </div>
 
       {/* Tables */}
-      <div className="px-6 py-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-3">
         {retainedPlayers.length === 0 && preSoldPlayers.length === 0 && (
-          <p className="text-gray-400 text-sm italic mb-6">No retained or pre-sold players assigned to this team.</p>
+          <p className="mb-4 flex-shrink-0 text-sm italic text-gray-400">No retained or pre-sold players assigned to this team.</p>
         )}
 
         <PlayerTable
@@ -338,17 +379,33 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
           showPhoto={showPhoto}
         />
 
-        <AuctionPlanningTable planningRows={squadInfo.planningRows} startSno={allAcquired + 1} />
+        <AuctionPlanningTable
+          planningRows={squadInfo.planningRows}
+          startSno={allAcquired + 1}
+          className="min-h-0 flex-1"
+        />
       </div>
 
       {/* Footer */}
-      <div className="print-footer bg-slate-900 text-white px-6 py-3 flex items-center justify-between mt-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 bg-yellow-400 rounded flex items-center justify-center">
-            <span className="text-slate-900 font-black text-xs">B</span>
+      <div className="print-footer mt-0 flex flex-shrink-0 items-center justify-between bg-slate-900 px-6 py-3 text-white">
+        {visibility.showBrandingPdf ? (
+          <div className="flex items-center gap-2">
+            {!brandingLoading && brandLogoUrl ? (
+              <img
+                src={brandLogoUrl}
+                alt={brandName}
+                className="h-5 w-5 flex-shrink-0 rounded object-contain"
+              />
+            ) : (
+              <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-yellow-400">
+                <span className="text-xs font-black text-slate-900">{miniBrandText}</span>
+              </div>
+            )}
+            <span className="text-xs font-bold text-yellow-400">{poweredByText}</span>
           </div>
-          <span className="text-yellow-400 font-bold text-xs">Powered by BidWar</span>
-        </div>
+        ) : (
+          <div />
+        )}
         <span className="text-slate-500 text-xs">{team.name} — Pre-Auction Team Sheet — Confidential</span>
         {!isLicensed && (
           <span className="text-red-400 text-xs font-semibold">UNLICENSED COPY</span>
@@ -446,18 +503,48 @@ export default function TeamReportsPage() {
     <>
       <style>{`
         @media print {
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          body { margin: 0; }
-          .print-hide { display: none !important; }
-          .print-show { display: block !important; }
-          #print-report { 
-            position: fixed; 
-            inset: 0; 
-            z-index: 9999; 
-            background: white;
-            overflow: auto;
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          @page { size: A4 landscape; margin: 12mm 12mm; }
+          @page { size: A4 portrait; margin: 12mm; }
+
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          /* Hide entire app chrome; show only the report sheet */
+          body * {
+            visibility: hidden !important;
+          }
+          #print-report,
+          #print-report * {
+            visibility: visible !important;
+          }
+          #print-report {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            width: 210mm !important;
+            max-width: 100% !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            z-index: 2147483647 !important;
+          }
+
+          .print-hide { display: none !important; }
         }
       `}</style>
 

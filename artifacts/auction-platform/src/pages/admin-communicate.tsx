@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAdminAuth } from "@/hooks/use-auth";
-import { FullscreenLayout } from "@/components/layout";
+import { AdminShell } from "@/components/admin-shell";
+import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -88,9 +88,17 @@ function LicenseLock({ status, locked }: { status: string; locked?: boolean }) {
   return <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 gap-1 text-[10px]"><AlertTriangle className="w-3 h-3" />Trial</Badge>;
 }
 
+function tabFromPath(path: string) {
+  if (path.endsWith("/logs")) return "logs";
+  if (path.endsWith("/blasts")) return "blasts";
+  if (path.endsWith("/contacts")) return "contacts";
+  if (path.endsWith("/send")) return "send";
+  return "send";
+}
+
 export default function AdminCommunicate() {
-  const { isLoggedIn: isAdmin } = useAdminAuth();
-  const [, navigate] = useLocation();
+  const { isLoggedIn, isLoading } = useAdminPageGuard();
+  const [location, navigate] = useLocation();
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
@@ -100,8 +108,7 @@ export default function AdminCommunicate() {
   const [blasts, setBlasts] = useState<BlastEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [selectedLog, setSelectedLog] = useState<CommLog | null>(null);
-  const [location] = useLocation();
-  const [tab, setTab] = useState(() => location.endsWith("/logs") ? "logs" : "send");
+  const [tab, setTab] = useState(() => tabFromPath(location));
 
   // Contacts tab
   interface MissingContact { id: number; name: string; role?: string | null; ownerName?: string | null }
@@ -142,7 +149,13 @@ export default function AdminCommunicate() {
     }
   }, []);
 
-  useEffect(() => { void loadTournaments(); }, [loadTournaments]);
+  useEffect(() => {
+    setTab(tabFromPath(location));
+  }, [location]);
+
+  useEffect(() => {
+    if (isLoggedIn) void loadTournaments();
+  }, [isLoggedIn, loadTournaments]);
 
   useEffect(() => {
     if (!selectedTid) { setConsentStats(null); return; }
@@ -244,34 +257,25 @@ export default function AdminCommunicate() {
     return true;
   });
 
-  if (!isAdmin) {
-    return (
-      <FullscreenLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <p className="text-muted-foreground">Admin access required.</p>
-        </div>
-      </FullscreenLayout>
-    );
-  }
+  if (isLoading || !isLoggedIn) return null;
+
+  const handleTabChange = (value: string) => {
+    setTab(value);
+    const suffix = value === "send" ? "" : `/${value}`;
+    navigate(`/admin/settings/communication${suffix}`);
+  };
 
   return (
-    <FullscreenLayout>
-      <div className="min-h-screen bg-[#09090b]">
-        {/* Header */}
-        <div className="border-b border-border/40 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin")}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <MessageSquare className="w-5 h-5 text-primary" />
-            <h1 className="font-display font-bold text-lg">Communication Panel</h1>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/communicate/logs")}>
-            <FileText className="w-4 h-4" /> Full Log
-          </Button>
-        </div>
-
-        <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <AdminShell
+      title="Communication"
+      eyebrow="Platform Settings"
+      actions={
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/settings/communication/logs")}>
+          <FileText className="w-4 h-4" /> Full Log
+        </Button>
+      }
+    >
+      <div className="mx-auto max-w-5xl space-y-6">
           {/* Tournament Selector */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Tournament</Label>
@@ -355,7 +359,7 @@ export default function AdminCommunicate() {
             </div>
           )}
 
-          <Tabs value={tab} onValueChange={setTab}>
+          <Tabs value={tab} onValueChange={handleTabChange}>
             <TabsList className="bg-card/50 border border-border">
               <TabsTrigger value="send" className="gap-2"><Send className="w-3.5 h-3.5" />Send</TabsTrigger>
               <TabsTrigger value="logs" className="gap-2"><Activity className="w-3.5 h-3.5" />Logs</TabsTrigger>
@@ -645,7 +649,6 @@ export default function AdminCommunicate() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
 
       {/* ── Log Detail Dialog ─────────────────────────────────────────── */}
       <Dialog open={!!selectedLog} onOpenChange={open => { if (!open) setSelectedLog(null); }}>
@@ -710,6 +713,6 @@ export default function AdminCommunicate() {
           )}
         </DialogContent>
       </Dialog>
-    </FullscreenLayout>
+    </AdminShell>
   );
 }

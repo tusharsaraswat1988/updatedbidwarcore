@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
 import { teamsTable } from "@workspace/db-local";
+import { parseIndianMobile } from "@workspace/api-base/mobile";
 
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
@@ -17,21 +18,21 @@ const DUPLICATE_OWNER_MOBILE_ERROR =
 async function findDuplicateOwnerMobileTeam(
   db: LocalDb,
   tournamentId: number,
-  ownerMobile: string,
+  normalizedMobile: string,
   excludeTeamId?: number,
 ) {
-  const conditions = [
-    eq(teamsTable.tournamentId, tournamentId),
-    eq(teamsTable.ownerMobile, ownerMobile),
-  ];
-  if (excludeTeamId !== undefined) {
-    conditions.push(ne(teamsTable.id, excludeTeamId));
-  }
-  const [existing] = await db
-    .select({ id: teamsTable.id })
+  const teams = await db
+    .select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile })
     .from(teamsTable)
-    .where(and(...conditions));
-  return existing;
+    .where(eq(teamsTable.tournamentId, tournamentId));
+
+  for (const team of teams) {
+    if (excludeTeamId !== undefined && team.id === excludeTeamId) continue;
+    if (!team.ownerMobile) continue;
+    const other = parseIndianMobile(team.ownerMobile);
+    if (other.ok && other.normalized === normalizedMobile) return team;
+  }
+  return null;
 }
 
 export function createTeamsRouter(db: LocalDb) {
@@ -56,8 +57,12 @@ export function createTeamsRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
+    let ownerMobile: string | null = null;
     if (d.ownerMobile) {
-      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, d.ownerMobile);
+      const mobileParsed = parseIndianMobile(d.ownerMobile);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+      ownerMobile = mobileParsed.normalized;
+      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, ownerMobile);
       if (dupMobile) {
         res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
         return;
@@ -65,7 +70,7 @@ export function createTeamsRouter(db: LocalDb) {
     }
     const [row] = await db.insert(teamsTable).values({
       tournamentId: tid, name: d.name, shortCode: d.shortCode, ownerName: d.ownerName,
-      ownerMobile: d.ownerMobile ?? null, color: d.color ?? "#3B82F6",
+      ownerMobile, color: d.color ?? "#3B82F6",
       logoUrl: d.logoUrl ?? null, purse: d.purse ?? 10000000, accessCode: d.accessCode ?? null,
     }).returning();
     res.status(201).json(teamToJson(row));
@@ -102,14 +107,18 @@ export function createTeamsRouter(db: LocalDb) {
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
-    if (d.ownerMobile) {
-      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, d.ownerMobile, teamId);
+    const patch = { ...d };
+    if (d.ownerMobile !== undefined && d.ownerMobile !== null) {
+      const mobileParsed = parseIndianMobile(d.ownerMobile);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+      patch.ownerMobile = mobileParsed.normalized;
+      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, mobileParsed.normalized, teamId);
       if (dupMobile) {
         res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
         return;
       }
     }
-    const [row] = await db.update(teamsTable).set({ ...d, updatedAt: new Date().toISOString() })
+    const [row] = await db.update(teamsTable).set({ ...patch, updatedAt: new Date().toISOString() })
       .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(teamToJson(row));

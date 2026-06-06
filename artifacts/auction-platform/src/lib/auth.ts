@@ -402,7 +402,7 @@ export async function changeOrganizerPassword(data: {
 
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; venue?: string; auctionDate?: string; auctionTime?: string;
-  basePurse?: number;
+  basePurse?: number; minimumSquadSize?: number; minBid?: number; bidIncrement?: number;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {

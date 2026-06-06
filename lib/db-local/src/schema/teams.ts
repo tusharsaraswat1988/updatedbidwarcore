@@ -7,6 +7,7 @@ export const teamsTable = sqliteTable("teams", {
   shortCode: text("short_code").notNull(),
   ownerName: text("owner_name").notNull(),
   ownerMobile: text("owner_mobile"),
+  ownerPhotoUrl: text("owner_photo_url"),
   color: text("color").default("#3B82F6"),
   logoUrl: text("logo_url"),
   purse: integer("purse").notNull().default(10000000),

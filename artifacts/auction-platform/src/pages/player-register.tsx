@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { motion, AnimatePresence } from "framer-motion";
+import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -196,18 +197,19 @@ export default function PlayerRegister() {
 
   // Mobile number lookup with debounce
   function handleMobileChange(val: string) {
-    f("mobileNumber", val);
+    const sanitized = sanitizeMobileInput(val);
+    f("mobileNumber", sanitized);
     setMobileLookedUp(false);
     setFoundProfile(null);
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
-    if (val.replace(/\D/g, "").length >= 10) {
+    if (sanitized.length >= 10) {
       mobileDebounceRef.current = setTimeout(async () => {
         setLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(val)}&limit=1`);
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1`);
           const data: GlobalPlayerLookup[] = await res.json();
           const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === val.replace(/\D/g, ""))
+            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === sanitized)
             : undefined;
           if (match) {
             setFoundProfile(match);
@@ -236,8 +238,9 @@ export default function PlayerRegister() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.mobileNumber.trim()) {
-      setErrorMsg("Mobile number is required.");
+    const mobileResult = parseIndianMobile(form.mobileNumber);
+    if (!mobileResult.ok) {
+      setErrorMsg(mobileResult.error);
       return;
     }
     setErrorMsg(null);
@@ -253,7 +256,7 @@ export default function PlayerRegister() {
         tournamentId,
         data: {
           name: form.name,
-          mobileNumber: form.mobileNumber.trim(),
+          mobileNumber: mobileResult.normalized,
           city: form.city || undefined,
           role: form.role || undefined,
           battingStyle: battingStyle || undefined,
@@ -420,11 +423,12 @@ export default function PlayerRegister() {
                             required
                             value={form.mobileNumber}
                             onChange={e => handleMobileChange(e.target.value)}
-                            placeholder="+91 98765 43210"
+                            placeholder="10-digit mobile (e.g. 9876543210)"
                             type="tel"
                             className="pr-8 h-11 sm:h-9 text-base"
-                            inputMode="tel"
+                            inputMode="numeric"
                             autoComplete="tel"
+                            maxLength={10}
                           />
                           {lookupLoading && (
                             <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />

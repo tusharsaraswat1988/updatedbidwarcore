@@ -3,10 +3,9 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, Dices, Download,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel,
 } from "lucide-react";
 import { auctionRoomPath, displayScreenPath } from "@/lib/tournament-navigation";
-import { exportTournamentForLocal } from "@/lib/tournament-export";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { logoutOrganizerAccount } from "@/lib/auth";
@@ -66,8 +65,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
       return localStorage.getItem("sidebar-collapsed") === "true";
     } catch { return false; }
   });
-  const [exportLoading, setExportLoading] = useState(false);
-
   // Auto-collapse sidebar on narrow viewports so main content is never squeezed
   // (e.g. accidental mobile emulation or small browser window).
   useEffect(() => {
@@ -88,18 +85,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
-
-  async function handleExportForLocal() {
-    if (!tournamentId || exportLoading) return;
-    setExportLoading(true);
-    try {
-      await exportTournamentForLocal(tournamentId, tournament?.name);
-    } catch {
-      alert("Export failed. Please try again.");
-    } finally {
-      setExportLoading(false);
-    }
-  }
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -236,7 +221,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     {!collapsed && (
                       <>
                         <span className="font-medium">Team Reports</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Licensed</span>
+                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Trial</span>
                       </>
                     )}
                   </div>
@@ -286,28 +271,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Share Links</span>}
                 </Link>
-                <Link href={`/tournament/${tournamentId}/fortune-wheel`} title="Fortune Wheel" className={navCls(`/tournament/${tournamentId}/fortune-wheel`)}>
-                  <Dices className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Fortune Wheel</span>}
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleExportForLocal}
-                  disabled={exportLoading}
-                  title="Export tournament data for local mode"
-                  className={`flex items-center rounded-md transition-colors disabled:opacity-50 ${
-                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
-                  } text-muted-foreground hover:bg-accent hover:text-foreground`}
-                >
-                  <Download className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>{exportLoading ? "Exporting..." : "Export for Local"}</span>}
-                </button>
                 {!collapsed && (
-                  <Link href={`/tournament/${tournamentId}/reset`} title="Reset Auction" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  <Link href={`/tournament/${tournamentId}/reset`} title="Reset for live auction" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                     location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
                   }`}>
                     <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                    <span>Reset Auction</span>
+                    <span>RESET FOR LIVE</span>
                   </Link>
                 )}
                 <div

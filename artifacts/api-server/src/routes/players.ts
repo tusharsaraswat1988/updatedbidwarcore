@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
+import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -37,6 +38,25 @@ async function computeRegistrationStatus(tid: number) {
 }
 
 const router = Router();
+
+async function findDuplicatePlayerMobile(
+  tournamentId: number,
+  normalizedMobile: string,
+  excludePlayerId?: number,
+) {
+  const players = await db
+    .select({ id: playersTable.id, name: playersTable.name, mobileNumber: playersTable.mobileNumber })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tournamentId));
+
+  for (const player of players) {
+    if (!player.mobileNumber) continue;
+    if (excludePlayerId !== undefined && player.id === excludePlayerId) continue;
+    const other = parseIndianMobile(player.mobileNumber);
+    if (other.ok && other.normalized === normalizedMobile) return player;
+  }
+  return null;
+}
 
 /**
  * Recalculate and persist team.purseUsed from the current player records.
@@ -171,6 +191,13 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
 
+  const mobileParsed = parseIndianMobile(d.mobileNumber);
+  if (!mobileParsed.ok) {
+    res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
+    return;
+  }
+  const mobileNumber = mobileParsed.normalized;
+
   // Duplicate name check (case-insensitive) within the same tournament
   const [dupName] = await db
     .select({ id: playersTable.id })
@@ -178,22 +205,20 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     .where(and(eq(playersTable.tournamentId, tid), sql`lower(${playersTable.name}) = lower(${d.name})`));
   if (dupName) { res.status(400).json({ error: `A player named "${d.name}" is already registered in this tournament.` }); return; }
 
-  // Duplicate mobile check within the same tournament
-  if (d.mobileNumber) {
-    const [dupMobile] = await db
-      .select({ id: playersTable.id, name: playersTable.name })
-      .from(playersTable)
-      .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.mobileNumber, d.mobileNumber)));
-    if (dupMobile) {
-      res.status(400).json({ error: `Mobile number ${d.mobileNumber} is already registered for player "${dupMobile.name}" in this tournament.`, field: "mobileNumber" }); return;
-    }
+  const dupMobile = await findDuplicatePlayerMobile(tid, mobileNumber);
+  if (dupMobile) {
+    res.status(400).json({
+      error: `Mobile number ${mobileNumber} is already registered for player "${dupMobile.name}" in this tournament.`,
+      field: "mobileNumber",
+    });
+    return;
   }
 
   // Block organizer from registering their own mobile as a player
   const orgAccountId = req.jwtUser?.organizerAccountId;
-  if (orgAccountId && d.mobileNumber) {
+  if (orgAccountId) {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
-    if (org?.mobile && org.mobile === d.mobileNumber) {
+    if (org?.mobile && mobilesMatch(org.mobile, mobileNumber)) {
       res.status(400).json({ error: "You cannot register the organizer's own mobile number as a player.", field: "mobileNumber" }); return;
     }
   }
@@ -214,7 +239,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
       achievements: d.achievements ?? null,
-      mobileNumber: d.mobileNumber ?? null,
+      mobileNumber,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
@@ -251,6 +276,14 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
+
+  const mobileParsed = parseIndianMobile(d.mobileNumber);
+  if (!mobileParsed.ok) {
+    res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
+    return;
+  }
+  const mobileNumber = mobileParsed.normalized;
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -267,7 +300,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
       achievements: d.achievements ?? null,
-      mobileNumber: d.mobileNumber ?? null,
+      mobileNumber,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
@@ -281,9 +314,9 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
 
   // Record an explicit consent event for the web checkbox so audit queries
   // can distinguish web-form consent from WhatsApp-OTP consent.
-  if (d.whatsappConsent && d.mobileNumber) {
+  if (d.whatsappConsent && mobileNumber) {
     await db.insert(waConsentEventsTable).values({
-      mobile: d.mobileNumber,
+      mobile: mobileNumber,
       recipientType: "player",
       recipientId: player.id,
       tournamentId: tid,
@@ -308,9 +341,28 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   let created = 0;
   let failed = 0;
   const errors: string[] = [];
+  const batchMobiles = new Set<string>();
 
   for (const pd of parsed.data.players) {
     try {
+      const bulkMobileParsed = parseIndianMobile(pd.mobileNumber);
+      if (!bulkMobileParsed.ok) {
+        failed++;
+        errors.push(`${pd.name}: ${bulkMobileParsed.error}`);
+        continue;
+      }
+      const bulkMobile = bulkMobileParsed.normalized;
+      if (batchMobiles.has(bulkMobile)) {
+        failed++;
+        errors.push(`${pd.name}: Duplicate mobile number ${bulkMobile} in upload file.`);
+        continue;
+      }
+      const dupMobile = await findDuplicatePlayerMobile(tid, bulkMobile);
+      if (dupMobile) {
+        failed++;
+        errors.push(`${pd.name}: Mobile number ${bulkMobile} is already registered for player "${dupMobile.name}".`);
+        continue;
+      }
       await db.insert(playersTable).values({
         tournamentId: tid,
         categoryId: pd.categoryId ?? null,
@@ -325,12 +377,13 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         basePrice: pd.basePrice,
         jerseyNumber: pd.jerseyNumber ?? null,
         achievements: pd.achievements ?? null,
-        mobileNumber: pd.mobileNumber ?? null,
+        mobileNumber: bulkMobile,
         cricheroUrl: pd.cricheroUrl ?? null,
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
       });
+      batchMobiles.add(bulkMobile);
       created++;
     } catch (err) {
       failed++;
@@ -394,18 +447,21 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Duplicate mobile check within the same tournament (exclude self)
-  if (d.mobileNumber) {
-    const [dupMobile] = await db
-      .select({ id: playersTable.id, name: playersTable.name })
-      .from(playersTable)
-      .where(and(
-        eq(playersTable.tournamentId, tid),
-        eq(playersTable.mobileNumber, d.mobileNumber),
-        sql`${playersTable.id} != ${playerId}`,
-      ));
+  let normalizedMobile: string | undefined;
+  if (d.mobileNumber !== undefined) {
+    const mobileParsed = parseIndianMobile(d.mobileNumber);
+    if (!mobileParsed.ok) {
+      res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
+      return;
+    }
+    normalizedMobile = mobileParsed.normalized;
+    const dupMobile = await findDuplicatePlayerMobile(tid, normalizedMobile, playerId);
     if (dupMobile) {
-      res.status(400).json({ error: `Mobile number ${d.mobileNumber} is already registered for player "${dupMobile.name}" in this tournament.`, field: "mobileNumber" }); return;
+      res.status(400).json({
+        error: `Mobile number ${normalizedMobile} is already registered for player "${dupMobile.name}" in this tournament.`,
+        field: "mobileNumber",
+      });
+      return;
     }
   }
 
@@ -429,7 +485,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
-  if (d.mobileNumber !== undefined) updates.mobileNumber = d.mobileNumber;
+  if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
   if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;
   if (d.availabilityDates !== undefined) updates.availabilityDates = d.availabilityDates;
   if (d.retainedPrice !== undefined) updates.retainedPrice = d.retainedPrice;
@@ -563,12 +619,17 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const schema = z.object({
     sourceTournamentId: z.number().int(),
     playerIds: z.array(z.number().int()).min(1).max(500),
-    categoryId: z.number().int().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
 
-  const { sourceTournamentId, playerIds, categoryId } = parsed.data;
+  const { sourceTournamentId, playerIds } = parsed.data;
+
+  const [tournament] = await db
+    .select({ minBid: tournamentsTable.minBid })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  const defaultBasePrice = tournament?.minBid ?? 100000;
 
   const existingMobiles = await db
     .select({ mobile: playersTable.mobileNumber })
@@ -599,7 +660,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 
     await db.insert(playersTable).values({
       tournamentId: tid,
-      categoryId: categoryId ?? p.categoryId ?? null,
+      categoryId: null,
       name: p.name,
       city: p.city,
       role: p.role,
@@ -608,7 +669,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       specialization: p.specialization,
       age: p.age,
       photoUrl: p.photoUrl,
-      basePrice: p.basePrice,
+      basePrice: defaultBasePrice,
       jerseyNumber: p.jerseyNumber,
       achievements: p.achievements,
       mobileNumber: p.mobileNumber,

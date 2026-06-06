@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
-import { FullscreenLayout } from "@/components/layout";
+import { AdminShell } from "@/components/admin-shell";
 import { useLocation } from "wouter";
 import { formatShortIndianRupee } from "@/lib/format";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1205,34 +1205,17 @@ export default function AdminIntelligencePage() {
   if (authLoading) return null;
 
   return (
-    <FullscreenLayout>
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
-        {/* Header */}
-        <div className="border-b border-white/8 bg-card/40 backdrop-blur px-5 py-3 flex items-center gap-4 flex-shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin")}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-              <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            </div>
-            <div>
-              <h1 className="text-sm font-black text-white uppercase tracking-widest leading-none">
-                Auction Intelligence
-              </h1>
-              <p className="text-[10px] text-muted-foreground/50 mt-0.5 tracking-wider">
-                Behavioral analysis · Tactical insights · Event forensics
-              </p>
-            </div>
-          </div>
-
-          {/* Live indicator */}
-          <div className="ml-auto flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">Read-only</span>
-          </div>
+    <AdminShell
+      title="AI & Intelligence"
+      eyebrow="Platform Settings"
+      actions={
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
+          Read-only analysis
         </div>
-
+      }
+    >
+      <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card/70">
         {/* Tab navigation */}
         <div className="border-b border-white/6 bg-card/20 px-5 flex-shrink-0 overflow-x-auto">
           <div className="flex gap-0 min-w-max">
@@ -1278,6 +1261,6 @@ export default function AdminIntelligencePage() {
           </div>
         </div>
       </div>
-    </FullscreenLayout>
+    </AdminShell>
   );
 }

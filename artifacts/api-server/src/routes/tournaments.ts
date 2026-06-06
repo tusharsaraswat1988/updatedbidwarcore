@@ -108,6 +108,8 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   mainBannerEnabled: t.mainBannerEnabled ?? false,
   mainBannerFit: t.mainBannerFit ?? "cover",
   localModeEnabled: t.localModeEnabled ?? false,
+  licenseStatus: t.licenseStatus ?? "trial",
+  adminLocked: t.adminLocked ?? false,
   matchDates: t.matchDates ?? null,
   createdAt: t.createdAt.toISOString(),
 });

@@ -295,6 +295,8 @@ export interface Team {
   /** @nullable */
   ownerMobile?: string | null;
   /** @nullable */
+  ownerPhotoUrl?: string | null;
+  /** @nullable */
   color?: string | null;
   /** @nullable */
   logoUrl?: string | null;
@@ -311,6 +313,7 @@ export interface TeamInput {
   shortCode: string;
   ownerName: string;
   ownerMobile?: string;
+  ownerPhotoUrl?: string;
   color?: string;
   logoUrl?: string;
   purse?: number;
@@ -321,6 +324,7 @@ export interface TeamUpdate {
   shortCode?: string;
   ownerName?: string;
   ownerMobile?: string;
+  ownerPhotoUrl?: string;
   color?: string;
   logoUrl?: string;
   purse?: number;
@@ -1193,6 +1197,8 @@ export type TeamReportDataTeam = {
   shortCode: string;
   ownerName: string;
   ownerMobile: string;
+  /** @nullable */
+  ownerPhotoUrl?: string | null;
   /** @nullable */
   logoUrl?: string | null;
   /** @nullable */

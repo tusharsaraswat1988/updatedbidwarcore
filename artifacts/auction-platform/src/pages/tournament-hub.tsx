@@ -7,6 +7,7 @@ import {
   getGetTournamentSummaryQueryKey,
   getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
+import { AuctionCodeBadge } from "@/components/auction-code-badge";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -80,7 +81,6 @@ export default function TournamentHub() {
       <div className="space-y-8">
         {/* Title */}
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Setup Area</p>
           <div className="flex items-center gap-3 flex-wrap">
             {tournament?.logoUrl && (
               <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
@@ -92,14 +92,10 @@ export default function TournamentHub() {
           </div>
           <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
             {tournament?.sport?.toUpperCase()}
-            {tournament?.auctionCode && (
-              <span className="text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 text-[11px] font-bold tracking-widest">
-                {tournament.auctionCode}
-              </span>
-            )}
+            {tournament?.auctionCode && <AuctionCodeBadge code={tournament.auctionCode} />}
             {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
             {tournament?.venue && <span>· {tournament.venue}</span>}
-            <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
+            <span>· BASE PURSE PER TEAM: {formatIndianRupee(tournament?.basePurse)}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
             Configure teams, players, and auction rules here. Open the Auction Room in a separate tab when you are ready to run the live session.

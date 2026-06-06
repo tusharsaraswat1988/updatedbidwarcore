@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { globalPlayersTable, playersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { heavyLimiter } from "../lib/rate-limiters";
 
 const cloudinaryImageUrl = z
@@ -140,12 +141,22 @@ router.post("/global-players", async (req, res) => {
 
   const d = parsed.data;
 
-  // Check if mobile already exists
+  let mobileNumber: string | null = null;
   if (d.mobileNumber) {
+    const mobileParsed = parseIndianMobile(d.mobileNumber);
+    if (!mobileParsed.ok) {
+      res.status(400).json({ error: mobileParsed.error });
+      return;
+    }
+    mobileNumber = mobileParsed.normalized;
+  }
+
+  // Check if mobile already exists
+  if (mobileNumber) {
     const [existing] = await db
       .select()
       .from(globalPlayersTable)
-      .where(eq(globalPlayersTable.mobileNumber, d.mobileNumber));
+      .where(eq(globalPlayersTable.mobileNumber, mobileNumber));
     if (existing) {
       // Update and return
       const [updated] = await db
@@ -174,7 +185,7 @@ router.post("/global-players", async (req, res) => {
     .values({
       id: gpId,
       canonicalName: d.canonicalName,
-      mobileNumber: d.mobileNumber ?? null,
+      mobileNumber,
       sport: d.sport ?? "cricket",
       defaultRole: d.defaultRole ?? null,
       city: d.city ?? null,

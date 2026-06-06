@@ -23,8 +23,36 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
+import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 
 const scryptAsync = promisify(scrypt);
+
+async function organizerNormalizedMobileTaken(normalized: string, excludeId?: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: organizersTable.id, mobile: organizersTable.mobile })
+    .from(organizersTable);
+  for (const row of rows) {
+    if (excludeId !== undefined && row.id === excludeId) continue;
+    if (isPlaceholderOrganizerMobile(row.mobile)) continue;
+    const parsed = parseIndianMobile(row.mobile);
+    if (parsed.ok && parsed.normalized === normalized) return true;
+  }
+  return false;
+}
+
+async function findOrganizerByMobileInput(raw: string) {
+  const parsed = parseIndianMobile(raw);
+  if (!parsed.ok) return { parsed, organizer: null as (typeof organizersTable.$inferSelect | null) };
+  const rows = await db.select().from(organizersTable);
+  for (const row of rows) {
+    if (isPlaceholderOrganizerMobile(row.mobile)) continue;
+    const existing = parseIndianMobile(row.mobile);
+    if (existing.ok && existing.normalized === parsed.normalized) {
+      return { parsed, organizer: row };
+    }
+  }
+  return { parsed, organizer: null };
+}
 
 // Auction code helpers (mirrors tournaments.ts — kept local to avoid circular deps)
 function _buildAuctionCode(name: string, auctionDate?: string | null): string {
@@ -298,6 +326,19 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  let organizerMobile: string | null | undefined = d.organizerMobile;
+  if (d.organizerMobile !== undefined) {
+    const trimmed = d.organizerMobile.trim();
+    if (trimmed) {
+      const mobileParsed = parseIndianMobile(trimmed);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+      organizerMobile = mobileParsed.normalized;
+    } else {
+      organizerMobile = null;
+    }
+  }
+
   const auctionCode = await _generateUniqueAuctionCode(d.name, d.auctionDate);
   const [t] = await db.insert(tournamentsTable).values({
     name: d.name,
@@ -308,7 +349,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     auctionTime: d.auctionTime ?? null,
     organizerId: d.organizerId ?? null,
     organizerName: d.organizerName,
-    organizerMobile: d.organizerMobile,
+    organizerMobile,
     organizerEmail: d.organizerEmail,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
@@ -530,7 +571,16 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.sport !== undefined) updates.sport = d.sport;
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
-  if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
+  if (d.organizerMobile !== undefined) {
+    const trimmed = d.organizerMobile.trim();
+    if (trimmed) {
+      const mobileParsed = parseIndianMobile(trimmed);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+      updates.organizerMobile = mobileParsed.normalized;
+    } else {
+      updates.organizerMobile = "";
+    }
+  }
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
@@ -547,9 +597,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   // Auto-link organizer account by mobile or email when those fields are set
   let autoLinkedOrganizer: { id: number; name: string } | null = null;
   if (d.organizerId === undefined) {
-    if (d.organizerMobile !== undefined && d.organizerMobile.trim()) {
-      const rows = await db.select().from(organizersTable).where(eq(organizersTable.mobile, d.organizerMobile.trim()));
-      if (rows[0]) { updates.organizerId = rows[0].id; autoLinkedOrganizer = { id: rows[0].id, name: rows[0].name }; }
+    const linkedMobile = typeof updates.organizerMobile === "string" ? updates.organizerMobile : "";
+    if (d.organizerMobile !== undefined && linkedMobile) {
+      const { organizer } = await findOrganizerByMobileInput(linkedMobile);
+      if (organizer) { updates.organizerId = organizer.id; autoLinkedOrganizer = { id: organizer.id, name: organizer.name }; }
     } else if (d.organizerEmail !== undefined && d.organizerEmail.trim()) {
       const rows = await db.select().from(organizersTable).where(eq(organizersTable.email, d.organizerEmail.trim()));
       if (rows[0]) { updates.organizerId = rows[0].id; autoLinkedOrganizer = { id: rows[0].id, name: rows[0].name }; }
@@ -631,7 +682,15 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.email !== undefined) updates.email = d.email;
-  if (d.mobile !== undefined) updates.mobile = d.mobile;
+  if (d.mobile !== undefined) {
+    const mobileParsed = parseIndianMobile(d.mobile);
+    if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+    if (await organizerNormalizedMobileTaken(mobileParsed.normalized, id)) {
+      res.status(409).json({ error: "An account with this mobile number already exists." });
+      return;
+    }
+    updates.mobile = mobileParsed.normalized;
+  }
   if (d.licenseStatus !== undefined) updates.licenseStatus = d.licenseStatus;
   if (d.maxTournaments !== undefined) updates.maxTournaments = d.maxTournaments;
   if (d.notes !== undefined) updates.notes = d.notes;
@@ -665,10 +724,13 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Name, mobile number, and password (min 6 chars) are required." }); return; }
 
-  const { name, mobile, email, password } = body.data;
+  const { name, mobile: rawMobile, email, password } = body.data;
 
-  const [mobileExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.mobile, mobile)).limit(1);
-  if (mobileExists) {
+  const mobileParsed = parseIndianMobile(rawMobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
+
+  if (await organizerNormalizedMobileTaken(mobile)) {
     res.status(409).json({ error: "An account with this mobile number already exists." });
     return;
   }
@@ -758,7 +820,11 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile and 6-digit OTP required" }); return; }
 
-  const { mobile, otp } = body.data;
+  const { mobile: rawMobile, otp } = body.data;
+
+  const mobileParsed = parseIndianMobile(rawMobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
 
   const result = await bulkSmsOtpVerify(mobile, otp, "signup");
   if (!result.success) {
@@ -771,14 +837,13 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
 
   const pendingData = JSON.parse(result.payload) as { name: string; mobile: string; email: string | null; passwordHash: string };
 
-  const [mobileExists] = await db.select({ id: organizersTable.id }).from(organizersTable).where(eq(organizersTable.mobile, mobile)).limit(1);
-  if (mobileExists) {
+  if (await organizerNormalizedMobileTaken(mobile)) {
     res.status(409).json({ error: "An account with this mobile number already exists." }); return;
   }
 
   const [organizer] = await db.insert(organizersTable).values({
     name: pendingData.name,
-    mobile: pendingData.mobile,
+    mobile,
     email: pendingData.email,
     passwordHash: pendingData.passwordHash,
     licenseStatus: "pending",
@@ -930,11 +995,17 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
     basePurse: z.number().int().optional(),
-    minBid: z.number().int().optional(),
+    minBid: z.number().int().min(1).optional(),
+    bidIncrement: z.number().int().min(1).optional(),
+    minimumSquadSize: z.number().int().min(1).max(100).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  const bidTiersJson = d.bidIncrement != null
+    ? JSON.stringify([{ increment: d.bidIncrement }])
+    : DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON;
 
   // Generate unique auction code (TT+NN+DDMM format)
   function buildOrgCode(name: string, auctionDate?: string | null): string {
@@ -966,11 +1037,11 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerEmail: organizer.email ?? null,
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
-    bidTiers: DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
+    bidTiers: bidTiersJson,
     timerSeconds: DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
     bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
     playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
-    minimumSquadSize: 0,
+    minimumSquadSize: d.minimumSquadSize ?? 0,
     maximumSquadSize: 0,
     licenseStatus: "trial",
   }).returning();
@@ -987,12 +1058,12 @@ router.post("/auth/organizer-account/otp/send", otpSendLimiter, async (req, res)
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  const { mobile } = body.data;
-  const digits = mobile.replace(/\D/g, "");
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
 
-  const [row] = await db.select({ id: organizersTable.id }).from(organizersTable)
-    .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, digits))).limit(1);
-  if (!row) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
+  const { organizer } = await findOrganizerByMobileInput(mobile);
+  if (!organizer) { res.status(404).json({ error: "No account found with this mobile number" }); return; }
 
   const result = await bulkSmsOtpSend(mobile, "password_reset");
   if (!result.success) {
@@ -1012,21 +1083,23 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile, 6-digit code, and new password required" }); return; }
 
-  const { mobile, code, newPassword } = body.data;
-  const digits = mobile.replace(/\D/g, "");
+  const { mobile: rawMobile, code, newPassword } = body.data;
+
+  const mobileParsed = parseIndianMobile(rawMobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
 
   const result = await bulkSmsOtpVerify(mobile, code, "password_reset");
   if (!result.success) {
     res.status(400).json({ error: result.error ?? "Invalid or expired OTP code" }); return;
   }
 
-  const rows = await db.select().from(organizersTable)
-    .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, digits)));
-  if (rows.length === 0) { res.status(404).json({ error: "Account not found" }); return; }
+  const { organizer } = await findOrganizerByMobileInput(mobile);
+  if (!organizer) { res.status(404).json({ error: "Account not found" }); return; }
 
   const newHash = await hashPassword(newPassword);
   const [updated] = await db.update(organizersTable).set({ passwordHash: newHash })
-    .where(eq(organizersTable.id, rows[0].id)).returning();
+    .where(eq(organizersTable.id, organizer.id)).returning();
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, updated.id));
@@ -1042,7 +1115,10 @@ router.post("/auth/organizer-account/otp/resend", otpSendLimiter, async (req, re
   const body = z.object({ mobile: z.string().min(7) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  const result = await bulkSmsOtpResend(body.data.mobile, "password_reset");
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+
+  const result = await bulkSmsOtpResend(mobileParsed.normalized, "password_reset");
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to resend OTP" }); return;
   }
@@ -1241,10 +1317,12 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
 
   const { name, email, mobile, photoUrl } = body.data;
 
-  if (mobile) {
-    const mobileExists = await db.select().from(organizersTable)
-      .where(eq(organizersTable.mobile, mobile));
-    if (mobileExists.length > 0 && mobileExists[0].id !== req.jwtUser.organizerAccountId) {
+  let normalizedMobile: string | undefined;
+  if (mobile !== undefined) {
+    const mobileParsed = parseIndianMobile(mobile);
+    if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+    normalizedMobile = mobileParsed.normalized;
+    if (await organizerNormalizedMobileTaken(normalizedMobile, req.jwtUser.organizerAccountId)) {
       res.status(409).json({ error: "This mobile number is already registered to another account." });
       return;
     }
@@ -1262,7 +1340,7 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
   const updates: Partial<typeof organizersTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
   if (email !== undefined) updates.email = email;
-  if (mobile !== undefined) updates.mobile = mobile;
+  if (normalizedMobile !== undefined) updates.mobile = normalizedMobile;
   if (photoUrl !== undefined) updates.photoUrl = photoUrl;
 
   if (Object.keys(updates).length === 0) {
@@ -1353,17 +1431,14 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
     return;
   }
 
-  const schema = z.object({ mobile: z.string().min(10).max(15).regex(/^\d+$/, "Digits only") });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid mobile number" }); return; }
+  const body = z.object({ mobile: z.string().min(1) }).safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  const { mobile } = parsed.data;
+  const mobileParsed = parseIndianMobile(body.data.mobile);
+  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+  const mobile = mobileParsed.normalized;
 
-  const [existing] = await db
-    .select({ id: organizersTable.id })
-    .from(organizersTable)
-    .where(eq(organizersTable.mobile, mobile));
-  if (existing) {
+  if (await organizerNormalizedMobileTaken(mobile)) {
     res.status(409).json({ error: "Mobile number already registered to another account" });
     return;
   }
@@ -1394,11 +1469,7 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     res.status(400).json({ error: result.error ?? "Invalid or expired OTP" }); return;
   }
 
-  const [dup] = await db
-    .select({ id: organizersTable.id })
-    .from(organizersTable)
-    .where(eq(organizersTable.mobile, mobile));
-  if (dup) {
+  if (await organizerNormalizedMobileTaken(mobile)) {
     res.status(409).json({ error: "Mobile number already registered to another account" });
     return;
   }

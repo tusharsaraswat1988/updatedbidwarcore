@@ -59,6 +59,7 @@ import { cldUrl } from "@/lib/cloudinary";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
+import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -163,9 +164,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
 
 // ─── Tournament Import Dialog ──────────────────────────────────────────────────
 
-function TournamentImportDialog({ tournamentId, categories, onClose }: {
+function TournamentImportDialog({ tournamentId, onClose }: {
   tournamentId: number;
-  categories: any[];
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -174,7 +174,6 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
   const [sourceName, setSourceName] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
-  const [overrideCategoryId, setOverrideCategoryId] = useState<string>("");
   const [result, setResult] = useState<{ imported: number; skipped: number; total: number } | null>(null);
 
   const importMutation = useImportPlayersFromTournament();
@@ -224,7 +223,6 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
       data: {
         sourceTournamentId,
         playerIds: Array.from(selectedIds),
-        categoryId: overrideCategoryId ? parseInt(overrideCategoryId) : undefined,
       },
     });
     setResult(res);
@@ -321,21 +319,6 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
         </div>
       )}
 
-      {categories.length > 0 && (
-        <div className="flex items-center gap-3">
-          <Label className="text-xs whitespace-nowrap text-muted-foreground">Override category:</Label>
-          <Select value={overrideCategoryId} onValueChange={setOverrideCategoryId}>
-            <SelectTrigger className="h-7 text-xs flex-1">
-              <SelectValue placeholder="Keep original" />
-            </SelectTrigger>
-            <SelectContent className="dark">
-              <SelectItem value="">Keep original</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       <div className="space-y-1.5 max-h-[38vh] overflow-y-auto pr-0.5">
         {candidatesLoading ? (
           [1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-13" />)
@@ -379,9 +362,6 @@ function TournamentImportDialog({ tournamentId, categories, onClose }: {
                 {p.mobileNumber && <span className="font-mono">{p.mobileNumber}</span>}
                 {p.age != null && <span>Age {p.age}</span>}
               </div>
-            </div>
-            <div className="text-right text-xs text-muted-foreground shrink-0">
-              {formatIndianRupee(p.basePrice)}
             </div>
           </button>
         ))}
@@ -478,7 +458,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     basePrice: player?.basePrice || tournament?.minBid || 100000,
     jerseyNumber: player?.jerseyNumber || "",
     achievements: player?.achievements || "",
-    mobileNumber: player?.mobileNumber || "",
+    mobileNumber: player?.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
     cricheroUrl: player?.cricheroUrl || "",
     availabilityDates: player
       ? (player.availabilityDates || "")
@@ -513,18 +493,19 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const sortedSpecGroups = [...specGroups].sort((a, b) => a.displayOrder - b.displayOrder);
 
   function handleMobileChange(val: string) {
-    f("mobileNumber", val);
+    const sanitized = sanitizeMobileInput(val);
+    f("mobileNumber", sanitized);
     if (mobileError) setMobileError("");
     setMobileLookedUp(false);
     setPendingMobileProfile(null);
     if (player) return;
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
-    const digits = val.replace(/\D/g, "");
+    const digits = sanitized;
     if (digits.length >= 10) {
       mobileDebounceRef.current = setTimeout(async () => {
         setMobileLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(val)}&limit=5`);
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`);
           const data: SuggestionProfile[] = await res.json();
           const match = Array.isArray(data)
             ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === digits)
@@ -548,9 +529,9 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const mobile = form.mobileNumber.trim();
-    if (!mobile) {
-      setMobileError("Mobile number is required");
+    const mobileResult = parseIndianMobile(form.mobileNumber);
+    if (!mobileResult.ok) {
+      setMobileError(mobileResult.error);
       return;
     }
     setMobileError("");
@@ -567,7 +548,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       basePrice: parseInt(String(form.basePrice)) || 0,
       jerseyNumber: form.jerseyNumber || undefined,
       achievements: form.achievements || undefined,
-      mobileNumber: mobile,
+      mobileNumber: mobileResult.normalized,
       cricheroUrl: form.cricheroUrl || undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
@@ -668,8 +649,10 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
               value={form.mobileNumber}
               onChange={e => handleMobileChange(e.target.value)}
               required
-              placeholder="+91 98765 43210"
+              placeholder="10-digit mobile (e.g. 9876543210)"
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
               className="pr-8"
             />
             {!player && mobileLookupLoading && (
@@ -1059,7 +1042,12 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
         specialization: row["specialization"] || undefined,
         jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
         achievements: row["achievements"] || undefined,
-        mobileNumber: row["mobilenumber"] || row["mobile_number"] || row["mobile"] || undefined,
+        mobileNumber: (() => {
+          const raw = row["mobilenumber"] || row["mobile_number"] || row["mobile"] || "";
+          if (!raw) return undefined;
+          const parsed = parseIndianMobile(raw);
+          return parsed.ok ? parsed.normalized : raw;
+        })(),
         availabilityDates: row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
         cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
       };
@@ -1914,7 +1902,7 @@ export default function Players() {
               className="gap-2"
               onClick={() => setImportOpen(true)}
             >
-              <Upload className="w-4 h-4" /> Import Players
+              <Upload className="w-4 h-4" /> Import Players from Other Tournaments
             </Button>
             <Button
               variant="outline"
@@ -2338,12 +2326,11 @@ export default function Players() {
         <DialogContent className="max-w-2xl dark max-h-[92vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" /> Import Players from Tournament
+              <Upload className="w-5 h-5" /> Import Players from Other Tournaments
             </DialogTitle>
           </DialogHeader>
           <TournamentImportDialog
             tournamentId={tournamentId}
-            categories={categories || []}
             onClose={() => setImportOpen(false)}
           />
         </DialogContent>

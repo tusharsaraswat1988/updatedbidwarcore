@@ -137,13 +137,10 @@ export default function TournamentSettings() {
   const [initialized, setInitialized] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
   const [editForm, setEditForm] = useState<Record<string, string | number | boolean>>({});
-  const [origForm, setOrigForm] = useState<Record<string, string | number | boolean>>({});
   const audioPreviewRef = useRef<AuctionAudioManager | null>(null);
   const [countdownFileName, setCountdownFileName] = useState("");
   const [soldFileName, setSoldFileName] = useState("");
   const [breakEndFileName, setBreakEndFileName] = useState("");
-  const [origSponsorLogos, setOrigSponsorLogos] = useState<SponsorLogo[]>([]);
-  const [origBidTiers, setOrigBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([]);
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
     { increment: 0 },
@@ -205,7 +202,6 @@ export default function TournamentSettings() {
       matchDates: tournament.matchDates ?? "",
     };
     setEditForm(initialForm);
-    setOrigForm(initialForm);
 
     setCountdownFileName(tournament.countdownSoundUrl ? "Custom file uploaded" : "");
     setSoldFileName(tournament.soldSoundUrl ? "Custom file uploaded" : "");
@@ -230,7 +226,6 @@ export default function TournamentSettings() {
       initialTiers = [{ upTo: 100000, increment: 25000 }, { upTo: 200000, increment: 50000 }, { increment: 100000 }];
     }
     setBidTiers(initialTiers);
-    setOrigBidTiers(initialTiers);
 
     let initialSponsors: SponsorLogo[];
     try {
@@ -238,7 +233,6 @@ export default function TournamentSettings() {
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
-    setOrigSponsorLogos(initialSponsors);
 
     setInitialized(true);
   }, [tournament, initialized]);
@@ -251,56 +245,6 @@ export default function TournamentSettings() {
       ch.postMessage({ tournamentId, theme: t });
       ch.close();
     } catch { /* ignore */ }
-  }
-
-  function resetCurrentTab() {
-    if (activeSection === "identity") {
-      setEditForm(f => ({
-        ...f,
-        name: origForm.name,
-        sport: origForm.sport,
-        venue: origForm.venue,
-        auctionDate: origForm.auctionDate,
-        auctionTime: origForm.auctionTime,
-        logoUrl: origForm.logoUrl,
-        registrationDeadline: origForm.registrationDeadline,
-        registrationLimit: origForm.registrationLimit,
-      }));
-    } else if (activeSection === "auction") {
-      setEditForm(f => ({
-        ...f,
-        basePurse: origForm.basePurse,
-        minBid: origForm.minBid,
-        timerSeconds: origForm.timerSeconds,
-        bidTimerSeconds: origForm.bidTimerSeconds,
-        playerSelectionMode: origForm.playerSelectionMode,
-        minimumSquadSize: origForm.minimumSquadSize,
-        maximumSquadSize: origForm.maximumSquadSize,
-      }));
-      setBidTiers(origBidTiers);
-    } else if (activeSection === "broadcast") {
-      setSponsorLogos(origSponsorLogos);
-      setEditForm(f => ({
-        ...f,
-        audioEnabled: origForm.audioEnabled,
-        masterVolume: origForm.masterVolume,
-        countdownSoundEnabled: origForm.countdownSoundEnabled,
-        countdownSoundUrl: origForm.countdownSoundUrl,
-        countdownSoundVolume: origForm.countdownSoundVolume,
-        soldSoundEnabled: origForm.soldSoundEnabled,
-        soldSoundUrl: origForm.soldSoundUrl,
-        soldSoundVolume: origForm.soldSoundVolume,
-        breakEndMusicEnabled: origForm.breakEndMusicEnabled,
-        breakEndMusicUrl: origForm.breakEndMusicUrl,
-        breakEndMusicVolume: origForm.breakEndMusicVolume,
-        mainBannerUrl: origForm.mainBannerUrl,
-        mainBannerEnabled: origForm.mainBannerEnabled,
-        mainBannerFit: origForm.mainBannerFit,
-      }));
-      setCountdownFileName(origForm.countdownSoundUrl ? "Custom file uploaded" : "");
-      setSoldFileName(origForm.soldSoundUrl ? "Custom file uploaded" : "");
-      setBreakEndFileName(origForm.breakEndMusicUrl ? "Custom file uploaded" : "");
-    }
   }
 
   async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -488,16 +432,6 @@ export default function TournamentSettings() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={resetCurrentTab}
-            disabled={activeSection === "recovery"}
-            title="Discard unsaved changes in this tab"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Reset Section
-          </Button>
           <Button
             onClick={handleSave}
             disabled={updateTournament.isPending}

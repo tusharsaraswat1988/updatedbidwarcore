@@ -2076,6 +2076,8 @@ components:
           type: string
         ownerMobile:
           type: ["string", "null"]
+        ownerPhotoUrl:
+          type: ["string", "null"]
         color:
           type: ["string", "null"]
         logoUrl:
@@ -2103,6 +2105,8 @@ components:
           type: string
         ownerMobile:
           type: string
+        ownerPhotoUrl:
+          type: string
         color:
           type: string
         logoUrl:
@@ -2120,6 +2124,8 @@ components:
         ownerName:
           type: string
         ownerMobile:
+          type: string
+        ownerPhotoUrl:
           type: string
         color:
           type: string

@@ -10,7 +10,8 @@
     "./auction-bid": "./src/auction-bid.ts",
     "./auction-readiness": "./src/auction-readiness.ts",
     "./owner-auth": "./src/owner-auth.ts",
-    "./owner-urls": "./src/owner-urls.ts"
+    "./owner-urls": "./src/owner-urls.ts",
+    "./mobile": "./src/mobile.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

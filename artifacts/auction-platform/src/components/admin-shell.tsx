@@ -1,0 +1,122 @@
+import { ReactNode, useState } from "react";
+import { useLocation } from "wouter";
+import {
+  LogOut,
+  Menu,
+  Search,
+  UserCircle,
+} from "lucide-react";
+import { useAdminAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { cldUrl } from "@/lib/cloudinary";
+import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+
+type AdminShellProps = {
+  children: ReactNode;
+  title: string;
+  eyebrow?: string;
+  actions?: ReactNode;
+};
+
+function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { mini?: string | null }; brandName: string }) {
+  return (
+    <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+      {!loading && (
+        <img
+          src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"}
+          alt={brandName}
+          className="h-9 w-9 object-contain"
+        />
+      )}
+      <div className="min-w-0">
+        <div className="truncate font-display text-lg font-black uppercase tracking-wide text-white">
+          {brandName || "BidWar"}
+        </div>
+        <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Super Admin</div>
+      </div>
+    </div>
+  );
+}
+
+export function AdminShell({ children, title, eyebrow, actions }: AdminShellProps) {
+  const [location, navigate] = useLocation();
+  const { logout, adminLevel, isMaster } = useAdminAuth();
+  const { logos, brandName, loading } = useBranding();
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    navigate("/admin/login");
+  }
+
+  const closeDrawer = () => setDrawerOpen(false);
+
+  return (
+    <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
+      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-border bg-card/80 md:flex">
+        <ShellBrand loading={loading} logos={logos} brandName={brandName} />
+        <AdminSidebarNav location={location} isMaster={isMaster} />
+      </aside>
+
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0">
+          <SheetTitle className="sr-only">Admin navigation</SheetTitle>
+          <ShellBrand loading={loading} logos={logos} brandName={brandName} />
+          <AdminSidebarNav location={location} isMaster={isMaster} onNavigate={closeDrawer} />
+        </SheetContent>
+      </Sheet>
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 sm:gap-4 sm:px-5">
+          <button
+            type="button"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="relative min-w-0 flex-1 max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-sm outline-none transition focus:border-primary"
+              placeholder={isMobile ? "Search..." : "Search tournaments, organisers, players..."}
+            />
+          </div>
+          <div
+            className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground sm:flex"
+            title={adminLevel === "master" ? "Master admin — full platform access" : "Data entry admin — read-only live ops"}
+          >
+            <UserCircle className="h-5 w-5" />
+            <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            title="Sign out"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          <div className="border-b border-border bg-card/30 px-4 py-3 sm:px-6 sm:py-4">
+            {eyebrow && (
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {eyebrow}
+              </div>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="font-display text-xl font-black text-white sm:text-2xl">{title}</h1>
+              {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">{children}</div>
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -26,7 +26,14 @@ const FortuneWheel = lazy(() => import("@/pages/fortune-wheel"));
 const PlayerRegister = lazy(() => import("@/pages/player-register"));
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
-const AdminDashboard = lazy(() => import("@/pages/admin"));
+const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
+const AdminLiveOperations = lazy(() => import("@/pages/admin-live-operations"));
+const AdminTournamentsList = lazy(() => import("@/pages/admin-tournaments-list"));
+const AdminOrganisersList = lazy(() => import("@/pages/admin-organisers-list"));
+const AdminSportsPage = lazy(() => import("@/pages/admin-sports-page"));
+const AdminSystemPage = lazy(() => import("@/pages/admin-system-page"));
+const AdminTournamentDetail = lazy(() => import("@/pages/admin-tournament-detail"));
+const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
 const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
@@ -107,12 +114,47 @@ function Router() {
           )}
         </Route>
         <Route path="/admin/login" component={AdminLogin} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/reports" component={AdminReports} />
-        <Route path="/admin/intelligence" component={AdminIntelligence} />
-        <Route path="/admin/communicate/logs" component={AdminCommunicate} />
-        <Route path="/admin/communicate" component={AdminCommunicate} />
-        <Route path="/admin/branding" component={AdminBranding} />
+        <Route path="/admin/live" component={AdminLiveOperations} />
+        <Route path="/admin/live/auctions" component={AdminLiveOperations} />
+        <Route path="/admin/live/monitor" component={AdminLiveOperations} />
+        <Route path="/admin/live/monitor/:id" component={AdminLiveOperations} />
+        <Route path="/admin/live/displays" component={AdminLiveOperations} />
+        <Route path="/admin/live/displays/:id" component={AdminLiveOperations} />
+        <Route path="/admin/live/owner-apps" component={AdminLiveOperations} />
+        <Route path="/admin/live/owner-apps/:id" component={AdminLiveOperations} />
+        <Route path="/admin/live/sessions" component={AdminLiveOperations} />
+        <Route path="/admin/live/sessions/:id" component={AdminLiveOperations} />
+        <Route path="/admin/live/emergency" component={AdminLiveOperations} />
+        <Route path="/admin/live/emergency/:id" component={AdminLiveOperations} />
+        <Route path="/admin/tournaments" component={AdminTournamentsList} />
+        <Route path="/admin/tournaments/new" component={AdminTournamentsList} />
+        <Route path="/admin/tournaments/sports" component={AdminSportsPage} />
+        <Route path="/admin/tournaments/:id" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/overview" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/players" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/teams" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/bids" component={AdminTournamentDetail} />
+        <Route path="/admin/organisers" component={AdminOrganisersList} />
+        <Route path="/admin/organisers/:id" component={AdminOrganiserDetail} />
+        <Route path="/admin/settings/reports" component={AdminReports} />
+        <Route path="/admin/settings/intelligence" component={AdminIntelligence} />
+        <Route path="/admin/settings/intelligence/:tab" component={AdminIntelligence} />
+        <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
+        <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
+        <Route path="/admin/settings/communication" component={AdminCommunicate} />
+        <Route path="/admin/settings/branding" component={AdminBranding} />
+        <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
+        <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/builds" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
+        <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
+        <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
+        <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>
+        <Route path="/admin/communicate">{() => <Redirect to="/admin/settings/communication" />}</Route>
+        <Route path="/admin/branding">{() => <Redirect to="/admin/settings/branding" />}</Route>
+        <Route path="/admin" component={AdminDashboardOverview} />
         <Route path="/wa-consent/:token" component={WaConsent} />
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/organizer" component={OrganizerPortal} />

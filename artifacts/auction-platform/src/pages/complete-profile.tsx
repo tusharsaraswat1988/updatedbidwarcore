@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Phone, ShieldCheck, RotateCcw } from "lucide-react";
+import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
 async function apiFetch(path: string, opts: RequestInit = {}) {
   const r = await fetch(path, {
@@ -50,16 +51,22 @@ export default function CompleteProfile() {
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const mobileResult = parseIndianMobile(mobile);
+    if (!mobileResult.ok) {
+      setError(mobileResult.error);
+      return;
+    }
     setLoading(true);
     const { ok, data } = await apiFetch("/api/auth/google/complete-profile", {
       method: "POST",
-      body: JSON.stringify({ mobile }),
+      body: JSON.stringify({ mobile: mobileResult.normalized }),
     });
     setLoading(false);
     if (!ok) {
       setError(data.error ?? "Failed to send OTP");
       return;
     }
+    setMobile(mobileResult.normalized);
     setStep("otp");
     startCooldown();
   }
@@ -128,14 +135,14 @@ export default function CompleteProfile() {
                     type="tel"
                     placeholder="10-digit mobile number"
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) => setMobile(sanitizeMobileInput(e.target.value))}
                     maxLength={10}
                     required
                     autoFocus
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading || mobile.length < 10}>
+              <Button type="submit" className="w-full" disabled={loading || !parseIndianMobile(mobile).ok}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Continue
               </Button>

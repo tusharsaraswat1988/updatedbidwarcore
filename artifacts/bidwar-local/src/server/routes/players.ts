@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { parseIndianMobile } from "@workspace/api-base/mobile";
 import type { LocalDb } from "@workspace/db-local";
 import { playersTable } from "@workspace/db-local";
 
@@ -38,12 +39,18 @@ export function createPlayersRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
+    let mobileNumber: string | null = null;
+    if (d.mobileNumber) {
+      const mobileParsed = parseIndianMobile(d.mobileNumber);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" }); return; }
+      mobileNumber = mobileParsed.normalized;
+    }
     const [row] = await db.insert(playersTable).values({
       tournamentId: tid, name: d.name, categoryId: d.categoryId ?? null,
       role: d.role ?? null, city: d.city ?? null,
       basePrice: d.basePrice ?? 100000, status: d.status ?? "available",
       jerseyNumber: d.jerseyNumber ?? null, photoUrl: d.photoUrl ?? null,
-      mobileNumber: d.mobileNumber ?? null, battingStyle: d.battingStyle ?? null,
+      mobileNumber, battingStyle: d.battingStyle ?? null,
       bowlingStyle: d.bowlingStyle ?? null, specialization: d.specialization ?? null,
     }).returning();
     res.status(201).json(playerToJson(row));
@@ -87,7 +94,13 @@ export function createPlayersRouter(db: LocalDb) {
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
-    const [row] = await db.update(playersTable).set({ ...d, updatedAt: new Date().toISOString() })
+    const updates: Record<string, unknown> = { ...d };
+    if (d.mobileNumber !== undefined && d.mobileNumber !== null) {
+      const mobileParsed = parseIndianMobile(d.mobileNumber);
+      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" }); return; }
+      updates.mobileNumber = mobileParsed.normalized;
+    }
+    const [row] = await db.update(playersTable).set({ ...updates, updatedAt: new Date().toISOString() })
       .where(and(eq(playersTable.id, pid), eq(playersTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(playerToJson(row));

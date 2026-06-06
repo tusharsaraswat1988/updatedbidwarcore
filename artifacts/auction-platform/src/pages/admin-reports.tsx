@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { listAdminTournaments, AdminTournamentRow } from "@/lib/auth";
-import { FullscreenLayout } from "@/components/layout";
+import { AdminShell } from "@/components/admin-shell";
 import { motion } from "framer-motion";
 import {
   ShieldCheck, FileText, FileSpreadsheet, FileType, Download, RefreshCw,
@@ -218,48 +218,41 @@ export default function AdminReports() {
 
   if (isLoading) {
     return (
-      <FullscreenLayout>
-        <div className="h-full flex items-center justify-center">
+      <AdminShell title="Report Center" eyebrow="Platform Settings">
+        <div className="flex h-48 items-center justify-center">
           <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      </FullscreenLayout>
+      </AdminShell>
     );
   }
 
   if (!isAdmin) return null;
 
   return (
-    <FullscreenLayout>
-      <div className="h-full flex flex-col bg-background dark">
-        {/* Top bar */}
-        <div className="px-5 py-3 border-b border-border/40 flex items-center gap-3 flex-shrink-0">
-          <Button variant="ghost" size="sm" className="gap-1.5 h-8" onClick={() => navigate("/admin")}>
-            <ChevronLeft className="w-4 h-4" /> Admin
-          </Button>
-          <div className="flex items-center gap-2">
-            <FileBarChart className="w-5 h-5 text-primary" />
-            <h1 className="font-display font-bold text-lg">Report Center</h1>
-            <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">Super Admin</Badge>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Tournament</Label>
-            <Select value={tournamentId ? String(tournamentId) : ""} onValueChange={v => setTournamentId(parseInt(v))}>
-              <SelectTrigger className="h-8 w-72 text-sm"><SelectValue placeholder="Select tournament..." /></SelectTrigger>
-              <SelectContent>
-                {tournaments.map(t => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    <span className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase text-muted-foreground">{t.sport}</span>
-                      <span>{t.name}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <AdminShell
+      title="Report Center"
+      eyebrow="Platform Settings"
+      actions={
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Tournament</Label>
+          <Select value={tournamentId ? String(tournamentId) : ""} onValueChange={v => setTournamentId(parseInt(v))}>
+            <SelectTrigger className="h-8 w-72 text-sm"><SelectValue placeholder="Select tournament..." /></SelectTrigger>
+            <SelectContent>
+              {tournaments.map(t => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  <span className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase text-muted-foreground">{t.sport}</span>
+                    <span>{t.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        <div className="flex-1 flex min-h-0">
+      }
+    >
+      <div className="flex min-h-[calc(100vh-240px)] flex-col overflow-hidden rounded-xl border border-border bg-card/70">
+        <div className="flex min-h-0 flex-1">
           {/* Left sidebar - report list */}
           <aside className="w-72 border-r border-border/40 flex flex-col flex-shrink-0 bg-muted/10">
             <div className="p-3 border-b border-border/40 flex-shrink-0">
@@ -401,7 +394,7 @@ export default function AdminReports() {
           </main>
         </div>
       </div>
-    </FullscreenLayout>
+    </AdminShell>
   );
 }
 

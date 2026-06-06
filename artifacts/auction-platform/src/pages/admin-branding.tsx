@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
-import { FullscreenLayout } from "@/components/layout";
+import { AdminShell } from "@/components/admin-shell";
 import { useLocation } from "wouter";
 import {
   ArrowLeft, Save, RefreshCw, Upload, X, Palette, Type,
@@ -445,42 +445,30 @@ export default function AdminBranding() {
   if (!isLoggedIn) return null;
 
   return (
-    <FullscreenLayout>
-      <div className="h-screen flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card/50 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate("/admin")}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Palette className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-display font-black text-xl text-white">Branding Center</h1>
-              <p className="text-xs text-muted-foreground">Manage global BidWar brand identity and visual assets</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {saveError && (
-              <p className="text-xs text-red-400 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />{saveError}
-              </p>
-            )}
-            {saved && (
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Saved
-              </Badge>
-            )}
-            <Button onClick={handleSave} disabled={saving || loading} className="gap-2 h-9">
-              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Branding
-            </Button>
-          </div>
+    <AdminShell
+      title="Branding"
+      eyebrow="Platform Settings"
+      actions={
+        <div className="flex items-center gap-2">
+          {saveError && (
+            <p className="text-xs text-red-400 flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5" />{saveError}
+            </p>
+          )}
+          {saved && (
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Saved
+            </Badge>
+          )}
+          <Button onClick={handleSave} disabled={saving || loading} className="gap-2 h-9">
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Branding
+          </Button>
         </div>
-
-        {/* Tabs */}
-        <div className="flex-1 overflow-hidden">
+      }
+    >
+      <div className="overflow-hidden rounded-xl border border-border bg-card/70">
+        <div className="overflow-hidden">
           <Tabs defaultValue="identity" className="h-full flex flex-col">
             <div className="px-6 pt-4 border-b border-border/30 flex-shrink-0">
               <TabsList className="h-9 gap-1">
@@ -840,6 +828,6 @@ export default function AdminBranding() {
           </Tabs>
         </div>
       </div>
-    </FullscreenLayout>
+    </AdminShell>
   );
 }
