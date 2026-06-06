@@ -5,6 +5,19 @@
  * Local Vite dev: same relative paths; vite.config proxies `/api` to the API server.
  */
 
+export {
+  computeNextBidAmount,
+  validateBidAmount,
+  type BidAmountInput,
+} from "./auction-bid.ts";
+
+export {
+  OWNER_APP_BASE,
+  ownerJoinPath,
+  ownerDashboardAppPath,
+  ownerJoinPublicUrl,
+} from "./owner-urls.ts";
+
 export const API_PREFIX = "/api";
 
 /** Default API listen port when API_DEV_PROXY_TARGET / PORT are unset in tooling. */
