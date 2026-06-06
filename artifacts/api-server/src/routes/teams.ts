@@ -176,7 +176,6 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   }
 
   // DLT SMS: notify team owner about their access code (fire-and-forget, live tournaments only)
-  const ownerMobile = team.ownerMobile;
   const accessCode = team.accessCode;
   if (tournament.licenseStatus === "active" && ownerMobile && accessCode) {
     void (async () => {
