@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const teamsTable = sqliteTable("teams", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -16,6 +16,8 @@ export const teamsTable = sqliteTable("teams", {
   cloudId: integer("cloud_id"),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
-});
+}, (t) => [
+  uniqueIndex("uq_teams_tournament_owner_mobile").on(t.tournamentId, t.ownerMobile),
+]);
 
 export type Team = typeof teamsTable.$inferSelect;

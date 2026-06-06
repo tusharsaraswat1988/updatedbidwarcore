@@ -34,6 +34,7 @@ router.post("/owner/onboarding/lookup", ownerLookupLimiter, async (req, res) => 
       teamName: teamsTable.name,
       teamShortCode: teamsTable.shortCode,
       teamColor: teamsTable.color,
+      teamLogoUrl: teamsTable.logoUrl,
       licenseStatus: tournamentsTable.licenseStatus,
       tournamentStatus: tournamentsTable.status,
       auctionStatus: auctionSessionsTable.status,

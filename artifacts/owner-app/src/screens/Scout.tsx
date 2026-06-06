@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, AlertCircle } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee } from "@/lib/format";
+import { TeamLogo } from "@/components/TeamLogo";
 
 interface Props {
   tournamentId: number;
@@ -24,6 +25,7 @@ function TeamRow({
     name: string;
     shortCode?: string | null;
     color?: string | null;
+    logoUrl?: string | null;
     purse: number;
     purseRemaining: number;
     spendablePurse: number;
@@ -52,12 +54,14 @@ function TeamRow({
         onClick={() => setExpanded((v) => !v)}
       >
         {/* Team badge */}
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-xs flex-shrink-0"
-          style={{ backgroundColor: `${color}20`, color, border: `2px solid ${color}44` }}
-        >
-          {team.shortCode || "?"}
-        </div>
+        <TeamLogo
+          logoUrl={team.logoUrl}
+          shortCode={team.shortCode}
+          teamName={team.name}
+          teamColor={color}
+          className="w-10 h-10 rounded-xl"
+          textClassName="text-xs"
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

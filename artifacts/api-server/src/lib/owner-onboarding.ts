@@ -12,6 +12,7 @@ export type OwnerOnboardingRow = {
   teamName: string;
   teamShortCode: string;
   teamColor: string | null;
+  teamLogoUrl: string | null;
   licenseStatus: string;
   tournamentStatus: string;
   auctionStatus: string | null;
@@ -25,6 +26,7 @@ export type OwnerOnboardingEntry = {
   teamName: string;
   teamShortCode: string;
   teamColor: string | null;
+  teamLogoUrl: string | null;
   licenseStatus: string;
   tournamentStatus: string;
   auctionStatus: string | null;
@@ -51,6 +53,7 @@ export function rowToOwnerOnboardingEntry(row: OwnerOnboardingRow): OwnerOnboard
     teamName: row.teamName,
     teamShortCode: row.teamShortCode,
     teamColor: row.teamColor,
+    teamLogoUrl: row.teamLogoUrl,
     licenseStatus: row.licenseStatus,
     tournamentStatus: row.tournamentStatus,
     auctionStatus: row.auctionStatus,

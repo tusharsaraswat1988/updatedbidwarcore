@@ -123,8 +123,9 @@ export function OwnerRoute() {
       tournamentName: tournament?.name,
       teamName:       team?.name,
       teamColor:      team?.color ?? undefined,
+      teamLogoUrl:    team?.logoUrl ?? undefined,
     });
-  }, [tournamentId, teamId, tournament?.name, team?.name, team?.color, state?.status, state?.licenseStatus]);
+  }, [tournamentId, teamId, tournament?.name, team?.name, team?.color, team?.logoUrl, state?.status, state?.licenseStatus]);
 
   // Determine if code is required and if already verified
   useEffect(() => {
@@ -234,6 +235,7 @@ export function OwnerRoute() {
         teamName={team.name}
         teamShortCode={team.shortCode || "?"}
         teamColor={teamColor}
+        teamLogoUrl={team.logoUrl}
         onVerified={() => setScreen("warmup")}
       />
     );
@@ -245,6 +247,7 @@ export function OwnerRoute() {
         teamName={team.name}
         teamShortCode={team.shortCode || "?"}
         teamColor={teamColor}
+        teamLogoUrl={team.logoUrl}
         onReady={handleWarmupReady}
         onSync={handleSync}
       />

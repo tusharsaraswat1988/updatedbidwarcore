@@ -91,6 +91,7 @@ describe("rowToOwnerOnboardingEntry", () => {
       teamName: "Warriors",
       teamShortCode: "WAR",
       teamColor: "#F59E0B",
+      teamLogoUrl: "https://res.cloudinary.com/demo/image/upload/team.png",
       licenseStatus: "trial",
       tournamentStatus: "setup",
       auctionStatus: "active",
@@ -111,6 +112,7 @@ describe("sortOwnerOnboardingEntries", () => {
         teamName: "A",
         teamShortCode: "A",
         teamColor: null,
+        teamLogoUrl: null,
         licenseStatus: "trial",
         tournamentStatus: "setup",
         auctionStatus: "idle",
@@ -123,6 +125,7 @@ describe("sortOwnerOnboardingEntries", () => {
         teamName: "B",
         teamShortCode: "B",
         teamColor: null,
+        teamLogoUrl: null,
         licenseStatus: "active",
         tournamentStatus: "active",
         auctionStatus: "active",
@@ -154,6 +157,7 @@ describe("POST /owner/onboarding/lookup", () => {
         teamName: "Titans",
         teamShortCode: "TIT",
         teamColor: "#3B82F6",
+        teamLogoUrl: "https://res.cloudinary.com/demo/image/upload/titans.png",
         licenseStatus: "active",
         tournamentStatus: "active",
         auctionStatus: "active",
@@ -171,6 +175,7 @@ describe("POST /owner/onboarding/lookup", () => {
       tournamentId: 5,
       teamId: 4,
       requiresAccessCode: true,
+      teamLogoUrl: "https://res.cloudinary.com/demo/image/upload/titans.png",
     });
     expect(res.body.entries[0].accessCode).toBeUndefined();
   });

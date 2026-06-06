@@ -141,6 +141,7 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE auction_sessions ADD COLUMN wheel_spinning INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE auction_sessions ADD COLUMN display_overlay TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
   ];
   for (const sql of migrations) {
     try {

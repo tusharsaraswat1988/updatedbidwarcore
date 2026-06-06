@@ -19,6 +19,10 @@ const migrations: Array<{ label: string; sql: string }> = [
     sql: `ALTER TABLE organizers ADD CONSTRAINT organizers_google_id_unique UNIQUE (google_id)`,
   },
   {
+    label: "teams_tournament_owner_mobile_unique",
+    sql: `CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)`,
+  },
+  {
     label: "create_sessions_table",
     sql: `
       CREATE TABLE IF NOT EXISTS "sessions" (

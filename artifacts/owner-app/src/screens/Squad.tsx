@@ -2,12 +2,14 @@ import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-re
 import { ChevronLeft, User, Trophy } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 
 interface Team {
   id: number;
   name: string;
   shortCode?: string | null;
   color?: string | null;
+  logoUrl?: string | null;
   purse: number;
   purseUsed?: number;
 }
@@ -61,12 +63,14 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         >
           <ChevronLeft className="w-7 h-7" />
         </button>
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-base flex-shrink-0"
-          style={{ backgroundColor: `${teamColor}30`, color: teamColor, border: `2px solid ${teamColor}55` }}
-        >
-          {team.shortCode || "?"}
-        </div>
+        <TeamLogo
+          logoUrl={team.logoUrl}
+          shortCode={team.shortCode}
+          teamName={team.name}
+          teamColor={teamColor}
+          className="w-12 h-12 rounded-xl"
+          textClassName="text-base"
+        />
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-xl leading-none truncate" style={{ color: teamColor }}>
             {team.name}

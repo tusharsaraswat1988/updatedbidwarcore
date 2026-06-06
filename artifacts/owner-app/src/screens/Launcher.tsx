@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Clock, Pause, X, Zap, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 
 export interface SavedAuction {
   tournamentId: number;
@@ -10,6 +11,7 @@ export interface SavedAuction {
   tournamentName?: string;
   teamName?:       string;
   teamColor?:      string;
+  teamLogoUrl?:    string;
 }
 
 export const SAVED_AUCTIONS_KEY = "owner_saved_auctions";
@@ -111,13 +113,14 @@ function AuctionCard({ auction, state, onClick, onRemove }: {
         }}
       >
         <div className="flex items-center gap-4">
-          {/* Team badge */}
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center font-display font-black text-xl flex-shrink-0"
-            style={{ backgroundColor: `${color}25`, color, border: `2px solid ${color}50` }}
-          >
-            {(auction.teamName?.substring(0, 3) || "?").toUpperCase()}
-          </div>
+          <TeamLogo
+            logoUrl={auction.teamLogoUrl}
+            shortCode={auction.teamName?.substring(0, 3)}
+            teamName={auction.teamName}
+            teamColor={color}
+            className="w-16 h-16 rounded-2xl"
+            textClassName="text-xl"
+          />
 
           {/* Names */}
           <div className="flex-1 min-w-0 space-y-1">

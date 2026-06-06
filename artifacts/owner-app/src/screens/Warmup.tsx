@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 
 interface Props {
   teamName:      string;
   teamShortCode: string;
   teamColor:     string;
+  teamLogoUrl?:  string | null;
   onReady:       () => void;
   onSync?:       () => void;
 }
@@ -17,7 +19,7 @@ const STEPS = [
   "Ready to bid!",
 ];
 
-export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
+export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onReady }: Props) {
   const [step, setStep] = useState(0);
   const { brandName, logos, poweredByText, miniBrandText } = useBranding();
 
@@ -64,12 +66,14 @@ export function Warmup({ teamName, teamShortCode, teamColor, onReady }: Props) {
           transition={{ type: "spring", stiffness: 200 }}
           className="space-y-4"
         >
-          <div
-            className="w-36 h-36 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-5xl"
-            style={{ backgroundColor: `${teamColor}25`, border: `3px solid ${teamColor}60`, color: teamColor }}
-          >
-            {teamShortCode}
-          </div>
+          <TeamLogo
+            logoUrl={teamLogoUrl}
+            shortCode={teamShortCode}
+            teamName={teamName}
+            teamColor={teamColor}
+            className="w-36 h-36 rounded-3xl mx-auto"
+            textClassName="text-5xl"
+          />
           <h1 className="font-display font-black text-4xl text-white tracking-wide">{teamName}</h1>
         </motion.div>
 

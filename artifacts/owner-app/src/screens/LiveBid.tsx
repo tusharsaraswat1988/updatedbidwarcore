@@ -11,6 +11,7 @@ import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/hapt
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuctionState {
@@ -58,6 +59,7 @@ interface Team {
   name: string;
   shortCode?: string | null;
   color?: string | null;
+  logoUrl?: string | null;
   purse: number;
   purseUsed?: number;
   isBiddingEnabled?: boolean;
@@ -576,12 +578,13 @@ export function LiveBid({
             <div className="w-px h-5 bg-[#3f3f46]" />
 
             {/* Team badge */}
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
-              style={{ backgroundColor: `${teamColor}30`, color: teamColor, border: `2px solid ${teamColor}55` }}
-            >
-              {team.shortCode || "?"}
-            </div>
+            <TeamLogo
+              logoUrl={team.logoUrl}
+              shortCode={team.shortCode}
+              teamName={team.name}
+              teamColor={teamColor}
+              className="w-11 h-11 rounded-xl"
+            />
             <div className="min-w-0">
               <p className="font-display font-bold text-lg leading-none truncate" style={{ color: teamColor }}>
                 {team.name}
@@ -900,12 +903,14 @@ export function LiveBid({
           <div className="flex items-center gap-3 min-w-0">
             <BrandMini logos={logos} brandName={brandName} miniBrandText={miniBrandText} />
             <div className="w-px h-4 bg-[#3f3f46]" />
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-black text-xs flex-shrink-0"
-              style={{ backgroundColor: `${teamColor}30`, color: teamColor, border: `2px solid ${teamColor}55` }}
-            >
-              {team.shortCode || "?"}
-            </div>
+            <TeamLogo
+              logoUrl={team.logoUrl}
+              shortCode={team.shortCode}
+              teamName={team.name}
+              teamColor={teamColor}
+              className="w-9 h-9 rounded-lg"
+              textClassName="text-xs"
+            />
             <p className="font-display font-bold text-base truncate" style={{ color: teamColor }}>{team.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -23,7 +23,9 @@ export const teamsTable = pgTable("teams", {
   whatsappConsentOrgId: integer("whatsapp_consent_org_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (t) => [
+  uniqueIndex("uq_teams_tournament_owner_mobile").on(t.tournamentId, t.ownerMobile),
+]);
 
 export const insertTeamSchema = createInsertSchema(teamsTable).omit({
   id: true,

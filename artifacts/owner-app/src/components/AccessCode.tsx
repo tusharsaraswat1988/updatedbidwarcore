@@ -6,6 +6,7 @@ import {
   verifyOwnerAccessCode,
 } from "@workspace/api-base/owner-auth";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 
 type Props = {
   tournamentId: number;
@@ -13,6 +14,7 @@ type Props = {
   teamName: string;
   teamShortCode: string;
   teamColor: string;
+  teamLogoUrl?: string | null;
   onVerified: () => void;
 };
 
@@ -23,6 +25,7 @@ export function AccessCode({
   teamName,
   teamShortCode,
   teamColor,
+  teamLogoUrl,
   onVerified,
 }: Props) {
   const [code, setCode] = useState("");
@@ -71,12 +74,19 @@ export function AccessCode({
             <span className="font-display font-black text-lg text-white tracking-wide">{brandName}</span>
           </div>
 
-          <div
-            className="w-28 h-28 rounded-3xl mx-auto flex items-center justify-center font-display font-black text-4xl"
-            style={{ backgroundColor: `${teamColor}25`, border: `3px solid ${teamColor}60`, color: teamColor }}
-          >
-            {teamShortCode || <Lock className="w-12 h-12" />}
-          </div>
+          <TeamLogo
+            logoUrl={teamLogoUrl}
+            shortCode={teamShortCode}
+            teamName={teamName}
+            teamColor={teamColor}
+            className="w-28 h-28 rounded-3xl mx-auto"
+            textClassName="text-4xl"
+            fallback={
+              teamShortCode ? undefined : (
+                <Lock className="w-12 h-12" style={{ color: teamColor }} />
+              )
+            }
+          />
           <div>
             <h1 className="font-display font-black text-4xl text-white tracking-wide">{teamName}</h1>
             <p className="text-[#71717a] text-lg mt-2">Enter your access code to join</p>

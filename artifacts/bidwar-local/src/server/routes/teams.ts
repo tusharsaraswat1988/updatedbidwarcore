@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
 import { teamsTable } from "@workspace/db-local";
@@ -10,6 +10,29 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   purse: t.purse, purseUsed: t.purseUsed, isBiddingEnabled: t.isBiddingEnabled,
   accessCode: t.accessCode, cloudId: t.cloudId, createdAt: t.createdAt,
 });
+
+const DUPLICATE_OWNER_MOBILE_ERROR =
+  "This mobile number is already assigned to another team in this tournament.";
+
+async function findDuplicateOwnerMobileTeam(
+  db: LocalDb,
+  tournamentId: number,
+  ownerMobile: string,
+  excludeTeamId?: number,
+) {
+  const conditions = [
+    eq(teamsTable.tournamentId, tournamentId),
+    eq(teamsTable.ownerMobile, ownerMobile),
+  ];
+  if (excludeTeamId !== undefined) {
+    conditions.push(ne(teamsTable.id, excludeTeamId));
+  }
+  const [existing] = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(...conditions));
+  return existing;
+}
 
 export function createTeamsRouter(db: LocalDb) {
   const router = Router();
@@ -33,6 +56,13 @@ export function createTeamsRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
+    if (d.ownerMobile) {
+      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, d.ownerMobile);
+      if (dupMobile) {
+        res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+        return;
+      }
+    }
     const [row] = await db.insert(teamsTable).values({
       tournamentId: tid, name: d.name, shortCode: d.shortCode, ownerName: d.ownerName,
       ownerMobile: d.ownerMobile ?? null, color: d.color ?? "#3B82F6",
@@ -72,6 +102,13 @@ export function createTeamsRouter(db: LocalDb) {
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    if (d.ownerMobile) {
+      const dupMobile = await findDuplicateOwnerMobileTeam(db, tid, d.ownerMobile, teamId);
+      if (dupMobile) {
+        res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+        return;
+      }
+    }
     const [row] = await db.update(teamsTable).set({ ...d, updatedAt: new Date().toISOString() })
       .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid))).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }

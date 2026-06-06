@@ -2,7 +2,7 @@ import { Router } from "express";
 import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
@@ -21,6 +21,32 @@ const router = Router();
 
 function genAccessCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+const DUPLICATE_OWNER_MOBILE_ERROR =
+  "This mobile number is already assigned to another team in this tournament.";
+
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string }).code === "23505";
+}
+
+async function findDuplicateOwnerMobileTeam(
+  tournamentId: number,
+  ownerMobile: string,
+  excludeTeamId?: number,
+) {
+  const conditions = [
+    eq(teamsTable.tournamentId, tournamentId),
+    eq(teamsTable.ownerMobile, ownerMobile),
+  ];
+  if (excludeTeamId !== undefined) {
+    conditions.push(ne(teamsTable.id, excludeTeamId));
+  }
+  const [existing] = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(...conditions));
+  return existing;
 }
 
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
@@ -107,25 +133,40 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     }
   }
 
+  const dupMobile = await findDuplicateOwnerMobileTeam(tid, d.ownerMobile);
+  if (dupMobile) {
+    res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+    return;
+  }
+
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const [team] = await db
-    .insert(teamsTable)
-    .values({
-      tournamentId: tid,
-      name: d.name,
-      shortCode: d.shortCode.toUpperCase(),
-      ownerName: d.ownerName,
-      ownerMobile: d.ownerMobile ?? null,
-      color: d.color ?? "#3B82F6",
-      logoUrl: d.logoUrl ?? null,
-      purse: tournament.basePurse,
-      purseUsed: 0,
-      isBiddingEnabled: true,
-      accessCode: genAccessCode(),
-    })
-    .returning();
+  let team: typeof teamsTable.$inferSelect;
+  try {
+    [team] = await db
+      .insert(teamsTable)
+      .values({
+        tournamentId: tid,
+        name: d.name,
+        shortCode: d.shortCode.toUpperCase(),
+        ownerName: d.ownerName,
+        ownerMobile: d.ownerMobile ?? null,
+        color: d.color ?? "#3B82F6",
+        logoUrl: d.logoUrl ?? null,
+        purse: tournament.basePurse,
+        purseUsed: 0,
+        isBiddingEnabled: true,
+        accessCode: genAccessCode(),
+      })
+      .returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+      return;
+    }
+    throw err;
+  }
 
   // DLT SMS: notify team owner about their access code (fire-and-forget, live tournaments only)
   const ownerMobile = team.ownerMobile;
@@ -249,11 +290,38 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   if (d.purse !== undefined) updates.purse = d.purse;
   if (d.isBiddingEnabled !== undefined) updates.isBiddingEnabled = d.isBiddingEnabled;
   if (d.regenerateCode) updates.accessCode = genAccessCode();
-  const [team] = await db
-    .update(teamsTable)
-    .set(updates)
-    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)))
-    .returning();
+
+  if (d.ownerMobile !== undefined) {
+    const orgAccountId = req.jwtUser?.organizerAccountId;
+    if (orgAccountId) {
+      const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
+      if (org?.mobile && org.mobile === d.ownerMobile) {
+        res.status(400).json({ error: "You cannot use the organizer's own mobile number as a team owner mobile." });
+        return;
+      }
+    }
+
+    const dupMobile = await findDuplicateOwnerMobileTeam(tid, d.ownerMobile, teamId);
+    if (dupMobile) {
+      res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+      return;
+    }
+  }
+
+  let team: typeof teamsTable.$inferSelect;
+  try {
+    [team] = await db
+      .update(teamsTable)
+      .set(updates)
+      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)))
+      .returning();
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
+      return;
+    }
+    throw err;
+  }
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   res.json(teamToJson(team));
 });

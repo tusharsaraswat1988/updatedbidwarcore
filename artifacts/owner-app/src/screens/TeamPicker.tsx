@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, Zap, Clock, Pause } from "lucide-react";
 import { useBranding } from "@/hooks/useBranding";
+import { TeamLogo } from "@/components/TeamLogo";
 import {
   loadOnboardingEntries,
   clearOnboardingEntries,
@@ -52,12 +53,14 @@ function TeamCard({ entry, onSelect }: { entry: OwnerOnboardingEntry; onSelect: 
       }}
     >
       <div className="flex items-center gap-3">
-        <div
-          className="w-14 h-14 rounded-xl flex items-center justify-center font-display font-black text-lg flex-shrink-0"
-          style={{ backgroundColor: `${color}25`, color, border: `2px solid ${color}50` }}
-        >
-          {(entry.teamShortCode || entry.teamName.substring(0, 3)).toUpperCase()}
-        </div>
+        <TeamLogo
+          logoUrl={entry.teamLogoUrl}
+          shortCode={entry.teamShortCode}
+          teamName={entry.teamName}
+          teamColor={color}
+          className="w-14 h-14 rounded-xl"
+          textClassName="text-lg"
+        />
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-lg text-white truncate">{entry.teamName}</p>
           <p className="text-sm text-[#71717a] truncate">{entry.tournamentName}</p>

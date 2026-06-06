@@ -9,6 +9,7 @@ export type OwnerOnboardingEntry = {
   teamName: string;
   teamShortCode: string;
   teamColor: string | null;
+  teamLogoUrl: string | null;
   licenseStatus: string;
   tournamentStatus: string;
   auctionStatus: string | null;
