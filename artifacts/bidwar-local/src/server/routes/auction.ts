@@ -1,6 +1,7 @@
 import { Router, type Response, type NextFunction, type Request } from "express";
 import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { validateBidAmount } from "@workspace/api-base/auction-bid";
 import type { LocalDb } from "@workspace/db-local";
 import {
   auctionSessionsTable, playersTable, teamsTable, bidsTable, tournamentsTable,
@@ -318,7 +319,33 @@ export function createAuctionRouter(db: LocalDb) {
     if (!session.timerEndsAt || new Date(session.timerEndsAt).getTime() <= Date.now()) {
       res.status(400).json({ error: "Bidding is not open — operator must start the timer first" }); return;
     }
-    if (amount <= (session.currentBid ?? 0)) { res.status(400).json({ error: "Bid must be higher than current bid" }); return; }
+
+    const [tournamentRow] = await db.select({
+      bidTier1UpTo: tournamentsTable.bidTier1UpTo,
+      bidTier1Increment: tournamentsTable.bidTier1Increment,
+      bidTier2UpTo: tournamentsTable.bidTier2UpTo,
+      bidTier2Increment: tournamentsTable.bidTier2Increment,
+      bidTier3Increment: tournamentsTable.bidTier3Increment,
+      bidTiers: tournamentsTable.bidTiers,
+    }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    const tiers = parseBidTiers(tournamentRow?.bidTiers, {
+      bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
+      bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
+      bidTier2UpTo: tournamentRow?.bidTier2UpTo ?? 200000,
+      bidTier2Increment: tournamentRow?.bidTier2Increment ?? 50000,
+      bidTier3Increment: tournamentRow?.bidTier3Increment ?? 100000,
+    });
+    const bidIncrement = computeTieredIncrement(session.currentBid ?? 0, tiers);
+    const bidValidation = validateBidAmount(amount, {
+      currentBid: session.currentBid,
+      bidIncrement,
+      currentBidTeamId: session.currentBidTeamId,
+    });
+    if (!bidValidation.ok) {
+      res.status(400).json({ error: bidValidation.error });
+      return;
+    }
+
     if (session.currentBidTeamId === teamId) { res.status(409).json({ error: "Your team is already the highest bidder" }); return; }
     const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     if (!team) { res.status(404).json({ error: "Team not found" }); return; }

@@ -4,15 +4,21 @@
   "packageManager": "pnpm@9.15.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock'",
+    "preinstall": "node -e \"const fs=require('fs');for (const f of ['package-lock.json','yarn.lock']) { try { fs.unlinkSync(f); } catch {} }\"",
+    "dev": "pnpm --filter @workspace/scripts run dev",
+    "dev:stop": "pnpm --filter @workspace/scripts run dev:stop",
+    "dev:restart": "pnpm dev:stop && pnpm dev",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "build:prod": "pnpm install --frozen-lockfile && pnpm run build",
-    "start:prod": "NODE_ENV=production SERVE_STATIC=true node --enable-source-maps artifacts/api-server/dist/index.mjs"
+    "start:prod": "cross-env NODE_ENV=production SERVE_STATIC=true node --enable-source-maps artifacts/api-server/dist/index.mjs",
+    "verify:local": "pnpm --filter @workspace/scripts run verify:local",
+    "verify:production": "pnpm --filter @workspace/scripts run verify:production"
   },
   "private": true,
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.9",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"

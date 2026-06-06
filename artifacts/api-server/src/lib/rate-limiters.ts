@@ -55,7 +55,7 @@ export const globalLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 5),
+  limit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 20),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip: () => disabled,
@@ -164,6 +164,23 @@ export const pushSubscribeLimiter = rateLimit({
   message: { error: "Too many subscription requests, please try again later." },
   handler(req, res, next, options) {
     onLimitReached(req, res, "push-subscribe");
+    res.status(options.statusCode).json(options.message);
+  },
+});
+
+/**
+ * Owner onboarding lookup (15 req / 15 min per IP).
+ * Read-only but exposes which tournaments a mobile is registered in.
+ */
+export const ownerLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_OWNER_LOOKUP_MAX ?? 15),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many lookup attempts, please try again in 15 minutes." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "owner-lookup");
     res.status(options.statusCode).json(options.message);
   },
 });

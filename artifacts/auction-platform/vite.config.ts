@@ -1,10 +1,30 @@
+import { config as loadEnv } from "dotenv";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { compression } from "vite-plugin-compression2";
+import {
+  createViteDevProxies,
+  ownerAppDevProxyPlugin,
+} from "@workspace/api-base/vite-proxy";
 
-const rawPort = process.env.PORT ?? "3000";
+function apiBaseAliases(dirname: string): Record<string, string> {
+  const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
+  return {
+    "@workspace/api-base/auction-bid": path.join(src, "auction-bid.ts"),
+    "@workspace/api-base/dev-cors": path.join(src, "dev-cors.ts"),
+    "@workspace/api-base/owner-auth": path.join(src, "owner-auth.ts"),
+    "@workspace/api-base/owner-urls": path.join(src, "owner-urls.ts"),
+    "@workspace/api-base/vite-proxy": path.join(src, "vite-proxy.ts"),
+    "@workspace/api-base": path.join(src, "index.ts"),
+  };
+}
+
+loadEnv({ path: "../../.env" });
+
+const rawPort =
+  process.env.FRONTEND_PORT ?? process.env.WEB_PORT ?? process.env.PORT ?? "3000";
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH ?? "/";
 
@@ -13,6 +33,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    ownerAppDevProxyPlugin(),
     // Pre-compress JS/CSS/HTML/SVG/JSON with both Brotli and Gzip at build
     // time. The production server serves the .br / .gz sidecar files and sets
     // Content-Encoding accordingly, with no runtime CPU cost.
@@ -50,6 +71,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      ...apiBaseAliases(import.meta.dirname),
     },
     dedupe: ["react", "react-dom"],
   },
@@ -86,6 +108,7 @@ export default defineConfig({
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
+    proxy: createViteDevProxies(),
     fs: {
       strict: true,
     },
@@ -94,5 +117,6 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+    proxy: createViteDevProxies(),
   },
 });

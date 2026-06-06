@@ -22,12 +22,14 @@ import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
+import { getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
 import {
   logBidEvent,
   logPlayerAuctionStart,
   logPlayerAuctionEnd,
   logTimerEvent,
 } from "../lib/auction-logger";
+import { validateBidAmount } from "@workspace/api-base/auction-bid";
 
 const router = Router();
 
@@ -127,6 +129,54 @@ function getCategoryTiers(
   return fallbackTiers;
 }
 
+async function resolveTournamentBidTiers(tournamentId: number): Promise<BidTier[]> {
+  const [tournamentRow] = await db
+    .select({
+      bidTier1UpTo: tournamentsTable.bidTier1UpTo,
+      bidTier1Increment: tournamentsTable.bidTier1Increment,
+      bidTier2UpTo: tournamentsTable.bidTier2UpTo,
+      bidTier2Increment: tournamentsTable.bidTier2Increment,
+      bidTier3Increment: tournamentsTable.bidTier3Increment,
+      bidTiers: tournamentsTable.bidTiers,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  return parseBidTiers(tournamentRow?.bidTiers, {
+    bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
+    bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
+    bidTier2UpTo: tournamentRow?.bidTier2UpTo ?? 200000,
+    bidTier2Increment: tournamentRow?.bidTier2Increment ?? 50000,
+    bidTier3Increment: tournamentRow?.bidTier3Increment ?? 100000,
+  });
+}
+
+async function resolveActiveBidIncrement(
+  tournamentId: number,
+  session: { currentPlayerId: number | null; currentBid: number | null },
+): Promise<number> {
+  const tiers = await resolveTournamentBidTiers(tournamentId);
+  let activeTiers = tiers;
+
+  if (session.currentPlayerId) {
+    const [p] = await db
+      .select({ categoryId: playersTable.categoryId })
+      .from(playersTable)
+      .where(eq(playersTable.id, session.currentPlayerId));
+    if (p?.categoryId) {
+      const [cat] = await db
+        .select({ bidTiers: categoriesTable.bidTiers, bidIncrement: categoriesTable.bidIncrement })
+        .from(categoriesTable)
+        .where(eq(categoriesTable.id, p.categoryId));
+      if (cat) {
+        activeTiers = getCategoryTiers(cat, tiers);
+      }
+    }
+  }
+
+  return computeTieredIncrement(session.currentBid ?? 0, activeTiers);
+}
+
 async function buildAuctionState(tournamentId: number) {
   const session = await getOrCreateSession(tournamentId);
 
@@ -150,13 +200,7 @@ async function buildAuctionState(tournamentId: number) {
   const timerSeconds = tournamentRow?.timerSeconds ?? 30;
   const bidTimerSeconds = tournamentRow?.bidTimerSeconds ?? 15;
 
-  const tiers = parseBidTiers(tournamentRow?.bidTiers, {
-    bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
-    bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
-    bidTier2UpTo: tournamentRow?.bidTier2UpTo ?? 200000,
-    bidTier2Increment: tournamentRow?.bidTier2Increment ?? 50000,
-    bidTier3Increment: tournamentRow?.bidTier3Increment ?? 100000,
-  });
+  const tiers = await resolveTournamentBidTiers(tournamentId);
 
   let currentPlayer = null;
   let activeTiers = tiers;
@@ -675,7 +719,17 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     res.status(400).json({ error: "Bidding is not open — operator must start the timer first" });
     return;
   }
-  if (amount <= (session.currentBid ?? 0)) { res.status(400).json({ error: "Bid must be higher than current bid" }); return; }
+
+  const bidIncrement = await resolveActiveBidIncrement(tid, session);
+  const bidValidation = validateBidAmount(amount, {
+    currentBid: session.currentBid,
+    bidIncrement,
+    currentBidTeamId: session.currentBidTeamId,
+  });
+  if (!bidValidation.ok) {
+    res.status(400).json({ error: bidValidation.error });
+    return;
+  }
 
   // Double-bid prevention — same team can't bid if already leading
   if (session.currentBidTeamId === teamId) {
@@ -882,7 +936,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         if (settings?.dltEnabled && settings.playerSoldEnabled && templateId) {
           // Template vars (must match approved DLT sample exactly):
           // 1=player name, 2=team name, 3=amount as plain number, 4=app URL
-          const appUrl = `https://${process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost"}`;
+          const appUrl = getPublicOrigin();
           const result = await sendDltSms(
             [playerMobile],
             templateId,
@@ -1206,7 +1260,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const masterPw = process.env.ADMIN_PASSWORD || "";
+  const masterPw = getRuntimeConfig().adminPassword;
   const isMasterMatch = !!masterPw && safeCompare(submittedPw, masterPw);
   const isOperatorMatch = !!tournament.organizerPassword && safeCompare(submittedPw, tournament.organizerPassword);
   const previousResetCount = tournament.resetCount ?? 0;

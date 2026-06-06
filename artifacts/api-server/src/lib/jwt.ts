@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import type { Response } from "express";
+import { getRuntimeConfig, getSessionSecret } from "./runtime-env";
 
 const COOKIE_NAME = "bidwar_auth";
 const OAUTH_COOKIE_NAME = "bidwar_oauth";
@@ -26,7 +27,7 @@ export interface OAuthState {
 }
 
 function getSecret(): string {
-  return process.env.SESSION_SECRET ?? "bidwar-dev-secret";
+  return getSessionSecret();
 }
 
 export function signAuthJwt(claims: AuthClaims): string {
@@ -59,7 +60,7 @@ export function verifyOAuthJwt(token: string): OAuthState | null {
 }
 
 function isProd(): boolean {
-  return process.env.NODE_ENV === "production";
+  return getRuntimeConfig().isProduction;
 }
 
 export function setAuthCookie(res: Response, claims: AuthClaims): void {

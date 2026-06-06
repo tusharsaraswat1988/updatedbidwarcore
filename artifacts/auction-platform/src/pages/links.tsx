@@ -167,7 +167,7 @@ export default function LinksPage() {
                 <LinkRow
                   key={team.id}
                   label={`${team.name} — ${team.ownerName}`}
-                  url={`${base}/owner-app/tournament/${tournamentId}/owner/${team.id}`}
+                  url={`${base}/owner-app/join?tournamentId=${tournamentId}&teamId=${team.id}`}
                   description={`Owner panel for ${team.name}. ${team.ownerMobile ? `Mobile: ${team.ownerMobile}` : ""}`}
                 />
               ))}

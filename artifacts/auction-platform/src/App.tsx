@@ -19,7 +19,7 @@ const Players = lazy(() => import("@/pages/players"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const AuctionReset = lazy(() => import("@/pages/auction-reset"));
 const DisplayView = lazy(() => import("@/pages/display"));
-const OwnerPanel = lazy(() => import("@/pages/owner-panel"));
+import { RedirectToOwnerApp } from "@/components/redirect-to-owner-app";
 const Reports = lazy(() => import("@/pages/reports"));
 const LinksPage = lazy(() => import("@/pages/links"));
 const FortuneWheel = lazy(() => import("@/pages/fortune-wheel"));
@@ -98,7 +98,14 @@ function Router() {
         </Route>
         <Route path="/tournament/:id/register" component={PlayerRegister} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
-        <Route path="/tournament/:id/owner/:teamId" component={OwnerPanel} />
+        <Route path="/tournament/:id/owner/:teamId">
+          {(params) => (
+            <RedirectToOwnerApp
+              tournamentId={params?.id ?? "0"}
+              teamId={params?.teamId ?? "0"}
+            />
+          )}
+        </Route>
         <Route path="/admin/login" component={AdminLogin} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/admin/reports" component={AdminReports} />

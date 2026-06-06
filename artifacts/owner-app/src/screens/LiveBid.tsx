@@ -9,6 +9,7 @@ import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -440,7 +441,11 @@ export function LiveBid({
   const slotsRequired   = teamPurse?.slotsRequired ?? 0;
   const maxSquadReached = maxSquad > 0 && playersBought >= maxSquad;
   const increment       = state?.bidIncrement ?? 50000;
-  const nextBidAmount   = (state?.currentBid || 0) + increment;
+  const nextBidAmount   = computeNextBidAmount({
+    currentBid: state?.currentBid,
+    bidIncrement: increment,
+    currentBidTeamId: state?.currentBidTeamId,
+  });
 
   const categoryMax          = state?.currentCategoryMaxPlayers ?? null;
   const categoryCount        = categoryMax != null

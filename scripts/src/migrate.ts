@@ -1,13 +1,13 @@
+import { config as loadEnv } from "dotenv";
+
+loadEnv({ path: "../../.env" });
 import pg from "pg";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const { Client } = pg;
 
-if (!process.env.NEON_DATABASE_URL) {
-  throw new Error("NEON_DATABASE_URL is not set");
-}
-
 const client = new Client({
-  connectionString: process.env.NEON_DATABASE_URL,
+  connectionString: resolveDatabaseUrl(),
   ssl: { rejectUnauthorized: false },
 });
 

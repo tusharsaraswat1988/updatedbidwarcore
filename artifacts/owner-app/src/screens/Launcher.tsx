@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Clock, Pause, X, Zap } from "lucide-react";
+import { Clock, Pause, X, Zap, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
 
@@ -255,6 +255,15 @@ export function Launcher() {
               Your tournament operator will send you a unique link.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setLocation("/join")}
+            className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-display font-bold text-lg text-black bg-amber-400 active:scale-[0.98] transition-transform"
+            style={{ boxShadow: "0 0 32px rgba(245,158,11,0.25)" }}
+          >
+            <Phone className="w-5 h-5" />
+            Join with mobile number
+          </button>
           <p className="text-sm text-[#3f3f46] uppercase tracking-widest">
             {poweredByText}
           </p>
@@ -277,7 +286,16 @@ export function Launcher() {
           )}
           <span className="font-display font-black text-xl text-white">{brandName}</span>
         </div>
-        <h1 className="font-display font-black text-3xl text-white">Your Auctions</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-display font-black text-3xl text-white">Your Auctions</h1>
+          <button
+            type="button"
+            onClick={() => setLocation("/join")}
+            className="flex-shrink-0 text-xs font-semibold text-amber-400 border border-amber-400/30 rounded-lg px-2.5 py-1.5 hover:bg-amber-400/10 transition-colors"
+          >
+            + Join
+          </button>
+        </div>
         {liveAuctions.length > 0 ? (
           <p className="text-base text-green-400 mt-1 font-semibold">
             {liveAuctions.length === 1 ? "1 auction is live — tap to join" : `${liveAuctions.length} auctions live`}

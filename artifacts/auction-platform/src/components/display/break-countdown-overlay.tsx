@@ -8,7 +8,7 @@ interface BreakCountdownOverlayProps {
   message: string | null;
   tournamentName: string | null | undefined;
   /** compact — renders a slim top-of-screen banner rather than a full-screen
-   *  overlay. Intended for tablet owner-panel views where the full overlay
+   *  overlay. Intended for tablet owner-app views where the full overlay
    *  would obscure purse/bidding controls. */
   compact?: boolean;
 }

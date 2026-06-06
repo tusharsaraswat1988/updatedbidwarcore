@@ -9,7 +9,13 @@ import {
   usePlaceBid,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AccessGate } from "./AccessGate";
+import { AccessCode } from "@/components/AccessCode";
+import {
+  clearOwnerSession,
+  getStoredOwnerAccessCode,
+  isOwnerSessionVerified,
+  teamNeedsAccessCode,
+} from "@workspace/api-base/owner-auth";
 import { Warmup } from "./Warmup";
 import { LiveBid } from "./LiveBid";
 import { Completed } from "./Completed";
@@ -18,10 +24,6 @@ import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
-
-function sessionKey(teamId: number) {
-  return `owner_verified_${teamId}`;
-}
 
 // ── Push subscription helper ──────────────────────────────────────────────────
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -127,11 +129,7 @@ export function OwnerRoute() {
   // Determine if code is required and if already verified
   useEffect(() => {
     if (!team) return;
-    const needsCode =
-      (team as unknown as { requiresAccessCode?: boolean }).requiresAccessCode ??
-      !!team.accessCode;
-
-    if (!needsCode || sessionStorage.getItem(sessionKey(teamId)) === "1") {
+    if (!teamNeedsAccessCode(team) || isOwnerSessionVerified(teamId)) {
       if (screen === "loading") setScreen("warmup");
     } else {
       setScreen("gate");
@@ -193,43 +191,17 @@ export function OwnerRoute() {
     qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
   }
 
-  // ── Access code verification ──────────────────────────────────────────────
-  async function verifyCode(enteredCode: string): Promise<boolean> {
-    try {
-      const r = await fetch(
-        `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`,
-        {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ code: enteredCode }),
-        },
-      );
-      if (r.ok) {
-        const body = (await r.json()) as { valid?: boolean };
-        return body.valid === true;
-      }
-      const accessCode = (team as unknown as { accessCode?: string })?.accessCode;
-      if (accessCode && enteredCode.toUpperCase() === accessCode.toUpperCase()) return true;
-      return false;
-    } catch {
-      const accessCode = (team as unknown as { accessCode?: string })?.accessCode;
-      if (accessCode && enteredCode.toUpperCase() === accessCode.toUpperCase()) return true;
-      return false;
-    }
-  }
-
-  function handleVerified() {
-    sessionStorage.setItem(sessionKey(teamId), "1");
-    setScreen("warmup");
-  }
-
   function handleWarmupReady() {
     setScreen(isCompleted ? "completed" : "live");
   }
 
   async function handleBid(amount: number): Promise<"success" | "leading" | "error"> {
     try {
-      await placeBid.mutateAsync({ tournamentId, data: { teamId, amount } });
+      const storedCode = getStoredOwnerAccessCode(teamId);
+      await placeBid.mutateAsync({
+        tournamentId,
+        data: { teamId, amount, ...(storedCode ? { accessCode: storedCode } : {}) },
+      });
       qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
       setLastBidError("");
       return "success";
@@ -256,12 +228,13 @@ export function OwnerRoute() {
 
   if (screen === "gate") {
     return (
-      <AccessGate
+      <AccessCode
+        tournamentId={tournamentId}
+        teamId={teamId}
         teamName={team.name}
         teamShortCode={team.shortCode || "?"}
         teamColor={teamColor}
-        verifyCode={verifyCode}
-        onVerified={handleVerified}
+        onVerified={() => setScreen("warmup")}
       />
     );
   }
@@ -330,7 +303,7 @@ export function OwnerRoute() {
       onSync={handleSync}
       isSyncError={stateIsError}
       onSignOut={() => {
-        sessionStorage.removeItem(sessionKey(teamId));
+        clearOwnerSession(teamId);
         setScreen("gate");
       }}
     />

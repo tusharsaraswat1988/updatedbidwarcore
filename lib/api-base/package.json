@@ -1,0 +1,18 @@
+{
+  "name": "@workspace/api-base",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite-proxy": "./src/vite-proxy.ts",
+    "./dev-cors": "./src/dev-cors.ts",
+    "./auction-bid": "./src/auction-bid.ts",
+    "./owner-auth": "./src/owner-auth.ts",
+    "./owner-urls": "./src/owner-urls.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vite": "catalog:"
+  }
+}

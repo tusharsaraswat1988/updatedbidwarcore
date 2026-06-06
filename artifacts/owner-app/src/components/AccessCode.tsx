@@ -1,21 +1,34 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff } from "lucide-react";
+import {
+  persistOwnerSession,
+  verifyOwnerAccessCode,
+} from "@workspace/api-base/owner-auth";
 import { useBranding } from "@/hooks/useBranding";
 
-interface Props {
+type Props = {
+  tournamentId: number;
+  teamId: number;
   teamName: string;
   teamShortCode: string;
   teamColor: string;
-  onVerified: (code: string) => void;
-  verifyCode: (code: string) => Promise<boolean>;
-}
+  onVerified: () => void;
+};
 
-export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, verifyCode }: Props) {
-  const [code, setCode]         = useState("");
+/** Single access-code gate for all owner entry paths. */
+export function AccessCode({
+  tournamentId,
+  teamId,
+  teamName,
+  teamShortCode,
+  teamColor,
+  onVerified,
+}: Props) {
+  const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { brandName, logos, poweredByText, miniBrandText } = useBranding();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -23,9 +36,11 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
     if (!code.trim() || loading) return;
     setLoading(true);
     setError("");
-    const ok = await verifyCode(code.trim().toUpperCase());
+
+    const ok = await verifyOwnerAccessCode(tournamentId, teamId, code);
     if (ok) {
-      onVerified(code.trim().toUpperCase());
+      persistOwnerSession(teamId, code);
+      onVerified();
     } else {
       setError("Incorrect code. Please try again.");
       setCode("");
@@ -44,7 +59,6 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
         transition={{ duration: 0.4, type: "spring" }}
         className="w-full max-w-sm space-y-8"
       >
-        {/* Brand + Team badge */}
         <div className="text-center space-y-5">
           <div className="flex items-center justify-center gap-2 mb-2">
             {logos.mini ? (
@@ -69,7 +83,6 @@ export function AccessGate({ teamName, teamShortCode, teamColor, onVerified, ver
           </div>
         </div>
 
-        {/* Code input */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <input

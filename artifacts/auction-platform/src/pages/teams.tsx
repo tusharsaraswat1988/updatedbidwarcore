@@ -339,7 +339,7 @@ export default function Teams() {
   }
 
   function getOwnerLink(teamId: number) {
-    return `${location.origin}/tournament/${tournamentId}/owner/${teamId}`;
+    return `${location.origin}/owner-app/join?tournamentId=${tournamentId}&teamId=${teamId}`;
   }
 
   return (
@@ -611,7 +611,7 @@ export default function Teams() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
-                          onClick={() => navigate(`/tournament/${tournamentId}/owner/${team.id}`)}
+                          onClick={() => window.open(getOwnerLink(team.id), "_blank", "noopener,noreferrer")}
                           title="Open owner panel"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />

@@ -10,12 +10,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "dotenv": "^17.4.2",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@workspace/api-base": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
     "clsx": "catalog:",
     "framer-motion": "catalog:",

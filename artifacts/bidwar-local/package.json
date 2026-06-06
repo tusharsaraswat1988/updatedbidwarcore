@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.3",
+    "@workspace/api-base": "workspace:*",
     "@workspace/db-local": "workspace:*",
     "cors": "^2.8.5",
     "drizzle-orm": "catalog:",

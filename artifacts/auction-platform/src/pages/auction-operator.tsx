@@ -59,6 +59,7 @@ import {
   Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 
@@ -300,8 +301,11 @@ export default function AuctionOperator() {
     const now = Date.now();
     if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
     bidDebounce.current.set(teamId, now);
-    const increment = state?.bidIncrement ?? 50000;
-    const nextBid = (state?.currentBid || 0) + increment;
+    const nextBid = computeNextBidAmount({
+      currentBid: state?.currentBid,
+      bidIncrement: state?.bidIncrement ?? 50000,
+      currentBidTeamId: state?.currentBidTeamId,
+    });
     const bidTeam = teamMap[teamId];
     qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), (old: any) => {
       if (!old) return old;
@@ -432,6 +436,11 @@ export default function AuctionOperator() {
   const unsoldPlayers = allPlayers.filter(p => p.status === "unsold");
   const retainedPlayers = allPlayers.filter(p => p.status === "retained");
   const increment   = state?.bidIncrement ?? 50000;
+  const nextBidAmount = computeNextBidAmount({
+    currentBid: state?.currentBid,
+    bidIncrement: increment,
+    currentBidTeamId: state?.currentBidTeamId,
+  });
   const teamMap     = Object.fromEntries((teams || []).map(t => [t.id, t]));
   const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
   const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
@@ -1312,7 +1321,7 @@ export default function AuctionOperator() {
                 {teams && teams.length > 0 && (
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">
-                      Quick Bid · Next: <span className="text-yellow-400 font-mono">{formatShortIndianRupee((state?.currentBid || 0) + increment)}</span>
+                      Quick Bid · Next: <span className="text-yellow-400 font-mono">{formatShortIndianRupee(nextBidAmount)}</span>
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {teams.map(team => {
@@ -1324,7 +1333,7 @@ export default function AuctionOperator() {
                         const maxSquad  = purseData?.maximumSquadSize ?? 0;
                         const maxReached = maxSquad > 0 && bought >= maxSquad;
                         const isLeading = state?.currentBidTeamId === team.id;
-                        const nextBid   = (state?.currentBid || 0) + increment;
+                        const nextBid   = nextBidAmount;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
                         const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached;
                         return (

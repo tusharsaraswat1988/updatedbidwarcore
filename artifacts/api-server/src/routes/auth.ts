@@ -10,6 +10,7 @@ import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
+import { buildPublicUrl } from "../lib/runtime-env";
 
 const scryptAsync = promisify(scrypt);
 
@@ -1053,8 +1054,7 @@ router.patch("/auth/admin/sms-settings", async (req, res) => {
 router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
-  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
-  const redirectUri = `https://${domain}/api/auth/google/callback`;
+  const redirectUri = buildPublicUrl("/api/auth/google/callback");
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
   const rawNext = req.query.next as string | undefined;
@@ -1098,8 +1098,7 @@ router.get("/auth/google/callback", async (req, res) => {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
-  const redirectUri = `https://${domain}/api/auth/google/callback`;
+  const redirectUri = buildPublicUrl("/api/auth/google/callback");
   if (!clientId || !clientSecret) { res.redirect("/organizer?error=not_configured"); return; }
 
   try {
@@ -1361,6 +1360,10 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
 
 // Dev-only: allows Google OAuth users to skip mobile verification (BYPASS_OTP=true required)
 router.post("/auth/google/complete-profile/skip", async (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    res.status(403).json({ error: "Not available in production" });
+    return;
+  }
   if (process.env.BYPASS_OTP !== "true") {
     res.status(503).json({ error: "Mobile verification is required" }); return;
   }

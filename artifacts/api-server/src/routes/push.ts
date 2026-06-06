@@ -5,6 +5,7 @@ import { pushSubscriptionsTable, tournamentsTable, teamsTable } from "@workspace
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { pushSubscribeLimiter } from "../lib/rate-limiters";
+import { getPublicOrigin } from "../lib/runtime-env";
 
 const router = Router();
 
@@ -80,8 +81,7 @@ export async function sendPushToTournament(
 ) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
 
-  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
-  const baseUrl = `https://${domain}`;
+  const baseUrl = getPublicOrigin();
 
   try {
     const subs = await db
@@ -91,7 +91,7 @@ export async function sendPushToTournament(
 
     await Promise.allSettled(
       subs.map(async (sub) => {
-        const url        = `${baseUrl}/owner-app/tournament/${tournamentId}/owner/${sub.teamId}`;
+        const url        = `${baseUrl}/owner-app/join?tournamentId=${tournamentId}&teamId=${sub.teamId}`;
         const payloadStr = JSON.stringify({ ...payload, url });
         try {
           await webPush.sendNotification(

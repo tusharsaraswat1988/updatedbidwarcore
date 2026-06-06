@@ -6,6 +6,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
+import { ownerJoinPath } from "@workspace/api-base/owner-urls";
+import { buildPublicUrl } from "../lib/runtime-env";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -38,7 +40,7 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
 });
 
 // Public serializer: omits accessCode and ownerMobile entirely (not set to null).
-// Adds requiresAccessCode boolean so the owner-panel gate can work without
+// Adds requiresAccessCode boolean so the owner-app access gate can work without
 // exposing the actual code value.
 const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id,
@@ -136,8 +138,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         const [settings] = await db.select().from(smsNotificationSettingsTable).limit(1);
         const templateId = teamOwnerTemplateId() || settings?.teamOwnerTemplateId;
         if (settings?.dltEnabled && settings.teamOwnerEnabled && templateId) {
-          const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
-          const ownerUrl = `https://${domain}/tournament/${tid}/owner/${team.id}`;
+          const ownerUrl = buildPublicUrl(ownerJoinPath(tid, team.id));
           await sendDltSms(
             [ownerMobile],
             templateId,

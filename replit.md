@@ -4,13 +4,19 @@ A full-stack broadcast-quality live sports auction system for cricket, football,
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080, proxied at `/api`)
-- `pnpm --filter @workspace/auction-platform run dev` — run the frontend (proxied at `/`)
+**Local split dev (recommended):**
+
+1. Copy `.env.example` → `.env` and set `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_PASSWORD`, etc.
+2. From repo root: **`pnpm dev`** — starts API (`API_PORT` / default **8080**), auction UI (`FRONTEND_PORT` / default **3000**), and owner app (`OWNER_APP_PORT` / default **5174**) with root `.env` loaded automatically.
+3. Open http://localhost:3000/admin/login (Vite proxies `/api` to the API).
+4. `pnpm run verify:local` — smoke test (run while `pnpm dev` is up).
+
+**Production / Replit single process:** `SERVE_STATIC=true`, one `PORT`, frontends and API on the same origin (no Vite proxy).
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `NEON_DATABASE_URL` — Neon PostgreSQL connection string (renamed from DATABASE_URL to avoid Replit's managed-DB conflict warning)
+- Required env (see `.env.example`): `DATABASE_URL` or `NEON_DATABASE_URL`, `APP_DOMAIN`, `APP_PUBLIC_SCHEME`, `PORT`, `SESSION_SECRET`, `ADMIN_PASSWORD`, `NODE_ENV`
 
 ## Stack
 

@@ -1,12 +1,4 @@
-const API = "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  return fetch(`${API}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
-  });
-}
+import { apiFetch } from "@workspace/api-base";
 
 export async function checkOrganizerAuth(tournamentId: number): Promise<boolean> {
   try {

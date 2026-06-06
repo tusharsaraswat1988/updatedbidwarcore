@@ -8,11 +8,17 @@
     "seed:demo": "tsx src/seed-demo.ts",
     "seed:sports": "tsx src/seed-sports.ts",
     "migrate": "tsx src/migrate.ts",
+    "dev": "node ./dev.mjs",
+    "dev:stop": "node ./dev-stop.mjs",
+    "verify:local": "tsx src/verify-local.ts",
+    "verify:production": "tsx src/verify-production.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@types/pg": "^8.18.0",
+    "@workspace/api-base": "workspace:*",
     "@workspace/db": "workspace:*",
+    "dotenv": "^17.4.2",
     "pg": "^8.20.0"
   },
   "devDependencies": {

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
 import { validateExportToken } from "../lib/export-token";
+import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -330,8 +331,7 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   await db.update(tournamentsTable).set({ exportToken, exportTokenExpiresAt }).where(eq(tournamentsTable.id, id));
 
   // Derive the cloud base URL so the local app knows where to mirror back
-  const host = process.env.APP_DOMAIN?.split(",")[0]?.trim() || req.get("host") || "localhost";
-  const cloudBaseUrl = `https://${host}`;
+  const cloudBaseUrl = getPublicOrigin();
 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
   const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
@@ -477,8 +477,7 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const domain = process.env.APP_DOMAIN?.split(",")[0]?.trim() || "localhost";
-  const viewerUrl = `https://${domain}/tournament/${tid}/display`;
+  const viewerUrl = buildPublicUrl(`/tournament/${tid}/display`);
 
   const orgId = tournament.organizerId;
   if (tournament.licenseStatus === "active" && orgId != null) {

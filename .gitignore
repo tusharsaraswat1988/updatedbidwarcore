@@ -62,6 +62,7 @@ artifacts/bidwar-local/frontend-dist/
 artifacts/bidwar-local/dist-ts/
 
 # Security — never commit credentials or secrets
+auth.txt
 *.pem
 *.key
 *.p12

@@ -10,10 +10,16 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalLimiter } from "./lib/rate-limiters";
 import { jwtAuthMiddleware } from "./middleware/jwt-auth";
+import { ownerJoinPath } from "@workspace/api-base/owner-urls";
+import {
+  assertServeStaticBuild,
+  getRuntimeConfig,
+  isCorsOriginAllowed,
+} from "./lib/runtime-env";
 
 const app: Express = express();
 
-const isProd = process.env.NODE_ENV === "production";
+const { isProduction: isProd, serveStatic } = getRuntimeConfig();
 
 // Most production setups run behind a reverse proxy.
 // This tells Express to trust the X-Forwarded-For header so that
@@ -34,28 +40,6 @@ app.use(
     },
   }),
 );
-
-function buildAllowedOrigins(): string[] {
-  const origins: string[] = [];
-
-  // APP_DOMAIN is a comma-separated list of allowed origins, e.g. "bidwar.in,www.bidwar.in"
-  const appDomain = process.env.APP_DOMAIN ?? "";
-  for (const d of appDomain.split(",").filter(Boolean)) {
-    origins.push(`https://${d.trim()}`);
-  }
-
-  if (!isProd) {
-    origins.push(
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:8080",
-    );
-  }
-
-  return origins;
-}
-
-const allowedOrigins = buildAllowedOrigins();
 
 app.use(
   pinoHttp({
@@ -80,8 +64,7 @@ app.use(
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (isCorsOriginAllowed(origin)) return callback(null, true);
       callback(new Error(`CORS: origin not allowed: ${origin}`));
     },
     credentials: true,
@@ -92,10 +75,6 @@ app.use(
 // are small. 1 MB is ample for all API request bodies.
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-
-if (isProd && !process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET must be set in production.");
-}
 
 // Parse cookies so the JWT middleware can read bidwar_auth / bidwar_oauth
 app.use(cookieParser());
@@ -116,19 +95,16 @@ app.use("/api", router);
 // explicitly disabled). Serves pre-built Vite frontends from the same Node
 // process — no separate nginx or Vite dev server needed in production.
 // In local dev Vite's HMR server handles the frontends instead.
-const serveStatic =
-  process.env.SERVE_STATIC === "true" ||
-  (isProd && process.env.SERVE_STATIC !== "false");
-
 if (serveStatic) {
   // __dirname is set by the esbuild banner to the dist/ directory of the bundle.
   // Two levels up from dist/ reaches the artifacts/ root.
   const auctionDist = path.resolve(__dirname, "../../auction-platform/dist/public");
   const ownerDist   = path.resolve(__dirname, "../../owner-app/dist/public");
 
-  if (existsSync(auctionDist)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const staticOpts: any = {
+  assertServeStaticBuild(auctionDist);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const staticOpts: any = {
       enableBrotli: true,
       orderPreference: ["br", "gz"],
       serveStatic: {
@@ -144,6 +120,30 @@ if (serveStatic) {
         },
       },
     };
+
+    // Legacy owner URLs → canonical onboarding entry (full page loads only).
+    app.get("/tournament/:tournamentId/owner/:teamId", (req, res) => {
+      const tid = parseInt(req.params.tournamentId, 10);
+      const teamId = parseInt(req.params.teamId, 10);
+      res.redirect(
+        302,
+        ownerJoinPath(
+          Number.isFinite(tid) ? tid : undefined,
+          Number.isFinite(teamId) ? teamId : undefined,
+        ),
+      );
+    });
+    app.get("/owner-app/tournament/:tournamentId/owner/:teamId", (req, res) => {
+      const tid = parseInt(req.params.tournamentId, 10);
+      const teamId = parseInt(req.params.teamId, 10);
+      res.redirect(
+        302,
+        ownerJoinPath(
+          Number.isFinite(tid) ? tid : undefined,
+          Number.isFinite(teamId) ? teamId : undefined,
+        ),
+      );
+    });
 
     // Owner app at /owner-app/ — must be registered before the root catch-all
     if (existsSync(ownerDist)) {
@@ -161,13 +161,7 @@ if (serveStatic) {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(path.join(auctionDist, "index.html"));
     });
-    logger.info({ path: auctionDist }, "Static: auction-platform at /");
-  } else {
-    logger.warn(
-      { expected: auctionDist },
-      "SERVE_STATIC requested but dist not found — run `pnpm run build` first",
-    );
-  }
+  logger.info({ path: auctionDist }, "Static: auction-platform at /");
 }
 
 export default app;
