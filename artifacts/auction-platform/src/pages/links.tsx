@@ -118,9 +118,9 @@ export default function LinksPage() {
             </div>
             <p className="text-xs text-muted-foreground mb-4">Links for the person running the auction and the organizer.</p>
             <LinkRow
-              label="Operator Panel"
+              label="Auction Room"
               url={`${base}/tournament/${tournamentId}/auction`}
-              description="The main auction control screen. The operator uses this to start the auction, call players, accept bids, and mark players as sold. Keep this open on the host's laptop or tablet."
+              description="The live auction control screen. Open in a dedicated tab on the host's laptop or tablet to start the session, call players, accept bids, and mark players as sold."
             />
             <LinkRow
               label="Reports &amp; Analytics"

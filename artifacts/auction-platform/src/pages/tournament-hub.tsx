@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { openAuctionRoom } from "@/lib/tournament-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
   Gavel, Monitor, Trophy, ExternalLink, Link2, Dices,
@@ -105,7 +106,7 @@ export default function TournamentHub() {
         {/* Title + Quick Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Auction Control Center</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Setup Area</p>
             <div className="flex items-center gap-3 flex-wrap">
               {tournament?.logoUrl && (
                 <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
@@ -127,16 +128,16 @@ export default function TournamentHub() {
               <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
             </p>
             <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
-              This is your central control area. Manage teams, players, live auction, displays and reports — all from here.
+              Configure teams, players, and auction rules here. Open the Auction Room in a separate tab when you are ready to run the live session.
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={() => navigate(`/tournament/${tournamentId}/auction`)}
+              onClick={() => openAuctionRoom(tournamentId)}
             >
-              <Gavel className="w-4 h-4" /> Operator Panel
+              <Gavel className="w-4 h-4" /> Open Auction Room <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-60" />
             </Button>
             <Button
               variant="outline"
@@ -284,10 +285,10 @@ export default function TournamentHub() {
                   All set — you can start the {readinessMode === "trial" ? "trial" : "live"} auction.
                 </p>
                 <button
-                  onClick={() => navigate(`/tournament/${tournamentId}/auction`)}
+                  onClick={() => openAuctionRoom(tournamentId)}
                   className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
                 >
-                  Open Operator Panel →
+                  Open Auction Room ↗
                 </button>
               </div>
             )}

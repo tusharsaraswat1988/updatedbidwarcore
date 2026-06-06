@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, RefreshCw, ShieldAlert, CheckCircle2, ArrowLeft, ShieldCheck, Lock } from "lucide-react";
+import { openAuctionRoom } from "@/lib/tournament-navigation";
 
 export default function AuctionReset() {
   const [, params] = useRoute("/tournament/:id/reset");
   const tournamentId = parseInt(params?.id || "0");
-  const [, navigate] = useLocation();
   const qc = useQueryClient();
 
   const { data: tournament, refetch: refetchTournament } = useGetTournament(tournamentId, {
@@ -61,8 +61,8 @@ export default function AuctionReset() {
               Clear all bids and put every non-retained player back into the pool.
             </p>
           </div>
-          <Button variant="ghost" className="gap-2" onClick={() => navigate(`/tournament/${tournamentId}/auction`)}>
-            <ArrowLeft className="w-4 h-4" /> Back to Operator
+          <Button variant="ghost" className="gap-2" onClick={() => openAuctionRoom(tournamentId)}>
+            <ArrowLeft className="w-4 h-4" /> Back to Auction Room
           </Button>
         </div>
 
@@ -158,7 +158,7 @@ export default function AuctionReset() {
                 <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />
                 {resetMut.isPending ? "Resetting..." : "Yes, reset everything"}
               </Button>
-              <Button variant="outline" onClick={() => navigate(`/tournament/${tournamentId}/auction`)}>
+              <Button variant="outline" onClick={() => openAuctionRoom(tournamentId)}>
                 Cancel
               </Button>
             </div>

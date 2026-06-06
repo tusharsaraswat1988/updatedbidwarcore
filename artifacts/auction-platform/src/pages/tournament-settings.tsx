@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
+import { openAuctionRoom } from "@/lib/tournament-navigation";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -1263,10 +1264,10 @@ export default function TournamentSettings() {
                 <Button
                   variant="outline"
                   className="gap-2 h-auto py-3"
-                  onClick={() => navigate(`/tournament/${tournamentId}/auction`)}
+                  onClick={() => openAuctionRoom(tournamentId)}
                 >
                   <Gavel className="w-4 h-4" />
-                  <span className="text-sm">Operator Panel</span>
+                  <span className="text-sm">Open Auction Room</span>
                 </Button>
                 <Button
                   variant="outline"

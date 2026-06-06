@@ -3,8 +3,9 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3, Coffee,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel,
 } from "lucide-react";
+import { auctionRoomPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { logoutOrganizerAccount } from "@/lib/auth";
@@ -140,9 +141,9 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
               )}
               {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-                <Link href={`/tournament/${tournamentId}`} title="Auction Control Center" className={navCls(`/tournament/${tournamentId}`)}>
+                <Link href={`/tournament/${tournamentId}`} title="Tournament Setup" className={navCls(`/tournament/${tournamentId}`)}>
                   <Activity className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">Control Center</span>}
+                  {!collapsed && <span className="font-medium">Setup</span>}
                 </Link>
                 <Link href={`/tournament/${tournamentId}/teams`} title="Teams" className={navCls(`/tournament/${tournamentId}/teams`)}>
                   <Users className="w-5 h-5 flex-shrink-0" />
@@ -211,14 +212,17 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
               )}
               {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-                <Link
-                  href={`/tournament/${tournamentId}/auction`}
-                  title="Operator Panel"
-                  className={navCls(`/tournament/${tournamentId}/auction`) + ` font-bold`}
+                <a
+                  href={auctionRoomPath(tournamentId)}
+                  target="_blank"
+                  title="Open Auction Room in a new tab"
+                  className={`flex items-center rounded-md transition-colors font-bold ${
+                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
+                  } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
                 >
-                  <Activity className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Operator Panel</span>}
-                </Link>
+                  <Gavel className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>Open Auction Room</span>}
+                </a>
                 {!collapsed && (
                   <Link
                     href={`/tournament/${tournamentId}/break-timer`}

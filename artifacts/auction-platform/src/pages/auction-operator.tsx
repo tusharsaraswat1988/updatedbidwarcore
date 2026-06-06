@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute } from "wouter";
 
 const FortuneWheelModal = lazy(() =>
   import("@/components/fortune-wheel-modal").then((m) => ({ default: m.FortuneWheelModal }))
@@ -41,7 +41,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
-import { AppLayout } from "@/components/layout";
+import { OperatorLayout } from "@/components/operator-layout";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -55,7 +55,7 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert, Star,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
-  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, Settings, ChevronDown,
+  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -195,7 +195,6 @@ function StepIndicator({
 
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
-  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
 
@@ -586,7 +585,11 @@ export default function AuctionOperator() {
   const timerSecsNum = parseInt(timerSecs) || 30;
 
   return (
-    <AppLayout tournamentId={tournamentId} noPadding>
+    <OperatorLayout
+      tournamentId={tournamentId}
+      connectionStatus={connectionStatus}
+      auctionStatus={state?.status || "idle"}
+    >
       <div className="flex flex-col h-full overflow-hidden bg-[#0f1117] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
 
         {/* ── Connection warning banner ──────────────────────────────────── */}
@@ -603,18 +606,8 @@ export default function AuctionOperator() {
           </div>
         )}
 
-        {/* ══════════ TOP STATUS BAR ════════════════════════════════════════ */}
+        {/* ══════════ AUCTION CONTROL BAR ════════════════════════════════════ */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
-
-          {/* Auction status badge */}
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border flex-shrink-0 ${
-            isActive ? "bg-green-500/15 border-green-500/40 text-green-400"
-            : isPaused ? "bg-yellow-500/15 border-yellow-500/40 text-yellow-400"
-            : "bg-white/5 border-white/15 text-white/40"
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full bg-current ${isActive ? "animate-pulse" : ""}`} />
-            {state?.status?.toUpperCase() || "IDLE"}
-          </span>
 
           {/* Stats */}
           <div className="flex items-center gap-2 text-xs font-medium flex-shrink-0">
@@ -682,15 +675,6 @@ export default function AuctionOperator() {
             <RotateCcw className="w-3 h-3 flex-shrink-0" />
             <span className="hidden lg:inline">Reauction Last Player</span>
             <span className="lg:hidden">Reauction</span>
-          </button>
-
-          {/* Settings gear → Tournament Control Center */}
-          <button
-            title="Tournament Settings"
-            onClick={() => navigate(`/tournament/${tournamentId}`)}
-            className="h-7 w-7 flex items-center justify-center text-white/35 hover:text-white hover:bg-white/8 rounded-md transition-all flex-shrink-0"
-          >
-            <Settings className="w-4 h-4" />
           </button>
 
           {/* ── BIDWAR branding — centred ── */}
@@ -1603,7 +1587,7 @@ export default function AuctionOperator() {
 
           {/* Powered by — right */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] text-white/20">Operator Panel · Powered by</span>
+            <span className="text-[10px] text-white/20">Auction Room · Powered by</span>
             <span className="text-[10px] font-black tracking-tight">
               <span className="text-yellow-400/60">BID</span><span className="text-white/40">WAR</span>
             </span>
@@ -1857,6 +1841,6 @@ export default function AuctionOperator() {
         </Suspense>
       )}
 
-    </AppLayout>
+    </OperatorLayout>
   );
 }
