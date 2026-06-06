@@ -85,6 +85,19 @@ export function createAuctionRouter(db: LocalDb) {
     return session;
   }
 
+  const AUCTION_PAUSED_ERROR = "Auction is paused. Resume the auction before continuing.";
+
+  function rejectIfAuctionPaused(
+    session: { status: string },
+    res: Response,
+  ): boolean {
+    if (session.status === "paused") {
+      res.status(409).json({ error: AUCTION_PAUSED_ERROR });
+      return true;
+    }
+    return false;
+  }
+
   async function buildAuctionState(tournamentId: number) {
     const session = await getOrCreateSession(tournamentId);
     const [tournamentRow] = await db.select({
@@ -399,6 +412,7 @@ export function createAuctionRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     if (!session.currentPlayerId || !session.currentBidTeamId) {
       res.status(400).json({ error: "No current player or bidder" }); return;
     }
@@ -427,6 +441,7 @@ export function createAuctionRouter(db: LocalDb) {
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const { teamId, amount } = parsed.data;
     const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
     const playerId = session.currentPlayerId;
     await db.update(playersTable).set({ status: "sold", teamId, soldPrice: amount }).where(eq(playersTable.id, playerId));
@@ -451,6 +466,7 @@ export function createAuctionRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
     const [player] = await db.select().from(playersTable).where(eq(playersTable.id, session.currentPlayerId));
     await db.update(playersTable).set({ status: "unsold" }).where(eq(playersTable.id, session.currentPlayerId));
@@ -470,6 +486,8 @@ export function createAuctionRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const { playerId, startFromBase } = parsed.data;
+    const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     const [player] = await db.select().from(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
     if (!player) { res.status(404).json({ error: "Player not found" }); return; }
     if (player.status === "sold" && player.teamId && player.soldPrice) {
@@ -495,6 +513,8 @@ export function createAuctionRouter(db: LocalDb) {
   router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     const unsoldPlayers = await db.select().from(playersTable)
       .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.status, "unsold")));
     if (unsoldPlayers.length === 0) { res.status(400).json({ error: "No unsold players to re-auction" }); return; }
@@ -673,7 +693,8 @@ export function createAuctionRouter(db: LocalDb) {
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const body = z.object({ seconds: z.number().int().min(5).max(300) }).safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-    await getOrCreateSession(tid);
+    const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
     const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
     await db.update(auctionSessionsTable).set({ timerEndsAt: endsAt }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid));

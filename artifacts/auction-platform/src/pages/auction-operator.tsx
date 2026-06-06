@@ -370,6 +370,7 @@ export default function AuctionOperator() {
   }
 
   function handleStartBiddingClick() {
+    if (!isActive) return;
     if (currentBidPaused && hasPlayer) {
       setResumeBidDialogOpen(true);
       return;
@@ -535,7 +536,7 @@ export default function AuctionOperator() {
         case "d": if (!timerActive && hasPlayer && isActive) handleDeferPlayer(); break;
         case "m": if (!timerActive && hasPlayer) { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); } break;
         case "n": if (!timerActive && isActive) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
-        case "z": if (lastSaleBid) setReauctionModalOpen(true); break;
+        case "z": if (isActive && lastSaleBid) setReauctionModalOpen(true); break;
         case " ": e.preventDefault(); if (isActive && hasPlayer) { timerActive ? handleStopTimer() : handleStartBiddingClick(); } break;
       }
     }
@@ -606,6 +607,20 @@ export default function AuctionOperator() {
           </div>
         )}
 
+        {isPaused && (
+          <div className="flex-shrink-0 flex flex-col items-center justify-center gap-2 px-4 py-8 border-b-2 border-amber-500/50 bg-gradient-to-b from-amber-500/20 to-amber-500/8 z-20">
+            <div className="flex items-center gap-3">
+              <Pause className="w-9 h-9 text-amber-300 flex-shrink-0" />
+              <span className="font-display font-black text-3xl sm:text-4xl tracking-wider text-amber-200 uppercase">
+                AUCTION PAUSED
+              </span>
+            </div>
+            <p className="text-sm sm:text-base text-amber-100/75 font-medium">
+              Resume Auction to continue.
+            </p>
+          </div>
+        )}
+
         {/* ══════════ AUCTION CONTROL BAR ════════════════════════════════════ */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
 
@@ -669,8 +684,8 @@ export default function AuctionOperator() {
           <button
             className="h-7 px-2 flex items-center gap-1 rounded-md text-white/50 hover:text-white hover:bg-white/8 flex-shrink-0 transition-colors disabled:opacity-30 text-[10px] font-bold uppercase tracking-wide"
             onClick={() => setReauctionModalOpen(true)}
-            disabled={!lastSaleBid || reAuction.isPending}
-            title="Reverse the last sale and start a reauction"
+            disabled={!lastSaleBid || reAuction.isPending || isPaused}
+            title={isPaused ? "Resume auction before re-auctioning" : "Reverse the last sale and start a reauction"}
           >
             <RotateCcw className="w-3 h-3 flex-shrink-0" />
             <span className="hidden lg:inline">Reauction Last Player</span>
@@ -989,7 +1004,9 @@ export default function AuctionOperator() {
               <div className="px-2 py-1.5 border-b border-white/6 flex-shrink-0">
                 <button
                   onClick={() => setShowBatchReAuctionConfirm(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all"
+                  disabled={isPaused}
+                  title={isPaused ? "Resume auction before re-auctioning" : undefined}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-all disabled:opacity-35 disabled:cursor-not-allowed"
                 >
                   <RotateCcw className="w-3 h-3" /> Re-auction all {statusCounts.unsold} unsold
                 </button>
@@ -1107,7 +1124,8 @@ export default function AuctionOperator() {
                         )}
                         {(isSold || isUnsold) && (
                           <button
-                            disabled={reAuction.isPending}
+                            disabled={reAuction.isPending || isPaused}
+                            title={isPaused ? "Resume auction before re-auctioning" : undefined}
                             onClick={() => handleReAuction(player.id, true)}
                             className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold flex items-center gap-0.5 transition-all"
                           >
@@ -1291,27 +1309,27 @@ export default function AuctionOperator() {
                     {
                       label: "SOLD",
                       icon: CheckCircle,
-                      sub: timerActive ? "Pause bid first [S]" : !hasBid ? "Bid first [S]" : `${state?.currentBidTeamName ?? ""} [S]`.trim(),
-                      title: timerActive ? "Pause current bid first, then click SOLD" : !hasBid ? "Place a bid first — use Start Bidding, then a team bid button" : undefined,
-                      disabled: !hasBid || timerActive || sellPlayer.isPending,
+                      sub: isPaused ? "Resume first [S]" : timerActive ? "Pause bid first [S]" : !hasBid ? "Bid first [S]" : `${state?.currentBidTeamName ?? ""} [S]`.trim(),
+                      title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first, then click SOLD" : !hasBid ? "Place a bid first — use Start Bidding, then a team bid button" : undefined,
+                      disabled: isPaused || !hasBid || timerActive || sellPlayer.isPending,
                       onClick: handleSell,
                       bg: "bg-green-600/15", border: "border-green-600/60", text: "text-green-400", glow: "0 0 16px rgba(34,197,94,0.25)",
                     },
                     {
                       label: "UNSOLD",
                       icon: XCircle,
-                      sub: timerActive ? "Pause bid first [U]" : "No bid [U]",
-                      title: timerActive ? "Pause current bid first" : undefined,
-                      disabled: !hasPlayer || timerActive || markUnsold.isPending,
+                      sub: isPaused ? "Resume first [U]" : timerActive ? "Pause bid first [U]" : "No bid [U]",
+                      title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first" : undefined,
+                      disabled: isPaused || !hasPlayer || timerActive || markUnsold.isPending,
                       onClick: handleUnsold,
                       bg: "bg-red-600/10", border: "border-red-600/50", text: "text-red-400", glow: "",
                     },
                     {
                       label: "DEFER",
                       icon: Hourglass,
-                      sub: timerActive ? "Pause bid first [D]" : "Back queue [D]",
-                      title: timerActive ? "Pause current bid first" : undefined,
-                      disabled: !hasPlayer || timerActive || deferPlayerMut.isPending,
+                      sub: isPaused ? "Resume first [D]" : timerActive ? "Pause bid first [D]" : "Back queue [D]",
+                      title: isPaused ? "Resume auction before deferring a player" : timerActive ? "Pause current bid first" : undefined,
+                      disabled: isPaused || !hasPlayer || timerActive || deferPlayerMut.isPending,
                       onClick: handleDeferPlayer,
                       bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", glow: "",
                     },
@@ -1370,7 +1388,8 @@ export default function AuctionOperator() {
                   ) : (
                     <button
                       onClick={handleStartBiddingClick}
-                      disabled={!hasPlayer || startTimerMut.isPending}
+                      disabled={!hasPlayer || !isActive || startTimerMut.isPending}
+                      title={isPaused ? "Resume auction before starting bidding" : undefined}
                       className="col-span-2 flex items-center justify-center gap-2 py-4 rounded-xl font-display font-black text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-500 hover:to-emerald-400 enabled:shadow-[0_0_22px_rgba(16,185,129,0.45)] enabled:hover:scale-[1.01]"
                     >
                       <Play className="w-5 h-5" /> {currentBidPaused ? "RESUME BIDDING" : "START BIDDING"}

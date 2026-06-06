@@ -63,6 +63,19 @@ async function getOrCreateSession(tournamentId: number) {
   return session;
 }
 
+const AUCTION_PAUSED_ERROR = "Auction is paused. Resume the auction before continuing.";
+
+function rejectIfAuctionPaused(
+  session: { status: string },
+  res: { status: (code: number) => { json: (body: object) => void } },
+): boolean {
+  if (session.status === "paused") {
+    res.status(409).json({ error: AUCTION_PAUSED_ERROR });
+    return true;
+  }
+  return false;
+}
+
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id,
   tournamentId: p.tournamentId,
@@ -898,6 +911,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId || !session.currentBidTeamId) {
     res.status(400).json({ error: "No current player or bidder" });
     return;
@@ -1030,6 +1044,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
 
   const { teamId, amount } = parsed.data;
   const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
 
@@ -1117,6 +1132,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
 
   const [player] = await db
@@ -1185,6 +1201,9 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
+  const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
+
   const { playerId, startFromBase } = parsed.data;
   const [player] = await db
     .select()
@@ -1244,6 +1263,9 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
 
   const unsoldPlayers = await db
     .select()
@@ -1391,6 +1413,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
   const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId) {
     res.status(400).json({ error: "No player currently on the block" });
     return;
@@ -1728,6 +1751,7 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   const body = z.object({ seconds: z.number().int().min(5).max(300) }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
+  if (rejectIfAuctionPaused(session, res)) return;
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)
