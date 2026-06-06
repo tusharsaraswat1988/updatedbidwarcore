@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -10,14 +9,12 @@ import {
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { openAuctionRoom } from "@/lib/tournament-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  Gavel, Monitor, Trophy, ExternalLink, Link2, Dices,
-  Settings, Download, CheckCircle2, Circle,
+  CheckCircle2, Circle,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -31,8 +28,6 @@ export default function TournamentHub() {
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
 
-  const [exportLoading, setExportLoading] = useState(false);
-
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -42,26 +37,6 @@ export default function TournamentHub() {
   const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
-
-  async function handleExportForLocal() {
-    setExportLoading(true);
-    try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/export`);
-      if (!res.ok) throw new Error("Export failed");
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(tournament?.name || "tournament").replace(/\s+/g, "-").toLowerCase()}-bidwar-export.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Export failed. Please try again.");
-    } finally {
-      setExportLoading(false);
-    }
-  }
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const settingsPath = `/tournament/${tournamentId}/settings`;
@@ -103,86 +78,32 @@ export default function TournamentHub() {
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-8">
-        {/* Title + Quick Actions */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Setup Area</p>
-            <div className="flex items-center gap-3 flex-wrap">
-              {tournament?.logoUrl && (
-                <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
-              )}
-              <h1 className="text-4xl font-bold tracking-tight">{tournament?.name}</h1>
-              <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
-                {tournament?.status}
+        {/* Title */}
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1 font-semibold">Setup Area</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            {tournament?.logoUrl && (
+              <img src={tournament.logoUrl} alt={tournament.name} className="h-10 w-10 object-contain rounded" />
+            )}
+            <h1 className="text-4xl font-bold tracking-tight">{tournament?.name}</h1>
+            <span className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold tracking-widest uppercase">
+              {tournament?.status}
+            </span>
+          </div>
+          <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
+            {tournament?.sport?.toUpperCase()}
+            {tournament?.auctionCode && (
+              <span className="text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 text-[11px] font-bold tracking-widest">
+                {tournament.auctionCode}
               </span>
-            </div>
-            <p className="text-muted-foreground mt-2 font-mono text-sm flex items-center flex-wrap gap-x-2 gap-y-1">
-              {tournament?.sport?.toUpperCase()}
-              {tournament?.auctionCode && (
-                <span className="text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5 text-[11px] font-bold tracking-widest">
-                  {tournament.auctionCode}
-                </span>
-              )}
-              {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
-              {tournament?.venue && <span>· {tournament.venue}</span>}
-              <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
-            </p>
-            <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
-              Configure teams, players, and auction rules here. Open the Auction Room in a separate tab when you are ready to run the live session.
-            </p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={() => openAuctionRoom(tournamentId)}
-            >
-              <Gavel className="w-4 h-4" /> Open Auction Room <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-60" />
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => window.open(`/tournament/${tournamentId}/display`, "_blank")}
-            >
-              <Monitor className="w-4 h-4" /> LED Display <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-60" />
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => navigate(`/tournament/${tournamentId}/links`)}
-            >
-              <Link2 className="w-4 h-4" /> Links
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => navigate(`/tournament/${tournamentId}/fortune-wheel`)}
-            >
-              <Dices className="w-4 h-4" /> Fortune Wheel
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => navigate(`/tournament/${tournamentId}/reports`)}
-            >
-              <Trophy className="w-4 h-4" /> Reports
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10"
-              onClick={handleExportForLocal}
-              disabled={exportLoading}
-            >
-              <Download className="w-4 h-4" /> {exportLoading ? "Exporting..." : "Export for Local"}
-            </Button>
-            <Button
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md hover:shadow-lg transition-all"
-              onClick={() => navigate(`/tournament/${tournamentId}/settings`)}
-              title="Open tournament settings (identity, auction rules, broadcast, recovery)"
-            >
-              <Settings className="w-4 h-4" /> Tournament Settings
-            </Button>
-          </div>
+            )}
+            {tournament?.organizerName && <span>· {tournament.organizerName}</span>}
+            {tournament?.venue && <span>· {tournament.venue}</span>}
+            <span>· BASE PURSE: {formatIndianRupee(tournament?.basePurse)}</span>
+          </p>
+          <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
+            Configure teams, players, and auction rules here. Open the Auction Room in a separate tab when you are ready to run the live session.
+          </p>
         </div>
 
         {/* Summary Stats */}
@@ -288,7 +209,7 @@ export default function TournamentHub() {
                   onClick={() => openAuctionRoom(tournamentId)}
                   className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
                 >
-                  Open Auction Room ↗
+                  Go to Operator Panel ↗
                 </button>
               </div>
             )}

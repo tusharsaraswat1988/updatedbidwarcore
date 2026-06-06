@@ -1,15 +1,26 @@
 import { memo } from "react";
-import { Trophy, Calendar } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { SponsorCarousel } from "./sponsor-carousel";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 type TournamentLite = {
   name?: string | null;
   logoUrl?: string | null;
-  organizerName?: string | null;
   auctionDate?: string | null;
+  auctionTime?: string | null;
 };
+
+function formatAuctionDateLine(date?: string | null, time?: string | null): string | null {
+  if (!date) return null;
+  const formatted = new Date(date).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return time ? `${formatted} · ${time}` : formatted;
+}
 
 /**
  * Top bar — tournament identity, BidWar brand, live status pill,
@@ -32,13 +43,14 @@ export const AuctionHeader = memo(function AuctionHeader({
   status: string | null | undefined;
   soldCount: number;
   remainingCount: number;
-  sponsorLogos: { url: string; name: string }[];
+  sponsorLogos: SponsorLogo[];
   themeAccent?: string;
 }) {
   const isActive = status === "active";
   const isPaused = status === "paused";
   const { logos, brandName } = useBranding();
   const accent = themeAccent ?? "#a78bfa";
+  const auctionDateLine = formatAuctionDateLine(tournament?.auctionDate, tournament?.auctionTime);
 
   return (
     <div className="relative flex items-center justify-between px-4 md:px-8 py-2 border-b border-border/40 bg-black/40 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
@@ -59,8 +71,10 @@ export const AuctionHeader = memo(function AuctionHeader({
           <div className="font-display font-black text-base md:text-xl tracking-tight text-white leading-none truncate">
             {tournament?.name || "BIDWAR"}
           </div>
-          {tournament?.organizerName && (
-            <div className="text-[10px] md:text-xs text-muted-foreground tracking-widest uppercase truncate hidden sm:block">{tournament.organizerName}</div>
+          {auctionDateLine && (
+            <div className="text-[10px] md:text-xs text-muted-foreground tracking-widest uppercase truncate hidden sm:block">
+              {auctionDateLine}
+            </div>
           )}
         </div>
       </div>
@@ -87,12 +101,6 @@ export const AuctionHeader = memo(function AuctionHeader({
 
       {/* Right: status + stats + sponsor */}
       <div className="flex items-center gap-2 md:gap-5 flex-shrink-0 flex-1 justify-end">
-        {tournament?.auctionDate && (
-          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>{tournament.auctionDate}</span>
-          </div>
-        )}
         <div className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-4 py-1 md:py-1.5 rounded-full border ${
           isActive ? "bg-green-500/20 border-green-500/40 text-green-400" :
           isPaused ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-400" :

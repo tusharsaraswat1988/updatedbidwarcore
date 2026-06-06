@@ -238,12 +238,53 @@ export async function signupSendOtp(data: {
   } catch { return { success: false, error: "Network error" }; }
 }
 
-export async function fetchAuthConfig(): Promise<{ smsOtpEnabled: boolean }> {
+export type LoginGuardStatus = {
+  tier: "normal" | "captcha" | "cooldown";
+  failures: number;
+  cooldownRemainingSec: number;
+  captchaRequired: boolean;
+  captcha?: { captchaId: string; question: string };
+  turnstileSiteKey?: string;
+};
+
+export async function fetchAuthConfig(): Promise<{
+  smsOtpEnabled: boolean;
+  turnstileSiteKey: string | null;
+}> {
   try {
     const r = await apiFetch("/auth/config");
-    if (!r.ok) return { smsOtpEnabled: false };
+    if (!r.ok) return { smsOtpEnabled: false, turnstileSiteKey: null };
+    const d = await r.json();
+    return {
+      smsOtpEnabled: !!d.smsOtpEnabled,
+      turnstileSiteKey: d.turnstileSiteKey ?? null,
+    };
+  } catch { return { smsOtpEnabled: false, turnstileSiteKey: null }; }
+}
+
+export async function fetchLoginGuardStatus(
+  identifier: string,
+): Promise<LoginGuardStatus> {
+  try {
+    const q = encodeURIComponent(identifier);
+    const r = await apiFetch(`/auth/organizer-account/login/status?identifier=${q}`);
+    if (!r.ok) {
+      return {
+        tier: "normal",
+        failures: 0,
+        cooldownRemainingSec: 0,
+        captchaRequired: false,
+      };
+    }
     return r.json();
-  } catch { return { smsOtpEnabled: false }; }
+  } catch {
+    return {
+      tier: "normal",
+      failures: 0,
+      cooldownRemainingSec: 0,
+      captchaRequired: false,
+    };
+  }
 }
 
 export async function signupEmail(data: {
@@ -286,15 +327,31 @@ export async function signupVerify(mobile: string, otp: string): Promise<{ succe
 
 export async function loginOrganizerAccount(
   identifier: string,
-  password: string
-): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
+  password: string,
+  captcha?: {
+    turnstileToken?: string;
+    captchaId?: string;
+    captchaAnswer?: string;
+  },
+): Promise<{
+  success: boolean;
+  error?: string;
+  organizer?: OrganizerInfo;
+  loginGuard?: LoginGuardStatus;
+}> {
   try {
     const r = await apiFetch("/auth/organizer-account/login", {
       method: "POST",
-      body: JSON.stringify({ identifier, password }),
+      body: JSON.stringify({ identifier, password, ...captcha }),
     });
     const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Login failed" };
+    if (!r.ok) {
+      return {
+        success: false,
+        error: d.error || "Login failed",
+        loginGuard: d.loginGuard,
+      };
+    }
     return { success: true, organizer: d.organizer };
   } catch { return { success: false, error: "Network error" }; }
 }

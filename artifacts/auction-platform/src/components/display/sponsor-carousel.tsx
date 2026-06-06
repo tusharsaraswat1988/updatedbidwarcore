@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from "react";
 import { cldUrl } from "@/lib/cloudinary";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 /**
  * Rotating sponsor logo carousel — top-right corner of LED display.
@@ -10,7 +11,7 @@ import { cldUrl } from "@/lib/cloudinary";
  * — it is React.memo'd and the parent passes a useMemo'd logos array.
  */
 export const SponsorCarousel = memo(function SponsorCarousel({ logos }: {
-  logos: { url: string; name: string }[];
+  logos: SponsorLogo[];
 }) {
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -30,8 +31,15 @@ export const SponsorCarousel = memo(function SponsorCarousel({ logos }: {
   if (!logos.length) return null;
   const current = logos[idx];
 
+  const label = current.name?.trim() || current.type?.trim() || "Sponsor";
+
   return (
     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+      {current.type?.trim() && (
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 text-right">
+          {current.type}
+        </p>
+      )}
       <div
         className="flex items-center justify-end transition-opacity duration-300"
         style={{ opacity: visible ? 1 : 0, minWidth: 180 }}
@@ -39,7 +47,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({ logos }: {
         <img
           key={current.url}
           src={cldUrl(current.url, "teamLogo")}
-          alt={current.name || "Sponsor"}
+          alt={label}
           className="h-24 max-w-[330px] object-contain"
           style={{ filter: "brightness(1.25) drop-shadow(0 0 12px rgba(255,255,255,0.25))" }}
           loading="eager"
@@ -47,7 +55,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({ logos }: {
           onError={e => (e.currentTarget.style.display = "none")}
         />
       </div>
-      {current.name && (
+      {current.name?.trim() && (
         <p className="text-sm font-bold uppercase tracking-[0.15em] text-white/90 text-right">
           {current.name}
         </p>

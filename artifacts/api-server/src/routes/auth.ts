@@ -6,6 +6,12 @@ import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { authLimiter, otpSendLimiter, otpVerifyLimiter } from "../lib/rate-limiters";
+import {
+  checkLoginAttemptAllowed,
+  clearLoginFailures,
+  getLoginGuardStatus,
+  recordLoginFailure,
+} from "../lib/login-attempt-guard";
 import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
@@ -687,7 +693,20 @@ router.post("/auth/organizer-account/signup/send-otp", otpSendLimiter, async (re
 
 // Public config flags used by the organizer portal UI
 router.get("/auth/config", (_req, res) => {
-  res.json({ smsOtpEnabled: process.env.SMS_OTP_ENABLED === "true" });
+  const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY?.trim() || null;
+  res.json({
+    smsOtpEnabled: process.env.SMS_OTP_ENABLED === "true",
+    turnstileSiteKey,
+  });
+});
+
+// Progressive login guard status (UX hint — enforcement is on POST login)
+router.get("/auth/organizer-account/login/status", (req, res) => {
+  const identifier = String(req.query.identifier ?? "");
+  const guard = getLoginGuardStatus(req, identifier, {
+    includeCaptcha: true,
+  });
+  res.json(guard);
 });
 
 // Email + password signup — available when SMS OTP is not configured
@@ -774,28 +793,55 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
-router.post("/auth/organizer-account/login", authLimiter, async (req, res) => {
+router.post("/auth/organizer-account/login", async (req, res) => {
   const body = z.object({
     identifier: z.string().min(1),
     password: z.string().min(1),
+    turnstileToken: z.string().optional(),
+    captchaId: z.string().optional(),
+    captchaAnswer: z.string().optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const { identifier, password } = body.data;
+  const { identifier, password, turnstileToken, captchaId, captchaAnswer } = body.data;
+
+  const guardCheck = await checkLoginAttemptAllowed(req, identifier, {
+    turnstileToken,
+    captchaId,
+    captchaAnswer,
+  });
+  if (!guardCheck.allowed) {
+    res.status(guardCheck.status).json({ error: guardCheck.error, loginGuard: guardCheck.guard });
+    return;
+  }
 
   const rows = await db.select().from(organizersTable).where(
     or(eq(organizersTable.mobile, identifier), eq(organizersTable.email, identifier))
   );
   const organizer = rows[0];
 
-  if (!organizer) { res.status(401).json({ error: "No account found with that mobile or email." }); return; }
+  if (!organizer) {
+    const loginGuard = recordLoginFailure(req, identifier);
+    res.status(401).json({ error: "No account found with that mobile or email.", loginGuard });
+    return;
+  }
   if (!organizer.passwordHash) {
-    res.status(401).json({ error: "This account uses Google Sign-In. Please use the 'Continue with Google' button." });
+    const loginGuard = recordLoginFailure(req, identifier);
+    res.status(401).json({
+      error: "This account uses Google Sign-In. Please use the 'Continue with Google' button.",
+      loginGuard,
+    });
     return;
   }
 
   const valid = await verifyPassword(password, organizer.passwordHash);
-  if (!valid) { res.status(401).json({ error: "Incorrect password." }); return; }
+  if (!valid) {
+    const loginGuard = recordLoginFailure(req, identifier);
+    res.status(401).json({ error: "Incorrect password.", loginGuard });
+    return;
+  }
+
+  clearLoginFailures(req, identifier);
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));

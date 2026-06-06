@@ -16,14 +16,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2 } from "lucide-react";
+import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X } from "lucide-react";
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
 interface SpecOption { id: number; groupId: number; optionName: string; displayOrder: number; }
 interface SpecGroup { id: number; roleId: number; groupName: string; displayOrder: number; optional: boolean; options: SpecOption[]; }
-interface GlobalPlayer { id: string; canonicalName: string; mobileNumber: string | null; city: string | null; age: number | null; photoUrl: string | null; battingStyle: string | null; bowlingStyle: string | null; specialization: string | null; }
+interface GlobalPlayerLookup {
+  id: number;
+  name: string;
+  mobileNumber: string | null;
+  city: string | null;
+  age: number | null;
+  role: string | null;
+  photoUrl: string | null;
+  battingStyle: string | null;
+  bowlingStyle: string | null;
+  specialization: string | null;
+  jerseyNumber?: string | null;
+  achievements?: string | null;
+  cricheroUrl?: string | null;
+  appearanceCount?: number;
+}
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 function useSportRoles(sportSlug: string | undefined) {
@@ -62,7 +78,8 @@ export default function PlayerRegister() {
   // Mobile lookup state (Phase 5)
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [foundProfile, setFoundProfile] = useState<GlobalPlayer | null>(null);
+  const [foundProfile, setFoundProfile] = useState<GlobalPlayerLookup | null>(null);
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [form, setForm] = useState({
@@ -110,6 +127,17 @@ export default function PlayerRegister() {
       setForm(prev => ({ ...prev, role: roles[0].roleName }));
     }
   }, [roles]);
+
+  // Default availability to all match dates when schedule exists
+  useEffect(() => {
+    const matchDates = (tournament as { matchDates?: string | null } | undefined)?.matchDates;
+    if (matchDates) {
+      setForm(prev => ({
+        ...prev,
+        availabilityDates: prev.availabilityDates || matchDates,
+      }));
+    }
+  }, [(tournament as { matchDates?: string | null } | undefined)?.matchDates]);
 
   // Spec groups for selected role
   const selectedRole = roles.find(r => r.roleName === form.role);
@@ -177,7 +205,7 @@ export default function PlayerRegister() {
         setLookupLoading(true);
         try {
           const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(val)}&limit=1`);
-          const data: GlobalPlayer[] = await res.json();
+          const data: GlobalPlayerLookup[] = await res.json();
           const match = Array.isArray(data)
             ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === val.replace(/\D/g, ""))
             : undefined;
@@ -185,13 +213,17 @@ export default function PlayerRegister() {
             setFoundProfile(match);
             setForm(prev => ({
               ...prev,
-              name: prev.name || match.canonicalName,
+              name: prev.name || match.name,
               city: prev.city || (match.city ?? ""),
               age: prev.age || (match.age ? String(match.age) : ""),
+              role: prev.role || (match.role ?? ""),
               photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
               battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
               bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
               specialization: prev.specialization || (match.specialization ?? ""),
+              jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
+              achievements: prev.achievements || (match.achievements ?? ""),
+              cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
             }));
           }
         } catch { /* ignore */ } finally {
@@ -259,16 +291,16 @@ export default function PlayerRegister() {
 
   return (
     <FullscreenLayout>
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-4">
         <div className="w-full max-w-lg">
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6 sm:mb-8">
             {(tournament as { logoUrl?: string | null } | undefined)?.logoUrl ? (
               <img src={(tournament as { logoUrl?: string | null }).logoUrl!} alt={tournament?.name} className="h-16 w-16 object-contain mx-auto mb-4 rounded-xl" />
             ) : (
               <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
             )}
-            <h1 className="text-3xl font-display font-black text-white">
+            <h1 className="text-2xl sm:text-3xl font-display font-black text-white leading-tight px-1">
               {tournament?.name || brandName}
             </h1>
             <p className="text-muted-foreground mt-1">Player Registration</p>
@@ -335,7 +367,11 @@ export default function PlayerRegister() {
                       onClick={() => {
                         setSubmitted(false); setWaConsent(false); setErrorMsg(null);
                         setFoundProfile(null); setMobileLookedUp(false);
-                        setForm({ name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "", achievements: "", availabilityDates: "", cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "" });
+                        setForm({
+                          name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "",
+                          achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
+                          cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
+                        });
                         setSpecSelections({});
                       }}
                     >
@@ -363,8 +399,8 @@ export default function PlayerRegister() {
                 )}
 
                 <Card className="border-border">
-                  <CardContent className="p-6">
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                  <CardContent className="p-4 sm:p-6">
+                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                       <div className="flex items-center gap-2 mb-2">
                         <User className="w-5 h-5 text-primary" />
                         <h2 className="font-bold text-lg">Your Details</h2>
@@ -386,7 +422,9 @@ export default function PlayerRegister() {
                             onChange={e => handleMobileChange(e.target.value)}
                             placeholder="+91 98765 43210"
                             type="tel"
-                            className="pr-8"
+                            className="pr-8 h-11 sm:h-9 text-base"
+                            inputMode="tel"
+                            autoComplete="tel"
                           />
                           {lookupLoading && (
                             <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
@@ -402,28 +440,28 @@ export default function PlayerRegister() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2 col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2 sm:col-span-2">
                           <Label>Full Name *</Label>
-                          <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" />
+                          <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
                         </div>
                         <div className="space-y-2">
                           <Label>City</Label>
-                          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
+                          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" className="h-11 sm:h-9" autoComplete="address-level2" />
                         </div>
                         <div className="space-y-2">
                           <Label>Age</Label>
-                          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
+                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" className="h-11 sm:h-9" />
                         </div>
                       </div>
 
                       {/* Dynamic role dropdown */}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Role *</Label>
                           <Select value={form.role} onValueChange={v => f("role", v)}>
-                            <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-                            <SelectContent className="dark">
+                            <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select role" /></SelectTrigger>
+                            <SelectContent className="dark max-h-[min(50dvh,320px)]">
                               {roles.length > 0
                                 ? roles.map(r => (
                                     <SelectItem key={r.id} value={r.roleName}>{r.roleName}</SelectItem>
@@ -440,13 +478,13 @@ export default function PlayerRegister() {
                         </div>
                         <div className="space-y-2">
                           <Label>Jersey Number</Label>
-                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
+                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
                         </div>
                       </div>
 
                       {/* Dynamic spec groups — same logic as admin form */}
                       {specs.length > 0 ? (
-                        <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
+                        <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                             {form.role} Specifications
                           </p>
@@ -460,10 +498,10 @@ export default function PlayerRegister() {
                                 value={specSelections[group.id] ?? ""}
                                 onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
                               >
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11 sm:h-9">
                                   <SelectValue placeholder={`Select ${group.groupName}`} />
                                 </SelectTrigger>
-                                <SelectContent className="dark">
+                                <SelectContent className="dark max-h-[min(50dvh,320px)]">
                                   {group.options.map(opt => (
                                     <SelectItem key={opt.id} value={opt.optionName}>
                                       {opt.optionName}
@@ -476,48 +514,132 @@ export default function PlayerRegister() {
                         </div>
                       ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
                         /* Fallback free-text fields for cricket / other / unknown sports */
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Batting Style</Label>
-                            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" />
+                            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" className="h-11 sm:h-9" />
                           </div>
                           <div className="space-y-2">
                             <Label>Bowling Style</Label>
-                            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
+                            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" className="h-11 sm:h-9" />
                           </div>
-                          <div className="space-y-2 col-span-2">
+                          <div className="space-y-2 sm:col-span-2">
                             <Label>Specialization</Label>
-                            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+                            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." className="h-11 sm:h-9" />
                           </div>
                         </div>
                       ) : null)}
 
-                      <div className="space-y-2">
-                        <Label>Availability Dates</Label>
-                        <Input value={form.availabilityDates} onChange={e => f("availabilityDates", e.target.value)} placeholder="18, 19, 20 March 2025" />
-                      </div>
+                      {(() => {
+                        const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);
+                        if (matchDates.length === 0) return null;
+                        const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean);
+                        const selectedSet = new Set<string>(selectedDates);
+                        function toggleAvailDate(iso: string) {
+                          const next = new Set<string>(selectedSet);
+                          if (next.has(iso)) next.delete(iso); else next.add(iso);
+                          const kept: string[] = [];
+                          next.forEach((v: string) => { if (matchDates.includes(v)) kept.push(v); });
+                          f("availabilityDates", kept.join(","));
+                        }
+                        return (
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5">
+                              <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
+                              Match Availability
+                            </Label>
+                            <p className="text-xs text-muted-foreground">Select the match days you will be available to play.</p>
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+                              {matchDates.map((iso: string) => {
+                                const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                                const checked = selectedSet.has(iso);
+                                return (
+                                  <label
+                                    key={iso}
+                                    className={`flex items-center gap-2 cursor-pointer text-sm px-3 py-2.5 min-h-11 rounded-md border transition-colors ${checked ? "border-amber-500/60 bg-amber-500/10 text-amber-300" : "border-border hover:bg-muted/50 text-muted-foreground"}`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleAvailDate(iso)}
+                                      className="accent-amber-400 h-4 w-4 shrink-0"
+                                    />
+                                    {label}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div className="space-y-2">
                         <Label>Achievements / Bio</Label>
-                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of Season 2024, 500+ runs..." />
+                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of Season 2024, 500+ runs..." className="h-11 sm:h-9" />
                       </div>
 
                       <div className="space-y-2">
                         <Label>Crichero Profile URL</Label>
-                        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." />
+                        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." type="url" inputMode="url" className="h-11 sm:h-9" />
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Photo URL (optional)</Label>
-                        <Input value={form.photoUrl} onChange={e => f("photoUrl", e.target.value)} placeholder="https://..." />
+                        <Label>Player Photo (optional)</Label>
+                        <div className="flex gap-3 items-start">
+                          <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {form.photoUrl ? (
+                              <img
+                                src={form.photoUrl}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              <User className="w-5 h-5 text-muted-foreground/40" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-1.5">
+                            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-11 sm:h-7 text-sm sm:text-xs gap-1.5 w-full sm:w-auto"
+                                onClick={() => setPhotoEditorOpen(true)}
+                              >
+                                {form.photoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
+                              </Button>
+                              {form.photoUrl && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-11 sm:h-7 text-sm sm:text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 w-full sm:w-auto"
+                                  onClick={() => f("photoUrl", "")}
+                                >
+                                  <X className="w-3.5 h-3.5" /> Remove
+                                </Button>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Upload, crop, enhance or remove the background.</p>
+                          </div>
+                        </div>
+                        <ImageEditorDialog
+                          open={photoEditorOpen}
+                          onClose={() => setPhotoEditorOpen(false)}
+                          initialUrl={form.photoUrl || undefined}
+                          aspect={1}
+                          title="Player Photo"
+                          onSave={url => f("photoUrl", url)}
+                        />
                       </div>
 
                       {categories && categories.length > 0 && (
                         <div className="space-y-2">
                           <Label>Preferred Category</Label>
                           <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
-                            <SelectTrigger><SelectValue placeholder="Select category (optional)" /></SelectTrigger>
-                            <SelectContent className="dark">
+                            <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select category (optional)" /></SelectTrigger>
+                            <SelectContent className="dark max-h-[min(50dvh,320px)]">
                               {categories.map(c => (
                                 <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                               ))}
@@ -528,12 +650,12 @@ export default function PlayerRegister() {
 
                       {/* WhatsApp consent */}
                       <div className="space-y-2">
-                        <label className="flex items-start gap-3 cursor-pointer group">
+                        <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1">
                           <input
                             type="checkbox"
                             checked={waConsent}
                             onChange={e => setWaConsent(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                            className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
                           />
                           <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
                             Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
@@ -554,7 +676,7 @@ export default function PlayerRegister() {
                       <Button
                         type="submit"
                         size="lg"
-                        className="w-full h-12 text-base font-bold"
+                        className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
                         disabled={registerPlayer.isPending}
                       >
                         {registerPlayer.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : "Submit Registration"}
@@ -566,7 +688,7 @@ export default function PlayerRegister() {
             )}
           </AnimatePresence>
 
-          <div className="mt-8 flex flex-col items-center gap-2 pb-4">
+          <div className="mt-6 sm:mt-8 flex flex-col items-center gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-30" />}
             <p className="text-[11px] text-muted-foreground/40 uppercase tracking-widest">{poweredByText}</p>
           </div>

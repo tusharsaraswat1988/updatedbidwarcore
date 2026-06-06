@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
@@ -252,15 +252,6 @@ function TeamForm({
                 </Button>
               )}
             </div>
-            <details className="text-xs">
-              <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Or paste an image URL</summary>
-              <Input
-                value={form.logoUrl}
-                onChange={e => setForm(f => ({ ...f, logoUrl: e.target.value }))}
-                placeholder="https://..."
-                className="h-8 mt-1.5"
-              />
-            </details>
           </div>
         </div>
         <ImageEditorDialog
@@ -322,14 +313,16 @@ export default function Teams() {
   const updateTeam = useUpdateTeam();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const existingShortCodes = (teams || []).map(t => t.shortCode);
   const basePurse = tournament?.basePurse ?? 10000000;
 
-  async function handleDelete(teamId: number) {
-    if (!confirm("Remove this team?")) return;
-    await deleteTeam.mutateAsync({ tournamentId, teamId });
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteTeam.mutateAsync({ tournamentId, teamId: deleteTarget.id });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+    setDeleteTarget(null);
   }
 
   async function handleRegenerateCode(teamId: number) {
@@ -424,12 +417,21 @@ export default function Teams() {
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-sm"
-                          style={{ backgroundColor: `${team.color}22`, color: team.color || "#fff", border: `1px solid ${team.color}44` }}
-                        >
-                          {team.shortCode}
-                        </div>
+                        {team.logoUrl ? (
+                          <img
+                            src={team.logoUrl}
+                            alt={team.name}
+                            className="w-10 h-10 rounded-lg object-contain border border-border bg-muted/20"
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : (
+                          <div
+                            className="w-10 h-10 rounded-lg flex items-center justify-center font-display font-bold text-sm"
+                            style={{ backgroundColor: `${team.color}22`, color: team.color || "#fff", border: `1px solid ${team.color}44` }}
+                          >
+                            {team.shortCode}
+                          </div>
+                        )}
                         <div>
                           <h3 className="font-bold text-lg leading-tight">{team.name}</h3>
                           <p className="text-xs text-muted-foreground">{team.ownerName}</p>
@@ -440,7 +442,12 @@ export default function Teams() {
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(team); setOpen(true); }}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(team.id)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -634,6 +641,33 @@ export default function Teams() {
           </div>
         )}
       </div>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Remove <strong className="text-foreground">{deleteTarget?.name}</strong> from this tournament? This cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteTeam.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={deleteTeam.isPending} onClick={() => void confirmDelete()}>
+              {deleteTeam.isPending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Removing…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Yes, remove
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -16,7 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
-import { openAuctionRoom } from "@/lib/tournament-navigation";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,8 +27,8 @@ import {
   Megaphone, Clapperboard, Loader2, Info, CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
 
-type SponsorLogo = { url: string; name: string };
 type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
 
 function SponsorLogosEditor({
@@ -45,36 +44,61 @@ function SponsorLogosEditor({
 }) {
   return (
     <div className="space-y-2">
+      {logos.length > 0 && (
+        <div className="hidden sm:grid sm:grid-cols-[3.5rem_1fr_1fr_2rem] sm:gap-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span>Logo *</span>
+          <span>Name</span>
+          <span>Type</span>
+          <span />
+        </div>
+      )}
       {logos.map((logo, i) => (
-        <div key={i} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/5 p-2">
-          <label className="cursor-pointer shrink-0" title="Click to replace logo image">
-            <div className="w-14 h-10 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
-              {uploadingIdx === i ? (
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-              ) : logo.url ? (
-                <img src={logo.url} alt={logo.name || "logo"} className="w-full h-full object-contain" />
-              ) : (
-                <Upload className="w-3.5 h-3.5 text-muted-foreground" />
-              )}
+        <div key={i} className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/5 p-2">
+          <div className="flex flex-col gap-1 shrink-0">
+            <span className="text-[10px] text-muted-foreground sm:hidden">Logo *</span>
+            <label className="cursor-pointer" title="Click to replace logo image">
+              <div className="w-14 h-10 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
+                {uploadingIdx === i ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                ) : logo.url ? (
+                  <img src={logo.url} alt={logo.name || logo.type || "logo"} className="w-full h-full object-contain" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, i); e.target.value = ""; }}
+                disabled={uploadingIdx !== null}
+              />
+            </label>
+          </div>
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] text-muted-foreground sm:hidden">Name</span>
+              <Input
+                className="h-8 text-sm"
+                value={logo.name ?? ""}
+                onChange={e => { const next = [...logos]; next[i] = { ...next[i], name: e.target.value }; onChange(next); }}
+                placeholder="Sponsor name (optional)"
+              />
             </div>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, i); e.target.value = ""; }}
-              disabled={uploadingIdx !== null}
-            />
-          </label>
-          <Input
-            className="flex-1 h-8 text-sm"
-            value={logo.name}
-            onChange={e => { const next = [...logos]; next[i] = { ...next[i], name: e.target.value }; onChange(next); }}
-            placeholder="Sponsor name"
-          />
+            <div className="space-y-1 min-w-0">
+              <span className="text-[10px] text-muted-foreground sm:hidden">Type</span>
+              <Input
+                className="h-8 text-sm"
+                value={logo.type ?? ""}
+                onChange={e => { const next = [...logos]; next[i] = { ...next[i], type: e.target.value }; onChange(next); }}
+                placeholder="Sponsor type (optional)"
+              />
+            </div>
+          </div>
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive mt-0 sm:mt-0"
             onClick={() => onChange(logos.filter((_, j) => j !== i))}
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -211,7 +235,7 @@ export default function TournamentSettings() {
     let initialSponsors: SponsorLogo[];
     try {
       const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
-      initialSponsors = Array.isArray(parsed) ? parsed : [];
+      initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
     setOrigSponsorLogos(initialSponsors);
@@ -307,7 +331,7 @@ export default function TournamentSettings() {
       if (data.url) {
         const url = data.url as string;
         if (idx === "new") {
-          setSponsorLogos(prev => [...prev, { url, name: "" }]);
+          setSponsorLogos(prev => [...prev, { url, name: "", type: "" }]);
         } else {
           setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, url } : l));
         }
@@ -549,15 +573,6 @@ export default function TournamentSettings() {
                     </Button>
                   )}
                 </div>
-                <details className="text-xs">
-                  <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Or paste an image URL</summary>
-                  <Input
-                    value={editForm.logoUrl as string || ""}
-                    onChange={e => setEditForm(f => ({ ...f, logoUrl: e.target.value }))}
-                    placeholder="https://..."
-                    className="h-8 mt-2"
-                  />
-                </details>
               </div>
             </div>
 
@@ -998,7 +1013,9 @@ export default function TournamentSettings() {
                 </Label>
                 <span className="text-[10px] text-muted-foreground">{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
               </div>
-              <p className="text-xs text-muted-foreground">Logos rotate in the LED display top-right corner every 2 seconds.</p>
+              <p className="text-xs text-muted-foreground">
+                Logo image is required; name and type are optional. Sponsors rotate on the LED display and OBS overlay every 2 seconds.
+              </p>
               <SponsorLogosEditor
                 logos={sponsorLogos}
                 onChange={setSponsorLogos}
@@ -1253,31 +1270,6 @@ export default function TournamentSettings() {
                   <span className="text-[11px] text-muted-foreground font-normal">Password-protected — operator gets one free reset before platform-level authorization is required.</span>
                 </div>
               </Button>
-            </div>
-
-            <div className="border-t border-border pt-4 space-y-3">
-              <Label className="text-sm font-semibold flex items-center gap-1.5">
-                <Gavel className="w-4 h-4 text-muted-foreground" /> Operator Recovery
-              </Label>
-              <p className="text-xs text-muted-foreground">Pause the auction or jump to the operator panel to undo the last bid.</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="gap-2 h-auto py-3"
-                  onClick={() => openAuctionRoom(tournamentId)}
-                >
-                  <Gavel className="w-4 h-4" />
-                  <span className="text-sm">Open Auction Room</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2 h-auto py-3"
-                  onClick={() => window.open(`/tournament/${tournamentId}/display`, "_blank")}
-                >
-                  <Monitor className="w-4 h-4" />
-                  <span className="text-sm">Reload LED Display</span>
-                </Button>
-              </div>
             </div>
 
             <div className="border-t border-border pt-4">

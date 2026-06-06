@@ -63,8 +63,8 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `SMS_OTP_ENABLED` | No | `true` | Dashboard | OTP uses default Twilio/BulkSMS path (not SMS-only mode) |
 | `GITHUB_PAT` | No | `ghp_...` | Secret | GitHub workflow trigger in settings returns 500 |
 | `RATE_LIMIT_DISABLED` | No | `false` | Dashboard | Rate limiting enabled (default) |
-| `RATE_LIMIT_GLOBAL_MAX` | No | `1000` | Dashboard | Defaults to 1000 req/window |
-| `RATE_LIMIT_AUTH_MAX` | No | `20` | Dashboard | Defaults to 20 |
+| `RATE_LIMIT_GLOBAL_MAX` | No | `2500` | Dashboard | Defaults to 2500 req/window |
+| `RATE_LIMIT_AUTH_MAX` | No | `100` | Dashboard | Defaults to 100 (500 in dev) |
 | `RATE_LIMIT_OTP_SEND_MAX` | No | `3` | Dashboard | Defaults to 3 |
 | `RATE_LIMIT_OTP_VERIFY_MAX` | No | `10` | Dashboard | Defaults to 10 |
 | `RATE_LIMIT_EXPORT_MAX` | No | `5` | Dashboard | Defaults to 5 |

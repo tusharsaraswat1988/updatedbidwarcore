@@ -22,6 +22,8 @@ import { useBranding } from "@/hooks/use-branding";
 
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
+import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
+import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 
 type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
@@ -1011,10 +1013,15 @@ export default function LiveViewerPage() {
   }, [state?.status, state?.currentPlayer?.id]);
 
   // ── Derived values ────────────────────────────────────────────────────────
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.displayCountdown],
+  );
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
   const hasPlayer = !!state?.currentPlayer;
-  const isActive = state?.status === "active";
-  const isPaused = state?.status === "paused";
+  const isActive = displayMode.isLive;
+  const isPaused = displayMode.isPaused;
+  const freezeBidUpdates = displayMode.freezeBidUpdates;
   const isIdle = !state || state.status === "idle";
   const isSold = (state?.status as string) === "sold";
   const isUnsold = (state?.status as string) === "unsold";
@@ -1174,14 +1181,25 @@ export default function LiveViewerPage() {
         </div>
 
         {/* ── Player section ─────────────────────────────────────────── */}
+        <div className="relative mb-4 min-h-[12rem]">
+          {displayMode.overlayMode && (
+            <AuctionStatusOverlay
+              mode={displayMode.overlayMode}
+              breakEndsAt={displayMode.breakEndsAt}
+              breakMessage={displayMode.breakMessage}
+              className="rounded-2xl"
+            />
+          )}
+
+          <div className={`transition-opacity duration-300 ${displayMode.showStatusOverlay && hasPlayer ? "opacity-40" : "opacity-100"}`}>
         <AnimatePresence mode="wait">
           {hasPlayer ? (
             // ── Active / live player card ──────────────────────────────
             <motion.div
               key={state?.currentPlayer?.id}
-              initial={{ opacity: 0, y: 14 }}
+              initial={freezeBidUpdates ? undefined : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -14 }}
+              exit={freezeBidUpdates ? undefined : { opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
               className="mb-4 p-4 sm:p-5 rounded-2xl backdrop-blur border transition-colors"
               style={{
@@ -1289,6 +1307,14 @@ export default function LiveViewerPage() {
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
                       {isSold ? "Sold at" : isUnsold ? "Last Bid" : "Current Bid"}
                     </p>
+                    {freezeBidUpdates ? (
+                      <p
+                        className="font-display font-black text-5xl sm:text-6xl leading-none"
+                        style={{ color: teamColor, textShadow: `0 0 28px ${teamColor}55` }}
+                      >
+                        {formatIndianRupee(state?.currentBid || 0)}
+                      </p>
+                    ) : (
                     <motion.p
                       key={state?.currentBid ?? 0}
                       initial={{ scale: 0.82, opacity: 0 }}
@@ -1299,10 +1325,34 @@ export default function LiveViewerPage() {
                     >
                       {formatIndianRupee(state?.currentBid || 0)}
                     </motion.p>
+                    )}
                   </div>
 
                   {/* Leading / sold-to team chip */}
                   {state?.currentBidTeamName ? (
+                    freezeBidUpdates ? (
+                      <div>
+                      <span
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
+                        style={{
+                          borderColor: `${teamColor}55`,
+                          backgroundColor: `${teamColor}15`,
+                          color: teamColor,
+                        }}
+                      >
+                        {(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl ? (
+                          <img
+                            src={(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl!}
+                            alt=""
+                            className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                        )}
+                        {isSold ? `Sold to ${state.currentBidTeamName}` : state.currentBidTeamName}
+                      </span>
+                      </div>
+                    ) : (
                     <motion.div
                       key={state.currentBidTeamId}
                       initial={{ opacity: 0, x: -8 }}
@@ -1328,6 +1378,7 @@ export default function LiveViewerPage() {
                         {isSold ? `Sold to ${state.currentBidTeamName}` : state.currentBidTeamName}
                       </span>
                     </motion.div>
+                    )
                   ) : isUnsold ? (
                     <div className="flex justify-center sm:justify-start">
                       <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
@@ -1477,7 +1528,7 @@ export default function LiveViewerPage() {
               className="mb-5 py-12 px-6 rounded-2xl bg-card/30 border border-dashed border-border/40 flex flex-col items-center justify-center text-center gap-3"
             >
               <Gavel className="w-10 h-10 text-muted-foreground/25" />
-              {isPaused ? (
+              {isPaused && !displayMode.overlayMode ? (
                 <>
                   <p className="font-display font-bold text-lg text-amber-400">Auction Paused</p>
                   <p className="text-sm text-muted-foreground">The operator has paused the auction.</p>
@@ -1491,6 +1542,8 @@ export default function LiveViewerPage() {
             </motion.div>
           )}
         </AnimatePresence>
+          </div>
+        </div>
 
         {/* ── Team grid ──────────────────────────────────────────────── */}
         {teamPurses && teamPurses.length > 0 && (
@@ -1759,11 +1812,11 @@ export default function LiveViewerPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Break / Pre-Auction countdown overlay ────────────────────────── */}
-      {stickyDc && (
+      {/* ── Pre-Auction countdown overlay (full-screen; break uses shared banner) ── */}
+      {stickyDc?.type === "pre-auction" && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}
-          type={stickyDc.type}
+          type="pre-auction"
           endsAt={stickyDc.endsAt}
           message={stickyDc.message}
           tournamentName={tournament?.name}

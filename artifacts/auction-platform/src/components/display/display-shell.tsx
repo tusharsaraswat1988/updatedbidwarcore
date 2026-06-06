@@ -18,12 +18,17 @@ import { FullscreenLayout } from "@/components/layout";
 import { StaticBackground } from "./static-background";
 import { AuctionHeader } from "./auction-header";
 import type { DisplayTheme } from "@/lib/display-theme";
+import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { PlayerCard } from "./player-card";
 import { BidDisplay } from "./bid-display";
 import { IdleScreen } from "./idle-screen";
 import { AnimatedEffectsLayer } from "./animated-effects-layer";
 import { OverlayManager } from "./overlay-manager";
+import { SponsorTicker } from "./sponsor-ticker";
+import { Top5Overlay } from "./top5-overlay";
 import { BreakCountdownOverlay } from "./break-countdown-overlay";
+import { AuctionStatusOverlay } from "./auction-status-overlay";
+import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { useSoldAnimation } from "./use-sold-animation";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
@@ -172,18 +177,21 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   // Sticky countdown for the visual overlay — holds the pre-auction countdown
   // alive for 5 s after the server clears it so the 4-s banner can complete.
   const stickyDc = useStickyCountdown(_dc);
-  const stickyCountdownType = stickyDc?.type ?? null;
-  const stickyCountdownEndsAt = stickyDc?.endsAt ?? null;
-
-  const isActive = state?.status === "active";
-  const isPaused = state?.status === "paused";
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.displayCountdown],
+  );
+  const isActive = displayMode.isLive;
+  const isPaused = displayMode.isPaused;
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
 
+  const stickyPreAuction = stickyDc?.type === "pre-auction" ? stickyDc : null;
+
   // Memoized derived values so memo'd children get stable prop identity.
-  const sponsorLogos = useMemo<{ url: string; name: string }[]>(() => {
-    if (!tournament?.sponsorLogos) return [];
-    try { return JSON.parse(tournament.sponsorLogos); } catch { return []; }
-  }, [tournament?.sponsorLogos]);
+  const sponsorLogos = useMemo(
+    () => parseSponsorLogos(tournament?.sponsorLogos),
+    [tournament?.sponsorLogos],
+  );
 
   const playerSpecs = useMemo<string[]>(() => {
     if (!state?.currentPlayer) return [];
@@ -255,15 +263,6 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   // ── Render ───────────────────────────────────────────────────────────
   return (
     <FullscreenLayout>
-      {/* DisplayFooter (sponsor ticker) uses this keyframe. Kept globally
-          available so the footer can be enabled in the future without
-          re-declaring the animation. */}
-      <style>{`
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-      `}</style>
       <StaticBackground teamColor={teamColor} theme={theme}>
         <AuctionHeader
           tournament={tournament ?? undefined}
@@ -279,11 +278,11 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           {/* Break / Pre-Auction countdown — scoped to content area so the top
               AuctionHeader / sponsor strip remains visible. z-10 keeps it below
               the sold-stamp animations (z-20) in the stacking order. */}
-          {stickyCountdownType && stickyCountdownEndsAt && (
-            <div key={stickyCountdownEndsAt} className="absolute inset-0 z-10">
+          {stickyPreAuction && (
+            <div key={stickyPreAuction.endsAt} className="absolute inset-0 z-10">
               <BreakCountdownOverlay
-                type={stickyCountdownType}
-                endsAt={stickyCountdownEndsAt}
+                type="pre-auction"
+                endsAt={stickyPreAuction.endsAt}
                 message={displayCountdownLabel}
                 tournamentName={tournament?.name ?? null}
               />
@@ -291,10 +290,27 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           )}
 
           {/* SOLD animations layered above countdown (z-20) and main content */}
-          <AnimatedEffectsLayer soldPhase={soldPhase} soldRecord={soldRecord} />
+          {overlayMode !== "top5" && !displayMode.freezeBidUpdates && (
+            <AnimatedEffectsLayer soldPhase={soldPhase} soldRecord={soldRecord} />
+          )}
 
-          {state?.currentPlayer ? (
-            <div className="w-full max-w-6xl">
+          {displayMode.overlayMode && (
+            <AuctionStatusOverlay
+              mode={displayMode.overlayMode}
+              breakEndsAt={displayMode.breakEndsAt}
+              breakMessage={displayMode.breakMessage}
+            />
+          )}
+
+          {overlayMode === "top5" ? (
+            <Top5Overlay
+              players={allPlayers ?? EMPTY_PLAYERS}
+              purses={stripPurses}
+            />
+          ) : state?.currentPlayer ? (
+            <div
+              className={`w-full max-w-6xl transition-opacity duration-300 ${displayMode.showStatusOverlay ? "opacity-40" : "opacity-100"}`}
+            >
               <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 lg:gap-16">
                 {/* PlayerCard / BidDisplay get PRIMITIVE props only. `state` and
                     `state.currentPlayer` are fresh object references on every SSE
@@ -327,6 +343,8 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                   timerEndsAt={state.timerEndsAt}
                   timerType={state.timerType}
                   playerTag={(state.currentPlayer as { playerTag?: string | null }).playerTag ?? null}
+                  freezeBidTimer={displayMode.freezeBidUpdates}
+                  disableBidAnimations={displayMode.freezeBidUpdates}
                 />
               </div>
             </div>
@@ -342,13 +360,11 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           )}
         </div>
 
-        {/* Bottom team purse strip removed from broadcast — team info is shown on
-            demand via the dedicated Team overlay (operator-controlled) to keep the
-            live display clean and reduce per-team Framer Motion + box-shadow load. */}
+        <SponsorTicker logos={sponsorLogos} themeAccent={theme?.accentColor} />
 
         {/* Audio unlock nudge — fades away after first user interaction */}
         {audioSettings?.audioEnabled && !isUnlocked && (
-          <div className="absolute bottom-5 right-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm">
+          <div className={`absolute right-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm ${sponsorLogos.some(l => l.name?.trim()) ? "bottom-14" : "bottom-5"}`}>
             <Volume2 className="w-3 h-3" />
             Click anywhere to enable audio
           </div>

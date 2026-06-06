@@ -20,17 +20,17 @@ const MEGA_BID_TIERS = JSON.stringify([
   { increment: 1000000 },
 ]);
 
-// sponsorLogos stored as JSON array of { url, name } — matches frontend SponsorLogo type
+// sponsorLogos stored as JSON array of { url, name?, type? }
 const IPL_SPONSORS = JSON.stringify([
-  { url: sponsorLogoUrl("DreamSports", "#7C3AED"), name: "DreamSports" },
-  { url: sponsorLogoUrl("PayFast", "#059669"),     name: "PayFast" },
-  { url: sponsorLogoUrl("StarPlay", "#DC2626"),    name: "StarPlay" },
+  { url: sponsorLogoUrl("DreamSports", "#7C3AED"), name: "DreamSports", type: "Title Sponsor" },
+  { url: sponsorLogoUrl("PayFast", "#059669"),     name: "PayFast",     type: "Associate Sponsor" },
+  { url: sponsorLogoUrl("StarPlay", "#DC2626"),    name: "StarPlay",    type: "Media Partner" },
 ]);
 
 const MEGA_SPONSORS = JSON.stringify([
-  { url: sponsorLogoUrl("BetKing", "#D97706"),  name: "BetKing" },
-  { url: sponsorLogoUrl("CricFlex", "#0284C7"), name: "CricFlex" },
-  { url: sponsorLogoUrl("FanZone", "#DB2777"),  name: "FanZone" },
+  { url: sponsorLogoUrl("BetKing", "#D97706"),  name: "BetKing",  type: "Title Sponsor" },
+  { url: sponsorLogoUrl("CricFlex", "#0284C7"), name: "CricFlex", type: "Venue Partner" },
+  { url: sponsorLogoUrl("FanZone", "#DB2777"),  name: "FanZone",  type: "Digital Partner" },
 ]);
 
 const IPL_TEAMS = [

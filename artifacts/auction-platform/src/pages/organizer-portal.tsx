@@ -7,7 +7,9 @@ import {
   signupVerify,
   setOrganizerPassword,
   fetchAuthConfig,
+  fetchLoginGuardStatus,
   loginOrganizerAccount,
+  type LoginGuardStatus,
   checkOrganizerAccountAuth,
   logoutOrganizerAccount,
   createOrganizerTournament,
@@ -28,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings,
+  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock,
 } from "lucide-react";
 
 type OrganizerInfo = {
@@ -539,10 +541,51 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const [signupResending, setSignupResending] = useState(false);
 
   const [smsOtpEnabled, setSmsOtpEnabled] = useState(false);
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
+  const [loginGuard, setLoginGuard] = useState<LoginGuardStatus | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [cooldownSec, setCooldownSec] = useState(0);
 
   useEffect(() => {
-    fetchAuthConfig().then(cfg => setSmsOtpEnabled(cfg.smsOtpEnabled));
+    fetchAuthConfig().then(cfg => {
+      setSmsOtpEnabled(cfg.smsOtpEnabled);
+      setTurnstileSiteKey(cfg.turnstileSiteKey);
+    });
   }, []);
+
+  useEffect(() => {
+    if (view !== "login") return;
+    const id = loginForm.identifier.trim();
+    if (!id) {
+      setLoginGuard(null);
+      setCooldownSec(0);
+      return;
+    }
+    const t = setTimeout(() => {
+      void fetchLoginGuardStatus(id).then(guard => {
+        setLoginGuard(guard);
+        setCooldownSec(guard.cooldownRemainingSec);
+        if (guard.captcha?.captchaId) setCaptchaAnswer("");
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [view, loginForm.identifier]);
+
+  useEffect(() => {
+    if (cooldownSec <= 0) return;
+    const t = setInterval(() => {
+      setCooldownSec(s => {
+        if (s <= 1) {
+          void fetchLoginGuardStatus(loginForm.identifier.trim()).then(guard => {
+            setLoginGuard(guard);
+          });
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [cooldownSec, loginForm.identifier]);
 
   useEffect(() => {
     if (signupResendCooldown <= 0) return;
@@ -552,18 +595,37 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!loginForm.identifier || !loginForm.password) return;
+    if (!loginForm.identifier || !loginForm.password || cooldownSec > 0) return;
     setLoading(true);
     setError("");
-    const r = await loginOrganizerAccount(loginForm.identifier, loginForm.password);
+    const r = await loginOrganizerAccount(loginForm.identifier, loginForm.password, {
+      captchaId: loginGuard?.captcha?.captchaId,
+      captchaAnswer: captchaAnswer || undefined,
+    });
     setLoading(false);
-    if (!r.success) { setError(r.error || "Login failed"); return; }
+    if (!r.success) {
+      setError(r.error || "Login failed");
+      if (r.loginGuard) {
+        setLoginGuard(r.loginGuard);
+        setCooldownSec(r.loginGuard.cooldownRemainingSec);
+        setCaptchaAnswer("");
+      }
+      return;
+    }
+    setLoginGuard(null);
+    setCooldownSec(0);
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) {
       onSuccess(me.organizer, me.tournaments ?? []);
       if (next && next.startsWith("/")) navigate(next);
     }
   }
+
+  const captchaRequired = !!loginGuard?.captchaRequired;
+  const signInDisabled =
+    loading ||
+    cooldownSec > 0 ||
+    (captchaRequired && !captchaAnswer.trim());
 
   async function handleSignupEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -724,10 +786,28 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                       </button>
                     </div>
                   </div>
+                  {captchaRequired && loginGuard?.captcha && !turnstileSiteKey && (
+                    <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-3">
+                      <Label className="text-sm text-muted-foreground">{loginGuard.captcha.question}</Label>
+                      <Input
+                        value={captchaAnswer}
+                        onChange={e => setCaptchaAnswer(e.target.value)}
+                        placeholder="Your answer"
+                        inputMode="numeric"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                  {cooldownSec > 0 && (
+                    <p className="text-amber-400 text-sm flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      Too many failed attempts. Try again in {cooldownSec}s.
+                    </p>
+                  )}
                   {error && <p className="text-destructive text-sm flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full" disabled={signInDisabled}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Sign In
+                    {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
                   </Button>
                   <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                     By continuing, you agree to BidWar{" "}
@@ -743,6 +823,15 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                     <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
                   </div>
                   <GoogleSignInButton next={next} />
+                  <p className="text-center text-xs text-muted-foreground">
+                    Need help?{" "}
+                    <a
+                      href="mailto:bidwarsupport@gmail.com"
+                      className="text-primary hover:underline underline-offset-2"
+                    >
+                      Contact Support
+                    </a>
+                  </p>
                 </motion.form>
               ) : (
                 <motion.div
@@ -1313,30 +1402,42 @@ function OrganizerDashboard({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.985, y: 0 }}
                 >
-                  <Card className="border-border/50 bg-card/30 hover:border-border transition-all h-full">
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/tournament/${t.id}`)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/tournament/${t.id}`);
+                      }
+                    }}
+                    className="group border-border/50 bg-card/30 h-full cursor-pointer select-none transition-all duration-200 hover:border-primary/35 hover:bg-card/55 hover:shadow-[0_10px_40px_rgba(0,0,0,0.45),0_0_0_1px_hsl(var(--primary)/0.12)] active:shadow-[0_4px_20px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
                     <CardContent className="p-5 space-y-3">
-                      <button className="w-full text-left" onClick={() => navigate(`/tournament/${t.id}`)}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
-                            <TournamentLicenseBadge status={t.licenseStatus} />
-                          </div>
-                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] uppercase">{t.sport}</Badge>
+                          <TournamentLicenseBadge status={t.licenseStatus} />
                         </div>
-                        <div className="mt-3">
-                          <p className="font-bold text-base leading-snug">{t.name}</p>
-                          <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
-                            {t.status}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
+                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-0.5 transition-colors" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-base leading-snug group-hover:text-primary transition-colors">{t.name}</p>
+                        <p className={`text-[11px] font-semibold uppercase mt-0.5 ${statusColor[t.status] || "text-muted-foreground"}`}>
+                          {t.status}
                         </p>
-                      </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {[t.venue, t.auctionDate].filter(Boolean).join(" · ") || `Created ${new Date(t.createdAt).toLocaleDateString("en-IN")}`}
+                      </p>
                       <div className="pt-2 border-t border-border/40">
                         <button
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                          type="button"
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30"
                           onClick={e => { e.stopPropagation(); setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
                         >
                           <CheckCheck className="w-3 h-3" />

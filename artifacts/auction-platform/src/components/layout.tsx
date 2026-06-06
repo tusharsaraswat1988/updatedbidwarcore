@@ -1,11 +1,12 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
-  Settings, Activity, BarChart3, Coffee,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel,
+  Settings, Activity, BarChart3,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, Dices, Download,
 } from "lucide-react";
-import { auctionRoomPath } from "@/lib/tournament-navigation";
+import { auctionRoomPath, displayScreenPath } from "@/lib/tournament-navigation";
+import { exportTournamentForLocal } from "@/lib/tournament-export";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { logoutOrganizerAccount } from "@/lib/auth";
@@ -60,8 +61,45 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   });
 
   const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem("sidebar-collapsed") === "true"; } catch { return false; }
+    try {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) return true;
+      return localStorage.getItem("sidebar-collapsed") === "true";
+    } catch { return false; }
   });
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Auto-collapse sidebar on narrow viewports so main content is never squeezed
+  // (e.g. accidental mobile emulation or small browser window).
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    function sync(e: MediaQueryList | MediaQueryListEvent) {
+      const narrow = "matches" in e ? e.matches : mq.matches;
+      if (narrow) {
+        setCollapsed(true);
+      } else {
+        try {
+          setCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
+        } catch {
+          setCollapsed(false);
+        }
+      }
+    }
+    sync(mq);
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  async function handleExportForLocal() {
+    if (!tournamentId || exportLoading) return;
+    setExportLoading(true);
+    try {
+      await exportTournamentForLocal(tournamentId, tournament?.name);
+    } catch {
+      alert("Export failed. Please try again.");
+    } finally {
+      setExportLoading(false);
+    }
+  }
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -141,9 +179,9 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
               )}
               {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-                <Link href={`/tournament/${tournamentId}`} title="Tournament Setup" className={navCls(`/tournament/${tournamentId}`)}>
+                <Link href={`/tournament/${tournamentId}`} title="Dashboard" className={navCls(`/tournament/${tournamentId}`)}>
                   <Activity className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">Setup</span>}
+                  {!collapsed && <span className="font-medium">Dashboard</span>}
                 </Link>
                 <Link href={`/tournament/${tournamentId}/teams`} title="Teams" className={navCls(`/tournament/${tournamentId}/teams`)}>
                   <Users className="w-5 h-5 flex-shrink-0" />
@@ -215,39 +253,55 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 <a
                   href={auctionRoomPath(tournamentId)}
                   target="_blank"
-                  title="Open Auction Room in a new tab"
+                  title="Open the operator panel in a new tab"
                   className={`flex items-center rounded-md transition-colors font-bold ${
                     collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
                   } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
                 >
                   <Gavel className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Open Auction Room</span>}
+                  {!collapsed && <span>Go to Operator Panel</span>}
                 </a>
                 {!collapsed && (
-                  <Link
-                    href={`/tournament/${tournamentId}/break-timer`}
-                    title="Break Timer"
-                    className={navCls(`/tournament/${tournamentId}/break-timer`)}
-                  >
-                    <Coffee className="w-5 h-5 flex-shrink-0" />
-                    <span>Break Timer</span>
-                  </Link>
-                )}
-                {!collapsed && (
-                  <Link
-                    href={`/tournament/${tournamentId}/display`}
+                  <a
+                    href={displayScreenPath(tournamentId, tournament?.auctionCode)}
                     target="_blank"
-                    title="Open LED Display"
+                    rel="noopener noreferrer"
+                    title={
+                      tournament?.auctionCode
+                        ? `LED display screen — tournament code: ${tournament.auctionCode}`
+                        : "LED display screen — use tournament code to open"
+                    }
                     className="flex items-center gap-3 px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all mt-1"
                   >
                     <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-                    <span>Open LED Display</span>
-                  </Link>
+                    <span className="flex flex-col leading-tight min-w-0">
+                      <span className="font-medium">LED Display Screen</span>
+                      <span className="text-[10px] text-muted-foreground/80 normal-case">
+                        (use tournament code to open)
+                      </span>
+                    </span>
+                  </a>
                 )}
                 <Link href={`/tournament/${tournamentId}/links`} title="Share Links" className={navCls(`/tournament/${tournamentId}/links`)}>
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span>Share Links</span>}
                 </Link>
+                <Link href={`/tournament/${tournamentId}/fortune-wheel`} title="Fortune Wheel" className={navCls(`/tournament/${tournamentId}/fortune-wheel`)}>
+                  <Dices className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>Fortune Wheel</span>}
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleExportForLocal}
+                  disabled={exportLoading}
+                  title="Export tournament data for local mode"
+                  className={`flex items-center rounded-md transition-colors disabled:opacity-50 ${
+                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
+                  } text-muted-foreground hover:bg-accent hover:text-foreground`}
+                >
+                  <Download className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>{exportLoading ? "Exporting..." : "Export for Local"}</span>}
+                </button>
                 {!collapsed && (
                   <Link href={`/tournament/${tournamentId}/reset`} title="Reset Auction" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                     location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
@@ -256,31 +310,20 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <span>Reset Auction</span>
                   </Link>
                 )}
-                {tournament?.localModeEnabled ? (
-                  <Link
-                    href={`/tournament/${tournamentId}/local-mode`}
-                    title="Local Mode"
-                    className={navCls(`/tournament/${tournamentId}/local-mode`)}
-                  >
-                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span>Local Mode</span>}
-                  </Link>
-                ) : (
-                  <div
-                    title="Local Mode is not enabled for this tournament. Contact your admin."
-                    className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                      collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                    }`}
-                  >
-                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && (
-                      <>
-                        <span className="font-medium">Local Mode</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Disabled</span>
-                      </>
-                    )}
-                  </div>
-                )}
+                <div
+                  title="Local Mode — coming soon"
+                  className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
+                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
+                  }`}
+                >
+                  <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="font-medium">Local Mode</span>
+                      <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Coming Soon</span>
+                    </>
+                  )}
+                </div>
               </nav>
             </>
           )}
@@ -315,7 +358,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
 export function FullscreenLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground dark overflow-hidden relative">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground dark overflow-x-hidden relative">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-accent/30 via-background to-background pointer-events-none" />
       <div className="relative z-10 w-full h-full">
         {children}

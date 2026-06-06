@@ -3807,13 +3807,7 @@ function ShowcasePanel() {
                   className="w-full h-36 object-cover rounded-lg border border-border/30"
                 />
               )}
-              <div className="flex gap-2">
-                <Input
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="text-sm flex-1"
-                />
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="cursor-pointer">
                   <input
                     type="file"
@@ -3829,15 +3823,27 @@ function ShowcasePanel() {
                     variant="outline"
                     className="gap-1.5 pointer-events-none"
                     disabled={uploading}
+                    type="button"
                   >
                     {uploading
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       : <Plus className="w-3.5 h-3.5" />}
-                    Upload
+                    {imageUrl ? "Replace Photo" : "Upload Photo"}
                   </Button>
                 </label>
+                {imageUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setImageUrl("")}
+                  >
+                    Remove
+                  </Button>
+                )}
               </div>
-              <p className="text-[10px] text-muted-foreground">Paste a URL or upload a photo (JPEG, PNG, WebP — max 15 MB)</p>
+              <p className="text-[10px] text-muted-foreground">Upload a photo (JPEG, PNG, WebP — max 15 MB)</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

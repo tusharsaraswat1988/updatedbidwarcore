@@ -17,3 +17,19 @@ export function formatShortIndianRupee(amount: number | null | undefined): strin
   }
   return formatIndianRupee(amount);
 }
+
+/** IPL-style sold line for broadcast overlays, e.g. SOLD FOR ₹12.50 LAKH */
+export function formatSoldForBroadcast(amount: number | null | undefined): string {
+  if (amount == null || amount <= 0) return "SOLD FOR —";
+  if (amount >= 10000000) {
+    const cr = amount / 10000000;
+    const val = cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(2);
+    return `SOLD FOR ₹${val} CRORE`;
+  }
+  if (amount >= 100000) {
+    const lakh = amount / 100000;
+    const val = lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(2);
+    return `SOLD FOR ₹${val} LAKH`;
+  }
+  return `SOLD FOR ${formatIndianRupee(amount)}`;
+}

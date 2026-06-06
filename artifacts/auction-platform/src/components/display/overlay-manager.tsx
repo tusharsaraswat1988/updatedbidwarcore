@@ -2,7 +2,6 @@ import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TeamOverlay } from "./team-overlay";
 import { PlayerOverlay } from "./player-overlay";
-import { Top5Overlay } from "./top5-overlay";
 import { FortuneWheelOverlay } from "./fortune-wheel-overlay";
 import { BannerOverlay } from "./banner-overlay";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
@@ -11,8 +10,10 @@ import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem
  * Orchestrates the mutually-coordinated full-screen overlays:
  *   - team-purse table (operator-toggled)
  *   - player registry table (operator-toggled, filterable)
- *   - top-5 buys leaderboard (operator-toggled)
  *   - fortune wheel (separate `fortuneWheelActive` flag, can stack)
+ *
+ * Top 5 Buys is rendered in the main content area of DisplayShell (not here)
+ * so the auction header and sponsor ticker stay visible.
  *
  * Break/pre-auction countdown is intentionally NOT rendered here — it is
  * rendered directly in the main content area of DisplayShell so it does not
@@ -59,7 +60,7 @@ export const OverlayManager = memo(function OverlayManager({
 }) {
   return (
     <>
-      {/* LED Display Overlays — Team / Player / Top 5 */}
+      {/* LED Display Overlays — Team / Player / Banner */}
       <AnimatePresence mode="wait">
         {overlayMode === "team" && stripPurses.length > 0 && (
           <motion.div
@@ -92,22 +93,6 @@ export const OverlayManager = memo(function OverlayManager({
               categories={allCategories}
               tournamentName={tournamentName ?? undefined}
               filter={playerFilter}
-            />
-          </motion.div>
-        )}
-        {overlayMode === "top5" && (
-          <motion.div
-            key="overlay-top5"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0"
-          >
-            <Top5Overlay
-              players={allPlayers}
-              purses={stripPurses}
-              tournamentName={tournamentName ?? undefined}
             />
           </motion.div>
         )}

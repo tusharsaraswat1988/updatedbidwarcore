@@ -66,6 +66,20 @@ import {
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 
+function playerMatchesSearch(
+  player: { id: number; name: string },
+  rawQuery: string,
+): boolean {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) return true;
+
+  if (player.name.toLowerCase().includes(query)) return true;
+
+  if (/^\d+$/.test(query) && String(player.id) === query) return true;
+
+  return false;
+}
+
 // ─── Countdown clock (live) ───────────────────────────────────────────────────
 
 function CountdownClock({ endsAt }: { endsAt: string }) {
@@ -150,18 +164,6 @@ function CircularTimer({
       </div>
       <p className="text-xs text-white/25 mt-0.5">of {totalSeconds}s window</p>
     </div>
-  );
-}
-
-// ─── BIDWAR wordmark ──────────────────────────────────────────────────────────
-
-function BidWarMark({ size = "base" }: { size?: "sm" | "base" | "lg" }) {
-  const cls = size === "lg" ? "text-xl" : size === "sm" ? "text-sm" : "text-lg";
-  return (
-    <span className={`${cls} font-black tracking-tight leading-none select-none`}>
-      <span className="text-yellow-400">BID</span>
-      <span className="text-white">WAR</span>
-    </span>
   );
 }
 
@@ -559,11 +561,10 @@ export default function AuctionOperator() {
     retained:  retainedPlayers.length,
   };
 
-  // Left panel list — filtered by status then search
-  const searchLower = playerSearch.trim().toLowerCase();
-  const filterBySearch = <T extends { name: string; jerseyNumber?: string | null }>(list: T[]): T[] =>
-    searchLower
-      ? list.filter(p => p.name.toLowerCase().includes(searchLower) || (p.jerseyNumber != null && p.jerseyNumber.includes(searchLower)))
+  // Left panel list — filtered by status then search (name or player serial number)
+  const filterBySearch = <T extends { id: number; name: string }>(list: T[]): T[] =>
+    playerSearch.trim()
+      ? list.filter(p => playerMatchesSearch(p, playerSearch))
       : list;
 
   const statusBasedList = statusFilter === "all"       ? allPlayers
@@ -692,18 +693,7 @@ export default function AuctionOperator() {
             <span className="lg:hidden">Reauction</span>
           </button>
 
-          {/* ── BIDWAR branding — centred ── */}
-          <div className="flex-1 min-w-0 flex items-center justify-center">
-            <div className="flex items-center gap-2 select-none">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                <path d="M14 4L20 10L10 20L4 14L14 4Z" stroke="#eab308" strokeWidth="2" strokeLinejoin="round"/>
-                <path d="M20 10L22 12" stroke="#eab308" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M4 14L2 16" stroke="#eab308" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M8 20H4V16" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <BidWarMark />
-            </div>
-          </div>
+          <div className="flex-1 min-w-0" aria-hidden />
 
           {/* Trial badge */}
           {isTrialMode && (
@@ -942,16 +932,6 @@ export default function AuctionOperator() {
                     </div>
                   )}
                 </div>
-
-                {/* Shuffle / random next */}
-                <button
-                  title="Random next player"
-                  disabled={!isActive || nextPlayer.isPending}
-                  onClick={() => handleNextPlayer("random")}
-                  className="h-6 w-6 flex items-center justify-center rounded text-white/30 hover:text-white/65 disabled:opacity-25 transition-colors"
-                >
-                  <Shuffle className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
 
@@ -962,7 +942,7 @@ export default function AuctionOperator() {
                 <input
                   value={playerSearch}
                   onChange={e => setPlayerSearch(e.target.value)}
-                  placeholder="Search player…"
+                  placeholder="Search name or serial no…"
                   className="w-full h-7 pl-6 pr-6 bg-white/5 border border-white/8 rounded text-xs text-white/60 placeholder:text-white/25 outline-none focus:border-yellow-400/30"
                 />
                 {playerSearch && (

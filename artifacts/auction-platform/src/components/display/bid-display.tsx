@@ -39,6 +39,8 @@ export const BidDisplay = memo(function BidDisplay({
   timerEndsAt,
   timerType,
   playerTag,
+  freezeBidTimer = false,
+  disableBidAnimations = false,
 }: {
   playerId: number;
   playerName: string;
@@ -56,6 +58,8 @@ export const BidDisplay = memo(function BidDisplay({
   timerEndsAt: string | null | undefined;
   timerType: string | null | undefined;
   playerTag?: string | null;
+  freezeBidTimer?: boolean;
+  disableBidAnimations?: boolean;
 }) {
   const tag = getTagTheme(playerTag);
   return (
@@ -127,22 +131,58 @@ export const BidDisplay = memo(function BidDisplay({
 
       <div>
         <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">Current Bid</p>
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={currentBid ?? 0}
-            initial={{ scale: 0.6, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 1.2, opacity: 0 }}
-            transition={{ type: "spring", bounce: 0.5 }}
+        {disableBidAnimations ? (
+          <p
             className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
             style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
           >
             {formatIndianRupee(currentBid || 0)}
-          </motion.p>
-        </AnimatePresence>
+          </p>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={currentBid ?? 0}
+              initial={{ scale: 0.6, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 1.2, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0.5 }}
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
+              style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
+            >
+              {formatIndianRupee(currentBid || 0)}
+            </motion.p>
+          </AnimatePresence>
+        )}
       </div>
 
       {currentBidTeamName ? (
+        disableBidAnimations ? (
+          <div
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border-2"
+            style={{
+              borderColor: teamColor,
+              backgroundColor: `${teamColor}18`,
+              boxShadow: `0 0 40px ${teamColor}44`,
+            }}
+          >
+            {currentBidTeamLogoUrl ? (
+              <img
+                src={cldUrl(currentBidTeamLogoUrl, "teamLogo")}
+                alt={currentBidTeamName}
+                className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
+                style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+                loading="eager"
+                decoding="async"
+                onError={e => (e.currentTarget.style.display = "none")}
+              />
+            ) : (
+              <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor }} />
+            )}
+            <span className="text-xl md:text-3xl font-display font-black" style={{ color: teamColor }}>
+              {currentBidTeamName}
+            </span>
+          </div>
+        ) : (
         <motion.div
           key={currentBidTeamId ?? 0}
           initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -171,13 +211,22 @@ export const BidDisplay = memo(function BidDisplay({
             {currentBidTeamName}
           </span>
         </motion.div>
+        )
       ) : (
         <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border/50 text-muted-foreground">
           <span className="text-lg font-semibold">Waiting for first bid...</span>
         </div>
       )}
 
-      <AuctionCountdown timerEndsAt={timerEndsAt} timerType={timerType} />
+      {freezeBidTimer ? (
+        timerEndsAt ? (
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-yellow-500/35 bg-yellow-500/10">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-yellow-400/90">Timer Paused</span>
+          </div>
+        ) : null
+      ) : (
+        <AuctionCountdown timerEndsAt={timerEndsAt} timerType={timerType} />
+      )}
 
       <p className="text-sm text-muted-foreground">
         Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(playerBasePrice)}</span>

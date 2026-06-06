@@ -3,6 +3,12 @@ import type { Request, Response } from "express";
 import { logger } from "./logger";
 
 const disabled = process.env.RATE_LIMIT_DISABLED === "true";
+const isDev = process.env.NODE_ENV !== "production";
+
+function authLimit(): number {
+  const configured = Number(process.env.RATE_LIMIT_AUTH_MAX ?? 100);
+  return isDev ? Math.max(configured, 500) : configured;
+}
 
 /**
  * Returns true for auction-related endpoints that must NEVER be rate-limited.
@@ -23,6 +29,11 @@ export function isAuctionEndpoint(req: Request): boolean {
   );
 }
 
+/** Auth routes use dedicated tier-2 limiters — skip the global catch-all. */
+export function isAuthEndpoint(req: Request): boolean {
+  return req.path.includes("/auth/");
+}
+
 function onLimitReached(req: Request, _res: Response, limitName: string) {
   logger.warn(
     { method: req.method, path: req.path, ip: req.ip },
@@ -31,16 +42,15 @@ function onLimitReached(req: Request, _res: Response, limitName: string) {
 }
 
 /**
- * TIER 1 — Global catch-all (1000 req / 15 min per IP).
- * Automatically skips all auction-related endpoints so live bidding and
- * polling are never throttled.
+ * TIER 1 — Global catch-all (2500 req / 15 min per IP).
+ * Skips auction and auth endpoints — those have dedicated limiters.
  */
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_GLOBAL_MAX ?? 1000),
+  limit: Number(process.env.RATE_LIMIT_GLOBAL_MAX ?? 2500),
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  skip: (req) => disabled || isAuctionEndpoint(req),
+  skip: (req) => disabled || isAuctionEndpoint(req) || isAuthEndpoint(req),
   message: { error: "Too many requests, please try again later." },
   handler(req, res, next, options) {
     onLimitReached(req, res, "global");
@@ -49,13 +59,13 @@ export const globalLimiter = rateLimit({
 });
 
 /**
- * TIER 2 — Auth / login endpoints (5 attempts / 15 min per IP).
+ * TIER 2 — Auth / login endpoints (100 attempts / 15 min per IP; 500 in dev).
  * Applied directly to admin login, organizer login, and account login routes.
  * Prevents brute-force credential stuffing.
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 20),
+  limit: authLimit,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip: () => disabled,

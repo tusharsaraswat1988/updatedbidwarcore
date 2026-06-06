@@ -280,8 +280,8 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-3xl dark p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border bg-card/50 flex-shrink-0">
+      <DialogContent className="dark p-0 gap-0 flex flex-col overflow-hidden w-[calc(100vw-0.5rem)] max-w-3xl max-h-[95dvh] fixed inset-x-1 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-h-[90vh] sm:rounded-lg">
+        <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4 border-b border-border bg-card/50 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CropIcon className="w-5 h-5 text-primary" /> {title}
           </DialogTitle>
@@ -289,10 +289,10 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-6 py-5 space-y-4">
+          <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-4">
             {/* Cropper or empty state */}
             <div
-              className={`relative w-full h-[320px] rounded-lg border overflow-hidden transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border bg-black/40"}`}
+              className={`relative w-full h-[min(42dvh,280px)] sm:h-[320px] rounded-lg border overflow-hidden transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border bg-black/40"}`}
               onDragOver={handleDragOver}
               onDragEnter={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -328,7 +328,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
 
             {/* Sliders — only shown when an image is loaded */}
             {src && (
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">Zoom</Label>
@@ -347,7 +347,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
             )}
 
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -357,7 +357,7 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
               />
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 h-11 sm:h-9 w-full sm:w-auto"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!!processing}
               >
@@ -365,23 +365,27 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
               </Button>
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 h-11 sm:h-9 w-full sm:w-auto"
                 onClick={handleAutoEnhance}
                 disabled={!src || !!processing}
               >
                 <Wand2 className="w-4 h-4" /> Auto Enhance
               </Button>
               {confirmBgRemove ? (
-                <div className="flex items-center gap-2 p-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-xs text-amber-300 flex-1">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
-                  <span className="flex-1">First use downloads the ~25 MB AI model (cached after that). Proceed?</span>
-                  <Button size="sm" variant="outline" className="h-7 px-3 border-amber-500/50 text-amber-300 hover:bg-amber-500/20" onClick={runRemoveBackground}>Yes, download</Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-3" onClick={() => setConfirmBgRemove(false)}>Cancel</Button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-xs text-amber-300 sm:flex-1">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" />
+                    <span className="flex-1">First use downloads the ~25 MB AI model (cached after that). Proceed?</span>
+                  </div>
+                  <div className="flex gap-2 sm:flex-shrink-0">
+                    <Button size="sm" variant="outline" className="h-10 sm:h-7 px-3 flex-1 sm:flex-none border-amber-500/50 text-amber-300 hover:bg-amber-500/20" onClick={runRemoveBackground}>Yes, download</Button>
+                    <Button size="sm" variant="ghost" className="h-10 sm:h-7 px-3 flex-1 sm:flex-none" onClick={() => setConfirmBgRemove(false)}>Cancel</Button>
+                  </div>
                 </div>
               ) : (
                 <Button
                   variant="outline"
-                  className="gap-2"
+                  className="gap-2 h-11 sm:h-9 w-full sm:w-auto"
                   onClick={handleRemoveBackground}
                   disabled={!src || !!processing}
                 >
@@ -404,19 +408,19 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
         </div>
 
         {/* Sticky footer */}
-        <div className="flex items-center gap-2 px-6 py-4 border-t border-border bg-card/50 flex-shrink-0">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 px-4 py-3 sm:px-6 sm:py-4 border-t border-border bg-card/50 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Button
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-muted-foreground hover:text-destructive"
+            className="gap-1.5 h-11 sm:h-9 text-muted-foreground hover:text-destructive w-full sm:w-auto"
             onClick={() => { revokeCurrentObjectUrl(); setSrc(undefined); setError(null); }}
             disabled={!src || !!processing}
           >
             <X className="w-3.5 h-3.5" /> Clear
           </Button>
-          <div className="flex-1" />
-          <Button variant="outline" onClick={onClose} disabled={!!processing}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!src || !!processing} className="min-w-[140px] gap-2">
+          <div className="hidden sm:block flex-1" />
+          <Button variant="outline" onClick={onClose} disabled={!!processing} className="h-11 sm:h-9 w-full sm:w-auto">Cancel</Button>
+          <Button onClick={handleSave} disabled={!src || !!processing} className="min-w-0 sm:min-w-[140px] h-11 sm:h-9 gap-2 w-full sm:w-auto">
             <Check className="w-4 h-4" /> {processing ? "Working..." : "Save Image"}
           </Button>
         </div>

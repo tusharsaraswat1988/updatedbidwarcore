@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState, getGetAuctionStateQueryKey,
@@ -9,6 +9,12 @@ import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
+import { SponsorCarousel } from "@/components/display/sponsor-carousel";
+import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
+import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import { getDisplayTheme } from "@/lib/display-theme";
+import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
+import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
 
 // ─── Hexagon clip-path player photo ──────────────────────────────────────────
 function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; color: string; size?: number; playerTag?: string | null }) {
@@ -221,8 +227,27 @@ export default function ObsOverlay() {
     if (state?.currentPlayer?.id) setShowSold(false);
   }, [state?.currentPlayer?.id]);
 
+  const sponsorLogos = useMemo(
+    () => parseSponsorLogos(tournament?.sponsorLogos),
+    [tournament?.sponsorLogos],
+  );
+
+  const themeAccent = useMemo(() => {
+    try {
+      const name = localStorage.getItem(`display_theme_${tournamentId}`);
+      return getDisplayTheme(name).accentColor;
+    } catch {
+      return "#a78bfa";
+    }
+  }, [tournamentId]);
+
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.displayCountdown],
+  );
   const hasPlayer = !!state?.currentPlayer;
-  const isActive = state?.status === "active";
+  const isActive = displayMode.isLive;
+  const freezeBidUpdates = displayMode.freezeBidUpdates;
   const bidColor = state?.currentBidTeamColor || "#00d4ff";
   const hasBid = !!state?.currentBidTeamName;
 
@@ -258,6 +283,18 @@ export default function ObsOverlay() {
           border: "1px solid rgba(255,255,255,0.08)",
         }}>
           <img src={tournament.logoUrl} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
+        </div>
+      )}
+
+      {/* ── Sponsor carousel — top-right ── */}
+      {sponsorLogos.length > 0 && (
+        <div style={{
+          position: "absolute",
+          top: isActive ? 90 : 32,
+          right: 40,
+          zIndex: 5,
+        }}>
+          <SponsorCarousel logos={sponsorLogos} />
         </div>
       )}
 
@@ -350,6 +387,15 @@ export default function ObsOverlay() {
         )}
       </AnimatePresence>
 
+      {/* ── Pause / break banner (shared with LED + Live Viewer) ── */}
+      {displayMode.overlayMode && (
+        <AuctionStatusOverlay
+          mode={displayMode.overlayMode}
+          breakEndsAt={displayMode.breakEndsAt}
+          breakMessage={displayMode.breakMessage}
+        />
+      )}
+
       {/* ── Live bidding lower-third ── */}
       <AnimatePresence>
         {hasPlayer && !showSold && (
@@ -363,6 +409,8 @@ export default function ObsOverlay() {
               position: "absolute",
               bottom: teams.length > 0 ? 46 : 0,
               left: 0, right: 0,
+              opacity: displayMode.showStatusOverlay ? 0.4 : 1,
+              transition: "opacity 0.3s ease",
             }}
           >
             {/* Gradient fade above the panel */}
@@ -458,6 +506,20 @@ export default function ObsOverlay() {
               {/* Bid section */}
               <div style={{ textAlign: "right", flexShrink: 0, minWidth: 280 }}>
                 {hasBid ? (
+                  freezeBidUpdates ? (
+                    <div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
+                      <div style={{ fontSize: 52, fontWeight: 900, color: bidColor, lineHeight: 1, filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                        {formatIndianRupee(state?.currentBid ?? 0)}
+                      </div>
+                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                        {state?.currentBidTeamLogoUrl && (
+                          <img src={state.currentBidTeamLogoUrl} alt="" style={{ height: 24, objectFit: "contain" }} />
+                        )}
+                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                      </div>
+                    </div>
+                  ) : (
                   <motion.div
                     key={state?.currentBid}
                     initial={{ scale: 1.15, opacity: 0.7 }}
@@ -475,6 +537,7 @@ export default function ObsOverlay() {
                       <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                     </div>
                   </motion.div>
+                  )
                 ) : (
                   <div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
@@ -487,7 +550,7 @@ export default function ObsOverlay() {
               </div>
 
               {/* Timer */}
-              {isActive && state?.timerEndsAt && (
+              {isActive && !freezeBidUpdates && state?.timerEndsAt && (
                 <>
                   <div style={{ width: 1, height: 90, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
                   <CountdownRing timerEndsAt={state.timerEndsAt} />
@@ -498,9 +561,22 @@ export default function ObsOverlay() {
         )}
       </AnimatePresence>
 
-      {/* ── Team purse ticker at very bottom ── */}
+      {/* ── Sponsor text ticker — screen bottom edge ── */}
+      {sponsorLogos.length > 0 && (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 25 }}>
+          <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} />
+        </div>
+      )}
+
+      {/* ── Team purse ticker — above sponsor strip when present ── */}
       {teams.length > 0 && !showSold && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+        <div style={{
+          position: "absolute",
+          bottom: sponsorLogos.length > 0 ? SPONSOR_RIBBON_TOTAL_HEIGHT_PX : 0,
+          left: 0,
+          right: 0,
+          zIndex: 24,
+        }}>
           <TeamTicker teams={teams} />
         </div>
       )}
