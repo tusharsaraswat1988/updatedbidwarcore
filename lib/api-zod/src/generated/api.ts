@@ -127,6 +127,22 @@ export const ListTournamentsResponseItem = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
     ),
+  scoringEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Whether mobile cricket scoring is enabled for this tournament"),
+  scoringPhase: zod
+    .enum(["disabled", "active", "completed"])
+    .optional()
+    .describe("Scoring lifecycle phase"),
+  hasScoringPin: zod
+    .boolean()
+    .optional()
+    .describe("Whether a delegate scoring PIN is configured"),
+  scoringPin: zod
+    .string()
+    .nullish()
+    .describe("Delegate PIN for ground scorers (organizer\/admin only)"),
   createdAt: zod.string(),
 });
 export const ListTournamentsResponse = zod.array(ListTournamentsResponseItem);
@@ -281,6 +297,22 @@ export const GetTournamentResponse = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
     ),
+  scoringEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Whether mobile cricket scoring is enabled for this tournament"),
+  scoringPhase: zod
+    .enum(["disabled", "active", "completed"])
+    .optional()
+    .describe("Scoring lifecycle phase"),
+  hasScoringPin: zod
+    .boolean()
+    .optional()
+    .describe("Whether a delegate scoring PIN is configured"),
+  scoringPin: zod
+    .string()
+    .nullish()
+    .describe("Delegate PIN for ground scorers (organizer\/admin only)"),
   createdAt: zod.string(),
 });
 
@@ -337,6 +369,14 @@ export const UpdateTournamentBody = zod.object({
     .nullish()
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'",
+    ),
+  scoringEnabled: zod.boolean().optional(),
+  scoringPhase: zod.enum(["disabled", "active", "completed"]).optional(),
+  scoringPin: zod
+    .string()
+    .nullish()
+    .describe(
+      "Delegate PIN for ground scorers (4–12 chars); empty string clears",
     ),
   reason: zod
     .string()
@@ -441,6 +481,22 @@ export const UpdateTournamentResponse = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
     ),
+  scoringEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Whether mobile cricket scoring is enabled for this tournament"),
+  scoringPhase: zod
+    .enum(["disabled", "active", "completed"])
+    .optional()
+    .describe("Scoring lifecycle phase"),
+  hasScoringPin: zod
+    .boolean()
+    .optional()
+    .describe("Whether a delegate scoring PIN is configured"),
+  scoringPin: zod
+    .string()
+    .nullish()
+    .describe("Delegate PIN for ground scorers (organizer\/admin only)"),
   createdAt: zod.string(),
 });
 
@@ -566,6 +622,24 @@ export const ExportTournamentForLocalResponse = zod.object({
       .describe(
         "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
       ),
+    scoringEnabled: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Whether mobile cricket scoring is enabled for this tournament",
+      ),
+    scoringPhase: zod
+      .enum(["disabled", "active", "completed"])
+      .optional()
+      .describe("Scoring lifecycle phase"),
+    hasScoringPin: zod
+      .boolean()
+      .optional()
+      .describe("Whether a delegate scoring PIN is configured"),
+    scoringPin: zod
+      .string()
+      .nullish()
+      .describe("Delegate PIN for ground scorers (organizer\/admin only)"),
     createdAt: zod.string(),
   }),
   teams: zod.array(

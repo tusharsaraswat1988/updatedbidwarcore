@@ -96,6 +96,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/scoring-core':
+        specifier: workspace:*
+        version: link:../../lib/scoring-core
       cloudinary:
         specifier: ^2.10.0
         version: 2.10.0
@@ -350,6 +353,9 @@ importers:
       '@workspace/cheer-presets':
         specifier: workspace:*
         version: link:../../lib/cheer-presets
+      '@workspace/scoring-core':
+        specifier: workspace:*
+        version: link:../../lib/scoring-core
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2
@@ -802,6 +808,19 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+
+  lib/scoring-core:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.3.5
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.47.1)(tsx@4.21.0)(yaml@2.9.0)
 
   scripts:
     dependencies:

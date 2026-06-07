@@ -50,6 +50,18 @@ export const TournamentLicenseStatus = {
   active: "active",
 } as const;
 
+/**
+ * Scoring lifecycle phase
+ */
+export type TournamentScoringPhase =
+  (typeof TournamentScoringPhase)[keyof typeof TournamentScoringPhase];
+
+export const TournamentScoringPhase = {
+  disabled: "disabled",
+  active: "active",
+  completed: "completed",
+} as const;
+
 export interface Tournament {
   id: number;
   name: string;
@@ -143,6 +155,17 @@ export interface Tournament {
    * @nullable
    */
   matchDates?: string | null;
+  /** Whether mobile cricket scoring is enabled for this tournament */
+  scoringEnabled?: boolean;
+  /** Scoring lifecycle phase */
+  scoringPhase?: TournamentScoringPhase;
+  /** Whether a delegate scoring PIN is configured */
+  hasScoringPin?: boolean;
+  /**
+   * Delegate PIN for ground scorers (organizer/admin only)
+   * @nullable
+   */
+  scoringPin?: string | null;
   createdAt: string;
 }
 
@@ -232,6 +255,15 @@ export const TournamentUpdateMainBannerFit = {
   contain: "contain",
 } as const;
 
+export type TournamentUpdateScoringPhase =
+  (typeof TournamentUpdateScoringPhase)[keyof typeof TournamentUpdateScoringPhase];
+
+export const TournamentUpdateScoringPhase = {
+  disabled: "disabled",
+  active: "active",
+  completed: "completed",
+} as const;
+
 export interface TournamentUpdate {
   name?: string;
   sport?: string;
@@ -284,6 +316,13 @@ export interface TournamentUpdate {
    * @nullable
    */
   matchDates?: string | null;
+  scoringEnabled?: boolean;
+  scoringPhase?: TournamentUpdateScoringPhase;
+  /**
+   * Delegate PIN for ground scorers (4–12 chars); empty string clears
+   * @nullable
+   */
+  scoringPin?: string | null;
   /** Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters) */
   reason?: string;
 }

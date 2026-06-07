@@ -15,8 +15,12 @@ import { openAuctionRoom } from "@/lib/tournament-navigation";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, MessageCircle,
+  CheckCircle2, Circle, MessageCircle, CircleDot, Trophy,
 } from "lucide-react";
+import { openScoreDisplay, scoringPath } from "@/lib/tournament-navigation";
+import { useScoringStandings } from "@/hooks/use-scoring-match";
+import { StandingsTable } from "@/components/scoring/standings-table";
+import { settingsPath } from "@/lib/settings-navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -39,6 +43,11 @@ export default function TournamentHub() {
   const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const scoringEnabled = tournament?.scoringEnabled === true;
+  const { data: standings, isLoading: loadingStandings } = useScoringStandings(
+    tournamentId,
+    tournament?.sport === "cricket" && scoringEnabled,
+  );
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -304,6 +313,59 @@ export default function TournamentHub() {
             )}
           </div>
         )}
+
+        {tournament?.sport === "cricket" && scoringEnabled ? (
+          <>
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="p-2.5 rounded-lg bg-primary/15">
+                  <CircleDot className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-base font-display font-bold">Cricket Scorer</h2>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                    Score matches on your phone at the ground — squads from auction, toss, playing XI, and ball-by-ball scoring.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button className="h-11" onClick={() => navigate(scoringPath(tournamentId))}>
+                  Open Scorer
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+                >
+                  LED Board
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-primary" /> Points Table
+              </h2>
+              {loadingStandings ? (
+                <Skeleton className="h-48 w-full" />
+              ) : (
+                <StandingsTable rows={standings ?? []} />
+              )}
+            </div>
+          </>
+        ) : tournament?.sport === "cricket" ? (
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <h2 className="text-base font-display font-bold">Cricket Scoring</h2>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                Enable scoring in settings to use the mobile scorer, LED board, and points table after matches.
+              </p>
+            </div>
+            <Button variant="outline" className="h-11 shrink-0" onClick={() => navigate(settingsPath(tournamentId, "scoring"))}>
+              Enable Scoring
+            </Button>
+          </div>
+        ) : null}
 
         {/* Team Purses */}
         <div>

@@ -25,6 +25,7 @@ import ownerOnboardingRouter from "./owner-onboarding";
 import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
 import purseBoostersRouter from "./purse-boosters";
+import scoringRouter from "./scoring";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(purseBoostersRouter);
+router.use(scoringRouter);
 
 export default router;
