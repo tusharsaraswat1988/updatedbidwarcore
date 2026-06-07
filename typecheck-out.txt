@@ -1,0 +1,250 @@
+
+> @workspace/api-server@0.0.0 typecheck D:\main\updatedbidwarcore\artifacts\api-server
+> tsc -p tsconfig.json --noEmit
+
+src/lib/auction-logger.ts(14,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/auction-logger.ts(19,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/bulksms-otp.ts(19,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/bulksms-otp.ts(20,34): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/comm-sender.ts(18,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/comm-sender.ts(19,34): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/purse-protection.ts(1,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/purse-protection.ts(2,60): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/purse-protection.ts(53,17): error TS7031: Binding element 't' implicitly has an 'any' type.
+src/lib/purse-protection.ts(79,15): error TS7031: Binding element 't' implicitly has an 'any' type.
+src/lib/purse-protection.ts(100,6): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/lib/scheduler.ts(12,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/scheduler.ts(21,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/lib/scheduler.ts(105,22): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/lib/scheduler.ts(106,20): error TS7006: Parameter 'tm' implicitly has an 'any' type.
+src/routes/admin-reports.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/admin-reports.ts(6,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/admin-reports.ts(7,39): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/schema/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/schema/index.ts'.
+src/routes/admin-reports.ts(149,37): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(150,42): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(151,46): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/admin-reports.ts(205,61): error TS2322: Type 'Map<unknown, unknown>' is not assignable to type 'Map<number, string>'.
+  Type 'unknown' is not assignable to type 'number'.
+src/routes/admin-reports.ts(205,90): error TS2322: Type 'Map<unknown, unknown>' is not assignable to type 'Map<number, string>'.
+  Type 'unknown' is not assignable to type 'number'.
+src/routes/admin-reports.ts(230,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(231,57): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(232,60): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(242,35): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(245,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(266,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(280,14): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/admin-reports.ts(280,17): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/admin-reports.ts(281,40): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin-reports.ts(281,43): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(308,14): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/admin-reports.ts(308,17): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/admin-reports.ts(320,62): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(322,35): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(324,39): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin-reports.ts(324,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(345,66): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(347,32): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(358,14): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/admin-reports.ts(358,17): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/admin-reports.ts(359,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin-reports.ts(359,40): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin-reports.ts(360,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin-reports.ts(360,40): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin-reports.ts(374,36): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(375,38): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(376,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(377,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin-reports.ts(377,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(662,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(662,65): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin-reports.ts(663,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin-reports.ts(663,66): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/admin-reports.ts(666,26): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin-reports.ts(667,36): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/analytics.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/analytics.ts(9,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/analytics.ts(33,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(34,43): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(35,41): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(36,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(38,41): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/analytics.ts(38,46): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(39,49): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/analytics.ts(39,54): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(42,46): error TS7006: Parameter 'max' implicitly has an 'any' type.
+src/routes/analytics.ts(42,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(43,54): error TS7006: Parameter 'max' implicitly has an 'any' type.
+src/routes/analytics.ts(43,59): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(48,17): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/analytics.ts(61,34): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/analytics.ts(102,29): error TS7006: Parameter 'team' implicitly has an 'any' type.
+src/routes/analytics.ts(104,8): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(107,52): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(109,8): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(114,8): error TS7006: Parameter 'best' implicitly has an 'any' type.
+src/routes/analytics.ts(114,14): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(176,14): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(177,11): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(178,32): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/analytics.ts(179,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/analytics.ts(210,34): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+src/routes/analytics.ts(211,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(212,37): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(213,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(214,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/analytics.ts(215,37): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/analytics.ts(215,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(3,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auction.ts(16,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auction.ts(294,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(295,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(296,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(319,35): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auction.ts(639,34): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(660,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(661,77): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(668,41): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/auction.ts(668,44): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/auction.ts(807,26): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auction.ts(825,8): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(857,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(967,63): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auction.ts(1366,8): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(1368,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/auction.ts(1368,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(1454,34): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(1463,43): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(1464,75): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auction.ts(1474,39): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/auction.ts(1474,42): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/auction.ts(1864,21): error TS7006: Parameter 'bid' implicitly has an 'any' type.
+src/routes/auth.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auth.ts(3,73): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auth.ts(289,28): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auth.ts(372,103): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auth.ts(444,81): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auth.ts(459,61): error TS7006: Parameter 'bid' implicitly has an 'any' type.
+src/routes/auth.ts(505,22): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auth.ts(515,26): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auth.ts(525,32): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/auth.ts(532,33): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auth.ts(533,28): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auth.ts(534,30): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auth.ts(535,32): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/auth.ts(656,33): error TS7006: Parameter 'o' implicitly has an 'any' type.
+src/routes/auth.ts(658,41): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auth.ts(934,34): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/auth.ts(1132,57): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/auth.ts(1168,57): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/branding.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/branding.ts(3,39): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/schema/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/schema/index.ts'.
+src/routes/categories.ts(3,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/categories.ts(4,33): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/comm.ts(14,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/comm.ts(25,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/comm.ts(280,39): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/comm.ts(282,47): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/comm.ts(282,81): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/display-auctions.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/display-auctions.ts(3,56): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/schema/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/schema/index.ts'.
+src/routes/display-auctions.ts(153,48): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/display-auctions.ts(154,56): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/display-auctions.ts(170,15): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/display-auctions.ts(171,12): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/global-players.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/global-players.ts(3,50): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/health.ts(2,37): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/api-zod/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/api-zod/src/index.ts'.
+src/routes/intelligence.ts(2,22): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/intelligence.ts(3,46): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/intelligence.ts(4,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/intelligence.ts(239,38): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/routes/owner-onboarding.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/owner-onboarding.ts(3,68): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/players.ts(3,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/players.ts(4,122): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/players.ts(72,37): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/players.ts(72,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/players.ts(550,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/players.ts(559,27): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/players.ts(578,27): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/players.ts(578,51): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/routes/players.ts(581,27): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/players.ts(604,37): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/players.ts(639,26): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/routes/players.ts(639,50): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/routes/push.ts(3,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/push.ts(4,70): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/push.ts(93,23): error TS7006: Parameter 'sub' implicitly has an 'any' type.
+src/routes/seed-demo.ts(8,22): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/settings.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/settings.ts(3,31): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/settings.ts(19,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(82,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/showcase.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/showcase.ts(3,37): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/schema/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/schema/index.ts'.
+src/routes/sports.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/sports.ts(3,89): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/sports.ts(67,23): error TS7006: Parameter 'group' implicitly has an 'any' type.
+src/routes/sports.ts(168,54): error TS7006: Parameter 'sport' implicitly has an 'any' type.
+src/routes/sports.ts(173,63): error TS7006: Parameter 'role' implicitly has an 'any' type.
+src/routes/sports.ts(178,69): error TS7006: Parameter 'group' implicitly has an 'any' type.
+src/routes/team-reports.ts(2,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/team-reports.ts(3,77): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/team-reports.ts(4,39): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/schema/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/schema/index.ts'.
+src/routes/team-reports.ts(73,28): error TS7006: Parameter 'team' implicitly has an 'any' type.
+src/routes/team-reports.ts(74,31): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(84,32): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(85,31): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(86,34): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(106,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/team-reports.ts(120,61): error TS2339: Property 'name' does not exist on type '{}'.
+src/routes/team-reports.ts(121,62): error TS2339: Property 'colorCode' does not exist on type '{}'.
+src/routes/team-reports.ts(128,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(129,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(130,47): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(132,49): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/team-reports.ts(132,52): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(133,47): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/team-reports.ts(133,50): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(174,32): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/team-reports.ts(200,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/team-reports.ts(213,61): error TS2339: Property 'name' does not exist on type '{}'.
+src/routes/team-reports.ts(218,38): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(219,37): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(220,40): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(223,42): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/team-reports.ts(223,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(224,40): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/team-reports.ts(224,43): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(327,37): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/routes/team-reports.ts(327,40): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/routes/team-reports.ts(417,23): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(417,26): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/routes/team-reports.ts(426,22): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/team-reports.ts(426,25): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/routes/teams.ts(3,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/teams.ts(4,94): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/teams.ts(183,63): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/teams.ts(225,72): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/teams.ts(226,43): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/teams.ts(228,32): error TS7006: Parameter 'team' implicitly has an 'any' type.
+src/routes/teams.ts(230,44): error TS7006: Parameter 'pl' implicitly has an 'any' type.
+src/routes/teams.ts(231,47): error TS7006: Parameter 'pl' implicitly has an 'any' type.
+src/routes/teams.ts(238,33): error TS7006: Parameter 'pl' implicitly has an 'any' type.
+src/routes/teams.ts(243,13): error TS7006: Parameter 'pl' implicitly has an 'any' type.
+src/routes/teams.ts(244,10): error TS7006: Parameter 'pl' implicitly has an 'any' type.
+src/routes/teams.ts(246,136): error TS2339: Property 'name' does not exist on type '{}'.
+src/routes/teams.ts(246,170): error TS2339: Property 'colorCode' does not exist on type '{}'.
+src/routes/teams.ts(246,202): error TS2339: Property 'sortOrder' does not exist on type '{}'.
+src/routes/teams.ts(248,12): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/teams.ts(248,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/routes/teams.ts(249,20): error TS7031: Binding element '_' implicitly has an 'any' type.
+src/routes/tournaments.ts(10,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/tournaments.ts(11,88): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/tournaments.ts(366,22): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/tournaments.ts(374,32): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/routes/tournaments.ts(496,91): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/webhooks.ts(12,20): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+src/routes/webhooks.ts(25,8): error TS6305: Output file 'D:/main/updatedbidwarcore/lib/db/dist/index.d.ts' has not been built from source file 'D:/main/updatedbidwarcore/lib/db/src/index.ts'.
+ ELIFECYCLE  Command failed with exit code 2.

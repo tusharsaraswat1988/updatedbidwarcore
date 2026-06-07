@@ -1,0 +1,46 @@
+=== ownerMobile ===
+40:    .select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile })
+46:    const other = parseIndianMobile(team.ownerMobile);
+58:  ownerMobile: t.ownerMobile,
+69:// Public serializer: omits accessCode and ownerMobile entirely (not set to null).
+110:    ownerMobile: z.string().min(1, "Owner mobile is required for communication features"),
+119:  const mobileParsed = parseIndianMobile(d.ownerMobile);
+121:  const ownerMobile = mobileParsed.normalized;
+137:    if (org?.mobile && mobilesMatch(org.mobile, ownerMobile)) {
+142:  const dupMobile = await findDuplicateOwnerMobileTeam(tid, ownerMobile);
+160:        ownerMobile,
+180:  if (tournament.licenseStatus === "active" && ownerMobile && accessCode) {
+190:            [ownerMobile],
+255:// public serializer (no accessCode, no ownerMobile) with requiresAccessCode boolean.
+279:    ownerMobile: z.string().min(1).optional(),
+298:  if (d.ownerMobile !== undefined) {
+299:    const mobileParsed = parseIndianMobile(d.ownerMobile);
+302:    updates.ownerMobile = normalizedOwnerMobile;
+=== status ===
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   artifacts/api-server/src/routes/teams.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	COMMIT_RESULT.txt
+	typecheck-out.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+=== diff ===
+diff --git a/artifacts/api-server/src/routes/teams.ts b/artifacts/api-server/src/routes/teams.ts
+index d80b9b3..d810e15 100644
+--- a/artifacts/api-server/src/routes/teams.ts
++++ b/artifacts/api-server/src/routes/teams.ts
+@@ -176,7 +176,6 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
+   }
+ 
+   // DLT SMS: notify team owner about their access code (fire-and-forget, live tournaments only)
+-  const ownerMobile = team.ownerMobile;
+   const accessCode = team.accessCode;
+   if (tournament.licenseStatus === "active" && ownerMobile && accessCode) {
+     void (async () => {
