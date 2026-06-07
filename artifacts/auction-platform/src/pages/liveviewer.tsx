@@ -24,6 +24,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
+import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
+import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 
@@ -832,7 +834,8 @@ export default function LiveViewerPage() {
   }, []);
 
   // ── Data ─────────────────────────────────────────────────────────────────
-  useAuctionSocket(tournamentId, handleCheerMessage);
+  const { connectionStatus } = useAuctionSocket(tournamentId, handleCheerMessage);
+  const isStaleFeed = connectionStatus !== "connected";
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 15000 },
@@ -1192,6 +1195,7 @@ export default function LiveViewerPage() {
             </button>
           </div>
         </div>
+        <DisplayConnectionBanner status={connectionStatus} />
       </div>
 
       {/* ── Last result ticker ────────────────────────────────────────── */}
@@ -1228,7 +1232,7 @@ export default function LiveViewerPage() {
       )}
 
       {/* ── Scrollable content ─────────────────────────────────────────── */}
-      <div className="relative z-10 flex-1 overflow-y-auto max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full px-4 py-3 pb-28">
+      <div className={`relative z-10 flex-1 overflow-y-auto max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full px-4 py-3 pb-28 transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
 
         {/* Stats bar */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 py-4">
@@ -1464,115 +1468,24 @@ export default function LiveViewerPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -14 }}
               transition={{ duration: 0.3 }}
-              className="mb-4 p-4 sm:p-5 rounded-2xl backdrop-blur border"
-              style={{
-                backgroundColor: lastResult!.status === "sold"
-                  ? `${lastResult!.soldToTeamColor || "#22c55e"}10`
-                  : "rgba(239,68,68,0.06)",
-                borderColor: lastResult!.status === "sold"
-                  ? `${lastResult!.soldToTeamColor || "#22c55e"}45`
-                  : "rgba(239,68,68,0.3)",
-              }}
+              className="mb-4"
             >
-              <div className="flex flex-row items-start gap-4">
-                {/* Photo with persistent result stamp */}
-                <div className="relative flex-shrink-0">
-                  <div
-                    className="w-24 h-32 sm:w-32 sm:h-40 rounded-2xl overflow-hidden border-2 flex items-center justify-center bg-card shadow-xl"
-                    style={{
-                      borderColor: lastResult!.status === "sold"
-                        ? `${lastResult!.soldToTeamColor || "#22c55e"}55`
-                        : "rgba(239,68,68,0.4)",
-                    }}
-                  >
-                    {lastResult!.photoUrl ? (
-                      <img src={cldUrl(lastResult!.photoUrl, "soldCard")} alt={lastResult!.playerName} className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-14 h-14 text-muted-foreground/25" />
-                    )}
-                  </div>
-                  {/* Always-visible result stamp */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div
-                      className={`font-display font-black text-xl px-4 py-2 rounded-lg border-4 border-white/40 shadow-2xl ${
-                        lastResult!.status === "sold"
-                          ? "bg-green-600/90 text-white"
-                          : "bg-red-700/90 text-white"
-                      }`}
-                      style={{ transform: "rotate(-12deg)" }}
-                    >
-                      {lastResult!.status === "sold" ? "SOLD" : "UNSOLD"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0 text-left space-y-3">
-                  <div>
-                    <h2 className="font-display font-black text-3xl sm:text-4xl leading-none">
-                      {lastResult!.playerName}
-                    </h2>
-                    {(lastResult!.role || lastResult!.city || lastResult!.age) && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {[lastResult!.role, lastResult!.city, lastResult!.age ? `Age ${lastResult!.age}` : null]
-                          .filter((v): v is string => !!v)
-                          .map((spec, i) => (
-                            <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-border/25 text-muted-foreground border border-border/40">
-                              {spec}
-                            </span>
-                          ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Base: {formatIndianRupee(lastResult!.basePrice)}
-                    </p>
-                  </div>
-
-                  {lastResult!.status === "sold" ? (
-                    <>
-                      <div>
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
-                          Sold at
-                        </p>
-                        <p
-                          className="font-display font-black text-5xl sm:text-6xl leading-none"
-                          style={{
-                            color: lastResult!.soldToTeamColor || "#22c55e",
-                            textShadow: `0 0 28px ${lastResult!.soldToTeamColor || "#22c55e"}55`,
-                          }}
-                        >
-                          {formatIndianRupee(lastResult!.soldPrice || 0)}
-                        </p>
-                      </div>
-                      {lastResult!.soldToTeam && (
-                        <div>
-                          <span
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold"
-                            style={{
-                              borderColor: `${lastResult!.soldToTeamColor || "#22c55e"}55`,
-                              backgroundColor: `${lastResult!.soldToTeamColor || "#22c55e"}15`,
-                              color: lastResult!.soldToTeamColor || "#22c55e",
-                            }}
-                          >
-                            {lastResult!.soldToTeamLogo ? (
-                              <img src={cldUrl(lastResult!.soldToTeamLogo, "teamLogo")} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
-                            )}
-                            Sold to {lastResult!.soldToTeam}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div>
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold border-red-500/30 bg-red-500/10 text-red-400">
-                        Player returns to pool
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <OutcomeResultPanel
+                layout="viewer"
+                data={{
+                  outcome: lastResult!.status,
+                  playerName: lastResult!.playerName,
+                  photoUrl: lastResult!.photoUrl,
+                  amount: lastResult!.soldPrice,
+                  teamName: lastResult!.soldToTeam,
+                  teamColor: lastResult!.soldToTeamColor,
+                  teamLogoUrl: lastResult!.soldToTeamLogo,
+                  basePrice: lastResult!.basePrice,
+                  role: lastResult!.role,
+                  city: lastResult!.city,
+                  age: lastResult!.age,
+                }}
+              />
               <p className="text-center text-xs text-muted-foreground/35 mt-4 tracking-wide uppercase">
                 Waiting for next player
               </p>

@@ -15,6 +15,8 @@ import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { getDisplayTheme } from "@/lib/display-theme";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
+import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
+import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { cldUrl } from "@/lib/cloudinary";
 
 // ─── Hexagon clip-path player photo ──────────────────────────────────────────
@@ -180,7 +182,8 @@ export default function ObsOverlay() {
   const [, params] = useRoute("/tournament/:id/obs");
   const tournamentId = parseInt(params?.id || "0");
 
-  useAuctionSocket(tournamentId);
+  const { connectionStatus } = useAuctionSocket(tournamentId);
+  const isStaleFeed = connectionStatus !== "connected";
 
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 10000 },
@@ -293,7 +296,18 @@ export default function ObsOverlay() {
       position: "relative",
       overflow: "hidden",
       fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+      outline: isStaleFeed ? "4px solid rgba(245,158,11,0.35)" : undefined,
+      outlineOffset: -4,
+      opacity: isStaleFeed ? 0.95 : 1,
+      transition: "opacity 0.3s ease",
     }}>
+
+      {/* ── Connection status — top center ── */}
+      {connectionStatus !== "connected" && (
+        <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}>
+          <DisplayConnectionBanner status={connectionStatus} variant="pill" />
+        </div>
+      )}
 
       {/* ── Tournament logo — top-left ── */}
       {tournament?.logoUrl && (
@@ -349,65 +363,23 @@ export default function ObsOverlay() {
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              background: `linear-gradient(135deg, rgba(0,0,0,0.97) 0%, ${soldSnap.teamColor}28 100%)`,
               borderTop: `4px solid ${soldSnap.teamColor}`,
               boxShadow: `0 -8px 60px ${soldSnap.teamColor}44`,
               padding: "28px 48px",
-              display: "flex", alignItems: "center", gap: 36,
             }}
           >
-            {/* Outcome stamp */}
-            <motion.div
-              initial={{ scale: 3, opacity: 0, rotate: -20 }}
-              animate={{ scale: 1, opacity: 1, rotate: -8 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
-              style={{
-                position: "absolute", top: 18, left: 40,
-                fontSize: 72, fontWeight: 900, color: soldSnap.teamColor,
-                opacity: 0.15, letterSpacing: "0.05em", lineHeight: 1,
-                pointerEvents: "none",
+            <OutcomeResultPanel
+              layout="obs-banner"
+              data={{
+                outcome: soldSnap.outcome,
+                playerName: soldSnap.playerName,
+                photoUrl: soldSnap.photoUrl,
+                amount: soldSnap.amount,
+                teamName: soldSnap.teamName,
+                teamColor: soldSnap.teamColor,
+                teamLogoUrl: soldSnap.teamLogoUrl,
               }}
-            >
-              {soldSnap.outcome === "sold" ? "SOLD" : "UNSOLD"}
-            </motion.div>
-
-            <HexPhoto src={soldSnap.photoUrl} color={soldSnap.teamColor} size={140} />
-
-            <div style={{ flex: 1 }}>
-              <motion.div
-                initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.15 }}
-                style={{ fontSize: 14, fontWeight: 800, color: soldSnap.teamColor, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 6 }}
-              >
-                {soldSnap.outcome === "sold" ? "SOLD" : "UNSOLD"}
-              </motion.div>
-              <motion.div
-                initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.22 }}
-                style={{ fontSize: 52, fontWeight: 900, color: "#fff", lineHeight: 1.05 }}
-              >
-                {soldSnap.playerName}
-              </motion.div>
-              <motion.div
-                initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}
-                style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", marginTop: 6 }}
-              >
-                {soldSnap.outcome === "sold" ? `acquired by ${soldSnap.teamName || "Team"}` : "returns to the player pool"}
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.35, type: "spring" }}
-              style={{ textAlign: "right", flexShrink: 0 }}
-            >
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 4 }}>
-                {soldSnap.outcome === "sold" ? "SOLD FOR" : "RESULT"}
-              </div>
-              <div style={{ fontSize: 64, fontWeight: 900, color: soldSnap.teamColor, lineHeight: 1, filter: `drop-shadow(0 0 20px ${soldSnap.teamColor})` }}>
-                {soldSnap.outcome === "sold" ? formatIndianRupee(soldSnap.amount ?? 0) : "UNSOLD"}
-              </div>
-              {soldSnap.teamLogoUrl && (
-                <img src={cldUrl(soldSnap.teamLogoUrl, "teamLogo")} alt="" style={{ height: 40, marginTop: 10, objectFit: "contain", marginLeft: "auto" }} />
-              )}
-            </motion.div>
+            />
           </motion.div>
         )}
       </AnimatePresence>

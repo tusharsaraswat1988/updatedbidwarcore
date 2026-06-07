@@ -1,10 +1,11 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { AuctionCountdown } from "./auction-countdown";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
+import { BROADCAST_LABEL_CLASS, BROADCAST_META_CLASS } from "@/lib/display-broadcast-layout";
 
 /**
  * Right column of the main broadcast — player name, specs, current bid,
@@ -62,6 +63,27 @@ export const BidDisplay = memo(function BidDisplay({
   disableBidAnimations?: boolean;
 }) {
   const tag = getTagTheme(playerTag);
+  const prevBidRef = useRef<number | null>(currentBid ?? null);
+  const [bidDelta, setBidDelta] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prev = prevBidRef.current;
+    const next = currentBid ?? 0;
+    if (
+      !disableBidAnimations &&
+      prev != null &&
+      next > prev &&
+      currentBidTeamId
+    ) {
+      setBidDelta(next - prev);
+      const timer = setTimeout(() => setBidDelta(null), 1000);
+      prevBidRef.current = next;
+      return () => clearTimeout(timer);
+    }
+    prevBidRef.current = next;
+    return undefined;
+  }, [currentBid, currentBidTeamId, disableBidAnimations]);
+
   return (
     <motion.div
       key={`info-${playerId}`}
@@ -74,7 +96,7 @@ export const BidDisplay = memo(function BidDisplay({
         {(playerSpecs.length > 0 || tag) && (
           <div className="flex items-center gap-3 flex-wrap mb-2">
             {playerSpecs.length > 0 && (
-              <p className="text-xs md:text-sm font-mono text-muted-foreground uppercase tracking-widest">
+              <p className={`${BROADCAST_LABEL_CLASS} text-muted-foreground`}>
                 {playerSpecs.join(" · ")}
               </p>
             )}
@@ -129,29 +151,58 @@ export const BidDisplay = memo(function BidDisplay({
         })()}
       </div>
 
-      <div>
-        <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">Current Bid</p>
+      <div className="relative">
+        <p className={`${BROADCAST_LABEL_CLASS} text-muted-foreground mb-1`}>Current Bid</p>
         {disableBidAnimations ? (
           <p
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-display font-black leading-none"
             style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
           >
             {formatIndianRupee(currentBid || 0)}
           </p>
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={currentBid ?? 0}
-              initial={{ scale: 0.6, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 1.2, opacity: 0 }}
-              transition={{ type: "spring", bounce: 0.5 }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black leading-none"
-              style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
-            >
-              {formatIndianRupee(currentBid || 0)}
-            </motion.p>
-          </AnimatePresence>
+          <div className="relative inline-block">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={currentBid ?? 0}
+                initial={{ scale: 0.55, opacity: 0, y: 24 }}
+                animate={{
+                  scale: [1.12, 1],
+                  opacity: 1,
+                  y: 0,
+                }}
+                exit={{ scale: 1.15, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 420, damping: 22 }}
+                className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-display font-black leading-none"
+                style={{
+                  color: teamColor,
+                  textShadow: `0 0 80px ${teamColor}99, 0 0 24px ${teamColor}`,
+                }}
+              >
+                {formatIndianRupee(currentBid || 0)}
+              </motion.p>
+            </AnimatePresence>
+            <AnimatePresence>
+              {bidDelta != null && bidDelta > 0 ? (
+                <motion.span
+                  key={bidDelta}
+                  initial={{ opacity: 0, y: 8, scale: 0.85 }}
+                  animate={{ opacity: 1, y: -4, scale: 1 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.35 }}
+                  className="absolute -top-2 left-full ml-3 md:ml-4 whitespace-nowrap px-3 py-1 rounded-full text-sm md:text-base font-display font-black border-2"
+                  style={{
+                    color: teamColor,
+                    borderColor: `${teamColor}88`,
+                    backgroundColor: `${teamColor}22`,
+                    boxShadow: `0 0 24px ${teamColor}66`,
+                  }}
+                >
+                  +{formatIndianRupee(bidDelta)}
+                </motion.span>
+              ) : null}
+            </AnimatePresence>
+          </div>
         )}
       </div>
 
@@ -178,7 +229,7 @@ export const BidDisplay = memo(function BidDisplay({
             ) : (
               <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor }} />
             )}
-            <span className="text-xl md:text-3xl font-display font-black" style={{ color: teamColor }}>
+            <span className="text-xl md:text-3xl lg:text-4xl font-display font-black" style={{ color: teamColor }}>
               {currentBidTeamName}
             </span>
           </div>
@@ -228,7 +279,7 @@ export const BidDisplay = memo(function BidDisplay({
         <AuctionCountdown timerEndsAt={timerEndsAt} timerType={timerType} />
       )}
 
-      <p className="text-sm text-muted-foreground">
+      <p className={BROADCAST_META_CLASS}>
         Base Price: <span className="font-semibold text-foreground">{formatIndianRupee(playerBasePrice)}</span>
         {bidIncrement && (
           <span className="ml-3">· Increment: <span className="font-semibold text-foreground">{formatIndianRupee(bidIncrement)}</span></span>

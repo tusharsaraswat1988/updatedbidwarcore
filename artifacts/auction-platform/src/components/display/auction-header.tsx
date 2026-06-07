@@ -3,6 +3,7 @@ import { Trophy } from "lucide-react";
 import { SponsorCarousel } from "./sponsor-carousel";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
+import { BROADCAST_SAFE_X } from "@/lib/display-broadcast-layout";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 type TournamentLite = {
@@ -57,7 +58,7 @@ export const AuctionHeader = memo(function AuctionHeader({
   const auctionDateLine = formatAuctionDateLine(tournament?.auctionDate, tournament?.auctionTime);
 
   return (
-    <div className="relative flex items-center justify-between px-4 md:px-8 py-2 border-b border-border/40 bg-black/40 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0">
+    <div className={`relative flex items-center justify-between ${BROADCAST_SAFE_X} py-2 md:py-3 border-b border-border/40 bg-black/40 backdrop-blur-sm flex-shrink-0 gap-3 min-w-0`}>
       {/* Left: tournament identity */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {tournament?.logoUrl ? (
@@ -72,7 +73,7 @@ export const AuctionHeader = memo(function AuctionHeader({
           <Trophy className="w-8 h-8 md:w-10 md:h-10 text-primary flex-shrink-0" />
         )}
         <div className="min-w-0">
-          <div className="font-display font-black text-base md:text-xl tracking-tight text-white leading-none truncate">
+          <div className="font-display font-black text-lg md:text-xl lg:text-2xl tracking-tight text-white leading-none truncate">
             {tournament?.name || "BIDWAR"}
           </div>
           {auctionDateLine && (
@@ -115,9 +116,9 @@ export const AuctionHeader = memo(function AuctionHeader({
           {(isActive || isSold || isUnsold) && (
             <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-pulse ${isUnsold ? "bg-red-500" : "bg-green-500"}`} />
           )}
-          <span className="text-xs md:text-sm font-bold uppercase tracking-widest">{statusLabel || status || "IDLE"}</span>
+          <span className="text-sm md:text-base font-bold uppercase tracking-widest">{statusLabel || status || "IDLE"}</span>
         </div>
-        <div className="text-sm text-white/75 font-mono tabular-nums hidden sm:block">
+        <div className="text-base md:text-lg text-white/80 font-mono tabular-nums hidden sm:block">
           <span className="text-green-400 font-bold">{soldCount}</span> Sold
           {" · "}
           <span className="text-muted-foreground">{remainingCount}</span> Left
