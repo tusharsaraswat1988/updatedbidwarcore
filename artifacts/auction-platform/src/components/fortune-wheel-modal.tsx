@@ -43,7 +43,7 @@ export function FortuneWheelModal({ open, onClose, tournamentId }: FortuneWheelM
   useEffect(() => {
     if (!open || !tournamentId) return;
     activeRef.current = true;
-    syncMut.mutate({ tournamentId, data: { active: true, winner: null } });
+    syncMut.mutate({ tournamentId, data: { active: true, winner: null, spinning: false } });
     return () => {
       if (!activeRef.current) return;
       activeRef.current = false;

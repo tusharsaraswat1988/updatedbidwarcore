@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFortuneWheelBroadcastLive } from "./use-fortune-wheel-broadcast-live";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { Volume2, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import {
@@ -98,6 +99,10 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   });
 
   const overlayMode = state?.displayOverlay ?? null;
+  const fortuneWheelLive = useFortuneWheelBroadcastLive(
+    state?.fortuneWheelActive,
+    state?.wheelSpinning,
+  );
 
   const { data: allPlayers } = useListPlayers(tournamentId, {
     query: {
@@ -422,7 +427,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           allPlayers={allPlayers ?? EMPTY_PLAYERS}
           allCategories={allCategories ?? EMPTY_CATEGORIES}
           playerFilter={playerFilter}
-          fortuneWheelActive={state?.fortuneWheelActive}
+          fortuneWheelActive={fortuneWheelLive}
           wheelItems={state?.wheelItems ?? EMPTY_WHEEL_ITEMS}
           wheelWinner={state?.wheelWinner}
           wheelSpinning={state?.wheelSpinning}

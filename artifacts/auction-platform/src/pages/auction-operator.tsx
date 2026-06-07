@@ -28,6 +28,7 @@ import {
   useDeferPlayer,
   useSetBreakTimer,
   useSetPreAuctionCountdown,
+  useSyncFortuneWheel,
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getListBidsQueryKey,
@@ -234,6 +235,8 @@ export default function AuctionOperator() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   // Break timer / pre-auction countdown dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
+  const syncFortuneWheel = useSyncFortuneWheel();
+  const wheelResetOnMountRef = useRef(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
   const [countdownDialogType, setCountdownDialogType] = useState<"break" | "pre-auction">("break");
   const [countdownMinutes, setCountdownMinutes] = useState("5");
@@ -264,6 +267,17 @@ export default function AuctionOperator() {
       setCoachStep(1);
     } catch { /* ignore */ }
   }, [tournamentId]);
+
+  // Drop stale fortune-wheel broadcast from a prior session so the LED shows
+  // the auction main view when the operator opens auction control.
+  useEffect(() => {
+    if (!tournamentId || wheelResetOnMountRef.current) return;
+    wheelResetOnMountRef.current = true;
+    syncFortuneWheel.mutate({
+      tournamentId,
+      data: { active: false, winner: null, spinning: false },
+    });
+  }, [tournamentId, syncFortuneWheel]);
 
   // Close filter panels when clicking outside
   useEffect(() => {

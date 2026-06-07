@@ -578,7 +578,17 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
   const timerSecs = tournament?.timerSeconds ?? 30;
 
   // On resume: restore the remaining timer that was frozen on pause
-  const patch: Record<string, unknown> = { status: "active", lastAction: "Auction resumed", timerSeconds: timerSecs, displayCountdown: null };
+  const patch: Record<string, unknown> = {
+    status: "active",
+    lastAction: "Auction resumed",
+    timerSeconds: timerSecs,
+    displayCountdown: null,
+  };
+  if (session.status === "idle") {
+    patch.fortuneWheelActive = false;
+    patch.wheelSpinning = false;
+    patch.wheelWinner = null;
+  }
   if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {
     patch.timerEndsAt = new Date(Date.now() + session.pausedTimeRemaining * 1000).toISOString();
     patch.pausedTimeRemaining = null;
@@ -1446,6 +1456,9 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       unsoldPlayersCount: 0,
       lastAction: "Reset complete — ready for live auction",
       lastOutcome: null,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
+      wheelWinner: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1734,6 +1747,10 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
   const patch: Record<string, unknown> = {};
   if (body.data.active !== undefined) patch.fortuneWheelActive = body.data.active;
   if (body.data.spinning !== undefined) patch.wheelSpinning = body.data.spinning;
+  // Re-broadcasting clears a stale in-progress spin unless this request starts one.
+  if (body.data.active === true && body.data.spinning !== true) {
+    patch.wheelSpinning = false;
+  }
   if (body.data.items !== undefined) patch.wheelItemsJson = JSON.stringify(body.data.items);
   if ("winner" in body.data && body.data.spinning !== true) patch.wheelWinner = body.data.winner ?? null;
   // Server-side random draw: when spinning starts, pick a winner from the pool

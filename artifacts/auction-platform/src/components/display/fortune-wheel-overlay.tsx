@@ -103,6 +103,10 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({
     winner: string | null | undefined;
     itemsLen: number;
   }>({ winner: undefined, itemsLen: 0 });
+  // Only animate spin/land on live transitions — never replay persisted session
+  // state when the LED display first mounts (stale wheelSpinning / wheelWinner).
+  const hydratedRef = useRef(false);
+  const prevSpinningRef = useRef(false);
 
   // Single, persistent RAF loop. Never cancelled by state changes — the loop
   // simply reads stateRef each frame, so spin → land transitions are race-free.
@@ -150,26 +154,52 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({
     };
   }, []);
 
-  // Single authoritative state-transition effect with explicit precedence:
-  //   wheelSpinning === true                 -> spin (clear any prior winner)
-  //   wheelSpinning === false && winner      -> land on winner (if items ready)
-  //   wheelSpinning === false && !winner     -> idle
-  // Tracking landedForRef avoids restarting landing every poll while the
-  // winner field stays the same.
+  // React only to live spin/land transitions after hydration. Persisted
+  // wheelSpinning / wheelWinner from a previous draw must not replay on mount.
   useEffect(() => {
-    if (wheelSpinning) {
-      // Active spin — always trump any stale winner. Reset landing tracker so
-      // when the winner arrives next, we'll start the landing animation.
-      stateRef.current = { mode: "spin" };
-      landedForRef.current = { winner: undefined, itemsLen: 0 };
-      setLocalWinner(null);
-      setShowSpinning(true);
+    const spinning = !!wheelSpinning;
+
+    function showStaticWinner(label: string) {
+      if (items.length) {
+        const w = items.find((i) => i.label === label);
+        setLocalWinner(
+          w
+            ? { label: w.label, color: w.color }
+            : { label, color: "#EAB308" },
+        );
+        landedForRef.current = { winner: label, itemsLen: items.length };
+      } else {
+        setLocalWinner({ label, color: "#EAB308" });
+      }
+      setShowSpinning(false);
+    }
+
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      prevSpinningRef.current = spinning;
+      stateRef.current = { mode: "idle" };
+      setShowSpinning(false);
+      if (!spinning && winner) {
+        showStaticWinner(winner);
+      }
       return;
     }
 
-    // wheelSpinning === false (or undefined)
+    const spinStarted = spinning && !prevSpinningRef.current;
+    const spinStopped = !spinning && prevSpinningRef.current;
+    prevSpinningRef.current = spinning;
+
+    if (spinning) {
+      if (spinStarted) {
+        stateRef.current = { mode: "spin" };
+        landedForRef.current = { winner: undefined, itemsLen: 0 };
+        setLocalWinner(null);
+        setShowSpinning(true);
+      }
+      return;
+    }
+
     if (!winner) {
-      // No winner and not spinning — make sure we're idle
       if (stateRef.current.mode !== "land") {
         stateRef.current = { mode: "idle" };
       }
@@ -179,16 +209,17 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({
       return;
     }
 
-    // wheelSpinning === false && winner is set
-    if (!items.length) {
-      // Winner arrived before items hydrated — show fallback card immediately,
-      // and try again once items load (effect deps include items).
-      setLocalWinner({ label: winner, color: "#EAB308" });
-      setShowSpinning(false);
+    // Winner present but spin did not just finish — show card, no landing replay.
+    if (!spinStopped) {
+      if (
+        landedForRef.current.winner !== winner ||
+        landedForRef.current.itemsLen !== items.length
+      ) {
+        showStaticWinner(winner);
+      }
       return;
     }
 
-    // Already landed (or landing) for this winner+items pair? do nothing.
     if (
       landedForRef.current.winner === winner &&
       landedForRef.current.itemsLen === items.length
@@ -197,18 +228,18 @@ export const FortuneWheelOverlay = memo(function FortuneWheelOverlay({
     }
     landedForRef.current = { winner, itemsLen: items.length };
 
-    const winnerIdx = items.findIndex((i) => i.label === winner);
-    if (winnerIdx < 0) {
-      // Winner label not in current items — skip animation, just show card
-      stateRef.current = { mode: "idle" };
-      setLocalWinner({ label: winner, color: "#EAB308" });
-      setShowSpinning(false);
+    if (!items.length) {
+      showStaticWinner(winner);
       return;
     }
 
-    // Pointer is at the right side (angle = 0). Slice i center is at
-    // r + i*arc + arc/2. To put it at angle 0 (mod 2π), we need
-    // r ≡ -(i*arc + arc/2) (mod 2π).
+    const winnerIdx = items.findIndex((i) => i.label === winner);
+    if (winnerIdx < 0) {
+      stateRef.current = { mode: "idle" };
+      showStaticWinner(winner);
+      return;
+    }
+
     const arc = (2 * Math.PI) / items.length;
     const sliceCenter = winnerIdx * arc + arc / 2;
     const currentNorm =

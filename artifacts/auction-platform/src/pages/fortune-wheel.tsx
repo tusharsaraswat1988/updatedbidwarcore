@@ -39,10 +39,10 @@ export default function FortuneWheel() {
 
   // Activate fortune wheel on all displays when operator opens this page
   useEffect(() => {
-    syncMut.mutate({ tournamentId, data: { active: true, winner: null } });
+    syncMut.mutate({ tournamentId, data: { active: true, winner: null, spinning: false } });
     return () => {
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-      syncMut.mutate({ tournamentId, data: { active: false, winner: null } });
+      syncMut.mutate({ tournamentId, data: { active: false, winner: null, spinning: false } });
     };
   }, [tournamentId]);
 
