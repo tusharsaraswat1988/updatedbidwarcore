@@ -2625,6 +2625,10 @@ components:
           description: Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.
         lastAction:
           type: ["string", "null"]
+        outcome:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AuctionOutcome"
         soldPlayersCount:
           type: integer
         unsoldPlayersCount:
@@ -2688,6 +2692,33 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/DisplayCountdown"
+
+    AuctionOutcome:
+      type: object
+      required: [type, playerName]
+      description: Structured sold/unsold result between player transitions (from auction_sessions.lastOutcome).
+      properties:
+        type:
+          type: string
+          enum: [sold, unsold]
+        playerId:
+          type: ["integer", "null"]
+        playerName:
+          type: string
+        photoUrl:
+          type: ["string", "null"]
+        teamId:
+          type: ["integer", "null"]
+        teamName:
+          type: ["string", "null"]
+        teamColor:
+          type: ["string", "null"]
+        teamLogoUrl:
+          type: ["string", "null"]
+        amount:
+          type: ["integer", "null"]
+        isManual:
+          type: boolean
 
     DisplayCountdown:
       type: object

@@ -781,6 +781,37 @@ export type AuctionStateTeamCategoryPlayerCounts = {
   [key: string]: number;
 } | null;
 
+export type AuctionOutcomeType =
+  (typeof AuctionOutcomeType)[keyof typeof AuctionOutcomeType];
+
+export const AuctionOutcomeType = {
+  sold: "sold",
+  unsold: "unsold",
+} as const;
+
+/**
+ * Structured sold/unsold result between player transitions (from auction_sessions.lastOutcome).
+ */
+export interface AuctionOutcome {
+  type: AuctionOutcomeType;
+  /** @nullable */
+  playerId?: number | null;
+  playerName: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  teamId?: number | null;
+  /** @nullable */
+  teamName?: string | null;
+  /** @nullable */
+  teamColor?: string | null;
+  /** @nullable */
+  teamLogoUrl?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  isManual?: boolean;
+}
+
 export type DisplayCountdownType =
   (typeof DisplayCountdownType)[keyof typeof DisplayCountdownType];
 
@@ -828,6 +859,7 @@ export interface AuctionState {
   timerType?: AuctionStateTimerType;
   /** @nullable */
   lastAction?: string | null;
+  outcome?: AuctionOutcome | null;
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;

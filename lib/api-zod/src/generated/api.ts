@@ -1517,6 +1517,23 @@ export const GetAuctionStateResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -1667,6 +1684,23 @@ export const StartAuctionResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -1817,6 +1851,23 @@ export const PauseAuctionResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -1972,6 +2023,23 @@ export const NextPlayerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2131,6 +2199,23 @@ export const PlaceBidResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2281,6 +2366,23 @@ export const SellPlayerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2436,6 +2538,23 @@ export const ManualSellResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2586,6 +2705,23 @@ export const MarkUnsoldResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2741,6 +2877,23 @@ export const ReAuctionPlayerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -2891,6 +3044,23 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3041,6 +3211,23 @@ export const UndoLastActionResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3195,6 +3382,23 @@ export const ResetTrialAuctionResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3349,6 +3553,23 @@ export const SetDisplayOverlayResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3505,6 +3726,23 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3717,6 +3955,23 @@ export const SyncFortuneWheelResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -3871,6 +4126,23 @@ export const SetCategoryFilterResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -4037,6 +4309,23 @@ export const SetBreakTimerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -4196,6 +4485,23 @@ export const SetPreAuctionCountdownResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -4356,6 +4662,23 @@ export const StartTimerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -4506,6 +4829,23 @@ export const StopTimerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
@@ -4656,6 +4996,23 @@ export const DeferPlayerResponse = zod.object({
       "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
     ),
   lastAction: zod.string().nullish(),
+  outcome: zod
+    .object({
+      type: zod.enum(["sold", "unsold"]),
+      playerId: zod.number().nullish(),
+      playerName: zod.string(),
+      photoUrl: zod.string().nullish(),
+      teamId: zod.number().nullish(),
+      teamName: zod.string().nullish(),
+      teamColor: zod.string().nullish(),
+      teamLogoUrl: zod.string().nullish(),
+      amount: zod.number().nullish(),
+      isManual: zod.boolean().optional(),
+    })
+    .describe(
+      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
+    )
+    .nullish(),
   soldPlayersCount: zod.number().optional(),
   unsoldPlayersCount: zod.number().optional(),
   remainingPlayersCount: zod.number().optional(),
