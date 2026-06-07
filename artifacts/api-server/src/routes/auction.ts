@@ -339,6 +339,31 @@ async function buildAuctionState(tournamentId: number) {
     }
   } catch { /* ignore */ }
 
+  // Structured sold/unsold outcome — authoritative result that lives between two
+  // players so all displays render the correct card without parsing lastAction.
+  let outcome:
+    | {
+        type: "sold" | "unsold";
+        playerId: number | null;
+        playerName: string;
+        photoUrl: string | null;
+        teamId?: number | null;
+        teamName?: string | null;
+        teamColor?: string | null;
+        teamLogoUrl?: string | null;
+        amount?: number | null;
+        isManual?: boolean;
+      }
+    | null = null;
+  try {
+    if (session.lastOutcome) {
+      const parsed = JSON.parse(session.lastOutcome);
+      if (parsed && (parsed.type === "sold" || parsed.type === "unsold")) {
+        outcome = parsed;
+      }
+    }
+  } catch { /* ignore malformed outcome */ }
+
   // Last sold player — shown on owner panels when no player is currently up
   let lastSoldPlayer: {
     id: number; name: string; role: string | null; photoUrl: string | null;
@@ -384,6 +409,7 @@ async function buildAuctionState(tournamentId: number) {
     // last set timerEndsAt (start-timer → 'start', bid → 'bid').
     timerType: session.timerEndsAt ? (session.timerType ?? null) : null,
     lastAction: session.lastAction,
+    outcome,
     soldPlayersCount: soldCount,
     unsoldPlayersCount: unsoldCount,
     remainingPlayersCount: availableCount,
@@ -686,6 +712,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
         deferredPlayerIds: null,
         displayCountdown: null,
         lastAction: "Auction completed — all players processed",
+        lastOutcome: null,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
     await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
@@ -723,6 +750,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       displayCountdown: null,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
+      lastOutcome: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -946,6 +974,18 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
       timerEndsAt: null,
       pausedTimeRemaining: null,
       lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
+      lastOutcome: JSON.stringify({
+        type: "sold",
+        playerId,
+        playerName: soldPlayer?.name ?? "Player",
+        photoUrl: soldPlayer?.photoUrl ?? null,
+        teamId,
+        teamName: team?.name ?? null,
+        teamColor: team?.color ?? null,
+        teamLogoUrl: team?.logoUrl ?? null,
+        amount: soldAmount,
+        isManual: false,
+      }),
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1091,6 +1131,18 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       timerEndsAt: null,
       pausedTimeRemaining: null,
       lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
+      lastOutcome: JSON.stringify({
+        type: "sold",
+        playerId,
+        playerName: soldPlayer?.name ?? "Player",
+        photoUrl: soldPlayer?.photoUrl ?? null,
+        teamId,
+        teamName: team?.name ?? null,
+        teamColor: team?.color ?? null,
+        teamLogoUrl: team?.logoUrl ?? null,
+        amount,
+        isManual: true,
+      }),
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1156,6 +1208,12 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
       timerEndsAt: null,
       pausedTimeRemaining: null,
       lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
+      lastOutcome: JSON.stringify({
+        type: "unsold",
+        playerId: player?.id ?? null,
+        playerName: player?.name ?? "Player",
+        photoUrl: player?.photoUrl ?? null,
+      }),
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1245,6 +1303,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       timerSeconds: timerSecs,
       timerEndsAt: null,
       lastAction: `RE-AUCTION: ${player.name}`,
+      lastOutcome: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1386,6 +1445,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       soldPlayersCount: 0,
       unsoldPlayersCount: 0,
       lastAction: "Reset complete — ready for live auction",
+      lastOutcome: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
@@ -1491,6 +1551,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
         timerEndsAt: null,
         deferredPlayerIds: null,
         lastAction: "Auction completed — all players processed",
+        lastOutcome: null,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
     await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
@@ -1527,6 +1588,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
       pausedTimeRemaining: null,
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
+      lastOutcome: null,
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 

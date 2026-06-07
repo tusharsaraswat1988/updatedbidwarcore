@@ -164,9 +164,9 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
               )}
               {collapsed && <div className="mt-6 mb-2 border-t border-border mx-2" />}
               <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-                <Link href={`/tournament/${tournamentId}`} title="Dashboard" className={navCls(`/tournament/${tournamentId}`)}>
+                <Link href={`/tournament/${tournamentId}`} title="Tournament Home" className={navCls(`/tournament/${tournamentId}`)}>
                   <Activity className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">Dashboard</span>}
+                  {!collapsed && <span className="font-medium">Tournament Home</span>}
                 </Link>
                 <Link href={`/tournament/${tournamentId}/teams`} title="Teams" className={navCls(`/tournament/${tournamentId}/teams`)}>
                   <Users className="w-5 h-5 flex-shrink-0" />
@@ -178,7 +178,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 </Link>
                 <Link href={`/tournament/${tournamentId}/categories`} title="Categories" className={navCls(`/tournament/${tournamentId}/categories`)}>
                   <Settings className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">Categories</span>}
+                  {!collapsed && <span className="font-medium">Categories <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></span>}
                 </Link>
                 <Link href={`/tournament/${tournamentId}/settings`} title="Tournament Settings" className={navCls(`/tournament/${tournamentId}/settings`)}>
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
@@ -221,7 +221,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     {!collapsed && (
                       <>
                         <span className="font-medium">Team Reports</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Trial</span>
+                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Practice</span>
                       </>
                     )}
                   </div>
@@ -238,13 +238,13 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 <a
                   href={auctionRoomPath(tournamentId)}
                   target="_blank"
-                  title="Open the operator panel in a new tab"
+                  title="Open auction control in a new tab"
                   className={`flex items-center rounded-md transition-colors font-bold ${
                     collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
                   } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
                 >
                   <Gavel className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && <span>Go to Operator Panel</span>}
+                  {!collapsed && <span>Auction Control</span>}
                 </a>
                 {!collapsed && (
                   <a
@@ -272,11 +272,11 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   {!collapsed && <span>Share Links</span>}
                 </Link>
                 {!collapsed && (
-                  <Link href={`/tournament/${tournamentId}/reset`} title="Reset for live auction" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  <Link href={`/tournament/${tournamentId}/reset`} title="Clear practice auction data before going live" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                     location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
                   }`}>
                     <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                    <span>RESET FOR LIVE</span>
+                    <span>Clear Practice Data</span>
                   </Link>
                 )}
                 <div

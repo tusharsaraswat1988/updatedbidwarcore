@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { AnimatePresence } from "framer-motion";
-import { SoldStamp, SoldCard } from "./sold-animation";
+import { SoldStamp, SoldCard, UnsoldStamp, UnsoldCard } from "./sold-animation";
 import type { SoldRecord } from "./types";
-import type { SoldPhase } from "./use-sold-animation";
+import type { SoldPhase, UnsoldRecord } from "./use-sold-animation";
 
 /**
  * Stacks the cinematic SOLD effects (stamp + full-screen sold card)
@@ -12,9 +12,11 @@ import type { SoldPhase } from "./use-sold-animation";
  * neither has changed, this subtree is a no-op (React.memo + small
  * primitive props ensures no rerender from bid/timer ticks).
  */
-export const AnimatedEffectsLayer = memo(function AnimatedEffectsLayer({ soldPhase, soldRecord }: {
+export const AnimatedEffectsLayer = memo(function AnimatedEffectsLayer({ soldPhase, soldRecord, unsoldPhase, unsoldRecord }: {
   soldPhase: SoldPhase;
   soldRecord: SoldRecord | null;
+  unsoldPhase: SoldPhase;
+  unsoldRecord: UnsoldRecord | null;
 }) {
   return (
     <>
@@ -23,6 +25,12 @@ export const AnimatedEffectsLayer = memo(function AnimatedEffectsLayer({ soldPha
       </AnimatePresence>
       <AnimatePresence>
         {soldPhase === "card" && soldRecord && <SoldCard key="card" record={soldRecord} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {unsoldPhase === "stamp" && <UnsoldStamp key="unsold-stamp" />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {unsoldPhase === "card" && unsoldRecord && <UnsoldCard key="unsold-card" record={unsoldRecord} />}
       </AnimatePresence>
     </>
   );

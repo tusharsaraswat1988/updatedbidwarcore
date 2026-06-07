@@ -78,12 +78,6 @@ export function getDevOwnerAppProxyTarget(): string {
   return `http://127.0.0.1:${port}`;
 }
 
-/** Strip `/owner-app` so auction-platform can mirror direct owner-app dev URLs. */
-export function rewriteOwnerAppProxyPath(path: string): string {
-  const rewritten = path.replace(/^\/owner-app(?=\/|$)/, "");
-  return rewritten || "/";
-}
-
 /**
  * Vite server.proxy config: forwards `/api` (REST, SSE, uploads, OAuth) to the API server.
  */
@@ -101,7 +95,7 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
 
 /**
  * Vite server.proxy config: forwards `/owner-app/*` to the owner-app dev server.
- * Rewrites the path so `/owner-app/tournament/...` hits `/tournament/...` on port 5174.
+ * Path is kept as-is — owner-app Vite uses `base: "/owner-app/"` and expects `/owner-app/...` URLs.
  */
 export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
   const target = getDevOwnerAppProxyTarget();
@@ -112,7 +106,6 @@ export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
       secure: false,
       ws: true,
       selfHandleResponse: true,
-      rewrite: rewriteOwnerAppProxyPath,
       configure: (proxy) => {
         proxy.on("proxyRes", (proxyRes, _req, res) => {
           res.setHeader(

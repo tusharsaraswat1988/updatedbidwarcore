@@ -31,8 +31,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
-  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock,
+  Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail,
 } from "lucide-react";
+import { HintLabel } from "@/components/ui/hint-label";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 
@@ -50,20 +51,20 @@ type Tournament = {
 function TournamentLicenseBadge({ status }: { status: string }) {
   if (status === "active") {
     return (
-      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1">
-        <ShieldCheck className="w-2.5 h-2.5" /> Active
+      <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-[10px] gap-1" title="Live auction is activated">
+        <ShieldCheck className="w-2.5 h-2.5" /> Live Ready
       </Badge>
     );
   }
   if (status === "completed") {
     return (
-      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1">
-        <CheckCheck className="w-2.5 h-2.5" /> Completed
+      <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] gap-1" title="Auction has finished">
+        <CheckCheck className="w-2.5 h-2.5" /> Auction Done
       </Badge>
     );
   }
   return (
-    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">Trial</Badge>
+    <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]" title="Practice mode — try the auction before going live">Practice</Badge>
   );
 }
 
@@ -111,13 +112,22 @@ const TIME_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
+function AuthStepIndicator({ step, total }: { step: number; total: number }) {
+  return (
+    <p className="text-[11px] text-center text-muted-foreground">
+      Step {step} of {total}
+    </p>
+  );
+}
+
 function CreateTournamentModal({
   open, onClose, onCreated,
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (tournamentId?: number) => void;
 }) {
+  const [, navigate] = useLocation();
   const [form, setForm] = useState({
     name: "",
     sport: "cricket",
@@ -134,6 +144,15 @@ function CreateTournamentModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [createdTournamentId, setCreatedTournamentId] = useState<number | null>(null);
+  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
+
+  const CRICKET_DEFAULTS = {
+    basePurse: "10000000",
+    minimumSquadSize: "11",
+    minBid: "10000",
+    bidIncrement: "5000",
+  };
 
   // Load sports from master table
   const [sports, setSports] = useState<{ slug: string; name: string }[]>([]);
@@ -146,6 +165,8 @@ function CreateTournamentModal({
 
   function handleClose() {
     setCreatedCode(null);
+    setCreatedTournamentId(null);
+    setWizardStep(1);
     setForm({
       name: "", sport: "cricket", venue: "", auctionDate: "",
       timeHour: "", timeMinute: "00", timePeriod: "PM",
@@ -173,7 +194,7 @@ function CreateTournamentModal({
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
     if (!form.basePurse || parseInt(form.basePurse) <= 0) {
-      setError("Total Points per Team is required.");
+      setError("Team budget (purse) is required.");
       return;
     }
     const minSquad = parseInt(form.minimumSquadSize, 10);
@@ -207,7 +228,8 @@ function CreateTournamentModal({
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to create tournament."); return; }
     setCreatedCode(r.tournament?.auctionCode ?? null);
-    onCreated();
+    setCreatedTournamentId(r.tournament?.id ?? null);
+    onCreated(r.tournament?.id);
   }
 
   const purseWords = toIndianWords(form.basePurse);
@@ -227,158 +249,194 @@ function CreateTournamentModal({
             <CheckCheck className="w-10 h-10 text-green-400 mx-auto" />
             <p className="text-sm text-muted-foreground">Your tournament has been created.</p>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">Auction Code</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">LED Screen Code</span>
               <span className="font-mono text-2xl font-black tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 rounded-lg px-4 py-2">
                 {createdCode}
               </span>
-              <p className="text-xs text-muted-foreground mt-1">Share this with team owners to access the bidding panel.</p>
+              <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
+                Open the LED Big Screen on your projector laptop. When it asks for a code, enter this. Team owners do not need this code.
+              </p>
             </div>
-            <Button className="w-full" onClick={handleClose}>Go to Dashboard</Button>
+            <Button
+              className="w-full"
+              onClick={() => {
+                const id = createdTournamentId;
+                handleClose();
+                if (id) navigate(`/tournament/${id}/teams`);
+              }}
+            >
+              Add Teams Now →
+            </Button>
+            <Button variant="outline" className="w-full" onClick={handleClose}>
+              Back to My Tournaments
+            </Button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label>Tournament Name *</Label>
-              <Input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Enter the name of your tournament"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Sport</Label>
-                <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {sports.length > 0
-                      ? sports.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)
-                      : (
-                        <>
-                          <SelectItem value="cricket">Cricket</SelectItem>
-                          <SelectItem value="football">Football</SelectItem>
-                          <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                          <SelectItem value="volleyball">Volleyball</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </>
-                      )
-                    }
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Venue</Label>
-                <Input
-                  value={form.venue}
-                  onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
-                  placeholder="Stadium name or city"
-                />
-              </div>
-            </div>
+            <AuthStepIndicator step={wizardStep} total={2} />
+            <p className="text-xs text-center text-muted-foreground -mt-2">
+              {wizardStep === 1 ? "Basic details" : "Budget & auction rules"}
+            </p>
 
-            <div className="space-y-2">
-              <Label>Auction Date</Label>
-              <Input
-                type="date"
-                value={form.auctionDate}
-                onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Auction Time</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Select value={form.timeHour || undefined} onValueChange={v => setForm(f => ({ ...f, timeHour: v }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Hour" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIME_HOURS.map(h => (
-                      <SelectItem key={h} value={String(h)}>{h}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={form.timeMinute} onValueChange={v => setForm(f => ({ ...f, timeMinute: v }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIME_MINUTES.map(m => (
-                      <SelectItem key={m} value={String(m).padStart(2, "0")}>
-                        {String(m).padStart(2, "0")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={form.timePeriod} onValueChange={v => setForm(f => ({ ...f, timePeriod: v as TimePeriod }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AM">AM</SelectItem>
-                    <SelectItem value="PM">PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {schedulePreview && (
-              <p className="text-xs text-muted-foreground -mt-2">
-                Scheduled: <span className="text-foreground font-medium">{schedulePreview}</span>
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Total Points per Team *</Label>
-                <Input
-                  type="number"
-                  value={form.basePurse}
-                  onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
-                  placeholder="e.g. 1000000"
-                  min={1}
-                  required
-                />
-                {purseWords && (
-                  <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
+            {wizardStep === 1 ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Tournament Name *</Label>
+                  <Input
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Enter the name of your tournament"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Sport</Label>
+                    <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {sports.length > 0
+                          ? sports.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)
+                          : (
+                            <>
+                              <SelectItem value="cricket">Cricket</SelectItem>
+                              <SelectItem value="football">Football</SelectItem>
+                              <SelectItem value="kabaddi">Kabaddi</SelectItem>
+                              <SelectItem value="volleyball">Volleyball</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </>
+                          )
+                        }
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Venue</Label>
+                    <Input
+                      value={form.venue}
+                      onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                      placeholder="Stadium name or city"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Auction Date</Label>
+                  <Input
+                    type="date"
+                    value={form.auctionDate}
+                    onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Auction Time</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Select value={form.timeHour || undefined} onValueChange={v => setForm(f => ({ ...f, timeHour: v }))}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Hour" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_HOURS.map(h => (
+                          <SelectItem key={h} value={String(h)}>{h}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={form.timeMinute} onValueChange={v => setForm(f => ({ ...f, timeMinute: v }))}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Min" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_MINUTES.map(m => (
+                          <SelectItem key={m} value={String(m).padStart(2, "0")}>
+                            {String(m).padStart(2, "0")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={form.timePeriod} onValueChange={v => setForm(f => ({ ...f, timePeriod: v as TimePeriod }))}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AM">AM</SelectItem>
+                        <SelectItem value="PM">PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {schedulePreview && (
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Scheduled: <span className="text-foreground font-medium">{schedulePreview}</span>
+                  </p>
                 )}
-              </div>
-              <div className="space-y-2">
-                <Label>Minimum Players per Team *</Label>
-                <Input
-                  type="number"
-                  value={form.minimumSquadSize}
-                  onChange={e => setForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                  placeholder="e.g. 11"
-                  min={1}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Each team must buy at least this many players.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Minimum Player Value (₹) *</Label>
-                <Input
-                  type="number"
-                  value={form.minBid}
-                  onChange={e => setForm(f => ({ ...f, minBid: e.target.value }))}
-                  placeholder="e.g. 10000"
-                  min={1}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Bidding starts at this amount for each player.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Bid Increase Amount (₹) *</Label>
-                <Input
-                  type="number"
-                  value={form.bidIncrement}
-                  onChange={e => setForm(f => ({ ...f, bidIncrement: e.target.value }))}
-                  placeholder="e.g. 5000"
-                  min={1}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Added with every raise. Multi-tier increments can be set later in Tournament Settings.</p>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
+                  Standard cricket values are pre-filled. You can change them later in Settings.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>
+                      <HintLabel hint="Har team ke paas kitna paisa kharch karne ko milega — jaise 1 crore">
+                        Team Budget (Purse) *
+                      </HintLabel>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.basePurse}
+                      onChange={e => setForm(f => ({ ...f, basePurse: e.target.value }))}
+                      placeholder="e.g. 10000000"
+                      min={1}
+                      required
+                    />
+                    {purseWords && (
+                      <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Minimum Players per Team *</Label>
+                    <Input
+                      type="number"
+                      value={form.minimumSquadSize}
+                      onChange={e => setForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
+                      placeholder="e.g. 11"
+                      min={1}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">
+                        Minimum Player Value (₹) *
+                      </HintLabel>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.minBid}
+                      onChange={e => setForm(f => ({ ...f, minBid: e.target.value }))}
+                      placeholder="e.g. 10000"
+                      min={1}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      <HintLabel hint="Har baar bid badhne par kitna add hoga">
+                        Bid Increase Amount (₹) *
+                      </HintLabel>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.bidIncrement}
+                      onChange={e => setForm(f => ({ ...f, bidIncrement: e.target.value }))}
+                      placeholder="e.g. 5000"
+                      min={1}
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {error && (
               <div className="flex items-center gap-2 text-destructive text-sm">
@@ -386,11 +444,39 @@ function CreateTournamentModal({
               </div>
             )}
             <div className="flex gap-3 pt-2">
-              <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Create Tournament
-              </Button>
-              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+              {wizardStep === 1 ? (
+                <>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={() => {
+                      if (!form.name.trim()) { setError("Tournament name is required."); return; }
+                      setError("");
+                      setForm(f => ({
+                        ...f,
+                        basePurse: f.basePurse || CRICKET_DEFAULTS.basePurse,
+                        minimumSquadSize: f.minimumSquadSize || CRICKET_DEFAULTS.minimumSquadSize,
+                        minBid: f.minBid || CRICKET_DEFAULTS.minBid,
+                        bidIncrement: f.bidIncrement || CRICKET_DEFAULTS.bidIncrement,
+                      }));
+                      setWizardStep(2);
+                    }}
+                  >
+                    Continue →
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+                </>
+              ) : (
+                <>
+                  <Button type="submit" className="flex-1" disabled={loading}>
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    Create Tournament
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => { setWizardStep(1); setError(""); }}>
+                    Back
+                  </Button>
+                </>
+              )}
             </div>
           </form>
         )}
@@ -437,9 +523,10 @@ function CompleteProfileForm({
           <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
             <Phone className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="font-display font-black text-2xl text-white">One more step</h1>
+          <AuthStepIndicator step={1} total={1} />
+          <h1 className="font-display font-black text-2xl text-white">Confirm your mobile</h1>
           <p className="text-muted-foreground text-sm">
-            Add your mobile number to complete your profile. This is used as your primary contact.
+            Add your mobile number so team owners and BidWar support can reach you.
           </p>
         </div>
         <Card className="border-border/50 bg-card/50">
@@ -542,6 +629,7 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
         <KeyRound className="w-4 h-4 text-primary" />
         <p className="font-semibold text-sm">Reset Password</p>
       </div>
+      {!done && <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />}
       {done ? (
         <p className="text-green-400 text-sm flex items-center gap-1.5">
           <CheckCircle2 className="w-4 h-4" /> Password reset — signing you in...
@@ -629,12 +717,16 @@ function ForgotPasswordFlow({ onBack, onSuccess }: { onBack: () => void; onSucce
 
 // ─── Google Sign-In Button ────────────────────────────────────────────────────
 
-function GoogleSignInButton({ next }: { next?: string }) {
+function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: boolean }) {
   const href = next ? `/api/auth/google?next=${encodeURIComponent(next)}` : "/api/auth/google";
   return (
     <a
       href={href}
-      className="flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border border-border bg-card hover:bg-accent transition-colors text-sm font-medium"
+      className={`flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border transition-colors text-sm font-medium ${
+        prominent
+          ? "border-primary/40 bg-primary/5 hover:bg-primary/10 ring-1 ring-primary/20"
+          : "border-border bg-card hover:bg-accent"
+      }`}
     >
       <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -644,6 +736,18 @@ function GoogleSignInButton({ next }: { next?: string }) {
       </svg>
       Continue with Google
     </a>
+  );
+}
+
+function GoogleSignupBlock({ next }: { next?: string }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-center text-muted-foreground">Fastest way — use your Google account</p>
+      <GoogleSignInButton next={next} prominent />
+      <p className="text-[10px] text-center text-muted-foreground/80">
+        New users verify mobile once after Google sign-in
+      </p>
+    </div>
   );
 }
 
@@ -842,7 +946,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
         <div className="text-center space-y-3">
           <img src={logos.main || "/bidwar-logo-transparent.png"} alt={brandName} className="h-20 w-auto mx-auto" />
           <h1 className="font-display font-black text-3xl text-white">{brandName.toUpperCase()}</h1>
-          <p className="text-muted-foreground text-sm">Organizer Portal</p>
+          <p className="text-muted-foreground text-sm">My Tournaments</p>
         </div>
 
         {view !== "forgot" && (
@@ -1012,6 +1116,12 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                     )}
                   </div>
 
+                  <GoogleSignupBlock next={next} />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or sign up with email</span></div>
+                  </div>
+
                   {/* Email signup form */}
                   {signupMethod === "email" && (
                     <form onSubmit={handleSignupEmail} className="space-y-4">
@@ -1025,7 +1135,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
+                        <Label className="flex items-center gap-2 text-sm"><Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email *</Label>
                         <Input
                           type="email"
                           value={signupForm.email}
@@ -1073,17 +1183,22 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Create Account
                       </Button>
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                        <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
-                      </div>
-                      <GoogleSignInButton next={next} />
+                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                        By continuing, you agree to BidWar{" "}
+                        <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                        {", "}
+                        <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                        {", and "}
+                        <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                        .
+                      </p>
                     </form>
                   )}
 
                   {/* Mobile OTP signup form (only shown when smsOtpEnabled) */}
                   {signupMethod === "mobile" && smsOtpEnabled && signupStep === "form" && (
                     <form onSubmit={handleSignupSendOtp} className="space-y-4">
+                      <AuthStepIndicator step={1} total={2} />
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-sm"><User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name *</Label>
                         <Input
@@ -1158,6 +1273,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
                   {/* OTP verification step */}
                   {signupMethod === "mobile" && smsOtpEnabled && signupStep === "otp" && (
                     <form onSubmit={handleSignupVerify} className="space-y-4">
+                      <AuthStepIndicator step={2} total={2} />
                       <p className="text-sm text-muted-foreground">Enter the OTP sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>.</p>
                       <div className="space-y-2">
                         <Label className="text-sm">OTP</Label>
@@ -1407,7 +1523,7 @@ function OrganizerDashboard({
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <p className="text-sm font-semibold text-amber-300">Set a backup password</p>
+                <p className="text-sm font-semibold text-amber-300">Set a password (optional)</p>
               </div>
               <button
                 onClick={() => setSpDismissed(true)}
@@ -1417,7 +1533,7 @@ function OrganizerDashboard({
               </button>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              You signed in with Google. Add a password so you can also log in with your email directly.
+              You signed in with Google. Add a password if you also want to log in with email and password later.
             </p>
             {spDone ? (
               <p className="text-green-400 text-sm flex items-center gap-1.5">
@@ -1527,7 +1643,7 @@ function OrganizerDashboard({
                     {[
                       { step: "1", label: "Create tournament", desc: "Name, sport, teams budget" },
                       { step: "2", label: "Add teams & players", desc: "Franchises and player pool" },
-                      { step: "3", label: "Go live", desc: "Operator panel + big screen" },
+                      { step: "3", label: "Run practice auction", desc: "Auction control + big screen" },
                     ].map(s => (
                       <div key={s.step} className="rounded-lg border border-border/50 bg-card/30 px-3 py-2.5 flex items-start gap-2.5">
                         <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">{s.step}</span>
@@ -1626,8 +1742,8 @@ function OrganizerDashboard({
       <CreateTournamentModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false);
+        onCreated={(tournamentId) => {
+          if (!tournamentId) setCreateOpen(false);
           onRefresh();
         }}
       />

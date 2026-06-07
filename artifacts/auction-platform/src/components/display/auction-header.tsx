@@ -34,6 +34,7 @@ function formatAuctionDateLine(date?: string | null, time?: string | null): stri
 export const AuctionHeader = memo(function AuctionHeader({
   tournament,
   status,
+  statusLabel,
   soldCount,
   remainingCount,
   sponsorLogos,
@@ -41,13 +42,16 @@ export const AuctionHeader = memo(function AuctionHeader({
 }: {
   tournament: TournamentLite | undefined;
   status: string | null | undefined;
+  statusLabel?: string | null;
   soldCount: number;
   remainingCount: number;
   sponsorLogos: SponsorLogo[];
   themeAccent?: string;
 }) {
-  const isActive = status === "active";
+  const isActive = status === "active" || status === "live";
   const isPaused = status === "paused";
+  const isSold = status === "sold";
+  const isUnsold = status === "unsold";
   const { logos, brandName } = useBranding();
   const accent = themeAccent ?? "#a78bfa";
   const auctionDateLine = formatAuctionDateLine(tournament?.auctionDate, tournament?.auctionTime);
@@ -102,14 +106,18 @@ export const AuctionHeader = memo(function AuctionHeader({
       {/* Right: status + stats + sponsor */}
       <div className="flex items-center gap-2 md:gap-5 flex-shrink-0 flex-1 justify-end">
         <div className={`flex items-center gap-1.5 md:gap-2 px-2 md:px-4 py-1 md:py-1.5 rounded-full border ${
+          isSold ? "bg-green-500/20 border-green-500/40 text-green-400" :
+          isUnsold ? "bg-red-500/20 border-red-500/40 text-red-400" :
           isActive ? "bg-green-500/20 border-green-500/40 text-green-400" :
           isPaused ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-400" :
-          "bg-border/30 border-border text-muted-foreground"
+          "bg-border/30 border-border text-white/70"
         }`}>
-          {isActive && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse" />}
-          <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest">{status || "IDLE"}</span>
+          {(isActive || isSold || isUnsold) && (
+            <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full animate-pulse ${isUnsold ? "bg-red-500" : "bg-green-500"}`} />
+          )}
+          <span className="text-xs md:text-sm font-bold uppercase tracking-widest">{statusLabel || status || "IDLE"}</span>
         </div>
-        <div className="text-xs text-muted-foreground font-mono tabular-nums hidden sm:block">
+        <div className="text-sm text-white/75 font-mono tabular-nums hidden sm:block">
           <span className="text-green-400 font-bold">{soldCount}</span> Sold
           {" · "}
           <span className="text-muted-foreground">{remainingCount}</span> Left

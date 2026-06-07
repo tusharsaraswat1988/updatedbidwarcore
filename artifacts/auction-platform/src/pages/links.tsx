@@ -2,24 +2,24 @@ import { useRoute } from "wouter";
 import {
   useListTeams,
   useGetTournament,
-  useGetRegistrationStatus,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
-  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
+import { ownerJoinPublicUrl } from "@workspace/api-base/owner-urls";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Users, Link2, Copy, ExternalLink, UserSquare2, ClipboardList, CalendarX, Lock, CheckCircle2, Radio } from "lucide-react";
-import { useState } from "react";
+import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Team } from "@workspace/api-client-react";
 
-function LinkRow({ label, url, description }: { label: string; url: string; description: string }) {
+function LinkRow({ label, url, description, shareText }: { label: string; url: string; description: string; shareText?: string }) {
   const { toast } = useToast();
   function copy() {
     navigator.clipboard.writeText(url);
     toast({ title: "Copied!", description: "Link copied to clipboard" });
   }
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText ?? `${label}: ${url}`)}`;
   return (
     <div className="flex items-center gap-4 py-4 border-b border-border/50 last:border-0">
       <div className="flex-1 min-w-0">
@@ -27,11 +27,102 @@ function LinkRow({ label, url, description }: { label: string; url: string; desc
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         <p className="text-xs font-mono text-primary mt-1 truncate">{url}</p>
       </div>
-      <div className="flex gap-2 flex-shrink-0">
+      <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
         <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={copy}>
           <Copy className="w-3.5 h-3.5" /> Copy
         </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+          </a>
+        </Button>
         <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => window.open(url, "_blank")}>
+          <ExternalLink className="w-3.5 h-3.5" /> Open
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TeamOwnerRow({
+  team,
+  tournamentId,
+  tournamentName,
+}: {
+  team: Team;
+  tournamentId: number;
+  tournamentName?: string;
+}) {
+  const { toast } = useToast();
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  const ownerUrl = ownerJoinPublicUrl(base, tournamentId, team.id);
+  const shareLines = [
+    `${tournamentName ?? "Auction"} — ${team.name}`,
+    team.ownerName ? `Owner: ${team.ownerName}` : null,
+    team.accessCode ? `Access code: ${team.accessCode}` : null,
+    `Bidding link: ${ownerUrl}`,
+  ].filter(Boolean);
+  const whatsappHref = `https://wa.me/${team.ownerMobile ? team.ownerMobile.replace(/\D/g, "") : ""}?text=${encodeURIComponent(shareLines.join("\n"))}`;
+
+  function copyText(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: label });
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-4 py-5 border-b border-border/50 last:border-0">
+      <div className="flex items-start gap-3 sm:w-56 flex-shrink-0">
+        {team.logoUrl ? (
+          <img
+            src={team.logoUrl}
+            alt={team.name}
+            className="w-12 h-12 rounded-lg object-contain border border-border bg-muted/20"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <div
+            className="w-12 h-12 rounded-lg flex items-center justify-center font-display font-bold text-sm flex-shrink-0"
+            style={{ backgroundColor: `${team.color ?? "#444"}22`, color: team.color || "#fff", border: `1px solid ${team.color ?? "#444"}44` }}
+          >
+            {team.shortCode}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="font-semibold text-sm leading-tight">{team.name}</p>
+          {team.ownerName && <p className="text-xs text-muted-foreground mt-0.5">{team.ownerName}</p>}
+          {team.ownerMobile && <p className="text-xs font-mono text-muted-foreground mt-0.5">{team.ownerMobile}</p>}
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-2">
+        {team.accessCode && (
+          <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+            <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Owner access code</p>
+              <p className="text-sm font-display font-black tracking-[0.15em] text-primary">{team.accessCode}</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => copyText(team.accessCode!, "Access code copied")}>
+              <Copy className="w-3 h-3" /> Copy
+            </Button>
+          </div>
+        )}
+        <div>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner bidding link</p>
+          <p className="text-xs font-mono text-primary truncate">{ownerUrl}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 flex-shrink-0 flex-wrap sm:flex-col sm:items-stretch">
+        <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => copyText(ownerUrl, "Owner link copied")}>
+          <Copy className="w-3.5 h-3.5" /> Copy link
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8" asChild>
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+          </a>
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => window.open(ownerUrl, "_blank")}>
           <ExternalLink className="w-3.5 h-3.5" /> Open
         </Button>
       </div>
@@ -49,27 +140,11 @@ export default function LinksPage() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: regStatus } = useGetRegistrationStatus(tournamentId, {
-    query: {
-      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: 15000,
-    },
-  });
 
   const base = typeof window !== "undefined" ? window.location.origin : "";
-
-  function fmtDate(d: string | null | undefined) {
-    if (!d) return "";
-    try {
-      return new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    } catch { return d; }
-  }
-  const regParts: string[] = [];
-  if (regStatus?.deadline) regParts.push(`closes ${fmtDate(regStatus.deadline)}`);
-  if (regStatus?.limit != null) regParts.push(`${regStatus.currentCount}/${regStatus.limit} registered`);
-  else if (regStatus) regParts.push(`${regStatus.currentCount} registered`);
-  const regSuffix = regParts.length ? ` — ${regParts.join(", ")}` : "";
+  const displayUrl = `${base}/tournament/${tournamentId}/display`;
+  const liveViewerUrl = `${base}/tournament/${tournamentId}/liveviewer`;
+  const obsUrl = `${base}/tournament/${tournamentId}/obs`;
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -79,81 +154,49 @@ export default function LinksPage() {
             <Link2 className="w-8 h-8 text-primary" /> Links
           </h1>
           <p className="text-muted-foreground mt-2">
-            Share these links for {tournament?.name || "your tournament"}.
+            Share links for auction day — LED screen, streaming, and team owners.
           </p>
         </div>
 
-        {/* Broadcast Links */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-6">
+            <h2 className="font-display font-bold text-lg mb-1">LED Big Screen</h2>
+            <p className="text-xs text-muted-foreground mb-4">Open on your projector laptop on auction day.</p>
+            <LinkRow
+              label="LED Big Screen (projector / TV)"
+              url={displayUrl}
+              description={
+                tournament?.auctionCode
+                  ? `When the screen asks for a code, enter ${tournament.auctionCode}. Team owners do not need this code.`
+                  : "Open on the big screen at your venue. Press F11 for full screen."
+              }
+              shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
+            />
+          </CardContent>
+        </Card>
+
         <Card className="border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <Monitor className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Screens &amp; Display</h2>
+              <h2 className="font-display font-bold text-lg">More screens &amp; streaming (optional)</h2>
             </div>
-            <p className="text-xs text-muted-foreground mb-4">Open these on a projector, TV, or streaming setup during the live auction.</p>
-            <LinkRow
-              label="LED Big Screen Display"
-              url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="The main big-screen view for your venue. Shows the current player card, live bid amount, and team logos in broadcast quality. Open on your projector or TV and press F11 for full screen."
-            />
+            <p className="text-xs text-muted-foreground mb-4">For YouTube live or fans watching from home.</p>
             <LinkRow
               label="OBS Camera Overlay"
-              url={`${base}/tournament/${tournamentId}/obs`}
-              description="For live-streaming to YouTube, Instagram, or Facebook. Add this URL as a Browser Source in OBS Studio (1920×1080, transparent background) — it overlays the auction details on top of your camera feed."
+              url={obsUrl}
+              description="For live-streaming to YouTube, Instagram, or Facebook. Add as a Browser Source in OBS Studio (1920×1080, transparent background)."
             />
             <LinkRow
-              label="Fortune Wheel"
-              url={`${base}/tournament/${tournamentId}/fortune-wheel`}
-              description="A spin wheel for tie-breaks, draft order draws, or any random selection. Loaded with your team names by default. Spin it live in front of the audience for a transparent result."
+              label="Live Auction Viewer (spectators)"
+              url={liveViewerUrl}
+              description="Share with fans and family — watch the auction live from any phone, tablet, or laptop."
+              shareText={`Watch our auction live: ${liveViewerUrl}`}
             />
           </CardContent>
         </Card>
 
-        {/* Admin Links */}
-        <Card className="border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <ClipboardList className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Operator &amp; Admin</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">Links for the person running the auction and the organizer.</p>
-            <LinkRow
-              label="Auction Room"
-              url={`${base}/tournament/${tournamentId}/auction`}
-              description="The live auction control screen. Open in a dedicated tab on the host's laptop or tablet to start the session, call players, accept bids, and mark players as sold."
-            />
-            <LinkRow
-              label="Reports &amp; Analytics"
-              url={`${base}/tournament/${tournamentId}/reports`}
-              description="Summary after the auction — which team spent how much, top players sold, unsold players, and purse breakdown charts."
-            />
-            <LinkRow
-              label="Player Registration Form"
-              url={`${base}/tournament/${tournamentId}/register`}
-              description={`Share this link with players so they can fill in their own details (name, role, phone, photo). You review and approve before the auction.${regSuffix}`}
-            />
-            {regStatus && (
-              <div className="-mt-3 mb-1 ml-0">
-                {regStatus.open ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
-                    <CheckCircle2 className="w-3 h-3" /> Open for registration
-                  </span>
-                ) : regStatus.reason === "deadline_passed" ? (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                    <CalendarX className="w-3 h-3" /> Closed — deadline passed
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                    <Lock className="w-3 h-3" /> Closed — limit reached
-                  </span>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Team Owner Links */}
-        {teams && teams.length > 0 && (
+        {teams && teams.length > 0 ? (
           <Card className="border-border">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-1">
@@ -161,48 +204,26 @@ export default function LinksPage() {
                 <h2 className="font-display font-bold text-lg">Team Owner Panels</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Send each team owner their personal link. They open it on their phone or tablet to place bids in real time during the auction — no login required.
+                Send each owner their access code and personal bidding link. They open it on their phone to place bids — no login required.
               </p>
               {teams.map(team => (
-                <LinkRow
+                <TeamOwnerRow
                   key={team.id}
-                  label={`${team.name} — ${team.ownerName}`}
-                  url={`${base}/owner-app/join?tournamentId=${tournamentId}&teamId=${team.id}`}
-                  description={`Owner panel for ${team.name}. ${team.ownerMobile ? `Mobile: ${team.ownerMobile}` : ""}`}
+                  team={team}
+                  tournamentId={tournamentId}
+                  tournamentName={tournament?.name}
                 />
               ))}
             </CardContent>
           </Card>
+        ) : (
+          <Card className="border-dashed border-border">
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground mb-1">Team owner links</p>
+              <p>Add teams first — each owner&apos;s access code and bidding link will appear here.</p>
+            </CardContent>
+          </Card>
         )}
-
-        {/* Viewer Links */}
-        <Card className="border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <Radio className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">Spectator Links</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">Share these with fans and family who want to watch the auction live from their phone.</p>
-            {tournament?.auctionCode && (
-              <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-400">
-                <Lock className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>
-                  These links include the auction code <span className="font-mono font-bold">{tournament.auctionCode}</span> — viewers who open them are admitted automatically.
-                </span>
-              </div>
-            )}
-            <LinkRow
-              label="Live Auction Viewer"
-              url={`${base}/tournament/${tournamentId}/liveviewer${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Watch the auction live from any device — shows current player, live bid amount, and team updates in real time. Works on phones, tablets, and laptops."
-            />
-            <LinkRow
-              label="LED Big Screen Display"
-              url={`${base}/tournament/${tournamentId}/display${tournament?.auctionCode ? `?code=${tournament.auctionCode}` : ""}`}
-              description="Full-screen venue display — the same broadcast view shown on the big screen. Share with guests who want a larger view on their own screen."
-            />
-          </CardContent>
-        </Card>
       </div>
     </AppLayout>
   );

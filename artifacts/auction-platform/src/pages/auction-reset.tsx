@@ -55,10 +55,10 @@ export default function AuctionReset() {
           <div>
             <h1 className="font-display font-black text-3xl md:text-4xl tracking-tight text-foreground flex items-center gap-3">
               <RefreshCw className="w-7 h-7 text-red-400" />
-              Reset Auction Data
+              Clear Practice Data
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5">
-              Clear all bids and put every non-retained player back into the pool.
+              Remove practice bids and return players to the pool. Teams and player list stay safe.
             </p>
           </div>
           <Button variant="ghost" className="gap-2" onClick={() => openAuctionRoom(tournamentId)}>

@@ -6,6 +6,8 @@ import {
   useListCategories,
   useListTeams,
   useGetTournament,
+  useGetRegistrationStatus,
+  useUpdateTournament,
   useCreatePlayer,
   useUpdatePlayer,
   useDeletePlayer,
@@ -21,6 +23,7 @@ import {
   getListCategoriesQueryKey,
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
+  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -29,7 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -53,13 +56,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -1669,7 +1673,7 @@ function PlayerDetailPanel({
           className="gap-1.5"
           onClick={() => window.open(operatorUrl, "_blank", "noopener,noreferrer")}
         >
-          <Gavel className="w-3.5 h-3.5" /> Operator Panel
+          <Gavel className="w-3.5 h-3.5" /> Auction Control
         </Button>
       </div>
     </div>
@@ -1695,7 +1699,18 @@ export default function Players() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: regStatus } = useGetRegistrationStatus(tournamentId, {
+    query: {
+      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: 15000,
+    },
+  });
+  const updateTournament = useUpdateTournament();
+  const { toast } = useToast();
   const deletePlayer = useDeletePlayer();
+  const [regDeadline, setRegDeadline] = useState("");
+  const [regLimit, setRegLimit] = useState("");
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -1857,6 +1872,27 @@ export default function Players() {
   }));
   const tagOptions = PLAYER_TAGS.map(t => ({ value: t.value, label: t.label }));
 
+  const regUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/register` : "";
+
+  useEffect(() => {
+    if (!tournament) return;
+    setRegDeadline(tournament.registrationDeadline || "");
+    setRegLimit(tournament.registrationLimit != null ? String(tournament.registrationLimit) : "");
+  }, [tournament?.registrationDeadline, tournament?.registrationLimit, tournament]);
+
+  async function saveRegistrationLimits() {
+    await updateTournament.mutateAsync({
+      tournamentId,
+      data: {
+        registrationDeadline: regDeadline || null,
+        registrationLimit: regLimit !== "" ? Number(regLimit) || null : null,
+      },
+    });
+    qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+    qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+    toast({ title: "Registration limits saved" });
+  }
+
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
@@ -1872,73 +1908,137 @@ export default function Players() {
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-bold tracking-tight">Players</h1>
-              {tournament?.auctionCode && (
-                <Badge variant="outline" className="font-mono text-sm text-primary border-primary/40 px-2 py-0.5">
-                  {tournament.auctionCode}
-                </Badge>
-              )}
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">Players</h1>
+          <p className="text-muted-foreground mt-2">
+            {players?.length || 0} players registered
+            {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            type="button"
+            onClick={() => { setEditing(null); setOpen(true); }}
+            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Plus className="w-5 h-5 text-primary" />
+              </div>
+              <p className="font-semibold">Add one by one</p>
             </div>
-            <p className="text-muted-foreground mt-2">
-              {players?.length || 0} players registered
-              {retainedCount > 0 && <span className="text-purple-400 ml-2">· {retainedCount} retained</span>}
-            </p>
+            <p className="text-xs text-muted-foreground">Enter player details manually — best for a small list or last-minute additions.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Upload className="w-5 h-5 text-primary" />
+              </div>
+              <p className="font-semibold">Upload Excel sheet</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Bulk upload from a spreadsheet — fastest way to add 20+ players at once.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.open(`/tournament/${tournamentId}/register`, "_blank")}
+            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <ExternalLink className="w-5 h-5 text-primary" />
+              </div>
+              <p className="font-semibold">Share registration link</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Players fill their own details — entries appear here automatically.</p>
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4 max-w-2xl">
+          <div>
+            <p className="font-semibold text-sm">Player registration link</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Share early in setup — players register before auction day.</p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              onClick={() => setBulkOpen(true)}
-            >
-              <Upload className="w-4 h-4" /> Bulk Upload
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+            <CopyTextButton text={regUrl} label="Copy link" />
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+              <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="w-3 h-3" /> WhatsApp
+              </a>
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              onClick={() => setImportOpen(true)}
-            >
-              <Upload className="w-4 h-4" /> Import Players from Other Tournaments
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+              <ExternalLink className="w-3 h-3" /> Open
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              onClick={() => window.open(`/tournament/${tournamentId}/register`, "_blank")}
-            >
-              <ExternalLink className="w-4 h-4" /> Reg. Link
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+            <div className="space-y-2">
+              <Label className="text-xs">Last date to register</Label>
+              <Input type="date" value={regDeadline} onChange={e => setRegDeadline(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Max registrations</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="e.g. 100"
+                value={regLimit}
+                onChange={e => setRegLimit(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="sm" onClick={() => void saveRegistrationLimits()} disabled={updateTournament.isPending}>
+              {updateTournament.isPending ? "Saving…" : "Save limits"}
             </Button>
-            <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
-              <DialogTrigger asChild>
-                <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                  <Plus className="w-5 h-5" /> Add Player
-                </Button>
-              </DialogTrigger>
-              <DialogContent
-                className="max-w-lg dark"
-                onPointerDownOutside={e => e.preventDefault()}
-                onEscapeKeyDown={e => e.preventDefault()}
-              >
-                <DialogHeader>
-                  <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
-                </DialogHeader>
-                <PlayerForm
-                  key={editing?.id ?? "new"}
-                  tournamentId={tournamentId}
-                  player={editing}
-                  categories={categories || []}
-                  teams={teams || []}
-                  tournament={tournament}
-                  onClose={() => { setOpen(false); setEditing(null); }}
-                />
-              </DialogContent>
-            </Dialog>
+            {regStatus && (
+              regStatus.open ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
+                  <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
+                </span>
+              ) : regStatus.reason === "deadline_passed" ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                  <Lock className="w-3 h-3" /> Closed — limit reached
+                </span>
+              )
+            )}
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 h-8 text-xs text-muted-foreground" onClick={() => setImportOpen(true)}>
+            <Upload className="w-3.5 h-3.5" /> Import from another tournament
+          </Button>
+        </div>
+
+        <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
+          <DialogContent
+            className="max-w-lg dark"
+            onPointerDownOutside={e => e.preventDefault()}
+            onEscapeKeyDown={e => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>{editing ? "Edit Player" : "Add Player"}</DialogTitle>
+            </DialogHeader>
+            <PlayerForm
+              key={editing?.id ?? "new"}
+              tournamentId={tournamentId}
+              player={editing}
+              categories={categories || []}
+              teams={teams || []}
+              tournament={tournament}
+              onClose={() => { setOpen(false); setEditing(null); }}
+            />
+          </DialogContent>
+        </Dialog>
 
         <div className="space-y-3">
           <Input

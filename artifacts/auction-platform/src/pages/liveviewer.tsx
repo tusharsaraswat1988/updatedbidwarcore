@@ -18,12 +18,13 @@ import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { cldUrl } from "@/lib/cloudinary";
 import { useBranding } from "@/hooks/use-branding";
 
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
-import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
+import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 
 type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
@@ -205,7 +206,7 @@ function TeamSquadSheet({
             <div className="flex-shrink-0 px-5 pb-4 pt-2 sm:pt-5 border-b border-border/50">
               <div className="flex items-center gap-3 mb-4">
                 {team?.logoUrl ? (
-                  <img src={team.logoUrl} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                  <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
                 ) : (
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
@@ -269,7 +270,7 @@ function TeamSquadSheet({
                       </span>
                       <div className="w-8 h-8 rounded-full bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
                         {player.photoUrl ? (
-                          <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
+                          <img src={cldUrl(player.photoUrl, "thumbnail")} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
                           <User className="w-3.5 h-3.5 text-muted-foreground" />
                         )}
@@ -382,7 +383,7 @@ function CompletedScreen({
       {/* Hero */}
       <div className="text-center space-y-4 py-6">
         {tournament?.logoUrl && (
-          <img src={tournament.logoUrl} alt="" className="w-20 h-20 object-contain mx-auto opacity-80 mb-2" />
+          <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" className="w-20 h-20 object-contain mx-auto opacity-80 mb-2" />
         )}
         <Trophy className="w-14 h-14 text-primary mx-auto" />
         <div>
@@ -429,7 +430,7 @@ function CompletedScreen({
                   </div>
                   <div className="w-10 h-12 rounded-xl overflow-hidden bg-card flex-shrink-0 flex items-center justify-center">
                     {player.photoUrl ? (
-                      <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
+                      <img src={cldUrl(player.photoUrl, "thumbnail")} alt={player.name} className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-5 h-5 text-muted-foreground/40" />
                     )}
@@ -471,7 +472,7 @@ function CompletedScreen({
                   className="flex items-center gap-3 p-3 rounded-xl bg-card/40 border border-border/40"
                 >
                   {team.logoUrl ? (
-                    <img src={team.logoUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                   ) : (
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-xs flex-shrink-0"
@@ -522,7 +523,7 @@ function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
   return (
     <div className="py-14 px-6 rounded-2xl bg-card/20 border border-dashed border-border/40 flex flex-col items-center gap-5">
       {tournament?.logoUrl ? (
-        <img src={tournament.logoUrl} alt="" className="w-20 h-20 object-contain opacity-75 rounded-xl" />
+        <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" className="w-20 h-20 object-contain opacity-75 rounded-xl" />
       ) : (
         <Radio className="w-14 h-14 text-primary/35" />
       )}
@@ -834,7 +835,7 @@ export default function LiveViewerPage() {
   useAuctionSocket(tournamentId, handleCheerMessage);
 
   const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 0 },
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 15000 },
   });
 
   const isCompleted = (tournament as { status?: string } | undefined)?.status === "completed";
@@ -844,7 +845,7 @@ export default function LiveViewerPage() {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
       refetchInterval: isCompleted ? false : 30000,
-      staleTime: 0,
+      staleTime: 15000,
     },
   });
 
@@ -852,20 +853,24 @@ export default function LiveViewerPage() {
   // so the pre-auction 4-s "officially started" banner can complete fully.
   const _rawDc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
   const stickyDc = useStickyCountdown(_rawDc);
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
+  );
 
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
       enabled: !!tournamentId,
       refetchInterval: isCompleted ? false : 30000,
-      staleTime: 0,
+      staleTime: 15000,
     },
   });
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
       enabled: !!tournamentId,
-      staleTime: 0,
+      staleTime: 15000,
     },
   });
   // Prefetch categories into cache for squad detail enrichment
@@ -873,7 +878,7 @@ export default function LiveViewerPage() {
     query: {
       queryKey: getListCategoriesQueryKey(tournamentId),
       enabled: !!tournamentId,
-      staleTime: 0,
+      staleTime: 15000,
     },
   });
 
@@ -964,11 +969,27 @@ export default function LiveViewerPage() {
     soldToTeamColor?: string;
     soldToTeamLogo?: string | null;
   } | null>(null);
+  const lastLivePlayerRef = useRef<{
+    playerName: string;
+    photoUrl: string | null;
+    basePrice: number;
+    role: string | null;
+    city: string | null;
+    age: number | null;
+    jerseyNumber: string | null;
+    soldPrice?: number;
+    soldToTeam?: string;
+    soldToTeamColor?: string;
+    soldToTeamLogo?: string | null;
+  } | null>(null);
+  const lastOutcomeKeyRef = useRef<string | null>(null);
 
   // ── Sound event detection ─────────────────────────────────────────────────
   const prevStateRef = useRef<AuctionState | null>(null);
+  const prevPhaseRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevStateRef.current;
+    const prevPhase = prevPhaseRef.current;
     if (prev != null && state != null) {
       if (prev.currentPlayer?.id !== state.currentPlayer?.id && state.currentPlayer) {
         play("newPlayer");
@@ -980,22 +1001,22 @@ export default function LiveViewerPage() {
       ) {
         play("bid");
       }
-      if ((prev.status as string) !== "sold" && (state.status as string) === "sold") {
+      if (prevPhase !== "sold" && displayMode.phase === "sold") {
         play("sold");
       }
-      if ((prev.status as string) !== "unsold" && (state.status as string) === "unsold") {
+      if (prevPhase !== "unsold" && displayMode.phase === "unsold") {
         play("unsold");
       }
     }
+    prevPhaseRef.current = displayMode.phase;
     prevStateRef.current = state ?? null;
-  }, [state, play]);
+  }, [state, displayMode.phase, play]);
 
-  // ── Capture last result whenever sold/unsold — persists until next player ──
+  // ── Capture authoritative outcome — persists until next player ──
   useEffect(() => {
     if (!state) return;
-    const status = state.status as string;
-    if ((status === "sold" || status === "unsold") && state.currentPlayer) {
-      setLastResult({
+    if (state.currentPlayer) {
+      lastLivePlayerRef.current = {
         playerName: state.currentPlayer.name,
         photoUrl: state.currentPlayer.photoUrl ?? null,
         basePrice: state.currentPlayer.basePrice,
@@ -1003,30 +1024,75 @@ export default function LiveViewerPage() {
         city: state.currentPlayer.city ?? null,
         age: state.currentPlayer.age ?? null,
         jerseyNumber: state.currentPlayer.jerseyNumber ?? null,
-        status: status as "sold" | "unsold",
         soldPrice: state.currentBid ?? undefined,
         soldToTeam: state.currentBidTeamName ?? undefined,
         soldToTeamColor: state.currentBidTeamColor ?? undefined,
-        soldToTeamLogo: (state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl ?? null,
+        soldToTeamLogo: state.currentBidTeamLogoUrl ?? null,
+      };
+    }
+
+    const outcome = displayMode.outcome;
+    if (!outcome) return;
+    const key = outcomeEventKey(outcome);
+    if (!key || key === lastOutcomeKeyRef.current) return;
+    lastOutcomeKeyRef.current = key;
+
+    const enrichment = lastLivePlayerRef.current;
+    const sold = soldRecordFromOutcome(outcome);
+    const unsold = unsoldRecordFromOutcome(outcome);
+
+    if (outcome.type === "sold" && sold) {
+      setLastResult({
+        playerName: sold.playerName,
+        photoUrl: sold.photoUrl ?? null,
+        basePrice: enrichment?.basePrice ?? 0,
+        role: enrichment?.role ?? null,
+        city: enrichment?.city ?? null,
+        age: enrichment?.age ?? null,
+        jerseyNumber: enrichment?.jerseyNumber ?? null,
+        status: "sold",
+        soldPrice: sold.amount,
+        soldToTeam: sold.teamName,
+        soldToTeamColor: sold.teamColor,
+        soldToTeamLogo: sold.teamLogoUrl ?? enrichment?.soldToTeamLogo ?? null,
+      });
+      return;
+    }
+
+    if (outcome.type === "unsold" && unsold) {
+      setLastResult({
+        playerName: unsold.playerName,
+        photoUrl: unsold.photoUrl ?? null,
+        basePrice: enrichment?.basePrice ?? 0,
+        role: enrichment?.role ?? null,
+        city: enrichment?.city ?? null,
+        age: enrichment?.age ?? null,
+        jerseyNumber: enrichment?.jerseyNumber ?? null,
+        status: "unsold",
+      });
+      return;
+    }
+
+    // Legacy servers: outcome derived from lastAction only (no structured record)
+    if (!outcome.record && enrichment) {
+      setLastResult({
+        ...enrichment,
+        status: outcome.type,
       });
     }
-  }, [state?.status, state?.currentPlayer?.id]);
+  }, [state, displayMode.outcome]);
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const displayMode = useMemo(
-    () => deriveAuctionDisplayMode(state),
-    [state?.status, state?.displayCountdown],
-  );
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
   const hasPlayer = !!state?.currentPlayer;
   const isActive = displayMode.isLive;
   const isPaused = displayMode.isPaused;
   const freezeBidUpdates = displayMode.freezeBidUpdates;
   const isIdle = !state || state.status === "idle";
-  const isSold = (state?.status as string) === "sold";
-  const isUnsold = (state?.status as string) === "unsold";
-  // Show frozen result card when no active player but we have a previous outcome
-  const showFrozenCard = !hasPlayer && !isSold && !isUnsold && !!lastResult;
+  const isSold = displayMode.phase === "sold";
+  const isUnsold = displayMode.phase === "unsold";
+  // Show outcome card whenever the server has cleared the active player.
+  const showFrozenCard = !hasPlayer && !!lastResult;
   const soldCount = state?.soldPlayersCount ?? 0;
   const unsoldCount = state?.unsoldPlayersCount ?? 0;
   const remainingCount = state?.remainingPlayersCount ?? 0;
@@ -1224,7 +1290,7 @@ export default function LiveViewerPage() {
                   >
                     {state?.currentPlayer?.photoUrl ? (
                       <img
-                        src={state.currentPlayer.photoUrl}
+                        src={cldUrl(state.currentPlayer.photoUrl, "soldCard")}
                         alt={state.currentPlayer.name}
                         className="w-full h-full object-cover"
                       />
@@ -1342,7 +1408,7 @@ export default function LiveViewerPage() {
                       >
                         {(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl ? (
                           <img
-                            src={(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl!}
+                            src={cldUrl((state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl, "teamLogo")}
                             alt=""
                             className="w-4 h-4 rounded-full object-cover flex-shrink-0"
                           />
@@ -1368,7 +1434,7 @@ export default function LiveViewerPage() {
                       >
                         {(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl ? (
                           <img
-                            src={(state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl!}
+                            src={cldUrl((state as { currentBidTeamLogoUrl?: string | null }).currentBidTeamLogoUrl, "teamLogo")}
                             alt=""
                             className="w-4 h-4 rounded-full object-cover flex-shrink-0"
                           />
@@ -1420,7 +1486,7 @@ export default function LiveViewerPage() {
                     }}
                   >
                     {lastResult!.photoUrl ? (
-                      <img src={lastResult!.photoUrl} alt={lastResult!.playerName} className="w-full h-full object-cover" />
+                      <img src={cldUrl(lastResult!.photoUrl, "soldCard")} alt={lastResult!.playerName} className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-14 h-14 text-muted-foreground/25" />
                     )}
@@ -1489,7 +1555,7 @@ export default function LiveViewerPage() {
                             }}
                           >
                             {lastResult!.soldToTeamLogo ? (
-                              <img src={lastResult!.soldToTeamLogo} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                              <img src={cldUrl(lastResult!.soldToTeamLogo, "teamLogo")} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
                             ) : (
                               <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
                             )}
@@ -1585,7 +1651,7 @@ export default function LiveViewerPage() {
                     {/* Header */}
                     <div className="flex items-center gap-2 mb-2 mt-0.5">
                       {team.logoUrl ? (
-                        <img src={team.logoUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                        <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
                       ) : (
                         <div
                           className="w-6 h-6 rounded-full flex items-center justify-center font-display font-black text-[9px] flex-shrink-0"
@@ -1760,7 +1826,7 @@ export default function LiveViewerPage() {
                 {cheerTeam ? (
                   <div className="flex items-center justify-center gap-2 mb-4">
                     {cheerTeam.logoUrl ? (
-                      <img src={cheerTeam.logoUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                      <img src={cldUrl(cheerTeam.logoUrl, "teamLogo")} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                     ) : (
                       <div
                         className="w-5 h-5 rounded-full flex-shrink-0"
@@ -1868,7 +1934,7 @@ export default function LiveViewerPage() {
                         }}
                       >
                         {team.logoUrl ? (
-                          <img src={team.logoUrl} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                          <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                         ) : (
                           <div
                             className="w-9 h-9 rounded-full flex items-center justify-center font-display font-black text-sm flex-shrink-0"

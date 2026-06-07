@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 
 const FortuneWheelModal = lazy(() =>
   import("@/components/fortune-wheel-modal").then((m) => ({ default: m.FortuneWheelModal }))
@@ -62,8 +62,11 @@ import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import {
   tournamentToReadinessInput,
   validateAuctionReadiness,
+  type AuctionReadinessCheckId,
+  type AuctionReadinessIssue,
 } from "@workspace/api-base/auction-readiness";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
+import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 
 function playerMatchesSearch(
@@ -197,15 +200,29 @@ function StepIndicator({
 
 export default function AuctionOperator() {
   const [, params] = useRoute("/tournament/:id/auction");
+  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
+  const readinessFixLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
+    teams: readinessFixPath(tournamentId, "teams"),
+    players: readinessFixPath(tournamentId, "players"),
+    minBid: readinessFixPath(tournamentId, "minBid"),
+    openingTimer: readinessFixPath(tournamentId, "openingTimer"),
+    bidTimer: readinessFixPath(tournamentId, "bidTimer"),
+    playerOrder: readinessFixPath(tournamentId, "playerOrder"),
+    bidTiers: readinessFixPath(tournamentId, "bidTiers"),
+    minSquad: readinessFixPath(tournamentId, "minSquad"),
+    maxSquad: readinessFixPath(tournamentId, "maxSquad"),
+    squadRange: readinessFixPath(tournamentId, "squadRange"),
+  };
 
   const [manualSellOpen, setManualSellOpen] = useState(false);
   const [manualTeamId, setManualTeamId] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [showBatchReAuctionConfirm, setShowBatchReAuctionConfirm] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
-  const [readinessMessages, setReadinessMessages] = useState<string[]>([]);
+  const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
+  const [coachStep, setCoachStep] = useState(0);
   const [reauctionModalOpen, setReauctionModalOpen] = useState(false);
   const [resumeBidDialogOpen, setResumeBidDialogOpen] = useState(false);
   const [currentBidPaused, setCurrentBidPaused] = useState(false);
@@ -232,6 +249,21 @@ export default function AuctionOperator() {
   const playerFilterContainerRef = useRef<HTMLDivElement>(null);
   // Per-team bid debounce
   const bidDebounce = useRef<Map<number, number>>(new Map());
+
+  const COACH_STEPS = [
+    { title: "1. Start the auction", body: "Click Start Practice when your setup checklist is complete." },
+    { title: "2. Sell or mark unsold", body: "When bidding ends, mark the player Sold or Unsold from the control bar." },
+    { title: "3. LED Big Screen", body: "On your projector laptop, open the LED screen and enter your LED code when asked." },
+  ];
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    try {
+      const key = `bidwar_operator_coach_${tournamentId}`;
+      if (localStorage.getItem(key)) return;
+      setCoachStep(1);
+    } catch { /* ignore */ }
+  }, [tournamentId]);
 
   // Close filter panels when clicking outside
   useEffect(() => {
@@ -457,7 +489,7 @@ export default function AuctionOperator() {
       );
       const issues = validateAuctionReadiness(readinessInput, isTrialMode ? "trial" : "live");
       if (issues.length > 0) {
-        setReadinessMessages(issues.map((i) => i.message));
+        setReadinessIssues(issues);
         setReadinessModalOpen(true);
         return;
       }
@@ -469,7 +501,7 @@ export default function AuctionOperator() {
     } catch (err: unknown) {
       const issues = (err as { data?: { issues?: string[] } })?.data?.issues;
       if (issues?.length) {
-        setReadinessMessages(issues);
+        setReadinessIssues(issues.map((message) => ({ id: "teams" as AuctionReadinessCheckId, message })));
         setReadinessModalOpen(true);
       }
     }
@@ -669,7 +701,7 @@ export default function AuctionOperator() {
               disabled={startAuction.isPending}
             >
               <Play className="w-3 h-3" />
-              {isPaused ? "Resume Auction" : isTrialMode ? "Start (Trial)" : "Start Auction"}
+              {isPaused ? "Resume Auction" : isTrialMode ? "Start Practice" : "Start Auction"}
             </button>
           ) : (
             <button
@@ -698,7 +730,7 @@ export default function AuctionOperator() {
           {/* Trial badge */}
           {isTrialMode && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 flex-shrink-0">
-              Trial Mode
+              Practice Mode
             </span>
           )}
 
@@ -1791,19 +1823,83 @@ export default function AuctionOperator() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">Please complete:</p>
-              <ul className="space-y-1.5 text-sm">
-                {readinessMessages.map((message) => (
-                  <li key={message} className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">•</span>
-                    <span>{message}</span>
-                  </li>
-                ))}
+              <p className="text-sm text-muted-foreground">Complete these before starting:</p>
+              <ul className="space-y-2 text-sm">
+                {readinessIssues.map((issue) => {
+                  const fixLink = readinessFixLinks[issue.id];
+                  return (
+                    <li key={`${issue.id}-${issue.message}`} className="flex items-start justify-between gap-3 rounded-md border border-border/50 px-3 py-2">
+                      <span className="flex items-start gap-2 min-w-0">
+                        <span className="text-primary mt-0.5">•</span>
+                        <span>{issue.message}</span>
+                      </span>
+                      {fixLink && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReadinessModalOpen(false);
+                            navigate(fixLink);
+                          }}
+                          className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
+                        >
+                          Fix →
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
-              <Button className="w-full mt-2" onClick={() => setReadinessModalOpen(false)}>
-                OK
+              {readinessIssues[0] && readinessFixLinks[readinessIssues[0].id] && (
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setReadinessModalOpen(false);
+                    navigate(readinessFixLinks[readinessIssues[0].id]!);
+                  }}
+                >
+                  Fix first issue →
+                </Button>
+              )}
+              <Button variant="outline" className="w-full" onClick={() => setReadinessModalOpen(false)}>
+                Close
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* First-visit coach marks */}
+        <Dialog open={coachStep > 0} onOpenChange={() => {}}>
+          <DialogContent className="dark max-w-md" onPointerDownOutside={e => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>{COACH_STEPS[coachStep - 1]?.title}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground py-2">{COACH_STEPS[coachStep - 1]?.body}</p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  try { localStorage.setItem(`bidwar_operator_coach_${tournamentId}`, "1"); } catch { /* ignore */ }
+                  setCoachStep(0);
+                }}
+              >
+                Skip tour
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (coachStep >= COACH_STEPS.length) {
+                    try { localStorage.setItem(`bidwar_operator_coach_${tournamentId}`, "1"); } catch { /* ignore */ }
+                    setCoachStep(0);
+                  } else {
+                    setCoachStep(s => s + 1);
+                  }
+                }}
+              >
+                {coachStep >= COACH_STEPS.length ? "Got it" : "Next →"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-center text-muted-foreground">Step {coachStep} of {COACH_STEPS.length}</p>
           </DialogContent>
         </Dialog>
 

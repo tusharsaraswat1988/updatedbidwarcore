@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
+import { HintLabel } from "@/components/ui/hint-label";
+import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
 import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,9 +29,8 @@ import {
   Megaphone, Clapperboard, Loader2, Info, CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
-
-type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
 
 function SponsorLogosEditor({
   logos,
@@ -133,6 +134,7 @@ export default function TournamentSettings() {
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const [initialized, setInitialized] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsTab>("identity");
@@ -151,6 +153,7 @@ export default function TournamentSettings() {
   const [mainBannerUploading, setMainBannerUploading] = useState(false);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
 
   const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
     try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
@@ -236,6 +239,51 @@ export default function TournamentSettings() {
 
     setInitialized(true);
   }, [tournament, initialized]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") as SettingsTab | null;
+    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
+      setActiveSection(tab);
+    }
+    const focus = params.get("focus") as SettingsFocusField | null;
+    if (!focus) return;
+    if (focus === "registration") setActiveSection("identity");
+    if (["bidTiers", "minSquad", "maxSquad"].includes(focus)) setShowAdvancedAuction(true);
+    setHighlightField(focus);
+    const scrollTimer = window.setTimeout(() => {
+      document.getElementById(`settings-field-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    const clearTimer = window.setTimeout(() => setHighlightField(null), 4500);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [initialized]);
+
+  function fieldWrapClass(field: SettingsFocusField, needsAttention = false) {
+    const highlight = highlightField === field ? "ring-2 ring-primary/50 rounded-lg p-1 -m-1" : "";
+    const pulse = needsAttention ? "ring-2 ring-amber-500/50 animate-pulse rounded-lg p-1 -m-1" : "";
+    return highlight || pulse;
+  }
+
+  function applyCricketPreset() {
+    setActiveSection("auction");
+    setShowAdvancedAuction(true);
+    const increment = Number(editForm.minBid) > 0 ? Math.max(5000, Math.round(Number(editForm.minBid) / 2)) : 5000;
+    setEditForm(f => ({
+      ...f,
+      timerSeconds: "30",
+      bidTimerSeconds: "15",
+      playerSelectionMode: "random",
+      minimumSquadSize: Number(f.minimumSquadSize) > 0 ? f.minimumSquadSize : "11",
+      maximumSquadSize: Number(f.maximumSquadSize) > 0 ? f.maximumSquadSize : "15",
+      minBid: Number(f.minBid) > 0 ? f.minBid : "10000",
+    }));
+    setBidTiers([{ increment }]);
+    toast({ title: "Cricket preset applied", description: "Review values and click Save Changes." });
+  }
 
   function handleDisplayThemeChange(t: DisplayThemeName) {
     setDisplayTheme(t);
@@ -386,14 +434,15 @@ export default function TournamentSettings() {
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+    toast({ title: "Settings saved", description: "Your auction rules have been updated." });
     navigate(`/tournament/${tournamentId}`);
   }
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
-    { id: "identity", label: "Identity", icon: Building2 },
+    { id: "identity", label: "Basic Info", icon: Building2 },
     { id: "auction", label: "Auction Rules", icon: Gavel },
-    { id: "broadcast", label: "Broadcast", icon: Megaphone },
-    { id: "recovery", label: "Recovery", icon: ShieldAlert },
+    { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
+    { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
 
   if (loadingTournament || !initialized) {
@@ -619,7 +668,7 @@ export default function TournamentSettings() {
               })()}
             </div>
 
-            <div className="border-t border-border/60 pt-4 space-y-3">
+            <div id="settings-field-registration" className={`border-t border-border/60 pt-4 space-y-3 ${fieldWrapClass("registration")}`}>
               <div>
                 <Label className="text-sm font-semibold">Player Registration Link — Limits</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -661,8 +710,11 @@ export default function TournamentSettings() {
         {/* ── AUCTION RULES ── */}
         {activeSection === "auction" && (
           <>
-            <div className="space-y-1 pb-1">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
               <p className="text-xs text-muted-foreground">These are the most important settings. Set them before your auction starts.</p>
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyCricketPreset}>
+                Use standard cricket settings
+              </Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -673,16 +725,16 @@ export default function TournamentSettings() {
                 </Label>
                 <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
               </div>
-              <div className="space-y-2">
+              <div id="settings-field-minBid" className={`space-y-2 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
                 <Label className="flex items-center gap-1">
-                  Minimum Player Value (₹)
+                  <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹)</HintLabel>
                   <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
                 </Label>
                 <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-border pt-4">
+            <div id="settings-field-bidTiers" className={`space-y-2 border-t border-border pt-4 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
               <Label className="flex items-center gap-1 text-sm font-semibold">
                 Bid Increase Amount (₹)
                 <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
@@ -707,17 +759,19 @@ export default function TournamentSettings() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
-              <div className="space-y-2">
+              <div id="settings-field-openingTimer" className={`space-y-2 ${fieldWrapClass("openingTimer", Number(editForm.timerSeconds) <= 0)}`}>
                 <Label className="flex items-center gap-1">
-                  <Timer className="w-3.5 h-3.5 text-muted-foreground" /> Opening Timer (seconds)
+                  <Timer className="w-3.5 h-3.5 text-muted-foreground" />
+                  <HintLabel hint="Naya player aane par kitni der wait karein">Opening Timer (seconds)</HintLabel>
                   <FieldTooltip text="Countdown shown when a new player appears on screen before anyone bids. If no one bids in time, the player is passed." />
                 </Label>
                 <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
                 <p className="text-xs text-muted-foreground">Time before first bid — recommended: 30 seconds</p>
               </div>
-              <div className="space-y-2">
+              <div id="settings-field-bidTimer" className={`space-y-2 ${fieldWrapClass("bidTimer", Number(editForm.bidTimerSeconds) <= 0)}`}>
                 <Label className="flex items-center gap-1">
-                  <Timer className="w-3.5 h-3.5 text-primary" /> Bid Timer (seconds)
+                  <Timer className="w-3.5 h-3.5 text-primary" />
+                  <HintLabel hint="Har bid ke baad kitni der">Bid Timer (seconds)</HintLabel>
                   <FieldTooltip text="After each bid, this timer resets. When it runs out, the highest bidder wins the player. Shorter timers create more urgency — recommended: 15 seconds." />
                 </Label>
                 <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
@@ -725,7 +779,7 @@ export default function TournamentSettings() {
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-border pt-4">
+            <div id="settings-field-playerOrder" className={`space-y-2 border-t border-border pt-4 ${fieldWrapClass("playerOrder")}`}>
               <Label className="flex items-center gap-1">
                 Player Order
                 <FieldTooltip text="Controls which player comes up next when the operator presses Next Player. Sequential = in the order you added them. Random = random draw each time. Manual = operator picks from a list." />
@@ -737,7 +791,7 @@ export default function TournamentSettings() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="dark">
                   <SelectItem value="sequential">In order — players come up one by one as added</SelectItem>
-                  <SelectItem value="random">Random draw — a different player each time</SelectItem>
+                  <SelectItem value="random">Random draw — recommended for most tournaments</SelectItem>
                   <SelectItem value="manual">Manual — operator picks from the queue list</SelectItem>
                 </SelectContent>
               </Select>
@@ -835,7 +889,7 @@ export default function TournamentSettings() {
                       <p className="text-xs text-muted-foreground mt-0.5">Set 0 to disable each limit.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                      <div id="settings-field-minSquad" className={`space-y-2 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
                         <Label className="text-xs">Minimum Players per Team</Label>
                         <Input
                           type="number" min={0} max={100}
@@ -844,7 +898,7 @@ export default function TournamentSettings() {
                         />
                         <p className="text-[10px] text-muted-foreground">Budget is reserved for unfilled slots so teams can't overbid early.</p>
                       </div>
-                      <div className="space-y-2">
+                      <div id="settings-field-maxSquad" className={`space-y-2 ${fieldWrapClass("maxSquad", Number(editForm.maximumSquadSize) <= 0)}`}>
                         <Label className="text-xs">Maximum Players per Team</Label>
                         <Input
                           type="number" min={0} max={100}

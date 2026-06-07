@@ -118,7 +118,11 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
   // ── Derived state ────────────────────────────────────────────────────
-  const { soldPhase, soldRecord } = useSoldAnimation(state);
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
+  );
+  const { soldPhase, soldRecord, unsoldPhase, unsoldRecord } = useSoldAnimation(state);
 
   // ── Broadcast audio (LED display only) ───────────────────────────────
   // Settings are memo'd on primitives so the AudioManager only re-initialises
@@ -153,10 +157,10 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   ]);
 
   // Stable key that changes exactly once per sold event for deduplication.
-  // "sold" is a runtime-only status the server emits during live auction;
-  // it is not in the OpenAPI enum so we widen to string for comparison.
-  const soldKey = (state?.status as string) === "sold"
-    ? `${state?.currentBidTeamId ?? 0}_${state?.currentBid ?? 0}_${state?.soldPlayersCount ?? 0}`
+  // The backend currently reports outcomes through lastAction while leaving
+  // session status active, so the derived display outcome is the UI contract.
+  const soldKey = displayMode.phase === "sold"
+    ? displayMode.outcome?.action ?? `${state?.soldPlayersCount ?? 0}`
     : "";
 
   // Derive countdown primitives from the raw server state for useBroadcastAudio
@@ -166,7 +170,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   const displayCountdownEndsAt = _dc?.endsAt ?? null;
 
   const { isUnlocked } = useBroadcastAudio({
-    status: state?.status,
+    status: displayMode.phase,
     timerEndsAt: state?.timerEndsAt,
     soldKey,
     settings: audioSettings,
@@ -177,15 +181,19 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   // Sticky countdown for the visual overlay — holds the pre-auction countdown
   // alive for 5 s after the server clears it so the 4-s banner can complete.
   const stickyDc = useStickyCountdown(_dc);
-  const displayMode = useMemo(
-    () => deriveAuctionDisplayMode(state),
-    [state?.status, state?.displayCountdown],
-  );
   const isActive = displayMode.isLive;
   const isPaused = displayMode.isPaused;
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
 
   const stickyPreAuction = stickyDc?.type === "pre-auction" ? stickyDc : null;
+  const statusForHeader = displayMode.phase === "live" ? "active" : displayMode.phase;
+  const statusLabel = displayMode.outcome?.isManual
+    ? "Manual Sold"
+    : displayMode.phase === "sold"
+    ? "Sold"
+    : displayMode.phase === "unsold"
+    ? "Unsold"
+    : statusForHeader;
 
   // Memoized derived values so memo'd children get stable prop identity.
   const sponsorLogos = useMemo(
@@ -266,7 +274,8 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
       <StaticBackground teamColor={teamColor} theme={theme}>
         <AuctionHeader
           tournament={tournament ?? undefined}
-          status={state?.status}
+          status={statusForHeader}
+          statusLabel={statusLabel}
           soldCount={state?.soldPlayersCount || 0}
           remainingCount={state?.remainingPlayersCount || 0}
           sponsorLogos={sponsorLogos}
@@ -291,7 +300,12 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
 
           {/* SOLD animations layered above countdown (z-20) and main content */}
           {overlayMode !== "top5" && !displayMode.freezeBidUpdates && (
-            <AnimatedEffectsLayer soldPhase={soldPhase} soldRecord={soldRecord} />
+            <AnimatedEffectsLayer
+              soldPhase={soldPhase}
+              soldRecord={soldRecord}
+              unsoldPhase={unsoldPhase}
+              unsoldRecord={unsoldRecord}
+            />
           )}
 
           {displayMode.overlayMode && (

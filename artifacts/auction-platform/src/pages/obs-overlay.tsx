@@ -13,8 +13,9 @@ import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
 import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { getDisplayTheme } from "@/lib/display-theme";
-import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
+import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
+import { cldUrl } from "@/lib/cloudinary";
 
 // ─── Hexagon clip-path player photo ──────────────────────────────────────────
 function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; color: string; size?: number; playerTag?: string | null }) {
@@ -47,7 +48,7 @@ function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; 
         overflow: "hidden",
       }}>
         {src ? (
-          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img src={cldUrl(src, size > 120 ? "soldCard" : "avatar")} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
           <div style={{
             width: "100%", height: "100%",
@@ -145,7 +146,7 @@ function TeamTicker({ teams }: { teams: Array<{ name: string; shortCode: string;
             borderRight: "1px solid rgba(255,255,255,0.06)",
           }}>
             {t.logoUrl ? (
-              <img src={t.logoUrl} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+              <img src={cldUrl(t.logoUrl, "teamLogo")} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
             ) : (
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color || "#666", flexShrink: 0 }} />
             )}
@@ -170,8 +171,9 @@ function TeamTicker({ teams }: { teams: Array<{ name: string; shortCode: string;
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 type SoldSnap = {
+  outcome: "sold" | "unsold";
   playerName: string; photoUrl?: string | null;
-  amount: number; teamName: string; teamColor: string; teamLogoUrl?: string | null;
+  amount?: number; teamName?: string; teamColor: string; teamLogoUrl?: string | null;
 };
 
 export default function ObsOverlay() {
@@ -181,7 +183,7 @@ export default function ObsOverlay() {
   useAuctionSocket(tournamentId);
 
   const { data: state } = useGetAuctionState(tournamentId, {
-    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
+    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 10000 },
   });
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -192,36 +194,61 @@ export default function ObsOverlay() {
 
   const [soldSnap, setSoldSnap] = useState<SoldSnap | null>(null);
   const [showSold, setShowSold] = useState(false);
-  const lastActionRef = useRef<string | null>(null);
-  const lastKnownRef = useRef<SoldSnap | null>(null);
+  const lastOutcomeKeyRef = useRef<string | null>(null);
+  const initialOutcomeSeenRef = useRef(false);
   const soldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const displayMode = useMemo(
+    () => deriveAuctionDisplayMode(state),
+    [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
+  );
 
-  // Track last known state for sold snap
   useEffect(() => {
-    if (state?.currentPlayer && state.currentBidTeamId) {
-      lastKnownRef.current = {
-        playerName: state.currentPlayer.name,
-        photoUrl: state.currentPlayer.photoUrl,
-        amount: state.currentBid ?? 0,
-        teamName: state.currentBidTeamName ?? "",
-        teamColor: state.currentBidTeamColor ?? "#F59E0B",
-        teamLogoUrl: state.currentBidTeamLogoUrl,
-      };
+    const outcome = displayMode.outcome;
+    if (!outcome) {
+      if (state && !initialOutcomeSeenRef.current) initialOutcomeSeenRef.current = true;
+      return;
     }
-  }, [state?.currentPlayer?.id, state?.currentBidTeamId, state?.currentBid]);
 
-  useEffect(() => {
-    if (state?.lastAction?.startsWith("SOLD:") && state.lastAction !== lastActionRef.current) {
-      lastActionRef.current = state.lastAction;
-      const snap = state.currentPlayer
-        ? { playerName: state.currentPlayer.name, photoUrl: state.currentPlayer.photoUrl, amount: state.currentBid ?? 0, teamName: state.currentBidTeamName ?? "", teamColor: state.currentBidTeamColor ?? "#F59E0B", teamLogoUrl: state.currentBidTeamLogoUrl }
-        : lastKnownRef.current;
-      if (snap) setSoldSnap(snap);
+    const key = outcomeEventKey(outcome);
+    if (!key) return;
+
+    if (!initialOutcomeSeenRef.current) {
+      initialOutcomeSeenRef.current = true;
+      lastOutcomeKeyRef.current = key;
+      return;
+    }
+
+    if (key === lastOutcomeKeyRef.current) return;
+    lastOutcomeKeyRef.current = key;
+
+    const sold = soldRecordFromOutcome(outcome);
+    const unsold = unsoldRecordFromOutcome(outcome);
+    if (sold) {
+      setSoldSnap({
+        outcome: "sold",
+        playerName: sold.playerName,
+        photoUrl: sold.photoUrl,
+        amount: sold.amount,
+        teamName: sold.teamName,
+        teamColor: sold.teamColor,
+        teamLogoUrl: sold.teamLogoUrl,
+      });
       setShowSold(true);
+    } else if (unsold) {
+      setSoldSnap({
+        outcome: "unsold",
+        playerName: unsold.playerName,
+        photoUrl: unsold.photoUrl,
+        teamColor: "#ef4444",
+      });
+      setShowSold(true);
+    }
+
+    if (sold || unsold) {
       if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
       soldTimerRef.current = setTimeout(() => setShowSold(false), 7000);
     }
-  }, [state?.lastAction]);
+  }, [displayMode.outcome, state]);
 
   useEffect(() => {
     if (state?.currentPlayer?.id) setShowSold(false);
@@ -241,12 +268,8 @@ export default function ObsOverlay() {
     }
   }, [tournamentId]);
 
-  const displayMode = useMemo(
-    () => deriveAuctionDisplayMode(state),
-    [state?.status, state?.displayCountdown],
-  );
   const hasPlayer = !!state?.currentPlayer;
-  const isActive = displayMode.isLive;
+  const isActive = displayMode.phase === "live";
   const freezeBidUpdates = displayMode.freezeBidUpdates;
   const bidColor = state?.currentBidTeamColor || "#00d4ff";
   const hasBid = !!state?.currentBidTeamName;
@@ -282,7 +305,7 @@ export default function ObsOverlay() {
           padding: "8px 14px",
           border: "1px solid rgba(255,255,255,0.08)",
         }}>
-          <img src={tournament.logoUrl} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
+          <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
         </div>
       )}
 
@@ -317,7 +340,7 @@ export default function ObsOverlay() {
         )}
       </AnimatePresence>
 
-      {/* ── SOLD fullscreen banner ── */}
+      {/* ── Outcome fullscreen banner ── */}
       <AnimatePresence>
         {showSold && soldSnap && (
           <motion.div
@@ -333,7 +356,7 @@ export default function ObsOverlay() {
               display: "flex", alignItems: "center", gap: 36,
             }}
           >
-            {/* Sold stamp */}
+            {/* Outcome stamp */}
             <motion.div
               initial={{ scale: 3, opacity: 0, rotate: -20 }}
               animate={{ scale: 1, opacity: 1, rotate: -8 }}
@@ -345,7 +368,7 @@ export default function ObsOverlay() {
                 pointerEvents: "none",
               }}
             >
-              SOLD
+              {soldSnap.outcome === "sold" ? "SOLD" : "UNSOLD"}
             </motion.div>
 
             <HexPhoto src={soldSnap.photoUrl} color={soldSnap.teamColor} size={140} />
@@ -355,7 +378,7 @@ export default function ObsOverlay() {
                 initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.15 }}
                 style={{ fontSize: 14, fontWeight: 800, color: soldSnap.teamColor, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 6 }}
               >
-                SOLD
+                {soldSnap.outcome === "sold" ? "SOLD" : "UNSOLD"}
               </motion.div>
               <motion.div
                 initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.22 }}
@@ -367,7 +390,7 @@ export default function ObsOverlay() {
                 initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}
                 style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", marginTop: 6 }}
               >
-                acquired by {soldSnap.teamName}
+                {soldSnap.outcome === "sold" ? `acquired by ${soldSnap.teamName || "Team"}` : "returns to the player pool"}
               </motion.div>
             </div>
 
@@ -375,12 +398,14 @@ export default function ObsOverlay() {
               initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.35, type: "spring" }}
               style={{ textAlign: "right", flexShrink: 0 }}
             >
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 4 }}>SOLD FOR</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 4 }}>
+                {soldSnap.outcome === "sold" ? "SOLD FOR" : "RESULT"}
+              </div>
               <div style={{ fontSize: 64, fontWeight: 900, color: soldSnap.teamColor, lineHeight: 1, filter: `drop-shadow(0 0 20px ${soldSnap.teamColor})` }}>
-                {formatIndianRupee(soldSnap.amount)}
+                {soldSnap.outcome === "sold" ? formatIndianRupee(soldSnap.amount ?? 0) : "UNSOLD"}
               </div>
               {soldSnap.teamLogoUrl && (
-                <img src={soldSnap.teamLogoUrl} alt="" style={{ height: 40, marginTop: 10, objectFit: "contain", marginLeft: "auto" }} />
+                <img src={cldUrl(soldSnap.teamLogoUrl, "teamLogo")} alt="" style={{ height: 40, marginTop: 10, objectFit: "contain", marginLeft: "auto" }} />
               )}
             </motion.div>
           </motion.div>
@@ -514,7 +539,7 @@ export default function ObsOverlay() {
                       </div>
                       <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                         {state?.currentBidTeamLogoUrl && (
-                          <img src={state.currentBidTeamLogoUrl} alt="" style={{ height: 24, objectFit: "contain" }} />
+                          <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                         )}
                         <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                       </div>
@@ -532,7 +557,7 @@ export default function ObsOverlay() {
                     </div>
                     <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                       {state?.currentBidTeamLogoUrl && (
-                        <img src={state.currentBidTeamLogoUrl} alt="" style={{ height: 24, objectFit: "contain" }} />
+                        <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                       )}
                       <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                     </div>

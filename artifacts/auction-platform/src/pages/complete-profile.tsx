@@ -109,11 +109,12 @@ export default function CompleteProfile() {
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            <CardTitle className="text-xl">Complete your profile</CardTitle>
+            <CardTitle className="text-xl">Confirm your mobile</CardTitle>
           </div>
+          <p className="text-[11px] text-muted-foreground">Step {step === "mobile" ? 1 : 2} of 2</p>
           <CardDescription>
             {step === "mobile"
-              ? "Enter your mobile number to verify your account."
+              ? "Google sign-in done. Add your mobile so team owners and support can reach you."
               : `Enter the 6-digit OTP sent to ${mobile}.`}
           </CardDescription>
         </CardHeader>
@@ -144,7 +145,7 @@ export default function CompleteProfile() {
               </div>
               <Button type="submit" className="w-full" disabled={loading || !parseIndianMobile(mobile).ok}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Continue
+                Send OTP
               </Button>
             </form>
           ) : (
@@ -165,7 +166,7 @@ export default function CompleteProfile() {
               </div>
               <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Verify and create account
+                Verify &amp; continue
               </Button>
               <div className="flex items-center justify-between">
                 <Button

@@ -40,6 +40,7 @@ export function useBroadcastAudio({
   const managerRef = useRef<AuctionAudioManager | null>(null);
   const prevStatusRef = useRef<string | undefined>(undefined);
   const prevTimerEndsAtRef = useRef<string | null | undefined>(undefined);
+  const initialStatusSeenRef = useRef(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   // ── Create manager once ────────────────────────────────────────────────
@@ -77,6 +78,11 @@ export function useBroadcastAudio({
 
   // ── Sold sound — fires once per unique soldKey ────────────────────────
   useEffect(() => {
+    if (!initialStatusSeenRef.current) {
+      initialStatusSeenRef.current = true;
+      prevStatusRef.current = status;
+      return;
+    }
     if (status === "sold" && prevStatusRef.current !== "sold") {
       managerRef.current?.playSold(soldKey);
     }

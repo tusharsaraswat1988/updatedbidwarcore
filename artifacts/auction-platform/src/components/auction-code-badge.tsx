@@ -2,12 +2,17 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const LED_CODE_TITLE =
+  "LED screen code — open the Big Screen on your projector laptop and enter this when prompted";
+
 export function AuctionCodeBadge({
   code,
   className,
+  title = LED_CODE_TITLE,
 }: {
   code: string;
   className?: string;
+  title?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -25,7 +30,7 @@ export function AuctionCodeBadge({
     <button
       type="button"
       onClick={handleCopy}
-      title={copied ? "Copied to clipboard" : "Click to copy"}
+      title={copied ? "Copied to clipboard" : title}
       className={cn(
         "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold tracking-widest transition-all",
         "cursor-pointer active:scale-[0.98]",

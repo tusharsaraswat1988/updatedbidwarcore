@@ -13,6 +13,11 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   timerEndsAt: text("timer_ends_at"),
   timerType: text("timer_type"),
   lastAction: text("last_action"),
+  // Structured JSON snapshot of the most recent sold/unsold result. Lives between
+  // two players so displays can render an authoritative outcome card without
+  // parsing the human-readable lastAction string. Cleared on every player
+  // transition (next-player, start/resume, re-auction, reset).
+  lastOutcome: text("last_outcome"),
   isBreak: boolean("is_break").notNull().default(false),
   breakEndsAt: text("break_ends_at"),
   fortuneWheelActive: boolean("fortune_wheel_active").notNull().default(false),

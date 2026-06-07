@@ -460,24 +460,32 @@ export default function Teams() {
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-xl">
             <Users className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-300 text-sm">Add one more team</p>
+              <p className="font-semibold text-amber-300 text-sm">Teams: 1 of 2 — add one more</p>
               <p className="text-xs text-muted-foreground mt-1">
                 An auction needs at least 2 teams bidding against each other. Add a second franchise to continue.
               </p>
             </div>
           </div>
         )}
+        {!isLoading && (teams?.length ?? 0) > 2 && tournament?.licenseStatus !== "active" && (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 flex items-start gap-3 max-w-2xl">
+            <Users className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-300 text-sm">Practice mode: only 2 teams can bid</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                You can add all teams now, but during practice only the first 2 teams can place bids. All teams will work after live activation.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-bold tracking-tight">Teams</h1>
-              {tournament?.auctionCode && (
-                <Badge variant="outline" className="font-mono text-sm text-primary border-primary/40 px-2 py-0.5">
-                  {tournament.auctionCode}
-                </Badge>
-              )}
-            </div>
-            <p className="text-muted-foreground mt-2">{teams?.length || 0} teams registered in this auction.</p>
+            <h1 className="text-4xl font-bold tracking-tight">Franchise Teams</h1>
+            <p className="text-muted-foreground mt-2">
+              {(teams?.length || 0) >= 2
+                ? `${teams?.length} teams added — ready for players`
+                : `Teams: ${teams?.length || 0} of 2 minimum`}
+            </p>
           </div>
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>

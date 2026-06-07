@@ -792,6 +792,27 @@ export interface DisplayCountdown {
   message?: string | null;
 }
 
+/** Structured sold/unsold result emitted between two players. */
+export interface AuctionStateOutcome {
+  type: "sold" | "unsold";
+  /** @nullable */
+  playerId?: number | null;
+  playerName: string;
+  /** @nullable */
+  photoUrl?: string | null;
+  /** @nullable */
+  teamId?: number | null;
+  /** @nullable */
+  teamName?: string | null;
+  /** @nullable */
+  teamColor?: string | null;
+  /** @nullable */
+  teamLogoUrl?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  isManual?: boolean;
+}
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -820,6 +841,11 @@ export interface AuctionState {
   timerType?: AuctionStateTimerType;
   /** @nullable */
   lastAction?: string | null;
+  /**
+   * Authoritative sold/unsold snapshot between two players.
+   * @nullable
+   */
+  outcome?: AuctionStateOutcome | null;
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
