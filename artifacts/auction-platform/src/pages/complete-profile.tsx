@@ -38,12 +38,19 @@ async function postJson(path: string, body: unknown) {
 
 const RESEND_COOLDOWN = 30;
 
+function postAuthRedirect(next: string): string {
+  if (!next || next === "/complete-profile" || next.startsWith("/complete-profile?") || next.startsWith("/api")) {
+    return "/organizer";
+  }
+  return next;
+}
+
 export default function CompleteProfile() {
   const [, setLocation] = useLocation();
   const nextParam = (() => {
     try {
       const p = new URLSearchParams(window.location.search).get("next");
-      return p && p.startsWith("/") ? p : "";
+      return p && p.startsWith("/") ? postAuthRedirect(p) : "";
     } catch {
       return "";
     }
@@ -59,7 +66,7 @@ export default function CompleteProfile() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const googleSignInUrl = `/api/auth/google${nextParam ? `?next=${encodeURIComponent(nextParam)}` : "?next=%2Fcomplete-profile"}`;
+  const googleSignInUrl = `/api/auth/google${nextParam ? `?next=${encodeURIComponent(nextParam)}` : ""}`;
 
   function startCooldown() {
     setResendCooldown(RESEND_COOLDOWN);
@@ -139,7 +146,9 @@ export default function CompleteProfile() {
       if (status === 401) setSession({ status: "expired" });
       return;
     }
-    setLocation(nextParam || "/organizer");
+    const dest = nextParam || "/organizer";
+    const url = dest.includes("?") ? `${dest}&google_ok=1` : `${dest}?google_ok=1`;
+    window.location.assign(url);
   }
 
   async function handleResend() {

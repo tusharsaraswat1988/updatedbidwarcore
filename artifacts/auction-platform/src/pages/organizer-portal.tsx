@@ -764,6 +764,9 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 
 // ─── Auth Form ────────────────────────────────────────────────────────────────
 
+const SESSION_SAVE_ERROR =
+  "Sign-in worked but your browser did not save the session. Clear cookies for this site and try again.";
+
 function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerInfo, t: Tournament[]) => void; initialError?: string; next?: string }) {
   const [view, setView] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
@@ -835,31 +838,41 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
     return () => clearTimeout(t);
   }, [signupResendCooldown]);
 
+  async function finishAccountSession(): Promise<boolean> {
+    const me = await checkOrganizerAccountAuth();
+    if (me.loggedIn && me.organizer) {
+      onSuccess(me.organizer, me.tournaments ?? []);
+      if (next && next.startsWith("/")) navigate(next);
+      return true;
+    }
+    setError(SESSION_SAVE_ERROR);
+    return false;
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     if (!loginForm.identifier || !loginForm.password || cooldownSec > 0) return;
     setLoading(true);
     setError("");
-    const r = await loginOrganizerAccount(loginForm.identifier, loginForm.password, {
-      captchaId: loginGuard?.captcha?.captchaId,
-      captchaAnswer: captchaAnswer || undefined,
-    });
-    setLoading(false);
-    if (!r.success) {
-      setError(r.error || "Login failed");
-      if (r.loginGuard) {
-        setLoginGuard(r.loginGuard);
-        setCooldownSec(r.loginGuard.cooldownRemainingSec);
-        setCaptchaAnswer("");
+    try {
+      const r = await loginOrganizerAccount(loginForm.identifier, loginForm.password, {
+        captchaId: loginGuard?.captcha?.captchaId,
+        captchaAnswer: captchaAnswer || undefined,
+      });
+      if (!r.success) {
+        setError(r.error || "Login failed");
+        if (r.loginGuard) {
+          setLoginGuard(r.loginGuard);
+          setCooldownSec(r.loginGuard.cooldownRemainingSec);
+          setCaptchaAnswer("");
+        }
+        return;
       }
-      return;
-    }
-    setLoginGuard(null);
-    setCooldownSec(0);
-    const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) {
-      onSuccess(me.organizer, me.tournaments ?? []);
-      if (next && next.startsWith("/")) navigate(next);
+      setLoginGuard(null);
+      setCooldownSec(0);
+      await finishAccountSession();
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -876,13 +889,12 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
     if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError("");
-    const r = await signupEmail({ name, email, password });
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Signup failed"); return; }
-    const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) {
-      onSuccess(me.organizer, me.tournaments ?? []);
-      if (next && next.startsWith("/")) navigate(next);
+    try {
+      const r = await signupEmail({ name, email, password });
+      if (!r.success) { setError(r.error || "Signup failed"); return; }
+      await finishAccountSession();
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -906,13 +918,12 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   async function handleSignupVerify(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const r = await signupVerify(signupForm.mobile, signupOtp);
-    setLoading(false);
-    if (!r.success) { setError(r.error || "Verification failed"); return; }
-    const me = await checkOrganizerAccountAuth();
-    if (me.loggedIn && me.organizer) {
-      onSuccess(me.organizer, me.tournaments ?? []);
-      if (next && next.startsWith("/")) navigate(next);
+    try {
+      const r = await signupVerify(signupForm.mobile, signupOtp);
+      if (!r.success) { setError(r.error || "Verification failed"); return; }
+      await finishAccountSession();
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -1801,18 +1812,20 @@ export default function OrganizerPortal() {
     try { return new URLSearchParams(search).get("next") ?? ""; } catch { return ""; }
   })();
 
-  async function refresh() {
+  async function refresh(): Promise<boolean> {
     const me = await checkOrganizerAccountAuth();
     if (me.loggedIn && me.organizer) {
       setOrganizer(me.organizer);
       setTournaments(me.tournaments ?? []);
       setNeedsMobile(!!me.organizer.needsMobile);
-    } else {
-      setOrganizer(null);
-      setTournaments([]);
-      setNeedsMobile(false);
+      setChecking(false);
+      return true;
     }
+    setOrganizer(null);
+    setTournaments([]);
+    setNeedsMobile(false);
     setChecking(false);
+    return false;
   }
 
   const [googleError, setGoogleError] = useState("");
@@ -1829,7 +1842,19 @@ export default function OrganizerPortal() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    void refresh().then((loggedIn) => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("google_ok") === "1") {
+        window.history.replaceState({}, "", "/organizer");
+        if (!loggedIn) {
+          setGoogleError(
+            "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
+          );
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!organizer) return;

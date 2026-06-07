@@ -1095,9 +1095,9 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const { identifier, password, turnstileToken, captchaId, captchaAnswer } = body.data;
+  const { identifier: rawIdentifier, password, turnstileToken, captchaId, captchaAnswer } = body.data;
 
-  const guardCheck = await checkLoginAttemptAllowed(req, identifier, {
+  const guardCheck = await checkLoginAttemptAllowed(req, rawIdentifier, {
     turnstileToken,
     captchaId,
     captchaAnswer,
@@ -1107,18 +1107,23 @@ router.post("/auth/organizer-account/login", async (req, res) => {
     return;
   }
 
+  const trimmed = rawIdentifier.trim();
+  const mobileParsed = parseIndianMobile(trimmed);
+  const lookupMobile = mobileParsed.ok ? mobileParsed.normalized : trimmed;
+  const lookupEmail = trimmed.toLowerCase();
+
   const rows = await db.select().from(organizersTable).where(
-    or(eq(organizersTable.mobile, identifier), eq(organizersTable.email, identifier))
+    or(eq(organizersTable.mobile, lookupMobile), eq(organizersTable.email, lookupEmail))
   );
   const organizer = rows[0];
 
   if (!organizer) {
-    const loginGuard = recordLoginFailure(req, identifier);
+    const loginGuard = recordLoginFailure(req, rawIdentifier);
     res.status(401).json({ error: "No account found with that mobile or email.", loginGuard });
     return;
   }
   if (!organizer.passwordHash) {
-    const loginGuard = recordLoginFailure(req, identifier);
+    const loginGuard = recordLoginFailure(req, rawIdentifier);
     res.status(401).json({
       error: "This account uses Google Sign-In. Please use the 'Continue with Google' button.",
       loginGuard,
@@ -1128,12 +1133,12 @@ router.post("/auth/organizer-account/login", async (req, res) => {
 
   const valid = await verifyPassword(password, organizer.passwordHash);
   if (!valid) {
-    const loginGuard = recordLoginFailure(req, identifier);
+    const loginGuard = recordLoginFailure(req, rawIdentifier);
     res.status(401).json({ error: "Incorrect password.", loginGuard });
     return;
   }
 
-  clearLoginFailures(req, identifier);
+  clearLoginFailures(req, rawIdentifier);
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
@@ -1445,14 +1450,34 @@ router.patch("/auth/admin/sms-settings", async (req, res) => {
 
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
+/** Safe post-login redirect — blocks auth/setup pages that would loop back to sign-in. */
+function sanitizeOAuthNext(raw: string | undefined): string | undefined {
+  if (!raw?.startsWith("/")) return undefined;
+  const blocked = new Set(["/complete-profile", "/organizer", "/api"]);
+  if (blocked.has(raw) || raw.startsWith("/complete-profile?") || raw.startsWith("/api/")) {
+    return undefined;
+  }
+  return raw;
+}
+
+async function issueOrganizerAuthCookie(
+  req: import("express").Request,
+  res: import("express").Response,
+  organizerId: number,
+): Promise<void> {
+  const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
+  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizerId));
+  for (const t of myTournaments) orgMap[String(t.id)] = true;
+  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizerId, organizer: orgMap });
+}
+
 router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
   const redirectUri = buildPublicUrl("/api/auth/google/callback");
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
-  const rawNext = req.query.next as string | undefined;
-  const next = rawNext && rawNext.startsWith("/") ? rawNext : undefined;
+  const next = sanitizeOAuthNext(req.query.next as string | undefined);
 
   // Generate a random state token to prevent login CSRF
   const state = randomBytes(32).toString("hex");
@@ -1483,9 +1508,9 @@ router.get("/auth/google/callback", async (req, res) => {
 
   // Validate state to prevent login CSRF attacks
   const expectedState = req.oauthState.state;
-  // Clear the OAuth state cookie regardless of outcome
-  clearOAuthCookie(res);
+  const pendingNext = sanitizeOAuthNext(req.oauthState.next);
   if (!expectedState || !returnedState || !safeCompare(expectedState, returnedState)) {
+    clearOAuthCookie(res);
     res.redirect("/organizer?error=google_state_mismatch");
     return;
   }
@@ -1528,7 +1553,6 @@ router.get("/auth/google/callback", async (req, res) => {
         // Store pending Google profile in the OAuth cookie and redirect to /complete-profile
         // where the organizer's mobile will be collected and OTP-verified before
         // the organizer record is created. This ensures mobile is never null.
-        const pendingNext = req.oauthState.next;
         setOAuthCookie(res, {
           next: pendingNext,
           pendingGoogleProfile: {
@@ -1544,16 +1568,15 @@ router.get("/auth/google/callback", async (req, res) => {
       }
     }
 
-    const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-    const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
-    for (const t of myTournaments) orgMap[String(t.id)] = true;
-
-    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
-    const successNext = req.oauthState.next;
-    const successRedirect = successNext ? `/organizer?next=${encodeURIComponent(successNext)}` : "/organizer";
+    clearOAuthCookie(res);
+    await issueOrganizerAuthCookie(req, res, organizer.id);
+    const successRedirect = pendingNext
+      ? `/organizer?google_ok=1&next=${encodeURIComponent(pendingNext)}`
+      : "/organizer?google_ok=1";
     res.redirect(successRedirect);
   } catch (err) {
     req.log.error({ err }, "Google OAuth callback error");
+    clearOAuthCookie(res);
     res.redirect("/organizer?error=google_failed");
   }
 });
@@ -1742,13 +1765,15 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
       return;
     }
 
+    // Persist mobile before SMS send so OTP verify still works if the provider succeeds but our response fails.
+    setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
+
     const result = await bulkSmsOtpSend(mobile, "complete_profile");
     if (!result.success) {
       res.status(503).json({ error: result.error ?? "Unable to send OTP right now. Please try again in a moment." });
       return;
     }
 
-    setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, "complete-profile send OTP error");
@@ -1778,20 +1803,26 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     return;
   }
 
-  const [organizer] = await db.insert(organizersTable).values({
-    name: pending.name,
-    email: pending.email,
-    mobile,
-    googleId: pending.googleId,
-    googleEmail: pending.googleEmail,
-    licenseStatus: "active",
-    maxTournaments: 1,
-  }).returning();
+  let organizer = (
+    await db.select().from(organizersTable).where(eq(organizersTable.googleId, pending.googleId))
+  )[0];
+
+  if (!organizer) {
+    [organizer] = await db.insert(organizersTable).values({
+      name: pending.name,
+      email: pending.email,
+      mobile,
+      googleId: pending.googleId,
+      googleEmail: pending.googleEmail,
+      licenseStatus: "active",
+      maxTournaments: 1,
+    }).returning();
+    triggerOrganiserRegisteredNotification(organizer);
+  }
 
   clearOAuthCookie(res);
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
-  triggerOrganiserRegisteredNotification(organizer);
-  res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
+  await issueOrganizerAuthCookie(req, res, organizer.id);
+  res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
 // Dev-only: allows Google OAuth users to skip mobile verification (BYPASS_OTP=true required)

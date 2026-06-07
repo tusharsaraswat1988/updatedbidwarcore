@@ -63,41 +63,66 @@ function isProd(): boolean {
   return getRuntimeConfig().isProduction;
 }
 
-/** Shared parent domain when APP_DOMAIN lists apex + www (e.g. bidwar.in,www.bidwar.in). */
+/** Shared parent domain when APP_DOMAIN lists apex + www (production only). */
 function sharedCookieDomain(): string | undefined {
-  const hosts = getRuntimeConfig().appHosts;
-  if (hosts.length <= 1) return undefined;
-  const apex = hosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? hosts[0]!;
+  const explicit = process.env.COOKIE_DOMAIN?.trim();
+  if (explicit) {
+    return explicit.startsWith(".") ? explicit : `.${explicit}`;
+  }
+
+  const { appHosts, isProduction } = getRuntimeConfig();
+  // Dev (Vite proxy on localhost): never set Domain — host-only cookies only.
+  if (!isProduction || appHosts.length <= 1) return undefined;
+
+  const apex = appHosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? appHosts[0]!;
   return apex.startsWith(".") ? apex : `.${apex}`;
 }
 
-function cookieOpts(maxAgeSec: number) {
+function baseCookieOpts(maxAgeSec: number) {
   const domain = sharedCookieDomain();
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     secure: isProd(),
+    path: "/",
     maxAge: maxAgeSec * 1000,
     ...(domain ? { domain } : {}),
   };
 }
 
+/** Remove auth/oauth cookies (host-only and shared-domain variants). */
+function clearCookieAllVariants(res: Response, name: string): void {
+  const domain = sharedCookieDomain();
+  const base = {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: isProd(),
+    path: "/",
+  };
+  res.clearCookie(name, { ...base, maxAge: 0 });
+  if (domain) {
+    res.clearCookie(name, { ...base, domain, maxAge: 0 });
+  }
+}
+
 export function setAuthCookie(res: Response, claims: AuthClaims): void {
+  clearCookieAllVariants(res, COOKIE_NAME);
   const token = signAuthJwt(claims);
-  res.cookie(COOKIE_NAME, token, cookieOpts(JWT_EXPIRY));
+  res.cookie(COOKIE_NAME, token, baseCookieOpts(JWT_EXPIRY));
 }
 
 export function clearAuthCookie(res: Response): void {
-  res.clearCookie(COOKIE_NAME, cookieOpts(0));
+  clearCookieAllVariants(res, COOKIE_NAME);
 }
 
 export function setOAuthCookie(res: Response, state: OAuthState): void {
+  clearCookieAllVariants(res, OAUTH_COOKIE_NAME);
   const token = signOAuthJwt(state);
-  res.cookie(OAUTH_COOKIE_NAME, token, cookieOpts(OAUTH_EXPIRY));
+  res.cookie(OAUTH_COOKIE_NAME, token, baseCookieOpts(OAUTH_EXPIRY));
 }
 
 export function clearOAuthCookie(res: Response): void {
-  res.clearCookie(OAUTH_COOKIE_NAME, cookieOpts(0));
+  clearCookieAllVariants(res, OAUTH_COOKIE_NAME);
 }
 
 export { COOKIE_NAME, OAUTH_COOKIE_NAME };
