@@ -1,4 +1,5 @@
-import { z } from "zod";
+/** Pragmatic email shape check — aligned with notification-service isValidEmail. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function parseOptionalEmail(
   value: unknown,
@@ -11,8 +12,7 @@ export function parseOptionalEmail(
   }
   const trimmed = value.trim();
   if (!trimmed) return { ok: true, email: null };
-  const result = z.string().email().safeParse(trimmed);
-  if (!result.success) {
+  if (!EMAIL_RE.test(trimmed)) {
     return { ok: false, error: "Please enter a valid email address" };
   }
   return { ok: true, email: trimmed.toLowerCase() };
