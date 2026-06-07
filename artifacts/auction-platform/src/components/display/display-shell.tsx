@@ -34,6 +34,7 @@ import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { BROADCAST_SAFE_MAIN } from "@/lib/display-broadcast-layout";
 import { PurseUpdatedToast } from "./purse-updated-toast";
 import { useBroadcastAudio } from "./use-broadcast-audio";
+import { useSoldAnimation } from "./use-sold-animation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import type { AudioSettings } from "@/lib/audio-manager";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem } from "./types";
