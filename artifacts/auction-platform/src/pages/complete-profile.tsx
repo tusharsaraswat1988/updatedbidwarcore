@@ -5,14 +5,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Phone, ShieldCheck, RotateCcw } from "lucide-react";
+import { Loader2, Phone, ShieldCheck, RotateCcw, ArrowLeft } from "lucide-react";
 import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
+type SessionState =
+  | { status: "loading" }
+  | { status: "expired" }
+  | { status: "ready"; email: string; step: "mobile" | "otp"; mobile: string | null };
+
+function readApiError(data: unknown, status: number): string {
+  if (data && typeof data === "object" && "error" in data) {
+    const msg = (data as { error?: unknown }).error;
+    if (typeof msg === "string" && msg.trim()) return msg;
+  }
+  if (status === 0) return "Unable to reach the server. Check your connection and try again.";
+  if (status === 401) return "Your sign-in session expired. Please sign in with Google again.";
+  if (status === 429) return "Too many OTP requests. Please wait a few minutes and try again.";
+  if (status === 503) return "SMS service is temporarily unavailable. Please try again shortly.";
+  return "Unable to send the verification code. Please try again.";
+}
+
 async function postJson(path: string, body: unknown) {
-  const r = await apiFetch(path, { method: "POST", json: body });
-  const data = await r.json().catch(() => ({}));
-  return { ok: r.ok, status: r.status, data };
+  try {
+    const r = await apiFetch(path, { method: "POST", json: body });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  } catch {
+    return { ok: false, status: 0, data: {} };
+  }
 }
 
 const RESEND_COOLDOWN = 30;
@@ -20,8 +41,15 @@ const RESEND_COOLDOWN = 30;
 export default function CompleteProfile() {
   const [, setLocation] = useLocation();
   const nextParam = (() => {
-    try { const p = new URLSearchParams(window.location.search).get("next"); return p && p.startsWith("/") ? p : ""; } catch { return ""; }
+    try {
+      const p = new URLSearchParams(window.location.search).get("next");
+      return p && p.startsWith("/") ? p : "";
+    } catch {
+      return "";
+    }
   })();
+
+  const [session, setSession] = useState<SessionState>({ status: "loading" });
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -29,8 +57,9 @@ export default function CompleteProfile() {
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [otpMaybeSent, setOtpMaybeSent] = useState(false);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const googleSignInUrl = `/api/auth/google${nextParam ? `?next=${encodeURIComponent(nextParam)}` : "?next=%2Fcomplete-profile"}`;
 
   function startCooldown() {
     setResendCooldown(RESEND_COOLDOWN);
@@ -47,28 +76,54 @@ export default function CompleteProfile() {
 
   useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/auth/google/complete-profile/status");
+        const data = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!data.ready) {
+          setSession({ status: "expired" });
+          return;
+        }
+        setSession({
+          status: "ready",
+          email: data.email ?? "",
+          step: data.step === "otp" ? "otp" : "mobile",
+          mobile: typeof data.mobile === "string" ? data.mobile : null,
+        });
+        if (data.step === "otp" && typeof data.mobile === "string") {
+          setMobile(data.mobile);
+          setStep("otp");
+          startCooldown();
+        }
+      } catch {
+        if (!cancelled) setSession({ status: "expired" });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setOtpMaybeSent(false);
     const mobileResult = parseIndianMobile(mobile);
     if (!mobileResult.ok) {
       setError(mobileResult.error);
       return;
     }
     setLoading(true);
-    const { ok, data } = await postJson("/auth/google/complete-profile", {
+    const { ok, status, data } = await postJson("/auth/google/complete-profile", {
       mobile: mobileResult.normalized,
     });
     setLoading(false);
     if (!ok) {
-      setError(data.error ?? "Failed to send OTP");
-      setMobile(mobileResult.normalized);
-      setOtpMaybeSent(true);
+      setError(readApiError(data, status));
+      if (status === 401) setSession({ status: "expired" });
       return;
     }
     setMobile(mobileResult.normalized);
-    setOtpMaybeSent(false);
     setStep("otp");
     startCooldown();
   }
@@ -77,10 +132,11 @@ export default function CompleteProfile() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { ok, data } = await postJson("/auth/google/complete-profile/verify", { otp });
+    const { ok, status, data } = await postJson("/auth/google/complete-profile/verify", { otp });
     setLoading(false);
     if (!ok) {
-      setError(data.error ?? "OTP verification failed");
+      setError(readApiError(data, status));
+      if (status === 401) setSession({ status: "expired" });
       return;
     }
     setLocation(nextParam || "/organizer");
@@ -90,18 +146,78 @@ export default function CompleteProfile() {
     if (resendCooldown > 0 || resending) return;
     setError(null);
     setResending(true);
-    const { ok, data } = await postJson("/auth/google/complete-profile", { mobile });
+    const { ok, status, data } = await postJson("/auth/google/complete-profile", { mobile });
     setResending(false);
     if (!ok) {
-      setError(data.error ?? "Failed to resend OTP");
+      setError(readApiError(data, status));
+      if (status === 401) setSession({ status: "expired" });
       return;
     }
     startCooldown();
   }
 
+  function handleBack() {
+    if (step === "otp") {
+      setStep("mobile");
+      setOtp("");
+      setError(null);
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+      setResendCooldown(0);
+      return;
+    }
+    setLocation("/organizer");
+  }
+
+  if (session.status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (session.status === "expired") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <CardTitle className="text-xl">Sign in required</CardTitle>
+            </div>
+            <CardDescription>
+              Your Google sign-in session has expired or is missing. Sign in again to verify your mobile number.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button className="w-full" asChild>
+              <a href={googleSignInUrl}>Continue with Google</a>
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => setLocation("/organizer")}>
+              Back to Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex items-center gap-1.5 px-6 pt-6 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          {step === "otp" ? "Back" : "Back to Sign In"}
+        </button>
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
@@ -110,8 +226,8 @@ export default function CompleteProfile() {
           <p className="text-[11px] text-muted-foreground">Step {step === "mobile" ? 1 : 2} of 2</p>
           <CardDescription>
             {step === "mobile"
-              ? "Google sign-in done. Add your mobile so team owners and support can reach you."
-              : `Enter the 6-digit OTP sent to ${mobile}.`}
+              ? `Signed in as ${session.email}. Add your mobile number so team owners and support can reach you.`
+              : `Enter the 6-digit code sent to ${mobile}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -141,25 +257,8 @@ export default function CompleteProfile() {
               </div>
               <Button type="submit" className="w-full" disabled={loading || !parseIndianMobile(mobile).ok}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Send OTP
+                Send verification code
               </Button>
-              {otpMaybeSent && (
-                <p className="text-center text-sm text-muted-foreground">
-                  OTP phone par aa gayi?{" "}
-                  <button
-                    type="button"
-                    className="text-primary underline-offset-4 hover:underline"
-                    onClick={() => {
-                      setError(null);
-                      setOtpMaybeSent(false);
-                      setStep("otp");
-                      startCooldown();
-                    }}
-                  >
-                    Yahan enter karein
-                  </button>
-                </p>
-              )}
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -169,7 +268,7 @@ export default function CompleteProfile() {
                   id="otp"
                   type="text"
                   inputMode="numeric"
-                  placeholder="6-digit OTP"
+                  placeholder="6-digit code"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   maxLength={6}
@@ -179,7 +278,7 @@ export default function CompleteProfile() {
               </div>
               <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Verify &amp; continue
+                Verify and continue
               </Button>
               <div className="flex items-center justify-between">
                 <Button
@@ -201,7 +300,7 @@ export default function CompleteProfile() {
                   {resending
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <RotateCcw className="w-3.5 h-3.5" />}
-                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
                 </Button>
               </div>
             </form>

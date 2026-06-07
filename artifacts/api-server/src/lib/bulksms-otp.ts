@@ -122,14 +122,6 @@ export async function sendOtp(
   // Store as 91XXXXXXXXXX in DB for consistent lookup
   const mobileDb = mobile10.length === 10 ? `91${mobile10}` : mobile10;
 
-  await db.insert(otpSessionsTable).values({
-    mobile: mobileDb,
-    otpHash: null, // Fast2SMS manages the OTP — no local hash needed
-    purpose,
-    payload: payload ?? null,
-    expiresAt,
-  });
-
   const { ok, data } = await f2sPost("/otp/send", {
     mobile: mobile10,
     otp_id: templateId,
@@ -141,6 +133,14 @@ export async function sendOtp(
     logger.error({ mobile: mobile10, purpose, err: f2sError(data) }, "Fast2SMS OTP send failed");
     return { success: false, error: f2sError(data) };
   }
+
+  await db.insert(otpSessionsTable).values({
+    mobile: mobileDb,
+    otpHash: null,
+    purpose,
+    payload: payload ?? null,
+    expiresAt,
+  });
 
   logger.info({ mobile: mobile10, purpose }, "Fast2SMS OTP sent");
   return { success: true };

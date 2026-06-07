@@ -5,7 +5,7 @@ import { getRuntimeConfig, getSessionSecret } from "./runtime-env";
 const COOKIE_NAME = "bidwar_auth";
 const OAUTH_COOKIE_NAME = "bidwar_oauth";
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
-const OAUTH_EXPIRY = 10 * 60; // 10 minutes in seconds
+const OAUTH_EXPIRY = 30 * 60; // 30 minutes — complete-profile can take a few steps
 
 export interface AuthClaims {
   isAdmin?: boolean;
@@ -63,32 +63,41 @@ function isProd(): boolean {
   return getRuntimeConfig().isProduction;
 }
 
+/** Shared parent domain when APP_DOMAIN lists apex + www (e.g. bidwar.in,www.bidwar.in). */
+function sharedCookieDomain(): string | undefined {
+  const hosts = getRuntimeConfig().appHosts;
+  if (hosts.length <= 1) return undefined;
+  const apex = hosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? hosts[0]!;
+  return apex.startsWith(".") ? apex : `.${apex}`;
+}
+
+function cookieOpts(maxAgeSec: number) {
+  const domain = sharedCookieDomain();
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: isProd(),
+    maxAge: maxAgeSec * 1000,
+    ...(domain ? { domain } : {}),
+  };
+}
+
 export function setAuthCookie(res: Response, claims: AuthClaims): void {
   const token = signAuthJwt(claims);
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd(),
-    maxAge: JWT_EXPIRY * 1000,
-  });
+  res.cookie(COOKIE_NAME, token, cookieOpts(JWT_EXPIRY));
 }
 
 export function clearAuthCookie(res: Response): void {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: "lax", secure: isProd() });
+  res.clearCookie(COOKIE_NAME, cookieOpts(0));
 }
 
 export function setOAuthCookie(res: Response, state: OAuthState): void {
   const token = signOAuthJwt(state);
-  res.cookie(OAUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd(),
-    maxAge: OAUTH_EXPIRY * 1000,
-  });
+  res.cookie(OAUTH_COOKIE_NAME, token, cookieOpts(OAUTH_EXPIRY));
 }
 
 export function clearOAuthCookie(res: Response): void {
-  res.clearCookie(OAUTH_COOKIE_NAME, { httpOnly: true, sameSite: "lax", secure: isProd() });
+  res.clearCookie(OAUTH_COOKIE_NAME, cookieOpts(0));
 }
 
 export { COOKIE_NAME, OAUTH_COOKIE_NAME };

@@ -1487,41 +1487,59 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
 
 // ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────
 
-router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) => {
+router.get("/auth/google/complete-profile/status", (req, res) => {
   const pending = req.oauthState.pendingGoogleProfile;
   if (!pending) {
-    res.status(400).json({ error: "No pending Google profile — please sign in with Google first" });
+    res.json({ ready: false, reason: "session_expired" });
     return;
   }
+  res.json({
+    ready: true,
+    email: pending.email,
+    step: req.oauthState.pendingGoogleMobile ? "otp" : "mobile",
+    mobile: req.oauthState.pendingGoogleMobile ?? null,
+  });
+});
 
-  const body = z.object({ mobile: z.string().min(1) }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
+router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) => {
+  try {
+    const pending = req.oauthState.pendingGoogleProfile;
+    if (!pending) {
+      res.status(401).json({ error: "Your sign-in session expired. Please sign in with Google again." });
+      return;
+    }
 
-  const mobileParsed = parseIndianMobile(body.data.mobile);
-  if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
-  const mobile = mobileParsed.normalized;
+    const body = z.object({ mobile: z.string().min(1) }).safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: "Mobile number is required" }); return; }
 
-  if (await organizerNormalizedMobileTaken(mobile)) {
-    res.status(409).json({ error: "Mobile number already registered to another account" });
-    return;
+    const mobileParsed = parseIndianMobile(body.data.mobile);
+    if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+    const mobile = mobileParsed.normalized;
+
+    if (await organizerNormalizedMobileTaken(mobile)) {
+      res.status(409).json({ error: "This mobile number is already registered to another account." });
+      return;
+    }
+
+    const result = await bulkSmsOtpSend(mobile, "complete_profile");
+    if (!result.success) {
+      res.status(503).json({ error: result.error ?? "Unable to send OTP right now. Please try again in a moment." });
+      return;
+    }
+
+    setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "complete-profile send OTP error");
+    res.status(500).json({ error: "Something went wrong while sending the OTP. Please try again." });
   }
-
-  // Persist mobile before SMS so verify still works if Fast2SMS delivers but our response fails.
-  setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
-
-  const result = await bulkSmsOtpSend(mobile, "complete_profile");
-  if (!result.success) {
-    res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
-  }
-
-  res.json({ success: true });
 });
 
 router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req, res) => {
   const pending = req.oauthState.pendingGoogleProfile;
   const mobile = req.oauthState.pendingGoogleMobile;
   if (!pending || !mobile) {
-    res.status(400).json({ error: "No pending profile or mobile — please restart Google sign-in" });
+    res.status(401).json({ error: "Your sign-in session expired. Please sign in with Google again." });
     return;
   }
 

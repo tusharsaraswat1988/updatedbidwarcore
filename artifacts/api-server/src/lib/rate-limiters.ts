@@ -82,7 +82,7 @@ export const authLimiter = rateLimit({
  */
 export const otpSendLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_OTP_SEND_MAX ?? 3),
+  limit: Number(process.env.RATE_LIMIT_OTP_SEND_MAX ?? 8),
   standardHeaders: "draft-7",
   legacyHeaders: false,
   skip: () => disabled,
