@@ -6,13 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Phone, ShieldCheck, RotateCcw } from "lucide-react";
+import { apiFetch } from "@workspace/api-base";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 
-async function apiFetch(path: string, opts: RequestInit = {}) {
-  const r = await fetch(path, {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...opts.headers },
-  });
+async function postJson(path: string, body: unknown) {
+  const r = await apiFetch(path, { method: "POST", json: body });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
@@ -31,6 +29,7 @@ export default function CompleteProfile() {
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [otpMaybeSent, setOtpMaybeSent] = useState(false);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function startCooldown() {
@@ -51,22 +50,25 @@ export default function CompleteProfile() {
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setOtpMaybeSent(false);
     const mobileResult = parseIndianMobile(mobile);
     if (!mobileResult.ok) {
       setError(mobileResult.error);
       return;
     }
     setLoading(true);
-    const { ok, data } = await apiFetch("/api/auth/google/complete-profile", {
-      method: "POST",
-      body: JSON.stringify({ mobile: mobileResult.normalized }),
+    const { ok, data } = await postJson("/auth/google/complete-profile", {
+      mobile: mobileResult.normalized,
     });
     setLoading(false);
     if (!ok) {
       setError(data.error ?? "Failed to send OTP");
+      setMobile(mobileResult.normalized);
+      setOtpMaybeSent(true);
       return;
     }
     setMobile(mobileResult.normalized);
+    setOtpMaybeSent(false);
     setStep("otp");
     startCooldown();
   }
@@ -75,10 +77,7 @@ export default function CompleteProfile() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { ok, data } = await apiFetch("/api/auth/google/complete-profile/verify", {
-      method: "POST",
-      body: JSON.stringify({ otp }),
-    });
+    const { ok, data } = await postJson("/auth/google/complete-profile/verify", { otp });
     setLoading(false);
     if (!ok) {
       setError(data.error ?? "OTP verification failed");
@@ -91,10 +90,7 @@ export default function CompleteProfile() {
     if (resendCooldown > 0 || resending) return;
     setError(null);
     setResending(true);
-    const { ok, data } = await apiFetch("/api/auth/google/complete-profile", {
-      method: "POST",
-      body: JSON.stringify({ mobile }),
-    });
+    const { ok, data } = await postJson("/auth/google/complete-profile", { mobile });
     setResending(false);
     if (!ok) {
       setError(data.error ?? "Failed to resend OTP");
@@ -147,6 +143,23 @@ export default function CompleteProfile() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Send OTP
               </Button>
+              {otpMaybeSent && (
+                <p className="text-center text-sm text-muted-foreground">
+                  OTP phone par aa gayi?{" "}
+                  <button
+                    type="button"
+                    className="text-primary underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setError(null);
+                      setOtpMaybeSent(false);
+                      setStep("otp");
+                      startCooldown();
+                    }}
+                  >
+                    Yahan enter karein
+                  </button>
+                </p>
+              )}
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">

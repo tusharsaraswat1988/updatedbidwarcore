@@ -43,11 +43,24 @@ function normaliseMobile(mobile: string): string {
   return digits.slice(-10);
 }
 
-type F2SResponse = { return?: boolean; message?: string | string[] };
+type F2SResponse = {
+  return?: boolean | string | number;
+  status_code?: number;
+  message?: string | string[];
+  request_id?: string;
+};
 
 function f2sError(data: F2SResponse): string {
   if (!data.message) return "Unknown error";
   return Array.isArray(data.message) ? data.message.join(", ") : data.message;
+}
+
+function f2sSuccess(res: Response, data: F2SResponse): boolean {
+  if (data.return === true || data.return === "true" || data.return === 1) return true;
+  if (data.status_code === 200) return true;
+  const msg = f2sError(data).toLowerCase();
+  if (res.ok && (msg.includes("otp sent") || msg.includes("success"))) return true;
+  return res.ok && !!data.return;
 }
 
 async function f2sPost(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; data: F2SResponse }> {
@@ -61,10 +74,23 @@ async function f2sPost(path: string, body: Record<string, unknown>): Promise<{ o
       method: "POST",
       headers: { authorization: key, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(20_000),
     });
-    const data = (await res.json().catch(() => ({}))) as F2SResponse;
-    return { ok: res.ok && !!data.return, data };
+    const rawText = await res.text().catch(() => "");
+    let data: F2SResponse = {};
+    try {
+      data = JSON.parse(rawText) as F2SResponse;
+    } catch {
+      /* non-JSON body */
+    }
+    const ok = f2sSuccess(res, data);
+    if (!ok) {
+      logger.error(
+        { path, httpStatus: res.status, rawResponse: rawText.slice(0, 500), parsed: data },
+        "Fast2SMS API error response",
+      );
+    }
+    return { ok, data };
   } catch (err) {
     logger.error({ err, path }, "Fast2SMS request error");
     return { ok: false, data: { message: "OTP service unavailable" } };

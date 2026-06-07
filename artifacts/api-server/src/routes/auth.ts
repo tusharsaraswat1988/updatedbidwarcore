@@ -1506,12 +1506,14 @@ router.post("/auth/google/complete-profile", otpSendLimiter, async (req, res) =>
     return;
   }
 
+  // Persist mobile before SMS so verify still works if Fast2SMS delivers but our response fails.
+  setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
+
   const result = await bulkSmsOtpSend(mobile, "complete_profile");
   if (!result.success) {
     res.status(503).json({ error: result.error ?? "Failed to send OTP. Please try again." }); return;
   }
 
-  setOAuthCookie(res, { ...req.oauthState, pendingGoogleMobile: mobile });
   res.json({ success: true });
 });
 
