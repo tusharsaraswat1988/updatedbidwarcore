@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { db, notificationLogsTable } from "@workspace/db";
+import { db, notificationLogsTable, organizersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
 import { getPublicOrigin } from "../runtime-env";
@@ -300,6 +300,29 @@ async function sendOnChannel(
   }
 }
 
+async function enrichTournamentCreatedPayload(
+  payload: NotificationPayloadMap["TOURNAMENT_CREATED"],
+): Promise<NotificationPayloadMap["TOURNAMENT_CREATED"]> {
+  if (isValidEmail(payload.organizerEmail) || !payload.organizerId) {
+    return payload;
+  }
+
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, payload.organizerId))
+    .limit(1);
+
+  if (!organizer) return payload;
+
+  return {
+    ...payload,
+    organizerName: payload.organizerName ?? organizer.name,
+    organizerEmail: payload.organizerEmail ?? organizer.email,
+    organizerMobile: payload.organizerMobile ?? organizer.mobile,
+  };
+}
+
 /**
  * Dispatch a notification event on all configured channels.
  * Never throws — failures are logged and persisted.
@@ -315,9 +338,16 @@ export async function dispatchNotification<E extends NotificationEventType>(
     return;
   }
 
+  let resolvedPayload = payload;
+  if (eventType === "TOURNAMENT_CREATED") {
+    resolvedPayload = (await enrichTournamentCreatedPayload(
+      payload as NotificationPayloadMap["TOURNAMENT_CREATED"],
+    )) as NotificationPayloadMap[E];
+  }
+
   await Promise.all(
     channels.map((channel) =>
-      sendOnChannel(eventType, channel, payload, options).catch((err) => {
+      sendOnChannel(eventType, channel, resolvedPayload, options).catch((err) => {
         logger.error({ eventType, channel, err }, "Unhandled notification channel error");
       }),
     ),

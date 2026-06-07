@@ -8,7 +8,8 @@ import {
 import { randomBytes } from "crypto";
 import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
-import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable } from "@workspace/db";
+import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
@@ -160,6 +161,29 @@ router.post("/tournaments", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
   const auctionCode = await generateUniqueAuctionCode(d.name, d.auctionDate);
+
+  let organizerId: number | null = null;
+  let organizerName = d.organizerName ?? null;
+  let organizerMobile = d.organizerMobile ?? null;
+  let organizerEmail = d.organizerEmail ?? null;
+
+  // Auto-fill organiser contact from logged-in account (form has no email field)
+  if (req.jwtUser?.organizerAccountId) {
+    const [account] = await db
+      .select()
+      .from(organizersTable)
+      .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
+      .limit(1);
+    if (account) {
+      organizerId = account.id;
+      organizerName = organizerName || account.name;
+      organizerEmail = organizerEmail || account.email;
+      if (!organizerMobile && !isPlaceholderOrganizerMobile(account.mobile)) {
+        organizerMobile = account.mobile;
+      }
+    }
+  }
+
   const [tournament] = await db
     .insert(tournamentsTable)
     .values({
@@ -169,9 +193,10 @@ router.post("/tournaments", async (req, res) => {
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
       auctionTime: d.auctionTime ?? null,
-      organizerName: d.organizerName ?? null,
-      organizerMobile: d.organizerMobile ?? null,
-      organizerEmail: d.organizerEmail ?? null,
+      organizerId,
+      organizerName,
+      organizerMobile,
+      organizerEmail,
       logoUrl: d.logoUrl ?? null,
       sponsorLogos: d.sponsorLogos ?? null,
       basePurse: d.basePurse ?? 10000000,
