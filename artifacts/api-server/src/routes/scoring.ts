@@ -5,6 +5,7 @@ import {
   appendScoringEvent,
   createScoringMatch,
   getScoringMatch,
+  listScoringMatches,
   ScoringServiceError,
   undoLastScoringEvent,
 } from "../lib/scoring-service";
@@ -87,6 +88,29 @@ function matchToJson(m: {
     createdAt: m.createdAt.toISOString(),
   };
 }
+
+router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, tournamentId)) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  try {
+    const matches = await listScoringMatches(tournamentId);
+    res.json(matches.map(matchToJson));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
 
 router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);

@@ -15,8 +15,9 @@ import { openAuctionRoom } from "@/lib/tournament-navigation";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, MessageCircle,
+  CheckCircle2, Circle, MessageCircle, CircleDot,
 } from "lucide-react";
+import { scoringPath } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -302,6 +303,25 @@ export default function TournamentHub() {
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {tournament?.sport === "cricket" && (
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="p-2.5 rounded-lg bg-primary/15">
+                <CircleDot className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-display font-bold">Cricket Scorer</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                  Score matches on your phone at the ground — toss, playing XI, and ball-by-ball scoring.
+                </p>
+              </div>
+            </div>
+            <Button className="h-11 shrink-0" onClick={() => navigate(scoringPath(tournamentId))}>
+              Open Scorer
+            </Button>
           </div>
         )}
 

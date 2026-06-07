@@ -51,6 +51,7 @@
     "@workspace/api-base": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
     "@workspace/cheer-presets": "workspace:*",
+    "@workspace/scoring-core": "workspace:*",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
