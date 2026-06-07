@@ -28,7 +28,11 @@ async function main() {
 
   await db
     .update(tournamentsTable)
-    .set({ organizerPassword: ORGANIZER_PASSWORD, scoringEnabled: true })
+    .set({
+      organizerPassword: ORGANIZER_PASSWORD,
+      scoringEnabled: true,
+      scoringPhase: "active",
+    })
     .where(eq(tournamentsTable.id, tournament.id));
 
   const teams = await db
