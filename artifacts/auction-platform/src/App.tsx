@@ -52,6 +52,7 @@ const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
+const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
@@ -96,6 +97,7 @@ function Router() {
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/tournament/:id/display" component={DisplayView} />
+        <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
         <Route path="/tournament/:id/liveviewer">
           {(params) => {
             const tid = parseInt(params?.id || "0");

@@ -27,7 +27,8 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ChevronRight, CircleDot } from "lucide-react";
+import { Plus, ChevronRight, CircleDot, Monitor } from "lucide-react";
+import { openScoreDisplay } from "@/lib/tournament-navigation";
 
 function statusColor(status: string) {
   if (status === "live") return "text-green-400";
@@ -101,10 +102,20 @@ export default function ScoringMatchListPage() {
           </div>
         ) : (
           <div className="p-4 space-y-4">
-            <Button className="w-full h-12 gap-2" onClick={() => setCreateOpen(true)}>
-              <Plus className="w-4 h-4" />
-              New match
-            </Button>
+            <div className="flex gap-2">
+              <Button className="flex-1 h-12 gap-2" onClick={() => setCreateOpen(true)}>
+                <Plus className="w-4 h-4" />
+                New match
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 gap-2"
+                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+              >
+                <Monitor className="w-4 h-4" />
+                LED
+              </Button>
+            </div>
 
             {isLoading ? (
               <div className="space-y-2">

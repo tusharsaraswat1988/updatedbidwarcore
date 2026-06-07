@@ -17,7 +17,7 @@ import {
   Users, UserCheck, UserMinus, Wallet, Activity,
   CheckCircle2, Circle, MessageCircle, CircleDot,
 } from "lucide-react";
-import { scoringPath } from "@/lib/tournament-navigation";
+import { openScoreDisplay, scoringPath } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -319,9 +319,18 @@ export default function TournamentHub() {
                 </p>
               </div>
             </div>
-            <Button className="h-11 shrink-0" onClick={() => navigate(scoringPath(tournamentId))}>
-              Open Scorer
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button className="h-11" onClick={() => navigate(scoringPath(tournamentId))}>
+                Open Scorer
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11"
+                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+              >
+                LED Board
+              </Button>
+            </div>
           </div>
         )}
 

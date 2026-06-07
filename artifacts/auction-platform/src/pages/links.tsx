@@ -144,6 +144,7 @@ export default function LinksPage() {
 
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
+  const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
   const liveViewerUrl = `${base}/tournament/${tournamentId}/liveviewer`;
   const obsUrl = `${base}/tournament/${tournamentId}/obs`;
 
@@ -175,6 +176,26 @@ export default function LinksPage() {
             />
           </CardContent>
         </Card>
+
+        {tournament?.sport === "cricket" ? (
+          <Card className="border-emerald-500/25 bg-emerald-500/5">
+            <CardContent className="p-6">
+              <h2 className="font-display font-bold text-lg mb-1">Cricket Scoreboard (LED)</h2>
+              <p className="text-xs text-muted-foreground mb-4">
+                Live ball-by-ball score for the ground projector — updates automatically from the phone scorer.
+              </p>
+              <LinkRow
+                label="Cricket LED Scoreboard"
+                url={scoreDisplayUrl}
+                description={
+                  tournament?.auctionCode
+                    ? `Enter code ${tournament.auctionCode} if prompted.`
+                    : "Open on a TV or projector at the ground."
+                }
+              />
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="border-border">
           <CardContent className="p-6">

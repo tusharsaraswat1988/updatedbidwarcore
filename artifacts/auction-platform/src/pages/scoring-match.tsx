@@ -6,8 +6,9 @@ import {
   getListTeamsQueryKey,
   getListPlayersQueryKey,
 } from "@workspace/api-client-react";
-import { CricketEventType } from "@workspace/scoring-core";
+import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
 import { ScorerShell } from "@/components/scoring/scorer-shell";
+import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +19,10 @@ import {
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
+import { openScoreDisplay } from "@/lib/tournament-navigation";
+import { Button } from "@/components/ui/button";
+import { Monitor } from "lucide-react";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 export default function ScoringMatchPage() {
   const [, params] = useRoute("/tournament/:id/score/:matchId");
@@ -25,6 +30,9 @@ export default function ScoringMatchPage() {
   const matchId = parseInt(params?.matchId || "0");
   const { toast } = useToast();
 
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+  });
   const { data, isLoading, refetch, isFetching } = useScoringMatch(tournamentId, matchId);
   const { invalidateAll, setMatchDetail } = useInvalidateScoring(tournamentId, matchId);
 
@@ -94,6 +102,12 @@ export default function ScoringMatchPage() {
     data.state.nonStrikerId != null &&
     (localBowlerId != null || data.state.bowlerId != null);
 
+  const isFinished =
+    data?.state.matchStatus === "completed" || data?.state.matchStatus === "abandoned";
+  const summary =
+    data?.summary ??
+    (data && isFinished ? buildCricketMatchSummary(data.state) : null);
+
   return (
       <ScorerShell
         tournamentId={tournamentId}
@@ -110,6 +124,18 @@ export default function ScoringMatchPage() {
           </div>
         ) : (
           <>
+            <div className="px-4 pt-3 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                Open LED Scoreboard
+              </Button>
+            </div>
+
             <PreMatchSetup
               match={data.match}
               state={data.state}
@@ -178,23 +204,10 @@ export default function ScoringMatchPage() {
               />
             ) : null}
 
-            {data.state.matchStatus === "completed" || data.state.matchStatus === "abandoned" ? (
-              <LiveScoringPad
-                state={data.state}
-                teams={teams ?? []}
-                players={players ?? []}
-                bowlerId={null}
-                busy={false}
-                pendingNewBatsman={false}
-                localStrikerId={null}
-                localNonStrikerId={null}
-                onBall={async () => {}}
-                onUndo={async () => {}}
-                onInningsEnd={async () => {}}
-                onMatchComplete={async () => {}}
-                onBowlerChange={() => {}}
-                onNewBatsman={() => {}}
-              />
+            {isFinished && summary ? (
+              <div className="p-4">
+                <MatchSummaryCard summary={summary} teams={teams ?? []} compact />
+              </div>
             ) : null}
           </>
         )}

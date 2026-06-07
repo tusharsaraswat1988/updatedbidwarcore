@@ -1,9 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getScoringLive,
   getScoringMatch,
   listScoringMatches,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
+
+export function scoringLiveQueryKey(tournamentId: number) {
+  return ["scoring-live", tournamentId] as const;
+}
 
 export function scoringMatchesQueryKey(tournamentId: number) {
   return ["scoring-matches", tournamentId] as const;
@@ -18,6 +23,15 @@ export function useScoringMatches(tournamentId: number) {
     queryKey: scoringMatchesQueryKey(tournamentId),
     queryFn: () => listScoringMatches(tournamentId),
     enabled: tournamentId > 0,
+  });
+}
+
+export function useScoringLive(tournamentId: number) {
+  return useQuery({
+    queryKey: scoringLiveQueryKey(tournamentId),
+    queryFn: () => getScoringLive(tournamentId),
+    enabled: tournamentId > 0,
+    refetchInterval: 15000,
   });
 }
 

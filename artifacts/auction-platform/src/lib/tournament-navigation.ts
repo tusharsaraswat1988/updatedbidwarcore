@@ -36,6 +36,27 @@ export function scoringPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/score`;
 }
 
+/** LED cricket scoreboard (public, optional auction code). */
+export function scoreDisplayPath(
+  tournamentId: number,
+  auctionCode?: string | null,
+): string {
+  const base = `/tournament/${tournamentId}/score-display`;
+  if (!auctionCode?.trim()) return base;
+  return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
+}
+
+export function openScoreDisplay(
+  tournamentId: number,
+  auctionCode?: string | null,
+): void {
+  window.open(
+    scoreDisplayPath(tournamentId, auctionCode),
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
 /** Open setup in the opener tab when launched from Setup; otherwise new tab. */
 export function openSetupArea(tournamentId: number): void {
   const path = setupAreaPath(tournamentId);

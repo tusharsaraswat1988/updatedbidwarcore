@@ -4,13 +4,21 @@ import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import {
   appendScoringEvent,
   createScoringMatch,
+  getLiveScoringDisplay,
   getScoringMatch,
   listScoringMatches,
   ScoringServiceError,
   undoLastScoringEvent,
 } from "../lib/scoring-service";
+import {
+  addScoringSseClient,
+  getScoringSseClientCount,
+  removeScoringSseClient,
+} from "../lib/scoring-broadcast";
+import { buildCricketMatchSummary } from "@workspace/scoring-core";
 import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -88,6 +96,82 @@ function matchToJson(m: {
     createdAt: m.createdAt.toISOString(),
   };
 }
+
+function liveDisplayJson(result: Awaited<ReturnType<typeof getLiveScoringDisplay>>) {
+  if (!result.match || !result.state) {
+    return { match: null, state: null, summary: null };
+  }
+  return {
+    match: matchToJson(result.match),
+    state: result.state,
+    summary: result.summary,
+  };
+}
+
+/** Public snapshot for LED display (no auth). */
+router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  try {
+    const display = await getLiveScoringDisplay(tournamentId);
+    res.json(liveDisplayJson(display));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Public SSE stream for live scoreboard updates. */
+router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const client = addScoringSseClient(tournamentId, res);
+  logger.info(
+    { tournamentId, clientCount: getScoringSseClientCount(tournamentId) },
+    "scoring SSE client connected",
+  );
+
+  try {
+    const display = await getLiveScoringDisplay(tournamentId);
+    res.write(`data: ${JSON.stringify({ type: "scoring_state", ...liveDisplayJson(display) })}\n\n`);
+  } catch {
+    res.write(`data: ${JSON.stringify({ type: "scoring_state", match: null, state: null, summary: null })}\n\n`);
+  }
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    removeScoringSseClient(client);
+    logger.info(
+      { tournamentId, clientCount: getScoringSseClientCount(tournamentId) },
+      "scoring SSE client disconnected",
+    );
+  });
+});
 
 router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
@@ -168,9 +252,15 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
 
   try {
     const result = await getScoringMatch(tournamentId, matchId);
+    const summary =
+      result.match.summaryJson ??
+      (result.state.matchStatus === "completed" || result.state.matchStatus === "abandoned"
+        ? buildCricketMatchSummary(result.state)
+        : null);
     res.json({
       match: matchToJson(result.match),
       state: result.state,
+      summary,
       eventCount: result.events.length,
       lastSequence: result.state.lastSequence,
     });

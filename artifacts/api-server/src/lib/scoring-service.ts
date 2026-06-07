@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import {
   CricketEventType,
+  buildCricketMatchSummary,
   createInitialCricketState,
   parseCricketEventPayload,
   replayCricketEvents,
@@ -17,8 +18,10 @@ import {
   type ScoringEventEnvelope,
   type MatchMeta,
   type CricketScoreboardState,
+  type CricketMatchSummary,
 } from "@workspace/scoring-core";
 import { and, desc, eq, ne } from "drizzle-orm";
+import { broadcastScoringState } from "./scoring-broadcast";
 
 export type ScoringActor = {
   type: "organizer" | "admin" | "scorer_pin" | "system";
@@ -164,6 +167,79 @@ export async function createScoringMatch(
   return { match, state: initialState };
 }
 
+function summaryFromMatch(
+  match: typeof scoringMatchesTable.$inferSelect,
+  state: CricketScoreboardState,
+): CricketMatchSummary {
+  if (match.summaryJson && typeof match.summaryJson === "object") {
+    return match.summaryJson as CricketMatchSummary;
+  }
+  return buildCricketMatchSummary(state);
+}
+
+function publishScoringUpdate(
+  tournamentId: number,
+  match: typeof scoringMatchesTable.$inferSelect,
+  state: CricketScoreboardState,
+) {
+  const summary = summaryFromMatch(match, state);
+  broadcastScoringState(tournamentId, {
+    type: "scoring_state",
+    matchId: match.id,
+    match: {
+      id: match.id,
+      status: match.status,
+      homeTeamId: match.homeTeamId,
+      awayTeamId: match.awayTeamId,
+      winnerTeamId: match.winnerTeamId,
+      resultSummary: match.resultSummary,
+    },
+    state,
+    summary,
+  });
+}
+
+/** Live or most recently finished match for LED / public display. */
+export async function getLiveScoringDisplay(tournamentId: number) {
+  await ensureTournamentScoring(tournamentId);
+
+  const [live] = await db
+    .select()
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.status, "live"),
+      ),
+    )
+    .orderBy(desc(scoringMatchesTable.startedAt))
+    .limit(1);
+
+  let match = live;
+  if (!match) {
+    const [recent] = await db
+      .select()
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+          eq(scoringMatchesTable.status, "completed"),
+        ),
+      )
+      .orderBy(desc(scoringMatchesTable.completedAt))
+      .limit(1);
+    match = recent;
+  }
+
+  if (!match) {
+    return { match: null, state: null, summary: null };
+  }
+
+  const state = await projectMatchState(match);
+  const summary = summaryFromMatch(match, state);
+  return { match, state, summary };
+}
+
 export async function listScoringMatches(tournamentId: number) {
   await ensureTournamentScoring(tournamentId);
   return db
@@ -285,6 +361,7 @@ export async function appendScoringEvent(
     matchPatch.completedAt = new Date();
     matchPatch.winnerTeamId = state.winnerTeamId;
     matchPatch.resultSummary = state.resultText;
+    matchPatch.summaryJson = buildCricketMatchSummary(state);
   }
 
   const [updatedMatch] = await db
@@ -301,6 +378,8 @@ export async function appendScoringEvent(
       lastEventSeq: newSeq,
     })
     .where(eq(scoringSessionsTable.matchId, matchId));
+
+  publishScoringUpdate(tournamentId, updatedMatch, state);
 
   return {
     event: rowToEnvelope(eventRow),

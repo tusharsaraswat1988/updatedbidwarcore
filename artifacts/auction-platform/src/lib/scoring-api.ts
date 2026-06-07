@@ -1,5 +1,5 @@
 import { apiFetch } from "@workspace/api-base";
-import type { CricketScoreboardState } from "@workspace/scoring-core";
+import type { CricketMatchSummary, CricketScoreboardState } from "@workspace/scoring-core";
 
 export type ScoringMatchJson = {
   id: number;
@@ -23,8 +23,15 @@ export type ScoringMatchJson = {
 export type ScoringMatchDetail = {
   match: ScoringMatchJson;
   state: CricketScoreboardState;
+  summary?: CricketMatchSummary | null;
   eventCount: number;
   lastSequence: number;
+};
+
+export type ScoringLiveDisplay = {
+  match: ScoringMatchJson | null;
+  state: CricketScoreboardState | null;
+  summary: CricketMatchSummary | null;
 };
 
 async function parseError(r: Response): Promise<string> {
@@ -34,6 +41,12 @@ async function parseError(r: Response): Promise<string> {
   } catch {
     return r.statusText;
   }
+}
+
+export async function getScoringLive(tournamentId: number): Promise<ScoringLiveDisplay> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/live`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
 }
 
 export async function listScoringMatches(tournamentId: number): Promise<ScoringMatchJson[]> {
