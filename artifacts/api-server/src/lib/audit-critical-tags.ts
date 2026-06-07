@@ -23,6 +23,8 @@ export type CriticalTag = (typeof CRITICAL_TAG)[keyof typeof CRITICAL_TAG];
 
 const ACTION_TAGS: Record<string, CriticalTag[]> = {
   "team.purse_updated": [CRITICAL_TAG.PURSE_EDIT, CRITICAL_TAG.FINANCE],
+  "finance.purse_booster_added": [CRITICAL_TAG.FINANCE],
+  "finance.purse_booster_cancelled": [CRITICAL_TAG.FINANCE],
   "team.owner_changed": [CRITICAL_TAG.OWNER_CHANGE],
   "team.access_code_regenerated": [CRITICAL_TAG.OWNER_CHANGE, CRITICAL_TAG.ADMIN_ACTION],
   "auction.manual_sell": [CRITICAL_TAG.MANUAL_SELL, CRITICAL_TAG.FINANCE, CRITICAL_TAG.AUCTION_CONTROL],
@@ -43,6 +45,7 @@ const ACTION_TAGS: Record<string, CriticalTag[]> = {
 
 const ALERT_KEY_TAGS: Record<string, CriticalTag[]> = {
   purse_manual_edit: [CRITICAL_TAG.PURSE_EDIT],
+  purse_booster: [CRITICAL_TAG.FINANCE],
   auction_manual_sell: [CRITICAL_TAG.MANUAL_SELL],
   auction_undo: [CRITICAL_TAG.UNDO],
   license_granted: [CRITICAL_TAG.LICENSE_CHANGE],

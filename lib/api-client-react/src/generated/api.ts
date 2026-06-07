@@ -17,11 +17,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ApplyPurseBoosterRequest,
+  ApplyPurseBoosterResponse,
   AuctionState,
   Bid,
   BidInput,
   BulkPlayerInput,
   BulkPlayerResult,
+  CancelPurseBoosterRequest,
   Category,
   CategoryBreakdown,
   CategoryInput,
@@ -37,6 +40,7 @@ import type {
   ImportSource,
   InstallerUrlSettings,
   ListImportCandidatesParams,
+  ListPurseBoostersParams,
   LocalSyncPayload,
   LocalSyncResult,
   LookupOwnerOnboarding200,
@@ -48,6 +52,7 @@ import type {
   Player,
   PlayerInput,
   PlayerUpdate,
+  PurseBoosterRecord,
   ReAuctionAllUnsoldBody,
   ReAuctionInput,
   RegistrationStatus,
@@ -4893,6 +4898,440 @@ export function useGetTeamPurses<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetTeamPursesQueryOptions(tournamentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List purse boosters (organizer — includes reason)
+ */
+export const getListPurseBoostersUrl = (
+  tournamentId: number,
+  params?: ListPurseBoostersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/tournaments/${tournamentId}/purse-boosters?${stringifiedParams}`
+    : `/api/tournaments/${tournamentId}/purse-boosters`;
+};
+
+export const listPurseBoosters = async (
+  tournamentId: number,
+  params?: ListPurseBoostersParams,
+  options?: RequestInit,
+): Promise<PurseBoosterRecord[]> => {
+  return customFetch<PurseBoosterRecord[]>(
+    getListPurseBoostersUrl(tournamentId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPurseBoostersQueryKey = (
+  tournamentId: number,
+  params?: ListPurseBoostersParams,
+) => {
+  return [
+    `/api/tournaments/${tournamentId}/purse-boosters`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListPurseBoostersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPurseBoosters>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  params?: ListPurseBoostersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPurseBoosters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListPurseBoostersQueryKey(tournamentId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPurseBoosters>>
+  > = ({ signal }) =>
+    listPurseBoosters(tournamentId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!tournamentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPurseBoosters>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPurseBoostersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPurseBoosters>>
+>;
+export type ListPurseBoostersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List purse boosters (organizer — includes reason)
+ */
+
+export function useListPurseBoosters<
+  TData = Awaited<ReturnType<typeof listPurseBoosters>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  params?: ListPurseBoostersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPurseBoosters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPurseBoostersQueryOptions(
+    tournamentId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Apply purse booster to single team or all teams
+ */
+export const getApplyPurseBoosterUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/purse-boosters`;
+};
+
+export const applyPurseBooster = async (
+  tournamentId: number,
+  applyPurseBoosterRequest: ApplyPurseBoosterRequest,
+  options?: RequestInit,
+): Promise<ApplyPurseBoosterResponse> => {
+  return customFetch<ApplyPurseBoosterResponse>(
+    getApplyPurseBoosterUrl(tournamentId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(applyPurseBoosterRequest),
+    },
+  );
+};
+
+export const getApplyPurseBoosterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyPurseBooster>>,
+    TError,
+    { tournamentId: number; data: BodyType<ApplyPurseBoosterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applyPurseBooster>>,
+  TError,
+  { tournamentId: number; data: BodyType<ApplyPurseBoosterRequest> },
+  TContext
+> => {
+  const mutationKey = ["applyPurseBooster"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applyPurseBooster>>,
+    { tournamentId: number; data: BodyType<ApplyPurseBoosterRequest> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return applyPurseBooster(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplyPurseBoosterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyPurseBooster>>
+>;
+export type ApplyPurseBoosterMutationBody = BodyType<ApplyPurseBoosterRequest>;
+export type ApplyPurseBoosterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Apply purse booster to single team or all teams
+ */
+export const useApplyPurseBooster = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyPurseBooster>>,
+    TError,
+    { tournamentId: number; data: BodyType<ApplyPurseBoosterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applyPurseBooster>>,
+  TError,
+  { tournamentId: number; data: BodyType<ApplyPurseBoosterRequest> },
+  TContext
+> => {
+  return useMutation(getApplyPurseBoosterMutationOptions(options));
+};
+
+/**
+ * @summary Cancel an active purse booster
+ */
+export const getCancelPurseBoosterUrl = (
+  tournamentId: number,
+  boosterId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/purse-boosters/${boosterId}/cancel`;
+};
+
+export const cancelPurseBooster = async (
+  tournamentId: number,
+  boosterId: number,
+  cancelPurseBoosterRequest: CancelPurseBoosterRequest,
+  options?: RequestInit,
+): Promise<PurseBoosterRecord> => {
+  return customFetch<PurseBoosterRecord>(
+    getCancelPurseBoosterUrl(tournamentId, boosterId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(cancelPurseBoosterRequest),
+    },
+  );
+};
+
+export const getCancelPurseBoosterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelPurseBooster>>,
+    TError,
+    {
+      tournamentId: number;
+      boosterId: number;
+      data: BodyType<CancelPurseBoosterRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelPurseBooster>>,
+  TError,
+  {
+    tournamentId: number;
+    boosterId: number;
+    data: BodyType<CancelPurseBoosterRequest>;
+  },
+  TContext
+> => {
+  const mutationKey = ["cancelPurseBooster"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelPurseBooster>>,
+    {
+      tournamentId: number;
+      boosterId: number;
+      data: BodyType<CancelPurseBoosterRequest>;
+    }
+  > = (props) => {
+    const { tournamentId, boosterId, data } = props ?? {};
+
+    return cancelPurseBooster(tournamentId, boosterId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelPurseBoosterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelPurseBooster>>
+>;
+export type CancelPurseBoosterMutationBody =
+  BodyType<CancelPurseBoosterRequest>;
+export type CancelPurseBoosterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cancel an active purse booster
+ */
+export const useCancelPurseBooster = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelPurseBooster>>,
+    TError,
+    {
+      tournamentId: number;
+      boosterId: number;
+      data: BodyType<CancelPurseBoosterRequest>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelPurseBooster>>,
+  TError,
+  {
+    tournamentId: number;
+    boosterId: number;
+    data: BodyType<CancelPurseBoosterRequest>;
+  },
+  TContext
+> => {
+  return useMutation(getCancelPurseBoosterMutationOptions(options));
+};
+
+/**
+ * @summary Team purse booster history (owner-safe — no reason)
+ */
+export const getListTeamPurseBoostersUrl = (
+  tournamentId: number,
+  teamId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/teams/${teamId}/purse-boosters`;
+};
+
+export const listTeamPurseBoosters = async (
+  tournamentId: number,
+  teamId: number,
+  options?: RequestInit,
+): Promise<PurseBoosterRecord[]> => {
+  return customFetch<PurseBoosterRecord[]>(
+    getListTeamPurseBoostersUrl(tournamentId, teamId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTeamPurseBoostersQueryKey = (
+  tournamentId: number,
+  teamId: number,
+) => {
+  return [
+    `/api/tournaments/${tournamentId}/teams/${teamId}/purse-boosters`,
+  ] as const;
+};
+
+export const getListTeamPurseBoostersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTeamPurseBoosters>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  teamId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTeamPurseBoosters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTeamPurseBoostersQueryKey(tournamentId, teamId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTeamPurseBoosters>>
+  > = ({ signal }) =>
+    listTeamPurseBoosters(tournamentId, teamId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(tournamentId && teamId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTeamPurseBoosters>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTeamPurseBoostersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTeamPurseBoosters>>
+>;
+export type ListTeamPurseBoostersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Team purse booster history (owner-safe — no reason)
+ */
+
+export function useListTeamPurseBoosters<
+  TData = Awaited<ReturnType<typeof listTeamPurseBoosters>>,
+  TError = ErrorType<unknown>,
+>(
+  tournamentId: number,
+  teamId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTeamPurseBoosters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTeamPurseBoostersQueryOptions(
+    tournamentId,
+    teamId,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

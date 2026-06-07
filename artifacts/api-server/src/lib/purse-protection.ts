@@ -1,8 +1,13 @@
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { computeEffectiveCapacity } from "@workspace/api-base/purse-capacity";
+import { getActiveBoosterTotal, getActiveBoosterTotalsForTeams } from "./purse-capacity";
 
 export interface PurseProtection {
+  originalPurse: number;
+  boosterTotal: number;
+  effectiveCapacity: number;
   purseRemaining: number;
   reservePurse: number;
   spendablePurse: number;
@@ -34,6 +39,7 @@ export async function computeTeamPurseProtection(
     maximumSquadSize?: number;
     minBid?: number;
     team?: { purse: number; purseUsed: number };
+    boosterTotal?: number;
   }
 ): Promise<PurseProtection> {
   const needsTournamentRow =
@@ -79,13 +85,38 @@ export async function computeTeamPurseProtection(
       .then(([t]) => t));
 
   if (!teamRow) {
-    return { purseRemaining: 0, reservePurse: 0, spendablePurse: 0, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
+    return {
+      originalPurse: 0,
+      boosterTotal: 0,
+      effectiveCapacity: 0,
+      purseRemaining: 0,
+      reservePurse: 0,
+      spendablePurse: 0,
+      slotsRequired: 0,
+      lowestBasePrice: 0,
+      maximumSquadSize: maxSquadSize,
+    };
   }
 
-  const purseRemaining = teamRow.purse - teamRow.purseUsed;
+  const boosterTotal =
+    opts?.boosterTotal ??
+    (await getActiveBoosterTotal(tournamentId, teamId));
+  const originalPurse = teamRow.purse;
+  const effectiveCapacity = computeEffectiveCapacity(originalPurse, boosterTotal);
+  const purseRemaining = effectiveCapacity - teamRow.purseUsed;
 
   if (minSquadSize === 0) {
-    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: 0, maximumSquadSize: maxSquadSize };
+    return {
+      originalPurse,
+      boosterTotal,
+      effectiveCapacity,
+      purseRemaining,
+      reservePurse: 0,
+      spendablePurse: purseRemaining,
+      slotsRequired: 0,
+      lowestBasePrice: 0,
+      maximumSquadSize: maxSquadSize,
+    };
   }
 
   const allPlayers =
@@ -103,7 +134,17 @@ export async function computeTeamPurseProtection(
   const slotsRequired = Math.max(0, minSquadSize - playerCount);
 
   if (slotsRequired === 0) {
-    return { purseRemaining, reservePurse: 0, spendablePurse: purseRemaining, slotsRequired: 0, lowestBasePrice: tournamentMinBid, maximumSquadSize: maxSquadSize };
+    return {
+      originalPurse,
+      boosterTotal,
+      effectiveCapacity,
+      purseRemaining,
+      reservePurse: 0,
+      spendablePurse: purseRemaining,
+      slotsRequired: 0,
+      lowestBasePrice: tournamentMinBid,
+      maximumSquadSize: maxSquadSize,
+    };
   }
 
   // Reserve slotsRequired × tournament.minBid — the cheapest possible cost per
@@ -113,7 +154,17 @@ export async function computeTeamPurseProtection(
   const reservePurse = slotsRequired * tournamentMinBid;
   const spendablePurse = Math.max(0, purseRemaining - reservePurse);
 
-  return { purseRemaining, reservePurse, spendablePurse, slotsRequired, lowestBasePrice: tournamentMinBid, maximumSquadSize: maxSquadSize };
+  return {
+    originalPurse,
+    boosterTotal,
+    effectiveCapacity,
+    purseRemaining,
+    reservePurse,
+    spendablePurse,
+    slotsRequired,
+    lowestBasePrice: tournamentMinBid,
+    maximumSquadSize: maxSquadSize,
+  };
 }
 
 /**
@@ -143,6 +194,11 @@ export async function computeAllTeamPurseProtections(
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tournamentId));
 
+  const boosterTotals = await getActiveBoosterTotalsForTeams(
+    tournamentId,
+    teams.map((t) => t.id),
+  );
+
   const result = new Map<number, PurseProtection>();
   for (const team of teams) {
     const protection = await computeTeamPurseProtection(tournamentId, team.id, {
@@ -151,6 +207,7 @@ export async function computeAllTeamPurseProtections(
       maximumSquadSize,
       minBid,
       team,
+      boosterTotal: boosterTotals.get(team.id) ?? 0,
     });
     result.set(team.id, protection);
   }

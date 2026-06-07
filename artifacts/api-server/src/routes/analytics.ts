@@ -122,6 +122,10 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
     );
 
     const p = protections.get(team.id);
+    const originalPurse = p?.originalPurse ?? team.purse;
+    const boosterTotal = p?.boosterTotal ?? 0;
+    const effectiveCapacity = p?.effectiveCapacity ?? team.purse;
+    const purseRemaining = p?.purseRemaining ?? (effectiveCapacity - team.purseUsed);
     return {
       teamId: team.id,
       teamName: team.name,
@@ -129,13 +133,16 @@ router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) 
       ownerName: team.ownerName,
       color: team.color,
       logoUrl: team.logoUrl,
-      purse: team.purse,
+      originalPurse,
+      boosterTotal,
+      effectiveCapacity,
+      purse: effectiveCapacity,
       purseUsed: team.purseUsed,
-      purseRemaining: team.purse - team.purseUsed,
+      purseRemaining,
       playersBought,
       retainedCount,
       reservePurse: p?.reservePurse ?? 0,
-      spendablePurse: p?.spendablePurse ?? (team.purse - team.purseUsed),
+      spendablePurse: p?.spendablePurse ?? purseRemaining,
       slotsRequired: p?.slotsRequired ?? 0,
       lowestBasePrice: p?.lowestBasePrice ?? 0,
       minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,

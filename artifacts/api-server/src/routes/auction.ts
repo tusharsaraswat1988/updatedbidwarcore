@@ -395,6 +395,31 @@ async function buildAuctionState(tournamentId: number) {
     }
   }
 
+  let lastPurseBooster: {
+    id: number;
+    teamId: number;
+    teamName: string;
+    amount: number;
+    previousCapacity: number;
+    newCapacity: number;
+    appliedAt: string;
+  } | null = null;
+  if (session.lastPurseBoosterJson) {
+    try {
+      lastPurseBooster = JSON.parse(session.lastPurseBoosterJson);
+    } catch { /* ignore */ }
+  }
+
+  let ledPurseToast: { teamName: string } | null = null;
+  if (session.lastLedToastJson) {
+    try {
+      const parsed = JSON.parse(session.lastLedToastJson) as { teamName: string; expiresAt: string };
+      if (parsed && new Date(parsed.expiresAt) > new Date()) {
+        ledPurseToast = { teamName: parsed.teamName };
+      }
+    } catch { /* ignore */ }
+  }
+
   return {
     tournamentId,
     status: session.status,
@@ -435,6 +460,8 @@ async function buildAuctionState(tournamentId: number) {
     teamCategoryPlayerCounts,
     displayCountdown,
     lastSoldPlayer,
+    lastPurseBooster,
+    ledPurseToast,
   };
 }
 
@@ -2337,3 +2364,4 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
 });
 
 export default router;
+export { broadcastState, getOrCreateSession, invalidateStateCache };

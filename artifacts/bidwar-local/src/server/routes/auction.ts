@@ -1,4 +1,5 @@
 import { Router, type Response, type NextFunction, type Request } from "express";
+import { randomUUID } from "node:crypto";
 import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
@@ -9,7 +10,13 @@ import {
 import type { LocalDb } from "@workspace/db-local";
 import {
   auctionSessionsTable, playersTable, teamsTable, bidsTable, tournamentsTable,
+  purseBoostersTable,
 } from "@workspace/db-local";
+import {
+  computeEffectiveCapacity,
+  getActiveBoosterTotal,
+  validateCancelBooster,
+} from "../lib/purse-capacity.js";
 import { mirrorStateToCloud } from "../mirror.js";
 
 // SSE client registry (in-process, no separate broadcast module needed)
@@ -159,6 +166,27 @@ export function createAuctionRouter(db: LocalDb) {
       } catch { /* ignore */ }
     }
 
+    let lastPurseBooster: {
+      id: number;
+      teamId: number;
+      teamName: string;
+      amount: number;
+      previousCapacity: number;
+      newCapacity: number;
+      appliedAt: string;
+    } | null = null;
+    if (session.lastPurseBoosterJson) {
+      try { lastPurseBooster = JSON.parse(session.lastPurseBoosterJson); } catch { /* ignore */ }
+    }
+
+    let ledPurseToast: { teamName: string } | null = null;
+    if (session.lastLedToastJson) {
+      try {
+        const parsed = JSON.parse(session.lastLedToastJson) as { teamName: string; expiresAt: string };
+        if (parsed && new Date(parsed.expiresAt) > new Date()) ledPurseToast = { teamName: parsed.teamName };
+      } catch { /* ignore */ }
+    }
+
     return {
       tournamentId, status: session.status, currentPlayer,
       currentBid: session.currentBid, currentBidTeamId: session.currentBidTeamId,
@@ -174,6 +202,8 @@ export function createAuctionRouter(db: LocalDb) {
       breakEndsAt: session.breakEndsAt ?? null,
       displayCountdown,
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+      lastPurseBooster,
+      ledPurseToast,
     };
   }
 
@@ -190,7 +220,7 @@ export function createAuctionRouter(db: LocalDb) {
   // (which uses team access codes instead) are always allowed through.
   router.use(async (req: Request, res: Response, next: NextFunction) => {
     if (req.method === "GET") { next(); return; }
-    const match = /\/tournaments\/(\d+)\/auction/.exec(req.path);
+    const match = /\/tournaments\/(\d+)\/(?:auction|purse-boosters)/.exec(req.path);
     if (!match) { next(); return; }
     // Bid route authenticates with team access codes — skip PIN check
     if (req.path.endsWith("/bid")) { next(); return; }
@@ -395,7 +425,9 @@ export function createAuctionRouter(db: LocalDb) {
       res.status(403).json({ error: "Invalid team access code" }); return;
     }
     if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
-    if (amount > (team.purse - team.purseUsed)) { res.status(400).json({ error: "Insufficient purse" }); return; }
+    const boosterTotal = await getActiveBoosterTotal(db, tid, teamId);
+    const spendable = computeEffectiveCapacity(team.purse, boosterTotal) - team.purseUsed;
+    if (amount > spendable) { res.status(400).json({ error: "Insufficient purse" }); return; }
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
     const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
     const newTimerEndsAt = new Date(Date.now() + bidTimerSecs * 1000).toISOString();
@@ -730,6 +762,230 @@ export function createAuctionRouter(db: LocalDb) {
       ? await db.select().from(playersTable).where(and(...conditions, inArray(playersTable.categoryId as Parameters<typeof inArray>[0], activeCatIds))).orderBy(asc(playersTable.id))
       : await db.select().from(playersTable).where(and(...conditions)).orderBy(asc(playersTable.id));
     res.json(allAvailable.map(playerToJson));
+  });
+
+  const reasonSchema = z.string().trim().min(10).max(500);
+
+  router.get("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const teamIdParam = req.query.teamId;
+    const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
+
+    const conditions = [eq(purseBoostersTable.tournamentId, tid)];
+    if (teamIdParam != null && teamIdParam !== "") {
+      const parsedTeamId = parseInt(String(teamIdParam));
+      if (!isNaN(parsedTeamId)) conditions.push(eq(purseBoostersTable.teamId, parsedTeamId));
+    }
+    if (statusParam) conditions.push(eq(purseBoostersTable.status, statusParam));
+
+    const rows = await db
+      .select()
+      .from(purseBoostersTable)
+      .where(and(...conditions))
+      .orderBy(desc(purseBoostersTable.createdAt));
+
+    res.json(rows.map(b => ({
+      id: b.id,
+      localUuid: b.localUuid,
+      tournamentId: b.tournamentId,
+      teamId: b.teamId,
+      amount: b.amount,
+      reason: b.reason,
+      status: b.status,
+      createdByLabel: b.createdByLabel,
+      createdAt: b.createdAt,
+      cancelledAt: b.cancelledAt,
+      cancelReason: b.cancelReason,
+      previousCapacity: b.previousCapacity,
+      newCapacity: b.newCapacity,
+    })));
+  });
+
+  router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const schema = z.object({
+      target: z.enum(["single", "all"]),
+      teamId: z.number().int().optional(),
+      amount: z.number().int().positive("Amount must be greater than zero"),
+      reason: z.string(),
+      showOnLed: z.boolean().optional().default(true),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      return;
+    }
+    const reasonParsed = reasonSchema.safeParse(parsed.data.reason);
+    if (!reasonParsed.success) {
+      res.status(400).json({ error: reasonParsed.error.issues[0]?.message || "Invalid reason" });
+      return;
+    }
+
+    const { target, amount, showOnLed } = parsed.data;
+    if (target === "single" && !parsed.data.teamId) {
+      res.status(400).json({ error: "teamId is required when target is single" });
+      return;
+    }
+
+    let targetTeams: Array<typeof teamsTable.$inferSelect>;
+    if (target === "all") {
+      targetTeams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid));
+    } else {
+      const [team] = await db
+        .select()
+        .from(teamsTable)
+        .where(and(eq(teamsTable.id, parsed.data.teamId!), eq(teamsTable.tournamentId, tid)));
+      if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+      targetTeams = [team];
+    }
+
+    const now = new Date().toISOString();
+    const applied: Array<{
+      boosterId: number;
+      teamId: number;
+      teamName: string;
+      amount: number;
+      previousCapacity: number;
+      newCapacity: number;
+    }> = [];
+
+    let lastNotification: {
+      id: number;
+      teamId: number;
+      teamName: string;
+      amount: number;
+      previousCapacity: number;
+      newCapacity: number;
+      appliedAt: string;
+    } | null = null;
+    let ledToast: { teamName: string; expiresAt: string } | null = null;
+
+    for (const team of targetTeams) {
+      const boosterTotal = await getActiveBoosterTotal(db, tid, team.id);
+      const previousCapacity = computeEffectiveCapacity(team.purse, boosterTotal);
+      const newCapacity = previousCapacity + amount;
+
+      const [inserted] = await db.insert(purseBoostersTable).values({
+        localUuid: randomUUID(),
+        tournamentId: tid,
+        teamId: team.id,
+        amount,
+        reason: reasonParsed.data,
+        status: "active",
+        createdByType: "tournament_organizer",
+        createdByLabel: "Local Operator",
+        createdAt: now,
+        previousCapacity,
+        newCapacity,
+        origin: "local",
+        syncState: "pending",
+      }).returning();
+
+      applied.push({
+        boosterId: inserted.id,
+        teamId: team.id,
+        teamName: team.name,
+        amount,
+        previousCapacity,
+        newCapacity,
+      });
+
+      lastNotification = {
+        id: inserted.id,
+        teamId: team.id,
+        teamName: team.name,
+        amount,
+        previousCapacity,
+        newCapacity,
+        appliedAt: now,
+      };
+    }
+
+    if (showOnLed) {
+      ledToast = {
+        teamName: target === "all" ? "All Teams" : (lastNotification?.teamName ?? "Team"),
+        expiresAt: new Date(Date.now() + 5000).toISOString(),
+      };
+    }
+
+    await getOrCreateSession(tid);
+    await db.update(auctionSessionsTable).set({
+      lastPurseBoosterJson: lastNotification ? JSON.stringify(lastNotification) : null,
+      lastLedToastJson: ledToast ? JSON.stringify(ledToast) : null,
+    }).where(eq(auctionSessionsTable.tournamentId, tid));
+
+    await broadcastState(tid, ["purses", "auction_state"]);
+    res.status(201).json({ applied, totalTeamsAffected: applied.length });
+  });
+
+  router.get("/tournaments/:tournamentId/teams/:teamId/purse-boosters", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    const teamId = parseInt(req.params.teamId);
+    if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const rows = await db
+      .select()
+      .from(purseBoostersTable)
+      .where(and(eq(purseBoostersTable.tournamentId, tid), eq(purseBoostersTable.teamId, teamId)))
+      .orderBy(desc(purseBoostersTable.createdAt));
+
+    res.json(rows.map(b => ({
+      id: b.id,
+      teamId: b.teamId,
+      amount: b.amount,
+      status: b.status,
+      createdAt: b.createdAt,
+      cancelledAt: b.cancelledAt,
+      previousCapacity: b.previousCapacity,
+      newCapacity: b.newCapacity,
+    })));
+  });
+
+  router.post("/tournaments/:tournamentId/purse-boosters/:boosterId/cancel", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    const boosterId = parseInt(req.params.boosterId);
+    if (isNaN(tid) || isNaN(boosterId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const cancelReasonParsed = reasonSchema.safeParse((req.body as { cancelReason?: string })?.cancelReason ?? (req.body as { reason?: string })?.reason);
+    if (!cancelReasonParsed.success) {
+      res.status(400).json({ error: cancelReasonParsed.error.issues[0]?.message || "Invalid cancel reason" });
+      return;
+    }
+
+    const [booster] = await db
+      .select()
+      .from(purseBoostersTable)
+      .where(and(eq(purseBoostersTable.id, boosterId), eq(purseBoostersTable.tournamentId, tid)));
+    if (!booster || booster.status !== "active") {
+      res.status(400).json({ error: "Booster not found or already cancelled" });
+      return;
+    }
+
+    const [team] = await db
+      .select()
+      .from(teamsTable)
+      .where(and(eq(teamsTable.id, booster.teamId), eq(teamsTable.tournamentId, tid)));
+    if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+
+    const validation = await validateCancelBooster(db, tid, team.id, team.purse, team.purseUsed, booster.amount);
+    if (!validation.ok) { res.status(400).json({ error: validation.error }); return; }
+
+    const now = new Date().toISOString();
+    await db.update(purseBoostersTable).set({
+      status: "cancelled",
+      cancelledByType: "tournament_organizer",
+      cancelledByLabel: "Local Operator",
+      cancelledAt: now,
+      cancelReason: cancelReasonParsed.data,
+      syncState: "pending",
+    }).where(eq(purseBoostersTable.id, boosterId));
+
+    await broadcastState(tid, ["purses"]);
+    res.json({ ok: true });
   });
 
   return router;

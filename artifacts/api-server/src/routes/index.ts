@@ -24,6 +24,7 @@ import teamReportsRouter from "./team-reports";
 import ownerOnboardingRouter from "./owner-onboarding";
 import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
+import purseBoostersRouter from "./purse-boosters";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(teamReportsRouter);
 router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
+router.use(purseBoostersRouter);
 
 export default router;

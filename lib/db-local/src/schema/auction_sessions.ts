@@ -24,6 +24,8 @@ export const auctionSessionsTable = sqliteTable("auction_sessions", {
   displayCountdown: text("display_countdown"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),
+  lastPurseBoosterJson: text("last_purse_booster_json"),
+  lastLedToastJson: text("last_led_toast_json"),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 

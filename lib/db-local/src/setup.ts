@@ -130,6 +130,31 @@ export async function setupTables(client: Client): Promise<void> {
       failed INTEGER NOT NULL DEFAULT 0,
       error TEXT
     );
+    CREATE TABLE IF NOT EXISTS purse_boosters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      local_uuid TEXT NOT NULL UNIQUE,
+      cloud_id INTEGER,
+      tournament_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_by_type TEXT NOT NULL,
+      created_by_id TEXT,
+      created_by_label TEXT,
+      created_at TEXT NOT NULL,
+      cancelled_by_type TEXT,
+      cancelled_by_id TEXT,
+      cancelled_by_label TEXT,
+      cancelled_at TEXT,
+      cancel_reason TEXT,
+      previous_capacity INTEGER NOT NULL,
+      new_capacity INTEGER NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'local',
+      sync_state TEXT NOT NULL DEFAULT 'pending'
+    );
+    CREATE INDEX IF NOT EXISTS ix_purse_boosters_tournament_team_status
+      ON purse_boosters (tournament_id, team_id, status);
   `);
 
   // Run schema migrations for existing databases (ALTER TABLE ADD COLUMN is idempotent via try-catch)
@@ -141,6 +166,8 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE auction_sessions ADD COLUMN wheel_spinning INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE auction_sessions ADD COLUMN display_overlay TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN last_purse_booster_json TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN last_led_toast_json TEXT",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
   ];
   for (const sql of migrations) {

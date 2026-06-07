@@ -32,7 +32,7 @@ import { AuctionStatusOverlay } from "./auction-status-overlay";
 import { DisplayConnectionBanner } from "./display-connection-banner";
 import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { BROADCAST_SAFE_MAIN } from "@/lib/display-broadcast-layout";
-import { useSoldAnimation } from "./use-sold-animation";
+import { PurseUpdatedToast } from "./purse-updated-toast";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import type { AudioSettings } from "@/lib/audio-manager";
@@ -258,7 +258,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
     ownerName: t.ownerName,
     color: t.color,
     logoUrl: t.logoUrl,
-    purse: t.purse,
+    purse: t.effectiveCapacity ?? t.purse,
     purseUsed: t.purseUsed,
     purseRemaining: t.purseRemaining,
     playersBought: t.playersBought,
@@ -409,6 +409,10 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           bannerUrl={tournament?.mainBannerUrl ?? null}
           bannerFit={tournament?.mainBannerFit ?? "cover"}
         />
+
+        {state?.ledPurseToast?.teamName && (
+          <PurseUpdatedToast teamName={state.ledPurseToast.teamName} />
+        )}
       </StaticBackground>
     </FullscreenLayout>
   );

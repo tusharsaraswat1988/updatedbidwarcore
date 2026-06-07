@@ -11,6 +11,10 @@ import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
 } from "@workspace/db-local";
+import {
+  computeEffectiveCapacity,
+  getActiveBoosterTotalsForTeams,
+} from "../lib/purse-capacity.js";
 
 const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   id: t.id, name: t.name, sport: t.sport, venue: t.venue, auctionDate: t.auctionDate,
@@ -122,11 +126,22 @@ export function createTournamentsRouter(db: LocalDb) {
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
     const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
-    res.json(teams.map(t => ({
-      teamId: t.id, teamName: t.name, shortCode: t.shortCode, color: t.color,
-      logoUrl: t.logoUrl, purse: t.purse, purseUsed: t.purseUsed, purseRemaining: t.purse - t.purseUsed,
-      playersBought: players.filter(p => p.teamId === t.id && p.status === "sold").length,
-    })));
+    const boosterTotals = await getActiveBoosterTotalsForTeams(db, id, teams.map(t => t.id));
+    res.json(teams.map(t => {
+      const boosterTotal = boosterTotals.get(t.id) ?? 0;
+      const effectiveCapacity = computeEffectiveCapacity(t.purse, boosterTotal);
+      return {
+        teamId: t.id, teamName: t.name, shortCode: t.shortCode, color: t.color,
+        logoUrl: t.logoUrl,
+        originalPurse: t.purse,
+        boosterTotal,
+        effectiveCapacity,
+        purse: effectiveCapacity,
+        purseUsed: t.purseUsed,
+        purseRemaining: effectiveCapacity - t.purseUsed,
+        playersBought: players.filter(p => p.teamId === t.id && p.status === "sold").length,
+      };
+    }));
   });
 
   return router;

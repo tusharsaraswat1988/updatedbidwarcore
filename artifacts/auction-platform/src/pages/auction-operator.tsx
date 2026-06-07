@@ -69,6 +69,7 @@ import {
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
+import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 function playerMatchesSearch(
@@ -241,6 +242,7 @@ export default function AuctionOperator() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   // Break timer / pre-auction countdown dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
+  const [showPurseBooster, setShowPurseBooster] = useState(false);
   const syncFortuneWheel = useSyncFortuneWheel();
   const wheelResetOnMountRef = useRef(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
@@ -891,6 +893,15 @@ export default function AuctionOperator() {
             })}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowPurseBooster(true)}
+            className="flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10 border border-amber-500/20 flex-shrink-0"
+            title="Apply purse booster"
+          >
+            💰 Booster
+          </button>
+
           {/* Connection status */}
           <div
             title={connectionStatus === "connected" ? "Feed connected" : connectionStatus === "reconnecting" ? "Reconnecting…" : "Feed disconnected"}
@@ -1458,7 +1469,8 @@ export default function AuctionOperator() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {teams.map(team => {
                         const purseData = teamPurses?.find(p => p.teamId === team.id);
-                        const spendable = purseData?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
+                        const capacity = purseData?.effectiveCapacity ?? team.purse;
+                        const spendable = purseData?.spendablePurse ?? (capacity - (team.purseUsed || 0));
                         const reserved  = purseData?.reservePurse ?? 0;
                         const slotsNeeded = purseData?.slotsRequired ?? 0;
                         const bought    = purseData?.playersBought ?? 0;
@@ -1534,14 +1546,17 @@ export default function AuctionOperator() {
                 <div className="p-2 grid grid-cols-2 gap-1.5">
                   {(teams || []).map(team => {
                     const purseData  = teamPurses?.find(p => p.teamId === team.id);
-                    const spendable  = purseData?.spendablePurse ?? (team.purse - (team.purseUsed || 0));
+                    const capacity   = purseData?.effectiveCapacity ?? team.purse;
+                    const boosterTotal = purseData?.boosterTotal ?? 0;
+                    const originalPurse = purseData?.originalPurse ?? team.purse;
+                    const spendable  = purseData?.spendablePurse ?? (capacity - (team.purseUsed || 0));
                     const reserved   = purseData?.reservePurse ?? 0;
                     const slotsNeeded = purseData?.slotsRequired ?? 0;
                     const bought     = purseData?.playersBought ?? 0;
                     const maxSquad   = purseData?.maximumSquadSize ?? 0;
                     const maxReached = maxSquad > 0 && bought >= maxSquad;
                     const isLeading  = state?.currentBidTeamId === team.id;
-                    const usedPct    = Math.min(100, Math.round(((team.purseUsed || 0) / team.purse) * 100));
+                    const usedPct    = capacity > 0 ? Math.min(100, Math.round(((team.purseUsed || 0) / capacity) * 100)) : 0;
                     return (
                       <div key={team.id}
                         className={`rounded-lg p-2 border transition-all ${isLeading ? "border-2 scale-[1.02]" : "border-white/8"}`}
@@ -1567,6 +1582,14 @@ export default function AuctionOperator() {
                           {maxReached ? "FULL" : formatShortIndianRupee(spendable)}
                         </p>
                         <p className="text-[8px] text-white/30 leading-none">max bid</p>
+                        {boosterTotal > 0 && (
+                          <p className="text-[8px] text-amber-400/70 font-mono leading-tight mt-0.5">
+                            +{formatShortIndianRupee(boosterTotal)} boost
+                          </p>
+                        )}
+                        <p className="text-[8px] text-white/25 font-mono leading-tight">
+                          cap {formatShortIndianRupee(capacity)}
+                        </p>
                         {reserved > 0 && (
                           <p className="text-[9px] text-amber-400/60 font-mono leading-tight mt-0.5">+{formatShortIndianRupee(reserved)} rsv · {slotsNeeded}slot{slotsNeeded !== 1 ? "s" : ""}</p>
                         )}
@@ -1992,6 +2015,13 @@ export default function AuctionOperator() {
           />
         </Suspense>
       )}
+
+      <PurseBoosterDialog
+        open={showPurseBooster}
+        onOpenChange={setShowPurseBooster}
+        tournamentId={tournamentId}
+        teams={(teams ?? []).map(t => ({ id: t.id, name: t.name, shortCode: t.shortCode ?? "" }))}
+      />
 
     </OperatorLayout>
   );

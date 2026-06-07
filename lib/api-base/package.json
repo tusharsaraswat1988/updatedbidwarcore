@@ -9,6 +9,7 @@
     "./dev-cors": "./src/dev-cors.ts",
     "./auction-bid": "./src/auction-bid.ts",
     "./auction-readiness": "./src/auction-readiness.ts",
+    "./purse-capacity": "./src/purse-capacity.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts",
     "./mobile": "./src/mobile.ts",

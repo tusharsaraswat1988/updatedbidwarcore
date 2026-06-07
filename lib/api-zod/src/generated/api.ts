@@ -1626,6 +1626,22 @@ export const GetAuctionStateResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -1793,6 +1809,22 @@ export const StartAuctionResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -1958,6 +1990,22 @@ export const PauseAuctionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -2130,6 +2178,22 @@ export const NextPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -2308,6 +2372,22 @@ export const PlaceBidResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2473,6 +2553,22 @@ export const SellPlayerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -2650,6 +2746,22 @@ export const ManualSellResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2815,6 +2927,22 @@ export const MarkUnsoldResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -2992,6 +3120,22 @@ export const ReAuctionPlayerResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -3167,6 +3311,22 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -3332,6 +3492,22 @@ export const UndoLastActionResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -3510,6 +3686,22 @@ export const ResetTrialAuctionResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -3679,6 +3871,22 @@ export const SetDisplayOverlayResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -3852,6 +4060,22 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -4083,6 +4307,22 @@ export const SyncFortuneWheelResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4252,6 +4492,22 @@ export const SetCategoryFilterResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -4437,6 +4693,22 @@ export const SetBreakTimerResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4611,6 +4883,22 @@ export const SetPreAuctionCountdownResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -4790,6 +5078,22 @@ export const StartTimerResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -4955,6 +5259,22 @@ export const StopTimerResponse = zod.object({
         .string()
         .nullish()
         .describe("Optional display message override"),
+    })
+    .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
     })
     .nullish(),
 });
@@ -5124,6 +5444,22 @@ export const DeferPlayerResponse = zod.object({
         .describe("Optional display message override"),
     })
     .nullish(),
+  lastPurseBooster: zod
+    .object({
+      id: zod.number(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      amount: zod.number(),
+      previousCapacity: zod.number(),
+      newCapacity: zod.number(),
+      appliedAt: zod.coerce.date(),
+    })
+    .nullish(),
+  ledPurseToast: zod
+    .object({
+      teamName: zod.string(),
+    })
+    .nullish(),
 });
 
 /**
@@ -5199,7 +5535,14 @@ export const GetTeamPursesResponseItem = zod.object({
   ownerName: zod.string(),
   color: zod.string().nullable(),
   logoUrl: zod.string().nullish(),
-  purse: zod.number(),
+  originalPurse: zod
+    .number()
+    .describe("Immutable baseline purse from team setup"),
+  boosterTotal: zod.number().describe("Sum of active purse boosters"),
+  effectiveCapacity: zod.number().describe("originalPurse + boosterTotal"),
+  purse: zod
+    .number()
+    .describe("Alias for effectiveCapacity (backward compatible)"),
   purseUsed: zod.number(),
   purseRemaining: zod.number(),
   playersBought: zod.number(),
@@ -5214,6 +5557,119 @@ export const GetTeamPursesResponseItem = zod.object({
   topPlayerAmount: zod.number().nullish(),
 });
 export const GetTeamPursesResponse = zod.array(GetTeamPursesResponseItem);
+
+/**
+ * @summary List purse boosters (organizer — includes reason)
+ */
+export const ListPurseBoostersParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const ListPurseBoostersQueryParams = zod.object({
+  teamId: zod.coerce.number().optional(),
+  status: zod.enum(["active", "cancelled"]).optional(),
+});
+
+export const ListPurseBoostersResponseItem = zod.object({
+  id: zod.number(),
+  localUuid: zod.string().optional(),
+  teamId: zod.number(),
+  amount: zod.number(),
+  reason: zod
+    .string()
+    .optional()
+    .describe("Organizer\/admin only — omitted from owner-facing responses"),
+  status: zod.enum(["active", "cancelled"]),
+  createdByLabel: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  cancelledAt: zod.coerce.date().nullish(),
+  cancelReason: zod.string().nullish(),
+  previousCapacity: zod.number(),
+  newCapacity: zod.number(),
+});
+export const ListPurseBoostersResponse = zod.array(
+  ListPurseBoostersResponseItem,
+);
+
+/**
+ * @summary Apply purse booster to single team or all teams
+ */
+export const ApplyPurseBoosterParams = zod.object({
+  tournamentId: zod.coerce.number(),
+});
+
+export const applyPurseBoosterBodyReasonMin = 10;
+
+export const applyPurseBoosterBodyShowOnLedDefault = true;
+
+export const ApplyPurseBoosterBody = zod.object({
+  target: zod.enum(["single", "all"]),
+  teamId: zod.number().optional().describe("Required when target is single"),
+  amount: zod.number().min(1),
+  reason: zod.string().min(applyPurseBoosterBodyReasonMin),
+  showOnLed: zod.boolean().default(applyPurseBoosterBodyShowOnLedDefault),
+});
+
+/**
+ * @summary Cancel an active purse booster
+ */
+export const CancelPurseBoosterParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  boosterId: zod.coerce.number(),
+});
+
+export const cancelPurseBoosterBodyReasonMin = 10;
+
+export const CancelPurseBoosterBody = zod.object({
+  reason: zod.string().min(cancelPurseBoosterBodyReasonMin),
+});
+
+export const CancelPurseBoosterResponse = zod.object({
+  id: zod.number(),
+  localUuid: zod.string().optional(),
+  teamId: zod.number(),
+  amount: zod.number(),
+  reason: zod
+    .string()
+    .optional()
+    .describe("Organizer\/admin only — omitted from owner-facing responses"),
+  status: zod.enum(["active", "cancelled"]),
+  createdByLabel: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  cancelledAt: zod.coerce.date().nullish(),
+  cancelReason: zod.string().nullish(),
+  previousCapacity: zod.number(),
+  newCapacity: zod.number(),
+});
+
+/**
+ * @summary Team purse booster history (owner-safe — no reason)
+ */
+export const ListTeamPurseBoostersParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  teamId: zod.coerce.number(),
+});
+
+export const ListTeamPurseBoostersResponseItem = zod.object({
+  id: zod.number(),
+  localUuid: zod.string().optional(),
+  teamId: zod.number(),
+  amount: zod.number(),
+  reason: zod
+    .string()
+    .optional()
+    .describe("Organizer\/admin only — omitted from owner-facing responses"),
+  status: zod.enum(["active", "cancelled"]),
+  createdByLabel: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  cancelledAt: zod.coerce.date().nullish(),
+  cancelReason: zod.string().nullish(),
+  previousCapacity: zod.number(),
+  newCapacity: zod.number(),
+});
+export const ListTeamPurseBoostersResponse = zod.array(
+  ListTeamPurseBoostersResponseItem,
+);
 
 /**
  * @summary Get top sold players by price

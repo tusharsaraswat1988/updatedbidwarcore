@@ -8,7 +8,7 @@ import {
 import { randomBytes } from "crypto";
 import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
-import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -504,12 +504,25 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
       amount: z.number().int(),
       timestamp: z.string(),
     })).optional().default([]),
+    purseBoosters: z.array(z.object({
+      localUuid: z.string(),
+      teamCloudId: z.number().int(),
+      amount: z.number().int().positive(),
+      reason: z.string(),
+      status: z.enum(["active", "cancelled"]),
+      createdAt: z.string(),
+      createdByLabel: z.string().nullable().optional(),
+      cancelledAt: z.string().nullable().optional(),
+      cancelReason: z.string().nullable().optional(),
+      previousCapacity: z.number().int(),
+      newCapacity: z.number().int(),
+    })).optional().default([]),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid sync payload" }); return; }
 
-  const { playerResults, teamPurses, bids } = parsed.data;
+  const { playerResults, teamPurses, bids, purseBoosters } = parsed.data;
 
   let playersUpdated = 0;
   for (const p of playerResults) {
@@ -539,13 +552,52 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
     bidsInserted++;
   }
 
+  let boostersSynced = 0;
+  for (const b of purseBoosters) {
+    const [team] = await db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(and(eq(teamsTable.id, b.teamCloudId), eq(teamsTable.tournamentId, id)));
+    if (!team) continue;
+
+    await db
+      .insert(purseBoostersTable)
+      .values({
+        localUuid: b.localUuid,
+        tournamentId: id,
+        teamId: team.id,
+        amount: b.amount,
+        reason: b.reason,
+        status: b.status,
+        createdByType: "system",
+        createdByLabel: b.createdByLabel ?? "Local Sync",
+        createdAt: new Date(b.createdAt),
+        cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
+        cancelReason: b.cancelReason ?? null,
+        previousCapacity: b.previousCapacity,
+        newCapacity: b.newCapacity,
+        origin: "local",
+        syncState: "synced",
+      })
+      .onConflictDoUpdate({
+        target: purseBoostersTable.localUuid,
+        set: {
+          status: b.status,
+          cancelledAt: b.cancelledAt ? new Date(b.cancelledAt) : null,
+          cancelReason: b.cancelReason ?? null,
+          syncState: "synced",
+        },
+      });
+    boostersSynced++;
+  }
+
   // Mark tournament complete and stamp the token as used — prevents replay sync
   await db.update(tournamentsTable).set({
     status: "completed",
     exportTokenSyncedAt: new Date(),
   }).where(eq(tournamentsTable.id, id));
 
-  res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted });
+  res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted, boostersSynced });
 });
 
 // ─── Share viewer link — fire DLT SMS to organizer ───────────────────────────

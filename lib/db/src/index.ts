@@ -74,4 +74,37 @@ void pool
     console.error("[db] failed to ensure platform_audit_events table:", err);
   });
 
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS purse_boosters (
+      id SERIAL PRIMARY KEY,
+      local_uuid TEXT NOT NULL UNIQUE,
+      tournament_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_by_type TEXT NOT NULL,
+      created_by_id TEXT,
+      created_by_label TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      cancelled_by_type TEXT,
+      cancelled_by_id TEXT,
+      cancelled_by_label TEXT,
+      cancelled_at TIMESTAMPTZ,
+      cancel_reason TEXT,
+      previous_capacity INTEGER NOT NULL,
+      new_capacity INTEGER NOT NULL,
+      origin TEXT NOT NULL DEFAULT 'cloud',
+      sync_state TEXT NOT NULL DEFAULT 'synced'
+    );
+    CREATE INDEX IF NOT EXISTS ix_purse_boosters_tournament_team_status
+      ON purse_boosters (tournament_id, team_id, status);
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_purse_booster_json TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_led_toast_json TEXT;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure purse_boosters table:", err);
+  });
+
 export * from "./schema";

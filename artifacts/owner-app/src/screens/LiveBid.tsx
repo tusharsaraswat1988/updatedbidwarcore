@@ -522,7 +522,13 @@ export function LiveBid({
   // ── Unified won/unsold notification ─────────────────────────────────────────
   const [wonBanner,    setWonBanner]    = useState<{ name: string; soldAmount?: number | null } | null>(null);
   const [unsoldBanner, setUnsoldBanner] = useState<{ name: string } | null>(null);
+  const [purseBoosterBanner, setPurseBoosterBanner] = useState<{
+    amount: number;
+    previousCapacity: number;
+    newCapacity: number;
+  } | null>(null);
   const prevPlayerRef = useRef<{ id: number; name: string } | null>(null);
+  const prevBoosterRef = useRef<number | null>(null);
 
   useEffect(() => {
     const curPlayer   = state?.currentPlayer;
@@ -560,6 +566,20 @@ export function LiveBid({
     return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.currentPlayer?.id, state?.lastSoldPlayer?.id, state?.lastSoldPlayer?.soldToTeamId, teamId]);
+
+  useEffect(() => {
+    const boost = state?.lastPurseBooster;
+    if (!boost || boost.teamId !== teamId) return;
+    if (prevBoosterRef.current === boost.id) return;
+    prevBoosterRef.current = boost.id;
+    setPurseBoosterBanner({
+      amount: boost.amount,
+      previousCapacity: boost.previousCapacity,
+      newCapacity: boost.newCapacity,
+    });
+    const t = setTimeout(() => setPurseBoosterBanner(null), 5500);
+    return () => clearTimeout(t);
+  }, [state?.lastPurseBooster, teamId]);
 
   // ── Portrait layout ─────────────────────────────────────────────────────────
   if (!landscape) {
@@ -799,6 +819,28 @@ export function LiveBid({
                 {wonBanner.soldAmount != null && (
                   <p className="text-xl text-[#a1a1aa] mt-2">{formatIndianRupee(wonBanner.soldAmount)}</p>
                 )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Purse booster banner ── */}
+        <AnimatePresence>
+          {purseBoosterBanner && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8"
+              style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+            >
+              <div className="text-center">
+                <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
+                <p className="text-3xl font-bold text-white mt-4">{formatIndianRupee(purseBoosterBanner.amount)}</p>
+                <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
+                <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
+                <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
+                <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
               </div>
             </motion.div>
           )}
@@ -1054,6 +1096,26 @@ export function LiveBid({
               <p className="font-display font-black text-5xl" style={{ color: teamColor }}>YOU WON!</p>
               <p className="text-2xl font-bold text-white mt-2">{wonBanner.name}</p>
               {wonBanner.soldAmount != null && <p className="text-xl text-[#a1a1aa] mt-1">{formatIndianRupee(wonBanner.soldAmount)}</p>}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Purse booster banner ── */}
+      <AnimatePresence>
+        {purseBoosterBanner && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
+            style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+          >
+            <div className="text-center">
+              <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
+              <p className="text-3xl font-bold text-white mt-4">{formatIndianRupee(purseBoosterBanner.amount)}</p>
+              <p className="text-base text-[#a1a1aa] mt-4">Previous Capacity</p>
+              <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
+              <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
+              <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
             </div>
           </motion.div>
         )}

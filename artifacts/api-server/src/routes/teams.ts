@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
-import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable } from "@workspace/db";
+import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable, auctionSessionsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
@@ -249,14 +249,30 @@ router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
   const catMap   = new Map(categories.map(c => [c.id, c]));
 
   const scoutTeams = teams.map(team => {
-    const p           = purseMap.get(team.id) ?? { purseRemaining: team.purse - team.purseUsed, reservePurse: 0, spendablePurse: team.purse - team.purseUsed, slotsRequired: 0, maximumSquadSize: 0, lowestBasePrice: 0 };
+    const p = purseMap.get(team.id) ?? {
+      originalPurse: team.purse,
+      boosterTotal: 0,
+      effectiveCapacity: team.purse,
+      purseRemaining: team.purse - team.purseUsed,
+      reservePurse: 0,
+      spendablePurse: team.purse - team.purseUsed,
+      slotsRequired: 0,
+      maximumSquadSize: 0,
+      lowestBasePrice: 0,
+    };
     const squadPlayers = allPlayers.filter(pl => pl.teamId === team.id && (pl.status === "sold" || pl.status === "retained"));
     const playersBought = squadPlayers.filter(pl => !pl.isNonPlayingMember).length;
     const maxBidCapacity = p.slotsRequired > 0 ? Math.floor(p.spendablePurse / p.slotsRequired) : p.spendablePurse;
     return {
       id: team.id, name: team.name, shortCode: team.shortCode, color: team.color, logoUrl: team.logoUrl,
-      purse: team.purse, purseRemaining: p.purseRemaining, reservePurse: p.reservePurse,
-      spendablePurse: p.spendablePurse, slotsRequired: p.slotsRequired,
+      originalPurse: p.originalPurse,
+      boosterTotal: p.boosterTotal,
+      effectiveCapacity: p.effectiveCapacity,
+      purse: p.effectiveCapacity,
+      purseRemaining: p.purseRemaining,
+      reservePurse: p.reservePurse,
+      spendablePurse: p.spendablePurse,
+      slotsRequired: p.slotsRequired,
       playersBought, maximumSquadSize: p.maximumSquadSize, maxBidCapacity,
       players: squadPlayers.map(pl => ({ id: pl.id, name: pl.name, role: pl.role, status: pl.status, soldPrice: pl.soldPrice, isNonPlayingMember: pl.isNonPlayingMember })),
     };
@@ -329,6 +345,20 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!beforeTeam) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (d.purse !== undefined && d.purse !== beforeTeam.purse) {
+    const [session] = await db
+      .select({ status: auctionSessionsTable.status })
+      .from(auctionSessionsTable)
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    const liveStatuses = new Set(["active", "paused", "idle"]);
+    if (session && liveStatuses.has(session.status)) {
+      res.status(403).json({
+        error: "Direct purse edits are not allowed during live auction. Use Purse Booster from the Operator Panel.",
+      });
+      return;
+    }
+  }
 
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;

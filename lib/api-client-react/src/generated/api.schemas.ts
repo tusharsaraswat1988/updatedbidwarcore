@@ -852,6 +852,20 @@ export interface DisplayCountdown {
   message?: string | null;
 }
 
+export interface LastPurseBooster {
+  id: number;
+  teamId: number;
+  teamName: string;
+  amount: number;
+  previousCapacity: number;
+  newCapacity: number;
+  appliedAt: string;
+}
+
+export interface LedPurseToast {
+  teamName: string;
+}
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -916,6 +930,73 @@ export interface AuctionState {
   /** Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set. */
   teamCategoryPlayerCounts?: AuctionStateTeamCategoryPlayerCounts;
   displayCountdown?: DisplayCountdown | null;
+  lastPurseBooster?: LastPurseBooster | null;
+  ledPurseToast?: LedPurseToast | null;
+}
+
+export type ApplyPurseBoosterRequestTarget =
+  (typeof ApplyPurseBoosterRequestTarget)[keyof typeof ApplyPurseBoosterRequestTarget];
+
+export const ApplyPurseBoosterRequestTarget = {
+  single: "single",
+  all: "all",
+} as const;
+
+export interface ApplyPurseBoosterRequest {
+  target: ApplyPurseBoosterRequestTarget;
+  /** Required when target is single */
+  teamId?: number;
+  /** @minimum 1 */
+  amount: number;
+  /** @minLength 10 */
+  reason: string;
+  showOnLed?: boolean;
+}
+
+export interface PurseBoosterAppliedItem {
+  boosterId: number;
+  teamId: number;
+  teamName: string;
+  amount: number;
+  previousCapacity: number;
+  newCapacity: number;
+}
+
+export interface ApplyPurseBoosterResponse {
+  applied: PurseBoosterAppliedItem[];
+  totalTeamsAffected: number;
+}
+
+export type PurseBoosterRecordStatus =
+  (typeof PurseBoosterRecordStatus)[keyof typeof PurseBoosterRecordStatus];
+
+export const PurseBoosterRecordStatus = {
+  active: "active",
+  cancelled: "cancelled",
+} as const;
+
+export interface PurseBoosterRecord {
+  id: number;
+  localUuid?: string;
+  teamId: number;
+  amount: number;
+  /** Organizer/admin only — omitted from owner-facing responses */
+  reason?: string;
+  status: PurseBoosterRecordStatus;
+  /** @nullable */
+  createdByLabel?: string | null;
+  createdAt: string;
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancelReason?: string | null;
+  previousCapacity: number;
+  newCapacity: number;
+}
+
+export interface CancelPurseBoosterRequest {
+  /** @minLength 10 */
+  reason: string;
 }
 
 export interface RegistrationStatus {
@@ -955,6 +1036,13 @@ export interface TeamPurse {
   color: string | null;
   /** @nullable */
   logoUrl?: string | null;
+  /** Immutable baseline purse from team setup */
+  originalPurse: number;
+  /** Sum of active purse boosters */
+  boosterTotal: number;
+  /** originalPurse + boosterTotal */
+  effectiveCapacity: number;
+  /** Alias for effectiveCapacity (backward compatible) */
   purse: number;
   purseUsed: number;
   purseRemaining: number;
@@ -1411,6 +1499,19 @@ export type SetPreAuctionCountdownBody = {
   action?: SetPreAuctionCountdownBodyAction;
   message?: string;
 };
+
+export type ListPurseBoostersParams = {
+  teamId?: number;
+  status?: ListPurseBoostersStatus;
+};
+
+export type ListPurseBoostersStatus =
+  (typeof ListPurseBoostersStatus)[keyof typeof ListPurseBoostersStatus];
+
+export const ListPurseBoostersStatus = {
+  active: "active",
+  cancelled: "cancelled",
+} as const;
 
 export type SearchGlobalPlayersParams = {
   /**

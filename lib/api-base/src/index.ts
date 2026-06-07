@@ -11,6 +11,12 @@ export {
   type BidAmountInput,
 } from "./auction-bid.ts";
 
+export {
+  computeEffectiveCapacity,
+  computePurseRemaining,
+  assertCapacityNotBelowUsed,
+} from "./purse-capacity.ts";
+
 export { parseOptionalEmail } from "./email.ts";
 
 export {

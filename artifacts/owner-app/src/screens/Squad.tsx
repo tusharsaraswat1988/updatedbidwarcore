@@ -1,4 +1,4 @@
-import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
+import { useListPlayers, useListTeamPurseBoosters, getListPlayersQueryKey, getListTeamPurseBoostersQueryKey } from "@workspace/api-client-react";
 import { ChevronLeft, User, Trophy } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
@@ -16,6 +16,9 @@ interface Team {
 
 interface TeamPurse {
   teamId: number;
+  originalPurse?: number;
+  boosterTotal?: number;
+  effectiveCapacity?: number;
   purseRemaining: number;
   spendablePurse: number;
   playersBought?: number;
@@ -41,12 +44,22 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
     },
   });
 
+  const { data: boosterHistory } = useListTeamPurseBoosters(tournamentId, teamId, {
+    query: {
+      queryKey: getListTeamPurseBoostersQueryKey(tournamentId, teamId),
+      enabled: !!tournamentId && !!teamId,
+    },
+  });
+
   const myPlayers = (allPlayers ?? [])
     .filter(p => p.teamId === teamId && (p.status === "sold" || p.status === "retained"))
     .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0));
 
   const purseUsed = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
-  const spendable = teamPurse?.spendablePurse ?? (team.purse - purseUsed);
+  const capacity = teamPurse?.effectiveCapacity ?? team.purse;
+  const boosterTotal = teamPurse?.boosterTotal ?? 0;
+  const originalPurse = teamPurse?.originalPurse ?? team.purse;
+  const spendable = teamPurse?.spendablePurse ?? (capacity - purseUsed);
   const count     = myPlayers.length;
 
   return (
@@ -98,6 +111,37 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
           </div>
         ))}
       </div>
+
+      <div className="px-4 py-3 border-b border-[#27272a] grid grid-cols-3 gap-2 text-center flex-shrink-0">
+        <div>
+          <p className="text-[10px] text-[#52525b] uppercase">Original</p>
+          <p className="text-sm font-mono text-white">{formatShortIndianRupee(originalPurse)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#52525b] uppercase">Boosters</p>
+          <p className="text-sm font-mono text-amber-400">+{formatShortIndianRupee(boosterTotal)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#52525b] uppercase">Capacity</p>
+          <p className="text-sm font-mono text-emerald-400">{formatShortIndianRupee(capacity)}</p>
+        </div>
+      </div>
+
+      {(boosterHistory?.length ?? 0) > 0 && (
+        <div className="px-4 py-3 border-b border-[#27272a] flex-shrink-0">
+          <p className="text-xs text-[#52525b] uppercase tracking-wider mb-2">Purse Updates</p>
+          <ul className="space-y-2 max-h-28 overflow-y-auto">
+            {(boosterHistory ?? []).filter(b => b.status === "active").map(b => (
+              <li key={b.id} className="flex items-center justify-between text-sm">
+                <span className="text-emerald-400 font-mono">+{formatShortIndianRupee(b.amount)}</span>
+                <span className="text-[#71717a] text-xs">
+                  {new Date(b.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Player list */}
       <div className="flex-1 overflow-y-auto min-h-0">

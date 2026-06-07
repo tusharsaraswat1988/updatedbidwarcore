@@ -642,7 +642,10 @@ export default function Teams() {
                     {/* Purse + Squad Summary */}
                     {(() => {
                       const tp = teamPurses?.find(p => p.teamId === team.id);
-                      const purseRemaining = team.purse - (team.purseUsed || 0);
+                      const originalPurse = tp?.originalPurse ?? team.purse;
+                      const boosterTotal = tp?.boosterTotal ?? 0;
+                      const effectiveCapacity = tp?.effectiveCapacity ?? team.purse;
+                      const purseRemaining = effectiveCapacity - (team.purseUsed || 0);
                       const spendable = tp?.spendablePurse ?? purseRemaining;
                       const reserved = tp?.reservePurse ?? 0;
                       const bought = tp?.playersBought ?? 0;
@@ -661,7 +664,7 @@ export default function Teams() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                               <Wallet className="w-3.5 h-3.5" />
-                              <span>Budget: <span className="text-foreground font-semibold">{formatShortIndianRupee(team.purse)}</span></span>
+                              <span>Capacity: <span className="text-foreground font-semibold">{formatShortIndianRupee(effectiveCapacity)}</span></span>
                             </div>
                             <Badge
                               variant={team.isBiddingEnabled ? "default" : "secondary"}
@@ -672,6 +675,20 @@ export default function Teams() {
                           </div>
 
                           {/* Purse breakdown grid */}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Original</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(originalPurse)}</p>
+                            </div>
+                            <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2">
+                              <p className="text-[10px] text-amber-400/80 uppercase tracking-wider mb-0.5">Boosters</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-amber-400">+{formatShortIndianRupee(boosterTotal)}</p>
+                            </div>
+                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Capacity</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShortIndianRupee(effectiveCapacity)}</p>
+                            </div>
+                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</p>

@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import QRCode from "qrcode";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
-  auctionSessionsTable, bidsTable, syncQueueTable,
+  bidsTable, syncQueueTable, purseBoostersTable,
 } from "@workspace/db-local";
 
 /**
@@ -199,6 +199,31 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
 
     const teamPurses = teams.filter(t => t.cloudId).map(t => ({ cloudId: t.cloudId!, purseUsed: t.purseUsed }));
 
+    const boosters = await db
+      .select()
+      .from(purseBoostersTable)
+      .where(eq(purseBoostersTable.tournamentId, localTid));
+
+    const purseBoosters = boosters
+      .map(b => {
+        const team = teams.find(t => t.id === b.teamId);
+        if (!team?.cloudId) return null;
+        return {
+          localUuid: b.localUuid,
+          teamCloudId: team.cloudId,
+          amount: b.amount,
+          reason: b.reason,
+          status: b.status as "active" | "cancelled",
+          createdAt: b.createdAt,
+          createdByLabel: b.createdByLabel,
+          cancelledAt: b.cancelledAt,
+          cancelReason: b.cancelReason,
+          previousCapacity: b.previousCapacity,
+          newCapacity: b.newCapacity,
+        };
+      })
+      .filter((b): b is NonNullable<typeof b> => b != null);
+
     const bidPayload = bids.map(b => {
       const player = players.find(p => p.id === b.playerId);
       const team = teams.find(t => t.id === b.teamId);
@@ -217,7 +242,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         "Content-Type": "application/json",
         ...(tournament.exportToken ? { "X-Export-Token": tournament.exportToken } : {}),
       },
-      body: JSON.stringify({ playerResults, teamPurses, bids: bidPayload }),
+      body: JSON.stringify({ playerResults, teamPurses, bids: bidPayload, purseBoosters }),
     });
 
     if (!cloudRes.ok) {
@@ -226,7 +251,10 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       return;
     }
 
-    const result = await cloudRes.json() as { ok: boolean; playersUpdated: number; teamsUpdated: number; bidsInserted: number };
+    const result = await cloudRes.json() as { ok: boolean; playersUpdated: number; teamsUpdated: number; bidsInserted: number; boostersSynced?: number };
+
+    await db.update(purseBoostersTable).set({ syncState: "synced" })
+      .where(and(eq(purseBoostersTable.tournamentId, localTid), eq(purseBoostersTable.syncState, "pending")));
 
     // Mark all queue items as synced
     await db.update(syncQueueTable).set({ syncedAt: new Date().toISOString() })

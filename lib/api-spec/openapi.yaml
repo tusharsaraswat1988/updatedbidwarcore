@@ -1383,6 +1383,115 @@ paths:
                 items:
                   $ref: "#/components/schemas/TeamPurse"
 
+  /tournaments/{tournamentId}/purse-boosters:
+    get:
+      operationId: listPurseBoosters
+      tags: [finance]
+      summary: List purse boosters (organizer — includes reason)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, cancelled]
+      responses:
+        "200":
+          description: Purse booster ledger
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurseBoosterRecord"
+    post:
+      operationId: applyPurseBooster
+      tags: [finance]
+      summary: Apply purse booster to single team or all teams
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyPurseBoosterRequest"
+      responses:
+        "201":
+          description: Booster applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplyPurseBoosterResponse"
+
+  /tournaments/{tournamentId}/purse-boosters/{boosterId}/cancel:
+    post:
+      operationId: cancelPurseBooster
+      tags: [finance]
+      summary: Cancel an active purse booster
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: boosterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelPurseBoosterRequest"
+      responses:
+        "200":
+          description: Booster cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurseBoosterRecord"
+
+  /tournaments/{tournamentId}/teams/{teamId}/purse-boosters:
+    get:
+      operationId: listTeamPurseBoosters
+      tags: [finance]
+      summary: Team purse booster history (owner-safe — no reason)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team booster history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurseBoosterRecord"
+
   /tournaments/{tournamentId}/analytics/top-bids:
     get:
       operationId: getTopBids
@@ -2727,6 +2836,130 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/DisplayCountdown"
+        lastPurseBooster:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/LastPurseBooster"
+        ledPurseToast:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/LedPurseToast"
+
+    LastPurseBooster:
+      type: object
+      required: [id, teamId, teamName, amount, previousCapacity, newCapacity, appliedAt]
+      properties:
+        id:
+          type: integer
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        amount:
+          type: integer
+        previousCapacity:
+          type: integer
+        newCapacity:
+          type: integer
+        appliedAt:
+          type: string
+          format: date-time
+
+    LedPurseToast:
+      type: object
+      required: [teamName]
+      properties:
+        teamName:
+          type: string
+
+    ApplyPurseBoosterRequest:
+      type: object
+      required: [target, amount, reason]
+      properties:
+        target:
+          type: string
+          enum: [single, all]
+        teamId:
+          type: integer
+          description: Required when target is single
+        amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 10
+        showOnLed:
+          type: boolean
+          default: true
+
+    ApplyPurseBoosterResponse:
+      type: object
+      required: [applied, totalTeamsAffected]
+      properties:
+        applied:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurseBoosterAppliedItem"
+        totalTeamsAffected:
+          type: integer
+
+    PurseBoosterAppliedItem:
+      type: object
+      required: [boosterId, teamId, teamName, amount, previousCapacity, newCapacity]
+      properties:
+        boosterId:
+          type: integer
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        amount:
+          type: integer
+        previousCapacity:
+          type: integer
+        newCapacity:
+          type: integer
+
+    PurseBoosterRecord:
+      type: object
+      required: [id, teamId, amount, status, createdAt, previousCapacity, newCapacity]
+      properties:
+        id:
+          type: integer
+        localUuid:
+          type: string
+        teamId:
+          type: integer
+        amount:
+          type: integer
+        reason:
+          type: string
+          description: Organizer/admin only — omitted from owner-facing responses
+        status:
+          type: string
+          enum: [active, cancelled]
+        createdByLabel:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
+        cancelReason:
+          type: ["string", "null"]
+        previousCapacity:
+          type: integer
+        newCapacity:
+          type: integer
+
+    CancelPurseBoosterRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
 
     AuctionOutcome:
       type: object
@@ -2811,7 +3044,7 @@ components:
 
     TeamPurse:
       type: object
-      required: [teamId, teamName, shortCode, color, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, minimumSquadSize, maximumSquadSize, retainedCount]
+      required: [teamId, teamName, shortCode, color, originalPurse, boosterTotal, effectiveCapacity, purse, purseUsed, purseRemaining, playersBought, ownerName, reservePurse, spendablePurse, slotsRequired, lowestBasePrice, minimumSquadSize, maximumSquadSize, retainedCount]
       properties:
         teamId:
           type: integer
@@ -2825,8 +3058,18 @@ components:
           type: ["string", "null"]
         logoUrl:
           type: ["string", "null"]
+        originalPurse:
+          type: integer
+          description: Immutable baseline purse from team setup
+        boosterTotal:
+          type: integer
+          description: Sum of active purse boosters
+        effectiveCapacity:
+          type: integer
+          description: originalPurse + boosterTotal
         purse:
           type: integer
+          description: Alias for effectiveCapacity (backward compatible)
         purseUsed:
           type: integer
         purseRemaining:
