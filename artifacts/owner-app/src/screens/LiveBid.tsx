@@ -52,6 +52,15 @@ interface AuctionState {
     soldToTeamColor?: string | null;
     soldAmount?: number | null;
   } | null;
+  lastPurseBooster?: {
+    id: number;
+    teamId: number;
+    teamName: string;
+    amount: number;
+    previousCapacity: number;
+    newCapacity: number;
+    appliedAt: string;
+  } | null;
 }
 
 interface Team {

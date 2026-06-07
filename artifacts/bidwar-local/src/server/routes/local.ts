@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
-  bidsTable, syncQueueTable, purseBoostersTable,
+  auctionSessionsTable, bidsTable, syncQueueTable, purseBoostersTable,
 } from "@workspace/db-local";
 
 /**
