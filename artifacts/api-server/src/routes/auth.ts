@@ -1087,6 +1087,20 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     licenseStatus: "trial",
   }).returning();
 
+  notifyAsync("TOURNAMENT_CREATED", {
+    tournamentId: tournament.id,
+    tournamentName: tournament.name,
+    sport: tournament.sport,
+    auctionCode: tournament.auctionCode,
+    auctionDate: tournament.auctionDate,
+    auctionTime: tournament.auctionTime,
+    venue: tournament.venue,
+    organizerName: tournament.organizerName,
+    organizerEmail: tournament.organizerEmail,
+    organizerMobile: tournament.organizerMobile,
+    organizerId: tournament.organizerId,
+  });
+
   const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
   setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
 
