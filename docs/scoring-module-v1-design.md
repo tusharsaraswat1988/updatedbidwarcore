@@ -3,7 +3,8 @@
 **Version:** 1.0  
 **Date:** 7 June 2026  
 **Status:** Design only — not implemented  
-**Sports:** Cricket and Badminton (V1 only)
+**Sports:** Cricket and Badminton (V1 only)  
+**See also:** [`scoring-module-v1-simplified.md`](./scoring-module-v1-simplified.md) — recommended V1 scope (Cricket-only, reduced complexity)
 
 ---
 
