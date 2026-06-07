@@ -48,6 +48,7 @@ import type {
   Player,
   PlayerInput,
   PlayerUpdate,
+  ReAuctionAllUnsoldBody,
   ReAuctionInput,
   RegistrationStatus,
   ReorderShowcaseEventsBody,
@@ -3315,11 +3316,14 @@ export const getReAuctionAllUnsoldUrl = (tournamentId: number) => {
 
 export const reAuctionAllUnsold = async (
   tournamentId: number,
+  reAuctionAllUnsoldBody: ReAuctionAllUnsoldBody,
   options?: RequestInit,
 ): Promise<AuctionState> => {
   return customFetch<AuctionState>(getReAuctionAllUnsoldUrl(tournamentId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reAuctionAllUnsoldBody),
   });
 };
 
@@ -3330,14 +3334,14 @@ export const getReAuctionAllUnsoldMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof reAuctionAllUnsold>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<ReAuctionAllUnsoldBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof reAuctionAllUnsold>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<ReAuctionAllUnsoldBody> },
   TContext
 > => {
   const mutationKey = ["reAuctionAllUnsold"];
@@ -3351,11 +3355,11 @@ export const getReAuctionAllUnsoldMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof reAuctionAllUnsold>>,
-    { tournamentId: number }
+    { tournamentId: number; data: BodyType<ReAuctionAllUnsoldBody> }
   > = (props) => {
-    const { tournamentId } = props ?? {};
+    const { tournamentId, data } = props ?? {};
 
-    return reAuctionAllUnsold(tournamentId, requestOptions);
+    return reAuctionAllUnsold(tournamentId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3364,7 +3368,7 @@ export const getReAuctionAllUnsoldMutationOptions = <
 export type ReAuctionAllUnsoldMutationResult = NonNullable<
   Awaited<ReturnType<typeof reAuctionAllUnsold>>
 >;
-
+export type ReAuctionAllUnsoldMutationBody = BodyType<ReAuctionAllUnsoldBody>;
 export type ReAuctionAllUnsoldMutationError = ErrorType<unknown>;
 
 /**
@@ -3377,14 +3381,14 @@ export const useReAuctionAllUnsold = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof reAuctionAllUnsold>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<ReAuctionAllUnsoldBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof reAuctionAllUnsold>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<ReAuctionAllUnsoldBody> },
   TContext
 > => {
   return useMutation(getReAuctionAllUnsoldMutationOptions(options));

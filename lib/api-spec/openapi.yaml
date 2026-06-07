@@ -881,6 +881,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReAuctionAllUnsoldBody"
       responses:
         "200":
           description: All unsold players reset to available
@@ -924,11 +930,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [password]
-              properties:
-                password:
-                  type: string
+              $ref: "#/components/schemas/ResetTrialAuctionBody"
       responses:
         "200":
           description: Reset complete
@@ -2058,6 +2060,9 @@ components:
         matchDates:
           type: ["string", "null"]
           description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'"
+        reason:
+          type: string
+          description: Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters)
 
     # Team schemas
     Team:
@@ -2143,6 +2148,9 @@ components:
           type: boolean
         regenerateCode:
           type: boolean
+        reason:
+          type: string
+          description: Mandatory audit reason for critical team changes (min 10 characters)
 
     # Scout schemas
     ScoutData:
@@ -2468,6 +2476,9 @@ components:
           type: integer
         isNonPlayingMember:
           type: boolean
+        reason:
+          type: string
+          description: Mandatory audit reason for critical player changes (min 10 characters)
 
     BulkPlayerInput:
       type: object
@@ -2506,21 +2517,45 @@ components:
 
     ManualSellInput:
       type: object
-      required: [teamId, amount]
+      required: [teamId, amount, reason]
       properties:
         teamId:
           type: integer
         amount:
           type: integer
+        reason:
+          type: string
+          description: Mandatory audit reason for manual sell (min 10 characters)
 
     ReAuctionInput:
       type: object
-      required: [playerId]
+      required: [playerId, reason]
       properties:
         playerId:
           type: integer
         startFromBase:
           type: boolean
+        reason:
+          type: string
+          description: Mandatory audit reason for re-auction (min 10 characters)
+
+    ReAuctionAllUnsoldBody:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          description: Mandatory audit reason for batch re-auction of unsold players (min 10 characters)
+
+    ResetTrialAuctionBody:
+      type: object
+      required: [password, reason]
+      properties:
+        password:
+          type: string
+        reason:
+          type: string
+          description: Mandatory audit reason for clearing practice auction data (min 10 characters)
 
     Bid:
       type: object

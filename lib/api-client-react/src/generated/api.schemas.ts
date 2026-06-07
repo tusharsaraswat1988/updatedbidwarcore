@@ -284,6 +284,8 @@ export interface TournamentUpdate {
    * @nullable
    */
   matchDates?: string | null;
+  /** Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters) */
+  reason?: string;
 }
 
 export interface Team {
@@ -334,6 +336,8 @@ export interface TeamUpdate {
   purse?: number;
   isBiddingEnabled?: boolean;
   regenerateCode?: boolean;
+  /** Mandatory audit reason for critical team changes (min 10 characters) */
+  reason?: string;
 }
 
 export interface ScoutSquadPlayer {
@@ -628,6 +632,8 @@ export interface PlayerUpdate {
   playerTag?: PlayerUpdatePlayerTag;
   playerTagTeamId?: number;
   isNonPlayingMember?: boolean;
+  /** Mandatory audit reason for critical player changes (min 10 characters) */
+  reason?: string;
 }
 
 export interface BulkPlayerInput {
@@ -650,11 +656,26 @@ export interface BidInput {
 export interface ManualSellInput {
   teamId: number;
   amount: number;
+  /** Mandatory audit reason for manual sell (min 10 characters) */
+  reason: string;
 }
 
 export interface ReAuctionInput {
   playerId: number;
   startFromBase?: boolean;
+  /** Mandatory audit reason for re-auction (min 10 characters) */
+  reason: string;
+}
+
+export interface ReAuctionAllUnsoldBody {
+  /** Mandatory audit reason for batch re-auction of unsold players (min 10 characters) */
+  reason: string;
+}
+
+export interface ResetTrialAuctionBody {
+  password: string;
+  /** Mandatory audit reason for clearing practice auction data (min 10 characters) */
+  reason: string;
 }
 
 export interface Bid {
@@ -1304,10 +1325,6 @@ export type UploadImage200 = {
 
 export type MirrorAuctionState200 = {
   ok?: boolean;
-};
-
-export type ResetTrialAuctionBody = {
-  password: string;
 };
 
 export type SetDisplayOverlayBodyMode =

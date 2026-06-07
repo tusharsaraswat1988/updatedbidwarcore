@@ -338,6 +338,12 @@ export const UpdateTournamentBody = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'",
     ),
+  reason: zod
+    .string()
+    .optional()
+    .describe(
+      "Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters)",
+    ),
 });
 
 export const UpdateTournamentResponse = zod.object({
@@ -885,6 +891,12 @@ export const UpdateTeamBody = zod.object({
   purse: zod.number().optional(),
   isBiddingEnabled: zod.boolean().optional(),
   regenerateCode: zod.boolean().optional(),
+  reason: zod
+    .string()
+    .optional()
+    .describe(
+      "Mandatory audit reason for critical team changes (min 10 characters)",
+    ),
 });
 
 export const UpdateTeamResponse = zod.object({
@@ -1389,6 +1401,12 @@ export const UpdatePlayerBody = zod.object({
     .optional(),
   playerTagTeamId: zod.number().optional(),
   isNonPlayingMember: zod.boolean().optional(),
+  reason: zod
+    .string()
+    .optional()
+    .describe(
+      "Mandatory audit reason for critical player changes (min 10 characters)",
+    ),
 });
 
 export const UpdatePlayerResponse = zod.object({
@@ -2469,6 +2487,9 @@ export const ManualSellParams = zod.object({
 export const ManualSellBody = zod.object({
   teamId: zod.number(),
   amount: zod.number(),
+  reason: zod
+    .string()
+    .describe("Mandatory audit reason for manual sell (min 10 characters)"),
 });
 
 export const ManualSellResponse = zod.object({
@@ -2808,6 +2829,9 @@ export const ReAuctionPlayerParams = zod.object({
 export const ReAuctionPlayerBody = zod.object({
   playerId: zod.number(),
   startFromBase: zod.boolean().optional(),
+  reason: zod
+    .string()
+    .describe("Mandatory audit reason for re-auction (min 10 characters)"),
 });
 
 export const ReAuctionPlayerResponse = zod.object({
@@ -2975,6 +2999,14 @@ export const ReAuctionPlayerResponse = zod.object({
  */
 export const ReAuctionAllUnsoldParams = zod.object({
   tournamentId: zod.coerce.number(),
+});
+
+export const ReAuctionAllUnsoldBody = zod.object({
+  reason: zod
+    .string()
+    .describe(
+      "Mandatory audit reason for batch re-auction of unsold players (min 10 characters)",
+    ),
 });
 
 export const ReAuctionAllUnsoldResponse = zod.object({
@@ -3313,6 +3345,11 @@ export const ResetTrialAuctionParams = zod.object({
 
 export const ResetTrialAuctionBody = zod.object({
   password: zod.string(),
+  reason: zod
+    .string()
+    .describe(
+      "Mandatory audit reason for clearing practice auction data (min 10 characters)",
+    ),
 });
 
 export const ResetTrialAuctionResponse = zod.object({
