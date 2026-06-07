@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -82,6 +82,12 @@ export const tournamentsTable = pgTable("tournaments", {
   // When set, player availability is shown as date checkboxes instead of free text.
   // When null/empty, availability field is hidden everywhere.
   matchDates: text("match_dates"),
+  // Scoring module (orthogonal to auction status)
+  scoringEnabled: boolean("scoring_enabled").notNull().default(false),
+  scoringPhase: text("scoring_phase").notNull().default("disabled"),
+  /** Optional delegate PIN for scoring without organizer JWT (V1). */
+  scoringPin: text("scoring_pin"),
+  scoringSettingsJson: jsonb("scoring_settings_json").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },

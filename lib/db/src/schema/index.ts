@@ -18,3 +18,8 @@ export * from "./display-auctions";
 export * from "./showcase";
 export * from "./notifications";
 export * from "./platform_audit";
+export * from "./scoring_fixtures";
+export * from "./scoring_matches";
+export * from "./scoring_sessions";
+export * from "./scoring_events";
+export * from "./scoring_standings";
