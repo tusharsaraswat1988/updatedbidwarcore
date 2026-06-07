@@ -162,7 +162,7 @@ const tournamentInputSchema = z.object({
 
 router.get("/tournaments", async (_req, res) => {
   const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
-  res.json(tournaments.map(tournamentToJson));
+  res.json(tournaments.map((t) => tournamentToJson(t)));
 });
 
 router.post("/tournaments", async (req, res) => {
