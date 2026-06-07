@@ -22,6 +22,7 @@ import {
 } from "@workspace/scoring-core";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { broadcastScoringState } from "./scoring-broadcast";
+import { rebuildTournamentStandings } from "./scoring-standings";
 
 export type ScoringActor = {
   type: "organizer" | "admin" | "scorer_pin" | "system";
@@ -124,6 +125,9 @@ export async function createScoringMatch(
   },
 ) {
   const tournament = await ensureTournamentScoring(tournamentId);
+  if (!tournament.scoringEnabled) {
+    throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
+  }
   if (tournament.sport !== "cricket") {
     throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
   }
@@ -380,6 +384,10 @@ export async function appendScoringEvent(
     .where(eq(scoringSessionsTable.matchId, matchId));
 
   publishScoringUpdate(tournamentId, updatedMatch, state);
+
+  if (matchStatus === "completed" || matchStatus === "abandoned") {
+    await rebuildTournamentStandings(tournamentId);
+  }
 
   return {
     event: rowToEnvelope(eventRow),

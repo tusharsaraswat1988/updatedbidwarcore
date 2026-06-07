@@ -34,6 +34,30 @@ export type ScoringLiveDisplay = {
   summary: CricketMatchSummary | null;
 };
 
+export type ScoringStandingRow = {
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+  color: string | null;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  netRunRate: number;
+};
+
+export type SquadReadinessRow = {
+  teamId: number;
+  name: string;
+  shortCode: string;
+  soldCount: number;
+  retainedCount: number;
+  eligibleCount: number;
+  ready: boolean;
+};
+
 async function parseError(r: Response): Promise<string> {
   try {
     const data = await r.json();
@@ -101,6 +125,22 @@ export async function appendScoringEvent(
     err.status = r.status;
     throw err;
   }
+  return r.json();
+}
+
+export async function getScoringStandings(tournamentId: number): Promise<ScoringStandingRow[]> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/standings`);
+  if (!r.ok) throw new Error(await parseError(r));
+  const data = await r.json();
+  return data.standings ?? [];
+}
+
+export async function getSquadReadiness(tournamentId: number): Promise<{
+  squads: SquadReadinessRow[];
+  minPlayingXi: number;
+}> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/squads`);
+  if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
 
