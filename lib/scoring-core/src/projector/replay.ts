@@ -11,8 +11,11 @@ export function replayEvents<S>(
   initialState: S,
   events: ScoringEventEnvelope[],
   reduce: Reducer<S>,
+  options?: { requireContiguousSequence?: boolean },
 ): S {
   const sorted = [...events].sort((a, b) => a.sequence - b.sequence);
-  validateEventSequence(sorted);
+  if (options?.requireContiguousSequence !== false) {
+    validateEventSequence(sorted);
+  }
   return sorted.reduce((state, event) => reduce(state, event), initialState);
 }

@@ -38,4 +38,5 @@ export type MatchMeta = {
   homeTeamId: number;
   awayTeamId: number;
   oversLimit: number;
+  maxWickets?: number;
 };

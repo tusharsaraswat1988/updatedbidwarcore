@@ -3,7 +3,6 @@ import {
   CricketEventType,
   createEventEnvelope,
   createInitialCricketState,
-  ReducerNotImplementedError,
   reduceCricket,
   replayCricketEvents,
 } from "../index";
@@ -78,13 +77,25 @@ describe("cricket reducer foundation", () => {
     expect(withLineup.lastSequence).toBe(2);
   });
 
-  it("throws ReducerNotImplementedError for ball.recorded in PR-1", () => {
+  it("records ball after match started", () => {
+    const started = reduceCricket(
+      createInitialCricketState(matchMeta),
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 1, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+    );
     const event = createEventEnvelope({
       matchId: 100,
       tournamentId: 10,
       sportSlug: "cricket",
       eventType: CricketEventType.BALL_RECORDED,
-      sequence: 1,
+      sequence: 2,
       payload: {
         innings: 1,
         over: 0,
@@ -99,10 +110,8 @@ describe("cricket reducer foundation", () => {
       },
       actorType: "organizer",
     });
-
-    expect(() => reduceCricket(createInitialCricketState(matchMeta), event)).toThrow(
-      ReducerNotImplementedError,
-    );
+    const next = reduceCricket(started, event);
+    expect(next.innings[0]?.runs).toBe(4);
   });
 
   it("replays events in order", () => {

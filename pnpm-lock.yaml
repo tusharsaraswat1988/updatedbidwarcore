@@ -96,6 +96,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/scoring-core':
+        specifier: workspace:*
+        version: link:../../lib/scoring-core
       cloudinary:
         specifier: ^2.10.0
         version: 2.10.0
