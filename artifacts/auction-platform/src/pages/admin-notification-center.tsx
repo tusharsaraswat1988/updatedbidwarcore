@@ -212,8 +212,8 @@ export default function AdminNotificationCenter() {
 
   if (isLoading) {
     return (
-      <AdminShell>
-        <div className="space-y-4 p-6">
+      <AdminShell title="Notification Center" eyebrow="Platform Settings">
+        <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -224,23 +224,20 @@ export default function AdminNotificationCenter() {
   if (!isLoggedIn) return null;
 
   return (
-    <AdminShell>
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bell className="h-6 w-6 text-primary" />
-              Notification Center
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Audit history for email, SMS, and WhatsApp notifications
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => void fetchLogs()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
+    <AdminShell
+      title="Notification Center"
+      eyebrow="Platform Settings"
+      actions={
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => void fetchLogs()}>
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      }
+    >
+      <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          Audit history for email, SMS, and WhatsApp notifications
+        </p>
 
         <Card>
           <CardContent className="pt-6">
