@@ -10,6 +10,9 @@ import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { buildPublicUrl } from "../lib/runtime-env";
+import { auditLog } from "../lib/audit-service";
+import { parseAuditReason, isCriticalTeamPatch } from "../lib/audit-reason";
+import { snapshotTeam } from "../lib/audit-snapshots";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -206,6 +209,16 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     })();
   }
 
+  auditLog(req, {
+    category: "team",
+    action: "team.created",
+    summary: `Team "${team.name}" created`,
+    tournamentId: tid,
+    teamId: team.id,
+    resource: { type: "team", id: team.id },
+    after: snapshotTeam(team),
+  });
+
   res.status(201).json(teamToJson(team));
 });
 
@@ -294,14 +307,30 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
     regenerateCode: z.boolean().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
     return;
   }
-  const updates: Record<string, unknown> = {};
   const d = parsed.data;
+
+  if (isCriticalTeamPatch(d)) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) {
+      res.status(400).json({ error: reasonResult.error });
+      return;
+    }
+  }
+
+  const [beforeTeam] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!beforeTeam) { res.status(404).json({ error: "Not found" }); return; }
+
+  const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.shortCode !== undefined) updates.shortCode = d.shortCode;
   if (d.ownerName !== undefined) updates.ownerName = d.ownerName;
@@ -359,6 +388,47 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     throw err;
   }
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
+
+  const reasonResult = parseAuditReason(req.body, isCriticalTeamPatch(d));
+  const reason = reasonResult.ok ? reasonResult.reason : null;
+  const beforeSnap = snapshotTeam(beforeTeam);
+  const afterSnap = snapshotTeam(team);
+
+  let action = "team.updated";
+  let alertKey: string | null = null;
+  let severity: "info" | "warning" | "critical" = "info";
+  if (d.purse !== undefined && d.purse !== beforeTeam.purse) {
+    action = "team.purse_updated";
+    alertKey = "purse_manual_edit";
+    severity = "critical";
+  } else if (
+    d.ownerName !== undefined ||
+    d.ownerMobile !== undefined ||
+    d.ownerEmail !== undefined
+  ) {
+    action = "team.owner_changed";
+    alertKey = "team_owner_changed";
+    severity = "critical";
+  } else if (d.regenerateCode) {
+    action = "team.access_code_regenerated";
+    alertKey = "access_code_regenerated";
+    severity = "warning";
+  }
+
+  auditLog(req, {
+    category: d.purse !== undefined ? "finance" : "team",
+    action,
+    summary: `Team "${team.name}" updated`,
+    severity,
+    reason,
+    tournamentId: tid,
+    teamId: team.id,
+    resource: { type: "team", id: team.id },
+    before: beforeSnap,
+    after: afterSnap,
+    alertKey,
+  });
+
   res.json(teamToJson(team));
 });
 
@@ -374,6 +444,19 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   const valid = !team.accessCode || team.accessCode.toUpperCase() === body.data.code.toUpperCase();
+  auditLog(req, {
+    category: "auth",
+    action: valid ? "team.access_code_verified" : "team.access_code_denied",
+    summary: valid
+      ? `Owner access verified for team "${team.name}"`
+      : `Failed owner access attempt for team "${team.name}"`,
+    outcome: valid ? "success" : "denied",
+    severity: valid ? "info" : "warning",
+    tournamentId: tid,
+    teamId: team.id,
+    resource: { type: "team", id: team.id },
+    actor: { type: "team_owner", id: String(teamId), label: team.ownerName },
+  });
   res.json({ valid });
 });
 
@@ -382,7 +465,23 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [beforeTeam] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   await db.delete(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (beforeTeam) {
+    auditLog(req, {
+      category: "team",
+      action: "team.deleted",
+      summary: `Team "${beforeTeam.name}" deleted`,
+      severity: "warning",
+      tournamentId: tid,
+      teamId,
+      resource: { type: "team", id: teamId },
+      before: snapshotTeam(beforeTeam),
+    });
+  }
   res.status(204).send();
 });
 

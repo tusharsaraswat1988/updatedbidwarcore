@@ -28,6 +28,9 @@ import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { teamEditNeedsReason } from "@/lib/audit-reason";
+import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -106,6 +109,8 @@ function TeamForm({
   const [ownerPhotoEditorOpen, setOwnerPhotoEditorOpen] = useState(false);
   const [error, setError] = useState("");
   const [ownerEmailError, setOwnerEmailError] = useState("");
+  const [auditReason, setAuditReason] = useState("");
+  const needsReason = !!team && teamEditNeedsReason(team, form);
 
   const takenCodes = new Set(
     existingShortCodes.filter(c => !team || c !== team.shortCode)
@@ -156,6 +161,10 @@ function TeamForm({
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
     }
+    if (needsReason && !isAuditReasonValid(auditReason)) {
+      setError("A reason is required for purse or owner changes (minimum 10 characters).");
+      return;
+    }
     const payload = {
       name: form.name.trim(),
       shortCode: form.shortCode.trim().toUpperCase(),
@@ -166,6 +175,7 @@ function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       ...(team ? { purse: form.purse } : {}),
+      ...(needsReason ? { reason: auditReason.trim() } : {}),
     };
     try {
       if (team) {
@@ -406,8 +416,20 @@ function TeamForm({
         />
       </div>
 
+      {needsReason && (
+        <AuditReasonField
+          value={auditReason}
+          onChange={setAuditReason}
+          placeholder="Explain why purse or owner details are being changed…"
+        />
+      )}
+
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1" disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate}>
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate || (needsReason && !isAuditReasonValid(auditReason))}
+        >
           {team ? "Update Team" : "Add Team"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -456,6 +478,7 @@ export default function Teams() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [regenerateTarget, setRegenerateTarget] = useState<number | null>(null);
 
   const existingShortCodes = (teams || []).map(t => t.shortCode);
   const existingTeamColors = useMemo(() => (teams || []).map(t => t.color), [teams]);
@@ -468,10 +491,19 @@ export default function Teams() {
     setDeleteTarget(null);
   }
 
-  async function handleRegenerateCode(teamId: number) {
-    if (!confirm("Regenerate access code? The old code will stop working immediately.")) return;
-    await updateTeam.mutateAsync({ tournamentId, teamId, data: { regenerateCode: true } });
+  function handleRegenerateCode(teamId: number) {
+    setRegenerateTarget(teamId);
+  }
+
+  async function confirmRegenerateCode(reason: string) {
+    if (!regenerateTarget) return;
+    await updateTeam.mutateAsync({
+      tournamentId,
+      teamId: regenerateTarget,
+      data: { regenerateCode: true, reason },
+    });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+    setRegenerateTarget(null);
   }
 
   function getOwnerLink(teamId: number) {
@@ -822,6 +854,16 @@ export default function Teams() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AuditReasonDialog
+        open={regenerateTarget !== null}
+        onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}
+        title="Regenerate owner access code"
+        description="The old code will stop working immediately. Explain why you are regenerating it."
+        confirmLabel="Regenerate code"
+        loading={updateTeam.isPending}
+        onConfirm={confirmRegenerateCode}
+      />
     </AppLayout>
   );
 }

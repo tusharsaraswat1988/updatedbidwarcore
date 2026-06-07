@@ -35,6 +35,9 @@ import {
   validateAuctionReadiness,
   type AuctionReadinessMode,
 } from "@workspace/api-base/auction-readiness";
+import { auditLog } from "../lib/audit-service";
+import { parseAuditReason } from "../lib/audit-reason";
+import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
 
 const router = Router();
 
@@ -608,6 +611,14 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     }).catch(() => {});
   }
 
+  auditLog(req, {
+    category: "auction",
+    action: session.status === "idle" ? "auction.started" : "auction.resumed",
+    summary: session.status === "idle" ? "Auction started" : "Auction resumed",
+    tournamentId: tid,
+    resource: { type: "auction_session", id: tid },
+  });
+
   res.json(await broadcastState(tid));
 });
 
@@ -630,6 +641,14 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
     .set({ status: "paused", lastAction: "Auction paused", timerEndsAt: null, pausedTimeRemaining })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+  auditLog(req, {
+    category: "auction",
+    action: "auction.paused",
+    summary: "Auction paused",
+    tournamentId: tid,
+    resource: { type: "auction_session", id: tid },
+    metadata: { pausedTimeRemaining },
+  });
   res.json(await broadcastState(tid));
 });
 
@@ -1088,15 +1107,26 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
-  const schema = z.object({ teamId: z.number().int(), amount: z.number().int().min(0) });
+  const schema = z.object({
+    teamId: z.number().int(),
+    amount: z.number().int().min(0),
+    reason: z.string().optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const { teamId, amount } = parsed.data;
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
+
+  const playerId = session.currentPlayerId;
+  const [playerBefore] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+  const [teamBefore] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
 
   // ── Purse validation ───────────────────────────────────────────────────────
   if (amount > 0) {
@@ -1109,8 +1139,6 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       return;
     }
   }
-
-  const playerId = session.currentPlayerId;
 
   await db
     .update(playersTable)
@@ -1130,6 +1158,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   }
 
   const [soldPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+  const [teamAfter] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
   const [manualTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
   await db
@@ -1182,6 +1211,28 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     finalAmount: amount,
     soldToTeamId: teamId,
     soldToTeamName: team?.name,
+  });
+
+  auditLog(req, {
+    category: "auction",
+    action: "auction.manual_sell",
+    summary: `Manual sell: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")}`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    playerId,
+    teamId,
+    resource: { type: "player", id: playerId },
+    before: {
+      player: playerBefore ? snapshotPlayer(playerBefore) : null,
+      team: teamBefore ? snapshotTeam(teamBefore) : null,
+    },
+    after: {
+      player: soldPlayer ? snapshotPlayer(soldPlayer) : null,
+      team: teamAfter ? snapshotTeam(teamAfter) : null,
+    },
+    metadata: { amount, teamId, isManual: true },
+    alertKey: "auction_manual_sell",
   });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
@@ -1265,9 +1316,13 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const schema = z.object({
     playerId: z.number().int(),
     startFromBase: z.boolean().optional().default(true),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
@@ -1324,6 +1379,23 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
     tournamentName: reTournament?.name ?? "the tournament",
   });
 
+  const [playerAfter] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+  auditLog(req, {
+    category: "auction",
+    action: "auction.reauction",
+    summary: `Re-auction: ${player.name} returned to pool`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    playerId,
+    teamId: player.teamId ?? undefined,
+    resource: { type: "player", id: playerId },
+    before: { player: snapshotPlayer(player) },
+    after: { player: playerAfter ? snapshotPlayer(playerAfter) : null },
+    metadata: { startFromBase, priorStatus: player.status, priorSoldPrice: player.soldPrice },
+    alertKey: "auction_reauction",
+  });
+
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
@@ -1332,6 +1404,9 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
@@ -1358,6 +1433,18 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
     .set({ lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue` })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
+  auditLog(req, {
+    category: "auction",
+    action: "auction.reauction_all_unsold",
+    summary: `Re-auction round: ${unsoldPlayers.length} unsold players returned to queue`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    resource: { type: "auction_session", id: tid },
+    metadata: { playerCount: unsoldPlayers.length, playerIds: unsoldPlayers.map((p) => p.id) },
+    alertKey: "auction_reauction_bulk",
+  });
+
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -1368,8 +1455,10 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const body = z.object({ password: z.string().min(1) }).safeParse(req.body);
+  const body = z.object({ password: z.string().min(1), reason: z.string().optional() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Password is required" }); return; }
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const submittedPw = body.data.password;
 
   const safeCompare = (a: string, b: string) => {
@@ -1475,6 +1564,24 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       adminLockedAt: null,
     })
     .where(eq(tournamentsTable.id, tid));
+
+  auditLog(req, {
+    category: "auction",
+    action: "auction.reset_trial",
+    summary: `Trial auction reset by ${resetActor}`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    metadata: {
+      resetActor,
+      previousResetCount,
+      newResetCount: previousResetCount + 1,
+      playerCount: allPlayers.length,
+      teamCount: teams.length,
+    },
+    alertKey: "auction_reset_trial",
+  });
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
@@ -1646,6 +1753,9 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+
   const lastBid = await db
     .select()
     .from(bidsTable)
@@ -1655,6 +1765,16 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
 
   if (lastBid.length > 0) {
     const bid = lastBid[0];
+    const [playerBefore] = await db.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
+    const [teamBefore] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
+    const [sessionBefore] = await db
+      .select()
+      .from(auctionSessionsTable)
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    const purseUsedBefore = teamBefore?.purseUsed ?? 0;
+    const purseUsedAfter = Math.max(0, purseUsedBefore - bid.amount);
+
     await db
       .update(playersTable)
       .set({ status: "available", teamId: null, soldPrice: null })
@@ -1664,22 +1784,77 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
     if (team) {
       await db
         .update(teamsTable)
-        .set({ purseUsed: Math.max(0, team.purseUsed - bid.amount) })
+        .set({ purseUsed: purseUsedAfter })
         .where(eq(teamsTable.id, bid.teamId));
     }
 
     await db.delete(bidsTable).where(eq(bidsTable.id, bid.id));
 
     const [player] = await db.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
+    const [teamAfter] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
     await db
       .update(auctionSessionsTable)
       .set({ lastAction: `Undone: ${player?.name ?? "Player"} returned to pool` })
       .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    auditLog(req, {
+      category: "auction",
+      action: "auction.undo",
+      summary: `Undo: ${playerBefore?.name ?? "Player"} sale to ${teamBefore?.name ?? "team"} reversed (₹${bid.amount.toLocaleString("en-IN")})`,
+      severity: "critical",
+      reason: reasonResult.reason,
+      tournamentId: tid,
+      playerId: bid.playerId,
+      teamId: bid.teamId,
+      resource: { type: "bid", id: bid.id },
+      related: { table: "bids", id: bid.id },
+      before: {
+        player: playerBefore ? snapshotPlayer(playerBefore) : null,
+        team: teamBefore ? snapshotTeam(teamBefore) : null,
+        bid: {
+          id: bid.id,
+          amount: bid.amount,
+          timestamp: bid.timestamp?.toISOString?.() ?? null,
+          playerId: bid.playerId,
+          teamId: bid.teamId,
+        },
+        session: sessionBefore
+          ? { status: sessionBefore.status, currentPlayerId: sessionBefore.currentPlayerId, currentBid: sessionBefore.currentBid }
+          : null,
+      },
+      after: {
+        player: player ? snapshotPlayer(player) : null,
+        team: teamAfter ? snapshotTeam(teamAfter) : null,
+        bid: null,
+      },
+      metadata: {
+        undoType: "last_bid_sale",
+        bidId: bid.id,
+        amount: bid.amount,
+        purseDelta: -bid.amount,
+        purseUsedBefore,
+        purseUsedAfter,
+        playerName: playerBefore?.name ?? null,
+        teamName: teamBefore?.name ?? null,
+        teamShortCode: teamBefore?.shortCode ?? null,
+        bidTimestamp: bid.timestamp?.toISOString?.() ?? null,
+        saleReversed: true,
+      },
+      alertKey: "auction_undo",
+    });
   } else {
     await db
       .update(auctionSessionsTable)
       .set({ lastAction: "Nothing to undo" })
       .where(eq(auctionSessionsTable.tournamentId, tid));
+    auditLog(req, {
+      category: "auction",
+      action: "auction.undo",
+      summary: "Undo attempted — nothing to undo",
+      outcome: "partial",
+      reason: reasonResult.reason,
+      tournamentId: tid,
+    });
   }
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));

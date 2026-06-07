@@ -31,6 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 function SponsorLogosEditor({
   logos,
@@ -154,6 +155,7 @@ export default function TournamentSettings() {
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
+  const [auditReason, setAuditReason] = useState("");
 
   const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
     try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
@@ -393,10 +395,15 @@ export default function TournamentSettings() {
   }
 
   async function handleSave() {
+    if (!isAuditReasonValid(auditReason)) {
+      toast({ title: "Reason required", description: "Auction rule changes require a reason (minimum 10 characters).", variant: "destructive" });
+      return;
+    }
     const filteredLogos = sponsorLogos.filter(l => l.url.trim());
     await updateTournament.mutateAsync({
       tournamentId,
       data: {
+        reason: auditReason.trim(),
         name: editForm.name as string,
         sport: editForm.sport as string,
         venue: editForm.venue as string || undefined,
@@ -480,10 +487,16 @@ export default function TournamentSettings() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 flex-shrink-0 min-w-[220px] max-w-md">
+          <AuditReasonField
+            value={auditReason}
+            onChange={setAuditReason}
+            label="Reason for changes"
+            placeholder="Why are auction rules or settings being updated?"
+          />
           <Button
             onClick={handleSave}
-            disabled={updateTournament.isPending}
+            disabled={updateTournament.isPending || !isAuditReasonValid(auditReason)}
             className="min-w-[140px]"
           >
             {updateTournament.isPending ? "Saving..." : "Save Changes"}

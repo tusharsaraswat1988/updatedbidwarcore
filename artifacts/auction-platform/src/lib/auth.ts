@@ -90,11 +90,13 @@ export async function createAdminTournament(data: {
 export async function resetTournamentAsAdmin(
   tournamentId: number,
   password: string,
+  reason: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/tournaments/${tournamentId}/auction/reset-trial`, {
       method: "POST",
-      body: JSON.stringify({ password }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, reason }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
@@ -120,12 +122,13 @@ export async function updateAdminTournament(
     organizerEmail: string; organizerPassword: string; venue: string; auctionDate: string;
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
-    localModeEnabled: boolean;
+    localModeEnabled: boolean; reason: string;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}`, {
       method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     const d = await r.json();
@@ -151,18 +154,26 @@ export async function linkOrganizerToTournament(
 
 // ─── Admin license / lock ─────────────────────────────────────────────────────
 
-export async function grantLicense(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+export async function grantLicense(tournamentId: number, reason: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/grant-license`, { method: "POST" });
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/grant-license`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
 }
 
-export async function revokeLicense(tournamentId: number): Promise<{ success: boolean; error?: string }> {
+export async function revokeLicense(tournamentId: number, reason: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/revoke-license`, { method: "POST" });
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/revoke-license`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error };
     return { success: true };
@@ -460,12 +471,14 @@ export async function deleteAdminOrganizer(id: number): Promise<{ success: boole
 
 export async function setTournamentLicenseStatus(
   tournamentId: number,
-  status: "trial" | "active" | "completed"
+  status: "trial" | "active" | "completed",
+  reason: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/set-license-status`, {
       method: "POST",
-      body: JSON.stringify({ status }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, reason }),
     });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error };

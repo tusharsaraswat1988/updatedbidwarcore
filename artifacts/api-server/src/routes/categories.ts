@@ -4,8 +4,15 @@ import { db } from "@workspace/db";
 import { categoriesTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
+import { auditLog } from "../lib/audit-service";
+import { parseAuditReason } from "../lib/audit-reason";
+import { snapshotCategory } from "../lib/audit-snapshots";
 
 const router = Router();
+
+function isCategoryConfigChange(d: Record<string, unknown>): boolean {
+  return d.minBid !== undefined || d.bidIncrement !== undefined || d.bidTiers !== undefined || d.maxPlayers !== undefined;
+}
 
 const catToJson = (c: typeof categoriesTable.$inferSelect) => ({
   id: c.id,
@@ -60,6 +67,14 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
       sortOrder: d.sortOrder ?? 0,
     })
     .returning();
+  auditLog(req, {
+    category: "category",
+    action: "category.created",
+    summary: `Category "${cat.name}" created`,
+    tournamentId: tid,
+    resource: { type: "category", id: cat.id },
+    after: snapshotCategory(cat),
+  });
   res.status(201).json(catToJson(cat));
 });
 
@@ -76,11 +91,20 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
     maxPlayers: z.number().int().nullable().optional(),
     colorCode: z.string().optional(),
     sortOrder: z.number().int().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const updates: Record<string, unknown> = {};
   const d = parsed.data;
+  if (isCategoryConfigChange(d as Record<string, unknown>)) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  }
+  const [beforeCat] = await db
+    .select()
+    .from(categoriesTable)
+    .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
+  const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
@@ -94,6 +118,19 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
     .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)))
     .returning();
   if (!cat) { res.status(404).json({ error: "Not found" }); return; }
+  const reasonResult = parseAuditReason(req.body, isCategoryConfigChange(d as Record<string, unknown>));
+  auditLog(req, {
+    category: "category",
+    action: isCategoryConfigChange(d as Record<string, unknown>) ? "category.config_updated" : "category.updated",
+    summary: `Category "${cat.name}" updated`,
+    severity: isCategoryConfigChange(d as Record<string, unknown>) ? "critical" : "info",
+    reason: reasonResult.ok ? reasonResult.reason : null,
+    tournamentId: tid,
+    resource: { type: "category", id: catId },
+    before: beforeCat ? snapshotCategory(beforeCat) : null,
+    after: snapshotCategory(cat),
+    alertKey: isCategoryConfigChange(d as Record<string, unknown>) ? "category_config_changed" : null,
+  });
   res.json(catToJson(cat));
 });
 
@@ -102,7 +139,22 @@ router.delete("/tournaments/:tournamentId/categories/:categoryId", async (req, r
   const catId = parseInt(req.params.categoryId);
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [beforeCat] = await db
+    .select()
+    .from(categoriesTable)
+    .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
   await db.delete(categoriesTable).where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
+  if (beforeCat) {
+    auditLog(req, {
+      category: "category",
+      action: "category.deleted",
+      summary: `Category "${beforeCat.name}" deleted`,
+      severity: "warning",
+      tournamentId: tid,
+      resource: { type: "category", id: catId },
+      before: snapshotCategory(beforeCat),
+    });
+  }
   res.status(204).send();
 });
 

@@ -6,6 +6,9 @@ import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { auditLog } from "../lib/audit-service";
+import { parseAuditReason, isCriticalPlayerPatch } from "../lib/audit-reason";
+import { snapshotPlayer } from "../lib/audit-snapshots";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -266,6 +269,16 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     await recalcTeamPurseUsed(tid, player.teamId);
   }
 
+  auditLog(req, {
+    category: "player",
+    action: "player.created",
+    summary: `Player "${player.name}" added`,
+    tournamentId: tid,
+    playerId: player.id,
+    resource: { type: "player", id: player.id },
+    after: snapshotPlayer(player),
+  });
+
   res.status(201).json(playerToJson(player));
 });
 
@@ -460,14 +473,19 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
     playerTagTeamId: z.number().int().nullable().optional(),
     isNonPlayingMember: z.boolean().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
-  // Fetch current player to know if retained team changes
+  if (isCriticalPlayerPatch(d)) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  }
+
   const [existing] = await db
-    .select({ status: playersTable.status, teamId: playersTable.teamId })
+    .select()
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
@@ -549,6 +567,26 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     await recalcTeamPurseUsed(tid, tid2);
   }
 
+  const reasonResult = parseAuditReason(req.body, isCriticalPlayerPatch(d));
+  let action = "player.updated";
+  if (d.status === "retained" || (d.teamId !== undefined && d.retainedPrice !== undefined)) {
+    action = "player.retained_set";
+  }
+  auditLog(req, {
+    category: "player",
+    action,
+    summary: `Player "${player.name}" updated`,
+    severity: isCriticalPlayerPatch(d) ? "critical" : "info",
+    reason: reasonResult.ok ? reasonResult.reason : null,
+    tournamentId: tid,
+    playerId: player.id,
+    teamId: player.teamId ?? undefined,
+    resource: { type: "player", id: player.id },
+    before: snapshotPlayer(existing),
+    after: snapshotPlayer(player),
+    alertKey: isCriticalPlayerPatch(d) ? "player_critical_edit" : null,
+  });
+
   res.json(playerToJson(player));
 });
 
@@ -557,7 +595,23 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [before] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   await db.delete(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+  if (before) {
+    auditLog(req, {
+      category: "player",
+      action: "player.deleted",
+      summary: `Player "${before.name}" deleted`,
+      severity: "warning",
+      tournamentId: tid,
+      playerId,
+      resource: { type: "player", id: playerId },
+      before: snapshotPlayer(before),
+    });
+  }
   res.status(204).send();
 });
 
@@ -720,14 +774,26 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
     imported++;
   }
 
+  let importLogId: number | null = null;
   if (imported > 0) {
-    await db.insert(playerImportLogsTable).values({
+    const [logRow] = await db.insert(playerImportLogsTable).values({
       sourceTournamentId,
       targetTournamentId: tid,
       organizerAccountId: req.jwtUser?.organizerAccountId ?? null,
       playerCount: imported,
-    });
+    }).returning({ id: playerImportLogsTable.id });
+    importLogId = logRow?.id ?? null;
   }
+
+  auditLog(req, {
+    category: "player",
+    action: "player.imported",
+    summary: `Imported ${imported} players from tournament #${sourceTournamentId}`,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    metadata: { sourceTournamentId, playerIds, imported, skipped, total: sourcePlayers.length },
+    related: importLogId ? { table: "player_import_logs", id: importLogId } : null,
+  });
 
   res.json({ imported, skipped, total: sourcePlayers.length });
 });

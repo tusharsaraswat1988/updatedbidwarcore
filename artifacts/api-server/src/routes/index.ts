@@ -23,6 +23,7 @@ import showcaseRouter from "./showcase";
 import teamReportsRouter from "./team-reports";
 import ownerOnboardingRouter from "./owner-onboarding";
 import notificationsRouter from "./notifications";
+import auditRouter from "./audit";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(showcaseRouter);
 router.use(teamReportsRouter);
 router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);
+router.use(auditRouter);
 
 export default router;

@@ -1,44 +1,114 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const INACTIVITY_MS = 2 * 60 * 1000; // 2 minutes
+const DEFAULT_WARNING_MS = 60 * 1000;
+
+function clearTimeoutRef(ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+  if (ref.current) clearTimeout(ref.current);
+  ref.current = null;
+}
+
+function clearIntervalRef(ref: React.MutableRefObject<ReturnType<typeof setInterval> | null>) {
+  if (ref.current) clearInterval(ref.current);
+  ref.current = null;
+}
+
+type UseInactivityLockOptions = {
+  enabled: boolean;
+  /** Total idle time before lock (ms). */
+  timeoutMs: number;
+  /** Countdown shown before lock (ms). Default 60s. */
+  warningMs?: number;
+};
 
 /**
- * Tracks user activity on the page. After INACTIVITY_MS of no interaction,
- * sets `locked = true`. Call `unlock()` to dismiss the lock and reset the timer.
- *
- * Only active when `enabled` is true (i.e. admin is logged in).
+ * Tracks admin inactivity. Shows a warning countdown when `warningMs` remain,
+ * then locks unless the user clicks Continue (which resets the full idle timer).
  */
-export function useInactivityLock(enabled: boolean) {
+export function useInactivityLock({
+  enabled,
+  timeoutMs,
+  warningMs = DEFAULT_WARNING_MS,
+}: UseInactivityLockOptions) {
   const [locked, setLocked] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [warningVisible, setWarningVisible] = useState(false);
+  const [warningSecondsLeft, setWarningSecondsLeft] = useState(0);
 
-  const resetTimer = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setLocked(true), INACTIVITY_MS);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const warningEndRef = useRef(0);
+
+  const clearAllTimers = useCallback(() => {
+    clearTimeoutRef(warningTimerRef);
+    clearIntervalRef(countdownRef);
   }, []);
+
+  const startWarningCountdown = useCallback(() => {
+    const effectiveWarning = Math.min(warningMs, timeoutMs);
+    setWarningVisible(true);
+    warningEndRef.current = Date.now() + effectiveWarning;
+    setWarningSecondsLeft(Math.ceil(effectiveWarning / 1000));
+
+    clearIntervalRef(countdownRef);
+    countdownRef.current = setInterval(() => {
+      const left = Math.max(0, Math.ceil((warningEndRef.current - Date.now()) / 1000));
+      setWarningSecondsLeft(left);
+      if (left <= 0) {
+        clearAllTimers();
+        setWarningVisible(false);
+        setLocked(true);
+      }
+    }, 250);
+  }, [warningMs, timeoutMs, clearAllTimers]);
+
+  const scheduleWarning = useCallback(() => {
+    clearAllTimers();
+    setWarningVisible(false);
+    if (!enabled) return;
+
+    const delay = Math.max(0, timeoutMs - Math.min(warningMs, timeoutMs));
+    warningTimerRef.current = setTimeout(startWarningCountdown, delay);
+  }, [enabled, timeoutMs, warningMs, clearAllTimers, startWarningCountdown]);
+
+  const continueSession = useCallback(() => {
+    setLocked(false);
+    setWarningVisible(false);
+    scheduleWarning();
+  }, [scheduleWarning]);
 
   const unlock = useCallback(() => {
     setLocked(false);
-    resetTimer();
-  }, [resetTimer]);
+    scheduleWarning();
+  }, [scheduleWarning]);
 
   useEffect(() => {
     if (!enabled) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      return;
+      clearAllTimers();
+      setWarningVisible(false);
+      setLocked(false);
     }
+  }, [enabled, clearAllTimers]);
+
+  useEffect(() => {
+    if (!enabled || locked || warningVisible) return;
 
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;
-    const handler = () => { if (!locked) resetTimer(); };
+    const handler = () => scheduleWarning();
 
-    events.forEach(e => window.addEventListener(e, handler, { passive: true }));
-    resetTimer();
+    events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
+    scheduleWarning();
 
     return () => {
-      events.forEach(e => window.removeEventListener(e, handler));
-      if (timerRef.current) clearTimeout(timerRef.current);
+      events.forEach((e) => window.removeEventListener(e, handler));
+      // Only clear the idle timer — not the warning countdown interval.
+      clearTimeoutRef(warningTimerRef);
     };
-  }, [enabled, locked, resetTimer]);
+  }, [enabled, locked, warningVisible, scheduleWarning]);
 
-  return { locked, unlock };
+  return {
+    locked,
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+    unlock,
+  };
 }

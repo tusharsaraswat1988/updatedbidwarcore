@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import {
   LogOut,
@@ -9,8 +9,10 @@ import {
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { cldUrl } from "@/lib/cloudinary";
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,11 +54,42 @@ function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { 
 
 export function AdminShell({ children, title, eyebrow, actions }: AdminShellProps) {
   const [location, navigate] = useLocation();
-  const { logout, adminLevel, isMaster } = useAdminAuth();
+  const { logout, adminLevel, isMaster, isLoggedIn } = useAdminAuth();
   const { logos, brandName, loading } = useBranding();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [lockMinutes, setLockMinutes] = useState(10);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch("/api/auth/admin/settings/session-lock", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { lockMinutes?: number }) => {
+        if (typeof d.lockMinutes === "number" && d.lockMinutes >= 10) {
+          setLockMinutes(d.lockMinutes);
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn]);
+
+  const {
+    locked,
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+  } = useInactivityLock({
+    enabled: isLoggedIn,
+    timeoutMs: lockMinutes * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!locked) return;
+    void (async () => {
+      await logout();
+      navigate("/admin/login");
+    })();
+  }, [locked, logout, navigate]);
 
   async function handleLogout() {
     await logout();
@@ -150,6 +183,14 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           <div className="p-4 sm:p-6">{children}</div>
         </div>
       </main>
+
+      {warningVisible && !locked && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
     </div>
   );
 }

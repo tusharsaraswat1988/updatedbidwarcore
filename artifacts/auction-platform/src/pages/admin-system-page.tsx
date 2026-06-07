@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
+import { AdminSessionLockPanel } from "@/components/admin-session-lock-panel";
 import {
   BuildTriggerPanel,
   DisplayAuctionsPanel,
@@ -8,9 +9,12 @@ import {
   ShowcasePanel,
   SmsSettingsPanel,
 } from "@/pages/admin";
+import { SystemLogsPanel } from "@/components/admin/system-logs-panel";
 
 const systemTabs = [
+  { id: "audit-logs", label: "Audit Logs", href: "/admin/settings/system/audit-logs" },
   { id: "sms", label: "SMS Notifications", href: "/admin/settings/system/sms" },
+  { id: "session-lock", label: "Session Lock", href: "/admin/settings/system/session-lock" },
   { id: "installer", label: "Local App Installer", href: "/admin/settings/system/installer" },
   { id: "builds", label: "Windows Build Pipeline", href: "/admin/settings/system/builds" },
   { id: "upcoming-display", label: "Upcoming Display", href: "/admin/settings/system/upcoming-display" },
@@ -18,6 +22,8 @@ const systemTabs = [
 ] as const;
 
 function getSection(pathname: string) {
+  if (pathname.includes("/audit-logs")) return "audit-logs";
+  if (pathname.includes("/session-lock")) return "session-lock";
   if (pathname.includes("/installer")) return "installer";
   if (pathname.includes("/builds")) return "builds";
   if (pathname.includes("/upcoming-display")) return "upcoming-display";
@@ -52,7 +58,9 @@ export default function AdminSystemPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-card/70">
+          {section === "audit-logs" && <SystemLogsPanel />}
           {section === "sms" && <SmsSettingsPanel />}
+          {section === "session-lock" && <AdminSessionLockPanel />}
           {section === "installer" && <InstallerSettingsPanel />}
           {section === "builds" && <BuildTriggerPanel />}
           {section === "upcoming-display" && <DisplayAuctionsPanel />}

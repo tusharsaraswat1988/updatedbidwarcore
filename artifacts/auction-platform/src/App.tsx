@@ -151,7 +151,9 @@ function Router() {
         <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
+        <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
         <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
         <Route path="/admin/settings/system/builds" component={AdminSystemPage} />
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />

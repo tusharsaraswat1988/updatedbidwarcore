@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Pencil, Trash2, Tag, Filter } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 type TierFields = {
   tier1UpTo: number;
@@ -59,6 +60,9 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
   const [incrementMode, setIncrementMode] = useState<"none" | "flat" | "tiers">(() => getInitialIncrementMode(category));
   const initialTiers = parseExistingTiers(category?.bidTiers);
 
+  const [auditReason, setAuditReason] = useState("");
+  const isEdit = !!category;
+
   const [form, setForm] = useState({
     name: category?.name || "",
     minBid: category?.minBid != null ? String(category.minBid) : "",
@@ -100,8 +104,15 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
       data.bidTiers = null;
     }
 
+    if (isEdit && !isAuditReasonValid(auditReason)) {
+      return;
+    }
     if (category) {
-      await updateCat.mutateAsync({ tournamentId, categoryId: category.id, data });
+      await updateCat.mutateAsync({
+        tournamentId,
+        categoryId: category.id,
+        data: { ...data, reason: auditReason.trim() },
+      });
     } else {
       await createCat.mutateAsync({ tournamentId, data });
     }
@@ -238,8 +249,19 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
         </div>
       </div>
 
+      {isEdit && (
+        <AuditReasonField
+          value={auditReason}
+          onChange={setAuditReason}
+          placeholder="Explain why category bidding rules are being changed…"
+        />
+      )}
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1" disabled={createCat.isPending || updateCat.isPending}>
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={createCat.isPending || updateCat.isPending || (isEdit && !isAuditReasonValid(auditReason))}
+        >
           {category ? "Update Category" : "Add Category"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

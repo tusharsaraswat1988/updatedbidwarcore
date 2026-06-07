@@ -17,6 +17,9 @@ import { broadcastToTournament } from "../lib/broadcast";
 import { validateExportToken } from "../lib/export-token";
 import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 import { notifyAsync } from "../lib/notifications";
+import { auditLog } from "../lib/audit-service";
+import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
+import { snapshotTournament } from "../lib/audit-snapshots";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -285,11 +288,18 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
     matchDates: z.string().nullable().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const updates: Record<string, unknown> = {};
   const d = parsed.data;
+  const configFields = tournamentConfigFieldsChanged(d as Record<string, unknown>);
+  if (configFields.length > 0) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  }
+  const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) updates.sport = d.sport;
   if (d.venue !== undefined) updates.venue = d.venue;
@@ -339,6 +349,20 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     .where(eq(tournamentsTable.id, id))
     .returning();
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  const reasonResult = parseAuditReason(req.body, configFields.length > 0);
+  auditLog(req, {
+    category: "tournament",
+    action: configFields.length > 0 ? "tournament.config_updated" : "tournament.updated",
+    summary: `Tournament "${tournament.name}" settings updated`,
+    severity: configFields.length > 0 ? "critical" : "info",
+    reason: reasonResult.ok ? reasonResult.reason : null,
+    tournamentId: id,
+    resource: { type: "tournament", id: id },
+    before: beforeTournament ? snapshotTournament(beforeTournament) : null,
+    after: snapshotTournament(tournament),
+    metadata: { configFields },
+    alertKey: configFields.length > 0 ? "tournament_config_changed" : null,
+  });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
   res.json(tournamentToJson(tournament));
@@ -348,7 +372,20 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, id)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   await db.delete(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (before) {
+    auditLog(req, {
+      category: "tournament",
+      action: "tournament.deleted",
+      summary: `Tournament "${before.name}" deleted`,
+      severity: "critical",
+      tournamentId: id,
+      resource: { type: "tournament", id: id },
+      before: snapshotTournament(before),
+      alertKey: "tournament_deleted",
+    });
+  }
   res.status(204).send();
 });
 

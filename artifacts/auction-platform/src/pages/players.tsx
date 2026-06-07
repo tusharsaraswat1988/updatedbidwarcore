@@ -66,6 +66,7 @@ import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobi
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { useToast } from "@/hooks/use-toast";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -428,6 +429,8 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const [pendingMobileProfile, setPendingMobileProfile] = useState<SuggestionProfile | null>(null);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
+  const [auditReason, setAuditReason] = useState("");
+  const isEdit = !!player;
 
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
@@ -574,9 +577,17 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
     };
+    if (isEdit && !isAuditReasonValid(auditReason)) {
+      setSubmitError("A reason is required when editing a player (minimum 10 characters).");
+      return;
+    }
     try {
       if (player) {
-        await updatePlayer.mutateAsync({ tournamentId, playerId: player.id, data });
+        await updatePlayer.mutateAsync({
+          tournamentId,
+          playerId: player.id,
+          data: { ...data, reason: auditReason.trim() },
+        });
       } else {
         await createPlayer.mutateAsync({ tournamentId, data });
       }
@@ -1003,8 +1014,19 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           {submitError}
         </div>
       )}
+      {isEdit && (
+        <AuditReasonField
+          value={auditReason}
+          onChange={setAuditReason}
+          placeholder="Explain why this player record is being changed…"
+        />
+      )}
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1" disabled={createPlayer.isPending || updatePlayer.isPending}>
+        <Button
+          type="submit"
+          className="flex-1"
+          disabled={createPlayer.isPending || updatePlayer.isPending || (isEdit && !isAuditReasonValid(auditReason))}
+        >
           {player ? "Update Player" : "Add Player"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

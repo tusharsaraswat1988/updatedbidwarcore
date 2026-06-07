@@ -23,6 +23,7 @@ import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { AdminRecentActivityFeed } from "@/components/admin/admin-recent-activity-feed";
 
 function MetricCard({
   label,
@@ -155,6 +156,8 @@ export default function AdminDashboardOverview() {
             )}
           </div>
         </div>
+
+        <AdminRecentActivityFeed />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_1fr]">
           <div className="rounded-xl border border-border bg-card/70">

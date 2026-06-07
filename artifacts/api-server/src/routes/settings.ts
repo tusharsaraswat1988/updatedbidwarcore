@@ -248,4 +248,57 @@ router.get("/auth/admin/builds/status", async (req, res) => {
   });
 });
 
+// ─── Admin session lock ───────────────────────────────────────────────────────
+
+const SESSION_LOCK_KEY = "admin_session_lock_minutes";
+const DEFAULT_LOCK_MINUTES = 10;
+const WARNING_SECONDS = 60;
+
+async function readSessionLockSettings() {
+  const [row] = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, SESSION_LOCK_KEY))
+    .limit(1);
+
+  const parsed = row?.value ? Number.parseInt(row.value, 10) : DEFAULT_LOCK_MINUTES;
+  const lockMinutes = Number.isFinite(parsed) && parsed >= 10 && parsed <= 120
+    ? parsed
+    : DEFAULT_LOCK_MINUTES;
+
+  return { lockMinutes, warningSeconds: WARNING_SECONDS };
+}
+
+router.get("/auth/admin/settings/session-lock", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  res.json(await readSessionLockSettings());
+});
+
+const updateSessionLockSchema = z.object({
+  lockMinutes: z.coerce.number().int().min(10).max(120),
+});
+
+router.patch("/auth/admin/settings/session-lock", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  if (req.jwtUser.adminLevel !== "master") {
+    res.status(403).json({ error: "Master admin required" });
+    return;
+  }
+
+  const parsed = updateSessionLockSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Idle minutes must be between 10 and 120" });
+    return;
+  }
+
+  await upsertKey(SESSION_LOCK_KEY, String(parsed.data.lockMinutes));
+  res.json(await readSessionLockSettings());
+});
+
 export default router;

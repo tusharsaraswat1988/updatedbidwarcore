@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useBranding } from "@/hooks/use-branding";
 
 interface AdminLockScreenProps {
+  lockMinutes?: number;
   onUnlock: (password: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -16,7 +17,7 @@ interface AdminLockScreenProps {
  * to dismiss — verifies against the server (same as login) so it cannot
  * be bypassed by clearing local state.
  */
-export function AdminLockScreen({ onUnlock }: AdminLockScreenProps) {
+export function AdminLockScreen({ lockMinutes = 2, onUnlock }: AdminLockScreenProps) {
   const { logos, brandName } = useBranding();
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -68,7 +69,9 @@ export function AdminLockScreen({ onUnlock }: AdminLockScreenProps) {
               <span className="font-display font-black text-lg text-white">{brandName.toUpperCase()}</span>
             </div>
             <p className="text-amber-300 font-semibold text-sm">Session Locked</p>
-            <p className="text-muted-foreground text-xs mt-1">Inactive for 2 minutes — enter your password to continue</p>
+            <p className="text-muted-foreground text-xs mt-1">
+              Inactive for {lockMinutes} minute{lockMinutes !== 1 ? "s" : ""} — enter your password to continue
+            </p>
           </div>
         </div>
 

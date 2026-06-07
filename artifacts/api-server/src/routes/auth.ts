@@ -27,6 +27,9 @@ import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { notifyAsync } from "../lib/notifications";
 import type { Organizer } from "@workspace/db";
+import { auditLog, auditDenied } from "../lib/audit-service";
+import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
+import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
 
 const scryptAsync = promisify(scrypt);
 
@@ -160,20 +163,45 @@ router.post("/auth/admin/login", authLimiter, (req, res) => {
 
   if (masterPw && safeCompare(password, masterPw)) {
     setAuthCookie(res, { isAdmin: true, adminLevel: "master", organizer: req.jwtUser.organizer ?? {} });
+    auditLog(req, {
+      category: "auth",
+      action: "auth.admin_login",
+      summary: "Master admin logged in",
+      actor: { type: "master_admin", id: "master", label: "Master Admin" },
+    });
     res.json({ success: true, adminLevel: "master" });
     return;
   }
 
   if (dataPw && safeCompare(password, dataPw)) {
     setAuthCookie(res, { isAdmin: true, adminLevel: "data_entry", organizer: req.jwtUser.organizer ?? {} });
+    auditLog(req, {
+      category: "auth",
+      action: "auth.admin_login",
+      summary: "Data entry admin logged in",
+      actor: { type: "data_entry_admin", id: "data_entry", label: "Data Entry Admin" },
+    });
     res.json({ success: true, adminLevel: "data_entry" });
     return;
   }
 
+  auditDenied(req, {
+    category: "auth",
+    action: "auth.admin_login_failed",
+    summary: "Failed admin login attempt",
+    actor: { type: "public", label: "Unknown" },
+  });
   res.status(401).json({ error: "Incorrect password" });
 });
 
-router.post("/auth/admin/logout", (_req, res) => {
+router.post("/auth/admin/logout", (req, res) => {
+  if (req.jwtUser?.isAdmin) {
+    auditLog(req, {
+      category: "auth",
+      action: "auth.admin_logout",
+      summary: "Admin logged out",
+    });
+  }
   clearAuthCookie(res);
   res.json({ success: true });
 });
@@ -212,6 +240,13 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   if (masterPw && safeCompare(body.data.password, masterPw)) {
     const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
     setAuthCookie(res, { isAdmin: true, adminLevel: "master", organizer, organizerAccountId: req.jwtUser.organizerAccountId });
+    auditLog(req, {
+      category: "auth",
+      action: "auth.tournament_organizer_login",
+      summary: `Master admin opened tournament ${tid} organizer session`,
+      tournamentId: tid,
+      actor: { type: "master_admin", id: "master", label: "Master Admin" },
+    });
     res.json({ success: true });
     return;
   }
@@ -219,6 +254,13 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   if (dataPw && safeCompare(body.data.password, dataPw)) {
     const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
     setAuthCookie(res, { isAdmin: true, adminLevel: "data_entry", organizer, organizerAccountId: req.jwtUser.organizerAccountId });
+    auditLog(req, {
+      category: "auth",
+      action: "auth.tournament_organizer_login",
+      summary: `Data entry admin opened tournament ${tid} organizer session`,
+      tournamentId: tid,
+      actor: { type: "data_entry_admin", id: "data_entry", label: "Data Entry Admin" },
+    });
     res.json({ success: true });
     return;
   }
@@ -237,19 +279,42 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
     return;
   }
   if (!safeCompare(body.data.password, tournament.organizerPassword)) {
+    auditDenied(req, {
+      category: "auth",
+      action: "auth.tournament_organizer_login_failed",
+      summary: `Failed tournament organizer login for tournament ${tid}`,
+      tournamentId: tid,
+    });
     res.status(401).json({ error: "Incorrect password" });
     return;
   }
   const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
   setAuthCookie(res, { ...req.jwtUser, organizer });
+  auditLog(req, {
+    category: "auth",
+    action: "auth.tournament_organizer_login",
+    summary: `Tournament organizer logged in for "${tournament.name}"`,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+  });
   res.json({ success: true });
 });
 
 router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
-  const tid = req.params.tournamentId;
+  const tidKey = req.params.tournamentId;
+  const tid = parseInt(tidKey);
+  const hadAccess = !!req.jwtUser.organizer?.[tidKey];
   const organizer = { ...(req.jwtUser.organizer ?? {}) };
-  delete organizer[tid];
+  delete organizer[tidKey];
   setAuthCookie(res, { ...req.jwtUser, isAdmin: undefined, adminLevel: undefined, organizer });
+  if (!isNaN(tid) && hadAccess) {
+    auditLog(req, {
+      category: "auth",
+      action: "auth.tournament_organizer_logout",
+      summary: `Tournament organizer logged out from tournament ${tid}`,
+      tournamentId: tid,
+    });
+  }
   res.json({ success: true });
 });
 
@@ -405,6 +470,7 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const { teamsTable, playersTable, bidsTable, auctionSessionsTable, categoriesTable } = await import("@workspace/db");
+  const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
   await db.delete(auctionSessionsTable).where(eq(auctionSessionsTable.tournamentId, tid));
   await db.delete(playersTable).where(eq(playersTable.tournamentId, tid));
@@ -412,6 +478,16 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   await db.delete(categoriesTable).where(eq(categoriesTable.tournamentId, tid));
   const [deleted] = await db.delete(tournamentsTable).where(eq(tournamentsTable.id, tid)).returning();
   if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.admin_deleted",
+    summary: `Admin deleted tournament "${deleted.name}" and all related data`,
+    severity: "critical",
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: beforeTournament ? snapshotTournament(beforeTournament) : snapshotTournament(deleted),
+    alertKey: "tournament_admin_deleted",
+  });
   res.json({ success: true });
 });
 
@@ -419,13 +495,28 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
 
 router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, res) => {
   if (!isMasterAdmin(req)) { res.status(403).json({ error: "Only the master admin can grant licenses" }); return; }
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const [t] = await db.update(tournamentsTable)
     .set({ licenseStatus: "active", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.license_granted",
+    summary: `License granted for tournament "${t.name}"`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: before ? snapshotTournament(before) : null,
+    after: snapshotTournament(t),
+    alertKey: "license_granted",
+  });
   res.json({ success: true });
 });
 
@@ -433,13 +524,28 @@ router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, r
 
 router.post("/auth/admin/tournaments/:tournamentId/revoke-license", async (req, res) => {
   if (!isMasterAdmin(req)) { res.status(403).json({ error: "Only the master admin can revoke licenses" }); return; }
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const [t] = await db.update(tournamentsTable)
     .set({ licenseStatus: "trial", licenseGrantedAt: null, licenseGrantedBy: null })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.license_revoked",
+    summary: `License revoked for tournament "${t.name}"`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: before ? snapshotTournament(before) : null,
+    after: snapshotTournament(t),
+    alertKey: "license_revoked",
+  });
   res.json({ success: true });
 });
 
@@ -449,11 +555,23 @@ router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const [t] = await db.update(tournamentsTable)
     .set({ adminLocked: true, adminLockedAt: new Date(), status: "completed" })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.locked",
+    summary: `Tournament "${t.name}" locked by admin`,
+    severity: "warning",
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: before ? snapshotTournament(before) : null,
+    after: snapshotTournament(t),
+    alertKey: "tournament_locked",
+  });
   res.json({ success: true });
 });
 
@@ -461,11 +579,21 @@ router.post("/auth/admin/tournaments/:tournamentId/unlock", async (req, res) => 
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const [t] = await db.update(tournamentsTable)
     .set({ adminLocked: false, adminLockedAt: null })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.unlocked",
+    summary: `Tournament "${t.name}" unlocked by admin`,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: before ? snapshotTournament(before) : null,
+    after: snapshotTournament(t),
+  });
   res.json({ success: true });
 });
 
@@ -597,11 +725,18 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     status: z.string().optional(),
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const updates: Record<string, unknown> = {};
   const d = parsed.data;
+  const configFields = tournamentConfigFieldsChanged(d as Record<string, unknown>);
+  if (configFields.length > 0) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  }
+  const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) updates.sport = d.sport;
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
@@ -658,6 +793,21 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       .where(eq(auctionSessionsTable.tournamentId, tid));
   }
 
+  const reasonResult = parseAuditReason(req.body, configFields.length > 0);
+  auditLog(req, {
+    category: configFields.length > 0 ? "tournament" : "admin",
+    action: configFields.length > 0 ? "tournament.config_updated" : "tournament.admin_updated",
+    summary: `Admin updated tournament "${tournament.name}"`,
+    severity: configFields.length > 0 ? "critical" : "info",
+    reason: reasonResult.ok ? reasonResult.reason : null,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: beforeTournament ? snapshotTournament(beforeTournament) : null,
+    after: snapshotTournament(tournament),
+    metadata: { changedFields: Object.keys(updates), configFields },
+    alertKey: configFields.length > 0 ? "tournament_config_changed" : null,
+  });
+
   res.json({ success: true, id: tournament.id, linkedOrganizerId: autoLinkedOrganizer?.id ?? null, linkedOrganizerName: autoLinkedOrganizer?.name ?? null });
 });
 
@@ -679,6 +829,16 @@ router.post("/auth/admin/tournaments/:tournamentId/link-organizer", async (req, 
     const rows = await db.select().from(organizersTable).where(eq(organizersTable.id, body.data.organizerId));
     if (rows[0]) linkedOrganizer = { id: rows[0].id, name: rows[0].name };
   }
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.organizer_linked",
+    summary: linkedOrganizer
+      ? `Organizer "${linkedOrganizer.name}" linked to tournament "${tournament.name}"`
+      : `Organizer unlinked from tournament "${tournament.name}"`,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    metadata: { organizerId: body.data.organizerId },
+  });
   res.json({ success: true, id: tournament.id, linkedOrganizerId: linkedOrganizer?.id ?? null, linkedOrganizerName: linkedOrganizer?.name ?? null });
 });
 
@@ -709,11 +869,18 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
     licenseStatus: z.enum(["pending", "active", "suspended"]).optional(),
     maxTournaments: z.number().int().min(0).optional(),
     notes: z.string().optional(),
+    reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  if (d.licenseStatus !== undefined) {
+    const reasonResult = parseAuditReason(req.body, true);
+    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  }
+
+  const [beforeOrganizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, id));
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.email !== undefined) updates.email = d.email;
@@ -732,6 +899,20 @@ router.patch("/auth/admin/organizers/:id", async (req, res) => {
 
   const [updated] = await db.update(organizersTable).set(updates).where(eq(organizersTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  const reasonResult = parseAuditReason(req.body, d.licenseStatus !== undefined);
+  auditLog(req, {
+    category: "admin",
+    action: d.licenseStatus !== undefined ? "admin.organizer_suspended" : "admin.organizer_updated",
+    summary: d.licenseStatus !== undefined
+      ? `Organizer "${updated.name}" license status set to ${d.licenseStatus}`
+      : `Organizer "${updated.name}" updated by admin`,
+    severity: d.licenseStatus === "suspended" ? "critical" : "info",
+    reason: reasonResult.ok ? reasonResult.reason : null,
+    resource: { type: "organizer", id: id },
+    before: beforeOrganizer ? snapshotOrganizer(beforeOrganizer) : null,
+    after: snapshotOrganizer(updated),
+    alertKey: d.licenseStatus === "suspended" ? "organizer_suspended" : null,
+  });
   res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
@@ -744,6 +925,15 @@ router.delete("/auth/admin/organizers/:id", async (req, res) => {
   await db.update(tournamentsTable).set({ organizerId: null }).where(eq(tournamentsTable.organizerId, id));
   const [deleted] = await db.delete(organizersTable).where(eq(organizersTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
+  auditLog(req, {
+    category: "admin",
+    action: "admin.organizer_deleted",
+    summary: `Organizer account "${deleted.name}" deleted`,
+    severity: "critical",
+    resource: { type: "organizer", id: id },
+    before: snapshotOrganizer(deleted),
+    alertKey: "organizer_deleted",
+  });
   res.json({ success: true });
 });
 
@@ -950,6 +1140,12 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_login",
+    summary: `Organizer "${organizer.name}" logged in`,
+    actor: { type: "organizer_account", id: String(organizer.id), label: organizer.name },
+  });
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
@@ -982,7 +1178,14 @@ router.get("/auth/organizer-account/me", async (req, res) => {
   });
 });
 
-router.post("/auth/organizer-account/logout", (_req, res) => {
+router.post("/auth/organizer-account/logout", (req, res) => {
+  if (req.jwtUser.organizerAccountId) {
+    auditLog(req, {
+      category: "auth",
+      action: "auth.organizer_logout",
+      summary: `Organizer #${req.jwtUser.organizerAccountId} logged out`,
+    });
+  }
   clearAuthCookie(res);
   res.json({ success: true });
 });
@@ -1468,19 +1671,37 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
 
   const body = z.object({
     status: z.enum(["trial", "active", "completed"]),
+    reason: z.string().optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Status must be trial, active, or completed" }); return; }
 
-  const existing = await db.select({ id: tournamentsTable.id }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-  if (existing.length === 0) { res.status(404).json({ error: "Tournament not found" }); return; }
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
-  await db.update(tournamentsTable)
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  if (!before) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const [updated] = await db.update(tournamentsTable)
     .set({
       licenseStatus: body.data.status,
       licenseGrantedAt: body.data.status === "active" ? new Date() : undefined,
       licenseGrantedBy: body.data.status === "active" ? (req.jwtUser.adminLevel ?? undefined) : undefined,
     })
-    .where(eq(tournamentsTable.id, tournamentId));
+    .where(eq(tournamentsTable.id, tournamentId))
+    .returning();
+
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.license_status_set",
+    summary: `License status set to "${body.data.status}" for tournament "${before.name}"`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId,
+    resource: { type: "tournament", id: tournamentId },
+    before: snapshotTournament(before),
+    after: updated ? snapshotTournament(updated) : null,
+    alertKey: "license_status_changed",
+  });
 
   res.json({ success: true });
 });

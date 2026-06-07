@@ -26,6 +26,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
+import { AuditReasonDialog } from "@/components/audit-reason-dialog";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 import type { AdminTournamentRow } from "@/lib/auth";
 
@@ -59,6 +61,22 @@ export function LiveEmergencyPanel({
   const [resetPassword, setResetPassword] = useState("");
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [resetReason, setResetReason] = useState("");
+  const [licenseReasonOpen, setLicenseReasonOpen] = useState(false);
+  const [pendingLicense, setPendingLicense] = useState<{
+    label: string;
+    status: "trial" | "active" | "completed";
+    alsoLock?: boolean;
+  } | null>(null);
+
+  function requestLicenseChange(
+    label: string,
+    status: "trial" | "active" | "completed",
+    alsoLock = false,
+  ) {
+    setPendingLicense({ label, status, alsoLock });
+    setLicenseReasonOpen(true);
+  }
 
   const showFlash = (msg: string, ok = true) => {
     setFlash({ ok, msg });
@@ -152,24 +170,11 @@ export function LiveEmergencyPanel({
             licenseStatus={t.licenseStatus}
             isMaster={isMaster}
             actionLoading={actionLoading}
-            onSwitchToTrial={() =>
-              doAction("Switch to Trial", () => setTournamentLicenseStatus(tournamentId, "trial"))
-            }
-            onSwitchToLive={() =>
-              doAction("Switch to Live", () => setTournamentLicenseStatus(tournamentId, "active"))
-            }
-            onEndAuction={async () => {
+            onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
+            onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
+            onEndAuction={() => {
               if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-              setActionLoading("End auction");
-              try {
-                const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
-                if (!r1.success) { showFlash(r1.error || "End auction failed", false); return; }
-                const r2 = await lockTournament(tournamentId);
-                showFlash(r2.success ? "Auction ended" : "Marked completed but lock failed", r2.success);
-                await reloadDetail();
-              } finally {
-                setActionLoading(null);
-              }
+              requestLicenseChange("End auction", "completed", true);
             }}
           />
         </div>
@@ -268,20 +273,26 @@ export function LiveEmergencyPanel({
             placeholder="Super admin password"
             autoComplete="current-password"
           />
+          <AuditReasonField
+            value={resetReason}
+            onChange={setResetReason}
+            placeholder="Explain why auction data is being reset…"
+          />
           {resetError && <p className="text-xs text-red-400">{resetError}</p>}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button>
             <Button
               className="bg-red-700 hover:bg-red-600"
-              disabled={resetting || !resetPassword.trim()}
+              disabled={resetting || !resetPassword.trim() || !isAuditReasonValid(resetReason)}
               onClick={async () => {
                 setResetting(true);
                 setResetError(null);
-                const r = await resetTournamentAsAdmin(tournamentId, resetPassword);
+                const r = await resetTournamentAsAdmin(tournamentId, resetPassword, resetReason.trim());
                 setResetting(false);
                 if (r.success) {
                   setConfirmReset(false);
                   setResetPassword("");
+                  setResetReason("");
                   showFlash("Auction data reset");
                   await reloadDetail();
                 } else {
@@ -327,6 +338,40 @@ export function LiveEmergencyPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {tournamentId != null && (
+        <AuditReasonDialog
+          open={licenseReasonOpen}
+          onOpenChange={(open) => {
+            setLicenseReasonOpen(open);
+            if (!open) setPendingLicense(null);
+          }}
+          title={pendingLicense?.label ?? "Change licence mode"}
+          description="Licence changes are recorded in the audit log and require a reason."
+          confirmLabel={pendingLicense?.label ?? "Confirm"}
+          loading={!!actionLoading}
+          onConfirm={async (reason) => {
+            if (!pendingLicense || tournamentId == null) return;
+            setActionLoading(pendingLicense.label);
+            const r1 = await setTournamentLicenseStatus(tournamentId, pendingLicense.status, reason);
+            if (!r1.success) {
+              setActionLoading(null);
+              showFlash(r1.error || `${pendingLicense.label} failed`, false);
+              return;
+            }
+            if (pendingLicense.alsoLock) {
+              const r2 = await lockTournament(tournamentId);
+              showFlash(r2.success ? "Auction ended" : "Marked completed but lock failed", r2.success);
+            } else {
+              showFlash(`${pendingLicense.label} done`);
+            }
+            setActionLoading(null);
+            setLicenseReasonOpen(false);
+            setPendingLicense(null);
+            await reloadDetail();
+          }}
+        />
+      )}
     </div>
   );
 }

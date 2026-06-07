@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, RefreshCw, ShieldAlert, CheckCircle2, ArrowLeft, ShieldCheck, Lock } from "lucide-react";
 import { openAuctionRoom } from "@/lib/tournament-navigation";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 export default function AuctionReset() {
   const [, params] = useRoute("/tournament/:id/reset");
@@ -21,6 +22,7 @@ export default function AuctionReset() {
 
   const resetMut = useResetTrialAuction();
   const [password, setPassword] = useState("");
+  const [auditReason, setAuditReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -34,9 +36,13 @@ export default function AuctionReset() {
       setError("Please enter the required password.");
       return;
     }
+    if (!isAuditReasonValid(auditReason)) {
+      setError("A reason is required for clearing practice data (minimum 10 characters).");
+      return;
+    }
     setError(null);
     try {
-      await resetMut.mutateAsync({ tournamentId, data: { password } });
+      await resetMut.mutateAsync({ tournamentId, data: { password, reason: auditReason.trim() } });
       setSuccess(true);
       setPassword("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -136,6 +142,12 @@ export default function AuctionReset() {
               />
             </div>
 
+            <AuditReasonField
+              value={auditReason}
+              onChange={setAuditReason}
+              placeholder="Explain why practice auction data is being cleared…"
+            />
+
             {error && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-300">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -152,7 +164,7 @@ export default function AuctionReset() {
             <div className="flex gap-3 pt-1">
               <Button
                 className="flex-1 bg-red-700 hover:bg-red-600 text-white border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] gap-2"
-                disabled={resetMut.isPending || !password.trim()}
+                disabled={resetMut.isPending || !password.trim() || !isAuditReasonValid(auditReason)}
                 onClick={handleReset}
               >
                 <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
-import { AdminLockScreen } from "@/components/admin-lock-screen";
 import { useBranding } from "@/hooks/use-branding";
 import {
   listAdminTournaments,
@@ -28,6 +27,9 @@ import {
   AdminOrganizerRow,
 } from "@/lib/auth";
 import { LicenseModeControl } from "@/components/admin/license-mode-control";
+import { AuditReasonDialog } from "@/components/audit-reason-dialog";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { payloadHasTournamentConfigFields } from "@/lib/audit-reason";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -468,6 +470,23 @@ function DetailPanel({
   const [cheerFanBattleEnabled, setCheerFanBattleEnabled] = useState(false);
   const [savingCheer, setSavingCheer] = useState(false);
   const [cheerExpanded, setCheerExpanded] = useState(false);
+  const [licenseReasonOpen, setLicenseReasonOpen] = useState(false);
+  const [pendingLicense, setPendingLicense] = useState<{
+    label: string;
+    status: "trial" | "active" | "completed";
+    alsoLock?: boolean;
+  } | null>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [configSaveReason, setConfigSaveReason] = useState("");
+
+  function requestLicenseChange(
+    label: string,
+    status: "trial" | "active" | "completed",
+    alsoLock = false,
+  ) {
+    setPendingLicense({ label, status, alsoLock });
+    setLicenseReasonOpen(true);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -592,8 +611,14 @@ function DetailPanel({
       payload.bidTimerSeconds = Number(ef.bidTimerSeconds);
     if (ef.playerSelectionMode)
       payload.playerSelectionMode = ef.playerSelectionMode as string;
-    const contactFieldsChanged =
-      ef.organizerMobile !== undefined || ef.organizerEmail !== undefined;
+    if (payloadHasTournamentConfigFields(payload) && !isAuditReasonValid(configSaveReason)) {
+      flash("Auction configuration changes require a reason (minimum 10 characters).", false);
+      setSaving(false);
+      return;
+    }
+    if (payloadHasTournamentConfigFields(payload)) {
+      payload.reason = configSaveReason.trim();
+    }
     const r = await updateAdminTournament(
       tournamentId,
       payload as Parameters<typeof updateAdminTournament>[1],
@@ -602,6 +627,7 @@ function DetailPanel({
     if (r.success) {
       flash("Saved successfully");
       setEditing(false);
+      setConfigSaveReason("");
       await load();
       onRefresh();
     } else flash(r.error || "Save failed", false);
@@ -739,7 +765,7 @@ function DetailPanel({
               size="sm"
               className="h-7 gap-1.5 text-xs"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !isAuditReasonValid(configSaveReason)}
             >
               {saving ? (
                 <RefreshCw className="w-3 h-3 animate-spin" />
@@ -752,7 +778,7 @@ function DetailPanel({
               size="sm"
               variant="ghost"
               className="h-7 text-xs"
-              onClick={() => setEditing(false)}
+              onClick={() => { setEditing(false); setConfigSaveReason(""); }}
             >
               Cancel
             </Button>
@@ -1088,6 +1114,12 @@ function DetailPanel({
                     </Select>
                   </div>
                 </div>
+                <AuditReasonField
+                  value={configSaveReason}
+                  onChange={setConfigSaveReason}
+                  label="Reason for auction config changes (required)"
+                  placeholder="Explain why purse, timers, or selection rules are being changed…"
+                />
               </div>
             ) : (
               <div className="space-y-5">
@@ -1118,30 +1150,11 @@ function DetailPanel({
                   licenseStatus={t.licenseStatus}
                   isMaster={isMaster}
                   actionLoading={actionLoading}
-                  onSwitchToTrial={() =>
-                    doAction("Switch to Trial", () =>
-                      setTournamentLicenseStatus(tournamentId, "trial"),
-                    )
-                  }
-                  onSwitchToLive={() =>
-                    doAction("Switch to Live", () =>
-                      setTournamentLicenseStatus(tournamentId, "active"),
-                    )
-                  }
-                  onEndAuction={async () => {
+                  onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
+                  onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
+                  onEndAuction={() => {
                     if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-                    setActionLoading("End auction");
-                    try {
-                      const r1 = await setTournamentLicenseStatus(tournamentId, "completed");
-                      if (!r1.success) { flash(r1.error || "End auction failed", false); return; }
-                      const r2 = await lockTournament(tournamentId);
-                      if (!r2.success) flash("Marked completed but lock failed — please retry", false);
-                      else flash("Auction ended");
-                    } finally {
-                      setActionLoading(null);
-                      await load();
-                      onRefresh();
-                    }
+                    requestLicenseChange("End auction", "completed", true);
                   }}
                 />
 
@@ -1659,6 +1672,11 @@ function DetailPanel({
                     autoComplete="current-password"
                   />
                 </div>
+                <AuditReasonField
+                  value={resetReason}
+                  onChange={setResetReason}
+                  placeholder="Explain why auction data is being reset…"
+                />
                 {resetError && (
                   <p className="text-xs text-red-400">{resetError}</p>
                 )}
@@ -1669,18 +1687,20 @@ function DetailPanel({
                 </Button>
                 <Button
                   className="bg-red-700 hover:bg-red-600 text-white"
-                  disabled={resetting || !resetPassword.trim()}
+                  disabled={resetting || !resetPassword.trim() || !isAuditReasonValid(resetReason)}
                   onClick={async () => {
                     setResetting(true);
                     setResetError(null);
                     const r = await resetTournamentAsAdmin(
                       tournamentId,
                       resetPassword,
+                      resetReason.trim(),
                     );
                     setResetting(false);
                     if (r.success) {
                       setConfirmReset(false);
                       setResetPassword("");
+                      setResetReason("");
                       flash("Auction data reset", true);
                       load();
                       onRefresh();
@@ -1739,6 +1759,40 @@ function DetailPanel({
           </Dialog>
         )}
       </AnimatePresence>
+
+      <AuditReasonDialog
+        open={licenseReasonOpen}
+        onOpenChange={(open) => {
+          setLicenseReasonOpen(open);
+          if (!open) setPendingLicense(null);
+        }}
+        title={pendingLicense?.label ?? "Change licence mode"}
+        description="Licence changes are recorded in the audit log and require a reason."
+        confirmLabel={pendingLicense?.label ?? "Confirm"}
+        loading={!!actionLoading}
+        onConfirm={async (reason) => {
+          if (!pendingLicense) return;
+          setActionLoading(pendingLicense.label);
+          const r1 = await setTournamentLicenseStatus(tournamentId, pendingLicense.status, reason);
+          if (!r1.success) {
+            setActionLoading(null);
+            flash(r1.error || `${pendingLicense.label} failed`, false);
+            return;
+          }
+          if (pendingLicense.alsoLock) {
+            const r2 = await lockTournament(tournamentId);
+            if (!r2.success) flash("Marked completed but lock failed — please retry", false);
+            else flash("Auction ended");
+          } else {
+            flash(`${pendingLicense.label} done`);
+          }
+          setActionLoading(null);
+          setLicenseReasonOpen(false);
+          setPendingLicense(null);
+          await load();
+          onRefresh();
+        }}
+      />
     </div>
   );
 }
@@ -3914,23 +3968,27 @@ export default function AdminDashboard() {
     adminLevel,
     isMaster,
     isLoading: authLoading,
-    login,
     logout,
   } = useAdminAuth();
-  const { locked, unlock } = useInactivityLock(isLoggedIn);
+  const { locked } = useInactivityLock({
+    enabled: isLoggedIn,
+    timeoutMs: 10 * 60 * 1000,
+  });
   const { logos, brandName, miniBrandText } = useBranding();
-
-  async function handleUnlock(password: string) {
-    const result = await login(password);
-    if (result.success) unlock();
-    return result;
-  }
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [location, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!locked) return;
+    void (async () => {
+      await logout();
+      navigate("/admin/login");
+    })();
+  }, [locked, logout, navigate]);
   const path = typeof window !== "undefined" ? window.location.pathname : location;
   const routeInitialTab = path.includes("/admin/organisers")
     ? "organizers"
@@ -4347,10 +4405,6 @@ export default function AdminDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Inactivity lock screen — shown after 2 min of no interaction */}
-      <AnimatePresence>
-        {locked && <AdminLockScreen onUnlock={handleUnlock} />}
-      </AnimatePresence>
     </FullscreenLayout>
   );
 }
