@@ -60,6 +60,10 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `TWILIO_AUTH_TOKEN` | No | Auth token string | Secret | WhatsApp stub mode; webhook signature check skipped |
 | `TWILIO_WHATSAPP_FROM` | No | `whatsapp:+14155238886` | Dashboard | WhatsApp sends fail |
 | `TWILIO_WA_TEMPLATES` | No | `tpl_a,tpl_b` | Dashboard | WhatsApp template list empty in comm UI |
+| `EMAIL_ENABLED` | No | `true` | Dashboard | Email notifications run in stub mode (logged, not sent) |
+| `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
+| `MAIL_FROM` | No | `BidWar <notifications@bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
+| `APP_URL` | No | `https://bidwar.in` | Dashboard | Falls back to `APP_PUBLIC_SCHEME` + canonical `APP_DOMAIN` host |
 | `SMS_OTP_ENABLED` | No | `true` | Dashboard | OTP uses default Twilio/BulkSMS path (not SMS-only mode) |
 | `GITHUB_PAT` | No | `ghp_...` | Secret | GitHub workflow trigger in settings returns 500 |
 | `RATE_LIMIT_DISABLED` | No | `false` | Dashboard | Rate limiting enabled (default) |

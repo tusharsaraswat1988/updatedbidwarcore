@@ -1746,16 +1746,12 @@ function DetailPanel({
 // ─── Organizers Panel ─────────────────────────────────────────────────────────
 
 function OrganizerLicenseBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    active: "bg-green-500/15 text-green-400 border-green-500/30",
-    pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    suspended: "bg-red-500/15 text-red-400 border-red-500/30",
-  };
+  const locked = status === "suspended";
   return (
     <Badge
-      className={`text-[10px] capitalize ${map[status] || "bg-muted/20 text-muted-foreground"}`}
+      className={`text-[10px] ${locked ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-green-500/15 text-green-400 border-green-500/30"}`}
     >
-      {status}
+      {locked ? "Locked" : "Active"}
     </Badge>
   );
 }

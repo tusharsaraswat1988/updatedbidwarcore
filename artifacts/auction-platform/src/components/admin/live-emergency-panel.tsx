@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 import type { AdminTournamentRow } from "@/lib/auth";
 
@@ -35,6 +36,10 @@ export function LiveEmergencyPanel({
   isMaster,
   onRefresh,
   navigate,
+  pickerHref = (id) => tournamentLiveOpsPath(id, "emergency"),
+  monitorHref = (id) => tournamentLiveOpsPath(id, "monitor"),
+  showPicker = true,
+  afterDeleteHref = "/admin/tournaments",
 }: {
   tournaments: AdminTournamentRow[];
   tournamentId: number | null;
@@ -42,6 +47,10 @@ export function LiveEmergencyPanel({
   isMaster: boolean;
   onRefresh: () => void;
   navigate: (path: string) => void;
+  pickerHref?: (tournamentId: number) => string;
+  monitorHref?: (tournamentId: number) => string;
+  showPicker?: boolean;
+  afterDeleteHref?: string;
 }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -78,7 +87,9 @@ export function LiveEmergencyPanel({
         <LiveTournamentPicker
           tournaments={tournaments}
           selectedId={tournamentId}
-          basePath="/admin/live/emergency"
+          buildHref={pickerHref}
+          onNavigate={navigate}
+          showPicker={showPicker}
           label="Emergency target"
         />
         <div className="rounded-xl border border-border bg-card/70 px-4 py-3 text-sm text-muted-foreground">
@@ -96,7 +107,9 @@ export function LiveEmergencyPanel({
       <LiveTournamentPicker
         tournaments={tournaments}
         selectedId={tournamentId}
-        basePath="/admin/live/emergency"
+        buildHref={pickerHref}
+        onNavigate={navigate}
+        showPicker={showPicker}
         label="Emergency target"
       />
 
@@ -123,7 +136,7 @@ export function LiveEmergencyPanel({
               {t.sport} · ID #{t.id} · {t.organizerName || "No organiser"}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/live/monitor/${t.id}`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(monitorHref(t.id))}>
             Back to monitor
           </Button>
         </div>
@@ -302,7 +315,7 @@ export function LiveEmergencyPanel({
                 const r = await deleteAdminTournament(tournamentId);
                 setActionLoading(null);
                 if (r.success) {
-                  navigate("/admin/live/emergency");
+                  navigate(afterDeleteHref);
                   onRefresh();
                 } else {
                   showFlash(r.error || "Delete failed", false);

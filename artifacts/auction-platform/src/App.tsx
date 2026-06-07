@@ -42,6 +42,7 @@ const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LegalPage = lazy(() => import("@/pages/legal"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
+const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
@@ -134,6 +135,11 @@ function Router() {
         <Route path="/admin/tournaments/:id/players" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/teams" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/bids" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/monitor" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/displays" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/owner-apps" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/sessions" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/emergency" component={AdminTournamentDetail} />
         <Route path="/admin/organisers" component={AdminOrganisersList} />
         <Route path="/admin/organisers/:id" component={AdminOrganiserDetail} />
         <Route path="/admin/settings/reports" component={AdminReports} />
@@ -142,6 +148,7 @@ function Router() {
         <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
         <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
         <Route path="/admin/settings/communication" component={AdminCommunicate} />
+        <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />

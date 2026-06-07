@@ -10,6 +10,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalLimiter } from "./lib/rate-limiters";
 import { jwtAuthMiddleware } from "./middleware/jwt-auth";
+import { organizerAccountStatusMiddleware } from "./middleware/organizer-account-status";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import {
   assertServeStaticBuild,
@@ -80,6 +81,7 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 // Populate req.jwtUser and req.oauthState from signed JWT cookies
 app.use(jwtAuthMiddleware);
+app.use(organizerAccountStatusMiddleware);
 
 logger.info("Auth: stateless JWT cookies (bidwar_auth)");
 

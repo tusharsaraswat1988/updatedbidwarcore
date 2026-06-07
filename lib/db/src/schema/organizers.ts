@@ -10,7 +10,7 @@ export const organizersTable = pgTable("organizers", {
   passwordHash: text("password_hash"),
   googleId: text("google_id").unique(),
   googleEmail: text("google_email"),
-  licenseStatus: text("license_status").notNull().default("pending"),
+  licenseStatus: text("license_status").notNull().default("active"),
   maxTournaments: integer("max_tournaments").notNull().default(1),
   notes: text("notes"),
   photoUrl: text("photo_url"),

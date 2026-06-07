@@ -11,7 +11,8 @@
     "./auction-readiness": "./src/auction-readiness.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts",
-    "./mobile": "./src/mobile.ts"
+    "./mobile": "./src/mobile.ts",
+    "./organizer-account": "./src/organizer-account.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
 import { AdminOrganizerRow, listAdminOrganizers } from "@/lib/auth";
 
 export default function AdminOrganisersListPage() {
@@ -61,7 +62,7 @@ export default function AdminOrganisersListPage() {
         <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
           {organisers.length} organiser{organisers.length !== 1 ? "s" : ""}
           {" · "}
-          {organisers.filter((o) => o.licenseStatus === "pending").length} pending approval
+          {organisers.filter((o) => organizerAccessLabel(o.licenseStatus) === "locked").length} locked
         </div>
 
         <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_160px_120px_120px_100px]">
@@ -103,14 +104,12 @@ export default function AdminOrganisersListPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-2 md:mt-0">
                     <Badge
                       className={
-                        o.licenseStatus === "active"
+                        organizerAccessLabel(o.licenseStatus) === "active"
                           ? "bg-green-500/15 text-green-400"
-                          : o.licenseStatus === "pending"
-                            ? "bg-amber-500/15 text-amber-300"
-                            : "bg-muted text-muted-foreground"
+                          : "bg-red-500/15 text-red-400"
                       }
                     >
-                      {o.licenseStatus}
+                      {organizerAccessLabel(o.licenseStatus) === "active" ? "Active" : "Locked"}
                     </Badge>
                     <span className="text-xs text-muted-foreground md:hidden">{o.tournamentCount} tournaments</span>
                   </div>

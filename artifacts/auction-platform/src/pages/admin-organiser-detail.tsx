@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Building2, MessageSquare, Radio, Trophy, Users, Wallet } from "lucide-react";
+import { Building2, Lock, MessageSquare, Radio, ShieldCheck, Trophy, Users, Wallet } from "lucide-react";
+import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
 import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   AdminOrganizerRow,
   AdminTournamentRow,
   listAdminOrganizers,
   listAdminTournaments,
+  updateAdminOrganizer,
 } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-auth";
 
@@ -24,6 +28,8 @@ export default function AdminOrganiserDetailPage() {
   const [organisers, setOrganisers] = useState<AdminOrganizerRow[]>([]);
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessSaving, setAccessSaving] = useState(false);
+  const [accessError, setAccessError] = useState("");
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) navigate("/admin/login");
@@ -53,6 +59,29 @@ export default function AdminOrganiserDetailPage() {
     [organiserId, tournaments],
   );
   const liveCount = linkedTournaments.filter((t) => t.licenseStatus === "active" && !t.adminLocked).length;
+  const access = organiser ? organizerAccessLabel(organiser.licenseStatus) : "active";
+  const accessEnabled = access === "active";
+
+  async function handleAccessToggle(enabled: boolean) {
+    if (!organiser) return;
+    setAccessSaving(true);
+    setAccessError("");
+    const result = await updateAdminOrganizer(organiser.id, {
+      licenseStatus: enabled ? "active" : "suspended",
+    });
+    setAccessSaving(false);
+    if (!result.success) {
+      setAccessError(result.error || "Failed to update account access.");
+      return;
+    }
+    setOrganisers((rows) =>
+      rows.map((row) =>
+        row.id === organiser.id
+          ? { ...row, licenseStatus: enabled ? "active" : "suspended" }
+          : row,
+      ),
+    );
+  }
 
   if (isLoading || !isLoggedIn) return null;
 
@@ -85,8 +114,8 @@ export default function AdminOrganiserDetailPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="font-display text-xl font-black text-white">{organiser.name}</h2>
-                  <Badge className={organiser.licenseStatus === "active" ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-300"}>
-                    {organiser.licenseStatus}
+                  <Badge className={accessEnabled ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}>
+                    {accessEnabled ? "Active" : "Locked"}
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -130,14 +159,54 @@ export default function AdminOrganiserDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card/70">
-              <div className="border-b border-border px-4 py-3">
-                <h2 className="font-display font-black text-white">Activity</h2>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-card/70">
+                <div className="border-b border-border px-4 py-3">
+                  <h2 className="font-display font-black text-white">Account Access</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Organisers are active by default. Lock an account to block tournament access while keeping login enabled.
+                  </p>
+                </div>
+                <div className="space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/10 px-3 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {accessEnabled ? (
+                          <ShieldCheck className="h-4 w-4 text-green-400" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-red-400" />
+                        )}
+                        <Label htmlFor="organiser-access" className="text-sm font-semibold text-white">
+                          {accessEnabled ? "Account active" : "Account locked"}
+                        </Label>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {accessEnabled
+                          ? "This organiser can open tournaments and create new ones."
+                          : "This organiser can sign in but cannot open or create tournaments."}
+                      </p>
+                    </div>
+                    <Switch
+                      id="organiser-access"
+                      checked={accessEnabled}
+                      disabled={accessSaving}
+                      onCheckedChange={(checked) => void handleAccessToggle(checked)}
+                    />
+                  </div>
+                  {accessError ? (
+                    <p className="text-xs text-red-400">{accessError}</p>
+                  ) : null}
+                </div>
               </div>
-              <div className="space-y-2 p-4 text-sm text-muted-foreground">
-                <div className="rounded-lg bg-muted/20 px-3 py-2">Profile reviewed in Super Admin</div>
-                <div className="rounded-lg bg-muted/20 px-3 py-2">Tournament count: {organiser.tournamentCount}</div>
-                <div className="rounded-lg bg-muted/20 px-3 py-2">Notes: {organiser.notes || "No notes"}</div>
+
+              <div className="rounded-xl border border-border bg-card/70">
+                <div className="border-b border-border px-4 py-3">
+                  <h2 className="font-display font-black text-white">Activity</h2>
+                </div>
+                <div className="space-y-2 p-4 text-sm text-muted-foreground">
+                  <div className="rounded-lg bg-muted/20 px-3 py-2">Tournament count: {organiser.tournamentCount}</div>
+                  <div className="rounded-lg bg-muted/20 px-3 py-2">Notes: {organiser.notes || "No notes"}</div>
+                </div>
               </div>
             </div>
           </div>

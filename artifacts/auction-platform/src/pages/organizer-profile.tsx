@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   checkOrganizerAccountAuth,
@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { cldUrl } from "@/lib/cloudinary";
 import {
-  ArrowLeft, User, Mail, Phone, Lock, CheckCircle2, AlertTriangle,
+  ArrowLeft, User, Mail, Lock, CheckCircle2, AlertTriangle,
   Camera, LogOut, RefreshCw, Eye, EyeOff, KeyRound,
 } from "lucide-react";
 
@@ -21,10 +23,11 @@ import {
 
 function OrganizerAvatar({ organizer, size = 64 }: { organizer: OrganizerInfo; size?: number }) {
   const initials = organizer.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  if (organizer.photoUrl) {
+  const photoSrc = cldUrl(organizer.photoUrl, "avatar");
+  if (photoSrc) {
     return (
       <img
-        src={organizer.photoUrl}
+        src={photoSrc}
         alt={organizer.name}
         style={{ width: size, height: size }}
         className="rounded-full object-cover border-2 border-border/60"
@@ -43,58 +46,25 @@ function OrganizerAvatar({ organizer, size = 64 }: { organizer: OrganizerInfo; s
 
 // ─── Section: Profile info ────────────────────────────────────────────────────
 
-function resizeImageToDataUrl(file: File, maxPx = 256): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = ev => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = ev.target!.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; onSaved: (o: OrganizerInfo) => void }) {
   const [name, setName] = useState(organizer.name);
   const [email, setEmail] = useState(organizer.email ?? "");
   const [photoUrl, setPhotoUrl] = useState(organizer.photoUrl ?? "");
-  const [uploading, setUploading] = useState(false);
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setName(organizer.name);
+    setEmail(organizer.email ?? "");
+    setPhotoUrl(organizer.photoUrl ?? "");
+  }, [organizer.id, organizer.name, organizer.email, organizer.photoUrl]);
 
   const hasChanges =
     name !== organizer.name ||
     email !== (organizer.email ?? "") ||
     photoUrl !== (organizer.photoUrl ?? "");
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setError("Image must be under 5 MB."); return; }
-    setUploading(true); setError("");
-    try {
-      const dataUrl = await resizeImageToDataUrl(file, 256);
-      setPhotoUrl(dataUrl);
-    } catch {
-      setError("Could not read image file.");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -127,27 +97,18 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
               <OrganizerAvatar organizer={{ ...organizer, name, photoUrl: photoUrl || null }} size={56} />
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => setPhotoEditorOpen(true)}
                 className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg border-2 border-background hover:bg-primary/90 transition-colors"
                 title="Change photo"
               >
-                {uploading
-                  ? <RefreshCw className="w-3 h-3 text-primary-foreground animate-spin" />
-                  : <Camera className="w-3 h-3 text-primary-foreground" />}
+                <Camera className="w-3 h-3 text-primary-foreground" />
               </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
             </div>
             <div>
               <p className="text-sm font-medium text-white">{name || organizer.name}</p>
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => setPhotoEditorOpen(true)}
                 className="text-xs text-primary hover:underline mt-0.5"
               >
                 {photoUrl ? "Change photo" : "Upload photo"}
@@ -163,6 +124,15 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
               )}
             </div>
           </div>
+
+          <ImageEditorDialog
+            open={photoEditorOpen}
+            onClose={() => setPhotoEditorOpen(false)}
+            initialUrl={photoUrl || undefined}
+            aspect={1}
+            title="Profile Photo"
+            onSave={url => { setPhotoUrl(url); setError(""); }}
+          />
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">

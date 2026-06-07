@@ -10,6 +10,7 @@ import { AdminTournamentDetail, AdminTournamentRow, fetchAdminTournamentDetail }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 import { ServerCountdown } from "@/components/server-countdown";
 
@@ -19,12 +20,18 @@ export function LiveAuctionMonitor({
   allTournaments,
   tournamentId,
   navigate,
+  pickerHref = (id) => tournamentLiveOpsPath(id, "monitor"),
+  emergencyHref = (id) => tournamentLiveOpsPath(id, "emergency"),
+  showPicker = true,
 }: {
   detail: AdminTournamentDetail | null;
   liveTournaments: AdminTournamentRow[];
   allTournaments: AdminTournamentRow[];
   tournamentId: number | null;
   navigate: (path: string) => void;
+  pickerHref?: (tournamentId: number) => string;
+  emergencyHref?: (tournamentId: number) => string;
+  showPicker?: boolean;
 }) {
   const [localDetail, setLocalDetail] = useState(detail);
 
@@ -48,7 +55,9 @@ export function LiveAuctionMonitor({
         <LiveTournamentPicker
           tournaments={allTournaments}
           selectedId={tournamentId}
-          basePath="/admin/live/monitor"
+          buildHref={pickerHref}
+          onNavigate={navigate}
+          showPicker={showPicker}
         />
         <div className="rounded-xl border border-border bg-card/70 px-4 py-3 text-sm text-muted-foreground">
           Choose a live auction to open the monitor.
@@ -57,7 +66,7 @@ export function LiveAuctionMonitor({
               {" "}
               <button
                 className="text-primary"
-                onClick={() => navigate(`/admin/live/monitor/${liveTournaments[0].id}`)}
+                onClick={() => navigate(pickerHref(liveTournaments[0].id))}
               >
                 Open {liveTournaments[0].name}
               </button>
@@ -73,6 +82,9 @@ export function LiveAuctionMonitor({
       detail={localDetail}
       allTournaments={allTournaments}
       navigate={navigate}
+      pickerHref={pickerHref}
+      emergencyHref={emergencyHref}
+      showPicker={showPicker}
     />
   );
 }
@@ -81,10 +93,16 @@ function MonitorWorkspace({
   detail,
   allTournaments,
   navigate,
+  pickerHref,
+  emergencyHref,
+  showPicker,
 }: {
   detail: AdminTournamentDetail;
   allTournaments: AdminTournamentRow[];
   navigate: (path: string) => void;
+  pickerHref: (tournamentId: number) => string;
+  emergencyHref: (tournamentId: number) => string;
+  showPicker: boolean;
 }) {
   const t = detail.tournament;
   const tournamentId = t.id;
@@ -114,7 +132,9 @@ function MonitorWorkspace({
       <LiveTournamentPicker
         tournaments={allTournaments}
         selectedId={tournamentId}
-        basePath="/admin/live/monitor"
+        buildHref={pickerHref}
+        onNavigate={navigate}
+        showPicker={showPicker}
       />
 
       <div className="rounded-xl border border-border bg-card/70 p-4">
@@ -135,7 +155,7 @@ function MonitorWorkspace({
               <p className="mt-1 text-xs text-amber-300">Event stream offline — bid feed may be stale.</p>
             )}
           </div>
-          <Button variant="destructive" onClick={() => navigate(`/admin/live/emergency/${t.id}`)}>
+          <Button variant="destructive" onClick={() => navigate(emergencyHref(t.id))}>
             Emergency Controls
           </Button>
         </div>

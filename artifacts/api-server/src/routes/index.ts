@@ -22,6 +22,7 @@ import displayAuctionsRouter from "./display-auctions";
 import showcaseRouter from "./showcase";
 import teamReportsRouter from "./team-reports";
 import ownerOnboardingRouter from "./owner-onboarding";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(displayAuctionsRouter);
 router.use(showcaseRouter);
 router.use(teamReportsRouter);
 router.use(ownerOnboardingRouter);
+router.use(notificationsRouter);
 
 export default router;

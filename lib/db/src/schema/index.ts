@@ -16,3 +16,4 @@ export * from "./settings";
 export * from "./sms-settings";
 export * from "./display-auctions";
 export * from "./showcase";
+export * from "./notifications";

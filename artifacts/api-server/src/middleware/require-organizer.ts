@@ -1,4 +1,10 @@
 import type { Request } from "express";
+import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+
+function isLockedOrganizerAccount(req: Request): boolean {
+  const status = req.organizerAccountLicenseStatus;
+  return !!status && isOrganizerAccountLocked(status);
+}
 
 /**
  * Returns true when the caller is an admin, any organizer-account holder,
@@ -10,7 +16,9 @@ import type { Request } from "express";
 export function isOrganizerOrAdmin(req: Request, tournamentId: number): boolean {
   const u = req.jwtUser;
   if (!u) return false;
-  return !!(u.isAdmin || u.organizerAccountId || u.organizer?.[String(tournamentId)]);
+  if (u.isAdmin) return true;
+  if (isLockedOrganizerAccount(req)) return false;
+  return !!(u.organizerAccountId || u.organizer?.[String(tournamentId)]);
 }
 
 /**
@@ -21,5 +29,7 @@ export function isOrganizerOrAdmin(req: Request, tournamentId: number): boolean 
 export function isAccountOrAdmin(req: Request): boolean {
   const u = req.jwtUser;
   if (!u) return false;
-  return !!(u.isAdmin || u.organizerAccountId);
+  if (u.isAdmin) return true;
+  if (!u.organizerAccountId) return false;
+  return !isLockedOrganizerAccount(req);
 }

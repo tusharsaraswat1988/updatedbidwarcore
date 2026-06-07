@@ -1,0 +1,398 @@
+import { randomUUID } from "crypto";
+import { db, notificationLogsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { logger } from "../logger";
+import { getPublicOrigin } from "../runtime-env";
+import { sendEmail } from "./providers/email-provider";
+import { sendNotificationSms } from "./providers/sms-provider";
+import { sendNotificationWhatsApp } from "./providers/whatsapp-provider";
+import { hasEmailTemplate, renderEmailTemplate } from "./templates/registry";
+import type {
+  NotificationChannel,
+  NotificationEventType,
+  NotificationPayloadMap,
+  NotificationStatus,
+  ProviderSendResult,
+  SendNotificationOptions,
+} from "./types";
+
+function getAppUrl(): string {
+  return process.env.APP_URL?.trim() || getPublicOrigin();
+}
+
+function isValidEmail(email: string | null | undefined): email is string {
+  if (!email) return false;
+  const trimmed = email.trim();
+  if (!trimmed || trimmed.startsWith("eml:") || trimmed.startsWith("gid_")) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
+function isValidMobile(mobile: string | null | undefined): mobile is string {
+  if (!mobile) return false;
+  const trimmed = mobile.trim();
+  if (!trimmed || trimmed.startsWith("eml:") || trimmed.startsWith("gid_")) return false;
+  return /\d{7,}/.test(trimmed.replace(/\D/g, ""));
+}
+
+/** Channels configured per event type. Extend as new events are wired. */
+const EVENT_CHANNEL_MAP: Partial<Record<NotificationEventType, NotificationChannel[]>> = {
+  ORGANISER_REGISTERED: ["email"],
+  TOURNAMENT_CREATED: ["email"],
+};
+
+function buildDedupKey(
+  eventType: NotificationEventType,
+  channel: NotificationChannel,
+  entityKey: string,
+): string {
+  return `${eventType}:${entityKey}:${channel}`;
+}
+
+function buildEntityKey(
+  eventType: NotificationEventType,
+  payload: NotificationPayloadMap[NotificationEventType],
+): string {
+  if (eventType === "ORGANISER_REGISTERED") {
+    const p = payload as NotificationPayloadMap["ORGANISER_REGISTERED"];
+    return `organizer:${p.organizerId}`;
+  }
+  if (eventType === "TOURNAMENT_CREATED") {
+    const p = payload as NotificationPayloadMap["TOURNAMENT_CREATED"];
+    return `tournament:${p.tournamentId}`;
+  }
+  return `event:${randomUUID()}`;
+}
+
+type RecipientInfo = {
+  name: string | null;
+  email: string | null;
+  mobile: string | null;
+  tournamentId: number | null;
+  organizerId: number | null;
+  templateParams: Record<string, unknown>;
+  smsBody?: string;
+  whatsappBody?: string;
+};
+
+function resolveRecipients(
+  eventType: NotificationEventType,
+  payload: NotificationPayloadMap[NotificationEventType],
+): RecipientInfo | null {
+  const appUrl = getAppUrl();
+
+  if (eventType === "ORGANISER_REGISTERED") {
+    const p = payload as NotificationPayloadMap["ORGANISER_REGISTERED"];
+    return {
+      name: p.name,
+      email: p.email,
+      mobile: p.mobile,
+      tournamentId: null,
+      organizerId: p.organizerId,
+      templateParams: { name: p.name, appUrl },
+    };
+  }
+
+  if (eventType === "TOURNAMENT_CREATED") {
+    const p = payload as NotificationPayloadMap["TOURNAMENT_CREATED"];
+    return {
+      name: p.organizerName,
+      email: p.organizerEmail,
+      mobile: p.organizerMobile,
+      tournamentId: p.tournamentId,
+      organizerId: p.organizerId,
+      templateParams: {
+        tournamentName: p.tournamentName,
+        sport: p.sport,
+        auctionCode: p.auctionCode,
+        auctionDate: p.auctionDate,
+        auctionTime: p.auctionTime,
+        venue: p.venue,
+        organizerName: p.organizerName,
+        appUrl,
+      },
+    };
+  }
+
+  return null;
+}
+
+async function deliverOnChannel(
+  channel: NotificationChannel,
+  eventType: NotificationEventType,
+  recipient: RecipientInfo,
+): Promise<{ result: ProviderSendResult; subject?: string }> {
+  if (channel === "email") {
+    if (!isValidEmail(recipient.email)) {
+      return { result: { success: false, error: "No valid recipient email" } };
+    }
+    if (!hasEmailTemplate(eventType)) {
+      return { result: { success: false, error: `No email template for ${eventType}` } };
+    }
+    const rendered = renderEmailTemplate(eventType, recipient.templateParams);
+    if (!rendered) {
+      return { result: { success: false, error: "Email template render failed" } };
+    }
+    const result = await sendEmail({
+      to: recipient.email,
+      subject: rendered.subject,
+      html: rendered.html,
+    });
+    return { result, subject: rendered.subject };
+  }
+
+  if (channel === "sms") {
+    if (!isValidMobile(recipient.mobile) || !recipient.smsBody) {
+      return { result: { success: false, error: "No valid recipient mobile or SMS body" } };
+    }
+    return { result: await sendNotificationSms(recipient.mobile, recipient.smsBody) };
+  }
+
+  if (channel === "whatsapp") {
+    if (!isValidMobile(recipient.mobile) || !recipient.whatsappBody) {
+      return { result: { success: false, error: "No valid recipient mobile or WhatsApp body" } };
+    }
+    return { result: await sendNotificationWhatsApp(recipient.mobile, recipient.whatsappBody) };
+  }
+
+  return { result: { success: false, error: `Unknown channel: ${channel}` } };
+}
+
+async function createLogEntry(params: {
+  eventType: NotificationEventType;
+  channel: NotificationChannel;
+  dedupKey: string;
+  recipient: RecipientInfo;
+  status: NotificationStatus;
+  subject?: string;
+  providerResponse?: string;
+  errorMessage?: string;
+  sentAt?: Date;
+}): Promise<number | null> {
+  try {
+    const [row] = await db
+      .insert(notificationLogsTable)
+      .values({
+        eventType: params.eventType,
+        channel: params.channel,
+        recipientName: params.recipient.name,
+        recipientEmail: params.recipient.email,
+        recipientMobile: params.recipient.mobile,
+        tournamentId: params.recipient.tournamentId,
+        organizerId: params.recipient.organizerId,
+        dedupKey: params.dedupKey,
+        status: params.status,
+        subject: params.subject ?? null,
+        providerResponse: params.providerResponse ?? null,
+        errorMessage: params.errorMessage ?? null,
+        sentAt: params.sentAt ?? null,
+      })
+      .returning({ id: notificationLogsTable.id });
+    return row?.id ?? null;
+  } catch (err) {
+    const pgCode = (err as { code?: string })?.code;
+    if (pgCode === "23505") {
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function updateLogEntry(
+  logId: number,
+  updates: {
+    status: NotificationStatus;
+    providerResponse?: string | null;
+    errorMessage?: string | null;
+    subject?: string | null;
+    sentAt?: Date | null;
+  },
+): Promise<void> {
+  const setValues: Record<string, unknown> = { status: updates.status };
+  if (updates.providerResponse !== undefined) setValues.providerResponse = updates.providerResponse;
+  if (updates.errorMessage !== undefined) setValues.errorMessage = updates.errorMessage;
+  if (updates.subject !== undefined) setValues.subject = updates.subject;
+  if (updates.sentAt !== undefined) setValues.sentAt = updates.sentAt;
+
+  await db
+    .update(notificationLogsTable)
+    .set(setValues)
+    .where(eq(notificationLogsTable.id, logId));
+}
+
+async function sendOnChannel(
+  eventType: NotificationEventType,
+  channel: NotificationChannel,
+  payload: NotificationPayloadMap[NotificationEventType],
+  options: SendNotificationOptions = {},
+): Promise<void> {
+  const channels = EVENT_CHANNEL_MAP[eventType];
+  if (!channels?.includes(channel)) return;
+
+  const recipient = resolveRecipients(eventType, payload);
+  if (!recipient) {
+    logger.warn({ eventType }, "No recipient resolver for notification event");
+    return;
+  }
+
+  const entityKey = buildEntityKey(eventType, payload);
+  const dedupKey = options.skipDedup
+    ? `resend:${options.resendOfLogId ?? "manual"}:${randomUUID()}`
+    : buildDedupKey(eventType, channel, entityKey);
+
+  let logId: number | null = null;
+
+  if (!options.skipDedup) {
+    logId = await createLogEntry({
+      eventType,
+      channel,
+      dedupKey,
+      recipient,
+      status: "pending",
+    });
+
+    if (logId === null) {
+      logger.info({ eventType, channel, dedupKey }, "Notification skipped — duplicate dedup key");
+      return;
+    }
+  } else {
+    logId = await createLogEntry({
+      eventType,
+      channel,
+      dedupKey,
+      recipient,
+      status: "pending",
+    });
+  }
+
+  if (!logId) return;
+
+  try {
+    const { result, subject } = await deliverOnChannel(channel, eventType, recipient);
+
+    if (result.success) {
+      await updateLogEntry(logId, {
+        status: "sent",
+        subject,
+        providerResponse: JSON.stringify({
+          messageId: result.messageId,
+          stub: result.stub ?? false,
+          raw: result.raw,
+        }),
+        sentAt: new Date(),
+      });
+      logger.info({ eventType, channel, logId, messageId: result.messageId }, "Notification sent");
+    } else {
+      await updateLogEntry(logId, {
+        status: "failed",
+        subject,
+        errorMessage: result.error ?? "Send failed",
+        providerResponse: result.raw ? JSON.stringify(result.raw) : null,
+      });
+      logger.warn({ eventType, channel, logId, error: result.error }, "Notification failed");
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown notification error";
+    await updateLogEntry(logId, {
+      status: "failed",
+      errorMessage,
+    }).catch(() => {});
+    logger.error({ eventType, channel, logId, err }, "Notification delivery exception");
+  }
+}
+
+/**
+ * Dispatch a notification event on all configured channels.
+ * Never throws — failures are logged and persisted.
+ */
+export async function dispatchNotification<E extends NotificationEventType>(
+  eventType: E,
+  payload: NotificationPayloadMap[E],
+  options: SendNotificationOptions = {},
+): Promise<void> {
+  const channels = EVENT_CHANNEL_MAP[eventType];
+  if (!channels?.length) {
+    logger.debug({ eventType }, "No channels configured for notification event");
+    return;
+  }
+
+  await Promise.all(
+    channels.map((channel) =>
+      sendOnChannel(eventType, channel, payload, options).catch((err) => {
+        logger.error({ eventType, channel, err }, "Unhandled notification channel error");
+      }),
+    ),
+  );
+}
+
+/** Fire-and-forget wrapper — notification failures never break business workflows. */
+export function notifyAsync<E extends NotificationEventType>(
+  eventType: E,
+  payload: NotificationPayloadMap[E],
+): void {
+  void dispatchNotification(eventType, payload).catch((err) => {
+    logger.error({ eventType, err }, "Async notification dispatch failed");
+  });
+}
+
+/** Resend a previously logged notification (admin action). */
+export async function resendNotification(logId: number): Promise<{ success: boolean; error?: string }> {
+  const [log] = await db
+    .select()
+    .from(notificationLogsTable)
+    .where(eq(notificationLogsTable.id, logId))
+    .limit(1);
+
+  if (!log) {
+    return { success: false, error: "Notification log not found" };
+  }
+
+  const eventType = log.eventType as NotificationEventType;
+
+  if (eventType === "ORGANISER_REGISTERED" && log.organizerId) {
+    await dispatchNotification(
+      "ORGANISER_REGISTERED",
+      {
+        organizerId: log.organizerId,
+        name: log.recipientName ?? "Organiser",
+        email: log.recipientEmail,
+        mobile: log.recipientMobile ?? "",
+      },
+      { skipDedup: true, resendOfLogId: logId },
+    );
+    return { success: true };
+  }
+
+  if (eventType === "TOURNAMENT_CREATED" && log.tournamentId) {
+    const { tournamentsTable } = await import("@workspace/db");
+    const [tournament] = await db
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, log.tournamentId))
+      .limit(1);
+
+    if (!tournament) {
+      return { success: false, error: "Tournament no longer exists" };
+    }
+
+    await dispatchNotification(
+      "TOURNAMENT_CREATED",
+      {
+        tournamentId: tournament.id,
+        tournamentName: tournament.name,
+        sport: tournament.sport,
+        auctionCode: tournament.auctionCode,
+        auctionDate: tournament.auctionDate,
+        auctionTime: tournament.auctionTime,
+        venue: tournament.venue,
+        organizerName: log.recipientName ?? tournament.organizerName,
+        organizerEmail: log.recipientEmail ?? tournament.organizerEmail,
+        organizerMobile: log.recipientMobile ?? tournament.organizerMobile,
+        organizerId: log.organizerId ?? tournament.organizerId,
+      },
+      { skipDedup: true, resendOfLogId: logId },
+    );
+    return { success: true };
+  }
+
+  return { success: false, error: `Resend not supported for event type: ${eventType}` };
+}

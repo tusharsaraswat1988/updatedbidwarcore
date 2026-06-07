@@ -161,7 +161,7 @@ router.post("/seed/demo", async (req, res) => {
   // ── Organizer (should already exist; upsert by mobile) ──────────────────────
   const orgRes = await pool.query(`
     INSERT INTO organizers (name, mobile, license_status, max_tournaments, notes)
-    VALUES ($1, $2, 'pending', 5, 'Demo organizer — seeded by BidWar admin')
+    VALUES ($1, $2, 'active', 5, 'Demo organizer — seeded by BidWar admin')
     ON CONFLICT (mobile) DO UPDATE SET name = EXCLUDED.name, max_tournaments = 5
     RETURNING id
   `, ["Tushar Saraswat", "7054007733"]);

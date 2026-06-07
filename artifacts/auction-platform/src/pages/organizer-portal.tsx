@@ -18,6 +18,7 @@ import {
   resendOtp,
   verifyOtpAndReset,
 } from "@/lib/auth";
+import { cldUrl } from "@/lib/cloudinary";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import {
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock,
 } from "lucide-react";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
@@ -1225,6 +1227,7 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
   }, []);
 
   const initials = organizer.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const avatarSrc = cldUrl(organizer.photoUrl, "thumbnail");
 
   return (
     <div ref={ref} className="relative">
@@ -1233,8 +1236,8 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
         className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-accent transition-colors"
         aria-label="Account menu"
       >
-        {organizer.photoUrl ? (
-          <img src={organizer.photoUrl} alt={organizer.name} className="w-7 h-7 rounded-full object-cover border border-border/60" />
+        {avatarSrc ? (
+          <img src={avatarSrc} alt={organizer.name} className="w-7 h-7 rounded-full object-cover border border-border/60" />
         ) : (
           <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-[11px] font-bold text-primary">
             {initials}
@@ -1334,6 +1337,7 @@ function OrganizerDashboard({
     }
   }
 
+  const isLocked = isOrganizerAccountLocked(organizer.licenseStatus);
   const activeTournaments = tournaments.filter(t => t.licenseStatus === "trial" || t.licenseStatus === "active");
   const completedTournaments = tournaments.filter(t => t.licenseStatus === "completed");
 
@@ -1383,6 +1387,20 @@ function OrganizerDashboard({
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+        {isLocked && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div className="flex items-start gap-2">
+              <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-300" />
+              <div>
+                <p className="font-semibold text-red-100">Your account has been locked. Please contact admin.</p>
+                <p className="mt-1 text-xs text-red-200/80">
+                  You can still sign in, but opening existing tournaments and creating new ones is disabled until your account is restored.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Set password banner for Google-only accounts */}
         {showSetPassword && (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-5">
@@ -1484,7 +1502,12 @@ function OrganizerDashboard({
                   className="pl-8 h-8 text-sm"
                 />
               </div>
-              <Button size="sm" className="gap-1.5 shrink-0 h-8" onClick={() => setCreateOpen(true)}>
+              <Button
+                size="sm"
+                className="gap-1.5 shrink-0 h-8"
+                disabled={isLocked}
+                onClick={() => setCreateOpen(true)}
+              >
                 <Plus className="w-4 h-4" /> New
               </Button>
             </div>
@@ -1516,7 +1539,7 @@ function OrganizerDashboard({
                     ))}
                   </div>
                   <div className="flex items-center gap-4 flex-wrap">
-                    <Button onClick={() => setCreateOpen(true)} size="lg" className="gap-2">
+                    <Button onClick={() => setCreateOpen(true)} size="lg" className="gap-2" disabled={isLocked}>
                       <Plus className="w-4 h-4" /> Start Tournament Setup
                     </Button>
                     <a
@@ -1547,16 +1570,21 @@ function OrganizerDashboard({
                   whileTap={{ scale: 0.985, y: 0 }}
                 >
                   <Card
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/tournament/${t.id}`)}
-                    onKeyDown={e => {
+                    role={isLocked ? undefined : "button"}
+                    tabIndex={isLocked ? -1 : 0}
+                    onClick={isLocked ? undefined : () => navigate(`/tournament/${t.id}`)}
+                    onKeyDown={isLocked ? undefined : e => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         navigate(`/tournament/${t.id}`);
                       }
                     }}
-                    className="group border-border/50 bg-card/30 h-full cursor-pointer select-none transition-all duration-200 hover:border-primary/35 hover:bg-card/55 hover:shadow-[0_10px_40px_rgba(0,0,0,0.45),0_0_0_1px_hsl(var(--primary)/0.12)] active:shadow-[0_4px_20px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    aria-disabled={isLocked}
+                    className={`group border-border/50 bg-card/30 h-full select-none transition-all duration-200 focus-visible:outline-none ${
+                      isLocked
+                        ? "cursor-not-allowed opacity-50"
+                        : "cursor-pointer hover:border-primary/35 hover:bg-card/55 hover:shadow-[0_10px_40px_rgba(0,0,0,0.45),0_0_0_1px_hsl(var(--primary)/0.12)] active:shadow-[0_4px_20px_rgba(0,0,0,0.35)] focus-visible:ring-2 focus-visible:ring-primary/40"
+                    }`}
                   >
                     <CardContent className="p-5 space-y-3">
                       <div className="flex items-start justify-between gap-2">
@@ -1578,7 +1606,8 @@ function OrganizerDashboard({
                       <div className="pt-2 border-t border-border/40">
                         <button
                           type="button"
-                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30"
+                          disabled={isLocked}
+                          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 py-0.5 hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={e => { e.stopPropagation(); setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
                         >
                           <CheckCheck className="w-3 h-3" />

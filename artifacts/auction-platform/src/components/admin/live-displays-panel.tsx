@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { AdminTournamentDetail, AdminTournamentRow, fetchAdminTournamentDetail } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 
 function DisplayEndpointRow({
@@ -33,10 +34,16 @@ export function LiveDisplaysPanel({
   tournaments,
   tournamentId,
   detail,
+  pickerHref = (id) => tournamentLiveOpsPath(id, "displays"),
+  onNavigate,
+  showPicker = true,
 }: {
   tournaments: AdminTournamentRow[];
   tournamentId: number | null;
   detail: AdminTournamentDetail | null;
+  pickerHref?: (tournamentId: number) => string;
+  onNavigate?: (href: string) => void;
+  showPicker?: boolean;
 }) {
   const [localDetail, setLocalDetail] = useState(detail);
 
@@ -56,7 +63,7 @@ export function LiveDisplaysPanel({
   if (!tournamentId || !localDetail) {
     return (
       <div className="space-y-4">
-        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/displays" />
+        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
         <div className="rounded-xl border border-border bg-card/70">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-display text-base font-black text-white">All live display endpoints</h2>
@@ -94,7 +101,7 @@ export function LiveDisplaysPanel({
 
   return (
     <div className="space-y-4">
-      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/displays" />
+      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
       <div className="rounded-xl border border-border bg-card/70">
         <div className="border-b border-border px-4 py-3">
           <h2 className="font-display text-base font-black text-white">{t.name}</h2>

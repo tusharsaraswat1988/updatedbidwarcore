@@ -1,18 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, Lock, Radio } from "lucide-react";
+import { Activity, BadgeCheck, Lock, RefreshCw } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
+import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
+import { LiveDisplaysPanel } from "@/components/admin/live-displays-panel";
+import { LiveEmergencyPanel } from "@/components/admin/live-emergency-panel";
+import { LiveOwnerAppsPanel } from "@/components/admin/live-owner-apps-panel";
+import { LiveOperatorSessionsPanel } from "@/components/admin/live-operator-sessions-panel";
+import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AdminTournamentDetail, fetchAdminTournamentDetail } from "@/lib/auth";
-import { useAdminAuth } from "@/hooks/use-auth";
+import {
+  LIVE_OPS_TABS,
+  LiveOpsSection,
+  tournamentLiveOpsPath,
+} from "@/lib/admin-live-ops-paths";
+import {
+  AdminTournamentDetail,
+  AdminTournamentRow,
+  fetchAdminTournamentDetail,
+  listAdminTournaments,
+} from "@/lib/auth";
+
+type DataTab = "overview" | "players" | "teams" | "bids";
+type Tab = DataTab | `live-${LiveOpsSection}`;
 
 function getTournamentId(pathname: string) {
   const match = pathname.match(/\/admin\/tournaments\/(\d+)/);
   return match ? Number(match[1]) : null;
 }
 
-function getTab(pathname: string) {
+function getTab(pathname: string): Tab {
+  const liveMatch = pathname.match(/\/live\/(monitor|displays|owner-apps|sessions|emergency)/);
+  if (liveMatch) return `live-${liveMatch[1]}` as Tab;
   if (pathname.endsWith("/players")) return "players";
   if (pathname.endsWith("/teams")) return "teams";
   if (pathname.endsWith("/bids")) return "bids";
@@ -29,7 +49,17 @@ function StatusPill({ children, tone = "muted" }: { children: string; tone?: "gr
   return <Badge className={cls}>{children}</Badge>;
 }
 
-function TabLink({ id, label, tournamentId, active }: { id: string; label: string; tournamentId: number; active: string }) {
+function DataTabLink({
+  id,
+  label,
+  tournamentId,
+  active,
+}: {
+  id: DataTab;
+  label: string;
+  tournamentId: number;
+  active: Tab;
+}) {
   const href = id === "overview" ? `/admin/tournaments/${tournamentId}/overview` : `/admin/tournaments/${tournamentId}/${id}`;
   return (
     <Link
@@ -45,25 +75,63 @@ function TabLink({ id, label, tournamentId, active }: { id: string; label: strin
   );
 }
 
+function LiveOpsTabLink({
+  section,
+  label,
+  tournamentId,
+  active,
+}: {
+  section: LiveOpsSection;
+  label: string;
+  tournamentId: number;
+  active: Tab;
+}) {
+  const tabId = `live-${section}` as Tab;
+  return (
+    <Link
+      href={tournamentLiveOpsPath(tournamentId, section)}
+      className={`rounded-lg border px-3 py-2 text-sm ${
+        active === tabId
+          ? "border-primary/50 bg-primary/15 text-primary"
+          : "border-border bg-card/70 text-muted-foreground hover:bg-accent hover:text-foreground"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export default function AdminTournamentDetailPage() {
   const [location, navigate] = useLocation();
-  const { isLoggedIn, isLoading } = useAdminAuth();
+  const { isLoggedIn, isLoading, isMaster } = useAdminPageGuard();
   const tournamentId = getTournamentId(location);
   const tab = getTab(location);
+  const isLiveTab = tab.startsWith("live-");
+
   const [detail, setDetail] = useState<AdminTournamentDetail | null>(null);
+  const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!isLoading && !isLoggedIn) navigate("/admin/login");
-  }, [isLoading, isLoggedIn, navigate]);
+  const reloadDetail = useCallback(() => {
+    if (!tournamentId) return Promise.resolve();
+    return fetchAdminTournamentDetail(tournamentId).then((data) => {
+      if (data) setDetail(data);
+    });
+  }, [tournamentId]);
+
+  const reloadTournaments = useCallback(() => {
+    return listAdminTournaments().then(setTournaments);
+  }, []);
 
   useEffect(() => {
     if (!tournamentId) return;
     let cancelled = false;
     setLoading(true);
-    fetchAdminTournamentDetail(tournamentId)
-      .then((data) => {
-        if (!cancelled) setDetail(data);
+    Promise.all([fetchAdminTournamentDetail(tournamentId), listAdminTournaments()])
+      .then(([detailData, tournamentRows]) => {
+        if (cancelled) return;
+        if (detailData) setDetail(detailData);
+        setTournaments(tournamentRows);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -73,6 +141,10 @@ export default function AdminTournamentDetailPage() {
     };
   }, [tournamentId]);
 
+  const liveTournaments = useMemo(
+    () => tournaments.filter((t) => t.licenseStatus === "active" && !t.adminLocked),
+    [tournaments],
+  );
   const soldCount = useMemo(() => detail?.players.filter((p) => p.status === "sold").length ?? 0, [detail]);
 
   if (isLoading || !isLoggedIn) return null;
@@ -93,10 +165,22 @@ export default function AdminTournamentDetailPage() {
       actions={
         detail && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(`/admin/live/monitor/${detail.tournament.id}`)}>
-              <Radio className="mr-2 h-4 w-4" /> Open Live Monitor
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                Promise.all([reloadDetail(), reloadTournaments()]).finally(() => setLoading(false));
+              }}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Refresh
             </Button>
-            <Button variant="outline" onClick={() => navigate("/admin/settings/reports")}>Reports</Button>
+            <Button variant="outline" onClick={() => navigate("/admin/tournaments")}>
+              All Tournaments
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/settings/reports")}>
+              Reports
+            </Button>
           </div>
         )
       }
@@ -108,7 +192,7 @@ export default function AdminTournamentDetailPage() {
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card/70 p-4">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap gap-2">
                   <StatusPill tone={detail.tournament.status === "active" ? "green" : "muted"}>
@@ -124,29 +208,46 @@ export default function AdminTournamentDetailPage() {
                   {detail.tournament.sport} · ID #{detail.tournament.id} · {detail.tournament.venue || "No venue"} · {detail.tournament.auctionDate || "No date"}
                 </p>
               </div>
-              <Button variant="destructive" onClick={() => navigate(`/admin/live/emergency/${detail.tournament.id}`)}>
-                Emergency Controls
-              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-3">
-            <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Players</div><div className="mt-2 text-2xl font-black text-white">{detail.players.length}</div></div>
-            <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Sold</div><div className="mt-2 text-2xl font-black text-white">{soldCount}</div></div>
-            <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Teams</div><div className="mt-2 text-2xl font-black text-white">{detail.teams.length}</div></div>
-            <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Base Purse</div><div className="mt-2 text-2xl font-black text-white">₹{detail.tournament.basePurse.toLocaleString("en-IN")}</div></div>
-            <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Bid Events</div><div className="mt-2 text-2xl font-black text-white">{detail.recentBids.length}</div></div>
-          </div>
+          {!isLiveTab && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Players</div><div className="mt-2 text-2xl font-black text-white">{detail.players.length}</div></div>
+              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Sold</div><div className="mt-2 text-2xl font-black text-white">{soldCount}</div></div>
+              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Teams</div><div className="mt-2 text-2xl font-black text-white">{detail.teams.length}</div></div>
+              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Base Purse</div><div className="mt-2 text-2xl font-black text-white">₹{detail.tournament.basePurse.toLocaleString("en-IN")}</div></div>
+              <div className="rounded-xl border border-border bg-card/70 p-4"><div className="text-xs uppercase text-muted-foreground">Bid Events</div><div className="mt-2 text-2xl font-black text-white">{detail.recentBids.length}</div></div>
+            </div>
+          )}
 
-          <div className="flex gap-2">
-            <TabLink id="overview" label="Overview" tournamentId={tournamentId} active={tab} />
-            <TabLink id="players" label={`Players (${detail.players.length})`} tournamentId={tournamentId} active={tab} />
-            <TabLink id="teams" label={`Teams (${detail.teams.length})`} tournamentId={tournamentId} active={tab} />
-            <TabLink id="bids" label={`Bid Log (${detail.recentBids.length})`} tournamentId={tournamentId} active={tab} />
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <DataTabLink id="overview" label="Overview" tournamentId={tournamentId} active={tab} />
+              <DataTabLink id="players" label={`Players (${detail.players.length})`} tournamentId={tournamentId} active={tab} />
+              <DataTabLink id="teams" label={`Teams (${detail.teams.length})`} tournamentId={tournamentId} active={tab} />
+              <DataTabLink id="bids" label={`Bid Log (${detail.recentBids.length})`} tournamentId={tournamentId} active={tab} />
+            </div>
+            <div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                Live Operations
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {LIVE_OPS_TABS.map((item) => (
+                  <LiveOpsTabLink
+                    key={item.id}
+                    section={item.id}
+                    label={item.label}
+                    tournamentId={tournamentId}
+                    active={tab}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           {tab === "overview" ? (
-            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
               <div className="rounded-xl border border-border bg-card/70 p-4">
                 <h2 className="font-display font-black text-white">Tournament Info</h2>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -190,7 +291,7 @@ export default function AdminTournamentDetailPage() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : tab === "bids" ? (
             <div className="rounded-xl border border-border bg-card/70">
               {detail.recentBids.map((bid) => (
                 <div key={bid.id} className="grid grid-cols-[100px_1fr_180px_140px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
@@ -198,7 +299,54 @@ export default function AdminTournamentDetailPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : tab === "live-monitor" ? (
+            <LiveAuctionMonitor
+              detail={detail}
+              liveTournaments={liveTournaments}
+              allTournaments={tournaments}
+              tournamentId={tournamentId}
+              navigate={navigate}
+              showPicker={false}
+            />
+          ) : tab === "live-displays" ? (
+            <LiveDisplaysPanel
+              tournaments={tournaments}
+              tournamentId={tournamentId}
+              detail={detail}
+              onNavigate={navigate}
+              showPicker={false}
+            />
+          ) : tab === "live-owner-apps" ? (
+            <LiveOwnerAppsPanel
+              tournaments={tournaments}
+              tournamentId={tournamentId}
+              detail={detail}
+              onNavigate={navigate}
+              showPicker={false}
+            />
+          ) : tab === "live-sessions" ? (
+            <LiveOperatorSessionsPanel
+              tournaments={tournaments}
+              tournamentId={tournamentId}
+              detail={detail}
+              onNavigate={navigate}
+              showPicker={false}
+            />
+          ) : tab === "live-emergency" ? (
+            <LiveEmergencyPanel
+              tournaments={tournaments}
+              tournamentId={tournamentId}
+              detail={detail}
+              isMaster={isMaster}
+              navigate={navigate}
+              showPicker={false}
+              afterDeleteHref="/admin/tournaments"
+              onRefresh={() => {
+                void reloadTournaments();
+                void reloadDetail();
+              }}
+            />
+          ) : null}
         </div>
       )}
     </AdminShell>

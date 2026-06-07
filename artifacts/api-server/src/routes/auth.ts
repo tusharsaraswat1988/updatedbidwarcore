@@ -24,8 +24,20 @@ import {
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
 import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
+import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { notifyAsync } from "../lib/notifications";
+import type { Organizer } from "@workspace/db";
 
 const scryptAsync = promisify(scrypt);
+
+function triggerOrganiserRegisteredNotification(organizer: Organizer): void {
+  notifyAsync("ORGANISER_REGISTERED", {
+    organizerId: organizer.id,
+    name: organizer.name,
+    email: organizer.email,
+    mobile: organizer.mobile,
+  });
+}
 
 async function organizerNormalizedMobileTaken(normalized: string, excludeId?: number): Promise<boolean> {
   const rows = await db
@@ -245,6 +257,14 @@ router.get("/auth/organizer/:tournamentId/me", async (req, res) => {
   const tid = req.params.tournamentId;
   const tidNum = parseInt(tid, 10);
 
+  if (
+    req.organizerAccountLicenseStatus &&
+    isOrganizerAccountLocked(req.organizerAccountLicenseStatus)
+  ) {
+    res.json({ isOrganizer: false, accountLocked: true });
+    return;
+  }
+
   if (req.jwtUser.isAdmin || (req.jwtUser.organizer && req.jwtUser.organizer[tid])) {
     res.json({ isOrganizer: true });
     return;
@@ -360,6 +380,21 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     minimumSquadSize: 0,
     maximumSquadSize: 0,
   }).returning();
+
+  notifyAsync("TOURNAMENT_CREATED", {
+    tournamentId: t.id,
+    tournamentName: t.name,
+    sport: t.sport,
+    auctionCode: t.auctionCode,
+    auctionDate: t.auctionDate,
+    auctionTime: t.auctionTime,
+    venue: t.venue,
+    organizerName: t.organizerName,
+    organizerEmail: t.organizerEmail,
+    organizerMobile: t.organizerMobile,
+    organizerId: t.organizerId,
+  });
+
   res.json({ success: true, id: t.id });
 });
 
@@ -803,12 +838,13 @@ router.post("/auth/organizer-account/signup/email", authLimiter, async (req, res
     email,
     mobile: `eml:${email}`,
     passwordHash,
-    licenseStatus: "pending",
+    licenseStatus: "active",
     maxTournaments: 1,
   }).returning();
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  triggerOrganiserRegisteredNotification(organizer);
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
@@ -846,7 +882,7 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
     mobile,
     email: pendingData.email,
     passwordHash: pendingData.passwordHash,
-    licenseStatus: "pending",
+    licenseStatus: "active",
     maxTournaments: 1,
   }).returning();
 
@@ -855,6 +891,7 @@ router.post("/auth/organizer-account/signup/verify", otpVerifyLimiter, async (re
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  triggerOrganiserRegisteredNotification(organizer);
   res.json({ success: true, organizer: organizerToJson(organizer) });
 });
 
@@ -987,6 +1024,10 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   }
   const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!organizer) { res.status(401).json({ error: "Account not found" }); return; }
+  if (isOrganizerAccountLocked(organizer.licenseStatus)) {
+    res.status(403).json({ error: "Your account has been locked. Please contact admin." });
+    return;
+  }
 
   const schema = z.object({
     name: z.string().min(1),
@@ -1311,7 +1352,15 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
     name: z.string().min(1).max(120).optional(),
     email: z.string().email().optional().nullable(),
     mobile: z.string().min(7).optional(),
-    photoUrl: z.string().url().max(1000).optional().nullable(),
+    photoUrl: z
+      .string()
+      .max(2000)
+      .optional()
+      .nullable()
+      .refine(
+        (v) => v == null || v === "" || v.startsWith("https://"),
+        "Photo URL must be a valid HTTPS URL",
+      ),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid profile data." }); return; }
 
@@ -1341,7 +1390,7 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
   if (name !== undefined) updates.name = name;
   if (email !== undefined) updates.email = email;
   if (normalizedMobile !== undefined) updates.mobile = normalizedMobile;
-  if (photoUrl !== undefined) updates.photoUrl = photoUrl;
+  if (photoUrl !== undefined) updates.photoUrl = photoUrl || null;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update." });
@@ -1480,12 +1529,13 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
     mobile,
     googleId: pending.googleId,
     googleEmail: pending.googleEmail,
-    licenseStatus: "pending",
+    licenseStatus: "active",
     maxTournaments: 1,
   }).returning();
 
   clearOAuthCookie(res);
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
+  triggerOrganiserRegisteredNotification(organizer);
   res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
 });
 
@@ -1510,12 +1560,13 @@ router.post("/auth/google/complete-profile/skip", async (req, res) => {
     mobile: `gid_${pending.googleId}`,
     googleId: pending.googleId,
     googleEmail: pending.googleEmail,
-    licenseStatus: "pending",
+    licenseStatus: "active",
     maxTournaments: 1,
   }).returning();
 
   clearOAuthCookie(res);
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
+  triggerOrganiserRegisteredNotification(organizer);
   res.json({ success: true, organizer: { id: organizer.id, name: organizer.name } });
 });
 

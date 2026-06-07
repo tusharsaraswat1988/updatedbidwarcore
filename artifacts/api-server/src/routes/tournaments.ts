@@ -15,6 +15,7 @@ import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
 import { validateExportToken } from "../lib/export-token";
 import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
+import { notifyAsync } from "../lib/notifications";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -186,6 +187,21 @@ router.post("/tournaments", async (req, res) => {
       status: "setup",
     })
     .returning();
+
+  notifyAsync("TOURNAMENT_CREATED", {
+    tournamentId: tournament.id,
+    tournamentName: tournament.name,
+    sport: tournament.sport,
+    auctionCode: tournament.auctionCode,
+    auctionDate: tournament.auctionDate,
+    auctionTime: tournament.auctionTime,
+    venue: tournament.venue,
+    organizerName: tournament.organizerName,
+    organizerEmail: tournament.organizerEmail,
+    organizerMobile: tournament.organizerMobile,
+    organizerId: tournament.organizerId,
+  });
+
   res.status(201).json(tournamentToJson(tournament));
 });
 

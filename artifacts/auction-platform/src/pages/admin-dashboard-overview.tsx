@@ -19,6 +19,8 @@ import {
   listAdminOrganizers,
   listAdminTournaments,
 } from "@/lib/auth";
+import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-media-query";
 
@@ -92,11 +94,11 @@ export default function AdminDashboardOverview() {
 
   const stats = useMemo(() => {
     const live = tournaments.filter((t) => t.licenseStatus === "active" && !t.adminLocked);
-    const pendingOrganisers = organisers.filter((o) => o.licenseStatus === "pending");
+    const lockedOrganisers = organisers.filter((o) => organizerAccessLabel(o.licenseStatus) === "locked");
     return {
       live,
       activeTournaments: tournaments.filter((t) => t.licenseStatus !== "completed"),
-      pendingOrganisers,
+      lockedOrganisers,
     };
   }, [organisers, tournaments]);
 
@@ -108,10 +110,10 @@ export default function AdminDashboardOverview() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
           <MetricCard label="Live Auctions" value={stats.live.length} sub="currently active" icon={Radio} />
           <MetricCard label="Tournaments" value={tournaments.length} sub={`${stats.activeTournaments.length} active/trial`} icon={Trophy} />
-          <MetricCard label="Organisers" value={organisers.length} sub={`${stats.pendingOrganisers.length} pending`} icon={Building2} />
+          <MetricCard label="Organisers" value={organisers.length} sub={`${stats.lockedOrganisers.length} locked`} icon={Building2} />
           <MetricCard label="Players" value="--" sub="across platform" icon={Users} />
           <MetricCard label="Revenue" value="--" sub="month to date" icon={Wallet} />
-          <MetricCard label="Attention" value={stats.pendingOrganisers.length} sub="items to review" icon={AlertTriangle} />
+          <MetricCard label="Attention" value={stats.lockedOrganisers.length} sub="locked accounts" icon={AlertTriangle} />
         </div>
 
         <div className="rounded-xl border border-border bg-card/70">
@@ -131,7 +133,7 @@ export default function AdminDashboardOverview() {
               stats.live.slice(0, 5).map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => navigate(`/admin/live/monitor/${t.id}`)}
+                  onClick={() => navigate(tournamentLiveOpsPath(t.id, "monitor"))}
                   className="block w-full px-4 py-3 text-left text-sm hover:bg-accent/50 md:grid md:grid-cols-[1fr_140px_160px_120px] md:items-center md:gap-4"
                 >
                   <div>
@@ -160,17 +162,17 @@ export default function AdminDashboardOverview() {
               <h2 className="font-display text-base font-black text-white">Requires Attention</h2>
             </div>
             <div className="space-y-2 p-4 text-sm">
-              {stats.pendingOrganisers.length ? (
+              {stats.lockedOrganisers.length ? (
                 <button
                   onClick={() => navigate("/admin/organisers")}
-                  className="flex w-full items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-left text-amber-300"
+                  className="flex w-full items-center justify-between rounded-lg bg-red-500/10 px-3 py-2 text-left text-red-300"
                 >
-                  <span>{stats.pendingOrganisers.length} organiser approvals pending</span>
+                  <span>{stats.lockedOrganisers.length} organiser account{stats.lockedOrganisers.length !== 1 ? "s" : ""} locked</span>
                   <span>Review →</span>
                 </button>
               ) : (
                 <div className="rounded-lg bg-muted/20 px-3 py-2 text-muted-foreground">
-                  No organiser approvals pending.
+                  No locked organiser accounts.
                 </div>
               )}
               <div className="rounded-lg bg-muted/20 px-3 py-2 text-muted-foreground">

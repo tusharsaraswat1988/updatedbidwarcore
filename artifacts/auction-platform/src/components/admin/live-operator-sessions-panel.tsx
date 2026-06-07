@@ -4,16 +4,23 @@ import { AdminTournamentDetail, AdminTournamentRow, fetchAdminTournamentDetail }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 
 export function LiveOperatorSessionsPanel({
   tournaments,
   tournamentId,
   detail,
+  pickerHref = (id) => tournamentLiveOpsPath(id, "sessions"),
+  onNavigate,
+  showPicker = true,
 }: {
   tournaments: AdminTournamentRow[];
   tournamentId: number | null;
   detail: AdminTournamentDetail | null;
+  pickerHref?: (tournamentId: number) => string;
+  onNavigate?: (href: string) => void;
+  showPicker?: boolean;
 }) {
   const [localDetail, setLocalDetail] = useState(detail);
 
@@ -33,7 +40,7 @@ export function LiveOperatorSessionsPanel({
   if (!tournamentId || !localDetail) {
     return (
       <div className="space-y-4">
-        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/sessions" />
+        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
         <div className="rounded-xl border border-border bg-card/70">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-display text-base font-black text-white">Operator sessions</h2>
@@ -44,7 +51,11 @@ export function LiveOperatorSessionsPanel({
               <button
                 key={t.id}
                 className="block w-full space-y-2 px-4 py-3 text-left text-sm hover:bg-accent/40 md:grid md:grid-cols-[1fr_140px_140px_120px] md:items-center md:gap-4 md:space-y-0"
-                onClick={() => { window.location.href = `/admin/live/sessions/${t.id}`; }}
+                onClick={() => {
+                  const href = pickerHref(t.id);
+                  if (onNavigate) onNavigate(href);
+                  else window.location.href = href;
+                }}
               >
                 <div>
                   <div className="font-semibold text-white">{t.name}</div>
@@ -68,7 +79,7 @@ export function LiveOperatorSessionsPanel({
 
   return (
     <div className="space-y-4">
-      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/sessions" />
+      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
       <div className="rounded-xl border border-border bg-card/70 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="capitalize">{t.licenseStatus}</Badge>

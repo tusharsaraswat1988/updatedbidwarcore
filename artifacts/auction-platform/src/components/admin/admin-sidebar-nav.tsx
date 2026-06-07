@@ -1,17 +1,14 @@
 import { Link } from "wouter";
 import {
   Activity,
+  Bell,
   Building2,
   Gauge,
   Gavel,
   LifeBuoy,
   Monitor,
-  Radio,
   Settings,
-  ShieldAlert,
   Trophy,
-  Tv,
-  Users,
 } from "lucide-react";
 
 type NavItem = {
@@ -20,15 +17,6 @@ type NavItem = {
   icon: typeof Settings;
   badge?: string;
 };
-
-const liveItems: NavItem[] = [
-  { label: "Live Auctions", href: "/admin/live/auctions", icon: Radio },
-  { label: "Auction Monitor", href: "/admin/live/monitor", icon: Activity },
-  { label: "Connected Displays", href: "/admin/live/displays", icon: Tv },
-  { label: "Connected Owner Apps", href: "/admin/live/owner-apps", icon: Users },
-  { label: "Operator Sessions", href: "/admin/live/sessions", icon: Monitor },
-  { label: "Emergency Controls", href: "/admin/live/emergency", icon: ShieldAlert },
-];
 
 const tournamentItems: NavItem[] = [
   { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
@@ -40,6 +28,7 @@ const settingItems: NavItem[] = [
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
   { label: "Communication", href: "/admin/settings/communication", icon: LifeBuoy },
+  { label: "Notifications", href: "/admin/settings/notifications", icon: Bell },
   { label: "System", href: "/admin/settings/system/sms", icon: Monitor },
 ];
 
@@ -106,20 +95,11 @@ function NavSection({
 export function AdminSidebarNav({
   location,
   onNavigate,
-  isMaster,
 }: {
   location: string;
   onNavigate?: () => void;
   isMaster?: boolean;
 }) {
-  const liveNav = isMaster === false
-    ? liveItems.map((item) =>
-        item.href.includes("/emergency")
-          ? { ...item, badge: "View only" }
-          : item,
-      )
-    : liveItems;
-
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3">
       <NavLink
@@ -127,7 +107,6 @@ export function AdminSidebarNav({
         location={location}
         onNavigate={onNavigate}
       />
-      <NavSection label="Live Operations" items={liveNav} location={location} onNavigate={onNavigate} />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Platform Settings" items={settingItems} location={location} onNavigate={onNavigate} />
     </nav>

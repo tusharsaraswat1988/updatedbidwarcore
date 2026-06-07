@@ -12,15 +12,35 @@ export function LiveTournamentPicker({
   tournaments,
   selectedId,
   basePath,
+  buildHref,
+  onNavigate,
   label = "Tournament",
   preferLive = true,
+  showPicker = true,
 }: {
   tournaments: AdminTournamentRow[];
   selectedId: number | null;
-  basePath: string;
+  basePath?: string;
+  buildHref?: (tournamentId: number) => string;
+  onNavigate?: (href: string) => void;
   label?: string;
   preferLive?: boolean;
+  showPicker?: boolean;
 }) {
+  if (!showPicker) return null;
+
+  const hrefFor = (id: number) => {
+    if (buildHref) return buildHref(id);
+    if (basePath) return `${basePath}/${id}`;
+    return `/admin/tournaments/${id}`;
+  };
+
+  const go = (id: number) => {
+    const href = hrefFor(id);
+    if (onNavigate) onNavigate(href);
+    else window.location.href = href;
+  };
+
   const sorted = [...tournaments].sort((a, b) => {
     const aLive = a.licenseStatus === "active" && !a.adminLocked ? 1 : 0;
     const bLive = b.licenseStatus === "active" && !b.adminLocked ? 1 : 0;
@@ -41,9 +61,7 @@ export function LiveTournamentPicker({
       <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</span>
       <Select
         value={selectedId ? String(selectedId) : undefined}
-        onValueChange={(value) => {
-          window.location.href = `${basePath}/${value}`;
-        }}
+        onValueChange={(value) => go(Number(value))}
       >
         <SelectTrigger className="h-9 w-full min-w-0 sm:w-[280px]">
           <SelectValue placeholder="Choose tournament" />
@@ -57,7 +75,7 @@ export function LiveTournamentPicker({
         </SelectContent>
       </Select>
       {!selectedId && sorted[0] && (
-        <Button size="sm" variant="outline" onClick={() => { window.location.href = `${basePath}/${sorted[0].id}`; }}>
+        <Button size="sm" variant="outline" onClick={() => go(sorted[0].id)}>
           Open first
         </Button>
       )}

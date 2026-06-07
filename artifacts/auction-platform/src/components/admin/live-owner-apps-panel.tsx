@@ -2,16 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { AdminTournamentDetail, AdminTournamentRow, fetchAdminTournamentDetail } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
 
 export function LiveOwnerAppsPanel({
   tournaments,
   tournamentId,
   detail,
+  pickerHref = (id) => tournamentLiveOpsPath(id, "owner-apps"),
+  onNavigate,
+  showPicker = true,
 }: {
   tournaments: AdminTournamentRow[];
   tournamentId: number | null;
   detail: AdminTournamentDetail | null;
+  pickerHref?: (tournamentId: number) => string;
+  onNavigate?: (href: string) => void;
+  showPicker?: boolean;
 }) {
   const [localDetail, setLocalDetail] = useState(detail);
 
@@ -34,7 +41,7 @@ export function LiveOwnerAppsPanel({
   if (!tournamentId || !localDetail) {
     return (
       <div className="space-y-4">
-        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/owner-apps" />
+        <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
         <div className="rounded-xl border border-border bg-card/70">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-display text-base font-black text-white">Live owner app coverage</h2>
@@ -45,7 +52,11 @@ export function LiveOwnerAppsPanel({
               <button
                 key={t.id}
                 className="block w-full space-y-2 px-4 py-3 text-left text-sm hover:bg-accent/40 md:grid md:grid-cols-[1fr_160px_120px] md:items-center md:gap-4 md:space-y-0"
-                onClick={() => { window.location.href = `/admin/live/owner-apps/${t.id}`; }}
+                onClick={() => {
+                  const href = pickerHref(t.id);
+                  if (onNavigate) onNavigate(href);
+                  else window.location.href = href;
+                }}
               >
                 <div>
                   <div className="font-semibold text-white">{t.name}</div>
@@ -76,7 +87,7 @@ export function LiveOwnerAppsPanel({
 
   return (
     <div className="space-y-4">
-      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} basePath="/admin/live/owner-apps" />
+      <LiveTournamentPicker tournaments={tournaments} selectedId={tournamentId} buildHref={pickerHref} onNavigate={onNavigate} showPicker={showPicker} />
       <div className="rounded-xl border border-border bg-card/70">
         <div className="border-b border-border px-4 py-3">
           <h2 className="font-display text-base font-black text-white">{t.name}</h2>

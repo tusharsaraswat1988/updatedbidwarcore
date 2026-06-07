@@ -11,6 +11,16 @@ import { useBranding } from "@/hooks/use-branding";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { cldUrl } from "@/lib/cloudinary";
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 type AdminShellProps = {
@@ -46,6 +56,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   const { logos, brandName, loading } = useBranding();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   async function handleLogout() {
     await logout();
@@ -94,13 +105,35 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
             <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
           </div>
           <button
-            onClick={handleLogout}
+            type="button"
+            onClick={() => setLogoutOpen(true)}
             className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut className="h-5 w-5" />
           </button>
         </div>
+
+        <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to sign out of Super Admin?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => void handleLogout()}
+              >
+                Sign out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <div className="flex-1 overflow-auto">
           <div className="border-b border-border bg-card/30 px-4 py-3 sm:px-6 sm:py-4">
