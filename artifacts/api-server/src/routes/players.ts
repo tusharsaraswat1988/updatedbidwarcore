@@ -5,6 +5,7 @@ import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waCo
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
+import { parseOptionalEmail } from "@workspace/api-base/email";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -98,6 +99,7 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   jerseyNumber: p.jerseyNumber,
   achievements: p.achievements,
   mobileNumber: p.mobileNumber,
+  email: p.email ?? null,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
   playerTag: p.playerTag ?? null,
@@ -159,6 +161,7 @@ const playerInputSchema = z.object({
   jerseyNumber: z.string().optional(),
   achievements: z.string().optional(),
   mobileNumber: z.string().min(1, "Mobile number is required for communication features"),
+  email: z.string().optional(),
   cricheroUrl: z.string().optional(),
   availabilityDates: z.string().optional(),
   retainedPrice: z.number().int().optional(),
@@ -197,6 +200,12 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     return;
   }
   const mobileNumber = mobileParsed.normalized;
+
+  const emailParsed = parseOptionalEmail(d.email);
+  if (!emailParsed.ok) {
+    res.status(400).json({ error: emailParsed.error, field: "email" });
+    return;
+  }
 
   // Duplicate name check (case-insensitive) within the same tournament
   const [dupName] = await db
@@ -240,6 +249,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       jerseyNumber: d.jerseyNumber ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
+      email: emailParsed.email,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
@@ -284,6 +294,12 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   }
   const mobileNumber = mobileParsed.normalized;
 
+  const emailParsed = parseOptionalEmail(d.email);
+  if (!emailParsed.ok) {
+    res.status(400).json({ error: emailParsed.error, field: "email" });
+    return;
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -301,6 +317,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       jerseyNumber: d.jerseyNumber ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
+      email: emailParsed.email,
       cricheroUrl: d.cricheroUrl ?? null,
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
@@ -357,6 +374,12 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         errors.push(`${pd.name}: Duplicate mobile number ${bulkMobile} in upload file.`);
         continue;
       }
+      const bulkEmailParsed = parseOptionalEmail(pd.email);
+      if (!bulkEmailParsed.ok) {
+        failed++;
+        errors.push(`${pd.name}: ${bulkEmailParsed.error}`);
+        continue;
+      }
       const dupMobile = await findDuplicatePlayerMobile(tid, bulkMobile);
       if (dupMobile) {
         failed++;
@@ -378,6 +401,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         jerseyNumber: pd.jerseyNumber ?? null,
         achievements: pd.achievements ?? null,
         mobileNumber: bulkMobile,
+        email: bulkEmailParsed.email,
         cricheroUrl: pd.cricheroUrl ?? null,
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
@@ -427,6 +451,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     jerseyNumber: z.string().optional(),
     achievements: z.string().optional(),
     mobileNumber: z.string().min(1).optional(),
+    email: z.string().optional(),
     cricheroUrl: z.string().optional(),
     availabilityDates: z.string().optional(),
     retainedPrice: z.number().int().nullable().optional(),
@@ -465,6 +490,16 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     }
   }
 
+  let normalizedEmail: string | null | undefined;
+  if (d.email !== undefined) {
+    const emailParsed = parseOptionalEmail(d.email);
+    if (!emailParsed.ok) {
+      res.status(400).json({ error: emailParsed.error, field: "email" });
+      return;
+    }
+    normalizedEmail = emailParsed.email;
+  }
+
   // Validate: retained status requires a team + price
   const newStatus = d.status ?? existing.status;
   const newTeamId = d.teamId !== undefined ? d.teamId : existing.teamId;
@@ -486,6 +521,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
   if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
+  if (normalizedEmail !== undefined) updates.email = normalizedEmail;
   if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;
   if (d.availabilityDates !== undefined) updates.availabilityDates = d.availabilityDates;
   if (d.retainedPrice !== undefined) updates.retainedPrice = d.retainedPrice;

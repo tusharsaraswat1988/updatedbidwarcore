@@ -570,6 +570,8 @@ export const ExportTournamentForLocalResponse = zod.object({
       shortCode: zod.string(),
       ownerName: zod.string(),
       ownerMobile: zod.string().nullish(),
+      ownerEmail: zod.string().nullish(),
+      ownerPhotoUrl: zod.string().nullish(),
       color: zod.string().nullish(),
       logoUrl: zod.string().nullish(),
       purse: zod.number(),
@@ -600,6 +602,7 @@ export const ExportTournamentForLocalResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -757,6 +760,8 @@ export const ListTeamsResponseItem = zod.object({
   shortCode: zod.string(),
   ownerName: zod.string(),
   ownerMobile: zod.string().nullish(),
+  ownerEmail: zod.string().nullish(),
+  ownerPhotoUrl: zod.string().nullish(),
   color: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   purse: zod.number(),
@@ -779,6 +784,8 @@ export const CreateTeamBody = zod.object({
   shortCode: zod.string(),
   ownerName: zod.string(),
   ownerMobile: zod.string().optional(),
+  ownerEmail: zod.string().optional(),
+  ownerPhotoUrl: zod.string().optional(),
   color: zod.string().optional(),
   logoUrl: zod.string().optional(),
   purse: zod.number().optional(),
@@ -847,6 +854,8 @@ export const GetTeamResponse = zod.object({
   shortCode: zod.string(),
   ownerName: zod.string(),
   ownerMobile: zod.string().nullish(),
+  ownerEmail: zod.string().nullish(),
+  ownerPhotoUrl: zod.string().nullish(),
   color: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   purse: zod.number(),
@@ -869,6 +878,8 @@ export const UpdateTeamBody = zod.object({
   shortCode: zod.string().optional(),
   ownerName: zod.string().optional(),
   ownerMobile: zod.string().optional(),
+  ownerEmail: zod.string().optional(),
+  ownerPhotoUrl: zod.string().optional(),
   color: zod.string().optional(),
   logoUrl: zod.string().optional(),
   purse: zod.number().optional(),
@@ -883,6 +894,8 @@ export const UpdateTeamResponse = zod.object({
   shortCode: zod.string(),
   ownerName: zod.string(),
   ownerMobile: zod.string().nullish(),
+  ownerEmail: zod.string().nullish(),
+  ownerPhotoUrl: zod.string().nullish(),
   color: zod.string().nullish(),
   logoUrl: zod.string().nullish(),
   purse: zod.number(),
@@ -1084,6 +1097,7 @@ export const ListPlayersResponseItem = zod.object({
   jerseyNumber: zod.string().nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
   playerTag: zod
@@ -1129,6 +1143,7 @@ export const CreatePlayerBody = zod.object({
   jerseyNumber: zod.string().optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
+  email: zod.string().optional(),
   cricheroUrl: zod.string().optional(),
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
@@ -1196,6 +1211,7 @@ export const RegisterPlayerBody = zod.object({
   jerseyNumber: zod.string().optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
+  email: zod.string().optional(),
   cricheroUrl: zod.string().optional(),
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
@@ -1245,6 +1261,7 @@ export const BulkCreatePlayersBody = zod.object({
       jerseyNumber: zod.string().optional(),
       achievements: zod.string().optional(),
       mobileNumber: zod.string().optional(),
+      email: zod.string().optional(),
       cricheroUrl: zod.string().optional(),
       availabilityDates: zod.string().optional(),
       retainedPrice: zod.number().optional(),
@@ -1307,6 +1324,7 @@ export const GetPlayerResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
   playerTag: zod
@@ -1352,6 +1370,7 @@ export const UpdatePlayerBody = zod.object({
   jerseyNumber: zod.string().optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
+  email: zod.string().optional(),
   cricheroUrl: zod.string().optional(),
   availabilityDates: zod.string().optional(),
   retainedPrice: zod.number().optional(),
@@ -1392,6 +1411,7 @@ export const UpdatePlayerResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
   playerTag: zod
@@ -1454,6 +1474,7 @@ export const GetAuctionStateResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -1603,6 +1624,7 @@ export const StartAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -1752,6 +1774,7 @@ export const PauseAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -1906,6 +1929,7 @@ export const NextPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2064,6 +2088,7 @@ export const PlaceBidResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2213,6 +2238,7 @@ export const SellPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2367,6 +2393,7 @@ export const ManualSellResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2516,6 +2543,7 @@ export const MarkUnsoldResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2670,6 +2698,7 @@ export const ReAuctionPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2819,6 +2848,7 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -2968,6 +2998,7 @@ export const UndoLastActionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3121,6 +3152,7 @@ export const ResetTrialAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3274,6 +3306,7 @@ export const SetDisplayOverlayResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3429,6 +3462,7 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3548,6 +3582,38 @@ export const SetDisplayPlayerFilterResponse = zod.object({
 });
 
 /**
+ * Returns teams registered to the given mobile across eligible tournaments (license trial/active, not admin-locked, not completed). Does not expose access codes.
+
+ * @summary Look up active tournaments and teams for an owner mobile number
+ */
+export const lookupOwnerOnboardingBodyMobileMin = 8;
+export const lookupOwnerOnboardingBodyMobileMax = 20;
+
+export const LookupOwnerOnboardingBody = zod.object({
+  mobile: zod
+    .string()
+    .min(lookupOwnerOnboardingBodyMobileMin)
+    .max(lookupOwnerOnboardingBodyMobileMax),
+});
+
+export const LookupOwnerOnboardingResponse = zod.object({
+  entries: zod.array(
+    zod.object({
+      tournamentId: zod.number(),
+      tournamentName: zod.string(),
+      teamId: zod.number(),
+      teamName: zod.string(),
+      teamShortCode: zod.string(),
+      teamColor: zod.string().nullish(),
+      licenseStatus: zod.string(),
+      tournamentStatus: zod.string(),
+      auctionStatus: zod.string().nullish(),
+      requiresAccessCode: zod.boolean(),
+    }),
+  ),
+});
+
+/**
  * @summary Verify owner panel access code
  */
 export const VerifyOwnerAccessParams = zod.object({
@@ -3608,6 +3674,7 @@ export const SyncFortuneWheelResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3761,6 +3828,7 @@ export const SetCategoryFilterResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -3926,6 +3994,7 @@ export const SetBreakTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -4084,6 +4153,7 @@ export const SetPreAuctionCountdownResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -4243,6 +4313,7 @@ export const StartTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -4392,6 +4463,7 @@ export const StopTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod
@@ -4541,6 +4613,7 @@ export const DeferPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
+      email: zod.string().nullish(),
       cricheroUrl: zod.string().nullish(),
       availabilityDates: zod.string().nullish(),
       playerTag: zod

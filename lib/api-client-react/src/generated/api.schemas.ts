@@ -295,6 +295,8 @@ export interface Team {
   /** @nullable */
   ownerMobile?: string | null;
   /** @nullable */
+  ownerEmail?: string | null;
+  /** @nullable */
   ownerPhotoUrl?: string | null;
   /** @nullable */
   color?: string | null;
@@ -313,6 +315,7 @@ export interface TeamInput {
   shortCode: string;
   ownerName: string;
   ownerMobile?: string;
+  ownerEmail?: string;
   ownerPhotoUrl?: string;
   color?: string;
   logoUrl?: string;
@@ -324,6 +327,7 @@ export interface TeamUpdate {
   shortCode?: string;
   ownerName?: string;
   ownerMobile?: string;
+  ownerEmail?: string;
   ownerPhotoUrl?: string;
   color?: string;
   logoUrl?: string;
@@ -526,6 +530,8 @@ export interface Player {
   /** @nullable */
   mobileNumber?: string | null;
   /** @nullable */
+  email?: string | null;
+  /** @nullable */
   cricheroUrl?: string | null;
   /** @nullable */
   availabilityDates?: string | null;
@@ -571,6 +577,7 @@ export interface PlayerInput {
   jerseyNumber?: string;
   achievements?: string;
   mobileNumber?: string;
+  email?: string;
   cricheroUrl?: string;
   availabilityDates?: string;
   retainedPrice?: number;
@@ -611,6 +618,7 @@ export interface PlayerUpdate {
   jerseyNumber?: string;
   achievements?: string;
   mobileNumber?: string;
+  email?: string;
   cricheroUrl?: string;
   availabilityDates?: string;
   retainedPrice?: number;
@@ -792,27 +800,6 @@ export interface DisplayCountdown {
   message?: string | null;
 }
 
-/** Structured sold/unsold result emitted between two players. */
-export interface AuctionStateOutcome {
-  type: "sold" | "unsold";
-  /** @nullable */
-  playerId?: number | null;
-  playerName: string;
-  /** @nullable */
-  photoUrl?: string | null;
-  /** @nullable */
-  teamId?: number | null;
-  /** @nullable */
-  teamName?: string | null;
-  /** @nullable */
-  teamColor?: string | null;
-  /** @nullable */
-  teamLogoUrl?: string | null;
-  /** @nullable */
-  amount?: number | null;
-  isManual?: boolean;
-}
-
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -841,11 +828,6 @@ export interface AuctionState {
   timerType?: AuctionStateTimerType;
   /** @nullable */
   lastAction?: string | null;
-  /**
-   * Authoritative sold/unsold snapshot between two players.
-   * @nullable
-   */
-  outcome?: AuctionStateOutcome | null;
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
@@ -1224,8 +1206,6 @@ export type TeamReportDataTeam = {
   ownerName: string;
   ownerMobile: string;
   /** @nullable */
-  ownerPhotoUrl?: string | null;
-  /** @nullable */
   logoUrl?: string | null;
   /** @nullable */
   color?: string | null;
@@ -1311,6 +1291,31 @@ export const SetDisplayOverlayBodyMode = {
 
 export type SetDisplayOverlayBody = {
   mode: SetDisplayOverlayBodyMode;
+};
+
+export type LookupOwnerOnboardingBody = {
+  /**
+   * @minLength 8
+   * @maxLength 20
+   */
+  mobile: string;
+};
+
+export type LookupOwnerOnboarding200EntriesItem = {
+  tournamentId: number;
+  tournamentName: string;
+  teamId: number;
+  teamName: string;
+  teamShortCode: string;
+  teamColor?: string | null;
+  licenseStatus: string;
+  tournamentStatus: string;
+  auctionStatus?: string | null;
+  requiresAccessCode: boolean;
+};
+
+export type LookupOwnerOnboarding200 = {
+  entries: LookupOwnerOnboarding200EntriesItem[];
 };
 
 export type VerifyOwnerAccessBody = {

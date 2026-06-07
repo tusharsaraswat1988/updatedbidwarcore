@@ -108,6 +108,7 @@ function resolveRecipients(
         auctionTime: p.auctionTime,
         venue: p.venue,
         organizerName: p.organizerName,
+        tournamentId: p.tournamentId,
         appUrl,
       },
     };

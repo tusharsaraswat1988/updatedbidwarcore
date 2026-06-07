@@ -15,4 +15,16 @@ void pool
     console.error("[db] failed to ensure teams.owner_photo_url column:", err);
   });
 
+void pool
+  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.email column:", err);
+  });
+
+void pool
+  .query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure teams.owner_email column:", err);
+  });
+
 export * from "./schema";

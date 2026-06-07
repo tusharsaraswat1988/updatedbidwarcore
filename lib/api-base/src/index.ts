@@ -11,6 +11,8 @@ export {
   type BidAmountInput,
 } from "./auction-bid.ts";
 
+export { parseOptionalEmail } from "./email.ts";
+
 export {
   OWNER_APP_BASE,
   ownerJoinPath,

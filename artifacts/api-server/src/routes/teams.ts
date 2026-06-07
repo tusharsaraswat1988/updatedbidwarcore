@@ -8,6 +8,7 @@ import { logger } from "../lib/logger";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
+import { parseOptionalEmail } from "@workspace/api-base/email";
 import { buildPublicUrl } from "../lib/runtime-env";
 
 const cloudinaryLogoUrl = z
@@ -56,6 +57,7 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   shortCode: t.shortCode,
   ownerName: t.ownerName,
   ownerMobile: t.ownerMobile,
+  ownerEmail: t.ownerEmail ?? null,
   ownerPhotoUrl: t.ownerPhotoUrl,
   color: t.color,
   logoUrl: t.logoUrl,
@@ -108,6 +110,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     shortCode: z.string().min(1).max(5),
     ownerName: z.string().min(1),
     ownerMobile: z.string().min(1, "Owner mobile is required for communication features"),
+    ownerEmail: z.string().optional(),
     ownerPhotoUrl: cloudinaryLogoUrl,
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
@@ -119,6 +122,12 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const mobileParsed = parseIndianMobile(d.ownerMobile);
   if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
   const ownerMobile = mobileParsed.normalized;
+
+  const ownerEmailParsed = parseOptionalEmail(d.ownerEmail);
+  if (!ownerEmailParsed.ok) {
+    res.status(400).json({ error: ownerEmailParsed.error, field: "ownerEmail" });
+    return;
+  }
 
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
   if (existing.length > 0) { res.status(400).json({ error: `Short code "${d.shortCode.toUpperCase()}" is already used by another team` }); return; }
@@ -158,6 +167,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         shortCode: d.shortCode.toUpperCase(),
         ownerName: d.ownerName,
         ownerMobile,
+        ownerEmail: ownerEmailParsed.email,
         ownerPhotoUrl: d.ownerPhotoUrl || null,
         color: d.color ?? "#3B82F6",
         logoUrl: d.logoUrl ?? null,
@@ -277,6 +287,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     shortCode: z.string().optional(),
     ownerName: z.string().optional(),
     ownerMobile: z.string().min(1).optional(),
+    ownerEmail: z.string().optional(),
     ownerPhotoUrl: cloudinaryLogoUrl,
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
@@ -300,6 +311,14 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
     normalizedOwnerMobile = mobileParsed.normalized;
     updates.ownerMobile = normalizedOwnerMobile;
+  }
+  if (d.ownerEmail !== undefined) {
+    const ownerEmailParsed = parseOptionalEmail(d.ownerEmail);
+    if (!ownerEmailParsed.ok) {
+      res.status(400).json({ error: ownerEmailParsed.error, field: "ownerEmail" });
+      return;
+    }
+    updates.ownerEmail = ownerEmailParsed.email;
   }
   if (d.ownerPhotoUrl !== undefined) updates.ownerPhotoUrl = d.ownerPhotoUrl || null;
   if (d.color !== undefined) updates.color = d.color;

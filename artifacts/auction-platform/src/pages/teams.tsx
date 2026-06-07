@@ -24,6 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseOptionalEmail } from "@workspace/api-base/email";
+import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 
@@ -93,6 +95,7 @@ function TeamForm({
     shortCode: team?.shortCode || "",
     ownerName: team?.ownerName || "",
     ownerMobile: team?.ownerMobile ? sanitizeMobileInput(team.ownerMobile) : "",
+    ownerEmail: team?.ownerEmail || "",
     ownerPhotoUrl: team?.ownerPhotoUrl && !team.ownerPhotoUrl.startsWith("data:") ? team.ownerPhotoUrl : "",
     color: team?.color || defaultNewColor,
     purse: team?.purse || basePurse,
@@ -102,6 +105,7 @@ function TeamForm({
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [ownerPhotoEditorOpen, setOwnerPhotoEditorOpen] = useState(false);
   const [error, setError] = useState("");
+  const [ownerEmailError, setOwnerEmailError] = useState("");
 
   const takenCodes = new Set(
     existingShortCodes.filter(c => !team || c !== team.shortCode)
@@ -121,6 +125,7 @@ function TeamForm({
       shortCode: team?.shortCode || "",
       ownerName: team?.ownerName || "",
       ownerMobile: team?.ownerMobile ? sanitizeMobileInput(team.ownerMobile) : "",
+      ownerEmail: team?.ownerEmail || "",
       ownerPhotoUrl: team?.ownerPhotoUrl && !team.ownerPhotoUrl.startsWith("data:") ? team.ownerPhotoUrl : "",
       color: team?.color || pickNextTeamColor(existingTeamColors),
       purse: team?.purse || basePurse,
@@ -128,16 +133,23 @@ function TeamForm({
     });
     setShortCodeManuallyEdited(!isNew);
     setError("");
-  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.shortCode, team?.color, team?.purse, basePurse, isNew, existingTeamColors]);
+    setOwnerEmailError("");
+  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, basePurse, isNew, existingTeamColors]);
 
   const shortCodeDuplicate = takenCodes.has(form.shortCode.toUpperCase());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setOwnerEmailError("");
     const mobileResult = parseIndianMobile(form.ownerMobile);
     if (!mobileResult.ok) {
       setError(mobileResult.error);
+      return;
+    }
+    const ownerEmailResult = parseOptionalEmail(form.ownerEmail);
+    if (!ownerEmailResult.ok) {
+      setOwnerEmailError(ownerEmailResult.error);
       return;
     }
     if (shortCodeDuplicate) {
@@ -149,6 +161,7 @@ function TeamForm({
       shortCode: form.shortCode.trim().toUpperCase(),
       ownerName: form.ownerName.trim(),
       ownerMobile: mobileResult.normalized,
+      ownerEmail: ownerEmailResult.email || "",
       ownerPhotoUrl: form.ownerPhotoUrl.trim() || "",
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
@@ -163,7 +176,12 @@ function TeamForm({
       await qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || "Failed to save team");
+      const body = err?.response?.data;
+      if (body?.field === "ownerEmail") {
+        setOwnerEmailError(body.error || "Please enter a valid email address");
+        return;
+      }
+      setError(body?.error || err?.message || "Failed to save team");
     }
   }
 
@@ -252,6 +270,14 @@ function TeamForm({
           <p className="text-xs text-muted-foreground">Digits only — must start with 6, 7, 8, or 9.</p>
         </div>
       </div>
+
+      <OptionalEmailField
+        id="owner-email"
+        label="Owner Email Address"
+        value={form.ownerEmail}
+        onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
+        error={ownerEmailError || undefined}
+      />
 
       <div className="space-y-2">
         <Label>Owner Photo <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
@@ -563,6 +589,7 @@ export default function Teams() {
                           <h3 className="font-bold text-lg leading-tight">{team.name}</h3>
                           <p className="text-xs text-muted-foreground">{team.ownerName}</p>
                           {team.ownerMobile && <p className="text-xs text-muted-foreground font-mono">{team.ownerMobile}</p>}
+                          {team.ownerEmail && <p className="text-xs text-muted-foreground break-all">{team.ownerEmail}</p>}
                         </div>
                       </div>
                       <div className="flex gap-1">

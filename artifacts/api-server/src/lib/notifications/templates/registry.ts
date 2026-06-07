@@ -23,12 +23,15 @@ const EMAIL_TEMPLATE_REGISTRY: Partial<Record<NotificationEventType, EmailTempla
     tournamentCreatedEmail({
       tournamentName: String(params.tournamentName),
       sport: String(params.sport),
-      auctionCode: String(params.auctionCode),
+      auctionCode: params.auctionCode as string | null,
       auctionDate: params.auctionDate as string | null,
       auctionTime: params.auctionTime as string | null,
       venue: params.venue as string | null,
       organizerName: params.organizerName as string | null,
       appUrl: String(params.appUrl),
+      tournamentId: params.tournamentId as number | null | undefined,
+      logoUrl: params.logoUrl as string | null | undefined,
+      brandName: params.brandName as string | undefined,
     }),
 };
 

@@ -91,6 +91,7 @@ function TeamOwnerRow({
           <p className="font-semibold text-sm leading-tight">{team.name}</p>
           {team.ownerName && <p className="text-xs text-muted-foreground mt-0.5">{team.ownerName}</p>}
           {team.ownerMobile && <p className="text-xs font-mono text-muted-foreground mt-0.5">{team.ownerMobile}</p>}
+          {team.ownerEmail && <p className="text-xs text-muted-foreground mt-0.5 break-all">{team.ownerEmail}</p>}
         </div>
       </div>
 

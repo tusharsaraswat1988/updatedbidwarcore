@@ -27,6 +27,14 @@ const migrations: Array<{ label: string; sql: string }> = [
     sql: `ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_url text`,
   },
   {
+    label: "players_email",
+    sql: `ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`,
+  },
+  {
+    label: "teams_owner_email",
+    sql: `ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`,
+  },
+  {
     label: "create_sessions_table",
     sql: `
       CREATE TABLE IF NOT EXISTS "sessions" (

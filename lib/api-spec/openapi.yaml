@@ -2076,6 +2076,8 @@ components:
           type: string
         ownerMobile:
           type: ["string", "null"]
+        ownerEmail:
+          type: ["string", "null"]
         ownerPhotoUrl:
           type: ["string", "null"]
         color:
@@ -2105,6 +2107,8 @@ components:
           type: string
         ownerMobile:
           type: string
+        ownerEmail:
+          type: string
         ownerPhotoUrl:
           type: string
         color:
@@ -2124,6 +2128,8 @@ components:
         ownerName:
           type: string
         ownerMobile:
+          type: string
+        ownerEmail:
           type: string
         ownerPhotoUrl:
           type: string
@@ -2342,6 +2348,8 @@ components:
           type: ["string", "null"]
         mobileNumber:
           type: ["string", "null"]
+        email:
+          type: ["string", "null"]
         cricheroUrl:
           type: ["string", "null"]
         availabilityDates:
@@ -2388,6 +2396,8 @@ components:
         achievements:
           type: string
         mobileNumber:
+          type: string
+        email:
           type: string
         cricheroUrl:
           type: string
@@ -2438,6 +2448,8 @@ components:
         achievements:
           type: string
         mobileNumber:
+          type: string
+        email:
           type: string
         cricheroUrl:
           type: string

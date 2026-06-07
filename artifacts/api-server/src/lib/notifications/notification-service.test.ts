@@ -21,10 +21,18 @@ describe("email templates", () => {
       venue: "Mumbai",
       organizerName: "Rahul",
       appUrl: "https://bidwar.in",
+      tournamentId: 42,
     });
     expect(result.subject).toContain("Summer League 2026");
     expect(result.html).toContain("SU42");
-    expect(result.html).toContain("cricket");
+    expect(result.html).toContain("Cricket");
+    expect(result.html).toContain("Your Tournament Is Now Live on BidWar");
+    expect(result.html).toContain("Open Tournament Dashboard");
+    expect(result.html).toContain("https://bidwar.in/tournament/42");
+    expect(result.html).toContain("bidwar-icon.png");
+    expect(result.html).toContain("bidwarsupport@gmail.com");
+    expect(result.html).toContain("Add Teams");
+    expect(result.html).toContain("#FBBF24");
   });
 
   it("registry resolves known event types", () => {

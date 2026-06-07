@@ -27,6 +27,7 @@ export function organiserWelcomeEmail(params: OrganiserWelcomeTemplateParams): {
       ctaLabel: "Go to Dashboard",
       ctaUrl: `${params.appUrl}/organizer`,
       footerNote: "You received this email because you registered as a tournament organiser on BidWar.",
+      appUrl: params.appUrl,
     }),
   };
 }

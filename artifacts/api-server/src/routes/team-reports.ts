@@ -115,6 +115,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     age: p.age ?? null,
     photoUrl: p.photoUrl ?? null,
     mobileNumber: p.mobileNumber || null,
+    email: p.email ?? null,
     jerseyNumber: p.jerseyNumber ?? null,
     categoryId: p.categoryId ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
@@ -156,6 +157,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
       shortCode: team.shortCode,
       ownerName: team.ownerName,
       ownerMobile: team.ownerMobile,
+      ownerEmail: team.ownerEmail ?? null,
       ownerPhotoUrl: team.ownerPhotoUrl ?? null,
       logoUrl: team.logoUrl ?? null,
       color: team.color ?? null,
@@ -203,13 +205,13 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
 
   type EnrichedPlayer = {
     id: number; name: string; role: string | null; city: string | null; age: number | null;
-    mobileNumber: string | null; jerseyNumber: string | null; categoryName: string | null;
+    mobileNumber: string | null; email: string | null; jerseyNumber: string | null; categoryName: string | null;
     soldPrice: number | null; retainedPrice: number | null; status: string; isNonPlayingMember: boolean;
   };
 
   const enrich = (p: typeof playersTable.$inferSelect): EnrichedPlayer => ({
     id: p.id, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
-    mobileNumber: p.mobileNumber || null, jerseyNumber: p.jerseyNumber ?? null,
+    mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     soldPrice: p.soldPrice ?? null, retainedPrice: p.retainedPrice ?? null,
     status: p.status, isNonPlayingMember: p.isNonPlayingMember,
@@ -232,6 +234,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     { key: "age", label: "Age" },
     { key: "city", label: "City" },
     { key: "mobileNumber", label: "Mobile" },
+    { key: "email", label: "Email" },
     { key: "categoryName", label: "Category" },
     { key: "role", label: "Role" },
     { key: "jerseyNumber", label: "Jersey No." },
@@ -351,6 +354,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     age: { label: "Age", width: 0.5, get: (p) => p.age ? String(p.age) : "-" },
     city: { label: "City", width: 0.9, get: (p) => p.city || "-" },
     mobileNumber: { label: "Mobile", width: 1.1, get: (p) => p.mobileNumber || "-" },
+    email: { label: "Email", width: 1.4, get: (p) => p.email || "-" },
     categoryName: { label: "Category", width: 0.9, get: (p) => p.categoryName || "-" },
     role: { label: "Role", width: 0.9, get: (p) => p.role?.replace(/_/g, " ") || "-" },
     jerseyNumber: { label: "Jersey", width: 0.55, get: (p) => p.jerseyNumber || "-" },

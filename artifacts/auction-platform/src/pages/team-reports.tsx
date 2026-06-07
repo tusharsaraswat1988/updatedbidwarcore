@@ -26,6 +26,7 @@ import {
 const OPTIONAL_COLS = [
   { key: "photo",            label: "Player Photo" },
   { key: "mobileNumber",     label: "Mobile Number" },
+  { key: "email",            label: "Email" },
   { key: "age",              label: "Age" },
   { key: "city",             label: "City" },
   { key: "categoryName",     label: "Category" },
@@ -39,7 +40,7 @@ type ColKey = typeof OPTIONAL_COLS[number]["key"];
 const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
   basic:    [],
   auction:  ["photo", "categoryName", "remainingBalance"],
-  detailed: ["photo", "mobileNumber", "age", "city", "categoryName", "role", "jerseyNumber", "status", "remainingBalance"],
+  detailed: ["photo", "mobileNumber", "email", "age", "city", "categoryName", "role", "jerseyNumber", "status", "remainingBalance"],
 };
 
 function loadCols(tid: number): Set<ColKey> {
@@ -60,7 +61,7 @@ function saveCols(tid: number, cols: Set<ColKey>) {
 
 type ReportPlayer = {
   id: number; name: string; role: string | null; city: string | null; age: number | null;
-  photoUrl: string | null; mobileNumber: string | null; jerseyNumber: string | null;
+  photoUrl: string | null; mobileNumber: string | null; email: string | null; jerseyNumber: string | null;
   categoryName: string | null; categoryColor: string | null;
   soldPrice: number | null; retainedPrice: number | null;
   status: string; isNonPlayingMember: boolean;
@@ -69,7 +70,7 @@ type ReportPlayer = {
 type ReportData = {
   isLicensed: boolean;
   tournament: { id: number; name: string; sport: string; logoUrl: string | null; licenseStatus: string; minimumSquadSize: number; maximumSquadSize: number };
-  team: { id: number; name: string; shortCode: string; ownerName: string; ownerMobile: string; ownerPhotoUrl: string | null; logoUrl: string | null; color: string | null; purse: number; purseUsed: number };
+  team: { id: number; name: string; shortCode: string; ownerName: string; ownerMobile: string; ownerEmail: string | null; ownerPhotoUrl: string | null; logoUrl: string | null; color: string | null; purse: number; purseUsed: number };
   purgeSummary: { totalPurse: number; retainedSpend: number; preSoldSpend: number; remainingPurse: number };
   retainedPlayers: ReportPlayer[];
   preSoldPlayers: ReportPlayer[];
@@ -123,6 +124,7 @@ function PlayerTable({
             {cols.has("age") && <th className="w-14 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Age</th>}
             {cols.has("city") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">City</th>}
             {cols.has("mobileNumber") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Mobile</th>}
+            {cols.has("email") && <th className="w-36 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Email</th>}
             {cols.has("categoryName") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Category</th>}
             {cols.has("role") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Role</th>}
             {cols.has("jerseyNumber") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Jersey</th>}
@@ -149,6 +151,7 @@ function PlayerTable({
                 {cols.has("age") && <td className={`${cell} text-center text-gray-600`}>{p.age ?? "-"}</td>}
                 {cols.has("city") && <td className={`${cell} text-gray-600`}>{p.city || "-"}</td>}
                 {cols.has("mobileNumber") && <td className={`${cell} font-mono text-xs text-gray-600`}>{p.mobileNumber || "-"}</td>}
+                {cols.has("email") && <td className={`${cell} text-xs text-gray-600 break-all`}>{p.email || "-"}</td>}
                 {cols.has("categoryName") && (
                   <td className={cell}>
                     {p.categoryName ? (
@@ -313,6 +316,7 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
                 <div>
                   <p className="text-xs font-semibold text-slate-200">{team.ownerName}</p>
                   {team.ownerMobile && <p className="font-mono text-xs text-slate-400">{team.ownerMobile}</p>}
+                  {team.ownerEmail && <p className="text-xs text-slate-400 break-all">{team.ownerEmail}</p>}
                 </div>
               </div>
             </div>

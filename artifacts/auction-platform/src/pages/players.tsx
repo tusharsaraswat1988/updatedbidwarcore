@@ -63,6 +63,8 @@ import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseOptionalEmail } from "@workspace/api-base/email";
+import { OptionalEmailField } from "@/components/optional-email-field";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
@@ -420,6 +422,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const [filledFromProfile, setFilledFromProfile] = useState(false);
   const [basePriceTouched, setBasePriceTouched] = useState(false);
   const [mobileError, setMobileError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [mobileLookupLoading, setMobileLookupLoading] = useState(false);
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
   const [pendingMobileProfile, setPendingMobileProfile] = useState<SuggestionProfile | null>(null);
@@ -463,6 +466,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     jerseyNumber: player?.jerseyNumber || "",
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
+    email: player?.email || "",
     cricheroUrl: player?.cricheroUrl || "",
     availabilityDates: player
       ? (player.availabilityDates || "")
@@ -539,7 +543,13 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       return;
     }
     setMobileError("");
+    setEmailError("");
     setSubmitError("");
+    const emailResult = parseOptionalEmail(form.email);
+    if (!emailResult.ok) {
+      setEmailError(emailResult.error);
+      return;
+    }
     const data = {
       name: form.name,
       city: form.city || undefined,
@@ -553,6 +563,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       jerseyNumber: form.jerseyNumber || undefined,
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
+      email: emailResult.email || undefined,
       cricheroUrl: form.cricheroUrl || undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
@@ -576,6 +587,8 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       const msg = body?.error || err?.message || "Failed to save player";
       if (body?.field === "mobileNumber") {
         setMobileError(msg);
+      } else if (body?.field === "email") {
+        setEmailError(msg);
       } else {
         setSubmitError(msg);
       }
@@ -718,6 +731,12 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           </Select>
         </div>
       </div>
+      <OptionalEmailField
+        id="player-email"
+        value={form.email}
+        onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
+        error={emailError || undefined}
+      />
       {/* Row 3: City | Age */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -1007,10 +1026,10 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,availabilityDates,cricheroUrl";
+  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
 
   function downloadTemplate() {
-    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,18-20 March,https://crichero.com/rohit";
+    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
     const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1052,6 +1071,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
           const parsed = parseIndianMobile(raw);
           return parsed.ok ? parsed.normalized : raw;
         })(),
+        email: row["email"] || undefined,
         availabilityDates: row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
         cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
       };
@@ -1567,6 +1587,15 @@ function PlayerDetailPanel({
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs">{player.mobileNumber}</span>
               <CopyTextButton text={player.mobileNumber} label="Copy" />
+            </div>
+          </div>
+        )}
+        {player.email && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Email</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs break-all">{player.email}</span>
+              <CopyTextButton text={player.email} label="Copy" />
             </div>
           </div>
         )}

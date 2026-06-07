@@ -39,6 +39,8 @@ import type {
   ListImportCandidatesParams,
   LocalSyncPayload,
   LocalSyncResult,
+  LookupOwnerOnboarding200,
+  LookupOwnerOnboardingBody,
   ManualSellInput,
   MirrorAuctionState200,
   MirrorPayload,
@@ -3731,6 +3733,95 @@ export const useSetDisplayPlayerFilter = <
   TContext
 > => {
   return useMutation(getSetDisplayPlayerFilterMutationOptions(options));
+};
+
+/**
+ * Returns teams registered to the given mobile across eligible tournaments (license trial/active, not admin-locked, not completed). Does not expose access codes.
+
+ * @summary Look up active tournaments and teams for an owner mobile number
+ */
+export const getLookupOwnerOnboardingUrl = () => {
+  return `/api/owner/onboarding/lookup`;
+};
+
+export const lookupOwnerOnboarding = async (
+  lookupOwnerOnboardingBody: LookupOwnerOnboardingBody,
+  options?: RequestInit,
+): Promise<LookupOwnerOnboarding200> => {
+  return customFetch<LookupOwnerOnboarding200>(getLookupOwnerOnboardingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(lookupOwnerOnboardingBody),
+  });
+};
+
+export const getLookupOwnerOnboardingMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOwnerOnboarding>>,
+    TError,
+    { data: BodyType<LookupOwnerOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupOwnerOnboarding>>,
+  TError,
+  { data: BodyType<LookupOwnerOnboardingBody> },
+  TContext
+> => {
+  const mutationKey = ["lookupOwnerOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupOwnerOnboarding>>,
+    { data: BodyType<LookupOwnerOnboardingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return lookupOwnerOnboarding(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LookupOwnerOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupOwnerOnboarding>>
+>;
+export type LookupOwnerOnboardingMutationBody =
+  BodyType<LookupOwnerOnboardingBody>;
+export type LookupOwnerOnboardingMutationError = ErrorType<void>;
+
+/**
+ * @summary Look up active tournaments and teams for an owner mobile number
+ */
+export const useLookupOwnerOnboarding = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOwnerOnboarding>>,
+    TError,
+    { data: BodyType<LookupOwnerOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof lookupOwnerOnboarding>>,
+  TError,
+  { data: BodyType<LookupOwnerOnboardingBody> },
+  TContext
+> => {
+  return useMutation(getLookupOwnerOnboardingMutationOptions(options));
 };
 
 /**

@@ -20,6 +20,8 @@ import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Sear
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseOptionalEmail } from "@workspace/api-base/email";
+import { OptionalEmailField } from "@/components/optional-email-field";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -75,6 +77,7 @@ export default function PlayerRegister() {
   const [waConsent, setWaConsent] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState("");
 
   // Mobile lookup state (Phase 5)
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
@@ -86,6 +89,7 @@ export default function PlayerRegister() {
   const [form, setForm] = useState({
     name: "",
     mobileNumber: "",
+    email: "",
     city: "",
     role: "",
     age: "",
@@ -244,6 +248,13 @@ export default function PlayerRegister() {
       return;
     }
     setErrorMsg(null);
+    setEmailError("");
+
+    const emailResult = parseOptionalEmail(form.email);
+    if (!emailResult.ok) {
+      setEmailError(emailResult.error);
+      return;
+    }
 
     // Serialize spec selections into existing style fields (up to 3 groups)
     const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -257,6 +268,7 @@ export default function PlayerRegister() {
         data: {
           name: form.name,
           mobileNumber: mobileResult.normalized,
+          email: emailResult.email || undefined,
           city: form.city || undefined,
           role: form.role || undefined,
           battingStyle: battingStyle || undefined,
@@ -276,7 +288,11 @@ export default function PlayerRegister() {
       setSubmitted(true);
       refetchStatus();
     } catch (err: any) {
-      const data = err?.data;
+      const data = err?.data ?? err?.response?.data;
+      if (data?.field === "email") {
+        setEmailError(data.error || "Please enter a valid email address");
+        return;
+      }
       if (data && typeof data === "object" && data.reason) {
         setErrorMsg(
           data.reason === "deadline_passed"
@@ -368,10 +384,10 @@ export default function PlayerRegister() {
                       className="mt-4"
                       variant="outline"
                       onClick={() => {
-                        setSubmitted(false); setWaConsent(false); setErrorMsg(null);
+                        setSubmitted(false); setWaConsent(false); setErrorMsg(null); setEmailError("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
-                          name: "", mobileNumber: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "",
+                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
                           cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
                         });
@@ -443,6 +459,14 @@ export default function PlayerRegister() {
                           </p>
                         )}
                       </div>
+
+                      <OptionalEmailField
+                        id="register-email"
+                        value={form.email}
+                        onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
+                        error={emailError || undefined}
+                        inputClassName="h-11 sm:h-9 text-base"
+                      />
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 sm:col-span-2">
