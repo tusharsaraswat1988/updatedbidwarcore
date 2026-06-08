@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
+import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
   signupSendOtp,
@@ -1869,6 +1871,22 @@ export default function OrganizerPortal() {
     setNeedsMobile(false);
   }
 
+  const handleInactivityTimeout = useCallback(() => {
+    setOrganizer(null);
+    setTournaments([]);
+    setNeedsMobile(false);
+  }, []);
+
+  const {
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+    lockMinutes,
+  } = useOrganizerInactivityLogout({
+    enabled: !!organizer,
+    onTimeout: handleInactivityTimeout,
+  });
+
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
     setOrganizer(org);
     setTournaments(tours);
@@ -1918,6 +1936,14 @@ export default function OrganizerPortal() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {warningVisible && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
     </FullscreenLayout>
   );
 }
