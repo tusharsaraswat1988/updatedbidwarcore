@@ -16,7 +16,7 @@ import {
 import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { useBranding } from "@/hooks/use-branding";
@@ -28,6 +28,11 @@ import { DisplayConnectionBanner } from "@/components/display/display-connection
 import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
+import { SponsorCarousel } from "@/components/display/sponsor-carousel";
+import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
+import { parseSponsorLogos } from "@/lib/sponsor-logo";
+
+const TEAMS_PREVIEW = 6;
 
 type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
 
@@ -251,6 +256,55 @@ function TeamSquadSheet({
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Players</p>
                 </div>
               </div>
+              {(team?.spendablePurse !== undefined || (team?.reservePurse ?? 0) > 0) && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {team?.spendablePurse !== undefined && (
+                    <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
+                      <p className={`font-mono font-bold text-sm tabular-nums ${(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize) ? "text-red-400" : "text-emerald-400"}`}>
+                        {(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize)
+                          ? "Squad Full"
+                          : formatShortIndianRupee(team.spendablePurse)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Max Bid</p>
+                    </div>
+                  )}
+                  {(team?.reservePurse ?? 0) > 0 && (
+                    <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
+                      <p className="font-mono font-bold text-sm tabular-nums text-amber-400/90">
+                        {formatShortIndianRupee(team.reservePurse!)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Reserved</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(team?.maximumSquadSize ?? 0) > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[10px] mb-1 text-muted-foreground">
+                    <span>Squad</span>
+                    <span>{team?.playersBought ?? 0} / {team?.maximumSquadSize}</span>
+                  </div>
+                  <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-green-400/70"
+                      style={{
+                        width: `${Math.min(100, ((team?.playersBought ?? 0) / (team?.maximumSquadSize ?? 1)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {team?.topPlayerName && (
+                <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-2">
+                  <Star className="w-3 h-3 flex-shrink-0 text-amber-400" />
+                  <span className="text-xs text-muted-foreground truncate flex-1">{team.topPlayerName}</span>
+                  {team.topPlayerAmount != null && (
+                    <span className="text-xs font-mono font-bold text-amber-400 tabular-nums">
+                      {formatShortIndianRupee(team.topPlayerAmount)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Player list */}
@@ -292,6 +346,93 @@ function TeamSquadSheet({
                   ))}
                 </div>
               )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── AllTeamsSheet — full team list when preview is capped at 6 ────────────────
+
+function AllTeamsSheet({
+  teams,
+  leadingTeamId,
+  open,
+  onClose,
+  onSelectTeam,
+}: {
+  teams: TeamPurse[];
+  leadingTeamId?: number | null;
+  open: boolean;
+  onClose: () => void;
+  onSelectTeam: (teamId: number) => void;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} />
+          <motion.div
+            className="relative z-10 w-full sm:max-w-lg bg-[#18181b] border border-border/60 rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+          >
+            <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
+              <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            <div className="flex-shrink-0 px-5 py-4 border-b border-border/50">
+              <h3 className="font-display font-black text-lg">All Teams</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Tap a team for purse & squad details</p>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {teams.map((team) => {
+                  const tc = team.color || "#F59E0B";
+                  const isLeading = leadingTeamId === team.teamId;
+                  return (
+                    <button
+                      key={team.teamId}
+                      type="button"
+                      onClick={() => {
+                        onSelectTeam(team.teamId);
+                        onClose();
+                      }}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all active:scale-[0.97]"
+                      style={{
+                        borderColor: isLeading ? `${tc}88` : "rgba(var(--border), 0.5)",
+                        backgroundColor: isLeading ? `${tc}12` : "transparent",
+                      }}
+                    >
+                      {team.logoUrl ? (
+                        <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-10 h-10 rounded-full object-cover" />
+                      ) : (
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center font-display font-black text-xs"
+                          style={{ backgroundColor: `${tc}22`, color: tc }}
+                        >
+                          {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-xs font-semibold leading-tight line-clamp-2" style={{ color: tc }}>
+                        {team.teamName}
+                      </span>
+                      {isLeading && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-green-400">Leading</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -381,32 +522,33 @@ function CompletedScreen({
   );
 
   return (
-    <div className="min-h-screen bg-[#09090b] px-4 py-10 max-w-3xl mx-auto space-y-8">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full max-w-3xl mx-auto">
       {/* Hero */}
-      <div className="text-center space-y-4 py-6">
+      <div className="flex-shrink-0 text-center space-y-3 py-4 px-2">
         {tournament?.logoUrl && (
-          <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" className="w-20 h-20 object-contain mx-auto opacity-80 mb-2" />
+          <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" className="w-14 h-14 object-contain mx-auto opacity-80" />
         )}
-        <Trophy className="w-14 h-14 text-primary mx-auto" />
+        <Trophy className="w-10 h-10 text-primary mx-auto" />
         <div>
-          <h1 className="font-display font-black text-3xl sm:text-4xl text-foreground">
+          <h1 className="font-display font-black text-2xl sm:text-3xl text-foreground leading-tight">
             Auction Concluded
           </h1>
           {tournament?.name && (
-            <p className="text-muted-foreground mt-1.5">{tournament.name}</p>
+            <p className="font-display font-bold text-base sm:text-lg text-amber-400/90 mt-1.5 line-clamp-2">{tournament.name}</p>
           )}
         </div>
       </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-24 space-y-4">
       {/* Overall stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-5 rounded-2xl bg-card/50 border border-border/50 text-center">
-          <p className="font-display font-black text-3xl text-green-400">{soldPlayers.length}</p>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Players Sold</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-3 rounded-xl bg-card/50 border border-border/50 text-center">
+          <p className="font-display font-black text-2xl text-green-400">{soldPlayers.length}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Players Sold</p>
         </div>
-        <div className="p-5 rounded-2xl bg-card/50 border border-border/50 text-center">
-          <p className="font-display font-black text-2xl text-primary">{formatShortIndianRupee(totalSpend)}</p>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mt-1">Total Spend</p>
+        <div className="p-3 rounded-xl bg-card/50 border border-border/50 text-center">
+          <p className="font-display font-black text-xl text-primary">{formatShortIndianRupee(totalSpend)}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Total Spend</p>
         </div>
       </div>
 
@@ -512,8 +654,9 @@ function CompletedScreen({
         </div>
       )}
 
-      <div className="text-center pt-4">
+      <div className="text-center pt-2 pb-1">
         <p className="text-[10px] text-muted-foreground/35 uppercase tracking-widest">Powered by BidWar</p>
+      </div>
       </div>
     </div>
   );
@@ -798,8 +941,9 @@ function MobileCheerFeed({
 // ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
 export default function LiveViewerPage() {
-  const [, params] = useRoute("/tournament/:id/liveviewer");
-  const tournamentId = parseInt(params?.id || "0");
+  const [, legacyParams] = useRoute("/tournament/:id/liveviewer");
+  const [, liveParams] = useRoute("/live/:id");
+  const tournamentId = parseInt(legacyParams?.id || liveParams?.id || "0");
   const { logos, brandName } = useBranding();
 
   // ── Cheer state (declared early so the socket callback is stable) ─────────
@@ -892,6 +1036,31 @@ export default function LiveViewerPage() {
     return () => { document.title = "BidWar"; };
   }, [tournament?.name]);
 
+  // Lock document scroll — viewer is a fixed single-screen experience
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevHtml = html.style.overflow;
+    const prevBody = document.body.style.overflow;
+    html.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, []);
+
+  const sponsorLogos = useMemo(
+    () => parseSponsorLogos(tournament?.sponsorLogos),
+    [tournament?.sponsorLogos],
+  );
+  const hasSponsorRibbon = sponsorLogos.length > 0;
+  const cheerBottomOffset = hasSponsorRibbon ? SPONSOR_RIBBON_TOTAL_HEIGHT_PX + 12 : 20;
+  const previewTeams = useMemo(
+    () => (teamPurses ?? []).slice(0, TEAMS_PREVIEW),
+    [teamPurses],
+  );
+  const extraTeamCount = Math.max(0, (teamPurses?.length ?? 0) - TEAMS_PREVIEW);
+
   // ── Sound engine ─────────────────────────────────────────────────────────
   const { play, settings: soundSettings, toggle: toggleSound } = useSoundEngine();
 
@@ -955,6 +1124,7 @@ export default function LiveViewerPage() {
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [allTeamsOpen, setAllTeamsOpen] = useState(false);
   const [soundSettingsOpen, setSoundSettingsOpen] = useState(false);
 
   // Stores the last player outcome — persists until the next player is announced
@@ -1142,19 +1312,16 @@ export default function LiveViewerPage() {
 
   const anySound = Object.values(soundSettings).some(Boolean);
 
-  // ── Completed state ───────────────────────────────────────────────────────
-  if (isCompleted) {
-    return (
-      <CompletedScreen
-        tournament={tournament}
-        players={playerList}
-        teamPurses={teamPurses}
-      />
-    );
-  }
-
   return (
     <div className="h-[100dvh] bg-[#09090b] relative flex flex-col overflow-hidden">
+      {isCompleted ? (
+        <CompletedScreen
+          tournament={tournament}
+          players={playerList}
+          teamPurses={teamPurses}
+        />
+      ) : (
+        <>
       {/* Animated background glow */}
       <AnimatePresence>
         <motion.div
@@ -1170,29 +1337,65 @@ export default function LiveViewerPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
-        <div className="px-4 py-3.5 flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-7 w-auto" />
-            <span className="font-display font-black text-amber-400 text-base tracking-widest">{brandName.toUpperCase()}</span>
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-6 sm:h-7 w-auto" />
+              <span className="hidden sm:inline font-display font-black text-amber-400 text-sm tracking-widest">{brandName.toUpperCase()}</span>
+            </div>
+            {sponsorLogos.length > 0 && (
+              <div className="hidden md:block ml-auto">
+                <SponsorCarousel logos={sponsorLogos} compact />
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 ml-auto md:ml-0">
+              <span className={`inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border ${statusRing}`}>
+                {(isActive || isSold) && (
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse" />
+                )}
+                {statusLabel}
+              </span>
+              <button
+                onClick={() => setSoundSettingsOpen(true)}
+                className="p-2 sm:p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
+                title="Sound settings"
+              >
+                {anySound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-          <div className="h-5 w-px bg-white/15 flex-shrink-0" />
-          <p className="flex-1 min-w-0 font-semibold text-sm text-white/80 truncate">
-            {tournament?.name || "Live Auction"}
-          </p>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${statusRing}`}>
-              {(isActive || isSold) && (
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              )}
-              {statusLabel}
+          <div className="mt-1.5 sm:mt-2 flex items-center gap-2 min-w-0">
+            {tournament?.logoUrl && (
+              <img
+                src={cldUrl(tournament.logoUrl, "headerLogo")}
+                alt=""
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain flex-shrink-0 bg-white/5"
+              />
+            )}
+            <h1 className="flex-1 min-w-0 font-display font-black text-[15px] sm:text-lg leading-tight text-white line-clamp-2">
+              {tournament?.name || "Live Auction"}
+            </h1>
+            {sponsorLogos.length > 0 && (
+              <div className="md:hidden flex-shrink-0">
+                <SponsorCarousel logos={sponsorLogos} compact />
+              </div>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-semibold tabular-nums">
+            <span className="text-green-400">
+              <span className="font-display font-black">{soldCount}</span>
+              <span className="text-muted-foreground font-normal ml-1">sold</span>
             </span>
-            <button
-              onClick={() => setSoundSettingsOpen(true)}
-              className="p-2.5 rounded-xl border border-border/40 text-muted-foreground hover:text-foreground transition-colors"
-              title="Sound settings"
-            >
-              {anySound ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
+            <span className="text-white/20">·</span>
+            <span className="text-amber-400">
+              <span className="font-display font-black">{remainingCount}</span>
+              <span className="text-muted-foreground font-normal ml-1">left</span>
+            </span>
+            <span className="text-white/20">·</span>
+            <span className="text-red-400">
+              <span className="font-display font-black">{unsoldCount}</span>
+              <span className="text-muted-foreground font-normal ml-1">unsold</span>
+            </span>
           </div>
         </div>
         <DisplayConnectionBanner status={connectionStatus} />
@@ -1231,27 +1434,13 @@ export default function LiveViewerPage() {
         </div>
       )}
 
-      {/* ── Scrollable content ─────────────────────────────────────────── */}
-      <div className={`relative z-10 flex-1 overflow-y-auto max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full px-4 py-3 pb-28 transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
+      {/* ── Main content — fixed viewport, no page scroll ──────────────── */}
+      <div className={`relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden max-w-4xl xl:max-w-[calc(100%-18rem)] mx-auto xl:mx-0 w-full transition-opacity duration-300 ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/20" : ""}`}>
 
-        {/* Stats bar */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 py-4">
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-3xl sm:text-4xl text-green-400">{soldCount}</p>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Sold</p>
-          </div>
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-3xl sm:text-4xl text-amber-400">{remainingCount}</p>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Remaining</p>
-          </div>
-          <div className="text-center p-3 sm:p-4 rounded-xl bg-card/40 border border-border/40">
-            <p className="font-display font-black text-3xl sm:text-4xl text-red-400">{unsoldCount}</p>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mt-0.5">Unsold</p>
-          </div>
-        </div>
-
-        {/* ── Player section ─────────────────────────────────────────── */}
-        <div className="relative mb-4 min-h-[12rem]">
+        {/* Player + teams fill remaining height */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-1">
+        {/* ── Player section — always full prominence (live auction player) ── */}
+        <div className="relative flex-shrink-0 mb-2 sm:mb-3">
           {displayMode.overlayMode && (
             <AuctionStatusOverlay
               mode={displayMode.overlayMode}
@@ -1524,128 +1713,55 @@ export default function LiveViewerPage() {
           </div>
         </div>
 
-        {/* ── Team grid ──────────────────────────────────────────────── */}
-        {teamPurses && teamPurses.length > 0 && (
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium mb-3">Teams</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-              {teamPurses.map((team) => {
+        {/* ── Team grid — logo + name only; tap for purse/squad details ── */}
+        {previewTeams.length > 0 && (
+          <div className="flex-shrink-0 flex flex-col gap-2 pb-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-widest text-muted-foreground font-medium">Teams</p>
+              {extraTeamCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAllTeamsOpen(true)}
+                  className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  View More (+{extraTeamCount})
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+              {previewTeams.map((team) => {
                 const isLeading = state?.currentBidTeamId === team.teamId;
                 const tc = team.color || "#F59E0B";
-                const short = team.shortCode || team.teamName.slice(0, 4).toUpperCase();
-                const maxSquad = team.maximumSquadSize;
-                const minSquad = team.minimumSquadSize;
-                const bought = team.playersBought;
-                const slotsNeeded = team.slotsRequired;
-                const reserved = team.reservePurse;
-                const spendable = team.spendablePurse;
-                const squadFull = maxSquad > 0 && bought >= maxSquad;
-                const minMet = minSquad === 0 || slotsNeeded === 0;
-                const squadPct = maxSquad > 0
-                  ? Math.min(100, (bought / maxSquad) * 100) : 0;
                 return (
                   <motion.button
                     key={team.teamId}
+                    type="button"
                     onClick={() => setSelectedTeamId(team.teamId)}
                     whileTap={{ scale: 0.95 }}
-                    className="text-left rounded-xl border transition-all cursor-pointer relative overflow-hidden p-3"
+                    className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-xl border transition-all cursor-pointer relative"
                     style={{
                       backgroundColor: isLeading ? `${tc}10` : "transparent",
                       borderColor: isLeading ? `${tc}88` : "rgba(var(--border), 0.5)",
-                      boxShadow: isLeading ? `0 0 18px ${tc}28` : "none",
+                      boxShadow: isLeading ? `0 0 14px ${tc}28` : "none",
                     }}
                   >
-                    {/* Color accent bar */}
-                    <div
-                      className="absolute top-0 inset-x-0 h-0.5 rounded-t-xl"
-                      style={{ backgroundColor: tc }}
-                    />
-
-                    {/* Header */}
-                    <div className="flex items-center gap-2 mb-2 mt-0.5">
-                      {team.logoUrl ? (
-                        <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                      ) : (
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center font-display font-black text-[9px] flex-shrink-0"
-                          style={{ backgroundColor: `${tc}22`, color: tc }}
-                        >
-                          {short.slice(0, 2)}
-                        </div>
-                      )}
-                      <span className="font-display font-black text-sm leading-none truncate" style={{ color: tc }}>
-                        {short}
-                      </span>
-                      {isLeading && (
-                        <span className="ml-auto flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      )}
-                    </div>
-
-                    <p className="text-[10px] text-muted-foreground truncate leading-tight">{team.teamName}</p>
-
-                    {/* Purse block */}
-                    <div className="mt-1.5 space-y-0.5">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Remaining</span>
-                        <span className="font-display font-black text-sm tabular-nums" style={{ color: tc }}>
-                          {formatShortIndianRupee(team.purseRemaining)}
-                        </span>
-                      </div>
-                      {spendable !== undefined && spendable < team.purseRemaining && (
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Max Bid</span>
-                          <span className={`font-mono font-bold text-xs tabular-nums ${squadFull ? "text-red-400" : "text-emerald-400"}`}>
-                            {squadFull ? "Full" : formatShortIndianRupee(spendable)}
-                          </span>
-                        </div>
-                      )}
-                      {reserved !== undefined && reserved > 0 && (
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-[9px] text-amber-400/70 uppercase tracking-wider">Reserved</span>
-                          <span className="font-mono font-bold text-[10px] tabular-nums text-amber-400/80">
-                            {formatShortIndianRupee(reserved)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Squad capacity */}
-                    <div className="mt-1.5">
-                      {maxSquad > 0 ? (
-                        <>
-                          <div className="flex items-center justify-between text-[10px] mb-0.5">
-                            <span className={slotsNeeded > 0 ? "text-amber-400" : minMet && minSquad > 0 ? "text-green-400/70" : "text-muted-foreground"}>
-                              {bought} / {maxSquad}
-                              {slotsNeeded > 0 && ` · need ${slotsNeeded}`}
-                              {squadFull && " · FULL"}
-                            </span>
-                          </div>
-                          <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${squadFull ? "bg-red-400" : slotsNeeded > 0 ? "bg-amber-400" : "bg-green-400/60"}`}
-                              style={{ width: `${squadPct}%` }}
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground">
-                          {bought} player{bought !== 1 ? "s" : ""}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Top player */}
-                    {team.topPlayerName && (
-                      <div className="mt-1.5 flex items-center gap-1 min-w-0">
-                        <Star className="w-2.5 h-2.5 flex-shrink-0 text-amber-400/60" />
-                        <span className="text-[9px] text-muted-foreground truncate">{team.topPlayerName}</span>
-                        {team.topPlayerAmount != null && (
-                          <span className="text-[9px] font-mono text-amber-400/70 flex-shrink-0 ml-auto tabular-nums">
-                            {formatShortIndianRupee(team.topPlayerAmount)}
-                          </span>
-                        )}
+                    {isLeading && (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    )}
+                    {team.logoUrl ? (
+                      <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-display font-black text-[10px] sm:text-xs flex-shrink-0"
+                        style={{ backgroundColor: `${tc}22`, color: tc }}
+                      >
+                        {(team.shortCode || team.teamName).slice(0, 2).toUpperCase()}
                       </div>
                     )}
+                    <span className="text-[10px] sm:text-xs font-semibold text-center leading-tight line-clamp-2 w-full" style={{ color: tc }}>
+                      {team.teamName}
+                    </span>
                   </motion.button>
                 );
               })}
@@ -1653,12 +1769,17 @@ export default function LiveViewerPage() {
           </div>
         )}
 
-        <div className="mt-6 text-center pb-2">
-          <p className="text-[10px] text-muted-foreground/35 uppercase tracking-widest">
-            Powered by BidWar
-          </p>
         </div>
       </div>
+        </>
+      )}
+
+      {/* ── Sponsor ribbon (patti) ─────────────────────────────────────── */}
+      {hasSponsorRibbon && (
+        <div className="flex-shrink-0 relative z-20">
+          <SponsorTicker logos={sponsorLogos} />
+        </div>
+      )}
 
       {/* ── Sheets & Dialogs ─────────────────────────────────────────── */}
       <TeamSquadSheet
@@ -1666,6 +1787,13 @@ export default function LiveViewerPage() {
         players={playerList}
         open={selectedTeamId !== null}
         onClose={() => setSelectedTeamId(null)}
+      />
+      <AllTeamsSheet
+        teams={teamPurses ?? []}
+        leadingTeamId={state?.currentBidTeamId}
+        open={allTeamsOpen}
+        onClose={() => setAllTeamsOpen(false)}
+        onSelectTeam={setSelectedTeamId}
       />
       <SoundSettingsDialog
         open={soundSettingsOpen}
@@ -1690,7 +1818,10 @@ export default function LiveViewerPage() {
 
       {/* ── CHEER LIVE pill button ────────────────────────────────────────── */}
       {cheerEnabled && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
+          style={{ bottom: cheerBottomOffset }}
+        >
           {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
             <div className="xl:hidden">
               <HeatBadge level={heatLevel} />
@@ -1792,7 +1923,7 @@ export default function LiveViewerPage() {
       </AnimatePresence>
 
       {/* ── Pre-Auction countdown overlay (full-screen; break uses shared banner) ── */}
-      {stickyDc?.type === "pre-auction" && (
+      {!isCompleted && stickyDc?.type === "pre-auction" && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}
           type="pre-auction"

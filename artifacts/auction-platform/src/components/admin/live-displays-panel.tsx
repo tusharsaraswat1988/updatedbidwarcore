@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
+import { liveViewerPath } from "@/lib/tournament-navigation";
 
 function DisplayEndpointRow({
   label,
@@ -78,7 +79,7 @@ export function LiveDisplaysPanel({
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    <a href={`/tournament/${t.id}/liveviewer`} target="_blank" rel="noreferrer">Viewer</a>
+                    <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">Viewer</a>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
                     <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Broadcast</a>
@@ -116,7 +117,7 @@ export function LiveDisplaysPanel({
           <span />
         </div>
         <div className="divide-y divide-border">
-          <DisplayEndpointRow label="Live viewer (LED)" href={`${base}/liveviewer`} tournamentId={t.id} />
+          <DisplayEndpointRow label="Live viewer" href={liveViewerPath(t.id)} tournamentId={t.id} />
           <DisplayEndpointRow label="Broadcast Overlay" href={`${base}/obs`} tournamentId={t.id} />
           <DisplayEndpointRow label="Break timer display" href={`${base}/break-timer`} tournamentId={t.id} />
         </div>

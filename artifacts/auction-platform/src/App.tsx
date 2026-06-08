@@ -98,16 +98,18 @@ function Router() {
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
-        <Route path="/tournament/:id/liveviewer">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <TournamentCodeGate tournamentId={tid}>
-                <LiveViewer />
-              </TournamentCodeGate>
-            );
+        {/* Public live viewer — no auction code gate; share /live/:id with fans */}
+        <Route path="/live/:id" component={LiveViewer} />
+        <Route path="/live">
+          {() => {
+            const auction = new URLSearchParams(window.location.search).get("auction");
+            if (auction && /^\d+$/.test(auction)) {
+              return <Redirect to={`/live/${auction}`} />;
+            }
+            return <Redirect to="/upcoming-auctions" />;
           }}
         </Route>
+        <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
         <Route path="/tournament/:id/register" component={PlayerRegister} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
         <Route path="/tournament/:id/owner/:teamId">

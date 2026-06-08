@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
+import { liveViewerPath } from "@/lib/tournament-navigation";
 import { ServerCountdown } from "@/components/server-countdown";
 
 export function LiveAuctionMonitor({
@@ -250,7 +251,7 @@ function MonitorWorkspace({
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
                 <span className="text-white">Live viewer</span>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/tournament/${t.id}/liveviewer`} target="_blank" rel="noreferrer">Open</a>
+                  <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">Open</a>
                 </Button>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
@@ -274,7 +275,7 @@ function MonitorWorkspace({
             <h3 className="font-display font-black text-white">Quick Actions</h3>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button variant="outline" asChild>
-                <a href={`/tournament/${t.id}/liveviewer`} target="_blank" rel="noreferrer">Open Viewer</a>
+                <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">Open Viewer</a>
               </Button>
               <Button variant="outline" asChild>
                 <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Open Overlay</a>

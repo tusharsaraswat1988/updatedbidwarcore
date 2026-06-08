@@ -961,7 +961,7 @@ export function LiveBid({
           )}
         </AnimatePresence>
 
-        <Toast message={navToast ?? null} onDismiss={() => onNavToastDismiss?.()} />
+        <Toast message={navToast ?? null} onDismiss={onNavToastDismiss ?? (() => {})} />
       </div>
     );
   }
@@ -1219,7 +1219,7 @@ export function LiveBid({
         )}
       </AnimatePresence>
 
-      <Toast message={navToast ?? null} onDismiss={() => onNavToastDismiss?.()} />
+      <Toast message={navToast ?? null} onDismiss={onNavToastDismiss ?? (() => {})} />
     </div>
   );
 }

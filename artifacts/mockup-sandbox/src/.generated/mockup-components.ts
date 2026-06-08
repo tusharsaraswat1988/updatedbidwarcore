@@ -7,6 +7,7 @@ export const modules: ModuleMap = {
   "./components/mockups/led-display/IceBlue.tsx": () => import("../components/mockups/led-display/IceBlue.tsx"),
   "./components/mockups/led-display/NeonMumbai.tsx": () => import("../components/mockups/led-display/NeonMumbai.tsx"),
   "./components/mockups/led-display/StadiumCard.tsx": () => import("../components/mockups/led-display/StadiumCard.tsx"),
+  "./components/mockups/led-display/Top5AuctionBroadcast.tsx": () => import("../components/mockups/led-display/Top5AuctionBroadcast.tsx"),
   "./components/mockups/operator-panel/BeginnerFriendly.tsx": () => import("../components/mockups/operator-panel/BeginnerFriendly.tsx"),
   "./components/mockups/operator-panel/BroadcastPremium.tsx": () => import("../components/mockups/operator-panel/BroadcastPremium.tsx"),
   "./components/mockups/operator-panel/ProOperator.tsx": () => import("../components/mockups/operator-panel/ProOperator.tsx")

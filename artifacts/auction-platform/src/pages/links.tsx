@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
 import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
+import { liveViewerPath } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
 
@@ -147,7 +148,7 @@ export default function LinksPage() {
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
-  const liveViewerUrl = `${base}/tournament/${tournamentId}/liveviewer`;
+  const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
 
   return (
@@ -226,11 +227,13 @@ export default function LinksPage() {
               <Monitor className="w-5 h-5 text-primary" />
               <h2 className="font-display font-bold text-lg">Spectator viewing (optional)</h2>
             </div>
-            <p className="text-xs text-muted-foreground mb-4">For fans watching from home without broadcast software.</p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Share this link on WhatsApp, Instagram, or QR codes — fans open it and watch immediately. No auction code required.
+            </p>
             <LinkRow
               label="Live Auction Viewer (spectators)"
               url={liveViewerUrl}
-              description="Share with fans and family — watch the auction live from any phone, tablet, or laptop."
+              description="Opens directly on any phone, tablet, laptop, or OBS browser source — auction loads automatically."
               shareText={`Watch our auction live: ${liveViewerUrl}`}
             />
           </CardContent>

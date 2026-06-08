@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "wouter";
 import { useWakeLock } from "../hooks/useWakeLock";
 import {
@@ -175,6 +175,7 @@ export function OwnerRoute() {
   }, [state?.status, (state?.currentPlayer as { id?: number } | null | undefined)?.id, screen]);
 
   const [navToast, setNavToast] = useState<string | null>(null);
+  const dismissNavToast = useCallback(() => setNavToast(null), []);
 
   function handleViewScout() {
     if (isPlayerOnAuctionStage(state)) {
@@ -327,7 +328,7 @@ export function OwnerRoute() {
       onViewSquad={handleViewSquad}
       onViewScout={handleViewScout}
       navToast={navToast}
-      onNavToastDismiss={() => setNavToast(null)}
+      onNavToastDismiss={dismissNavToast}
       onSync={handleSync}
       isSyncError={stateIsError}
       onSignOut={() => {

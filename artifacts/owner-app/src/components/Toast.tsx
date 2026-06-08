@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Props {
@@ -8,11 +8,14 @@ interface Props {
 }
 
 export function Toast({ message, onDismiss, durationMs = 3500 }: Props) {
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(onDismiss, durationMs);
+    const t = setTimeout(() => onDismissRef.current(), durationMs);
     return () => clearTimeout(t);
-  }, [message, onDismiss, durationMs]);
+  }, [message, durationMs]);
 
   return (
     <AnimatePresence>

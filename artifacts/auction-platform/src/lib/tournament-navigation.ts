@@ -26,6 +26,16 @@ export function displayScreenPath(
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
 }
 
+/** Public live auction viewer — shareable, no auction code required. */
+export function liveViewerPath(tournamentId: number): string {
+  return `/live/${tournamentId}`;
+}
+
+/** @deprecated Use liveViewerPath — kept for backward-compatible bookmarks. */
+export function legacyLiveViewerPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/liveviewer`;
+}
+
 /** Broadcast Overlay path (internal `/obs` route; browser-source for streaming). */
 export function obsOverlayPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs`;
