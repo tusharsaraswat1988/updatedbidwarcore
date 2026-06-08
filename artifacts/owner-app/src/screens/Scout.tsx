@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, AlertCircle, Radar } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -198,7 +198,10 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom">
+    <div
+      className="auction-surface h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Auto-return banner */}
       <AnimatePresence>
         {auctionStarted && (
@@ -209,7 +212,7 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
             className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/20 border-b border-green-500/30"
           >
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <p className="text-sm font-bold text-green-400">Auction started — returning to bid screen</p>
+            <p className="text-sm font-bold text-green-400">Player on stage — returning to bid screen</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -227,10 +230,10 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
           <p className="text-xs text-[#52525b] mt-0.5">Rival intelligence</p>
         </div>
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center font-display font-black text-xs flex-shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: `${teamColor}20`, color: teamColor, border: `2px solid ${teamColor}44` }}
         >
-          <Users className="w-4 h-4" />
+          <Radar className="w-4 h-4" strokeWidth={2.25} />
         </div>
       </div>
 

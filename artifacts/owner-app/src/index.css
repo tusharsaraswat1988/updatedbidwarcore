@@ -24,6 +24,11 @@
   touch-action: manipulation;
 }
 
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
 html, body, #root {
   height: 100%;
   overflow: hidden;
@@ -59,3 +64,20 @@ body {
   100% { transform: scale(1); }
 }
 .bid-flash { animation: bid-flash 0.3s ease-out; }
+
+/* Live auction surfaces — prevent browser text selection, callouts, and double-tap zoom */
+.auction-surface {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+.auction-surface button,
+.auction-surface a,
+.auction-surface [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}

@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert,
-  AlertTriangle, Users, Coffee, RefreshCw, X, XCircle, Telescope,
+  AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser,
 } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -12,6 +12,8 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
+import { Toast } from "@/components/Toast";
+import { isPlayerOnAuctionStage } from "@/lib/auction-stage";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuctionState {
@@ -101,6 +103,8 @@ interface Props {
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
   onViewScout: () => void;
+  navToast?: string | null;
+  onNavToastDismiss?: () => void;
   onSignOut: () => void;
   onSync: () => void;
   isSyncError?: boolean;
@@ -422,7 +426,8 @@ function BrandMini({ logos, brandName, miniBrandText }: {
 // ── Main component ────────────────────────────────────────────────────────────
 export function LiveBid({
   state, team, tournament, teamPurse, teamId,
-  isFetching, bidErrorMsg, onBid, onViewSquad, onViewScout, onSignOut, onSync, isSyncError,
+  isFetching, bidErrorMsg, onBid, onViewSquad, onViewScout,
+  navToast, onNavToastDismiss, onSignOut, onSync, isSyncError,
 }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
@@ -441,6 +446,7 @@ export function LiveBid({
   const isLeading = state?.currentBidTeamId === teamId;
   const isActive  = state?.status === "active";
   const hasPlayer = !!state?.currentPlayer;
+  const navBlocked = isPlayerOnAuctionStage(state);
 
   const expired     = useTimerExpired(state?.timerEndsAt);
   const timerActive = !!state?.timerEndsAt && !expired;
@@ -590,12 +596,27 @@ export function LiveBid({
     return () => clearTimeout(t);
   }, [state?.lastPurseBooster, teamId]);
 
+  const navBtnClass = (blocked: boolean) =>
+    `p-2 transition-colors rounded-xl active:scale-90 ${
+      blocked
+        ? "text-[#52525b] opacity-40 cursor-not-allowed"
+        : "text-[#71717a] hover:text-white hover:bg-[#18181b]"
+    }`;
+
+  const navBtnClassLandscape = (blocked: boolean) =>
+    `p-1.5 transition-colors rounded-lg ${
+      blocked
+        ? "text-[#52525b] opacity-40 cursor-not-allowed"
+        : "text-[#71717a] hover:text-white hover:bg-[#18181b]"
+    }`;
+
   // ── Portrait layout ─────────────────────────────────────────────────────────
   if (!landscape) {
     return (
       <div
-        className="relative h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom"
+        className="auction-surface relative h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
         style={{ background: `radial-gradient(ellipse at top, ${teamColor}12 0%, transparent 55%), #09090b` }}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3 pb-3 border-b border-[#27272a] flex-shrink-0">
@@ -640,17 +661,19 @@ export function LiveBid({
             </button>
             <button
               onClick={onViewSquad}
-              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
-              title="My squad"
+              className={navBtnClass(navBlocked)}
+              title={navBlocked ? "Unavailable during live player auction" : "My squad"}
+              aria-disabled={navBlocked}
             >
-              <Users className="w-6 h-6" />
+              <ShieldUser className="w-6 h-6" strokeWidth={2.25} />
             </button>
             <button
               onClick={onViewScout}
-              className="p-2 text-[#71717a] hover:text-white transition-colors rounded-xl hover:bg-[#18181b] active:scale-90"
-              title="Scout rivals"
+              className={navBtnClass(navBlocked)}
+              title={navBlocked ? "Unavailable during live player auction" : "Scout rivals"}
+              aria-disabled={navBlocked}
             >
-              <Telescope className="w-6 h-6" />
+              <Radar className="w-6 h-6" strokeWidth={2.25} />
             </button>
             <button
               onClick={() => setShowSignOutConfirm(true)}
@@ -937,6 +960,8 @@ export function LiveBid({
             </motion.div>
           )}
         </AnimatePresence>
+
+        <Toast message={navToast ?? null} onDismiss={() => onNavToastDismiss?.()} />
       </div>
     );
   }
@@ -944,8 +969,9 @@ export function LiveBid({
   // ── Landscape layout ─────────────────────────────────────────────────────────
   return (
     <div
-      className="relative h-full flex flex-row bg-[#09090b] overflow-hidden"
+      className="auction-surface relative h-full flex flex-row bg-[#09090b] overflow-hidden select-none"
       style={{ background: `radial-gradient(ellipse at center left, ${teamColor}12 0%, transparent 55%), #09090b` }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left: player info */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-[#27272a]">
@@ -972,11 +998,11 @@ export function LiveBid({
             <button onClick={handleSyncTap} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Sync">
               <RefreshCw className={`w-5 h-5 ${syncing ? "animate-spin" : ""}`} />
             </button>
-            <button onClick={onViewSquad} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="My squad">
-              <Users className="w-5 h-5" />
+            <button onClick={onViewSquad} className={navBtnClassLandscape(navBlocked)} title={navBlocked ? "Unavailable during live player auction" : "My squad"} aria-disabled={navBlocked}>
+              <ShieldUser className="w-5 h-5" strokeWidth={2.25} />
             </button>
-            <button onClick={onViewScout} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Scout rivals">
-              <Telescope className="w-5 h-5" />
+            <button onClick={onViewScout} className={navBtnClassLandscape(navBlocked)} title={navBlocked ? "Unavailable during live player auction" : "Scout rivals"} aria-disabled={navBlocked}>
+              <Radar className="w-5 h-5" strokeWidth={2.25} />
             </button>
             <button onClick={() => setShowSignOutConfirm(true)} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]">
               <LogOut className="w-5 h-5" />
@@ -1192,6 +1218,8 @@ export function LiveBid({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Toast message={navToast ?? null} onDismiss={() => onNavToastDismiss?.()} />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { Completed } from "./Completed";
 import { Squad } from "./Squad";
 import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
+import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -153,11 +154,13 @@ export function OwnerRoute() {
     if (done && screen === "live") setScreen("completed");
   }, [state, screen]);
 
-  // Auto-return from scout to live when a player goes active
+  // Auto-return from scout/squad to live when a player goes on stage
   const [scoutAutoReturn, setScoutAutoReturn] = useState(false);
   useEffect(() => {
-    if (screen !== "scout") return;
-    if (state?.status === "active" && state?.currentPlayer) {
+    if (screen !== "scout" && screen !== "squad") return;
+    if (!isPlayerOnAuctionStage(state)) return;
+
+    if (screen === "scout") {
       setScoutAutoReturn(true);
       const t = setTimeout(() => {
         setScoutAutoReturn(false);
@@ -165,9 +168,29 @@ export function OwnerRoute() {
       }, 500);
       return () => clearTimeout(t);
     }
+
+    setScreen("live");
     return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.status, (state?.currentPlayer as { id?: number } | null | undefined)?.id, screen]);
+
+  const [navToast, setNavToast] = useState<string | null>(null);
+
+  function handleViewScout() {
+    if (isPlayerOnAuctionStage(state)) {
+      setNavToast(AUCTION_STAGE_NAV_MESSAGE);
+      return;
+    }
+    setScreen("scout");
+  }
+
+  function handleViewSquad() {
+    if (isPlayerOnAuctionStage(state)) {
+      setNavToast(AUCTION_STAGE_NAV_MESSAGE);
+      return;
+    }
+    setScreen("squad");
+  }
 
   const isCompleted = state?.licenseStatus === "completed" || state?.status === "completed";
 
@@ -301,8 +324,10 @@ export function OwnerRoute() {
       isFetching={stateFetching}
       bidErrorMsg={lastBidError}
       onBid={handleBid}
-      onViewSquad={() => setScreen("squad")}
-      onViewScout={() => setScreen("scout")}
+      onViewSquad={handleViewSquad}
+      onViewScout={handleViewScout}
+      navToast={navToast}
+      onNavToastDismiss={() => setNavToast(null)}
       onSync={handleSync}
       isSyncError={stateIsError}
       onSignOut={() => {

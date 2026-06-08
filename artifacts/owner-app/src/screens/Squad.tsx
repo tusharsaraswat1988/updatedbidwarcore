@@ -1,5 +1,5 @@
 import { useListPlayers, useListTeamPurseBoosters, getListPlayersQueryKey, getListTeamPurseBoostersQueryKey } from "@workspace/api-client-react";
-import { ChevronLeft, User, Trophy } from "lucide-react";
+import { ChevronLeft, User, ShieldUser } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -64,8 +64,9 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
 
   return (
     <div
-      className="h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom"
+      className="auction-surface h-full flex flex-col bg-[#09090b] overflow-hidden safe-top safe-bottom select-none"
       style={{ background: `radial-gradient(ellipse at top, ${teamColor}10 0%, transparent 50%), #09090b` }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Header */}
       <div className="flex items-center gap-4 px-4 pt-4 pb-4 border-b border-[#27272a] flex-shrink-0">
@@ -90,7 +91,7 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
           </p>
           <p className="text-sm text-[#71717a] mt-0.5">My Squad</p>
         </div>
-        <Trophy className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} />
+        <ShieldUser className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} strokeWidth={2.25} />
       </div>
 
       {/* Stats bar */}
