@@ -46,14 +46,21 @@ export function verifyAuthJwt(token: string): AuthClaims | null {
   }
 }
 
+function stripJwtReservedFields<T extends Record<string, unknown>>(payload: T): Omit<T, "exp" | "iat" | "nbf"> {
+  const { exp: _exp, iat: _iat, nbf: _nbf, ...clean } = payload;
+  return clean;
+}
+
 export function signOAuthJwt(state: OAuthState): string {
-  return jwt.sign(state, getSecret(), { expiresIn: OAUTH_EXPIRY });
+  // Re-signing a decoded cookie must not pass through exp/iat — jsonwebtoken rejects duplicate exp.
+  const cleanState = stripJwtReservedFields(state as OAuthState & { exp?: unknown; iat?: unknown; nbf?: unknown });
+  return jwt.sign(cleanState, getSecret(), { expiresIn: OAUTH_EXPIRY });
 }
 
 export function verifyOAuthJwt(token: string): OAuthState | null {
   try {
-    const payload = jwt.verify(token, getSecret()) as OAuthState;
-    return payload;
+    const payload = jwt.verify(token, getSecret()) as OAuthState & { exp?: unknown; iat?: unknown; nbf?: unknown };
+    return stripJwtReservedFields(payload) as OAuthState;
   } catch {
     return null;
   }
