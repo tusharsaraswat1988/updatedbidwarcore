@@ -8,9 +8,11 @@ import {
 import { auctionRoomPath, displayScreenPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
+import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 
 interface LayoutProps {
   children: ReactNode;
@@ -57,6 +59,16 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const { logos, brandName, loading: brandingLoading } = useBranding();
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
+  });
+
+  const {
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+    lockMinutes,
+  } = useOrganizerInactivityLogout({
+    enabled: !!tournamentId,
+    tournamentId,
   });
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -321,6 +333,14 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
           </div>
         )}
       </main>
+
+      {warningVisible && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
     </div>
   );
 }

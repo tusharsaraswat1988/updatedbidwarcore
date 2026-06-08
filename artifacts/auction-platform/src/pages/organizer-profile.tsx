@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
+import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   checkOrganizerAccountAuth,
   updateOrganizerProfile,
@@ -349,6 +351,20 @@ export default function OrganizerProfilePage() {
     navigate("/organizer");
   }
 
+  const handleInactivityTimeout = useCallback(() => {
+    setOrganizer(null);
+  }, []);
+
+  const {
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+    lockMinutes,
+  } = useOrganizerInactivityLogout({
+    enabled: !!organizer,
+    onTimeout: handleInactivityTimeout,
+  });
+
   if (checking) {
     return <div className="min-h-screen bg-[#09090b]" />;
   }
@@ -397,6 +413,14 @@ export default function OrganizerProfilePage() {
           </Button>
         </div>
       </div>
+
+      {warningVisible && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
     </div>
   );
 }
