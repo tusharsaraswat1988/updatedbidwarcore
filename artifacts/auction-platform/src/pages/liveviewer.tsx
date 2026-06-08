@@ -182,7 +182,7 @@ function TeamSquadSheet({
 
   return (
     <AnimatePresence>
-      {open && (
+      {open && team && (
         <motion.div
           className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center"
           initial={{ opacity: 0 }}

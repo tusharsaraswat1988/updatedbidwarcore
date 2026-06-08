@@ -46,9 +46,9 @@ export function verifyAuthJwt(token: string): AuthClaims | null {
   }
 }
 
-function stripJwtReservedFields<T extends Record<string, unknown>>(payload: T): Omit<T, "exp" | "iat" | "nbf"> {
-  const { exp: _exp, iat: _iat, nbf: _nbf, ...clean } = payload;
-  return clean;
+function stripJwtReservedFields<T extends object>(payload: T): Omit<T, "exp" | "iat" | "nbf"> {
+  const { exp: _exp, iat: _iat, nbf: _nbf, ...clean } = payload as T & { exp?: unknown; iat?: unknown; nbf?: unknown };
+  return clean as Omit<T, "exp" | "iat" | "nbf">;
 }
 
 export function signOAuthJwt(state: OAuthState): string {
