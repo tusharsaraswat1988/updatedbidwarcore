@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { SponsorCarousel } from "@/components/display/sponsor-carousel";
+import { BroadcastOverlayBrandMark } from "@/components/display/broadcast-overlay-brand-mark";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
 import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { getDisplayTheme } from "@/lib/display-theme";
@@ -324,19 +325,31 @@ export default function ObsOverlay() {
         </div>
       )}
 
-      {/* ── Tournament logo — top-left ── */}
-      {tournament?.logoUrl && (
-        <div style={{
-          position: "absolute", top: BROADCAST_OVERLAY_CORNER_INSET_TOP, left: BROADCAST_OVERLAY_CORNER_INSET_X,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(12px)",
-          borderRadius: 12,
-          padding: "8px 14px",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}>
-          <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
-        </div>
-      )}
+      {/* ── Top-left: permanent BidWar brand + optional tournament logo ── */}
+      <div style={{
+        position: "absolute",
+        top: BROADCAST_OVERLAY_CORNER_INSET_TOP,
+        left: BROADCAST_OVERLAY_CORNER_INSET_X,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: 8,
+        maxWidth: 220,
+        zIndex: 35,
+      }}>
+        <BroadcastOverlayBrandMark />
+        {tournament?.logoUrl && (
+          <div style={{
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(12px)",
+            borderRadius: 12,
+            padding: "8px 14px",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}>
+            <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
+          </div>
+        )}
+      </div>
 
       {/* ── Sponsor carousel — top-right ── */}
       {sponsorLogos.length > 0 && (
@@ -573,18 +586,16 @@ export default function ObsOverlay() {
         )}
       </AnimatePresence>
 
-      {/* ── Sponsor text ticker — screen bottom edge ── */}
-      {sponsorLogos.length > 0 && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 25 }}>
-          <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} />
-        </div>
-      )}
+      {/* ── Bottom ticker — sponsors + periodic "Powered by BidWar" ── */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 25 }}>
+        <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} includePoweredByBidWar />
+      </div>
 
-      {/* ── Team purse ticker — above sponsor strip when present ── */}
+      {/* ── Team purse ticker — above sponsor strip ── */}
       {teams.length > 0 && !showSold && (
         <div style={{
           position: "absolute",
-          bottom: sponsorLogos.length > 0 ? SPONSOR_RIBBON_TOTAL_HEIGHT_PX : 0,
+          bottom: SPONSOR_RIBBON_TOTAL_HEIGHT_PX,
           left: 0,
           right: 0,
           zIndex: 24,

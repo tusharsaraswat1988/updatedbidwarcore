@@ -37,6 +37,22 @@ The overlay canvas is fixed at 1920×1080 with `overflow: hidden`. Critical elem
 
 Constants live in `artifacts/auction-platform/src/lib/broadcast-overlay.ts`.
 
+## BidWar branding
+
+Subtle, permanent branding (FanCode / CricHeroes style) — always visible on stream:
+
+| Element | Placement | Size |
+|---------|-----------|------|
+| **Brand mark** | Top-left, inside safe inset (`40px` left, `32px` top) | Logo `22px` tall + “Powered by BidWar” caption |
+| **Tournament logo** | Stacked below brand mark (when configured) | Unchanged |
+| **Ticker credit** | Bottom ribbon, between sponsor names | Same ribbon typography as sponsors |
+
+- Sponsor carousel (top-right) remains larger and primary.
+- Brand mark `z-index: 35` — visible during auction, pause/break, player transitions, and outcome banners.
+- Bottom ticker always shows at least “Powered by BidWar”; with sponsors, credit is interleaved after each sponsor name.
+
+![Broadcast Overlay branding placement mockup](./assets/broadcast-overlay-branding-mockup.png)
+
 ## Related surfaces
 
 | Surface | Purpose |

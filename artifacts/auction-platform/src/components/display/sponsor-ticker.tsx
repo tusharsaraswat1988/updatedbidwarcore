@@ -1,6 +1,7 @@
 import { memo, useMemo, type HTMLAttributes } from "react";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { formatSponsorTickerSegment } from "@/lib/sponsor-logo";
+import { BIDWAR_TICKER_CREDIT } from "@/lib/broadcast-overlay";
 
 /** Ribbon content height (px) — used by Broadcast Overlay stacking. */
 export const SPONSOR_RIBBON_HEIGHT_PX = 34;
@@ -30,16 +31,35 @@ function TickerCopy({ names, ...rest }: { names: string[] } & HTMLAttributes<HTM
  * Bottom sponsor ribbon — readable at distance, secondary to player/bid focus.
  * Names only; top-right logo carousel remains the primary sponsor showcase.
  */
+/** Interleave "Powered by BidWar" after each sponsor name for broadcast overlay ticker. */
+export function buildTickerSegments(
+  logos: SponsorLogo[],
+  includePoweredByBidWar?: boolean,
+): string[] {
+  const sponsorNames = logos.map(formatSponsorTickerSegment).filter((n): n is string => !!n);
+  if (!includePoweredByBidWar) return sponsorNames;
+  if (!sponsorNames.length) return [BIDWAR_TICKER_CREDIT];
+  const segments: string[] = [];
+  for (const name of sponsorNames) {
+    segments.push(name);
+    segments.push(BIDWAR_TICKER_CREDIT);
+  }
+  return segments;
+}
+
 export const SponsorTicker = memo(function SponsorTicker({
   logos,
+  includePoweredByBidWar,
 }: {
   logos: SponsorLogo[];
   /** Kept for API compatibility. */
   themeAccent?: string;
+  /** Broadcast Overlay only — rotates BidWar credit between sponsor entries. */
+  includePoweredByBidWar?: boolean;
 }) {
   const names = useMemo(
-    () => logos.map(formatSponsorTickerSegment).filter((n): n is string => !!n),
-    [logos],
+    () => buildTickerSegments(logos, includePoweredByBidWar),
+    [logos, includePoweredByBidWar],
   );
 
   if (!names.length) return null;

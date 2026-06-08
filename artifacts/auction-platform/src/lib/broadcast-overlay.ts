@@ -26,6 +26,13 @@ export const BROADCAST_OVERLAY_CORNER_INSET_X = 40;
 export const BROADCAST_OVERLAY_CORNER_INSET_TOP = 32;
 export const BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE = 90;
 
+/** Top-left BidWar brand mark — modest vs sponsor carousel (h-24 ≈ 96px). */
+export const BROADCAST_OVERLAY_BRAND_LOGO_HEIGHT = 22;
+export const BROADCAST_OVERLAY_BRAND_Z_INDEX = 35;
+
+/** Bottom ticker credit segment (interleaved with sponsor names on Broadcast Overlay). */
+export const BIDWAR_TICKER_CREDIT = "Powered by BidWar";
+
 export const BROADCAST_OVERLAY_METADATA = {
   recommendedResolution: "1920 × 1080",
   aspectRatio: "16:9",
