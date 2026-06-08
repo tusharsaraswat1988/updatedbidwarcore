@@ -40,8 +40,8 @@ const features = [
   },
   {
     icon: Cast,
-    title: "OBS Streaming Overlay",
-    desc: "Transparent overlay for YouTube and Facebook Live streams. Shows hexagon player photo, live bid bar, and team ticker — turn your auction into a broadcast event.",
+    title: "Broadcast Overlay",
+    desc: "Transparent browser-source overlay for YouTube, Facebook Live, and any broadcast software. Shows hexagon player photo, live bid bar, and team ticker at 1920×1080.",
   },
   {
     icon: BarChart3,
@@ -164,7 +164,7 @@ const steps = [
   {
     n: "03",
     title: "Go Live",
-    desc: "Press Start Auction. The LED display, owner mobile panels, and OBS overlay all sync instantly in real time.",
+    desc: "Press Start Auction. The LED display, owner mobile panels, and Broadcast Overlay all sync instantly in real time.",
   },
 ];
 
@@ -294,7 +294,7 @@ const faqs = [
   },
   {
     q: "Does BidWar support YouTube or Facebook Live streaming?",
-    a: "Yes. BidWar includes an OBS-compatible transparent streaming overlay that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
+    a: "Yes. BidWar includes a browser-source Broadcast Overlay (OBS, vMix, Wirecast, and more) that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
   },
 ];
 

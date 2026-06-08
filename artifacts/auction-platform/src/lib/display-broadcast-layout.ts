@@ -1,6 +1,7 @@
 /**
- * Broadcast-safe layout tokens for LED / OBS overlays.
+ * Broadcast-safe layout tokens for LED and Broadcast Overlay surfaces.
  * ~5% inset keeps critical UI readable on cropped venue screens (30–50 ft).
+ * Pixel constants for the 1920×1080 overlay live in `broadcast-overlay.ts`.
  */
 export const BROADCAST_SAFE_X =
   "px-[clamp(1.25rem,5vw,6rem)]";

@@ -2,7 +2,7 @@ import { memo, useMemo, type HTMLAttributes } from "react";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { formatSponsorTickerSegment } from "@/lib/sponsor-logo";
 
-/** Ribbon content height (px) — used by OBS overlay stacking. */
+/** Ribbon content height (px) — used by Broadcast Overlay stacking. */
 export const SPONSOR_RIBBON_HEIGHT_PX = 34;
 /** Bottom inset above TV safe area (px). */
 export const SPONSOR_RIBBON_SAFE_INSET_PX = 8;

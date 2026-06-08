@@ -9,7 +9,7 @@ import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
  *
  * When a player has a tag, the border and glow switch to the tag's colour,
  * and a premium pill badge is anchored to the bottom of the frame.
- * All effects are static (no blur/shadow animation) — GPU-safe for TV/OBS.
+ * All effects are static (no blur/shadow animation) — GPU-safe for TV and broadcast overlays.
  *
  * Render isolation: receives ONLY primitive props (id, name, photoUrl,
  * jerseyNumber, teamColor, playerTag). This is critical — `state.currentPlayer`

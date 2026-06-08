@@ -26,10 +26,13 @@ export function displayScreenPath(
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
 }
 
-/** OBS browser-source overlay path. */
+/** Broadcast Overlay path (internal `/obs` route; browser-source for streaming). */
 export function obsOverlayPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs`;
 }
+
+/** @alias obsOverlayPath */
+export const broadcastOverlayPath = obsOverlayPath;
 
 /** Mobile cricket scorer (organizer). */
 export function scoringPath(tournamentId: number): string {
@@ -82,3 +85,6 @@ export function openDisplayScreen(
 export function openObsOverlay(tournamentId: number): void {
   window.open(obsOverlayPath(tournamentId), "_blank", "noopener,noreferrer");
 }
+
+/** @alias openObsOverlay */
+export const openBroadcastOverlay = openObsOverlay;

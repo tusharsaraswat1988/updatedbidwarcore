@@ -18,6 +18,21 @@ import { AuctionStatusOverlay } from "@/components/display/auction-status-overla
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
 import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { cldUrl } from "@/lib/cloudinary";
+import {
+  BROADCAST_OVERLAY_WIDTH,
+  BROADCAST_OVERLAY_HEIGHT,
+  BROADCAST_OVERLAY_CORNER_INSET_X,
+  BROADCAST_OVERLAY_CORNER_INSET_TOP,
+  BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE,
+  BROADCAST_OVERLAY_PANEL_PADDING_X,
+} from "@/lib/broadcast-overlay";
+
+/**
+ * Broadcast Overlay — landscape 16:9 browser source for live streaming.
+ * Canvas: 1920×1080. Internal route: `/tournament/:id/obs`.
+ * Sponsor carousel, player card, and bid panel are stacked inside the canvas
+ * with corner insets and bottom ribbon offsets to avoid clipping.
+ */
 
 // ─── Hexagon clip-path player photo ──────────────────────────────────────────
 function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; color: string; size?: number; playerTag?: string | null }) {
@@ -291,8 +306,8 @@ export default function ObsOverlay() {
   return (
     <div style={{
       background: "transparent",
-      width: "1920px",
-      height: "1080px",
+      width: `${BROADCAST_OVERLAY_WIDTH}px`,
+      height: `${BROADCAST_OVERLAY_HEIGHT}px`,
       position: "relative",
       overflow: "hidden",
       fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
@@ -312,7 +327,7 @@ export default function ObsOverlay() {
       {/* ── Tournament logo — top-left ── */}
       {tournament?.logoUrl && (
         <div style={{
-          position: "absolute", top: 32, left: 40,
+          position: "absolute", top: BROADCAST_OVERLAY_CORNER_INSET_TOP, left: BROADCAST_OVERLAY_CORNER_INSET_X,
           background: "rgba(0,0,0,0.55)",
           backdropFilter: "blur(12px)",
           borderRadius: 12,
@@ -327,8 +342,8 @@ export default function ObsOverlay() {
       {sponsorLogos.length > 0 && (
         <div style={{
           position: "absolute",
-          top: isActive ? 90 : 32,
-          right: 40,
+          top: isActive ? BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE : BROADCAST_OVERLAY_CORNER_INSET_TOP,
+          right: BROADCAST_OVERLAY_CORNER_INSET_X,
           zIndex: 5,
         }}>
           <SponsorCarousel logos={sponsorLogos} />
@@ -341,7 +356,7 @@ export default function ObsOverlay() {
           <motion.div
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
             style={{
-              position: "absolute", top: 36, right: 40,
+              position: "absolute", top: 36, right: BROADCAST_OVERLAY_CORNER_INSET_X,
               display: "flex", alignItems: "center", gap: 8,
               background: "rgba(239,68,68,0.9)",
               borderRadius: 8, padding: "6px 14px",
@@ -365,7 +380,7 @@ export default function ObsOverlay() {
               position: "absolute", bottom: 0, left: 0, right: 0,
               borderTop: `4px solid ${soldSnap.teamColor}`,
               boxShadow: `0 -8px 60px ${soldSnap.teamColor}44`,
-              padding: "28px 48px",
+              padding: `28px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
             }}
           >
             <OutcomeResultPanel
@@ -422,7 +437,7 @@ export default function ObsOverlay() {
               background: "rgba(0,0,0,0.88)",
               borderTop: `3px solid ${isActive ? bidColor : "rgba(255,255,255,0.1)"}`,
               boxShadow: isActive ? `0 -4px 40px ${bidColor}33` : "none",
-              padding: "18px 48px",
+              padding: `18px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
               display: "flex",
               alignItems: "center",
               gap: 32,

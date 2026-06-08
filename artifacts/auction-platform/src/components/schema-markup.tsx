@@ -78,7 +78,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
     "Live real-time bidding",
     "LED broadcast display",
     "Team owner mobile bidding panels",
-    "OBS streaming overlay",
+    "Broadcast Overlay for live streaming",
     "Player self-registration via QR code",
     "Auction analytics and reports",
     "Fortune wheel for tiebreakers",
@@ -159,7 +159,7 @@ const FAQ_SCHEMA = {
       "name": "Does BidWar support YouTube or Facebook Live streaming?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. BidWar includes an OBS-compatible transparent streaming overlay that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
+        "text": "Yes. BidWar includes a browser-source Broadcast Overlay (OBS, vMix, Wirecast, and more) that shows the player photo, live bid amount, team ticker, and bid bar directly in your YouTube or Facebook Live broadcast — giving your event a professional production quality.",
       },
     },
     {

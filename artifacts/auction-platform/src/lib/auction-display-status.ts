@@ -1,6 +1,6 @@
 /**
  * Single source of truth for pause / break / live display semantics.
- * LED, Live Viewer, and OBS all derive overlay behavior from here.
+ * LED, Live Viewer, and Broadcast Overlay all derive overlay behavior from here.
  */
 
 export type AuctionDisplayPhase = "live" | "paused" | "break" | "idle" | "sold" | "unsold";
