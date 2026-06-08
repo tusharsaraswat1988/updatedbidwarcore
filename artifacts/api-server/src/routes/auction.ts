@@ -83,9 +83,16 @@ type AuctionPlayerPick = {
   randomDrawQueue: string | null;
 };
 
+type PlayerSelectionMode = "sequential" | "random" | "manual";
+
+function normalizePlayerSelectionMode(mode: string | null | undefined): PlayerSelectionMode {
+  if (mode === "random" || mode === "manual") return mode;
+  return "sequential";
+}
+
 function selectPlayerFromPool(
   pool: { id: number }[],
-  mode: "sequential" | "random" | "manual" | undefined,
+  mode: PlayerSelectionMode | undefined,
   session: { randomDrawQueue?: string | null; currentPlayerId?: number | null },
 ): AuctionPlayerPick | null {
   if (pool.length === 0) return null;
@@ -1769,7 +1776,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   // Fetch tournament settings
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const timerSecs = tournament?.timerSeconds ?? 30;
-  const selMode = tournament?.playerSelectionMode ?? "sequential";
+  const selMode = normalizePlayerSelectionMode(tournament?.playerSelectionMode);
   const isTrialMode = tournament?.licenseStatus !== "active";
 
   // Parse active category filter
