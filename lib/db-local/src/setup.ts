@@ -168,6 +168,7 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN last_purse_booster_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN last_led_toast_json TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN random_draw_queue TEXT",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
   ];
   for (const sql of migrations) {

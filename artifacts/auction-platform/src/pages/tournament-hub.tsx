@@ -20,7 +20,6 @@ import {
 import { openScoreDisplay, scoringPath } from "@/lib/tournament-navigation";
 import { useScoringStandings } from "@/hooks/use-scoring-match";
 import { StandingsTable } from "@/components/scoring/standings-table";
-import { settingsPath } from "@/lib/settings-navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -322,7 +321,7 @@ export default function TournamentHub() {
                   <CircleDot className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-base font-display font-bold">Cricket Scorer</h2>
+                  <h2 className="text-base font-display font-bold">Match Scoring</h2>
                   <p className="text-xs text-muted-foreground mt-1 max-w-md">
                     Score matches on your phone at the ground — squads from auction, toss, playing XI, and ball-by-ball scoring.
                   </p>
@@ -353,18 +352,6 @@ export default function TournamentHub() {
               )}
             </div>
           </>
-        ) : tournament?.sport === "cricket" ? (
-          <div className="rounded-xl border border-border/60 bg-muted/10 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex-1">
-              <h2 className="text-base font-display font-bold">Cricket Scoring</h2>
-              <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                Enable scoring in settings to use the mobile scorer, LED board, and points table after matches.
-              </p>
-            </div>
-            <Button variant="outline" className="h-11 shrink-0" onClick={() => navigate(settingsPath(tournamentId, "scoring"))}>
-              Enable Scoring
-            </Button>
-          </div>
         ) : null}
 
         {/* Team Purses */}

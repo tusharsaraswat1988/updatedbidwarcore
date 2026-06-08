@@ -19,7 +19,7 @@ import { buildCricketMatchSummary } from "@workspace/scoring-core";
 import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
+import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
 
 const router = Router();
 
@@ -179,6 +179,16 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   if (tournamentId === null) {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
+  }
+
+  try {
+    await ensureScoringEnabled(tournamentId);
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
   }
 
   res.setHeader("Content-Type", "text/event-stream");

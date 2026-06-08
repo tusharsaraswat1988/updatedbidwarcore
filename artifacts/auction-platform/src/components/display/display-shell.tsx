@@ -35,9 +35,7 @@ import {
   soldRecordFromOutcome,
   unsoldRecordFromOutcome,
 } from "@/lib/auction-display-status";
-import { SoldCard, UnsoldCard } from "./sold-animation";
 import { BROADCAST_MAIN_WIDTH, BROADCAST_SAFE_MAIN } from "@/lib/display-broadcast-layout";
-import { BidwarBrandWatermark } from "./bidwar-brand-watermark";
 import { PurseUpdatedToast } from "./purse-updated-toast";
 import { useSoldAnimation } from "./use-sold-animation";
 import { useBroadcastAudio } from "./use-broadcast-audio";
@@ -144,14 +142,10 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
     () => unsoldRecordFromOutcome(displayMode.outcome),
     [displayMode.outcome],
   );
-  const showPersistentOutcome = !state?.currentPlayer
-    && (displayMode.phase === "sold" || displayMode.phase === "unsold");
-  const overlaySoldPhase = showPersistentOutcome
-    ? (soldPhase === "stamp" ? "stamp" : null)
-    : soldPhase;
-  const overlayUnsoldPhase = showPersistentOutcome
-    ? (unsoldPhase === "stamp" ? "stamp" : null)
-    : unsoldPhase;
+  const isOutcomeScreen = displayMode.phase === "sold" || displayMode.phase === "unsold";
+  const showSoldOverlay = isOutcomeScreen || soldPhase != null || unsoldPhase != null;
+  const activeSoldRecord = soldRecord ?? outcomeSoldRecord;
+  const activeUnsoldRecord = unsoldRecord ?? outcomeUnsoldRecord;
 
   // ── Broadcast audio (LED display only) ───────────────────────────────
   // Settings are memo'd on primitives so the AudioManager only re-initialises
@@ -215,6 +209,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
 
   const stickyPreAuction = stickyDc?.type === "pre-auction" ? stickyDc : null;
+  const stickyBreak = stickyDc?.type === "break" ? stickyDc : null;
   const statusForHeader = displayMode.phase === "live" ? "active" : displayMode.phase;
   const statusLabel = displayMode.outcome?.isManual
     ? "Manual Sold"
@@ -310,17 +305,28 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           remainingCount={state?.remainingPlayersCount || 0}
           sponsorLogos={sponsorLogos}
           themeAccent={theme?.accentColor}
+          compact={showSoldOverlay}
         />
 
         {/* Main Content Area — broadcast-safe inset for venue LED crops */}
         <div
-          className={`flex-1 flex flex-col items-center justify-center ${BROADCAST_SAFE_MAIN} relative overflow-hidden min-h-0 transition-opacity duration-300 ${
-            isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/25" : ""
-          }`}
+          className={`flex-1 flex flex-col items-center justify-center ${BROADCAST_SAFE_MAIN} relative min-h-0 transition-opacity duration-300 ${
+            showSoldOverlay ? "overflow-visible" : "overflow-hidden"
+          } ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/25" : ""}`}
         >
           {/* Break / Pre-Auction countdown — scoped to content area so the top
               AuctionHeader / sponsor strip remains visible. z-10 keeps it below
               the sold-stamp animations (z-20) in the stacking order. */}
+          {stickyBreak && (
+            <div key={stickyBreak.endsAt} className="absolute inset-0 z-10">
+              <BreakCountdownOverlay
+                type="break"
+                endsAt={stickyBreak.endsAt}
+                message={stickyBreak.message}
+                tournamentName={tournament?.name ?? null}
+              />
+            </div>
+          )}
           {stickyPreAuction && (
             <div key={stickyPreAuction.endsAt} className="absolute inset-0 z-10">
               <BreakCountdownOverlay
@@ -332,22 +338,18 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
             </div>
           )}
 
-          {/* SOLD animations layered above countdown (z-20) and main content */}
-          {overlayMode !== "top5" && !displayMode.freezeBidUpdates && (
+          {/* SOLD / UNSOLD full-screen overlay — always on top during outcome */}
+          {overlayMode !== "top5" && showSoldOverlay && (
             <AnimatedEffectsLayer
-              soldPhase={overlaySoldPhase}
-              soldRecord={soldRecord}
-              unsoldPhase={overlayUnsoldPhase}
-              unsoldRecord={unsoldRecord}
+              soldPhase={soldPhase ?? (isOutcomeScreen && displayMode.phase === "sold" && activeSoldRecord ? "card" : null)}
+              soldRecord={activeSoldRecord}
+              unsoldPhase={unsoldPhase ?? (isOutcomeScreen && displayMode.phase === "unsold" && activeUnsoldRecord ? "card" : null)}
+              unsoldRecord={activeUnsoldRecord}
             />
           )}
 
-          {displayMode.overlayMode && (
-            <AuctionStatusOverlay
-              mode={displayMode.overlayMode}
-              breakEndsAt={displayMode.breakEndsAt}
-              breakMessage={displayMode.breakMessage}
-            />
+          {displayMode.overlayMode === "paused" && (
+            <AuctionStatusOverlay mode="paused" />
           )}
 
           {overlayMode === "top5" ? (
@@ -355,7 +357,7 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
               players={allPlayers ?? EMPTY_PLAYERS}
               purses={stripPurses}
             />
-          ) : state?.currentPlayer ? (
+          ) : state?.currentPlayer && !showSoldOverlay ? (
             <div
               className={`${BROADCAST_MAIN_WIDTH} mx-auto transition-opacity duration-300 ${displayMode.showStatusOverlay ? "opacity-40" : "opacity-100"}`}
             >
@@ -396,14 +398,6 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                 />
               </div>
             </div>
-          ) : displayMode.phase === "sold" && outcomeSoldRecord ? (
-            <div className="relative w-full max-w-6xl min-h-[28rem]">
-              <SoldCard record={outcomeSoldRecord} />
-            </div>
-          ) : displayMode.phase === "unsold" && outcomeUnsoldRecord ? (
-            <div className="relative w-full max-w-6xl min-h-[28rem]">
-              <UnsoldCard record={outcomeUnsoldRecord} />
-            </div>
           ) : (
             <IdleScreen
               tournamentName={tournament?.name}
@@ -422,10 +416,8 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           includePoweredByBidWar
         />
 
-        <BidwarBrandWatermark accent={theme?.accentColor} />
-
-        {/* Audio unlock nudge — fades away after first user interaction */}
-        {audioSettings?.audioEnabled && !isUnlocked && (
+        {/* Audio unlock nudge — hidden during sold overlay so it doesn't clutter the screen */}
+        {audioSettings?.audioEnabled && !isUnlocked && !showSoldOverlay && (
           <div className={`absolute right-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm ${sponsorLogos.some(l => l.name?.trim()) ? "bottom-14" : "bottom-5"}`}>
             <Volume2 className="w-3 h-3" />
             Click anywhere to enable audio

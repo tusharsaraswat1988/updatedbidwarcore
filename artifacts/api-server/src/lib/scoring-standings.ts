@@ -103,6 +103,8 @@ export async function rebuildTournamentStandings(tournamentId: number) {
 }
 
 export async function getScoringStandings(tournamentId: number) {
+  await ensureScoringEnabled(tournamentId);
+
   const rows = await db
     .select({
       standing: scoringStandingsTable,
@@ -147,6 +149,8 @@ export type SquadReadinessRow = {
 };
 
 export async function getSquadReadiness(tournamentId: number): Promise<SquadReadinessRow[]> {
+  await ensureScoringEnabled(tournamentId);
+
   const teams = await db
     .select()
     .from(teamsTable)

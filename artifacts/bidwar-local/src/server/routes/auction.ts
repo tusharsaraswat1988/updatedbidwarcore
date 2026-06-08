@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import { pickRandomPlayerFromPool } from "@workspace/api-base/auction-player-selection";
 import {
   tournamentToReadinessInput,
   validateAuctionReadiness,
@@ -362,6 +363,7 @@ export function createAuctionRouter(db: LocalDb) {
     try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
 
     let selectedPlayerId: number | null = null;
+    let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
     if (playerId) {
       selectedPlayerId = playerId;
     } else if (mode === "random") {
@@ -369,7 +371,14 @@ export function createAuctionRouter(db: LocalDb) {
       const available = activeCatIds && activeCatIds.length > 0
         ? await db.select().from(playersTable).where(and(...baseConditions, inArray(playersTable.categoryId as Parameters<typeof inArray>[0], activeCatIds)))
         : await db.select().from(playersTable).where(and(...baseConditions));
-      if (available.length > 0) selectedPlayerId = available[Math.floor(Math.random() * available.length)].id;
+      if (available.length > 0) {
+        const pick = pickRandomPlayerFromPool(available, {
+          queueJson: session.randomDrawQueue,
+          lastPlayerId: session.currentPlayerId,
+        });
+        selectedPlayerId = pick.playerId;
+        newRandomDrawQueue = pick.queueJson;
+      }
     } else {
       const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
       const query = db.select().from(playersTable).orderBy(asc(playersTable.id)).limit(1);
@@ -395,6 +404,7 @@ export function createAuctionRouter(db: LocalDb) {
       status: "active", currentPlayerId: selectedPlayerId,
       currentBid: selectedPlayer.basePrice, currentBidTeamId: null,
       timerSeconds: timerSecs, timerEndsAt: null, pausedTimeRemaining: null,
+      randomDrawQueue: newRandomDrawQueue,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["players"]));
@@ -678,8 +688,21 @@ export function createAuctionRouter(db: LocalDb) {
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
     const session = await getOrCreateSession(tid);
     if (body.data.action === "start" && session.status === "active") {
-      res.status(409).json({ error: "Cannot start a break during live bidding. Pause the auction first." });
-      return;
+      let pausedTimeRemaining: number | null = null;
+      if (session.timerEndsAt) {
+        const remaining = Math.ceil((new Date(session.timerEndsAt).getTime() - Date.now()) / 1000);
+        pausedTimeRemaining = remaining > 0 ? remaining : null;
+      }
+      await db
+        .update(auctionSessionsTable)
+        .set({
+          status: "paused",
+          lastAction: "Auction paused for break",
+          timerEndsAt: null,
+          pausedTimeRemaining,
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+      await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
     }
     if (body.data.action === "start" && !body.data.durationSeconds) {
       res.status(400).json({ error: "durationSeconds is required when action is start" });

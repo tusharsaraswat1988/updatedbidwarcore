@@ -21,6 +21,7 @@ export const auctionSessionsTable = sqliteTable("auction_sessions", {
   wheelWinner: text("wheel_winner"),
   activeCategoryIds: text("active_category_ids"),
   pausedTimeRemaining: integer("paused_time_remaining"),
+  randomDrawQueue: text("random_draw_queue"),
   displayCountdown: text("display_countdown"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),

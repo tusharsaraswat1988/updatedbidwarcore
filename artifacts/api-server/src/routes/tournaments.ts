@@ -362,17 +362,20 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
-  if (d.scoringEnabled !== undefined) {
-    updates.scoringEnabled = d.scoringEnabled;
-    if (d.scoringEnabled && d.scoringPhase === undefined) {
-      updates.scoringPhase = "active";
+  const isAdminCaller = req.jwtUser?.isAdmin === true;
+  if (isAdminCaller) {
+    if (d.scoringEnabled !== undefined) {
+      updates.scoringEnabled = d.scoringEnabled;
+      if (d.scoringEnabled && d.scoringPhase === undefined) {
+        updates.scoringPhase = "active";
+      }
+      if (!d.scoringEnabled && d.scoringPhase === undefined) {
+        updates.scoringPhase = "disabled";
+      }
     }
-    if (!d.scoringEnabled && d.scoringPhase === undefined) {
-      updates.scoringPhase = "disabled";
-    }
+    if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
+    if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
   }
-  if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
-  if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)

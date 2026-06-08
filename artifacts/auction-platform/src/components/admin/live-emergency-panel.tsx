@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  CircleDot,
   MonitorDown,
   RefreshCw,
   Trash2,
@@ -217,6 +218,34 @@ export function LiveEmergencyPanel({
                   <MonitorDown className="mr-2 h-3.5 w-3.5" />
                 )}
                 {t.localModeEnabled ? "Disable local mode" : "Enable local mode"}
+              </Button>
+            </div>
+          )}
+          {t.sport === "cricket" && (
+            <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/10 px-3 py-2 sm:w-auto">
+              <div className="text-xs text-muted-foreground">
+                Match scoring:{" "}
+                <span className={t.scoringEnabled ? "font-semibold text-primary" : "font-semibold text-white"}>
+                  {t.scoringEnabled ? "Enabled (testing)" : "Disabled"}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className={t.scoringEnabled ? "border-primary/40 text-primary" : ""}
+                disabled={!!actionLoading}
+                onClick={() =>
+                  doAction(t.scoringEnabled ? "Disable match scoring" : "Enable match scoring", () =>
+                    updateAdminTournament(tournamentId, { scoringEnabled: !t.scoringEnabled }),
+                  )
+                }
+              >
+                {actionLoading === "Enable match scoring" || actionLoading === "Disable match scoring" ? (
+                  <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CircleDot className="mr-2 h-3.5 w-3.5" />
+                )}
+                {t.scoringEnabled ? "Disable match scoring" : "Enable match scoring"}
               </Button>
             </div>
           )}

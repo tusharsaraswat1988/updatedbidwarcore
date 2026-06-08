@@ -16,6 +16,8 @@ import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { getDisplayTheme } from "@/lib/display-theme";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
+import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
+import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
 import { OutcomeResultPanel } from "@/components/display/outcome-result-panel";
 import { cldUrl } from "@/lib/cloudinary";
@@ -216,6 +218,8 @@ export default function ObsOverlay() {
   const lastOutcomeKeyRef = useRef<string | null>(null);
   const initialOutcomeSeenRef = useRef(false);
   const soldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const _rawDc = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown;
+  const stickyDc = useStickyCountdown(_rawDc);
   const displayMode = useMemo(
     () => deriveAuctionDisplayMode(state),
     [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
@@ -412,12 +416,33 @@ export default function ObsOverlay() {
         )}
       </AnimatePresence>
 
-      {/* ── Pause / break banner (shared with LED + Live Viewer) ── */}
-      {displayMode.overlayMode && (
-        <AuctionStatusOverlay
-          mode={displayMode.overlayMode}
-          breakEndsAt={displayMode.breakEndsAt}
-          breakMessage={displayMode.breakMessage}
+      {/* ── Pause banner (break uses full-screen countdown below) ── */}
+      {displayMode.overlayMode === "paused" && (
+        <AuctionStatusOverlay mode="paused" />
+      )}
+
+      {/* ── Break countdown — bottom strip so camera feed stays visible ── */}
+      {stickyDc?.type === "break" && (
+        <BreakCountdownOverlay
+          key={stickyDc.endsAt}
+          type="break"
+          endsAt={stickyDc.endsAt}
+          message={stickyDc.message}
+          tournamentName={tournament?.name ?? null}
+          compact
+          compactPlacement="bottom"
+          compactBottomOffset={
+            SPONSOR_RIBBON_TOTAL_HEIGHT_PX + (teams.length > 0 && !showSold ? 46 : 0)
+          }
+        />
+      )}
+      {stickyDc?.type === "pre-auction" && (
+        <BreakCountdownOverlay
+          key={stickyDc.endsAt}
+          type="pre-auction"
+          endsAt={stickyDc.endsAt}
+          message={stickyDc.message}
+          tournamentName={tournament?.name ?? null}
         />
       )}
 

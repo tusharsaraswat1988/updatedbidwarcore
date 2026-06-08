@@ -35,12 +35,13 @@ function ConnectionBadge({ status }: { status: "connected" | "reconnecting" | "d
 }
 
 export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
-  const { connectionStatus } = useScoringSocket(tournamentId);
-  const { data: live } = useScoringLive(tournamentId);
-
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+
+  const { connectionStatus } = useScoringSocket(tournamentId, scoringActive);
+  const { data: live } = useScoringLive(tournamentId, scoringActive);
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });

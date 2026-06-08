@@ -1,6 +1,6 @@
 import type { AuctionReadinessCheckId } from "@workspace/api-base/auction-readiness";
 
-export type SettingsTab = "identity" | "auction" | "broadcast" | "scoring" | "recovery";
+export type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
 
 export type SettingsFocusField =
   | "minBid"

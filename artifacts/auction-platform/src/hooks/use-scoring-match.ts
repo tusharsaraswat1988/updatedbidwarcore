@@ -28,29 +28,29 @@ export function scoringSquadsQueryKey(tournamentId: number) {
   return ["scoring-squads", tournamentId] as const;
 }
 
-export function useScoringMatches(tournamentId: number) {
+export function useScoringMatches(tournamentId: number, enabled = true) {
   return useQuery({
     queryKey: scoringMatchesQueryKey(tournamentId),
     queryFn: () => listScoringMatches(tournamentId),
-    enabled: tournamentId > 0,
+    enabled: tournamentId > 0 && enabled,
   });
 }
 
-export function useScoringLive(tournamentId: number) {
+export function useScoringLive(tournamentId: number, enabled = true) {
   return useQuery({
     queryKey: scoringLiveQueryKey(tournamentId),
     queryFn: () => getScoringLive(tournamentId),
-    enabled: tournamentId > 0,
-    refetchInterval: 15000,
+    enabled: tournamentId > 0 && enabled,
+    refetchInterval: enabled ? 15000 : false,
   });
 }
 
-export function useScoringMatch(tournamentId: number, matchId: number) {
+export function useScoringMatch(tournamentId: number, matchId: number, enabled = true) {
   return useQuery({
     queryKey: scoringMatchQueryKey(tournamentId, matchId),
     queryFn: () => getScoringMatch(tournamentId, matchId),
-    enabled: tournamentId > 0 && matchId > 0,
-    refetchInterval: 4000,
+    enabled: tournamentId > 0 && matchId > 0 && enabled,
+    refetchInterval: enabled ? 4000 : false,
   });
 }
 

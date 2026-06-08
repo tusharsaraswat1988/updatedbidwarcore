@@ -663,6 +663,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       cheerMessagesEnabled: tournament.cheerMessagesEnabled ?? true,
       cheerMessagePresets: tournament.cheerMessagePresets ?? null,
       localModeEnabled: tournament.localModeEnabled ?? false,
+      scoringEnabled: tournament.scoringEnabled ?? false,
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
@@ -725,6 +726,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     status: z.string().optional(),
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
+    scoringEnabled: z.boolean().optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -763,6 +765,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.localModeEnabled !== undefined) updates.localModeEnabled = d.localModeEnabled;
+  if (d.scoringEnabled !== undefined) {
+    updates.scoringEnabled = d.scoringEnabled;
+    updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
+  }
 
   // Auto-link organizer account by mobile or email when those fields are set
   let autoLinkedOrganizer: { id: number; name: string } | null = null;

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
@@ -23,114 +23,20 @@ import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme"
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, Settings,
+  ArrowLeft, Settings, UserPlus,
   Building2, Timer, Trash2,
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays, CircleDot,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
-
-function SponsorLogosEditor({
-  logos,
-  onChange,
-  onUploadFile,
-  uploadingIdx,
-}: {
-  logos: SponsorLogo[];
-  onChange: (logos: SponsorLogo[]) => void;
-  onUploadFile: (file: File, idx: number | "new") => void;
-  uploadingIdx: number | "new" | null;
-}) {
-  return (
-    <div className="space-y-2">
-      {logos.length > 0 && (
-        <div className="hidden sm:grid sm:grid-cols-[3.5rem_1fr_1fr_2rem] sm:gap-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          <span>Logo *</span>
-          <span>Name</span>
-          <span>Type</span>
-          <span />
-        </div>
-      )}
-      {logos.map((logo, i) => (
-        <div key={i} className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/5 p-2">
-          <div className="flex flex-col gap-1 shrink-0">
-            <span className="text-[10px] text-muted-foreground sm:hidden">Logo *</span>
-            <label className="cursor-pointer" title="Click to replace logo image">
-              <div className="w-14 h-10 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
-                {uploadingIdx === i ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                ) : logo.url ? (
-                  <img src={logo.url} alt={logo.name || logo.type || "logo"} className="w-full h-full object-contain" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5 text-muted-foreground" />
-                )}
-              </div>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, i); e.target.value = ""; }}
-                disabled={uploadingIdx !== null}
-              />
-            </label>
-          </div>
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
-            <div className="space-y-1 min-w-0">
-              <span className="text-[10px] text-muted-foreground sm:hidden">Name</span>
-              <Input
-                className="h-8 text-sm"
-                value={logo.name ?? ""}
-                onChange={e => { const next = [...logos]; next[i] = { ...next[i], name: e.target.value }; onChange(next); }}
-                placeholder="Sponsor name (optional)"
-              />
-            </div>
-            <div className="space-y-1 min-w-0">
-              <span className="text-[10px] text-muted-foreground sm:hidden">Type</span>
-              <Input
-                className="h-8 text-sm"
-                value={logo.type ?? ""}
-                onChange={e => { const next = [...logos]; next[i] = { ...next[i], type: e.target.value }; onChange(next); }}
-                placeholder="Sponsor type (optional)"
-              />
-            </div>
-          </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive mt-0 sm:mt-0"
-            onClick={() => onChange(logos.filter((_, j) => j !== i))}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      ))}
-      <label className="cursor-pointer block">
-        <div className={`flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed text-xs transition-colors ${
-          uploadingIdx === "new"
-            ? "border-border/50 text-muted-foreground cursor-wait"
-            : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
-        }`}>
-          {uploadingIdx === "new"
-            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</>
-            : <><Upload className="w-3.5 h-3.5" /> Add Sponsor Logo</>
-          }
-        </div>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) onUploadFile(f, "new"); e.target.value = ""; }}
-          disabled={uploadingIdx !== null}
-        />
-      </label>
-    </div>
-  );
-}
+import { SettingsCard } from "@/components/settings/settings-card";
+import { DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
@@ -157,7 +63,7 @@ export default function TournamentSettings() {
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
-  const [auditReason, setAuditReason] = useState("");
+  const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
   const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
     try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
@@ -173,55 +79,57 @@ export default function TournamentSettings() {
   });
   const updateTournament = useUpdateTournament();
 
-  useEffect(() => {
-    if (!tournament || initialized) return;
+  const buildSnapshot = useCallback((
+    form: Record<string, string | number | boolean>,
+    tiers: Array<{ upTo?: number; increment: number }>,
+    logos: SponsorLogo[],
+  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()) }), []);
 
+  const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
-      name: tournament.name,
-      sport: tournament.sport,
-      venue: tournament.venue || "",
-      auctionDate: tournament.auctionDate || "",
-      auctionTime: tournament.auctionTime || "",
-      logoUrl: tournament.logoUrl && !tournament.logoUrl.startsWith("data:") ? tournament.logoUrl : "",
-      basePurse: String(tournament.basePurse ?? ""),
-      minBid: String(tournament.minBid ?? ""),
-      timerSeconds: String(tournament.timerSeconds ?? "30"),
-      bidTimerSeconds: String(tournament.bidTimerSeconds ?? "15"),
-      bidExtensionEnabled: tournament.bidExtensionEnabled ?? false,
-      bidExtensionThresholdSeconds: String(tournament.bidExtensionThresholdSeconds ?? "3"),
-      bidExtensionSeconds: String(tournament.bidExtensionSeconds ?? "5"),
-      playerSelectionMode: tournament.playerSelectionMode || "sequential",
-      registrationDeadline: tournament.registrationDeadline || "",
-      registrationLimit: tournament.registrationLimit != null ? String(tournament.registrationLimit) : "",
-      minimumSquadSize: String(tournament.minimumSquadSize ?? 0),
-      maximumSquadSize: String(tournament.maximumSquadSize ?? 0),
-      audioEnabled: tournament.audioEnabled ?? true,
-      masterVolume: String(tournament.masterVolume ?? 80),
-      countdownSoundEnabled: tournament.countdownSoundEnabled ?? true,
-      countdownSoundUrl: tournament.countdownSoundUrl ?? "",
-      countdownSoundVolume: String(tournament.countdownSoundVolume ?? 70),
-      soldSoundEnabled: tournament.soldSoundEnabled ?? true,
-      soldSoundUrl: tournament.soldSoundUrl ?? "",
-      soldSoundVolume: String(tournament.soldSoundVolume ?? 80),
-      breakEndMusicEnabled: tournament.breakEndMusicEnabled ?? false,
-      breakEndMusicUrl: String(tournament.breakEndMusicUrl ?? ""),
-      breakEndMusicVolume: String(tournament.breakEndMusicVolume ?? 80),
-      mainBannerUrl: tournament.mainBannerUrl ?? "",
-      mainBannerEnabled: tournament.mainBannerEnabled ?? false,
-      mainBannerFit: tournament.mainBannerFit ?? "cover",
-      matchDates: tournament.matchDates ?? "",
-      scoringEnabled: tournament.scoringEnabled ?? false,
-      scoringPin: tournament.scoringPin ?? "",
+      name: t.name,
+      sport: t.sport,
+      venue: t.venue || "",
+      auctionDate: t.auctionDate || "",
+      auctionTime: t.auctionTime || "",
+      logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
+      basePurse: String(t.basePurse ?? ""),
+      minBid: String(t.minBid ?? ""),
+      timerSeconds: String(t.timerSeconds ?? "30"),
+      bidTimerSeconds: String(t.bidTimerSeconds ?? "15"),
+      bidExtensionEnabled: t.bidExtensionEnabled ?? false,
+      bidExtensionThresholdSeconds: String(t.bidExtensionThresholdSeconds ?? "3"),
+      bidExtensionSeconds: String(t.bidExtensionSeconds ?? "5"),
+      playerSelectionMode: t.playerSelectionMode || "sequential",
+      registrationDeadline: t.registrationDeadline || "",
+      registrationLimit: t.registrationLimit != null ? String(t.registrationLimit) : "",
+      minimumSquadSize: String(t.minimumSquadSize ?? 0),
+      maximumSquadSize: String(t.maximumSquadSize ?? 0),
+      audioEnabled: t.audioEnabled ?? true,
+      masterVolume: String(t.masterVolume ?? 80),
+      countdownSoundEnabled: t.countdownSoundEnabled ?? true,
+      countdownSoundUrl: t.countdownSoundUrl ?? "",
+      countdownSoundVolume: String(t.countdownSoundVolume ?? 70),
+      soldSoundEnabled: t.soldSoundEnabled ?? true,
+      soldSoundUrl: t.soldSoundUrl ?? "",
+      soldSoundVolume: String(t.soldSoundVolume ?? 80),
+      breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
+      breakEndMusicUrl: String(t.breakEndMusicUrl ?? ""),
+      breakEndMusicVolume: String(t.breakEndMusicVolume ?? 80),
+      mainBannerUrl: t.mainBannerUrl ?? "",
+      mainBannerEnabled: t.mainBannerEnabled ?? false,
+      mainBannerFit: t.mainBannerFit ?? "cover",
+      matchDates: t.matchDates ?? "",
     };
     setEditForm(initialForm);
 
-    setCountdownFileName(tournament.countdownSoundUrl ? "Custom file uploaded" : "");
-    setSoldFileName(tournament.soldSoundUrl ? "Custom file uploaded" : "");
-    setBreakEndFileName(tournament.breakEndMusicUrl ? "Custom file uploaded" : "");
+    setCountdownFileName(t.countdownSoundUrl ? "Custom file uploaded" : "");
+    setSoldFileName(t.soldSoundUrl ? "Custom file uploaded" : "");
+    setBreakEndFileName(t.breakEndMusicUrl ? "Custom file uploaded" : "");
 
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
-      const rawTiers = tournament.bidTiers;
+      const rawTiers = t.bidTiers;
       if (rawTiers) {
         const parsed = JSON.parse(rawTiers);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -229,9 +137,9 @@ export default function TournamentSettings() {
         } else { throw new Error("empty"); }
       } else {
         initialTiers = [
-          { upTo: tournament.bidTier1UpTo ?? 100000, increment: tournament.bidTier1Increment ?? 25000 },
-          { upTo: tournament.bidTier2UpTo ?? 200000, increment: tournament.bidTier2Increment ?? 50000 },
-          { increment: tournament.bidTier3Increment ?? 100000 },
+          { upTo: t.bidTier1UpTo ?? 100000, increment: t.bidTier1Increment ?? 25000 },
+          { upTo: t.bidTier2UpTo ?? 200000, increment: t.bidTier2Increment ?? 50000 },
+          { increment: t.bidTier3Increment ?? 100000 },
         ];
       }
     } catch {
@@ -241,25 +149,30 @@ export default function TournamentSettings() {
 
     let initialSponsors: SponsorLogo[];
     try {
-      const parsed = tournament.sponsorLogos ? JSON.parse(tournament.sponsorLogos) : [];
+      const parsed = t.sponsorLogos ? JSON.parse(t.sponsorLogos) : [];
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
+    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors));
+  }, [buildSnapshot]);
 
+  useEffect(() => {
+    if (!tournament || initialized) return;
+    hydrateFromTournament(tournament);
     setInitialized(true);
-  }, [tournament, initialized]);
+  }, [tournament, initialized, hydrateFromTournament]);
 
   useEffect(() => {
     if (!initialized) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "scoring" || tab === "recovery") {
+    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
       setActiveSection(tab);
     }
     const focus = params.get("focus") as SettingsFocusField | null;
     if (!focus) return;
     if (focus === "registration") setActiveSection("identity");
-    if (["bidTiers", "minSquad", "maxSquad"].includes(focus)) setShowAdvancedAuction(true);
+    if (focus === "bidTiers") setShowAdvancedAuction(true);
     setHighlightField(focus);
     const scrollTimer = window.setTimeout(() => {
       document.getElementById(`settings-field-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -401,16 +314,23 @@ export default function TournamentSettings() {
     mgr.previewBreakEnd();
   }
 
+  const isDirty = useMemo(
+    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos) !== baselineSnapshot,
+    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos],
+  );
+
+  function handleDiscard() {
+    if (!tournament) return;
+    hydrateFromTournament(tournament);
+    toast({ title: "Changes discarded", description: "Settings restored to last saved state." });
+  }
+
   async function handleSave() {
-    if (!isAuditReasonValid(auditReason)) {
-      toast({ title: "Reason required", description: "Auction rule changes require a reason (minimum 10 characters).", variant: "destructive" });
-      return;
-    }
     const filteredLogos = sponsorLogos.filter(l => l.url.trim());
     await updateTournament.mutateAsync({
       tournamentId,
       data: {
-        reason: auditReason.trim(),
+        reason: DEFAULT_SETTINGS_AUDIT_REASON,
         name: editForm.name as string,
         sport: editForm.sport as string,
         venue: editForm.venue as string || undefined,
@@ -448,8 +368,6 @@ export default function TournamentSettings() {
         mainBannerEnabled: editForm.mainBannerEnabled === true,
         mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
         matchDates: (editForm.matchDates as string).trim() || null,
-        scoringEnabled: editForm.scoringEnabled === true,
-        scoringPin: (editForm.scoringPin as string).trim() || null,
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -461,9 +379,6 @@ export default function TournamentSettings() {
     { id: "identity", label: "Basic Info", icon: Building2 },
     { id: "auction", label: "Auction Rules", icon: Gavel },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
-    ...(editForm.sport === "cricket"
-      ? [{ id: "scoring" as const, label: "Cricket Scoring", icon: CircleDot }]
-      : []),
     { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
 
@@ -481,8 +396,9 @@ export default function TournamentSettings() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
+      <div className="w-full max-w-[1500px] mx-auto">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="ghost"
@@ -498,29 +414,27 @@ export default function TournamentSettings() {
               Tournament Settings
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {tournament?.name} — all changes take effect when you click Save.
+              {tournament?.name} — changes apply when you save.
             </p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 flex-shrink-0 min-w-[220px] max-w-md">
-          <AuditReasonField
-            value={auditReason}
-            onChange={setAuditReason}
-            label="Reason for changes"
-            placeholder="Why are auction rules or settings being updated?"
-          />
-          <Button
-            onClick={handleSave}
-            disabled={updateTournament.isPending || !isAuditReasonValid(auditReason)}
-            className="min-w-[140px]"
-          >
-            {updateTournament.isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
+        <SettingsSaveBar
+          isDirty={isDirty}
+          isSaving={updateTournament.isPending}
+          onSave={handleSave}
+          onDiscard={handleDiscard}
+        />
       </div>
 
+      {isDirty ? (
+        <p className="sm:hidden text-xs text-amber-500 mb-3 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
+          Unsaved changes
+        </p>
+      ) : null}
+
       {/* Sticky tab strip */}
-      <div className="flex border-b border-border mb-6 overflow-x-auto sticky top-0 bg-background z-10 -mx-8 px-8 pt-1">
+      <div className="flex border-b border-border mb-5 overflow-x-auto sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-1 -mx-1 px-1">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeSection === tab.id;
@@ -528,7 +442,7 @@ export default function TournamentSettings() {
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
-              className={`flex-shrink-0 flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold transition-all border-b-2 ${
+              className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all border-b-2 ${
                 active
                   ? "text-primary border-primary"
                   : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
@@ -541,102 +455,119 @@ export default function TournamentSettings() {
       </div>
 
       {/* Tab content */}
-      <div className="space-y-5 pb-12 max-w-3xl">
+      <div className="space-y-4 pb-10">
 
         {/* ── IDENTITY ── */}
         {activeSection === "identity" && (
-          <>
-            <div className="flex items-start gap-4 p-4 rounded-lg border border-border/60 bg-card/50">
-              <div className="w-20 h-20 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
-                {editForm.logoUrl ? (
-                  <img
-                    src={editForm.logoUrl as string}
-                    alt="Logo preview"
-                    className="w-full h-full object-contain"
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : (
-                  <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
-                )}
-              </div>
-              <div className="flex-1 space-y-2 min-w-0">
-                <Label className="text-sm font-semibold">Tournament Logo</Label>
-                <p className="text-xs text-muted-foreground">Upload, crop, auto-enhance or remove the background — output is auto-compressed for the LED display.</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1.5"
-                    onClick={() => setLogoEditorOpen(true)}
-                  >
-                    {editForm.logoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
-                  </Button>
-                  {editForm.logoUrl && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-                      onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}
-                    >
-                      <X className="w-3.5 h-3.5" /> Remove
-                    </Button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SettingsCard
+              title="Tournament Information"
+              description="Logo, name, and sport shown across your tournament hub and LED display."
+              icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-lg bg-card border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {editForm.logoUrl ? (
+                    <img
+                      src={editForm.logoUrl as string}
+                      alt="Logo preview"
+                      className="w-full h-full object-contain"
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <ImageIcon className="w-7 h-7 text-muted-foreground/40" />
                   )}
                 </div>
+                <div className="flex-1 space-y-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setLogoEditorOpen(true)}>
+                      {editForm.logoUrl ? <><Pencil className="w-3.5 h-3.5" /> Edit Photo</> : <><Upload className="w-3.5 h-3.5" /> Upload Photo</>}
+                    </Button>
+                    {editForm.logoUrl ? (
+                      <Button type="button" size="sm" variant="ghost" className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1" onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}>
+                        <X className="w-3.5 h-3.5" /> Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tournament Name</Label>
+                  <Input value={editForm.name as string || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sport</Label>
+                  <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="dark">
+                      {(hubSports.length > 0 ? hubSports : [
+                        { slug: "cricket", name: "Cricket" }, { slug: "football", name: "Football" },
+                        { slug: "kabaddi", name: "Kabaddi" }, { slug: "badminton", name: "Badminton" },
+                        { slug: "volleyball", name: "Volleyball" }, { slug: "esports", name: "E-Sports" },
+                        { slug: "other", name: "Other" },
+                      ]).map(s => (
+                        <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </SettingsCard>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tournament Name</Label>
-                <Input value={editForm.name as string || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            <SettingsCard
+              title="Event Details"
+              description="Venue and auction schedule for your live event."
+              icon={<Building2 className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Venue</Label>
+                  <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
+                  <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>
+                  <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
+                  <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Sport</Label>
-                <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent className="dark">
-                    {(hubSports.length > 0 ? hubSports : [
-                      { slug: "cricket", name: "Cricket" }, { slug: "football", name: "Football" },
-                      { slug: "kabaddi", name: "Kabaddi" }, { slug: "badminton", name: "Badminton" },
-                      { slug: "volleyball", name: "Volleyball" }, { slug: "esports", name: "E-Sports" },
-                      { slug: "other", name: "Other" },
-                    ]).map(s => (
-                      <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            </SettingsCard>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Venue</Label>
-                <Input value={editForm.venue as string || ""} onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))} placeholder="Stadium name" />
+            <SettingsCard
+              title="Registration"
+              description="Control the public self-registration form. Leave blank for no limit."
+              icon={<UserPlus className="w-4 h-4 text-muted-foreground" />}
+              className={fieldWrapClass("registration")}
+            >
+              <div id="settings-field-registration" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last Registration Date
+                  </Label>
+                  <Input type="date" value={editForm.registrationDeadline as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))} />
+                  <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Max Registrations</Label>
+                  <Input type="number" min={1} value={editForm.registrationLimit as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))} placeholder="e.g. 100" />
+                  <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
-                <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>
-                <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
-                <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
-              </div>
-            </div>
+            </SettingsCard>
 
-            {/* Match Schedule */}
-            <div className="border-t border-border/60 pt-4 space-y-3">
-              <div>
-                <Label className="text-sm font-semibold flex items-center gap-1.5">
-                  <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
-                  Match Schedule
-                  <Badge variant="outline" className="text-xs font-normal ml-0.5">Optional</Badge>
-                </Label>
-                <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1.5">
-                  <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400" />
-                  Add the dates when matches will be played. When set, player availability is shown as per-day checkboxes instead of a free-text field. Leave empty to hide availability from all player forms and views.
+            <SettingsCard
+              title="Match Schedule"
+              description="When set, player availability uses per-day checkboxes instead of free text."
+              icon={<CalendarDays className="w-4 h-4 text-amber-400" />}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Info className="w-3 h-3 text-blue-400" /> Leave empty to hide availability fields.
                 </p>
               </div>
               {(() => {
@@ -658,253 +589,200 @@ export default function TournamentSettings() {
                           }
                         }}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)}
-                        onClick={() => {
-                          if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
-                          setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
-                          setDatePickerVal("");
-                        }}
-                      >
+                      <Button type="button" variant="outline" size="sm" disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)} onClick={() => {
+                        if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
+                        setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
+                        setDatePickerVal("");
+                      }}>
                         Add Date
                       </Button>
                     </div>
-                    {settingsMatchDates.length > 0 && (
+                    {settingsMatchDates.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {settingsMatchDates.map(d => {
                           const label = new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
                           return (
                             <Badge key={d} variant="secondary" className="gap-1.5 pr-1.5">
                               {label}
-                              <button
-                                type="button"
-                                className="hover:text-destructive rounded-sm"
-                                onClick={() => setEditForm(f => ({ ...f, matchDates: settingsMatchDates.filter(x => x !== d).join(",") }))}
-                              >
+                              <button type="button" className="hover:text-destructive rounded-sm" onClick={() => setEditForm(f => ({ ...f, matchDates: settingsMatchDates.filter(x => x !== d).join(",") }))}>
                                 <X className="w-3 h-3" />
                               </button>
                             </Badge>
                           );
                         })}
                       </div>
-                    )}
+                    ) : null}
                   </>
                 );
               })()}
-            </div>
+            </SettingsCard>
 
-            <div id="settings-field-registration" className={`border-t border-border/60 pt-4 space-y-3 ${fieldWrapClass("registration")}`}>
-              <div>
-                <Label className="text-sm font-semibold">Player Registration Link — Limits</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Control the public self-registration form. Leave a field blank for no limit.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last Date to Register
-                  </Label>
-                  <Input
-                    type="date"
-                    value={editForm.registrationDeadline as string || ""}
-                    onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
-                  />
-                  <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Max Registrations</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editForm.registrationLimit as string || ""}
-                    onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
-                    placeholder="e.g. 100"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-muted-foreground border-t border-border/40 pt-3">
+            <p className="lg:col-span-2 text-[11px] text-muted-foreground">
               Organizer account, login password and contact details are managed by the platform support team.
             </p>
-          </>
+          </div>
         )}
 
         {/* ── AUCTION RULES ── */}
         {activeSection === "auction" && (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
-              <p className="text-xs text-muted-foreground">These are the most important settings. Set them before your auction starts.</p>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">Set these before your auction starts.</p>
               <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyCricketPreset}>
                 Use standard cricket settings
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  Team Budget (₹)
-                  <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
-                </Label>
-                <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
-              </div>
-              <div id="settings-field-minBid" className={`space-y-2 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
-                <Label className="flex items-center gap-1">
-                  <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹)</HintLabel>
-                  <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
-                </Label>
-                <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
-              </div>
-            </div>
-
-            <div id="settings-field-bidTiers" className={`space-y-2 border-t border-border pt-4 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
-              <Label className="flex items-center gap-1 text-sm font-semibold">
-                Bid Increase Amount (₹)
-                <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
-              </Label>
-              <p className="text-xs text-muted-foreground">How much each bid raise adds to the current amount.</p>
-              {bidTiers.length === 1 ? (
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    className="max-w-[200px]"
-                    value={bidTiers[0]?.increment || ""}
-                    onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])}
-                    placeholder="e.g. 10000"
-                  />
-                  <span className="text-xs text-muted-foreground">added with every raise</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SettingsCard
+                title="Budget & Pricing"
+                description="Team purse, minimum player value, and bid increment."
+                icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1">
+                      Team Budget (₹)
+                      <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
+                    </Label>
+                    <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
+                  </div>
+                  <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
+                    <Label className="flex items-center gap-1">
+                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹)</HintLabel>
+                      <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
+                    </Label>
+                    <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
+                  </div>
                 </div>
-              ) : (
-                <div className="px-3 py-2 rounded-lg bg-muted/20 border border-border/50 text-xs text-muted-foreground">
-                  Advanced bid tiers are enabled — see below to adjust.
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
-              <div id="settings-field-openingTimer" className={`space-y-2 ${fieldWrapClass("openingTimer", Number(editForm.timerSeconds) <= 0)}`}>
-                <Label className="flex items-center gap-1">
-                  <Timer className="w-3.5 h-3.5 text-muted-foreground" />
-                  <HintLabel hint="Naya player aane par kitni der wait karein">Opening Timer (seconds)</HintLabel>
-                  <FieldTooltip text="Countdown shown when a new player appears on screen before anyone bids. If no one bids in time, the player is passed." />
-                </Label>
-                <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
-                <p className="text-xs text-muted-foreground">Time before first bid — recommended: 30 seconds</p>
-              </div>
-              <div id="settings-field-bidTimer" className={`space-y-2 ${fieldWrapClass("bidTimer", Number(editForm.bidTimerSeconds) <= 0)}`}>
-                <Label className="flex items-center gap-1">
-                  <Timer className="w-3.5 h-3.5 text-primary" />
-                  <HintLabel hint="Har bid ke baad kitni der">Bid Timer (seconds)</HintLabel>
-                  <FieldTooltip text="After each bid, this timer resets. When it runs out, the highest bidder wins the player. Shorter timers create more urgency — recommended: 15 seconds." />
-                </Label>
-                <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
-                <p className="text-xs text-muted-foreground">Time between bids — recommended: 15 seconds</p>
-              </div>
-            </div>
-
-            <div id="settings-field-bidExtension" className="space-y-3 border-t border-border pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+                <div id="settings-field-bidTiers" className={`space-y-1.5 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
                   <Label className="flex items-center gap-1">
-                    Bid Extension
-                    <FieldTooltip text="When the timer is in its last few seconds and a new bid arrives, add extra seconds instead of only resetting to the full bid timer." />
+                    Bid Increase Amount (₹)
+                    <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
                   </Label>
-                  <p className="text-xs text-muted-foreground mt-1">Extend the clock on late bids — common in live auctions.</p>
+                  {bidTiers.length === 1 ? (
+                    <div className="flex items-center gap-3">
+                      <Input type="number" className="max-w-[200px]" value={bidTiers[0]?.increment || ""} onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])} placeholder="e.g. 10000" />
+                      <span className="text-xs text-muted-foreground">per raise</span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 rounded-lg bg-muted/20 border border-border/50 text-xs text-muted-foreground">
+                      Tiered increments enabled — adjust in Advanced Settings below.
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={editForm.bidExtensionEnabled === true}
-                  onClick={() => setEditForm(f => ({ ...f, bidExtensionEnabled: !f.bidExtensionEnabled }))}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${editForm.bidExtensionEnabled ? "bg-primary" : "bg-muted"}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${editForm.bidExtensionEnabled ? "translate-x-5" : ""}`} />
-                </button>
-              </div>
-              {editForm.bidExtensionEnabled && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Trigger threshold (seconds)</Label>
-                    <Input
-                      type="number"
-                      value={editForm.bidExtensionThresholdSeconds as string}
-                      onChange={e => setEditForm(f => ({ ...f, bidExtensionThresholdSeconds: e.target.value }))}
-                      min={1}
-                      max={60}
-                    />
-                    <p className="text-xs text-muted-foreground">Extend when timer has this many seconds or fewer left.</p>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Timers"
+                description="Opening countdown, bid timer, and late-bid extension."
+                icon={<Timer className="w-4 h-4 text-muted-foreground" />}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div id="settings-field-openingTimer" className={`space-y-1.5 ${fieldWrapClass("openingTimer", Number(editForm.timerSeconds) <= 0)}`}>
+                    <Label className="flex items-center gap-1">
+                      <HintLabel hint="Naya player aane par kitni der wait karein">Opening Timer (sec)</HintLabel>
+                      <FieldTooltip text="Countdown shown when a new player appears on screen before anyone bids. If no one bids in time, the player is passed." />
+                    </Label>
+                    <Input type="number" value={editForm.timerSeconds as number || 30} onChange={e => setEditForm(f => ({ ...f, timerSeconds: e.target.value }))} min={5} max={300} />
+                    <p className="text-[10px] text-muted-foreground">Recommended: 30 seconds</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Extension duration (seconds)</Label>
-                    <Input
-                      type="number"
-                      value={editForm.bidExtensionSeconds as string}
-                      onChange={e => setEditForm(f => ({ ...f, bidExtensionSeconds: e.target.value }))}
-                      min={1}
-                      max={120}
-                    />
-                    <p className="text-xs text-muted-foreground">Seconds added to the remaining time on a late bid.</p>
+                  <div id="settings-field-bidTimer" className={`space-y-1.5 ${fieldWrapClass("bidTimer", Number(editForm.bidTimerSeconds) <= 0)}`}>
+                    <Label className="flex items-center gap-1">
+                      <HintLabel hint="Har bid ke baad kitni der">Bid Timer (sec)</HintLabel>
+                      <FieldTooltip text="After each bid, this timer resets. When it runs out, the highest bidder wins the player. Shorter timers create more urgency — recommended: 15 seconds." />
+                    </Label>
+                    <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
+                    <p className="text-[10px] text-muted-foreground">Recommended: 15 seconds</p>
                   </div>
                 </div>
-              )}
+                <div id="settings-field-bidExtension" className="space-y-2 pt-1 border-t border-border/50">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="flex items-center gap-1">
+                      Bid Extension
+                      <FieldTooltip text="When the timer is in its last few seconds and a new bid arrives, add extra seconds instead of only resetting to the full bid timer." />
+                    </Label>
+                    <Switch checked={editForm.bidExtensionEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, bidExtensionEnabled: v }))} />
+                  </div>
+                  {editForm.bidExtensionEnabled ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Trigger threshold (sec)</Label>
+                        <Input type="number" value={editForm.bidExtensionThresholdSeconds as string} onChange={e => setEditForm(f => ({ ...f, bidExtensionThresholdSeconds: e.target.value }))} min={1} max={60} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Extension duration (sec)</Label>
+                        <Input type="number" value={editForm.bidExtensionSeconds as string} onChange={e => setEditForm(f => ({ ...f, bidExtensionSeconds: e.target.value }))} min={1} max={120} />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Auction Flow"
+                description="How players are drawn during the live auction."
+                icon={<Clapperboard className="w-4 h-4 text-muted-foreground" />}
+              >
+                <div id="settings-field-playerOrder" className={`space-y-1.5 ${fieldWrapClass("playerOrder")}`}>
+                  <Label className="flex items-center gap-1">
+                    Player Order
+                    <FieldTooltip text="Controls which player comes up next when the operator presses Next Player. Sequential = in the order you added them. Random = random draw each time (when 5 or fewer players remain, everyone gets a turn before repeats). Manual = operator picks from a list." />
+                  </Label>
+                  <Select value={editForm.playerSelectionMode as string || "sequential"} onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="dark">
+                      <SelectItem value="sequential">In order — players come up one by one as added</SelectItem>
+                      <SelectItem value="random">Random draw — recommended for most tournaments</SelectItem>
+                      <SelectItem value="manual">Manual — operator picks from the queue list</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Team Rules"
+                description="Minimum and maximum squad size per team. Set 0 to disable."
+                icon={<ShieldAlert className="w-4 h-4 text-amber-400/70" />}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div id="settings-field-minSquad" className={`space-y-1.5 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
+                    <Label className="text-xs flex items-center gap-1">
+                      Minimum Players
+                      <FieldTooltip text="Teams must reach this count — the system reserves budget for unfilled slots." />
+                    </Label>
+                    <Input type="number" min={0} max={100} value={editForm.minimumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))} />
+                  </div>
+                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", Number(editForm.maximumSquadSize) <= 0)}`}>
+                    <Label className="text-xs flex items-center gap-1">
+                      Maximum Players
+                      <FieldTooltip text="Teams cannot bid once they reach this count." />
+                    </Label>
+                    <Input type="number" min={0} max={100} value={editForm.maximumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))} />
+                  </div>
+                </div>
+              </SettingsCard>
             </div>
 
-            <div id="settings-field-playerOrder" className={`space-y-2 border-t border-border pt-4 ${fieldWrapClass("playerOrder")}`}>
-              <Label className="flex items-center gap-1">
-                Player Order
-                <FieldTooltip text="Controls which player comes up next when the operator presses Next Player. Sequential = in the order you added them. Random = random draw each time. Manual = operator picks from a list." />
-              </Label>
-              <Select
-                value={editForm.playerSelectionMode as string || "sequential"}
-                onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent className="dark">
-                  <SelectItem value="sequential">In order — players come up one by one as added</SelectItem>
-                  <SelectItem value="random">Random draw — recommended for most tournaments</SelectItem>
-                  <SelectItem value="manual">Manual — operator picks from the queue list</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="border-t border-border pt-4">
-              <button
-                type="button"
-                onClick={() => setShowAdvancedAuction(v => !v)}
-                className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors w-full text-left"
-              >
-                {showAdvancedAuction
-                  ? <ChevronDown className="w-4 h-4" />
-                  : <ChevronRightIcon className="w-4 h-4" />}
-                Advanced Settings
-                <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">Squad limits, tiered bid increments</span>
-              </button>
-
-              {showAdvancedAuction && (
-                <div className="mt-4 space-y-5">
-                  <div className="space-y-3">
-                    <div>
+            <Collapsible open={showAdvancedAuction} onOpenChange={setShowAdvancedAuction}>
+              <SettingsCard className="border-dashed" contentClassName="p-0">
+                <CollapsibleTrigger asChild>
+                  <button type="button" className="flex items-center gap-2 w-full text-left px-4 sm:px-5 py-4 hover:bg-muted/30 transition-colors rounded-xl">
+                    {showAdvancedAuction ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">Advanced Settings</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Contains tiered bid increments and advanced auction controls.</p>
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 border-t border-border/50 pt-4">
+                    <div className="flex items-center justify-between gap-2">
                       <Label className="text-sm font-semibold flex items-center gap-1">
                         Tiered Bid Increase Rules
                         <FieldTooltip text="For advanced leagues: set different bid increments at different price points. For example, bids under ₹1L go up by ₹10K, bids over ₹1L go up by ₹25K. Most organisers don't need this — leave it as one tier." />
                       </Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        The bid amount added per raise changes as bids grow higher. Most auctions only need one tier.
-                      </p>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}
-                      >
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
                         + Add Tier
                       </Button>
                     </div>
@@ -917,96 +795,44 @@ export default function TournamentSettings() {
                             {isLast ? (
                               <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
                             ) : (
-                              <Input
-                                type="number"
-                                value={tier.upTo ?? ""}
-                                onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
-                                placeholder="e.g. 100000"
-                              />
+                              <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
                             )}
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
-                            <Input
-                              type="number"
-                              value={tier.increment || ""}
-                              onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
-                              placeholder="e.g. 25000"
-                            />
+                            <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
                           </div>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                            disabled={bidTiers.length <= 1}
-                            onClick={() => setBidTiers(t => {
-                              const next = t.filter((_, j) => j !== i);
-                              if (next.length === 0) return t;
-                              const last = { ...next[next.length - 1] };
-                              delete last.upTo;
-                              return [...next.slice(0, -1), last];
-                            })}
-                          >
+                          <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
+                            const next = t.filter((_, j) => j !== i);
+                            if (next.length === 0) return t;
+                            const last = { ...next[next.length - 1] };
+                            delete last.upTo;
+                            return [...next.slice(0, -1), last];
+                          })}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       );
                     })}
                   </div>
-
-                  <div className="space-y-3 border-t border-border pt-4">
-                    <div>
-                      <Label className="text-sm font-semibold flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400/70" /> Squad Size Limits
-                        <FieldTooltip text="Control how many players each team must or can buy. Minimum: teams must reach this count — the system reserves budget for unfilled slots. Maximum: teams cannot bid once full. Set 0 to disable." />
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Set 0 to disable each limit.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div id="settings-field-minSquad" className={`space-y-2 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
-                        <Label className="text-xs">Minimum Players per Team</Label>
-                        <Input
-                          type="number" min={0} max={100}
-                          value={editForm.minimumSquadSize as string ?? "0"}
-                          onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                        />
-                        <p className="text-[10px] text-muted-foreground">Budget is reserved for unfilled slots so teams can't overbid early.</p>
-                      </div>
-                      <div id="settings-field-maxSquad" className={`space-y-2 ${fieldWrapClass("maxSquad", Number(editForm.maximumSquadSize) <= 0)}`}>
-                        <Label className="text-xs">Maximum Players per Team</Label>
-                        <Input
-                          type="number" min={0} max={100}
-                          value={editForm.maximumSquadSize as string ?? "0"}
-                          onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
-                        />
-                        <p className="text-[10px] text-muted-foreground">Teams cannot bid once they reach this count.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
+                </CollapsibleContent>
+              </SettingsCard>
+            </Collapsible>
+          </div>
         )}
 
         {/* ── BROADCAST ── */}
         {activeSection === "broadcast" && (
-          <>
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <Label className="text-sm font-semibold flex items-center gap-1.5">
-                    <Clapperboard className="w-4 h-4 text-muted-foreground" /> Main Banner
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Full-screen display for felicitation, announcements, chief guest welcome, winner moments, etc. Toggle it live from the operator panel.</p>
-                </div>
-                <Switch
-                  checked={editForm.mainBannerEnabled === true}
-                  onCheckedChange={(v) => setEditForm(f => ({ ...f, mainBannerEnabled: v }))}
-                />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <SettingsCard
+              title="LED Display"
+              description="Main banner, display mode, and colour theme for the big screen."
+              icon={<Monitor className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-xs flex items-center gap-1.5"><Clapperboard className="w-3.5 h-3.5" /> Main Banner</Label>
+                <Switch checked={editForm.mainBannerEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, mainBannerEnabled: v }))} />
               </div>
-
               <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
                 {editForm.mainBannerUrl ? (
                   <div className="space-y-2">
@@ -1048,100 +874,72 @@ export default function TournamentSettings() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Display mode on LED screen</Label>
+                  <Label className="text-xs text-muted-foreground">Display mode</Label>
                   <div className="flex gap-1.5">
                     {(["cover", "contain"] as const).map(fit => (
-                      <button
-                        key={fit}
-                        type="button"
-                        onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))}
-                        className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${
-                          editForm.mainBannerFit === fit
-                            ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
-                            : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
+                      <button key={fit} type="button" onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))} className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${editForm.mainBannerFit === fit ? "bg-amber-500/20 border border-amber-500/40 text-amber-300" : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"}`}>
                         {fit === "cover" ? "Crop to Fill" : "Fit to Screen"}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="border-t border-border/50 pt-4 space-y-2">
-              <div className="flex items-baseline justify-between">
-                <Label className="text-sm font-semibold flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-muted-foreground" /> Sponsor Logos
-                </Label>
-                <span className="text-[10px] text-muted-foreground">{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Logo image is required; name and type are optional. Sponsors rotate on the LED display and Broadcast Overlay every 2 seconds.
-              </p>
-              <SponsorLogosEditor
-                logos={sponsorLogos}
-                onChange={setSponsorLogos}
-                onUploadFile={handleSponsorLogoUpload}
-                uploadingIdx={sponsorUploadingIdx}
-              />
-            </div>
-
-            <div className="border-t border-border/50 pt-4 space-y-2">
-              <Label className="text-sm font-semibold flex items-center gap-1.5">
-                <Monitor className="w-4 h-4 text-muted-foreground" /> LED Display Theme
-              </Label>
-              <p className="text-xs text-muted-foreground">Visual colour theme for the big screen. Changes take effect immediately on the live display.</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                {DISPLAY_THEMES_LIST.map(t => (
-                  <button
-                    key={t.id}
-                    title={t.label}
-                    onClick={() => handleDisplayThemeChange(t.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                      displayTheme === t.id
-                        ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300"
-                        : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-border pt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-semibold flex items-center gap-1.5">
-                    {editForm.audioEnabled
-                      ? <Volume2 className="w-4 h-4 text-muted-foreground" />
-                      : <VolumeX className="w-4 h-4 text-muted-foreground" />}
-                    Broadcast Audio
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Plays on the LED display screen only</p>
+              <div className="space-y-1.5 pt-1 border-t border-border/50">
+                <Label className="text-xs text-muted-foreground">Theme</Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {DISPLAY_THEMES_LIST.map(t => (
+                    <button key={t.id} title={t.label} onClick={() => handleDisplayThemeChange(t.id)} className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${displayTheme === t.id ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300" : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
-                <Switch
-                  checked={editForm.audioEnabled === true}
-                  onCheckedChange={(v) => setEditForm(f => ({ ...f, audioEnabled: v }))}
-                />
               </div>
+            </SettingsCard>
 
-              {editForm.audioEnabled === true && (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs text-muted-foreground">Master Volume</Label>
-                      <span className="text-xs font-medium tabular-nums">{editForm.masterVolume}%</span>
-                    </div>
-                    <Slider
-                      min={0} max={100} step={1}
-                      value={[Number(editForm.masterVolume)]}
-                      onValueChange={([v]) => setEditForm(f => ({ ...f, masterVolume: String(v) }))}
-                    />
+            <SettingsCard
+              title="Sponsors"
+              description="Logos rotate on the LED display every 2 seconds."
+              icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Logo required; name and type optional.</span>
+                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
+              </div>
+              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
+            </SettingsCard>
+
+            <SettingsCard
+              title="Audio Settings"
+              description="Master audio toggle and volume for the LED display."
+              icon={editForm.audioEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-xs">Broadcast Audio</Label>
+                <Switch checked={editForm.audioEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, audioEnabled: v }))} />
+              </div>
+              {editForm.audioEnabled === true ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Master Volume</Label>
+                    <span className="text-xs font-medium tabular-nums">{editForm.masterVolume}%</span>
                   </div>
+                  <Slider min={0} max={100} step={1} value={[Number(editForm.masterVolume)]} onValueChange={([v]) => setEditForm(f => ({ ...f, masterVolume: String(v) }))} />
+                </div>
+              ) : null}
+            </SettingsCard>
 
+            <SettingsCard
+              title="Auction Sounds"
+              description="Countdown, sold, and break-end sounds for the live auction."
+              icon={<Megaphone className="w-4 h-4 text-muted-foreground" />}
+              className="xl:col-span-2"
+              contentClassName="space-y-3"
+            >
+              {editForm.audioEnabled !== true ? (
+                <p className="text-xs text-muted-foreground">Enable Broadcast Audio above to configure individual sounds.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {/* Countdown Sound */}
                   <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
                     <div className="flex items-center justify-between">
@@ -1306,91 +1104,50 @@ export default function TournamentSettings() {
                       </div>
                     )}
                   </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ── CRICKET SCORING ── */}
-        {activeSection === "scoring" && editForm.sport === "cricket" && (
-          <>
-            <div className="rounded-lg border border-border/60 bg-card/50 p-5 space-y-5">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <CircleDot className="w-4 h-4 text-primary" />
-                  Mobile Scorer & LED
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Uses sold and retained players from your auction as playing squads. Points table updates automatically when matches finish.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/10 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium">Enable cricket scoring</p>
-                  <p className="text-xs text-muted-foreground">Shows scorer, LED board, and points table on the tournament hub.</p>
-                </div>
-                <Switch
-                  checked={editForm.scoringEnabled === true}
-                  onCheckedChange={(v) => setEditForm((f) => ({ ...f, scoringEnabled: v }))}
-                />
-              </div>
-
-              {editForm.scoringEnabled === true && (
-                <div className="space-y-2">
-                  <Label htmlFor="scoring-pin">Delegate scorer PIN (optional)</Label>
-                  <Input
-                    id="scoring-pin"
-                    value={editForm.scoringPin as string}
-                    onChange={(e) => setEditForm((f) => ({ ...f, scoringPin: e.target.value }))}
-                    placeholder="4–12 characters for ground staff"
-                    maxLength={12}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Ground staff can score without your organizer login when they enter this PIN on the scorer screen.
-                  </p>
                 </div>
               )}
-            </div>
-          </>
+            </SettingsCard>
+          </div>
         )}
 
         {/* ── RECOVERY ── */}
         {activeSection === "recovery" && (
-          <>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-sm font-semibold flex items-center gap-1.5">
-                  <RotateCcw className="w-4 h-4 text-muted-foreground" /> Auction Reset
-                </Label>
-                <p className="text-xs text-muted-foreground mt-1">Reset the live auction state — clears bids, returns all sold players to the pool, restores team purses.</p>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive h-auto py-3"
-                onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
-              >
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                  <span className="text-[11px] text-muted-foreground font-normal">Password-protected — enter your organizer password to clear practice auction data.</span>
-                </div>
-              </Button>
-            </div>
-
-            <div className="border-t border-border pt-4">
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
+          <div className="max-w-3xl">
+            <SettingsCard
+              title="Danger Zone"
+              description="Irreversible actions that reset live auction state."
+              icon={<AlertTriangle className="w-4 h-4 text-destructive" />}
+              className="border-destructive/40 bg-destructive/5"
+            >
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-3">
                 <div className="flex items-start gap-3">
-                  <ShieldAlert className="w-5 h-5 text-muted-foreground/50 flex-shrink-0 mt-0.5" />
+                  <RotateCcw className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="text-sm font-semibold text-muted-foreground">Advanced recovery coming soon</p>
-                    <p className="text-xs text-muted-foreground">Auto-save snapshots every 5 seconds, crash recovery, lock team bidding, force timer stop and re-auction queue management are planned for the next release.</p>
+                    <p className="text-sm font-semibold text-destructive">Auction Reset</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Clears all bids, returns sold players to the pool, and restores team purses. Teams and your player list are not deleted.
+                    </p>
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3"
+                  onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
+                >
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                  <div className="flex flex-col items-start text-left">
+                    <span className="text-sm font-semibold">Open Auction Reset Page</span>
+                    <span className="text-[11px] text-muted-foreground font-normal">Password-protected — requires organizer password and audit reason.</span>
+                  </div>
+                </Button>
               </div>
-            </div>
-          </>
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-3">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Coming soon:</span> Auto-save snapshots, crash recovery, lock team bidding, and re-auction queue management.
+                </p>
+              </div>
+            </SettingsCard>
+          </div>
         )}
       </div>
 
@@ -1402,6 +1159,7 @@ export default function TournamentSettings() {
         title="Tournament Logo"
         onSave={url => setEditForm(f => ({ ...f, logoUrl: url }))}
       />
+      </div>
     </AppLayout>
   );
 }

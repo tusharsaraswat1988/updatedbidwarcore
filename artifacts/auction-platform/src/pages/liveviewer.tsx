@@ -1441,11 +1441,9 @@ export default function LiveViewerPage() {
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pb-1">
         {/* ── Player section — always full prominence (live auction player) ── */}
         <div className="relative flex-shrink-0 mb-2 sm:mb-3">
-          {displayMode.overlayMode && (
+          {displayMode.overlayMode === "paused" && (
             <AuctionStatusOverlay
-              mode={displayMode.overlayMode}
-              breakEndsAt={displayMode.breakEndsAt}
-              breakMessage={displayMode.breakMessage}
+              mode="paused"
               className="rounded-2xl"
             />
           )}
@@ -1922,7 +1920,16 @@ export default function LiveViewerPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Pre-Auction countdown overlay (full-screen; break uses shared banner) ── */}
+      {/* ── Break / pre-auction full-screen countdown on live viewer ── */}
+      {!isCompleted && stickyDc?.type === "break" && (
+        <BreakCountdownOverlay
+          key={stickyDc.endsAt}
+          type="break"
+          endsAt={stickyDc.endsAt}
+          message={stickyDc.message}
+          tournamentName={tournament?.name}
+        />
+      )}
       {!isCompleted && stickyDc?.type === "pre-auction" && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}

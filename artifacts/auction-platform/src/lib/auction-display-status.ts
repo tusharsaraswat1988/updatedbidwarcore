@@ -179,11 +179,10 @@ export function deriveAuctionDisplayMode(state: RawAuctionState): AuctionDisplay
   const isPaused = status === "paused";
   const isLive = status === "active";
 
-  const overlayMode: "paused" | "break" | null = isBreak
-    ? "break"
-    : isPaused
-      ? "paused"
-      : null;
+  // Break uses the full-screen digit overlay; only paused auctions use the banner.
+  const overlayMode: "paused" | "break" | null = isPaused && !isBreak
+    ? "paused"
+    : null;
 
   let phase: AuctionDisplayPhase;
   if (isBreak) phase = "break";

@@ -98,6 +98,9 @@ async function ensureTournamentScoring(tournamentId: number) {
   if (!tournament) {
     throw new ScoringServiceError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
   }
+  if (!tournament.scoringEnabled) {
+    throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
+  }
   return tournament;
 }
 
@@ -125,9 +128,6 @@ export async function createScoringMatch(
   },
 ) {
   const tournament = await ensureTournamentScoring(tournamentId);
-  if (!tournament.scoringEnabled) {
-    throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
-  }
   if (tournament.sport !== "cricket") {
     throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
   }
@@ -254,6 +254,8 @@ export async function listScoringMatches(tournamentId: number) {
 }
 
 export async function getScoringMatch(tournamentId: number, matchId: number) {
+  await ensureTournamentScoring(tournamentId);
+
   const [match] = await db
     .select()
     .from(scoringMatchesTable)

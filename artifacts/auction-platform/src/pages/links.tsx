@@ -180,7 +180,7 @@ export default function LinksPage() {
           </CardContent>
         </Card>
 
-        {tournament?.sport === "cricket" ? (
+        {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
           <Card className="border-emerald-500/25 bg-emerald-500/5">
             <CardContent className="p-6">
               <h2 className="font-display font-bold text-lg mb-1">Cricket Scoreboard (LED)</h2>

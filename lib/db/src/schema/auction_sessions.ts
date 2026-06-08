@@ -30,6 +30,8 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   activeCategoryIds: text("active_category_ids"),
   pausedTimeRemaining: integer("paused_time_remaining"),
   deferredPlayerIds: text("deferred_player_ids"),
+  // Shuffled draw order for fair random selection when few players remain.
+  randomDrawQueue: text("random_draw_queue"),
   displayCountdown: text("display_countdown"),
   soldPlayersCount: integer("sold_players_count").notNull().default(0),
   unsoldPlayersCount: integer("unsold_players_count").notNull().default(0),

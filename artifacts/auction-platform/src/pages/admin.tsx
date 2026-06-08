@@ -69,6 +69,7 @@ import {
   Sliders,
   Palette,
   MonitorDown,
+  CircleDot,
   Hammer,
   GitBranch,
   ExternalLink,
@@ -804,6 +805,27 @@ function DetailPanel({
               ? <RefreshCw className="w-3 h-3 animate-spin" />
               : <MonitorDown className="w-3 h-3" />}
             Local Mode: {t.localModeEnabled ? "ON" : "OFF"}
+          </Button>
+        )}
+        {t.sport === "cricket" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={`h-7 gap-1.5 text-xs ${t.scoringEnabled
+              ? "border-primary/40 text-primary hover:bg-primary/10"
+              : "border-border text-muted-foreground hover:bg-accent"}`}
+            disabled={actionLoading === "Toggle Match Scoring"}
+            onClick={() =>
+              doAction("Toggle Match Scoring", () =>
+                updateAdminTournament(tournamentId, { scoringEnabled: !t.scoringEnabled }),
+              )
+            }
+            title={t.scoringEnabled ? "Disable match scoring for this tournament" : "Enable match scoring for internal testing"}
+          >
+            {actionLoading === "Toggle Match Scoring"
+              ? <RefreshCw className="w-3 h-3 animate-spin" />
+              : <CircleDot className="w-3 h-3" />}
+            Match Scoring: {t.scoringEnabled ? "ON" : "OFF"}
           </Button>
         )}
         {/* Reset Auction (master admin only) */}

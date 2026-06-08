@@ -5,7 +5,10 @@ import type { ScoringLiveDisplay } from "@/lib/scoring-api";
 
 export type ScoringConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
-export function useScoringSocket(tournamentId: number): { connectionStatus: ScoringConnectionStatus } {
+export function useScoringSocket(
+  tournamentId: number,
+  enabled = true,
+): { connectionStatus: ScoringConnectionStatus } {
   const qc = useQueryClient();
   const [connectionStatus, setConnectionStatus] = useState<ScoringConnectionStatus>("reconnecting");
   const setStatusRef = useRef(setConnectionStatus);
@@ -14,7 +17,7 @@ export function useScoringSocket(tournamentId: number): { connectionStatus: Scor
   });
 
   useEffect(() => {
-    if (!tournamentId) return;
+    if (!tournamentId || !enabled) return;
 
     let current: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout>;
@@ -93,7 +96,7 @@ export function useScoringSocket(tournamentId: number): { connectionStatus: Scor
       current = null;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [tournamentId, qc]);
+  }, [tournamentId, enabled, qc]);
 
   return { connectionStatus };
 }

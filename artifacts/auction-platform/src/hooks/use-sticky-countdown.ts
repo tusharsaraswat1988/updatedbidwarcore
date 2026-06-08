@@ -10,10 +10,8 @@ type CountdownState = {
  * Keeps the last seen countdown alive on the client even after the server
  * clears it (which happens immediately on read once the countdown expires).
  *
- * - Break type: clears immediately when server clears — break overlay
- *   disappears at expiry with no post-zero banner.
- * - Pre-auction: holds for 5 s after endsAt so the 4-s post-expiry
- *   "officially started" banner can complete before the overlay unmounts.
+ * - Break / pre-auction: holds for 5 s after endsAt so the post-expiry
+ *   notification banner can complete before the overlay unmounts.
  */
 export function useStickyCountdown(
   serverDc:
@@ -37,11 +35,6 @@ export function useStickyCountdown(
 
     const current = localRef.current;
     if (!current) return;
-
-    if (current.type === "break") {
-      setLocal(null);
-      return;
-    }
 
     const holdUntil = new Date(current.endsAt).getTime() + 5000;
     const remaining = holdUntil - Date.now();

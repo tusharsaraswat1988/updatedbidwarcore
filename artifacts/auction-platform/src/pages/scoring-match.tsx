@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useRoute } from "wouter";
+import { useCallback, useEffect, useState } from "react";
+import { useRoute, useLocation } from "wouter";
 import {
   useListTeams,
   useListPlayers,
@@ -26,6 +26,7 @@ import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-clien
 
 export default function ScoringMatchPage() {
   const [, params] = useRoute("/tournament/:id/score/:matchId");
+  const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
   const matchId = parseInt(params?.matchId || "0");
   const { toast } = useToast();
@@ -33,7 +34,13 @@ export default function ScoringMatchPage() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data, isLoading, refetch, isFetching } = useScoringMatch(tournamentId, matchId);
+  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const { data, isLoading, refetch, isFetching } = useScoringMatch(tournamentId, matchId, scoringActive);
+
+  useEffect(() => {
+    if (!tournament || scoringActive) return;
+    navigate(`/tournament/${tournamentId}`);
+  }, [tournament, scoringActive, tournamentId, navigate]);
   const { invalidateAll, setMatchDetail } = useInvalidateScoring(tournamentId, matchId);
 
   const { data: teams } = useListTeams(tournamentId, {
@@ -107,6 +114,8 @@ export default function ScoringMatchPage() {
   const summary =
     data?.summary ??
     (data && isFinished ? buildCricketMatchSummary(data.state) : null);
+
+  if (!scoringActive) return null;
 
   return (
       <ScorerShell

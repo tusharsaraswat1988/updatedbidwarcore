@@ -52,6 +52,7 @@ export default function BreakTimerPage() {
   const setPreAuctionMut = useSetPreAuctionCountdown();
 
   const [breakMinutes, setBreakMinutes] = useState("5");
+  const [breakSeconds, setBreakSeconds] = useState("0");
   const [breakLabel, setBreakLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -59,16 +60,24 @@ export default function BreakTimerPage() {
   const { mins, secs, expired } = useRemainingTime(dc?.endsAt ?? null);
 
   async function handleStartBreak() {
-    const mins = parseFloat(breakMinutes);
-    if (!mins || mins <= 0) { setError("Enter a valid duration."); return; }
+    const mins = Math.max(0, parseInt(breakMinutes, 10) || 0);
+    const secs = Math.max(0, Math.min(59, parseInt(breakSeconds, 10) || 0));
+    const durationSeconds = mins * 60 + secs;
+    if (durationSeconds < 10 || durationSeconds > 3600) {
+      setError("Duration must be between 10 seconds and 60 minutes.");
+      return;
+    }
     setError(null);
     try {
       await setBreakTimerMut.mutateAsync({
         tournamentId,
-        data: { action: "start", durationSeconds: Math.round(mins * 60), message: breakLabel || undefined },
+        data: { action: "start", durationSeconds, message: breakLabel || undefined },
       });
       await refetch();
-    } catch { setError("Failed to start break timer."); }
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Failed to start break timer.";
+      setError(msg);
+    }
   }
 
   async function handleExtend() {
@@ -199,17 +208,30 @@ export default function BreakTimerPage() {
             <h2 className="font-semibold text-foreground">Break Timer</h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                Duration (minutes)
+                Minutes
               </label>
               <input
                 type="number"
-                min={1}
-                max={120}
+                min={0}
+                max={60}
                 value={breakMinutes}
                 onChange={(e) => setBreakMinutes(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                Seconds
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={breakSeconds}
+                onChange={(e) => setBreakSeconds(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -229,16 +251,16 @@ export default function BreakTimerPage() {
           </div>
 
           {auctionIsLive && (
-            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-400 flex items-center gap-2">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-              Auction is live — pause bidding before starting a break.
+              Live bidding will auto-pause and the countdown will appear on all displays.
             </div>
           )}
 
           <div className="flex gap-2">
             <button
               onClick={handleStartBreak}
-              disabled={setBreakTimerMut.isPending || isBreakActive || auctionIsLive}
+              disabled={setBreakTimerMut.isPending || isBreakActive}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-amber-500/50 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 font-semibold text-sm transition-colors disabled:opacity-40"
             >
               <Play className="w-4 h-4" />

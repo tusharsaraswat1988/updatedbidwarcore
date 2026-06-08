@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, Lock, RefreshCw } from "lucide-react";
+import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveDisplaysPanel } from "@/components/admin/live-displays-panel";
@@ -20,6 +20,7 @@ import {
   AdminTournamentRow,
   fetchAdminTournamentDetail,
   listAdminTournaments,
+  updateAdminTournament,
 } from "@/lib/auth";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
@@ -111,6 +112,7 @@ export default function AdminTournamentDetailPage() {
   const [detail, setDetail] = useState<AdminTournamentDetail | null>(null);
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scoringToggleLoading, setScoringToggleLoading] = useState(false);
 
   const reloadDetail = useCallback(() => {
     if (!tournamentId) return Promise.resolve();
@@ -203,6 +205,9 @@ export default function AdminTournamentDetailPage() {
                   </StatusPill>
                   {detail.tournament.adminLocked && <StatusPill tone="red">Locked</StatusPill>}
                   {detail.tournament.localModeEnabled && <StatusPill tone="amber">Local Mode</StatusPill>}
+                  {detail.tournament.sport === "cricket" && detail.tournament.scoringEnabled && (
+                    <StatusPill tone="green">Match Scoring</StatusPill>
+                  )}
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {detail.tournament.sport} · ID #{detail.tournament.id} · {detail.tournament.venue || "No venue"} · {detail.tournament.auctionDate || "No date"}
@@ -271,6 +276,34 @@ export default function AdminTournamentDetailPage() {
                     <div className="flex items-center gap-2"><BadgeCheck className="h-4 w-4" /> License: {detail.tournament.licenseStatus}</div>
                     <div className="flex items-center gap-2"><Lock className="h-4 w-4" /> Lock: {detail.tournament.adminLocked ? "Locked" : "Unlocked"}</div>
                     <div className="flex items-center gap-2"><Activity className="h-4 w-4" /> Reset count: {detail.tournament.resetCount}</div>
+                    {detail.tournament.sport === "cricket" && (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span>
+                          Match scoring: {detail.tournament.scoringEnabled ? "Enabled (testing)" : "Disabled (default)"}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`h-8 gap-1.5 text-xs ${detail.tournament.scoringEnabled
+                            ? "border-primary/40 text-primary hover:bg-primary/10"
+                            : "border-border text-muted-foreground"}`}
+                          disabled={scoringToggleLoading}
+                          onClick={async () => {
+                            if (!tournamentId) return;
+                            setScoringToggleLoading(true);
+                            const next = !detail.tournament.scoringEnabled;
+                            const r = await updateAdminTournament(tournamentId, { scoringEnabled: next });
+                            if (r.success) await reloadDetail();
+                            setScoringToggleLoading(false);
+                          }}
+                        >
+                          {scoringToggleLoading
+                            ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            : <CircleDot className="h-3.5 w-3.5" />}
+                          {detail.tournament.scoringEnabled ? "Disable Match Scoring" : "Enable Match Scoring"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

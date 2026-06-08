@@ -122,7 +122,7 @@ export async function updateAdminTournament(
     organizerEmail: string; organizerPassword: string; venue: string; auctionDate: string;
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
-    localModeEnabled: boolean; reason: string;
+    localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
@@ -214,6 +214,7 @@ export type AdminTournamentDetail = {
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
     localModeEnabled: boolean;
+    scoringEnabled: boolean;
     createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;

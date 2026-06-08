@@ -7,10 +7,12 @@ interface BreakCountdownOverlayProps {
   endsAt: string;
   message: string | null;
   tournamentName: string | null | undefined;
-  /** compact — renders a slim top-of-screen banner rather than a full-screen
-   *  overlay. Intended for tablet owner-app views where the full overlay
-   *  would obscure purse/bidding controls. */
+  /** compact — slim banner instead of full-screen overlay (OBS / tablet views). */
   compact?: boolean;
+  /** Where the compact banner anchors; default top. */
+  compactPlacement?: "top" | "bottom";
+  /** Pixels from the bottom edge when compactPlacement is bottom. */
+  compactBottomOffset?: number;
 }
 
 function useCountdown(endsAt: string) {
@@ -88,16 +90,16 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
   message,
   tournamentName,
   compact = false,
+  compactPlacement = "top",
+  compactBottomOffset = 0,
 }: BreakCountdownOverlayProps) {
   const { hours, mins, secs, expired } = useCountdown(endsAt);
   const showHours = hours > 0;
 
-  // Pre-auction only: show a 4-second "officially started" banner after the
-  // countdown expires, then dismiss. Break overlay disappears immediately at
-  // expiry — no post-zero banner.
+  // Show a short post-expiry notification on all displays before dismissing.
   const [showBanner, setShowBanner] = useState(true);
   useEffect(() => {
-    if (!expired || type !== "pre-auction") return;
+    if (!expired) return;
     setShowBanner(true);
     const id = setTimeout(() => setShowBanner(false), 4000);
     return () => clearTimeout(id);
@@ -122,34 +124,40 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
     : "from-primary/30 via-yellow-500/20";
   const borderColor = isBreak ? (isUrgent ? "border-red-500/40" : "border-amber-500/20") : "border-primary/20";
 
-  const visible = !expired || (type === "pre-auction" && showBanner);
+  const visible = !expired || showBanner;
 
-  // ── Compact banner (owner panel / tablet views) ───────────────────────────
+  // ── Compact banner (OBS lower strip / tablet views) ───────────────────────
   if (compact) {
-    const mmss = `${String(Math.floor((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) / 60)).padStart(2, "0")}:${String((Math.ceil(Math.max(0, new Date(endsAt).getTime() - Date.now()) / 1000)) % 60).padStart(2, "0")}`;
+    const mmss = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
     const bannerText = expired
-      ? (isBreak ? "Break ended" : `${tournamentName || "Auction"} has officially started!`)
+      ? (isBreak ? "We're back!" : `${tournamentName || "Auction"} has officially started!`)
       : (message || defaultLabel);
+    const isBottom = compactPlacement === "bottom";
     return (
       <AnimatePresence>
         {visible && (
           <motion.div
             key="compact-banner"
-            initial={{ opacity: 0, y: -16 }}
+            initial={{ opacity: 0, y: isBottom ? 20 : -16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
+            exit={{ opacity: 0, y: isBottom ? 20 : -16 }}
             transition={{ duration: 0.3 }}
-            className="absolute top-0 inset-x-0 z-40"
+            className={`absolute inset-x-0 z-40 pointer-events-none ${isBottom ? "" : "top-0"}`}
+            style={isBottom ? { bottom: compactBottomOffset } : undefined}
           >
             <div
-              className={`mx-4 mt-3 flex items-center gap-3 px-4 py-3 rounded-2xl border ${borderColor} bg-black/80 backdrop-blur-sm shadow-lg`}
+              className={
+                isBottom
+                  ? `flex items-center gap-4 px-8 py-3.5 border-t-2 ${borderColor} bg-black/88 backdrop-blur-md shadow-[0_-8px_32px_rgba(0,0,0,0.45)]`
+                  : `mx-4 mt-3 flex items-center gap-3 px-4 py-3 rounded-2xl border ${borderColor} bg-black/80 backdrop-blur-sm shadow-lg`
+              }
             >
-              <Icon className={`w-4 h-4 flex-shrink-0 ${iconColor}`} />
-              <span className="flex-1 text-sm font-semibold text-white/90 truncate">
-                {bannerText}
+              <Icon className={`${isBottom ? "w-5 h-5" : "w-4 h-4"} flex-shrink-0 ${iconColor}`} />
+              <span className={`flex-1 font-semibold text-white/90 truncate ${isBottom ? "text-base uppercase tracking-wider" : "text-sm"}`}>
+                {isBreak && !expired ? "☕ Auction Break — " : ""}{bannerText}
               </span>
               {!expired && (
-                <span className={`text-sm font-display font-black tabular-nums ${iconColor}`}>
+                <span className={`font-display font-black tabular-nums ${iconColor} ${isBottom ? "text-2xl tracking-wider" : "text-sm"}`}>
                   {mmss}
                 </span>
               )}

@@ -3,9 +3,9 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot,
 } from "lucide-react";
-import { auctionRoomPath, auctionResetPath, displayScreenPath } from "@/lib/tournament-navigation";
+import { auctionRoomPath, auctionResetPath, displayScreenPath, scoringPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
@@ -196,6 +196,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
+                {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
+                  <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/scoring`)}>
+                    <CircleDot className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Match Scoring</span>}
+                  </Link>
+                ) : null}
                 {tournament?.status === "completed" ? (
                   <Link href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={navCls(`/tournament/${tournamentId}/reports`)}>
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />

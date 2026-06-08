@@ -30,6 +30,7 @@ import {
   logTimerEvent,
 } from "../lib/auction-logger";
 import { validateBidAmount } from "@workspace/api-base/auction-bid";
+import { pickRandomPlayerFromPool } from "@workspace/api-base/auction-player-selection";
 import {
   tournamentToReadinessInput,
   validateAuctionReadiness,
@@ -75,6 +76,32 @@ function resolveTimerPhase(session: {
 }): "start" | "bid" {
   if (session.currentBidTeamId || session.timerType === "bid") return "bid";
   return "start";
+}
+
+type AuctionPlayerPick = {
+  playerId: number;
+  randomDrawQueue: string | null;
+};
+
+function selectPlayerFromPool(
+  pool: { id: number }[],
+  mode: "sequential" | "random" | "manual" | undefined,
+  session: { randomDrawQueue?: string | null; currentPlayerId?: number | null },
+): AuctionPlayerPick | null {
+  if (pool.length === 0) return null;
+
+  if (mode === "random") {
+    const pick = pickRandomPlayerFromPool(pool, {
+      queueJson: session.randomDrawQueue,
+      lastPlayerId: session.currentPlayerId,
+    });
+    return { playerId: pick.playerId, randomDrawQueue: pick.queueJson };
+  }
+
+  return {
+    playerId: pool.reduce((a, b) => (a.id < b.id ? a : b)).id,
+    randomDrawQueue: null,
+  };
 }
 
 function computeBidTimerDuration(
@@ -850,6 +877,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
 
   let selectedPlayerId: number | null = null;
   let newDeferredIds = deferredIds;
+  let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
 
   if (playerId) {
     // Manual selection — operator picked a specific player
@@ -869,16 +897,13 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
     const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
 
-    if (pool.length > 0) {
-      if (mode === "random") {
-        selectedPlayerId = pool[Math.floor(Math.random() * pool.length)].id;
-      } else {
-        // Sequential: lowest ID first
-        selectedPlayerId = pool.reduce((a, b) => a.id < b.id ? a : b).id;
-      }
+    const pick = selectPlayerFromPool(pool, mode, session);
+    if (pick) {
+      selectedPlayerId = pick.playerId;
+      newRandomDrawQueue = pick.randomDrawQueue;
       // If selected player came from the deferred list, remove them from it
-      if (selectedPlayerId !== null && deferredIds.includes(selectedPlayerId)) {
-        newDeferredIds = deferredIds.filter(id => id !== selectedPlayerId);
+      if (deferredIds.includes(pick.playerId)) {
+        newDeferredIds = deferredIds.filter(id => id !== pick.playerId);
       }
     }
   }
@@ -918,6 +943,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       timerType: null,
       pausedTimeRemaining: null,
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
+      randomDrawQueue: newRandomDrawQueue,
       displayCountdown: null,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
       lastOutcome: null,
@@ -1668,6 +1694,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
       currentBidTeamId: null,
       timerEndsAt: null,
       deferredPlayerIds: null,
+      randomDrawQueue: null,
       soldPlayersCount: 0,
       unsoldPlayersCount: 0,
       lastAction: "Reset complete — ready for live auction",
@@ -1772,17 +1799,18 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
 
   let selectedPlayerId: number | null = null;
   let newDeferredIds = deferredIds;
+  let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
 
   if (pool.length > 0) {
     const effectiveMode = selMode === "manual" ? "sequential" : selMode;
-    if (effectiveMode === "random") {
-      selectedPlayerId = pool[Math.floor(Math.random() * pool.length)].id;
-    } else {
-      selectedPlayerId = pool.reduce((a, b) => a.id < b.id ? a : b).id;
-    }
-    // If next player was from the deferred list, remove them
-    if (selectedPlayerId !== null && deferredIds.includes(selectedPlayerId)) {
-      newDeferredIds = deferredIds.filter(id => id !== selectedPlayerId);
+    const pick = selectPlayerFromPool(pool, effectiveMode, session);
+    if (pick) {
+      selectedPlayerId = pick.playerId;
+      newRandomDrawQueue = pick.randomDrawQueue;
+      // If next player was from the deferred list, remove them
+      if (deferredIds.includes(pick.playerId)) {
+        newDeferredIds = deferredIds.filter(id => id !== pick.playerId);
+      }
     }
   }
 
@@ -1821,6 +1849,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
       timerType: null,
       pausedTimeRemaining: null,
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
+      randomDrawQueue: newRandomDrawQueue,
       lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
       lastOutcome: null,
     })
@@ -2212,10 +2241,31 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
-  // Prevent starting a break while bidding is live — operator must pause first
+  // Auto-pause live bidding when a break starts so all displays can show the countdown
   if (body.data.action === "start" && session.status === "active") {
-    res.status(409).json({ error: "Cannot start a break during live bidding. Pause the auction first." });
-    return;
+    let pausedTimeRemaining: number | null = null;
+    if (session.timerEndsAt) {
+      const remaining = Math.ceil((new Date(session.timerEndsAt).getTime() - Date.now()) / 1000);
+      pausedTimeRemaining = remaining > 0 ? remaining : null;
+    }
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "paused",
+        lastAction: "Auction paused for break",
+        timerEndsAt: null,
+        pausedTimeRemaining,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+    auditLog(req, {
+      category: "auction",
+      action: "auction.paused",
+      summary: "Auction auto-paused to start break timer",
+      tournamentId: tid,
+      resource: { type: "auction_session", id: tid },
+      metadata: { pausedTimeRemaining, reason: "break_timer" },
+    });
   }
   if (body.data.action === "start" && !body.data.durationSeconds) {
     res.status(400).json({ error: "durationSeconds is required when action is start" });

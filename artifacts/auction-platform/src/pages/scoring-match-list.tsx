@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import {
   useGetTournament,
@@ -25,7 +25,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
-import { settingsPath } from "@/lib/settings-navigation";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ChevronRight, CircleDot, Monitor } from "lucide-react";
@@ -50,10 +49,16 @@ export default function ScoringMatchListPage() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId);
   const isCricket = tournament?.sport === "cricket";
   const scoringEnabled = tournament?.scoringEnabled === true;
-  const { data: squadData } = useSquadReadiness(tournamentId, isCricket && scoringEnabled);
+  const scoringActive = isCricket && scoringEnabled;
+  const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId, scoringActive);
+  const { data: squadData } = useSquadReadiness(tournamentId, scoringActive);
+
+  useEffect(() => {
+    if (!tournament || scoringActive) return;
+    navigate(`/tournament/${tournamentId}`);
+  }, [tournament, scoringActive, tournamentId, navigate]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
@@ -98,20 +103,7 @@ export default function ScoringMatchListPage() {
         onRefresh={() => void refetch()}
         refreshing={isFetching}
       >
-        {!isCricket ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            Scoring is only available for cricket tournaments.
-          </div>
-        ) : !scoringEnabled ? (
-          <div className="p-6 text-center space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Cricket scoring is not enabled for this tournament.
-            </p>
-            <Button variant="outline" onClick={() => navigate(settingsPath(tournamentId, "scoring"))}>
-              Enable in settings
-            </Button>
-          </div>
-        ) : (
+        {!scoringActive ? null : (
           <div className="p-4 space-y-4">
             <div className="flex gap-2">
               <Button className="flex-1 h-12 gap-2" onClick={() => setCreateOpen(true)}>

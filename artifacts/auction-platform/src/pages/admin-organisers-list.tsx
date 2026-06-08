@@ -65,9 +65,10 @@ export default function AdminOrganisersListPage() {
           {organisers.filter((o) => organizerAccessLabel(o.licenseStatus) === "locked").length} locked
         </div>
 
-        <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_160px_120px_120px_100px]">
+        <div className="hidden border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_130px_180px_100px_100px_90px]">
           <span>Organiser</span>
-          <span>Contact</span>
+          <span>Phone</span>
+          <span>Email</span>
           <span>Status</span>
           <span>Tournaments</span>
           <span className="text-right">Action</span>
@@ -90,16 +91,23 @@ export default function AdminOrganisersListPage() {
                 <button
                   key={o.id}
                   onClick={() => navigate(`/admin/organisers/${o.id}`)}
-                  className="block w-full px-4 py-3 text-left text-sm hover:bg-accent/50 md:grid md:grid-cols-[1fr_160px_120px_120px_100px] md:items-center md:gap-4"
+                  className="block w-full px-4 py-3 text-left text-sm hover:bg-accent/50 md:grid md:grid-cols-[1fr_130px_180px_100px_100px_90px] md:items-center md:gap-4"
                 >
                   <div className="min-w-0">
                     <div className="font-semibold text-white">{o.name}</div>
                     <div className="text-xs text-muted-foreground">
                       Joined {new Date(o.createdAt).toLocaleDateString("en-IN")}
                     </div>
+                    <div className="mt-1 text-xs text-muted-foreground md:hidden">
+                      {o.mobile || "No phone"}
+                      {o.email ? ` · ${o.email}` : ""}
+                    </div>
                   </div>
-                  <span className="mt-1 block truncate text-xs text-muted-foreground md:mt-0">
-                    {o.mobile || o.email || "No contact"}
+                  <span className="hidden truncate text-xs text-muted-foreground md:block">
+                    {o.mobile || "—"}
+                  </span>
+                  <span className="hidden truncate text-xs text-muted-foreground md:block">
+                    {o.email || "—"}
                   </span>
                   <div className="mt-2 flex flex-wrap items-center gap-2 md:mt-0">
                     <Badge
