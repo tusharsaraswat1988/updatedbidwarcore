@@ -26,6 +26,7 @@ import notificationsRouter from "./notifications";
 import auditRouter from "./audit";
 import purseBoostersRouter from "./purse-boosters";
 import scoringRouter from "./scoring";
+import badmintonRouter from "./badminton";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(purseBoostersRouter);
 router.use(scoringRouter);
+router.use("/tournaments/:id/badminton", badmintonRouter);
 
 export default router;
