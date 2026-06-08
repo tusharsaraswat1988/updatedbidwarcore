@@ -22,7 +22,7 @@ const UNSOLD_ACCENT = "#ef4444";
 
 /**
  * Shared sold/unsold result card — consistent visual language across
- * Public Viewer (compact) and OBS (banner row). LED uses full-screen
+ * Public Viewer (compact) and Broadcast Overlay (banner row). LED uses full-screen
  * SoldCard/UnsoldCard but shares the same colour tokens.
  */
 export const OutcomeResultPanel = memo(function OutcomeResultPanel({

@@ -81,7 +81,7 @@ export function LiveDisplaysPanel({
                     <a href={`/tournament/${t.id}/liveviewer`} target="_blank" rel="noreferrer">Viewer</a>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
-                    <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">OBS</a>
+                    <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Broadcast</a>
                   </Button>
                 </div>
                 <LiveConnectionStatus tournamentId={t.id} />
@@ -106,7 +106,7 @@ export function LiveDisplaysPanel({
         <div className="border-b border-border px-4 py-3">
           <h2 className="font-display text-base font-black text-white">{t.name}</h2>
           <p className="text-xs text-muted-foreground">
-            Live viewer and OBS overlay endpoints · auction event channel status per endpoint group.
+            Live viewer and Broadcast Overlay endpoints · auction event channel status per endpoint group.
           </p>
         </div>
         <div className="hidden gap-4 border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground md:grid md:grid-cols-[1fr_140px_120px_100px]">
@@ -117,7 +117,7 @@ export function LiveDisplaysPanel({
         </div>
         <div className="divide-y divide-border">
           <DisplayEndpointRow label="Live viewer (LED)" href={`${base}/liveviewer`} tournamentId={t.id} />
-          <DisplayEndpointRow label="OBS overlay" href={`${base}/obs`} tournamentId={t.id} />
+          <DisplayEndpointRow label="Broadcast Overlay" href={`${base}/obs`} tournamentId={t.id} />
           <DisplayEndpointRow label="Break timer display" href={`${base}/break-timer`} tournamentId={t.id} />
         </div>
       </div>

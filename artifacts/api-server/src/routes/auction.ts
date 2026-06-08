@@ -2356,7 +2356,7 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
     .set({ exportTokenLastMirrorAt: new Date() })
     .where(eq(tournamentsTable.id, tid));
 
-  // Broadcast to cloud display/OBS screens so they update live
+  // Broadcast to cloud display and Broadcast Overlay screens so they update live
   const fullState = await buildAuctionState(tid);
   broadcastToTournament(tid, { type: "auction_state", state: fullState });
 

@@ -27,7 +27,7 @@ function useMmSsCountdown(endsAt: string | null | undefined) {
 }
 
 /**
- * Shared pause / break banner for LED, Live Viewer, and OBS.
+ * Shared pause / break banner for LED, Live Viewer, and Broadcast Overlay.
  * Sits over the main content area — header, sponsor carousel, and ticker stay visible.
  */
 export const AuctionStatusOverlay = memo(function AuctionStatusOverlay({

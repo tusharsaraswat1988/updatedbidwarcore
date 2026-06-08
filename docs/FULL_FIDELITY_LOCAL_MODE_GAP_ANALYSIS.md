@@ -97,7 +97,7 @@ Mirror/sync optional     →     Unchanged (post-event); event itself is LAN-onl
 | **Risk** | **High** — wrong logos, colors, powered-by text on display/owner/reports vs cloud. |
 | **Architecture** | Export includes `branding: BrandingSettings` + media files. Local server mounts branding router reading from SQLite `branding_settings` table or JSON sidecar. |
 
-#### 3.1.5 Custom graphics (main banner, OBS, display overlays)
+#### 3.1.5 Custom graphics (main banner, Broadcast Overlay, display overlays)
 
 | | |
 |---|---|
@@ -390,7 +390,7 @@ BidWar may claim **“Runs completely offline with full branding, media, owner a
 - [ ] Sold/unsold outcome cards render (`lastOutcome`)
 - [ ] Overlays respond to operator commands
 - [ ] Sponsor ticker + audio work
-- [ ] OBS overlay route works if used (`/tournament/:id/obs`)
+- [ ] Broadcast Overlay route works if used (`/tournament/:id/obs`)
 
 ### Reports
 

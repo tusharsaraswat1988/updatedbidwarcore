@@ -5,7 +5,7 @@ const GA_ID = "G-5Q39TEZJX2";
 const CLARITY_ID = "wu86zkys2f";
 
 // Paths where analytics must NOT run: live auction, operator panel,
-// owner bidding panel, admin app, organizer portal, OBS overlay.
+// owner bidding panel, admin app, organizer portal, Broadcast Overlay.
 const BLOCKED_PREFIXES = [
   "/tournament/",
   "/admin/",

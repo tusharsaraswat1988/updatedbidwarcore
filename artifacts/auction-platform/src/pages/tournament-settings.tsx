@@ -1022,7 +1022,7 @@ export default function TournamentSettings() {
                 <span className="text-[10px] text-muted-foreground">{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Logo image is required; name and type are optional. Sponsors rotate on the LED display and OBS overlay every 2 seconds.
+                Logo image is required; name and type are optional. Sponsors rotate on the LED display and Broadcast Overlay every 2 seconds.
               </p>
               <SponsorLogosEditor
                 logos={sponsorLogos}

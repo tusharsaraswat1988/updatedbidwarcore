@@ -9,7 +9,9 @@ import { ownerJoinPublicUrl } from "@workspace/api-base/owner-urls";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound } from "lucide-react";
+import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
+import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
+import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
 
@@ -146,7 +148,7 @@ export default function LinksPage() {
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
   const liveViewerUrl = `${base}/tournament/${tournamentId}/liveviewer`;
-  const obsUrl = `${base}/tournament/${tournamentId}/obs`;
+  const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -197,18 +199,34 @@ export default function LinksPage() {
           </Card>
         ) : null}
 
+        <Card className="border-violet-500/25 bg-violet-500/5">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Radio className="w-5 h-5 text-primary" />
+              <h2 className="font-display font-bold text-lg">Broadcast Overlay</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Transparent live graphics for streaming — add as a Browser Source in OBS, vMix, Wirecast, or similar (1920×1080).
+            </p>
+            <LinkRow
+              label="Broadcast Overlay URL"
+              url={broadcastOverlayUrlValue}
+              description="Real-time player card, live bid, team ticker, and sponsor branding over your stream. Set browser source to 1920×1080 with a transparent background."
+              shareText={`Broadcast Overlay for ${tournament?.name ?? "our auction"}: ${broadcastOverlayUrlValue}`}
+            />
+            <div className="mt-6 pt-6 border-t border-border/50">
+              <BroadcastOverlayInfo />
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <Monitor className="w-5 h-5 text-primary" />
-              <h2 className="font-display font-bold text-lg">More screens &amp; streaming (optional)</h2>
+              <h2 className="font-display font-bold text-lg">Spectator viewing (optional)</h2>
             </div>
-            <p className="text-xs text-muted-foreground mb-4">For YouTube live or fans watching from home.</p>
-            <LinkRow
-              label="OBS Camera Overlay"
-              url={obsUrl}
-              description="For live-streaming to YouTube, Instagram, or Facebook. Add as a Browser Source in OBS Studio (1920×1080, transparent background)."
-            />
+            <p className="text-xs text-muted-foreground mb-4">For fans watching from home without broadcast software.</p>
             <LinkRow
               label="Live Auction Viewer (spectators)"
               url={liveViewerUrl}
