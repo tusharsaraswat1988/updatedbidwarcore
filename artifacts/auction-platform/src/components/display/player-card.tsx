@@ -48,7 +48,7 @@ export const PlayerCard = memo(function PlayerCard({
       style={{ paddingBottom: tag ? 18 : 0 }}
     >
       <div
-        className="w-40 h-52 sm:w-52 sm:h-64 md:w-64 md:h-[21rem] lg:w-72 lg:h-80 xl:w-80 xl:h-[26rem] rounded-3xl border-4 overflow-hidden flex items-center justify-center relative"
+        className="w-48 h-60 sm:w-60 sm:h-[18rem] md:w-72 md:h-[22rem] lg:w-80 lg:h-[26rem] xl:w-[22rem] xl:h-[28rem] 2xl:w-96 2xl:h-[30rem] rounded-3xl border-[5px] overflow-hidden flex items-center justify-center relative"
         style={{ borderColor, boxShadow }}
       >
         {photoUrl ? (

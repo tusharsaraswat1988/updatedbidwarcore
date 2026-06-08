@@ -30,8 +30,14 @@ import { Top5Overlay } from "./top5-overlay";
 import { BreakCountdownOverlay } from "./break-countdown-overlay";
 import { AuctionStatusOverlay } from "./auction-status-overlay";
 import { DisplayConnectionBanner } from "./display-connection-banner";
-import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
-import { BROADCAST_SAFE_MAIN } from "@/lib/display-broadcast-layout";
+import {
+  deriveAuctionDisplayMode,
+  soldRecordFromOutcome,
+  unsoldRecordFromOutcome,
+} from "@/lib/auction-display-status";
+import { SoldCard, UnsoldCard } from "./sold-animation";
+import { BROADCAST_MAIN_WIDTH, BROADCAST_SAFE_MAIN } from "@/lib/display-broadcast-layout";
+import { BidwarBrandWatermark } from "./bidwar-brand-watermark";
 import { PurseUpdatedToast } from "./purse-updated-toast";
 import { useSoldAnimation } from "./use-sold-animation";
 import { useBroadcastAudio } from "./use-broadcast-audio";
@@ -129,6 +135,23 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
     [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
   );
   const { soldPhase, soldRecord, unsoldPhase, unsoldRecord } = useSoldAnimation(state);
+
+  const outcomeSoldRecord = useMemo(
+    () => soldRecordFromOutcome(displayMode.outcome),
+    [displayMode.outcome],
+  );
+  const outcomeUnsoldRecord = useMemo(
+    () => unsoldRecordFromOutcome(displayMode.outcome),
+    [displayMode.outcome],
+  );
+  const showPersistentOutcome = !state?.currentPlayer
+    && (displayMode.phase === "sold" || displayMode.phase === "unsold");
+  const overlaySoldPhase = showPersistentOutcome
+    ? (soldPhase === "stamp" ? "stamp" : null)
+    : soldPhase;
+  const overlayUnsoldPhase = showPersistentOutcome
+    ? (unsoldPhase === "stamp" ? "stamp" : null)
+    : unsoldPhase;
 
   // ── Broadcast audio (LED display only) ───────────────────────────────
   // Settings are memo'd on primitives so the AudioManager only re-initialises
@@ -312,9 +335,9 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           {/* SOLD animations layered above countdown (z-20) and main content */}
           {overlayMode !== "top5" && !displayMode.freezeBidUpdates && (
             <AnimatedEffectsLayer
-              soldPhase={soldPhase}
+              soldPhase={overlaySoldPhase}
               soldRecord={soldRecord}
-              unsoldPhase={unsoldPhase}
+              unsoldPhase={overlayUnsoldPhase}
               unsoldRecord={unsoldRecord}
             />
           )}
@@ -334,9 +357,9 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
             />
           ) : state?.currentPlayer ? (
             <div
-              className={`w-full max-w-6xl transition-opacity duration-300 ${displayMode.showStatusOverlay ? "opacity-40" : "opacity-100"}`}
+              className={`${BROADCAST_MAIN_WIDTH} mx-auto transition-opacity duration-300 ${displayMode.showStatusOverlay ? "opacity-40" : "opacity-100"}`}
             >
-              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10 lg:gap-16">
+              <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 lg:gap-12 xl:gap-16 w-full">
                 {/* PlayerCard / BidDisplay get PRIMITIVE props only. `state` and
                     `state.currentPlayer` are fresh object references on every SSE
                     update, so passing them as a whole would defeat React.memo's
@@ -373,6 +396,14 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
                 />
               </div>
             </div>
+          ) : displayMode.phase === "sold" && outcomeSoldRecord ? (
+            <div className="relative w-full max-w-6xl min-h-[28rem]">
+              <SoldCard record={outcomeSoldRecord} />
+            </div>
+          ) : displayMode.phase === "unsold" && outcomeUnsoldRecord ? (
+            <div className="relative w-full max-w-6xl min-h-[28rem]">
+              <UnsoldCard record={outcomeUnsoldRecord} />
+            </div>
           ) : (
             <IdleScreen
               tournamentName={tournament?.name}
@@ -385,7 +416,13 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
           )}
         </div>
 
-        <SponsorTicker logos={sponsorLogos} themeAccent={theme?.accentColor} />
+        <SponsorTicker
+          logos={sponsorLogos}
+          themeAccent={theme?.accentColor}
+          includePoweredByBidWar
+        />
+
+        <BidwarBrandWatermark accent={theme?.accentColor} />
 
         {/* Audio unlock nudge — fades away after first user interaction */}
         {audioSettings?.audioEnabled && !isUnlocked && (

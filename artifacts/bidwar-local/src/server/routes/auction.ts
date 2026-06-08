@@ -187,12 +187,36 @@ export function createAuctionRouter(db: LocalDb) {
       } catch { /* ignore */ }
     }
 
+    let outcome: {
+      type: "sold" | "unsold";
+      playerId?: number | null;
+      playerName?: string | null;
+      photoUrl?: string | null;
+      teamId?: number | null;
+      teamName?: string | null;
+      teamColor?: string | null;
+      amount?: number | null;
+    } | null = null;
+    const action = session.lastAction?.trim();
+    if (action?.startsWith("UNSOLD:")) {
+      const playerName = action.replace(/^UNSOLD:\s*/, "") || "Player";
+      const unsoldPlayer = allPlayers.find((p) => p.status === "unsold" && p.name === playerName);
+      outcome = {
+        type: "unsold",
+        playerId: unsoldPlayer?.id ?? null,
+        playerName,
+        photoUrl: unsoldPlayer?.photoUrl ?? null,
+      };
+    } else if (action?.startsWith("SOLD")) {
+      outcome = { type: "sold" };
+    }
+
     return {
       tournamentId, status: session.status, currentPlayer,
       currentBid: session.currentBid, currentBidTeamId: session.currentBidTeamId,
       currentBidTeamName, currentBidTeamColor, currentBidTeamLogoUrl,
       bidIncrement, timerSeconds, bidTimerSeconds, timerEndsAt: session.timerEndsAt,
-      lastAction: session.lastAction, soldPlayersCount: soldCount,
+      lastAction: session.lastAction, outcome, soldPlayersCount: soldCount,
       unsoldPlayersCount: unsoldCount, remainingPlayersCount: availableCount,
       fortuneWheelActive: session.fortuneWheelActive,
       wheelSpinning: session.wheelSpinning ?? false,

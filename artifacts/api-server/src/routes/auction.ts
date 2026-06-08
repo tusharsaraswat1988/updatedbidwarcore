@@ -470,13 +470,32 @@ async function buildAuctionState(tournamentId: number) {
     }
   } catch { /* ignore malformed outcome */ }
 
-  // Last sold player — shown on owner panels when no player is currently up
+  // Last sold player — owner panels only; must not appear after an unsold outcome.
   let lastSoldPlayer: {
     id: number; name: string; role: string | null; photoUrl: string | null;
     soldToTeamId: number; soldToTeamName: string | null; soldToTeamColor: string | null;
     soldAmount: number;
   } | null = null;
-  if (!session.currentPlayerId) {
+  if (!session.currentPlayerId && outcome?.type === "sold") {
+    let lp: { id: number; role: string | null; photoUrl: string | null } | null = null;
+    if (outcome.playerId) {
+      [lp] = await db
+        .select({ id: playersTable.id, role: playersTable.role, photoUrl: playersTable.photoUrl })
+        .from(playersTable)
+        .where(eq(playersTable.id, outcome.playerId));
+    }
+    lastSoldPlayer = {
+      id: outcome.playerId ?? lp?.id ?? 0,
+      name: outcome.playerName,
+      role: lp?.role ?? null,
+      photoUrl: outcome.photoUrl ?? lp?.photoUrl ?? null,
+      soldToTeamId: outcome.teamId ?? 0,
+      soldToTeamName: outcome.teamName ?? null,
+      soldToTeamColor: outcome.teamColor ?? null,
+      soldAmount: outcome.amount ?? 0,
+    };
+  } else if (!session.currentPlayerId && outcome?.type !== "unsold") {
+    // Legacy fallback when structured outcome is absent
     const [lastBid] = await db
       .select()
       .from(bidsTable)
@@ -486,7 +505,7 @@ async function buildAuctionState(tournamentId: number) {
     if (lastBid) {
       const [lp] = await db.select().from(playersTable).where(eq(playersTable.id, lastBid.playerId));
       const [lt] = await db.select().from(teamsTable).where(eq(teamsTable.id, lastBid.teamId));
-      if (lp) {
+      if (lp?.status === "sold") {
         lastSoldPlayer = {
           id: lp.id, name: lp.name, role: lp.role, photoUrl: lp.photoUrl,
           soldToTeamId: lastBid.teamId,

@@ -44,6 +44,16 @@ interface AuctionState {
     endsAt?: string;
     message?: string | null;
   } | null;
+  lastAction?: string | null;
+  outcome?: {
+    type?: string | null;
+    playerId?: number | null;
+    playerName?: string | null;
+    photoUrl?: string | null;
+    teamId?: number | null;
+    teamName?: string | null;
+    amount?: number | null;
+  } | null;
   lastSoldPlayer?: {
     id?: number;
     name?: string;
@@ -361,6 +371,38 @@ function BidButton({
   );
 }
 
+// ── Unsold player card ────────────────────────────────────────────────────────
+function UnsoldPlayerCard({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
+  return (
+    <motion.div
+      key="last-unsold"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="flex items-center gap-5 p-5 rounded-2xl border bg-[#18181b] relative overflow-hidden"
+      style={{ borderColor: "rgba(239,68,68,0.35)" }}
+    >
+      <div className="w-20 h-28 rounded-xl bg-[#27272a] border border-[#3f3f46] flex-shrink-0 overflow-hidden flex items-center justify-center">
+        {photoUrl ? (
+          <img src={photoUrl} alt={name} className="w-full h-full object-cover opacity-70 grayscale" />
+        ) : (
+          <User className="w-10 h-10 text-[#52525b]" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold uppercase tracking-widest mb-1 text-red-400">Unsold</p>
+        <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{name}</h2>
+        <p className="text-sm text-[#71717a] mt-1">Player returns to the pool</p>
+      </div>
+      <div className="text-right flex-shrink-0">
+        <div className="inline-flex items-center px-2 py-1 rounded-lg mt-1 border text-xs font-black uppercase tracking-wider bg-red-500/15 border-red-500/35 text-red-400">
+          UNSOLD
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Last sold player card ─────────────────────────────────────────────────────
 function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
   player: NonNullable<AuctionState["lastSoldPlayer"]>;
@@ -552,45 +594,85 @@ export function LiveBid({
     previousCapacity: number;
     newCapacity: number;
   } | null>(null);
-  const prevPlayerRef = useRef<{ id: number; name: string } | null>(null);
+  const lastOutcomeKeyRef = useRef<string | null>(null);
   const prevBoosterRef = useRef<number | null>(null);
 
+  const resolvedOutcome = (() => {
+    const raw = state?.outcome;
+    if (raw?.type === "sold" || raw?.type === "unsold") {
+      return {
+        type: raw.type as "sold" | "unsold",
+        playerId: raw.playerId ?? null,
+        playerName: raw.playerName ?? null,
+        photoUrl: raw.photoUrl ?? null,
+        teamId: raw.teamId ?? null,
+        amount: raw.amount ?? null,
+        action: state?.lastAction ?? raw.type,
+      };
+    }
+    const action = state?.lastAction?.trim();
+    if (action?.startsWith("UNSOLD:")) {
+      return {
+        type: "unsold" as const,
+        playerId: null,
+        playerName: action.replace(/^UNSOLD:\s*/, "") || "Player",
+        photoUrl: null,
+        teamId: null,
+        amount: null,
+        action,
+      };
+    }
+    if (action?.startsWith("SOLD:")) {
+      return {
+        type: "sold" as const,
+        playerId: null,
+        playerName: null,
+        photoUrl: null,
+        teamId: state?.lastSoldPlayer?.soldToTeamId ?? null,
+        amount: state?.lastSoldPlayer?.soldAmount ?? null,
+        action,
+      };
+    }
+    return null;
+  })();
+
+  const showUnsoldResult = !hasPlayer && resolvedOutcome?.type === "unsold";
+  const showLastSoldResult = !hasPlayer && !showUnsoldResult && !!state?.lastSoldPlayer;
+
   useEffect(() => {
-    const curPlayer   = state?.currentPlayer;
-    const curPlayerId = curPlayer?.id ?? null;
-    const prev        = prevPlayerRef.current;
+    if (!resolvedOutcome) return;
 
-    // Update ref whenever a player is active
-    if (curPlayerId != null) {
-      prevPlayerRef.current = { id: curPlayerId, name: curPlayer?.name ?? "Player" };
-      return;
+    const key = resolvedOutcome.type === "sold"
+      ? `sold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.teamId ?? ""}:${resolvedOutcome.amount ?? 0}:${resolvedOutcome.action}`
+      : `unsold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.action}`;
+    if (!key || key === lastOutcomeKeyRef.current) return;
+    lastOutcomeKeyRef.current = key;
+
+    if (resolvedOutcome.type === "unsold") {
+      const name = resolvedOutcome.playerName ?? "Player";
+      setUnsoldBanner({ name });
+      const t = setTimeout(() => setUnsoldBanner(null), 4000);
+      return () => clearTimeout(t);
     }
 
-    // currentPlayer just became null — check what happened
-    if (prev != null) {
-      const lsp = state?.lastSoldPlayer;
-
-      if (lsp && lsp.soldToTeamId === teamId) {
-        // Our team won the player
-        setWonBanner({ name: lsp.name ?? prev.name, soldAmount: lsp.soldAmount });
-        const t = setTimeout(() => setWonBanner(null), 5500);
-        prevPlayerRef.current = null;
-        return () => clearTimeout(t);
-      } else if (lsp && lsp.id === prev.id && lsp.soldToTeamId != null) {
-        // Player was sold to another team — LastSoldCard handles display
-        prevPlayerRef.current = null;
-        return;
-      } else {
-        // Player was not sold (unsold or deferred back to pool)
-        setUnsoldBanner({ name: prev.name });
-        const t = setTimeout(() => setUnsoldBanner(null), 4000);
-        prevPlayerRef.current = null;
-        return () => clearTimeout(t);
-      }
+    if (resolvedOutcome.teamId === teamId) {
+      const name = resolvedOutcome.playerName ?? state?.lastSoldPlayer?.name ?? "Player";
+      setWonBanner({ name, soldAmount: resolvedOutcome.amount });
+      const t = setTimeout(() => setWonBanner(null), 5500);
+      return () => clearTimeout(t);
     }
-    return;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.currentPlayer?.id, state?.lastSoldPlayer?.id, state?.lastSoldPlayer?.soldToTeamId, teamId]);
+
+    return undefined;
+  }, [
+    state?.outcome?.type,
+    state?.outcome?.playerId,
+    state?.outcome?.playerName,
+    state?.outcome?.teamId,
+    state?.outcome?.amount,
+    state?.lastAction,
+    state?.lastSoldPlayer?.name,
+    teamId,
+  ]);
 
   useEffect(() => {
     const boost = state?.lastPurseBooster;
@@ -724,12 +806,18 @@ export function LiveBid({
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
-            ) : state?.lastSoldPlayer ? (
+            ) : showUnsoldResult ? (
+              <UnsoldPlayerCard
+                key="last-unsold"
+                name={resolvedOutcome?.playerName ?? "Player"}
+                photoUrl={resolvedOutcome?.photoUrl}
+              />
+            ) : showLastSoldResult ? (
               <LastSoldPlayerCard
                 key="last-sold"
-                player={state.lastSoldPlayer}
+                player={state!.lastSoldPlayer!}
                 teamColor={teamColor}
-                wonByThisTeam={state.lastSoldPlayer.soldToTeamId === teamId}
+                wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
               />
             ) : (
               <motion.div
@@ -1043,12 +1131,18 @@ export function LiveBid({
           <AnimatePresence mode="wait">
             {hasPlayer ? (
               <PlayerCard key={state?.currentPlayer?.id} player={state!.currentPlayer!} teamColor={teamColor} />
-            ) : state?.lastSoldPlayer ? (
+            ) : showUnsoldResult ? (
+              <UnsoldPlayerCard
+                key="last-unsold-ls"
+                name={resolvedOutcome?.playerName ?? "Player"}
+                photoUrl={resolvedOutcome?.photoUrl}
+              />
+            ) : showLastSoldResult ? (
               <LastSoldPlayerCard
                 key="last-sold-ls"
-                player={state.lastSoldPlayer}
+                player={state!.lastSoldPlayer!}
                 teamColor={teamColor}
-                wonByThisTeam={state.lastSoldPlayer.soldToTeamId === teamId}
+                wonByThisTeam={state!.lastSoldPlayer!.soldToTeamId === teamId}
               />
             ) : (
               <motion.div

@@ -26,6 +26,9 @@ type AuctionStateLite = {
   currentBidTeamId?: number | null;
   currentBidTeamName?: string | null;
   currentBidTeamColor?: string | null;
+  currentBidTeamLogoUrl?: string | null;
+  unsoldPlayersCount?: number;
+  soldPlayersCount?: number;
 };
 
 export type SoldPhase = "stamp" | "card" | null;
@@ -58,7 +61,7 @@ export function useSoldAnimation(state: AuctionStateLite | undefined): {
   const unsoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastKnownPlayerRef = useRef<{
     name: string; photoUrl?: string | null;
-    bid: number; teamName: string; teamColor: string;
+    bid: number; teamName: string; teamColor: string; teamLogoUrl?: string | null;
   } | null>(null);
   const lastKnownAnyPlayerRef = useRef<UnsoldRecord | null>(null);
 
@@ -76,9 +79,10 @@ export function useSoldAnimation(state: AuctionStateLite | undefined): {
         bid: state.currentBid ?? 0,
         teamName: state.currentBidTeamName ?? "Unknown Team",
         teamColor: state.currentBidTeamColor ?? "#F59E0B",
+        teamLogoUrl: state.currentBidTeamLogoUrl ?? null,
       };
     }
-  }, [state?.currentPlayer?.id, state?.currentBidTeamId, state?.currentBid, state?.currentPlayer, state?.currentBidTeamName, state?.currentBidTeamColor]);
+  }, [state?.currentPlayer?.id, state?.currentBidTeamId, state?.currentBid, state?.currentPlayer, state?.currentBidTeamName, state?.currentBidTeamColor, state?.currentBidTeamLogoUrl]);
 
   useEffect(() => {
     const outcome = resolveAuctionDisplayOutcome(state);
@@ -109,6 +113,7 @@ export function useSoldAnimation(state: AuctionStateLite | undefined): {
               amount: state.currentBid || 0,
               teamName: state.currentBidTeamName || "Unknown Team",
               teamColor: state.currentBidTeamColor || "#F59E0B",
+              teamLogoUrl: state.currentBidTeamLogoUrl ?? null,
             }
           : lastKnownPlayerRef.current
             ? {
@@ -117,6 +122,7 @@ export function useSoldAnimation(state: AuctionStateLite | undefined): {
                 amount: lastKnownPlayerRef.current.bid,
                 teamName: lastKnownPlayerRef.current.teamName,
                 teamColor: lastKnownPlayerRef.current.teamColor,
+                teamLogoUrl: lastKnownPlayerRef.current.teamLogoUrl ?? null,
               }
             : null);
       if (src) setSoldRecord(src);
@@ -143,7 +149,17 @@ export function useSoldAnimation(state: AuctionStateLite | undefined): {
     }
 
     return undefined;
-  }, [state]);
+  }, [
+    state?.lastAction,
+    state?.outcome,
+    state?.currentPlayer?.id,
+    state?.currentBidTeamId,
+    state?.currentBid,
+    state?.currentBidTeamName,
+    state?.currentBidTeamColor,
+    state?.unsoldPlayersCount,
+    state?.soldPlayersCount,
+  ]);
 
   useEffect(() => () => {
     if (soldTimerRef.current) clearTimeout(soldTimerRef.current);

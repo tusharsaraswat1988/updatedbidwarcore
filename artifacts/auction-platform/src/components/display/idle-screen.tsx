@@ -38,14 +38,14 @@ export const IdleScreen = memo(function IdleScreen({
           <Trophy className="w-20 h-20 text-primary/40 mx-auto" />
         </motion.div>
       )}
-      <h2 className="text-5xl font-display font-bold text-muted-foreground">
+      <h2 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-muted-foreground">
         {status === "completed" ? "Auction Complete" : isPaused ? "Auction Paused" : tournamentName || "Live Auction"}
       </h2>
       {lastAction && (
-        <p className="text-muted-foreground text-xl max-w-lg mx-auto">{lastAction}</p>
+        <p className="text-muted-foreground text-xl md:text-2xl lg:text-3xl max-w-3xl mx-auto px-6">{lastAction}</p>
       )}
       {!isActive && !isPaused && (
-        <p className="text-muted-foreground text-base">Waiting for operator to start...</p>
+        <p className="text-muted-foreground text-lg md:text-xl lg:text-2xl">Waiting for operator to start...</p>
       )}
     </div>
   );

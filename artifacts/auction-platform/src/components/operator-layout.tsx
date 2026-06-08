@@ -5,6 +5,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { FullscreenButton } from "@/components/fullscreen-button";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { useBranding } from "@/hooks/use-branding";
@@ -147,6 +148,7 @@ export function OperatorLayout({
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0 flex-1 justify-end">
+          <FullscreenButton size="sm" className="h-8 w-8 flex items-center justify-center rounded-md border border-white/12 text-white/60 hover:text-white hover:bg-white/8 transition-colors" />
           <button
             type="button"
             onClick={() => openSetupArea(tournamentId)}

@@ -23,11 +23,11 @@ const PRESETS = {
   /** 160×160 px — medium avatars (operator panel, sold-to chips) */
   avatar: "w_160,h_160,c_fill,g_face,f_auto,q_auto",
 
-  /** 400×500 px — large player card on the LED broadcast display */
-  playerCard: "w_400,h_500,c_fill,g_face,f_auto,q_auto",
+  /** 560×700 px — large player card on LED / 4K venue displays */
+  playerCard: "w_560,h_700,c_fill,g_face,f_auto,q_auto",
 
-  /** 208×240 px — sold card player photo (matches the w-52 h-60 frame) */
-  soldCard: "w_208,h_240,c_fill,g_face,f_auto,q_auto",
+  /** 320×384 px — sold card player photo (sharp on large panels) */
+  soldCard: "w_320,h_384,c_fill,g_face,f_auto,q_auto",
 
   /**
    * 200×200 px — team logos and sponsor logos.

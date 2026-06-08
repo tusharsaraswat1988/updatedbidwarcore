@@ -40,7 +40,7 @@ export const StaticBackground = memo(function StaticBackground({
 
   return (
     <div
-      className="h-screen flex flex-col select-none relative overflow-hidden"
+      className="led-display-tv h-screen flex flex-col select-none relative overflow-hidden"
       style={{ background: bgParts, transition: "background 0.8s ease" }}
     >
       {children}

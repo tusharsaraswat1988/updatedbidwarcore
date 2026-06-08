@@ -13,6 +13,7 @@ export type SoldRecord = {
   teamName: string;
   teamColor: string;
   teamShortCode?: string;
+  teamLogoUrl?: string | null;
 };
 
 export type PurseRow = {

@@ -2,11 +2,12 @@ import { memo, useMemo, type HTMLAttributes } from "react";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { formatSponsorTickerSegment } from "@/lib/sponsor-logo";
 import { BIDWAR_TICKER_CREDIT } from "@/lib/broadcast-overlay";
+import { BROADCAST_SAFE_X } from "@/lib/display-broadcast-layout";
 
 /** Ribbon content height (px) — used by Broadcast Overlay stacking. */
-export const SPONSOR_RIBBON_HEIGHT_PX = 34;
+export const SPONSOR_RIBBON_HEIGHT_PX = 44;
 /** Bottom inset above TV safe area (px). */
-export const SPONSOR_RIBBON_SAFE_INSET_PX = 8;
+export const SPONSOR_RIBBON_SAFE_INSET_PX = 12;
 export const SPONSOR_RIBBON_TOTAL_HEIGHT_PX = SPONSOR_RIBBON_HEIGHT_PX + SPONSOR_RIBBON_SAFE_INSET_PX;
 
 const GOLD_BORDER = "rgba(201, 162, 39, 0.45)";
@@ -14,7 +15,7 @@ const GOLD_BORDER = "rgba(201, 162, 39, 0.45)";
 function TickerCopy({ names, ...rest }: { names: string[] } & HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className="inline-flex shrink-0 items-center text-sm md:text-base font-semibold tracking-wide text-white/75"
+      className="inline-flex shrink-0 items-center text-base md:text-lg lg:text-xl font-bold tracking-wide text-white/85"
       {...rest}
     >
       {names.map((part, i) => (
@@ -69,12 +70,12 @@ export const SponsorTicker = memo(function SponsorTicker({
 
   return (
     <div
-      className="relative z-20 flex-shrink-0 w-full"
+      className={`relative z-20 flex-shrink-0 w-full led-display-tv ${BROADCAST_SAFE_X}`}
       style={{ paddingBottom: `max(${SPONSOR_RIBBON_SAFE_INSET_PX}px, env(safe-area-inset-bottom, 0px))` }}
     >
       <div
-        className="w-full overflow-hidden bg-black/55"
-        style={{ borderTop: `1px solid ${GOLD_BORDER}` }}
+        className="w-full overflow-hidden bg-black/70 backdrop-blur-sm"
+        style={{ borderTop: `2px solid ${GOLD_BORDER}` }}
       >
         <div
           className="flex items-center overflow-hidden"

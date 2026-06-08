@@ -124,7 +124,7 @@ export const BidDisplay = memo(function BidDisplay({
             )}
           </div>
         )}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black tracking-tight leading-none text-white">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] 2xl:text-[6.5rem] font-display font-black tracking-tight leading-none text-white">
           {playerName}
         </h1>
         {(() => {
@@ -155,7 +155,7 @@ export const BidDisplay = memo(function BidDisplay({
         <p className={`${BROADCAST_LABEL_CLASS} text-muted-foreground mb-1`}>Current Bid</p>
         {disableBidAnimations ? (
           <p
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-display font-black leading-none"
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.75rem] xl:text-[6.75rem] 2xl:text-[7.5rem] font-display font-black leading-none"
             style={{ color: teamColor, textShadow: `0 0 80px ${teamColor}99` }}
           >
             {formatIndianRupee(currentBid || 0)}
@@ -173,7 +173,7 @@ export const BidDisplay = memo(function BidDisplay({
                 }}
                 exit={{ scale: 1.15, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 420, damping: 22 }}
-                className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-display font-black leading-none"
+                className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.75rem] xl:text-[6.75rem] 2xl:text-[7.5rem] font-display font-black leading-none"
                 style={{
                   color: teamColor,
                   textShadow: `0 0 80px ${teamColor}99, 0 0 24px ${teamColor}`,
@@ -209,27 +209,27 @@ export const BidDisplay = memo(function BidDisplay({
       {currentBidTeamName ? (
         disableBidAnimations ? (
           <div
-            className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border-2"
+            className="inline-flex items-center gap-4 md:gap-5 px-7 py-4 md:px-10 md:py-5 rounded-2xl md:rounded-3xl border-[3px]"
             style={{
               borderColor: teamColor,
-              backgroundColor: `${teamColor}18`,
-              boxShadow: `0 0 40px ${teamColor}44`,
+              backgroundColor: `${teamColor}22`,
+              boxShadow: `0 0 48px ${teamColor}55, 0 0 96px ${teamColor}22`,
             }}
           >
             {currentBidTeamLogoUrl ? (
               <img
                 src={cldUrl(currentBidTeamLogoUrl, "teamLogo")}
                 alt={currentBidTeamName}
-                className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
-                style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+                className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain rounded-xl flex-shrink-0"
+                style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))" }}
                 loading="eager"
                 decoding="async"
                 onError={e => (e.currentTarget.style.display = "none")}
               />
             ) : (
-              <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor }} />
+              <div className="w-5 h-5 md:w-6 md:h-6 rounded-full flex-shrink-0" style={{ backgroundColor: teamColor }} />
             )}
-            <span className="text-xl md:text-3xl lg:text-4xl font-display font-black" style={{ color: teamColor }}>
+            <span className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-display font-black leading-tight" style={{ color: teamColor, textShadow: `0 0 24px ${teamColor}55` }}>
               {currentBidTeamName}
             </span>
           </div>
@@ -238,27 +238,27 @@ export const BidDisplay = memo(function BidDisplay({
           key={currentBidTeamId ?? 0}
           initial={{ opacity: 0, y: 20, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="inline-flex items-center gap-3 px-6 py-3 rounded-2xl border-2"
+          className="inline-flex items-center gap-4 md:gap-5 px-7 py-4 md:px-10 md:py-5 rounded-2xl md:rounded-3xl border-[3px]"
           style={{
             borderColor: teamColor,
-            backgroundColor: `${teamColor}18`,
-            boxShadow: `0 0 40px ${teamColor}44`,
+            backgroundColor: `${teamColor}22`,
+            boxShadow: `0 0 48px ${teamColor}55, 0 0 96px ${teamColor}22`,
           }}
         >
           {currentBidTeamLogoUrl ? (
             <img
               src={cldUrl(currentBidTeamLogoUrl, "teamLogo")}
               alt={currentBidTeamName}
-              className="w-12 h-12 object-contain rounded-lg flex-shrink-0"
-              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))" }}
+              className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain rounded-xl flex-shrink-0"
+              style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))" }}
               loading="eager"
               decoding="async"
               onError={e => (e.currentTarget.style.display = "none")}
             />
           ) : (
-            <div className="w-4 h-4 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: teamColor }} />
+            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: teamColor }} />
           )}
-          <span className="text-xl md:text-3xl font-display font-black" style={{ color: teamColor }}>
+          <span className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-display font-black leading-tight" style={{ color: teamColor, textShadow: `0 0 24px ${teamColor}55` }}>
             {currentBidTeamName}
           </span>
         </motion.div>

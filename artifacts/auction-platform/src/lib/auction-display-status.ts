@@ -12,6 +12,7 @@ export type ParsedDisplayCountdown = {
 };
 
 export type AuctionOutcomeRecord = {
+  playerId?: number | null;
   playerName: string | null;
   photoUrl: string | null;
   teamName: string | null;
@@ -38,6 +39,7 @@ type RawCountdown = {
 /** Structured outcome emitted by the backend (auction_sessions.lastOutcome). */
 type RawOutcome = {
   type?: string | null;
+  playerId?: number | null;
   playerName?: string | null;
   photoUrl?: string | null;
   teamName?: string | null;
@@ -88,6 +90,7 @@ export function resolveAuctionDisplayOutcome(state: RawAuctionState): AuctionDis
       action: state?.lastAction ?? raw.type,
       isManual: !!raw.isManual,
       record: {
+        playerId: raw.playerId ?? null,
         playerName: raw.playerName ?? null,
         photoUrl: raw.photoUrl ?? null,
         teamName: raw.teamName ?? null,
@@ -108,7 +111,7 @@ export function outcomeEventKey(outcome: AuctionDisplayOutcome): string | null {
     if (outcome.type === "sold") {
       return `sold:${r.playerName}:${r.amount ?? 0}:${r.teamName ?? ""}:${outcome.isManual ? "m" : "a"}`;
     }
-    return `unsold:${r.playerName}`;
+    return `unsold:${r.playerId ?? r.playerName}:${outcome.action}`;
   }
   return outcome.action;
 }
