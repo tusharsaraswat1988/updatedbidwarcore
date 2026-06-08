@@ -3,6 +3,27 @@ export function auctionRoomPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/auction`;
 }
 
+/** Clear practice data page — optional `from` records where the user came from. */
+export function auctionResetPath(tournamentId: number, from?: string | null): string {
+  const base = `/tournament/${tournamentId}/reset`;
+  if (!from?.startsWith("/") || from.startsWith("//")) return base;
+  return `${base}?from=${encodeURIComponent(from)}`;
+}
+
+/** Safe return target after leaving the reset page. */
+export function resolveReturnPath(from: string | null | undefined, tournamentId: number): string {
+  if (from?.startsWith("/") && !from.startsWith("//")) return from;
+  return setupAreaPath(tournamentId);
+}
+
+/** Short label for the reset page back button. */
+export function returnPathBackLabel(path: string): string {
+  if (path.includes("/settings")) return "Back to Settings";
+  if (path.includes("/auction")) return "Back to Auction Room";
+  if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) return "Back to Setup";
+  return "Go back";
+}
+
 /**
  * Open the auction room in a new browser tab (dedicated operator surface).
  * Omits noopener so the auction tab can focus the setup tab via window.opener.

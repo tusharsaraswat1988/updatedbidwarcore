@@ -5,7 +5,7 @@ import {
   Settings, Activity, BarChart3,
   Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel,
 } from "lucide-react";
-import { auctionRoomPath, displayScreenPath } from "@/lib/tournament-navigation";
+import { auctionRoomPath, auctionResetPath, displayScreenPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
@@ -284,7 +284,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   {!collapsed && <span>Share Links</span>}
                 </Link>
                 {!collapsed && (
-                  <Link href={`/tournament/${tournamentId}/reset`} title="Clear practice auction data before going live" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                  <Link href={auctionResetPath(tournamentId, location)} title="Clear practice auction data before going live" className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                     location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
                   }`}>
                     <RefreshCw className="w-5 h-5 flex-shrink-0" />

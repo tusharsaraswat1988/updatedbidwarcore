@@ -30,6 +30,7 @@ import type {
   CategoryInput,
   CategoryUpdate,
   CheerInput,
+  ConcludeAuctionInput,
   DisplayPlayerFilter,
   FortuneWheelSync,
   GlobalPlayerSuggestion,
@@ -3400,6 +3401,93 @@ export const useReAuctionAllUnsold = <
 };
 
 /**
+ * @summary Explicitly conclude the auction (requires confirmation if unsold players remain)
+ */
+export const getConcludeAuctionUrl = (tournamentId: number) => {
+  return `/api/tournaments/${tournamentId}/auction/conclude`;
+};
+
+export const concludeAuction = async (
+  tournamentId: number,
+  concludeAuctionInput?: ConcludeAuctionInput,
+  options?: RequestInit,
+): Promise<AuctionState> => {
+  return customFetch<AuctionState>(getConcludeAuctionUrl(tournamentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(concludeAuctionInput),
+  });
+};
+
+export const getConcludeAuctionMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof concludeAuction>>,
+    TError,
+    { tournamentId: number; data: BodyType<ConcludeAuctionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof concludeAuction>>,
+  TError,
+  { tournamentId: number; data: BodyType<ConcludeAuctionInput> },
+  TContext
+> => {
+  const mutationKey = ["concludeAuction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof concludeAuction>>,
+    { tournamentId: number; data: BodyType<ConcludeAuctionInput> }
+  > = (props) => {
+    const { tournamentId, data } = props ?? {};
+
+    return concludeAuction(tournamentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConcludeAuctionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof concludeAuction>>
+>;
+export type ConcludeAuctionMutationBody = BodyType<ConcludeAuctionInput>;
+export type ConcludeAuctionMutationError = ErrorType<void>;
+
+/**
+ * @summary Explicitly conclude the auction (requires confirmation if unsold players remain)
+ */
+export const useConcludeAuction = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof concludeAuction>>,
+    TError,
+    { tournamentId: number; data: BodyType<ConcludeAuctionInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof concludeAuction>>,
+  TError,
+  { tournamentId: number; data: BodyType<ConcludeAuctionInput> },
+  TContext
+> => {
+  return useMutation(getConcludeAuctionMutationOptions(options));
+};
+
+/**
  * @summary Undo the last auction action
  */
 export const getUndoLastActionUrl = (tournamentId: number) => {
@@ -3484,7 +3572,7 @@ export const useUndoLastAction = <
 };
 
 /**
- * @summary Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
+ * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
  */
 export const getResetTrialAuctionUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/reset-trial`;
@@ -3548,7 +3636,7 @@ export type ResetTrialAuctionMutationBody = BodyType<ResetTrialAuctionBody>;
 export type ResetTrialAuctionMutationError = ErrorType<void>;
 
 /**
- * @summary Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
+ * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
  */
 export const useResetTrialAuction = <
   TError = ErrorType<void>,

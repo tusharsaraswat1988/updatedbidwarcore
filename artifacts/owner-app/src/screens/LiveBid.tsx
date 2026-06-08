@@ -256,7 +256,7 @@ function BidAmount({ amount, isLeading, teamColor, leadingTeam }: {
 }
 
 function BidButton({
-  canBid, isLeading, timerExpired, hasPlayer, isActive,
+  canBid, isLeading, timerExpired, hasPlayer, isActive, isPaused, isIdle,
   bidding, bidFeedback, nextBidAmount, teamColor, onBid, landscape,
 }: {
   canBid: boolean;
@@ -264,6 +264,8 @@ function BidButton({
   timerExpired: boolean;
   hasPlayer: boolean;
   isActive: boolean;
+  isPaused: boolean;
+  isIdle: boolean;
   bidding: boolean;
   bidFeedback: "success" | "error" | "leading" | null;
   nextBidAmount: number;
@@ -318,7 +320,11 @@ function BidButton({
       >
         <div className="w-10 h-10 border-2 border-[#3f3f46] border-t-[#71717a] rounded-full animate-spin" />
         <p className="text-base text-[#71717a] font-semibold">
-          {!isActive ? "Auction paused" : "Waiting for next player..."}
+          {isPaused
+            ? "Auction paused by operator."
+            : isIdle
+              ? "Waiting for auction to start..."
+              : "Waiting for next player..."}
         </p>
       </motion.div>
     );
@@ -511,9 +517,13 @@ export function LiveBid({
   }
 
   // ── Disable-reason ──────────────────────────────────────────────────────────
+  const isPaused = state?.status === "paused";
+  const isIdle = state?.status === "idle";
+
   const disabledReason =
     !canBid && !isLeading && !expired && hasPlayer
-      ? !isActive                        ? "Auction not active"
+      ? isPaused                         ? "Auction paused by operator"
+      : !isActive                        ? "Auction not active"
       : maxSquadReached                  ? "Maximum squad size reached"
       : categoryLimitReached             ? `Category limit (max ${categoryMax} in "${state?.currentCategoryName}")`
       : !(team.isBiddingEnabled ?? true) ? "Bidding disabled for your team"
@@ -647,7 +657,11 @@ export function LiveBid({
             <NetworkDot quality={networkQ} />
             <span
               className={`text-xs font-black px-2.5 py-1.5 rounded-full ${
-                isActive ? "bg-green-500/20 text-green-400" : "bg-[#27272a] text-[#71717a]"
+                isActive
+                  ? "bg-green-500/20 text-green-400"
+                  : isPaused
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-[#27272a] text-[#71717a]"
               }`}
             >
               {statusLabel}
@@ -689,6 +703,13 @@ export function LiveBid({
         {syncFailed && (
           <div className="flex-shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30">
             <p className="text-sm text-red-400 font-semibold">Sync failed — check your connection</p>
+          </div>
+        )}
+
+        {isPaused && (
+          <div className="flex-shrink-0 mx-4 mt-2 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/35 text-center">
+            <p className="text-sm font-bold text-amber-300 uppercase tracking-wide">Auction Paused</p>
+            <p className="text-xs text-amber-200/80 mt-0.5">Auction paused by operator. Bidding is disabled.</p>
           </div>
         )}
 
@@ -765,6 +786,8 @@ export function LiveBid({
                   timerExpired={expired}
                   hasPlayer={hasPlayer}
                   isActive={isActive}
+                  isPaused={isPaused}
+                  isIdle={isIdle}
                   bidding={bidding}
                   bidFeedback={bidFeedback}
                   nextBidAmount={nextBidAmount}
@@ -992,7 +1015,9 @@ export function LiveBid({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <NetworkDot quality={networkQ} />
-            <span className={`text-xs font-black px-2 py-1 rounded-full ${isActive ? "bg-green-500/20 text-green-400" : "bg-[#27272a] text-[#71717a]"}`}>
+            <span className={`text-xs font-black px-2 py-1 rounded-full ${
+              isActive ? "bg-green-500/20 text-green-400" : isPaused ? "bg-amber-500/20 text-amber-400" : "bg-[#27272a] text-[#71717a]"
+            }`}>
               {statusLabel}
             </span>
             <button onClick={handleSyncTap} className="p-1.5 text-[#71717a] hover:text-white transition-colors rounded-lg hover:bg-[#18181b]" title="Sync">
@@ -1072,6 +1097,8 @@ export function LiveBid({
               timerExpired={expired}
               hasPlayer={hasPlayer}
               isActive={isActive}
+              isPaused={isPaused}
+              isIdle={isIdle}
               bidding={bidding}
               bidFeedback={bidFeedback}
               nextBidAmount={nextBidAmount}

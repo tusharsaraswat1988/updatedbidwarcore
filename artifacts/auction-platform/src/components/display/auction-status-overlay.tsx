@@ -45,10 +45,10 @@ export const AuctionStatusOverlay = memo(function AuctionStatusOverlay({
   const countdown = useMmSsCountdown(isBreak ? breakEndsAt : null);
 
   const Icon = isBreak ? Coffee : Pause;
-  const title = isBreak ? "☕ AUCTION BREAK" : "⏸ AUCTION PAUSED";
+  const title = isBreak ? "☕ AUCTION BREAK" : "AUCTION PAUSED";
   const subtitle = isBreak
     ? (breakMessage?.trim() || "Auction will resume shortly")
-    : "Bidding Temporarily Stopped";
+    : "Bidding temporarily stopped";
 
   const accentBorder = isBreak ? "border-orange-500/45" : "border-yellow-500/45";
   const accentGlow = isBreak

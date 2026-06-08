@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -7,14 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, ShieldAlert, CheckCircle2, ArrowLeft, ShieldCheck, Lock } from "lucide-react";
-import { openAuctionRoom } from "@/lib/tournament-navigation";
+import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft, Lock } from "lucide-react";
+import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 
 export default function AuctionReset() {
   const [, params] = useRoute("/tournament/:id/reset");
+  const [, navigate] = useLocation();
+  const search = useSearch();
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
+
+  const returnParams = new URLSearchParams(search);
+  const returnTo = resolveReturnPath(returnParams.get("from"), tournamentId);
+  const backLabel = returnPathBackLabel(returnTo);
 
   const { data: tournament, refetch: refetchTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
@@ -27,13 +33,16 @@ export default function AuctionReset() {
   const [success, setSuccess] = useState(false);
 
   const resetCount = tournament?.resetCount ?? 0;
-  const isFirstReset = resetCount === 0;
   const lastResetAt = tournament?.lastResetAt ? new Date(tournament.lastResetAt) : null;
   const lastResetBy = tournament?.lastResetBy;
 
+  function goBack() {
+    navigate(returnTo);
+  }
+
   async function handleReset() {
     if (!password.trim()) {
-      setError("Please enter the required password.");
+      setError("Please enter your organizer password.");
       return;
     }
     if (!isAuditReasonValid(auditReason)) {
@@ -67,41 +76,32 @@ export default function AuctionReset() {
               Remove practice bids and return players to the pool. Teams and player list stay safe.
             </p>
           </div>
-          <Button variant="ghost" className="gap-2" onClick={() => openAuctionRoom(tournamentId)}>
-            <ArrowLeft className="w-4 h-4" /> Back to Auction Room
+          <Button variant="ghost" className="gap-2" onClick={goBack}>
+            <ArrowLeft className="w-4 h-4" /> {backLabel}
           </Button>
         </div>
 
-        {/* Status banner */}
-        <Card className={`border ${isFirstReset ? "border-red-500/30 bg-red-500/5" : "border-purple-500/30 bg-purple-500/5"}`}>
+        <Card className="border border-red-500/30 bg-red-500/5">
           <CardContent className="p-5 flex items-start gap-4">
-            {isFirstReset ? (
-              <ShieldCheck className="w-7 h-7 text-red-400 flex-shrink-0 mt-0.5" />
-            ) : (
-              <ShieldAlert className="w-7 h-7 text-purple-400 flex-shrink-0 mt-0.5" />
-            )}
+            <ShieldCheck className="w-7 h-7 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-1 flex-1">
-              <h2 className={`font-bold text-lg ${isFirstReset ? "text-red-300" : "text-purple-300"}`}>
-                {isFirstReset
-                  ? "First reset — operator password required"
-                  : `Already reset ${resetCount} time${resetCount === 1 ? "" : "s"} — platform authorization required`}
+              <h2 className="font-bold text-lg text-red-300">
+                Organizer password required
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {isFirstReset
-                  ? "An operator can reset the auction once using the tournament's organizer password. After that, platform-level authorization is required."
-                  : "This tournament has already been reset. To run another reset you must provide the platform authorization password."}
+                Enter the organizer password for this tournament to clear practice auction data.
+                {resetCount > 0 && " This tournament has been reset before — you can still clear practice data with the same organizer password."}
               </p>
               {lastResetAt && (
                 <p className="text-xs text-muted-foreground/80 pt-1">
                   Last reset on <span className="font-semibold text-foreground/90">{lastResetAt.toLocaleString()}</span>
-                  {lastResetBy && <> by <span className="font-semibold text-foreground/90">{lastResetBy === "super_admin" ? "Platform" : "Operator"}</span></>}
+                  {lastResetBy && <> by <span className="font-semibold text-foreground/90">{lastResetBy === "super_admin" ? "Platform admin" : "Organizer"}</span></>}
                 </p>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Warning panel — same content the dialog used to show */}
         <Card className="border border-red-500/40 bg-red-500/5">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center gap-2">
@@ -123,20 +123,19 @@ export default function AuctionReset() {
           </CardContent>
         </Card>
 
-        {/* Confirm panel */}
         <Card className="border border-border">
           <CardContent className="p-5 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="reset-password" className="text-sm font-semibold flex items-center gap-2">
                 <Lock className="w-4 h-4 text-muted-foreground" />
-                {isFirstReset ? "Operator password" : "Authorization password"}
+                Organizer password
               </Label>
               <Input
                 id="reset-password"
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(null); setSuccess(false); }}
-                placeholder={isFirstReset ? "Enter the organizer password for this tournament" : "Enter the authorization password"}
+                placeholder="Enter the organizer password for this tournament"
                 className="bg-card border-border"
                 autoComplete="current-password"
               />
@@ -170,7 +169,7 @@ export default function AuctionReset() {
                 <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />
                 {resetMut.isPending ? "Resetting..." : "Yes, reset everything"}
               </Button>
-              <Button variant="outline" onClick={() => openAuctionRoom(tournamentId)}>
+              <Button variant="outline" onClick={goBack}>
                 Cancel
               </Button>
             </div>

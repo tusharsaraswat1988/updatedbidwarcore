@@ -99,6 +99,9 @@ export interface Tournament {
   bidTiers?: string | null;
   timerSeconds?: number;
   bidTimerSeconds?: number;
+  bidExtensionEnabled?: boolean;
+  bidExtensionThresholdSeconds?: number;
+  bidExtensionSeconds?: number;
   playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
   /** @nullable */
@@ -285,6 +288,9 @@ export interface TournamentUpdate {
   bidTiers?: string;
   timerSeconds?: number;
   bidTimerSeconds?: number;
+  bidExtensionEnabled?: boolean;
+  bidExtensionThresholdSeconds?: number;
+  bidExtensionSeconds?: number;
   playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
   status?: string;
   /** @nullable */
@@ -695,20 +701,25 @@ export interface BidInput {
 export interface ManualSellInput {
   teamId: number;
   amount: number;
-  /** Mandatory audit reason for manual sell (min 10 characters) */
-  reason: string;
+  /** Optional audit reason for manual sell */
+  reason?: string;
 }
 
 export interface ReAuctionInput {
   playerId: number;
   startFromBase?: boolean;
-  /** Mandatory audit reason for re-auction (min 10 characters) */
-  reason: string;
+  /** Optional audit reason for re-auction */
+  reason?: string;
 }
 
 export interface ReAuctionAllUnsoldBody {
-  /** Mandatory audit reason for batch re-auction of unsold players (min 10 characters) */
-  reason: string;
+  /** Optional audit reason for batch re-auction of unsold players */
+  reason?: string;
+}
+
+export interface ConcludeAuctionInput {
+  /** When true, conclude even if unsold players remain */
+  force?: boolean;
 }
 
 export interface ResetTrialAuctionBody {
@@ -937,6 +948,11 @@ export interface AuctionState {
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
+  /** True when no available players remain but unsold players exist */
+  mainRoundExhausted?: boolean;
+  bidExtensionEnabled?: boolean;
+  bidExtensionThresholdSeconds?: number;
+  bidExtensionSeconds?: number;
   fortuneWheelActive?: boolean;
   wheelSpinning?: boolean;
   wheelItems?: WheelItem[];

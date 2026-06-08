@@ -20,6 +20,7 @@ import {
   useMarkUnsold,
   useReAuctionPlayer,
   useReAuctionAllUnsold,
+  useConcludeAuction,
   useStartTimer,
   useStopTimer,
   useSetDisplayOverlay,
@@ -70,7 +71,7 @@ import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import { useRoleSpecGroups } from "@/hooks/use-role-spec-groups";
 import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { AuditReasonField } from "@/components/audit-reason-field";
 
 function playerMatchesSearch(
   player: { id: number; name: string },
@@ -223,15 +224,12 @@ export default function AuctionOperator() {
   const [manualTeamId, setManualTeamId] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [manualSellReason, setManualSellReason] = useState("");
-  const [reauctionReason, setReauctionReason] = useState("");
-  const [resumeReauctionReason, setResumeReauctionReason] = useState("");
-  const [reauctionTargetId, setReauctionTargetId] = useState<number | null>(null);
-  const [batchReauctionReason, setBatchReauctionReason] = useState("");
+  const [showAdvancedReason, setShowAdvancedReason] = useState(false);
   const [showBatchReAuctionConfirm, setShowBatchReAuctionConfirm] = useState(false);
+  const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
   const [coachStep, setCoachStep] = useState(0);
-  const [reauctionModalOpen, setReauctionModalOpen] = useState(false);
   const [resumeBidDialogOpen, setResumeBidDialogOpen] = useState(false);
   const [currentBidPaused, setCurrentBidPaused] = useState(false);
   const [timerSecs, setTimerSecs] = useState("30");
@@ -339,6 +337,7 @@ export default function AuctionOperator() {
   const markUnsold         = useMarkUnsold();
   const reAuction          = useReAuctionPlayer();
   const reAuctionAllUnsoldMut = useReAuctionAllUnsold();
+  const concludeAuctionMut = useConcludeAuction();
   const startTimerMut      = useStartTimer();
   const stopTimerMut       = useStopTimer();
   const setDisplayOverlay  = useSetDisplayOverlay();
@@ -389,14 +388,14 @@ export default function AuctionOperator() {
   async function handleSell() { await sellPlayer.mutateAsync({ tournamentId }); invalidate(); }
   async function handleUnsold() { await markUnsold.mutateAsync({ tournamentId }); invalidate(); }
   async function handleManualSell() {
-    if (!manualTeamId || !manualAmount || !isAuditReasonValid(manualSellReason)) return;
+    if (!manualTeamId || !manualAmount) return;
     try {
       await manualSellMut.mutateAsync({
         tournamentId,
         data: {
           teamId: parseInt(manualTeamId),
           amount: parseInt(manualAmount) || 0,
-          reason: manualSellReason.trim(),
+          ...(manualSellReason.trim() ? { reason: manualSellReason.trim() } : {}),
         },
       });
       setManualSellOpen(false);
@@ -407,13 +406,28 @@ export default function AuctionOperator() {
     } catch { /* error shown in dialog */ }
   }
 
-  async function handleReAuction(playerId: number, startFromBase: boolean, reason: string) {
-    await reAuction.mutateAsync({ tournamentId, data: { playerId, startFromBase, reason: reason.trim() } });
+  async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
+    await reAuction.mutateAsync({
+      tournamentId,
+      data: {
+        playerId,
+        startFromBase,
+        ...(reason?.trim() ? { reason: reason.trim() } : {}),
+      },
+    });
+    setCurrentBidPaused(false);
     invalidate();
   }
 
+  function resolveTimerSecondsForPhase(): number {
+    const inBidPhase = !!state?.currentBidTeamId || state?.timerType === "bid";
+    return inBidPhase
+      ? (state?.bidTimerSeconds ?? 15)
+      : (parseInt(timerSecs) || state?.timerSeconds || 30);
+  }
+
   async function handleStartTimer() {
-    const secs = parseInt(timerSecs) || 30;
+    const secs = resolveTimerSecondsForPhase();
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
     qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     invalidate();
@@ -450,25 +464,15 @@ export default function AuctionOperator() {
 
   async function handleResumeBidRestart() {
     const playerId = state?.currentPlayer?.id;
-    if (!playerId || !isAuditReasonValid(resumeReauctionReason)) return;
+    if (!playerId) return;
     setResumeBidDialogOpen(false);
-    setCurrentBidPaused(false);
-    await handleReAuction(playerId, true, resumeReauctionReason);
-    setResumeReauctionReason("");
+    await handleReAuction(playerId, true);
   }
 
-  function openReauctionModal(playerId?: number) {
-    setReauctionTargetId(playerId ?? lastSaleBid?.playerId ?? null);
-    setReauctionModalOpen(true);
-  }
-
-  async function handleConfirmReauction() {
-    const playerId = reauctionTargetId ?? lastSaleBid?.playerId;
-    if (!playerId || !isAuditReasonValid(reauctionReason)) return;
-    await handleReAuction(playerId, true, reauctionReason);
-    setReauctionModalOpen(false);
-    setReauctionReason("");
-    setReauctionTargetId(null);
+  async function handleInstantReauction(playerId?: number) {
+    const targetId = playerId ?? lastSaleBid?.playerId;
+    if (!targetId || reAuction.isPending || isPaused) return;
+    await handleReAuction(targetId, true);
   }
 
   async function handleDeferPlayer() { await deferPlayerMut.mutateAsync({ tournamentId }); invalidate(); }
@@ -507,12 +511,27 @@ export default function AuctionOperator() {
     invalidate();
   }
 
-  async function handleBatchReAuction() {
-    if (!isAuditReasonValid(batchReauctionReason)) return;
-    await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: { reason: batchReauctionReason.trim() } });
-    setShowBatchReAuctionConfirm(false);
-    setBatchReauctionReason("");
+  async function handleBringUnsoldPlayers() {
+    await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: {} });
     invalidate();
+  }
+
+  async function handleBatchReAuction() {
+    await handleBringUnsoldPlayers();
+    setShowBatchReAuctionConfirm(false);
+  }
+
+  async function handleConcludeAuction(force = false) {
+    try {
+      await concludeAuctionMut.mutateAsync({ tournamentId, data: { force } });
+      setConcludeDialogOpen(false);
+      invalidate();
+    } catch (err: unknown) {
+      const data = (err as { data?: { requiresConfirmation?: boolean } })?.data;
+      if (data?.requiresConfirmation) {
+        setConcludeDialogOpen(true);
+      }
+    }
   }
 
   async function handleStartAuction() {
@@ -576,6 +595,7 @@ export default function AuctionOperator() {
 
   const isActive   = state?.status === "active";
   const isPaused   = state?.status === "paused";
+  const isCompleted = state?.status === "completed";
   const hasPlayer  = !!state?.currentPlayer;
   const hasBid     = !!state?.currentBidTeamId;
   const timerActive = !!state?.timerEndsAt && !timerExpired;
@@ -584,6 +604,9 @@ export default function AuctionOperator() {
   const soldPlayers   = allPlayers.filter(p => p.status === "sold");
   const unsoldPlayers = allPlayers.filter(p => p.status === "unsold");
   const retainedPlayers = allPlayers.filter(p => p.status === "retained");
+  const mainRoundExhausted =
+    (state as { mainRoundExhausted?: boolean } | undefined)?.mainRoundExhausted
+    ?? (isActive && available.length === 0 && unsoldPlayers.length > 0 && !hasPlayer);
   const increment   = state?.bidIncrement ?? 50000;
   const nextBidAmount = computeNextBidAmount({
     currentBid: state?.currentBid,
@@ -611,7 +634,7 @@ export default function AuctionOperator() {
         case "d": if (!timerActive && hasPlayer && isActive) handleDeferPlayer(); break;
         case "m": if (!timerActive && hasPlayer) { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); } break;
         case "n": if (!timerActive && isActive) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
-        case "z": if (isActive && lastSaleBid) openReauctionModal(); break;
+        case "z": if (isActive && lastSaleBid) void handleInstantReauction(); break;
         case " ": e.preventDefault(); if (isActive && hasPlayer) { timerActive ? handleStopTimer() : handleStartBiddingClick(); } break;
       }
     }
@@ -695,6 +718,17 @@ export default function AuctionOperator() {
           </div>
         )}
 
+        {mainRoundExhausted && !isPaused && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-orange-500/30 bg-orange-500/10 z-20">
+            <div>
+              <p className="text-sm font-bold text-orange-200">Main round complete</p>
+              <p className="text-xs text-orange-100/70">
+                {unsoldPlayers.length} unsold player{unsoldPlayers.length !== 1 ? "s" : ""} remaining — bring them back or conclude the auction.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ══════════ AUCTION CONTROL BAR ════════════════════════════════════ */}
         <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#141720] border-b border-white/8 flex-wrap min-h-[44px] z-10">
 
@@ -734,8 +768,27 @@ export default function AuctionOperator() {
             </button>
           )}
 
-          {/* Start / Pause Auction (session-level) */}
-          {!isActive ? (
+          {/* Start / Pause / Unsold round / Conclude (session-level) */}
+          {mainRoundExhausted ? (
+            <>
+              <button
+                className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-orange-600 hover:bg-orange-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
+                onClick={() => setShowBatchReAuctionConfirm(true)}
+                disabled={reAuctionAllUnsoldMut.isPending || unsoldPlayers.length === 0}
+              >
+                <RotateCcw className="w-3 h-3" />
+                Bring Unsold Players
+              </button>
+              <button
+                className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-white/20 text-white/80 hover:bg-white/8 transition-all flex-shrink-0 disabled:opacity-50"
+                onClick={() => setConcludeDialogOpen(true)}
+                disabled={concludeAuctionMut.isPending}
+              >
+                <CheckCircle className="w-3 h-3" />
+                Conclude Auction
+              </button>
+            </>
+          ) : !isActive && !isCompleted ? (
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-green-600 hover:bg-green-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
               onClick={handleStartAuction}
@@ -744,7 +797,7 @@ export default function AuctionOperator() {
               <Play className="w-3 h-3" />
               {isPaused ? "Resume Auction" : isTrialMode ? "Start Practice" : "Start Auction"}
             </button>
-          ) : (
+          ) : isActive ? (
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 transition-all flex-shrink-0"
               onClick={async () => { await pauseAuction.mutateAsync({ tournamentId }); invalidate(); }}
@@ -752,12 +805,12 @@ export default function AuctionOperator() {
             >
               <Pause className="w-3 h-3" /> Pause Auction
             </button>
-          )}
+          ) : null}
 
-          {/* Reauction last player — uses existing re-auction API (reverses last sale) */}
+          {/* Reauction last player — one-click live action */}
           <button
             className="h-7 px-2 flex items-center gap-1 rounded-md text-white/50 hover:text-white hover:bg-white/8 flex-shrink-0 transition-colors disabled:opacity-30 text-[10px] font-bold uppercase tracking-wide"
-            onClick={() => openReauctionModal()}
+            onClick={() => void handleInstantReauction()}
             disabled={!lastSaleBid || reAuction.isPending || isPaused}
             title={isPaused ? "Resume auction before re-auctioning" : "Reverse the last sale and start a reauction"}
           >
@@ -1188,7 +1241,7 @@ export default function AuctionOperator() {
                           <button
                             disabled={reAuction.isPending || isPaused}
                             title={isPaused ? "Resume auction before re-auctioning" : undefined}
-                            onClick={() => openReauctionModal(player.id)}
+                            onClick={() => void handleInstantReauction(player.id)}
                             className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold flex items-center gap-0.5 transition-all"
                           >
                             <RotateCcw className="w-2 h-2" /> Re
@@ -1336,7 +1389,7 @@ export default function AuctionOperator() {
                 <div className="grid grid-cols-2 gap-4">
                   <CircularTimer
                     endsAt={state?.timerEndsAt}
-                    totalSeconds={timerSecsNum}
+                    totalSeconds={state?.timerType === "bid" ? (state?.bidTimerSeconds ?? 15) : timerSecsNum}
                     running={timerActive}
                   />
                   <div className="flex flex-col items-center justify-center py-4 rounded-2xl border border-white/8 bg-[#141820] text-center">
@@ -1725,10 +1778,19 @@ export default function AuctionOperator() {
                 <Label className="text-xs text-muted-foreground">Amount (₹)</Label>
                 <Input type="number" value={manualAmount} onChange={e => setManualAmount(e.target.value)} placeholder="e.g. 500000" />
               </div>
-              <AuditReasonField value={manualSellReason} onChange={setManualSellReason} />
+              {showAdvancedReason && (
+                <AuditReasonField value={manualSellReason} onChange={setManualSellReason} label="Audit reason (optional)" />
+              )}
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+                onClick={() => setShowAdvancedReason(v => !v)}
+              >
+                {showAdvancedReason ? "Hide advanced options" : "Advanced: add audit reason"}
+              </button>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setManualSellOpen(false)}>Cancel</Button>
-                <Button className="flex-1" disabled={!manualTeamId || !manualAmount || !isAuditReasonValid(manualSellReason) || manualSellMut.isPending} onClick={handleManualSell}>
+                <Button className="flex-1" disabled={!manualTeamId || !manualAmount || manualSellMut.isPending} onClick={handleManualSell}>
                   {manualSellMut.isPending ? "Selling…" : "Confirm Sell"}
                 </Button>
               </div>
@@ -1819,77 +1881,22 @@ export default function AuctionOperator() {
                     </p>
                   </div>
                 </Button>
-                <div className="rounded-lg border border-border/50 p-3 space-y-3">
-                  <div>
-                    <p className="font-semibold text-sm">Restart this player from base price</p>
+                <Button
+                  className="w-full justify-start h-auto py-3"
+                  variant="outline"
+                  disabled={reAuction.isPending}
+                  onClick={handleResumeBidRestart}
+                >
+                  <div className="text-left">
+                    <p className="font-semibold text-sm">Restart this player auction</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Reset to {formatIndianRupee(state?.currentPlayer?.basePrice ?? 0)} with no leading bidder.
                     </p>
                   </div>
-                  <AuditReasonField value={resumeReauctionReason} onChange={setResumeReauctionReason} />
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    disabled={!isAuditReasonValid(resumeReauctionReason) || reAuction.isPending}
-                    onClick={handleResumeBidRestart}
-                  >
-                    Restart from base
-                  </Button>
-                </div>
+                </Button>
               </div>
               <Button variant="ghost" className="w-full" onClick={() => setResumeBidDialogOpen(false)}>Cancel</Button>
             </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Reauction last player — reuses POST /auction/re-auction */}
-        <Dialog open={reauctionModalOpen} onOpenChange={setReauctionModalOpen}>
-          <DialogContent className="dark max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-orange-400" /> Reauction Last Player
-              </DialogTitle>
-            </DialogHeader>
-            {(reauctionTargetId ?? lastSaleBid?.playerId) ? (
-              <div className="space-y-4 py-2">
-                <div className="rounded-lg border border-border/50 bg-muted/10 p-4 space-y-3 text-sm">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Player</p>
-                    <p className="font-semibold">
-                      {players?.find((p) => p.id === (reauctionTargetId ?? lastSaleBid?.playerId))?.name
-                        ?? lastSaleBid?.playerName
-                        ?? `Player #${reauctionTargetId ?? lastSaleBid?.playerId}`}
-                    </p>
-                  </div>
-                  {lastSaleBid && (reauctionTargetId == null || reauctionTargetId === lastSaleBid.playerId) && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Previous result</p>
-                      <p className="font-semibold">{lastSaleBid.teamName ?? `Team #${lastSaleBid.teamId}`}</p>
-                      <p className="text-primary font-mono">{formatIndianRupee(lastSaleBid.amount)}</p>
-                    </div>
-                  )}
-                </div>
-                <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                  <li>Reverse previous sale</li>
-                  <li>Restore team purse</li>
-                  <li>Return player to auction pool</li>
-                  <li>Start reauction from base price</li>
-                </ul>
-                <AuditReasonField value={reauctionReason} onChange={setReauctionReason} />
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setReauctionModalOpen(false)}>Cancel</Button>
-                  <Button
-                    className="flex-1 bg-orange-500 hover:bg-orange-400 text-white"
-                    disabled={reAuction.isPending || !isAuditReasonValid(reauctionReason)}
-                    onClick={handleConfirmReauction}
-                  >
-                    {reAuction.isPending ? "Starting…" : "Start Reauction"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4">No completed sale to reauction yet.</p>
-            )}
           </DialogContent>
         </Dialog>
 
@@ -1982,22 +1989,66 @@ export default function AuctionOperator() {
           </DialogContent>
         </Dialog>
 
-        {/* Batch re-auction confirm */}
+        {/* Bring unsold players — instant confirm */}
         <Dialog open={showBatchReAuctionConfirm} onOpenChange={setShowBatchReAuctionConfirm}>
           <DialogContent className="dark max-w-sm">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-400" /> Re-auction All Unsold?</DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><RotateCcw className="w-4 h-4 text-orange-400" /> Bring Unsold Players?</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <p className="text-sm text-muted-foreground">
-                This will move all {unsoldPlayers.length} unsold player{unsoldPlayers.length !== 1 ? "s" : ""} back to the available queue, starting bids from their base price.
+                Move all {unsoldPlayers.length} unsold player{unsoldPlayers.length !== 1 ? "s" : ""} back to the available queue for another round.
               </p>
-              <AuditReasonField value={batchReauctionReason} onChange={setBatchReauctionReason} />
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowBatchReAuctionConfirm(false)}>Cancel</Button>
-                <Button className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={reAuctionAllUnsoldMut.isPending || !isAuditReasonValid(batchReauctionReason)} onClick={handleBatchReAuction}>
-                  {reAuctionAllUnsoldMut.isPending ? "Moving…" : "Re-auction All"}
+                <Button className="flex-1 bg-orange-500 hover:bg-orange-400 text-white" disabled={reAuctionAllUnsoldMut.isPending} onClick={handleBatchReAuction}>
+                  {reAuctionAllUnsoldMut.isPending ? "Moving…" : "Bring Unsold Players"}
                 </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Conclude auction */}
+        <Dialog open={concludeDialogOpen} onOpenChange={setConcludeDialogOpen}>
+          <DialogContent className="dark max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" /> Conclude Auction
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border border-border/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sold</p>
+                  <p className="text-2xl font-black text-green-400">{soldPlayers.length}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Unsold remaining</p>
+                  <p className="text-2xl font-black text-red-400">{unsoldPlayers.length}</p>
+                </div>
+              </div>
+              {unsoldPlayers.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Unsold players will stay unsold. You can run another unsold round first, or conclude anyway.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">All players are sold. Ready to conclude.</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {unsoldPlayers.length > 0 && (
+                  <Button variant="outline" className="w-full" onClick={() => { setConcludeDialogOpen(false); setShowBatchReAuctionConfirm(true); }}>
+                    Continue Unsold Round
+                  </Button>
+                )}
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-500"
+                  disabled={concludeAuctionMut.isPending}
+                  onClick={() => void handleConcludeAuction(unsoldPlayers.length > 0)}
+                >
+                  {concludeAuctionMut.isPending ? "Concluding…" : unsoldPlayers.length > 0 ? "Conclude Auction Anyway" : "Conclude Auction"}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setConcludeDialogOpen(false)}>Cancel</Button>
               </div>
             </div>
           </DialogContent>

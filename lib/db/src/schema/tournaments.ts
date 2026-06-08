@@ -31,6 +31,10 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTiers: text("bid_tiers"),
   timerSeconds: integer("timer_seconds").notNull().default(10),
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(10),
+  /** When enabled, bids in the last N seconds extend the timer instead of full reset */
+  bidExtensionEnabled: boolean("bid_extension_enabled").notNull().default(false),
+  bidExtensionThresholdSeconds: integer("bid_extension_threshold_seconds").notNull().default(3),
+  bidExtensionSeconds: integer("bid_extension_seconds").notNull().default(5),
   playerSelectionMode: text("player_selection_mode").notNull().default("random"),
   status: text("status").notNull().default("setup"),
   // Player registration link controls

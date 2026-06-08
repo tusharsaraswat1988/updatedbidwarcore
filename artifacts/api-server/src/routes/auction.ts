@@ -68,6 +68,106 @@ async function getOrCreateSession(tournamentId: number) {
 
 const AUCTION_PAUSED_ERROR = "Auction is paused. Resume the auction before continuing.";
 
+/** Opening timer for first bid on a player; bid timer after any bid or pause/resume with bids. */
+function resolveTimerPhase(session: {
+  currentBidTeamId: number | null;
+  timerType: string | null;
+}): "start" | "bid" {
+  if (session.currentBidTeamId || session.timerType === "bid") return "bid";
+  return "start";
+}
+
+function computeBidTimerDuration(
+  session: { timerEndsAt: string | null },
+  tournament: {
+    bidTimerSeconds?: number | null;
+    bidExtensionEnabled?: boolean | null;
+    bidExtensionThresholdSeconds?: number | null;
+    bidExtensionSeconds?: number | null;
+  } | null | undefined,
+): number {
+  const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
+  if (!tournament?.bidExtensionEnabled || !session.timerEndsAt) return bidTimerSecs;
+
+  const remaining = Math.ceil((new Date(session.timerEndsAt).getTime() - Date.now()) / 1000);
+  const threshold = tournament.bidExtensionThresholdSeconds ?? 3;
+  const extensionSecs = tournament.bidExtensionSeconds ?? 5;
+  if (remaining > 0 && remaining <= threshold) {
+    return remaining + extensionSecs;
+  }
+  return bidTimerSecs;
+}
+
+/**
+ * When the available player pool is empty: complete only if all auctionable players
+ * are sold; otherwise keep the session active for an unsold round.
+ */
+async function handleAvailablePoolExhausted(tid: number): Promise<void> {
+  const allPlayers = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tid));
+
+  const unsoldCount = allPlayers.filter((p) => p.status === "unsold").length;
+  const auctionable = allPlayers.filter((p) => p.status !== "retained");
+  const allSold =
+    auctionable.length > 0 && auctionable.every((p) => p.status === "sold");
+
+  if (allSold || (unsoldCount === 0 && auctionable.length > 0)) {
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        timerType: null,
+        deferredPlayerIds: null,
+        displayCountdown: null,
+        lastAction: "Auction completed — all players sold",
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    return;
+  }
+
+  if (unsoldCount > 0) {
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "active",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        timerType: null,
+        lastAction: `Main round complete — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remaining`,
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    return;
+  }
+
+  await db
+    .update(auctionSessionsTable)
+    .set({
+      status: "completed",
+      currentPlayerId: null,
+      currentBid: null,
+      currentBidTeamId: null,
+      timerEndsAt: null,
+      timerType: null,
+      deferredPlayerIds: null,
+      displayCountdown: null,
+      lastAction: "Auction completed",
+      lastOutcome: null,
+    })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+}
+
 function rejectIfAuctionPaused(
   session: { status: string },
   res: { status: (code: number) => { json: (body: object) => void } },
@@ -207,6 +307,9 @@ async function buildAuctionState(tournamentId: number) {
       playerSelectionMode: tournamentsTable.playerSelectionMode,
       timerSeconds: tournamentsTable.timerSeconds,
       bidTimerSeconds: tournamentsTable.bidTimerSeconds,
+      bidExtensionEnabled: tournamentsTable.bidExtensionEnabled,
+      bidExtensionThresholdSeconds: tournamentsTable.bidExtensionThresholdSeconds,
+      bidExtensionSeconds: tournamentsTable.bidExtensionSeconds,
       bidTier1UpTo: tournamentsTable.bidTier1UpTo,
       bidTier1Increment: tournamentsTable.bidTier1Increment,
       bidTier2UpTo: tournamentsTable.bidTier2UpTo,
@@ -433,9 +536,14 @@ async function buildAuctionState(tournamentId: number) {
     timerSeconds,
     bidTimerSeconds,
     timerEndsAt: session.timerEndsAt,
-    // Authoritative timer mode — stored directly in the session by the route that
-    // last set timerEndsAt (start-timer → 'start', bid → 'bid').
-    timerType: session.timerEndsAt ? (session.timerType ?? null) : null,
+    // Authoritative timer mode — persists across pause (timerEndsAt cleared) so
+    // resume uses bid timer when bidding had already started.
+    timerType: session.timerType ?? null,
+    bidExtensionEnabled: tournamentRow?.bidExtensionEnabled ?? false,
+    bidExtensionThresholdSeconds: tournamentRow?.bidExtensionThresholdSeconds ?? 3,
+    bidExtensionSeconds: tournamentRow?.bidExtensionSeconds ?? 5,
+    mainRoundExhausted:
+      session.status === "active" && availableCount === 0 && unsoldCount > 0,
     lastAction: session.lastAction,
     outcome,
     soldPlayersCount: soldCount,
@@ -757,21 +865,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   }
 
   if (!selectedPlayerId) {
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        status: "completed",
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        deferredPlayerIds: null,
-        displayCountdown: null,
-        lastAction: "Auction completed — all players processed",
-        lastOutcome: null,
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    await handleAvailablePoolExhausted(tid);
     res.json(await broadcastState(tid, ["players"]));
     return;
   }
@@ -802,6 +896,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
+      timerType: null,
       pausedTimeRemaining: null,
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       displayCountdown: null,
@@ -957,8 +1052,8 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     return;
   }
 
-  const bidTimerSecs = tournament?.bidTimerSeconds ?? 15;
-  const newTimerEndsAt = new Date(Date.now() + bidTimerSecs * 1000).toISOString();
+  const timerDurationSecs = computeBidTimerDuration(session, tournament);
+  const newTimerEndsAt = new Date(Date.now() + timerDurationSecs * 1000).toISOString();
 
   await db
     .update(auctionSessionsTable)
@@ -1142,7 +1237,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const reasonResult = parseAuditReason(req.body, true);
+  const reasonResult = parseAuditReason(req.body, false);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const { teamId, amount } = parsed.data;
@@ -1348,7 +1443,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const reasonResult = parseAuditReason(req.body, true);
+  const reasonResult = parseAuditReason(req.body, false);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const session = await getOrCreateSession(tid);
@@ -1394,6 +1489,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
+      timerType: null,
       lastAction: `RE-AUCTION: ${player.name}`,
       lastOutcome: null,
     })
@@ -1432,7 +1528,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
 
-  const reasonResult = parseAuditReason(req.body, true);
+  const reasonResult = parseAuditReason(req.body, false);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
   const session = await getOrCreateSession(tid);
@@ -1475,9 +1571,8 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   res.json(await broadcastState(tid, ["players"]));
 });
 
-// POST reset trial auction — reset all non-retained players to available, clear bids
-// First reset (resetCount === 0) requires the tournament's organizer/operator password.
-// Any subsequent reset requires the master super admin password (ADMIN_PASSWORD).
+// POST reset trial auction — reset all non-retained players to available, clear bids.
+// Operator panel: tournament organizer password. Admin panel: super admin password (ADMIN_PASSWORD).
 router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1504,27 +1599,13 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   const previousResetCount = tournament.resetCount ?? 0;
 
   let resetActor: "operator" | "super_admin";
-  if (previousResetCount === 0) {
-    // First reset — operator OR super admin both allowed
-    if (isOperatorMatch) {
-      resetActor = "operator";
-    } else if (isMasterMatch) {
-      resetActor = "super_admin";
-    } else {
-      res.status(401).json({ error: "Incorrect operator password" });
-      return;
-    }
+  if (isOperatorMatch) {
+    resetActor = "operator";
+  } else if (isMasterMatch) {
+    resetActor = "super_admin";
   } else {
-    // Already reset before — only super admin can do it again
-    if (isMasterMatch) {
-      resetActor = "super_admin";
-    } else if (isOperatorMatch) {
-      res.status(403).json({ error: "This tournament has already been reset once. Only the super admin can reset it again." });
-      return;
-    } else {
-      res.status(401).json({ error: "Incorrect super admin password" });
-      return;
-    }
+    res.status(401).json({ error: "Incorrect organizer or super admin password" });
+    return;
   }
 
   const allPlayers = await db
@@ -1687,21 +1768,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   }
 
   if (!selectedPlayerId) {
-    // No more players available — auction complete
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        status: "completed",
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        deferredPlayerIds: null,
-        lastAction: "Auction completed — all players processed",
-        lastOutcome: null,
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    await handleAvailablePoolExhausted(tid);
     res.json(await broadcastState(tid, ["players"]));
     return;
   }
@@ -1732,6 +1799,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
       currentBidTeamId: null,
       timerSeconds: timerSecs,
       timerEndsAt: null,
+      timerType: null,
       pausedTimeRemaining: null,
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
@@ -2033,10 +2101,11 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
+  const timerType = resolveTimerPhase(session);
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)
-    .set({ timerEndsAt: endsAt, timerType: "start" })
+    .set({ timerEndsAt: endsAt, timerType })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   // Log timer start/extend event (fire-and-forget)
@@ -2045,12 +2114,71 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
     tournamentId: tid,
     playerId: session.currentPlayerId,
     action,
-    timerType: "start",
+    timerType,
     timerSeconds: body.data.seconds,
     triggeredBy: "operator",
   });
 
   res.json(await broadcastState(tid));
+});
+
+// POST conclude auction — operator explicitly ends the auction
+router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const body = z.object({ force: z.boolean().optional().default(false) }).safeParse(req.body ?? {});
+  if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const session = await getOrCreateSession(tid);
+  const allPlayers = await db
+    .select()
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tid));
+  const soldCount = allPlayers.filter((p) => p.status === "sold").length;
+  const unsoldCount = allPlayers.filter((p) => p.status === "unsold").length;
+
+  if (unsoldCount > 0 && !body.data.force) {
+    res.status(409).json({
+      error: "Unsold players remain",
+      requiresConfirmation: true,
+      soldPlayersCount: soldCount,
+      unsoldPlayersCount: unsoldCount,
+    });
+    return;
+  }
+
+  await db
+    .update(auctionSessionsTable)
+    .set({
+      status: "completed",
+      currentPlayerId: null,
+      currentBid: null,
+      currentBidTeamId: null,
+      timerEndsAt: null,
+      timerType: null,
+      deferredPlayerIds: null,
+      displayCountdown: null,
+      lastAction:
+        unsoldCount > 0
+          ? `Auction concluded by operator — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remain`
+          : "Auction concluded by operator",
+      lastOutcome: null,
+    })
+    .where(eq(auctionSessionsTable.tournamentId, tid));
+  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+
+  auditLog(req, {
+    category: "auction",
+    action: "auction.concluded",
+    summary: "Auction concluded by operator",
+    tournamentId: tid,
+    resource: { type: "auction_session", id: tid },
+    metadata: { soldPlayersCount: soldCount, unsoldPlayersCount: unsoldCount, forced: body.data.force },
+  });
+
+  res.json(await broadcastState(tid, ["players"]));
 });
 
 // POST break-timer (start, extend, or cancel a break countdown on the LED display)

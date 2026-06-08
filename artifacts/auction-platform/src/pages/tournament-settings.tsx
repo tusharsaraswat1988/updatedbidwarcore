@@ -17,6 +17,8 @@ import { Slider } from "@/components/ui/slider";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
+import { settingsPath } from "@/lib/settings-navigation";
+import { auctionResetPath } from "@/lib/tournament-navigation";
 import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -185,6 +187,9 @@ export default function TournamentSettings() {
       minBid: String(tournament.minBid ?? ""),
       timerSeconds: String(tournament.timerSeconds ?? "30"),
       bidTimerSeconds: String(tournament.bidTimerSeconds ?? "15"),
+      bidExtensionEnabled: tournament.bidExtensionEnabled ?? false,
+      bidExtensionThresholdSeconds: String(tournament.bidExtensionThresholdSeconds ?? "3"),
+      bidExtensionSeconds: String(tournament.bidExtensionSeconds ?? "5"),
       playerSelectionMode: tournament.playerSelectionMode || "sequential",
       registrationDeadline: tournament.registrationDeadline || "",
       registrationLimit: tournament.registrationLimit != null ? String(tournament.registrationLimit) : "",
@@ -418,6 +423,9 @@ export default function TournamentSettings() {
         bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
         timerSeconds: Number(editForm.timerSeconds) || undefined,
         bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+        bidExtensionEnabled: editForm.bidExtensionEnabled === true,
+        bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
+        bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
         playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
         minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
         maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
@@ -797,6 +805,53 @@ export default function TournamentSettings() {
                 <Input type="number" value={editForm.bidTimerSeconds as number || 15} onChange={e => setEditForm(f => ({ ...f, bidTimerSeconds: e.target.value }))} min={5} max={300} />
                 <p className="text-xs text-muted-foreground">Time between bids — recommended: 15 seconds</p>
               </div>
+            </div>
+
+            <div id="settings-field-bidExtension" className="space-y-3 border-t border-border pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="flex items-center gap-1">
+                    Bid Extension
+                    <FieldTooltip text="When the timer is in its last few seconds and a new bid arrives, add extra seconds instead of only resetting to the full bid timer." />
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">Extend the clock on late bids — common in live auctions.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editForm.bidExtensionEnabled === true}
+                  onClick={() => setEditForm(f => ({ ...f, bidExtensionEnabled: !f.bidExtensionEnabled }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${editForm.bidExtensionEnabled ? "bg-primary" : "bg-muted"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${editForm.bidExtensionEnabled ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              {editForm.bidExtensionEnabled && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Trigger threshold (seconds)</Label>
+                    <Input
+                      type="number"
+                      value={editForm.bidExtensionThresholdSeconds as string}
+                      onChange={e => setEditForm(f => ({ ...f, bidExtensionThresholdSeconds: e.target.value }))}
+                      min={1}
+                      max={60}
+                    />
+                    <p className="text-xs text-muted-foreground">Extend when timer has this many seconds or fewer left.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Extension duration (seconds)</Label>
+                    <Input
+                      type="number"
+                      value={editForm.bidExtensionSeconds as string}
+                      onChange={e => setEditForm(f => ({ ...f, bidExtensionSeconds: e.target.value }))}
+                      min={1}
+                      max={120}
+                    />
+                    <p className="text-xs text-muted-foreground">Seconds added to the remaining time on a late bid.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div id="settings-field-playerOrder" className={`space-y-2 border-t border-border pt-4 ${fieldWrapClass("playerOrder")}`}>
@@ -1314,12 +1369,12 @@ export default function TournamentSettings() {
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive h-auto py-3"
-                onClick={() => navigate(`/tournament/${tournamentId}/reset`)}
+                onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
               >
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                  <span className="text-[11px] text-muted-foreground font-normal">Password-protected — operator gets one free reset before platform-level authorization is required.</span>
+                  <span className="text-[11px] text-muted-foreground font-normal">Password-protected — enter your organizer password to clear practice auction data.</span>
                 </div>
               </Button>
             </div>

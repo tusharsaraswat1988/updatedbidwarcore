@@ -90,6 +90,9 @@ const tournamentToJson = (
   bidTiers: t.bidTiers,
   timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds,
+  bidExtensionEnabled: t.bidExtensionEnabled ?? false,
+  bidExtensionThresholdSeconds: t.bidExtensionThresholdSeconds ?? 3,
+  bidExtensionSeconds: t.bidExtensionSeconds ?? 5,
   playerSelectionMode: t.playerSelectionMode,
   status: t.status,
   registrationDeadline: t.registrationDeadline ?? null,
@@ -274,6 +277,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidTiers: z.string().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
+    bidExtensionEnabled: z.boolean().optional(),
+    bidExtensionThresholdSeconds: z.number().int().min(1).max(60).optional(),
+    bidExtensionSeconds: z.number().int().min(1).max(120).optional(),
     playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
     status: z.string().optional(),
     registrationDeadline: z.string().nullable().optional(),
@@ -331,6 +337,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
   if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
+  if (d.bidExtensionEnabled !== undefined) updates.bidExtensionEnabled = d.bidExtensionEnabled;
+  if (d.bidExtensionThresholdSeconds !== undefined) updates.bidExtensionThresholdSeconds = d.bidExtensionThresholdSeconds;
+  if (d.bidExtensionSeconds !== undefined) updates.bidExtensionSeconds = d.bidExtensionSeconds;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.status !== undefined) updates.status = d.status;
   if (d.registrationDeadline !== undefined)

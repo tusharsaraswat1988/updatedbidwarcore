@@ -23,6 +23,7 @@ import { Squad } from "./Squad";
 import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
+import { useAuctionSocket } from "@/hooks/use-auction-socket";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -95,7 +96,9 @@ export function OwnerRoute() {
     },
   });
 
-  // Auction state polling — declared early so the save effect below can read it
+  // Live SSE push + polling fallback for owner panels
+  useAuctionSocket(tournamentId);
+
   const pollInterval = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching, isError: stateIsError } = useGetAuctionState(tournamentId, {
     query: {

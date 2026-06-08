@@ -271,7 +271,7 @@ function TeamSquadSheet({
                   {(team?.reservePurse ?? 0) > 0 && (
                     <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
                       <p className="font-mono font-bold text-sm tabular-nums text-amber-400/90">
-                        {formatShortIndianRupee(team.reservePurse!)}
+                        {formatShortIndianRupee(team?.reservePurse ?? 0)}
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Reserved</p>
                     </div>

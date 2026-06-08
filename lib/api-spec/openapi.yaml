@@ -895,6 +895,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/conclude:
+    post:
+      operationId: concludeAuction
+      tags: [auction]
+      summary: Explicitly conclude the auction (requires confirmation if unsold players remain)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConcludeAuctionInput"
+      responses:
+        "200":
+          description: Auction concluded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+        "409":
+          description: Unsold players remain — confirmation required
+
   /tournaments/{tournamentId}/auction/undo:
     post:
       operationId: undoLastAction
@@ -918,7 +945,7 @@ paths:
     post:
       operationId: resetTrialAuction
       tags: [auction]
-      summary: Reset all players back to available (clears bids). First reset requires the operator/organizer password; further resets require the super admin password.
+      summary: Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
       parameters:
         - name: tournamentId
           in: path
@@ -940,8 +967,6 @@ paths:
                 $ref: "#/components/schemas/AuctionState"
         "401":
           description: Wrong password
-        "403":
-          description: Subsequent reset requires super admin password
 
   /tournaments/{tournamentId}/auction/display-overlay:
     post:
@@ -1904,6 +1929,12 @@ components:
           type: integer
         bidTimerSeconds:
           type: integer
+        bidExtensionEnabled:
+          type: boolean
+        bidExtensionThresholdSeconds:
+          type: integer
+        bidExtensionSeconds:
+          type: integer
         playerSelectionMode:
           type: string
           enum: [sequential, random, manual]
@@ -2136,6 +2167,12 @@ components:
         timerSeconds:
           type: integer
         bidTimerSeconds:
+          type: integer
+        bidExtensionEnabled:
+          type: boolean
+        bidExtensionThresholdSeconds:
+          type: integer
+        bidExtensionSeconds:
           type: integer
         playerSelectionMode:
           type: string
@@ -2647,7 +2684,7 @@ components:
 
     ManualSellInput:
       type: object
-      required: [teamId, amount, reason]
+      required: [teamId, amount]
       properties:
         teamId:
           type: integer
@@ -2655,11 +2692,11 @@ components:
           type: integer
         reason:
           type: string
-          description: Mandatory audit reason for manual sell (min 10 characters)
+          description: Optional audit reason for manual sell
 
     ReAuctionInput:
       type: object
-      required: [playerId, reason]
+      required: [playerId]
       properties:
         playerId:
           type: integer
@@ -2667,15 +2704,21 @@ components:
           type: boolean
         reason:
           type: string
-          description: Mandatory audit reason for re-auction (min 10 characters)
+          description: Optional audit reason for re-auction
 
     ReAuctionAllUnsoldBody:
       type: object
-      required: [reason]
       properties:
         reason:
           type: string
-          description: Mandatory audit reason for batch re-auction of unsold players (min 10 characters)
+          description: Optional audit reason for batch re-auction of unsold players
+
+    ConcludeAuctionInput:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: When true, conclude even if unsold players remain
 
     ResetTrialAuctionBody:
       type: object
@@ -2799,6 +2842,15 @@ components:
         unsoldPlayersCount:
           type: integer
         remainingPlayersCount:
+          type: integer
+        mainRoundExhausted:
+          type: boolean
+          description: True when no available players remain but unsold players exist
+        bidExtensionEnabled:
+          type: boolean
+        bidExtensionThresholdSeconds:
+          type: integer
+        bidExtensionSeconds:
           type: integer
         fortuneWheelActive:
           type: boolean
