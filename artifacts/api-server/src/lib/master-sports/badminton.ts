@@ -22,6 +22,7 @@ import {
 } from "./tournament-initials";
 import {
   ensureTournamentProfile,
+  getTournamentProfile,
   syncBadmintonShortNameFromProfile,
 } from "./tournament-profile";
 
@@ -148,6 +149,21 @@ export async function enrichMasterPlayerForTournament(
     }
   }
 
+  const profile = await getTournamentProfile(tournamentId, masterPlayer.id);
+  const [badmintonPlayer] = await db
+    .select({ shortName: badmintonPlayersTable.shortName })
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+        eq(badmintonPlayersTable.masterPlayerId, masterPlayer.id),
+      ),
+    )
+    .limit(1);
+
+  const tournamentInitials =
+    profile?.initials ?? badmintonPlayer?.shortName ?? null;
+
   return {
     id: masterPlayer.id,
     displayName:
@@ -157,6 +173,7 @@ export async function enrichMasterPlayerForTournament(
     photoUrl: masterPlayer.photoUrl,
     franchiseName,
     franchiseLogoUrl,
+    tournamentInitials,
     teamName: franchiseName,
     teamLogoUrl: franchiseLogoUrl,
     firstName: masterPlayer.firstName,
@@ -226,16 +243,10 @@ export async function listMasterPlayersForBadminton(
       settings.linkedAuctionTournamentId,
     );
     const badmintonPlayerId = importedByMasterId.get(mp.id) ?? null;
-    let tournamentInitials: string | null = null;
-    if (badmintonPlayerId) {
-      const bp = imported.find((p) => p.id === badmintonPlayerId);
-      tournamentInitials = bp?.shortName ?? null;
-    }
     items.push({
       ...enriched,
       alreadyImported: badmintonPlayerId !== null,
       badmintonPlayerId,
-      tournamentInitials,
     });
   }
 
