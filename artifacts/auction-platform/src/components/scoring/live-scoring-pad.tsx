@@ -18,6 +18,7 @@ import {
   runRate,
 } from "@/lib/scoring-ball";
 import { playerNameById, squadPlayersForTeam } from "@/lib/scoring-squad";
+import { CricketEventType } from "@workspace/scoring-core";
 import {
   battingTeamId,
   bowlingTeamId,
@@ -25,11 +26,22 @@ import {
   suggestInningsEndReason,
 } from "@/lib/scoring-match-logic";
 
+type WicketType =
+  | "bowled"
+  | "caught"
+  | "run_out"
+  | "stumped"
+  | "lbw"
+  | "hit_wicket"
+  | "timed_out"
+  | "obstructing_field"
+  | "hit_ball_twice";
+
 type BallInput = {
   runsOffBat: number;
   extras: { type: "wide" | "no_ball" | "bye" | "leg_bye" | null; runs: number };
   wicket: {
-    type: "bowled" | "caught" | "run_out" | "stumped" | "lbw";
+    type: WicketType;
     dismissedPlayerId: number;
   } | null;
   isLegalDelivery: boolean;
@@ -42,6 +54,7 @@ type LiveScoringPadProps = {
   bowlerId: number | null;
   busy: boolean;
   onBall: (payload: Record<string, unknown>) => Promise<void>;
+  onEvent: (eventType: string, payload: Record<string, unknown>) => Promise<void>;
   onUndo: () => Promise<void>;
   onInningsEnd: (payload: Record<string, unknown>) => Promise<void>;
   onMatchComplete: (payload: Record<string, unknown>) => Promise<void>;
@@ -69,6 +82,7 @@ export function LiveScoringPad({
   bowlerId,
   busy,
   onBall,
+  onEvent,
   onUndo,
   onInningsEnd,
   onMatchComplete,
@@ -83,6 +97,7 @@ export function LiveScoringPad({
   const [wicketSheet, setWicketSheet] = useState(false);
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
+  const [retireSheet, setRetireSheet] = useState(false);
 
   const strikerId = localStrikerId ?? state.strikerId;
   const nonStrikerId = localNonStrikerId ?? state.nonStrikerId;
@@ -174,6 +189,9 @@ export function LiveScoringPad({
             <p className="text-xs text-muted-foreground uppercase tracking-wide">
               Inn {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
+              {state.freeHitActive ? (
+                <span className="ml-2 text-amber-400 font-semibold">FREE HIT</span>
+              ) : null}
             </p>
             <p className="text-3xl font-bold tabular-nums tracking-tight">
               {innings.runs}/{innings.wickets}
@@ -269,7 +287,19 @@ export function LiveScoringPad({
             <SheetTitle>Wicket — how out?</SheetTitle>
           </SheetHeader>
           <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
-            {(["bowled", "caught", "lbw", "run_out", "stumped"] as const).map((type) => (
+            {(
+              [
+                "bowled",
+                "caught",
+                "lbw",
+                "run_out",
+                "stumped",
+                "hit_wicket",
+                "timed_out",
+                "obstructing_field",
+                "hit_ball_twice",
+              ] as const
+            ).map((type) => (
               <Button
                 key={type}
                 variant="outline"
@@ -315,6 +345,49 @@ export function LiveScoringPad({
             <Button
               variant="outline"
               className="h-12"
+              disabled={busy || !battingId}
+              onClick={async () => {
+                setSecondaryOpen(false);
+                await onEvent(CricketEventType.PENALTY_AWARDED, {
+                  innings: state.currentInnings,
+                  battingTeamId: battingId,
+                  runs: 5,
+                });
+              }}
+            >
+              Penalty +5 runs
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12"
+              disabled={busy || !strikerId}
+              onClick={() => {
+                setSecondaryOpen(false);
+                setRetireSheet(true);
+              }}
+            >
+              Retired batter
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12"
+              disabled={busy}
+              onClick={async () => {
+                if (!battingId || !bowlingId) return;
+                setSecondaryOpen(false);
+                await onEvent(CricketEventType.SUPER_OVER_STARTED, {
+                  innings: Math.max(state.innings.length + 1, 3),
+                  battingTeamId: battingId,
+                  bowlingTeamId: bowlingId,
+                  oversLimit: 1,
+                });
+              }}
+            >
+              Start super over
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12"
               disabled={busy}
               onClick={async () => {
                 setSecondaryOpen(false);
@@ -346,6 +419,50 @@ export function LiveScoringPad({
               }}
             >
               End match
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={retireSheet} onOpenChange={setRetireSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Retired — {playerNameById(players, strikerId)}</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-2 mt-4 pb-6">
+            <Button
+              variant="outline"
+              className="h-12"
+              disabled={busy || !strikerId || !battingId}
+              onClick={async () => {
+                setRetireSheet(false);
+                await onEvent(CricketEventType.PLAYER_RETIRED, {
+                  innings: state.currentInnings,
+                  teamId: battingId,
+                  playerId: strikerId,
+                  type: "hurt",
+                });
+                onNewBatsman(-1);
+              }}
+            >
+              Retired hurt
+            </Button>
+            <Button
+              variant="outline"
+              className="h-12"
+              disabled={busy || !strikerId || !battingId}
+              onClick={async () => {
+                setRetireSheet(false);
+                await onEvent(CricketEventType.PLAYER_RETIRED, {
+                  innings: state.currentInnings,
+                  teamId: battingId,
+                  playerId: strikerId,
+                  type: "out",
+                });
+                onNewBatsman(-1);
+              }}
+            >
+              Retired out
             </Button>
           </div>
         </SheetContent>

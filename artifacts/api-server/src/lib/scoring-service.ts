@@ -23,6 +23,10 @@ import {
 import { and, desc, eq, ne } from "drizzle-orm";
 import { broadcastScoringState } from "./scoring-broadcast";
 import { rebuildTournamentStandings } from "./scoring-standings";
+import {
+  projectMatchPlayerStats,
+  rebuildTournamentLeaderboards,
+} from "./scoring-stats-service";
 
 export type ScoringActor = {
   type: "organizer" | "admin" | "scorer_pin" | "system";
@@ -403,6 +407,10 @@ export async function appendScoringEvent(
 
   if (matchStatus === "completed" || matchStatus === "abandoned") {
     await rebuildTournamentStandings(tournamentId);
+    if (matchStatus === "completed") {
+      await projectMatchPlayerStats(matchId);
+      await rebuildTournamentLeaderboards(tournamentId);
+    }
   }
 
   return {

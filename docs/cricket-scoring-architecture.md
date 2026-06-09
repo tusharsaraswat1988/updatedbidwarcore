@@ -95,7 +95,7 @@ flowchart TB
         Schedule[schedule generators]
     end
 
-    subgraph Phase2["Phase 2 — planned"]
+    subgraph Phase2["Phase 2 — shipped"]
         Reducer[Extended cricket events]
         Scorecard[match_player_stats]
         Stats[player_statistics cricket]
@@ -228,7 +228,7 @@ Create match → toss → XI → live pad → undo → end innings → complete;
 | `scoring_groups`, `scoring_group_members` | Group stage |
 | `scoring_match_squads` | XI + bench per match |
 
-### FUTURE — Phase 2+
+### NEW — Phase 2 ✅
 
 | Table | Purpose |
 |-------|---------|
@@ -453,13 +453,19 @@ Event store, reducer V1, mobile scorer, standings, auction squad integration, SS
 
 **Exit criteria:** 8-team league with generated fixtures, playable end-to-end. **Met.**
 
-### Phase 2 — ICC engine + projections
+### Phase 2 — ICC engine + projections ✅
 
-- All ICC dismissals, penalty runs, retired hurt/out
-- Free hit, powerplay, super over
-- `scoring_match_player_stats` projector
-- Tournament stats + leaderboards (runs, wickets)
-- Public broadcast scorecard
+| Deliverable | Status |
+|-------------|--------|
+| ICC dismissals (hit wicket, timed out, obstructing field, hit ball twice, retired out) | ✅ |
+| Penalty runs, retired hurt/out events | ✅ |
+| Free hit, powerplay config, super over | ✅ |
+| `scoring_match_player_stats` projector (on match complete) | ✅ |
+| `scoring_leaderboard_snapshots` (runs, wickets, 4s, 6s, SR, economy, catches, stumpings) | ✅ |
+| Public scorecard page + leaderboards on tournament hub | ✅ |
+| Scorer pad: extended dismissals, penalty, retired, super over, free hit indicator | ✅ |
+
+**Exit criteria:** Completed match produces full scorecard + tournament leaderboards; fans can view scorecard without auth. **Met.**
 
 ### Phase 3 — Parity polish
 

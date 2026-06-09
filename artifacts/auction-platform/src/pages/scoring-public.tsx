@@ -1,11 +1,21 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
-import { getScoringStandings } from "@/lib/scoring-api";
+import { getScoringLeaderboard, getScoringStandings } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
+import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CircleDot } from "lucide-react";
+import { cricketMatchPublicPath } from "@/lib/tournament-navigation";
+import type { LeaderboardCategory } from "@workspace/scoring-core";
+
+const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
+  { key: "runs", label: "Runs", valueLabel: "Runs" },
+  { key: "wickets", label: "Wickets", valueLabel: "Wkts" },
+  { key: "sixes", label: "Sixes", valueLabel: "6s" },
+  { key: "fours", label: "Fours", valueLabel: "4s" },
+];
 
 function statusBadge(status: string) {
   if (status === "live") return "text-emerald-400";
@@ -16,6 +26,7 @@ function statusBadge(status: string) {
 export default function ScoringPublicPage() {
   const [, params] = useRoute("/tournament/:id/cricket");
   const tournamentId = parseInt(params?.id || "0");
+  const [lbTab, setLbTab] = useState<LeaderboardCategory>("runs");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["scoring-public", tournamentId],
@@ -29,6 +40,12 @@ export default function ScoringPublicPage() {
     enabled: !!tournamentId,
   });
 
+  const { data: leaderboard } = useQuery({
+    queryKey: ["scoring-leaderboard", tournamentId, lbTab],
+    queryFn: () => getScoringLeaderboard(tournamentId, lbTab, 15),
+    enabled: !!tournamentId,
+  });
+
   type PublicTeam = { id: number; name: string; shortCode: string; color: string | null };
 
   const teamMap = useMemo(
@@ -38,6 +55,9 @@ export default function ScoringPublicPage() {
 
   const liveMatches = (data?.matches ?? []).filter((m: { status: string }) => m.status === "live");
   const upcoming = (data?.matches ?? []).filter((m: { status: string }) => m.status === "scheduled");
+  const completed = (data?.matches ?? []).filter((m: { status: string }) => m.status === "completed");
+
+  const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
 
   if (isLoading) {
     return (
@@ -98,7 +118,7 @@ export default function ScoringPublicPage() {
             Matches
           </h2>
           <ul className="space-y-2">
-            {upcoming.slice(0, 12).map(
+            {upcoming.slice(0, 8).map(
               (m: {
                 id: number;
                 homeTeamId: number;
@@ -129,6 +149,64 @@ export default function ScoringPublicPage() {
               <p className="text-sm text-muted-foreground">No matches scheduled yet.</p>
             ) : null}
           </ul>
+        </section>
+
+        {completed.length > 0 ? (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              Results
+            </h2>
+            <ul className="space-y-2">
+              {completed.slice(0, 10).map(
+                (m: {
+                  id: number;
+                  homeTeamId: number;
+                  awayTeamId: number;
+                  resultSummary: string | null;
+                }) => (
+                  <li key={m.id}>
+                    <Link
+                      href={cricketMatchPublicPath(tournamentId, m.id)}
+                      className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06] transition-colors"
+                    >
+                      <div className="font-medium text-white/95">
+                        {teamMap.get(m.homeTeamId)?.name ?? "Home"} vs{" "}
+                        {teamMap.get(m.awayTeamId)?.name ?? "Away"}
+                      </div>
+                      {m.resultSummary ? (
+                        <p className="text-xs text-muted-foreground mt-1">{m.resultSummary}</p>
+                      ) : (
+                        <p className="text-xs text-amber-400/80 mt-1">View scorecard →</p>
+                      )}
+                    </Link>
+                  </li>
+                ),
+              )}
+            </ul>
+          </section>
+        ) : null}
+
+        <section>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Player stats
+          </h2>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {LEADERBOARD_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setLbTab(tab.key)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  lbTab === tab.key
+                    ? "bg-amber-500/20 text-amber-300"
+                    : "bg-white/5 text-muted-foreground hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <LeaderboardTable rows={leaderboard ?? []} valueLabel={activeLb?.valueLabel} />
         </section>
 
         {standings && standings.length > 0 ? (

@@ -80,6 +80,11 @@ export function cricketPublicPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/cricket`;
 }
 
+/** Public full scorecard for a completed match. */
+export function cricketMatchPublicPath(tournamentId: number, matchId: number): string {
+  return `/tournament/${tournamentId}/cricket/match/${matchId}`;
+}
+
 /** LED cricket scoreboard (public, optional auction code). */
 export function scoreDisplayPath(
   tournamentId: number,

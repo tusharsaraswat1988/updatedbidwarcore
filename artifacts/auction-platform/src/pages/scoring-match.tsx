@@ -168,6 +168,7 @@ export default function ScoringMatchPage() {
                 localStrikerId={localStrikerId}
                 localNonStrikerId={localNonStrikerId}
                 onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
+                onEvent={sendEvent}
                 onUndo={async () => {
                   if (!data) return;
                   setBusy(true);
