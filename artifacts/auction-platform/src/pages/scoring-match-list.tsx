@@ -29,7 +29,7 @@ import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match"
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar, Globe } from "lucide-react";
-import { openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
+import { cricketPublicPath, openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
