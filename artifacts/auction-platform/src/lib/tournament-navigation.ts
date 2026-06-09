@@ -70,6 +70,16 @@ export function scoringPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/score`;
 }
 
+/** Tournament schedule generator (organizer). */
+export function scoringSchedulePath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/score/schedule`;
+}
+
+/** Public cricket tournament page (fans). */
+export function cricketPublicPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket`;
+}
+
 /** LED cricket scoreboard (public, optional auction code). */
 export function scoreDisplayPath(
   tournamentId: number,

@@ -28,8 +28,8 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw } from "lucide-react";
-import { openScoreDisplay } from "@/lib/tournament-navigation";
+import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar } from "lucide-react";
+import { openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -163,10 +163,18 @@ export default function ScoringMatchListPage() {
       >
         {!scoringActive ? null : (
           <div className="p-4 space-y-4">
-            <div className="flex gap-2">
-              <Button className="flex-1 h-12 gap-2" onClick={() => setCreateOpen(true)}>
+            <div className="flex flex-wrap gap-2">
+              <Button className="flex-1 min-w-[120px] h-12 gap-2" onClick={() => setCreateOpen(true)}>
                 <Plus className="w-4 h-4" />
                 New match
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-12 gap-2"
+                onClick={() => navigate(scoringSchedulePath(tournamentId))}
+              >
+                <Calendar className="w-4 h-4" />
+                Schedule
               </Button>
               <Button
                 variant="outline"
