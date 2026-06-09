@@ -21,9 +21,14 @@ export const scoringFixturesTable = pgTable(
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
     sportSlug: text("sport_slug").notNull().default("cricket"),
+    drawId: integer("draw_id"),
+    groupId: integer("group_id"),
+    bracketRound: integer("bracket_round"),
+    bracketSlot: integer("bracket_slot"),
     fixtureNumber: integer("fixture_number"),
     roundName: text("round_name"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    venueId: integer("venue_id"),
     venue: text("venue"),
     status: text("status").notNull().default("scheduled"),
     formatJson: jsonb("format_json").$type<Record<string, unknown>>(),
@@ -40,6 +45,8 @@ export const scoringFixturesTable = pgTable(
   (t) => [
     index("ix_scoring_fixtures_tournament_id").on(t.tournamentId),
     index("ix_scoring_fixtures_tournament_status").on(t.tournamentId, t.status),
+    index("ix_scoring_fixtures_draw_id").on(t.drawId),
+    index("ix_scoring_fixtures_group_id").on(t.groupId),
   ],
 );
 

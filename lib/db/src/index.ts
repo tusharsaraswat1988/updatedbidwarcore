@@ -458,4 +458,94 @@ void pool
     console.error("[db] failed to ensure master sports tables:", err);
   });
 
+/** Cricket scoring Phase 1 — venues, officials, draws, groups, match squads */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS scoring_venues (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      city TEXT,
+      address TEXT,
+      surface_type TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      sort_order SMALLINT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scoring_venues_tournament_id ON scoring_venues (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_officials (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'umpire',
+      mobile TEXT,
+      email TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scoring_officials_tournament_id ON scoring_officials (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_draws (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      format TEXT NOT NULL,
+      config_json JSONB,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scoring_draws_tournament_id ON scoring_draws (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_groups (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      draw_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      sort_order SMALLINT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_scoring_groups_tournament_id ON scoring_groups (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_groups_draw_id ON scoring_groups (draw_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_group_members (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      seed SMALLINT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_group_members_group_team
+      ON scoring_group_members (group_id, team_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_group_members_group_id ON scoring_group_members (group_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_match_squads (
+      id SERIAL PRIMARY KEY,
+      match_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      squad_json JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_match_squads_match_team
+      ON scoring_match_squads (match_id, team_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_match_squads_match_id ON scoring_match_squads (match_id);
+
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS draw_id INTEGER;
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS group_id INTEGER;
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS bracket_round INTEGER;
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS bracket_slot INTEGER;
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS venue_id INTEGER;
+    CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_draw_id ON scoring_fixtures (draw_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_group_id ON scoring_fixtures (group_id);
+
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS venue_id INTEGER;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS officials_json JSONB;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);
+  });
+
 export * from "./schema";

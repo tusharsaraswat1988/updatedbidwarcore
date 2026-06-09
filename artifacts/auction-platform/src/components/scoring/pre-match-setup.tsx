@@ -15,9 +15,11 @@ import {
 import { squadPlayersForTeam } from "@/lib/scoring-squad";
 import { battingTeamId, bowlingTeamId } from "@/lib/scoring-match-logic";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
+import { setMatchSquad } from "@/lib/scoring-foundation-api";
 import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
 
 type PreMatchSetupProps = {
+  tournamentId: number;
   match: ScoringMatchJson;
   state: CricketScoreboardState;
   teams: Team[];
@@ -33,6 +35,7 @@ function teamName(teams: Team[], id: number) {
 }
 
 export function PreMatchSetup({
+  tournamentId,
   match,
   state,
   teams,
@@ -95,34 +98,39 @@ export function PreMatchSetup({
       ) : null}
 
       {needsBattingLineup && battingId ? (
-        <LineupPicker
-          title={`${teamName(teams, battingId)} — batting XI`}
+        <SquadLineupPicker
+          title={`${teamName(teams, battingId)} — squad & XI`}
           teamId={battingId}
           players={players}
-          minPick={2}
-          maxPick={11}
           busy={busy}
-          onConfirm={(playerIds, battingOrder) =>
-            onEvent(CricketEventType.LINEUP_SET, {
-              teamId: battingId,
-              playerIds,
+          onConfirm={async (playingXi, bench, battingOrder) => {
+            await setMatchSquad(tournamentId, match.id, battingId, {
+              playingXi,
+              bench,
               battingOrder,
-            })
-          }
+            });
+            await onEvent(CricketEventType.LINEUP_SET, {
+              teamId: battingId,
+              playerIds: playingXi,
+              battingOrder,
+            });
+          }}
         />
       ) : null}
 
       {needsBowlingLineup && bowlingId ? (
-        <LineupPicker
-          title={`${teamName(teams, bowlingId)} — bowling XI`}
+        <SquadLineupPicker
+          title={`${teamName(teams, bowlingId)} — squad & XI`}
           teamId={bowlingId}
           players={players}
-          minPick={1}
-          maxPick={11}
           busy={busy}
-          onConfirm={(playerIds) =>
-            onEvent(CricketEventType.LINEUP_SET, { teamId: bowlingId, playerIds })
-          }
+          onConfirm={async (playingXi, bench) => {
+            await setMatchSquad(tournamentId, match.id, bowlingId, {
+              playingXi,
+              bench,
+            });
+            await onEvent(CricketEventType.LINEUP_SET, { teamId: bowlingId, playerIds: playingXi });
+          }}
         />
       ) : null}
 
@@ -224,30 +232,40 @@ function TossStep({
   );
 }
 
-function LineupPicker({
+function SquadLineupPicker({
   title,
   teamId,
   players,
-  minPick,
-  maxPick,
   busy,
   onConfirm,
 }: {
   title: string;
   teamId: number;
   players: Player[];
-  minPick: number;
-  maxPick: number;
   busy: boolean;
-  onConfirm: (playerIds: number[], battingOrder?: number[]) => void;
+  onConfirm: (playingXi: number[], bench: number[], battingOrder?: number[]) => void | Promise<void>;
 }) {
   const squad = useMemo(() => squadPlayersForTeam(players, teamId), [players, teamId]);
-  const [selected, setSelected] = useState<number[]>([]);
+  const [playingXi, setPlayingXi] = useState<number[]>([]);
+  const [bench, setBench] = useState<number[]>([]);
 
-  function toggle(id: number) {
-    setSelected((prev) => {
+  function toggleXi(id: number) {
+    setPlayingXi((prev) => {
+      if (prev.includes(id)) {
+        setBench((b) => b.filter((x) => x !== id));
+        return prev.filter((x) => x !== id);
+      }
+      if (prev.length >= 11) return prev;
+      setBench((b) => b.filter((x) => x !== id));
+      return [...prev, id];
+    });
+  }
+
+  function toggleBench(id: number) {
+    if (playingXi.includes(id)) return;
+    setBench((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= maxPick) return prev;
+      if (prev.length >= 4) return prev;
       return [...prev, id];
     });
   }
@@ -257,7 +275,7 @@ function LineupPicker({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{title}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {selected.length}/{maxPick}
+          XI {playingXi.length}/11 · Bench {bench.length}/4
         </span>
       </div>
       {squad.length === 0 ? (
@@ -265,26 +283,40 @@ function LineupPicker({
           No sold players for this team. Add players via auction first.
         </p>
       ) : (
-        <ul className="max-h-48 overflow-y-auto space-y-1">
-          {squad.map((p) => (
-            <li key={p.id}>
-              <label className="flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 cursor-pointer">
-                <Checkbox
-                  checked={selected.includes(p.id)}
-                  onCheckedChange={() => toggle(p.id)}
-                />
-                <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} role={p.role} />
-              </label>
-            </li>
-          ))}
+        <ul className="max-h-56 overflow-y-auto space-y-1">
+          {squad.map((p) => {
+            const inXi = playingXi.includes(p.id);
+            const onBench = bench.includes(p.id);
+            return (
+              <li key={p.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/40">
+                <label className="flex flex-1 items-center gap-2 cursor-pointer min-w-0">
+                  <Checkbox checked={inXi} onCheckedChange={() => toggleXi(p.id)} />
+                  <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} role={p.role} />
+                </label>
+                {!inXi ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={onBench ? "secondary" : "ghost"}
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => toggleBench(p.id)}
+                  >
+                    {onBench ? "Bench" : "+Bench"}
+                  </Button>
+                ) : (
+                  <span className="text-[10px] uppercase text-primary font-medium px-1">XI</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <Button
         className="w-full h-11"
-        disabled={busy || selected.length < minPick}
-        onClick={() => onConfirm(selected, selected)}
+        disabled={busy || playingXi.length < 2}
+        onClick={() => void onConfirm(playingXi, bench, playingXi)}
       >
-        Confirm XI ({selected.length})
+        Confirm squad ({playingXi.length} playing)
       </Button>
     </section>
   );

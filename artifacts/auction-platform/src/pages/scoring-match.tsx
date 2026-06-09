@@ -145,11 +145,12 @@ export default function ScoringMatchPage() {
               </Button>
             </div>
 
-            <PreMatchSetup
-              match={data.match}
-              state={data.state}
-              teams={teams ?? []}
-              players={players ?? []}
+        <PreMatchSetup
+          tournamentId={tournamentId}
+          match={data.match}
+          state={data.state}
+          teams={teams ?? []}
+          players={players ?? []}
               localBowlerId={localBowlerId}
               busy={busy}
               onEvent={sendEvent}

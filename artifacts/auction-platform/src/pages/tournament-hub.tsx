@@ -17,7 +17,7 @@ import {
   Users, UserCheck, UserMinus, Wallet, Activity,
   CheckCircle2, Circle, MessageCircle, CircleDot, Trophy,
 } from "lucide-react";
-import { openScoreDisplay, scoringPath } from "@/lib/tournament-navigation";
+import { cricketPublicPath, openScoreDisplay, scoringPath, scoringSchedulePath } from "@/lib/tournament-navigation";
 import { useScoringStandings } from "@/hooks/use-scoring-match";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { Button } from "@/components/ui/button";
@@ -351,9 +351,23 @@ export default function TournamentHub() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex flex-wrap gap-2 shrink-0">
                 <Button className="h-11" onClick={() => navigate(scoringPath(tournamentId))}>
                   Open Scorer
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => navigate(scoringSchedulePath(tournamentId))}
+                >
+                  Schedule
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => navigate(cricketPublicPath(tournamentId))}
+                >
+                  Public page
                 </Button>
                 <Button
                   variant="outline"

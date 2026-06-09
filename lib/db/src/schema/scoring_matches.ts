@@ -39,7 +39,13 @@ export const scoringMatchesTable = pgTable(
     matchLabel: text("match_label"),
     roundName: text("round_name"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    venueId: integer("venue_id"),
     venue: text("venue"),
+    officialsJson: jsonb("officials_json").$type<{
+      umpires?: number[];
+      scorers?: number[];
+      matchReferee?: number | null;
+    }>(),
     status: text("status").notNull().default("scheduled"),
     homeTeamId: integer("home_team_id").notNull(),
     awayTeamId: integer("away_team_id").notNull(),
