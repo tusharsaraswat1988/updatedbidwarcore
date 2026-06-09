@@ -168,9 +168,18 @@ function applyMatchEnded(
   state: BadmintonMatchState,
   payload: BadmintonMatchEndedPayload,
 ): BadmintonMatchState {
+  // Map reason to the appropriate terminal match status.
+  const statusByReason: Record<string, BadmintonMatchStatus> = {
+    normal: "completed",
+    walkover: "walkover",
+    retirement: "retired",
+    disqualification: "disqualified",
+    abandoned: "abandoned",
+  };
+
   return {
     ...state,
-    matchStatus: "completed",
+    matchStatus: statusByReason[payload.reason] ?? "completed",
     winnerSide: payload.winningSide,
     gamesLeft: payload.gamesLeft,
     gamesRight: payload.gamesRight,

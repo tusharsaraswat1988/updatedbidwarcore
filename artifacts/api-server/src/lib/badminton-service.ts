@@ -1,6 +1,11 @@
 /**
  * Badminton Scoring Service
- * Orchestrates event persistence, state replay, and broadcast.
+ *
+ * Tenant-isolation contract:
+ * - Every public function that operates on a match MUST receive tournamentId
+ *   and verify match.tournamentId === tournamentId before mutating state.
+ * - No function may be called with only a matchId; callers must prove
+ *   they know which tournament the match belongs to.
  */
 
 import { eq, and, desc, asc } from "drizzle-orm";
@@ -10,10 +15,6 @@ import {
   scoringEventsTable,
   badmintonMatchDetailsTable,
   badmintonFixturesTable,
-  badmintonCourtsTable,
-  badmintonCategoriesTable,
-  badmintonRegistrationsTable,
-  badmintonPlayersTable,
 } from "@workspace/db";
 import type {
   BadmintonMatchState,
@@ -25,17 +26,15 @@ import {
   cmdAwardPoint,
   cmdUndoLastPoint,
   cmdStartMatch,
-  cmdStartInterval,
-  cmdEndInterval,
   cmdStartTimeout,
   cmdEndTimeout,
   cmdDeclareRetirement,
   cmdDeclareWalkover,
-  cmdDeclareDisqualification,
   STANDARD_FORMAT,
-  BEST_OF_5_FORMAT,
 } from "@workspace/badminton-core";
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
+
+// ── Errors ────────────────────────────────────────────────────────────────────
 
 export class BadmintonServiceError extends Error {
   constructor(
@@ -47,7 +46,7 @@ export class BadmintonServiceError extends Error {
   }
 }
 
-// ── Internal types ───────────────────────────────────────────────────────────
+// ── Internal types ────────────────────────────────────────────────────────────
 
 type InternalMatchMeta = {
   matchId: number;
@@ -56,7 +55,9 @@ type InternalMatchMeta = {
   format?: typeof STANDARD_FORMAT;
 };
 
-// ── Event loading & replay ───────────────────────────────────────────────────
+type Actor = { type: string; id?: string | null };
+
+// ── Core helpers ──────────────────────────────────────────────────────────────
 
 export async function loadBadmintonEvents(
   matchId: number,
@@ -89,7 +90,15 @@ export async function loadBadmintonEvents(
   }));
 }
 
-export async function getMatchMeta(matchId: number): Promise<InternalMatchMeta | null> {
+/**
+ * Load match meta AND verify it belongs to the given tournament.
+ * Returns null if the match does not exist OR belongs to a different tournament.
+ * This is the primary tenant-isolation guard at the service layer.
+ */
+export async function getMatchMeta(
+  matchId: number,
+  expectedTournamentId: number,
+): Promise<InternalMatchMeta | null> {
   const [match] = await db
     .select({
       id: scoringMatchesTable.id,
@@ -100,6 +109,7 @@ export async function getMatchMeta(matchId: number): Promise<InternalMatchMeta |
     .where(
       and(
         eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, expectedTournamentId), // <-- isolation guard
         eq(scoringMatchesTable.sportSlug, "badminton"),
       ),
     )
@@ -110,7 +120,12 @@ export async function getMatchMeta(matchId: number): Promise<InternalMatchMeta |
   const [detail] = await db
     .select({ matchType: badmintonMatchDetailsTable.matchType })
     .from(badmintonMatchDetailsTable)
-    .where(eq(badmintonMatchDetailsTable.scoringMatchId, matchId))
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, expectedTournamentId), // <-- isolation guard
+      ),
+    )
     .limit(1);
 
   return {
@@ -121,15 +136,22 @@ export async function getMatchMeta(matchId: number): Promise<InternalMatchMeta |
   };
 }
 
-export async function replayMatch(matchId: number): Promise<BadmintonMatchState | null> {
-  const meta = await getMatchMeta(matchId);
+/**
+ * Replay a match's events.
+ * tournamentId is REQUIRED to ensure the match belongs to the caller's tenant.
+ */
+export async function replayMatch(
+  matchId: number,
+  tournamentId: number,
+): Promise<BadmintonMatchState | null> {
+  const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) return null;
 
   const events = await loadBadmintonEvents(matchId);
   return replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
 }
 
-// ── Event persistence ────────────────────────────────────────────────────────
+// ── Internal: sequence helpers ────────────────────────────────────────────────
 
 async function getNextSequence(matchId: number): Promise<number> {
   const [last] = await db
@@ -142,7 +164,7 @@ async function getNextSequence(matchId: number): Promise<number> {
   return (last?.sequence ?? 0) + 1;
 }
 
-async function getLastSequence(matchId: number): Promise<number> {
+async function getLastBadmintonSequence(matchId: number): Promise<number> {
   const [last] = await db
     .select({ sequence: scoringEventsTable.sequence })
     .from(scoringEventsTable)
@@ -157,6 +179,8 @@ async function getLastSequence(matchId: number): Promise<number> {
 
   return last?.sequence ?? 0;
 }
+
+// ── Internal: event persistence ───────────────────────────────────────────────
 
 type AppendEventInput = {
   tournamentId: number;
@@ -189,18 +213,33 @@ async function appendEvents(
   }
 }
 
-// ── Snapshot update ──────────────────────────────────────────────────────────
+// ── Internal: snapshot update ─────────────────────────────────────────────────
 
-async function updateSnapshot(matchId: number, state: BadmintonMatchState): Promise<void> {
+async function updateSnapshot(
+  matchId: number,
+  tournamentId: number,
+  state: BadmintonMatchState,
+): Promise<void> {
+  // Both update paths include tournamentId as a defensive extra guard.
   await db
     .update(badmintonMatchDetailsTable)
     .set({
       stateSnapshotJson: state as unknown as Record<string, unknown>,
       updatedAt: new Date(),
     })
-    .where(eq(badmintonMatchDetailsTable.scoringMatchId, matchId));
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    );
 
-  if (state.matchStatus === "completed" || state.matchStatus === "walkover" || state.matchStatus === "retired") {
+  const isTerminal =
+    state.matchStatus === "completed" ||
+    state.matchStatus === "walkover" ||
+    state.matchStatus === "retired";
+
+  if (isTerminal) {
     await db
       .update(scoringMatchesTable)
       .set({
@@ -210,7 +249,12 @@ async function updateSnapshot(matchId: number, state: BadmintonMatchState): Prom
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(scoringMatchesTable.id, matchId));
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
   } else if (state.matchStatus === "live") {
     await db
       .update(scoringMatchesTable)
@@ -218,23 +262,43 @@ async function updateSnapshot(matchId: number, state: BadmintonMatchState): Prom
       .where(
         and(
           eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
           eq(scoringMatchesTable.status, "scheduled"),
         ),
       );
   }
 }
 
-// ── Command handlers ─────────────────────────────────────────────────────────
+// ── Internal: get fixture ID for event sourcing ───────────────────────────────
 
-type Actor = { type: string; id?: string | null };
+async function getMatchFixtureId(
+  matchId: number,
+  tournamentId: number,
+): Promise<number | null> {
+  const [match] = await db
+    .select({ fixtureId: scoringMatchesTable.fixtureId })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  return match?.fixtureId ?? null;
+}
+
+// ── Public command handlers ───────────────────────────────────────────────────
 
 export async function startBadmintonMatch(
   matchId: number,
+  tournamentId: number,
   input: BadmintonMatchStartedPayload,
   actor: Actor,
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
@@ -242,16 +306,13 @@ export async function startBadmintonMatch(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -261,18 +322,19 @@ export async function startBadmintonMatch(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
 
 export async function awardPoint(
   matchId: number,
+  tournamentId: number,
   winningSide: BadmintonSide,
   actor: Actor,
   opts?: { rallyLength?: number },
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
@@ -280,16 +342,13 @@ export async function awardPoint(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -299,38 +358,34 @@ export async function awardPoint(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
 
 export async function undoLastPoint(
   matchId: number,
+  tournamentId: number,
   actor: Actor,
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
 
-  const lastPointSeq = await getLastSequence(matchId);
-  if (lastPointSeq === 0) {
-    throw new BadmintonServiceError("NO_POINTS", "No points to undo");
-  }
+  const lastSeq = await getLastBadmintonSequence(matchId);
+  if (lastSeq === 0) throw new BadmintonServiceError("NO_POINTS", "No points to undo");
 
-  const result = cmdUndoLastPoint(state, lastPointSeq);
+  const result = cmdUndoLastPoint(state, lastSeq);
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -340,19 +395,20 @@ export async function undoLastPoint(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
 
 export async function handleTimeout(
   matchId: number,
+  tournamentId: number,
   action: "start" | "end",
   side: BadmintonSide | null,
   kind: "regular" | "medical",
   actor: Actor,
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
@@ -364,16 +420,13 @@ export async function handleTimeout(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -383,18 +436,19 @@ export async function handleTimeout(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
 
 export async function handleRetirement(
   matchId: number,
+  tournamentId: number,
   retiringSide: BadmintonSide,
   actor: Actor,
   reason?: string,
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
@@ -402,16 +456,13 @@ export async function handleRetirement(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -421,18 +472,19 @@ export async function handleRetirement(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
 
 export async function handleWalkover(
   matchId: number,
+  tournamentId: number,
   winningSide: BadmintonSide,
   actor: Actor,
   reason?: string,
 ): Promise<BadmintonMatchState> {
-  const meta = await getMatchMeta(matchId);
-  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found");
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
@@ -440,16 +492,13 @@ export async function handleWalkover(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const [match] = await db
-    .select({ tournamentId: scoringMatchesTable.tournamentId, fixtureId: scoringMatchesTable.fixtureId })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId));
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
   await appendEvents(
     matchId,
     result.events.map((e) => ({
-      tournamentId: match.tournamentId,
-      fixtureId: match.fixtureId,
+      tournamentId,
+      fixtureId,
       eventType: e.eventType,
       payload: e.payload,
       actorType: actor.type,
@@ -459,9 +508,11 @@ export async function handleWalkover(
 
   const newEvents = await loadBadmintonEvents(matchId);
   const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, newState);
+  await updateSnapshot(matchId, tournamentId, newState);
   return newState;
 }
+
+// ── Query helpers ─────────────────────────────────────────────────────────────
 
 export async function getLiveBadmintonMatches(tournamentId: number) {
   const rows = await db
@@ -472,7 +523,10 @@ export async function getLiveBadmintonMatches(tournamentId: number) {
     .from(scoringMatchesTable)
     .leftJoin(
       badmintonMatchDetailsTable,
-      eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId), // extra isolation
+      ),
     )
     .where(
       and(
@@ -482,7 +536,10 @@ export async function getLiveBadmintonMatches(tournamentId: number) {
     )
     .orderBy(asc(scoringMatchesTable.id));
 
-  type MatchRow = { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null };
+  type MatchRow = {
+    match: typeof scoringMatchesTable.$inferSelect;
+    detail: typeof badmintonMatchDetailsTable.$inferSelect | null;
+  };
   return (rows as MatchRow[]).map(({ match, detail }) => ({
     ...match,
     detail: detail ?? null,
@@ -546,11 +603,17 @@ export async function createBadmintonMatch(input: {
     umpireName: input.umpireName ?? null,
   });
 
+  // Fix: include tournamentId in fixture update to prevent cross-tenant fixture linkage
   if (input.fixtureId) {
     await db
       .update(badmintonFixturesTable)
       .set({ scoringMatchId: match.id, updatedAt: new Date() })
-      .where(eq(badmintonFixturesTable.id, input.fixtureId));
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, input.fixtureId),
+          eq(badmintonFixturesTable.tournamentId, input.tournamentId), // <-- isolation guard
+        ),
+      );
   }
 
   return match;

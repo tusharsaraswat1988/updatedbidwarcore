@@ -1,22 +1,35 @@
 /**
  * Badminton API Routes
  *
- * All routes mounted at: /api/tournaments/:id/badminton/
+ * Tenant isolation model:
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Every route is mounted under /api/tournaments/:id/badminton/
+ * The `:id` URL parameter is the tournamentId (tenant boundary).
  *
- * Endpoints:
- *   Players CRUD
- *   Courts CRUD
- *   Categories CRUD
- *   Registrations CRUD
- *   Fixtures management
- *   Match scoring (start, point, undo, timeout, end)
- *   Live SSE stream
- *   Analytics
+ * READ endpoints (players, courts, categories, registrations, fixtures,
+ * matches, dashboard, SSE stream) are intentionally public so that
+ * audience displays, scoreboards and OBS overlays can be embedded without
+ * auth.  All reads are scoped to the URL tournament; no cross-tournament
+ * leakage is possible.
+ *
+ * WRITE endpoints (POST/PATCH/DELETE on entities and all scoring actions)
+ * require EITHER:
+ *   1. Admin JWT
+ *   2. Tournament-specific organizer JWT  (organizer[tournamentId] === true)
+ *   3. Per-match scorer PIN   (scoring actions only)
+ *
+ * The broad-account check (organizerAccountId) intentionally EXCLUDED from
+ * badminton writes so that an organizer-account holder cannot manipulate
+ * tournaments they do not own.  See requireBadmintonWrite / isTournamentOwner.
+ *
+ * Service layer additionally re-verifies match.tournamentId === URL tournamentId
+ * on every scoring action, making IDOR impossible even if a caller somehow
+ * bypasses the route-layer checks.
  */
 
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { eq, and, asc, desc, count, sql } from "drizzle-orm";
+import { eq, and, asc, count } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   badmintonPlayersTable,
@@ -27,9 +40,7 @@ import {
   badmintonFixturesTable,
   badmintonMatchDetailsTable,
   scoringMatchesTable,
-  tournamentsTable,
 } from "@workspace/db";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import {
   BadmintonServiceError,
   awardPoint,
@@ -48,13 +59,15 @@ import {
   broadcastTournamentUpdate,
 } from "../lib/badminton-broadcast";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
-import { STANDARD_FORMAT, BEST_OF_5_FORMAT } from "@workspace/badminton-core";
+import { STANDARD_FORMAT } from "@workspace/badminton-core";
 
 const router = Router({ mergeParams: true });
 
 type MergedParams = Record<string, string>;
 
-function parseId(v: string | undefined) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parseId(v: string | undefined): number | null {
   if (!v) return null;
   const n = parseInt(v, 10);
   return Number.isNaN(n) ? null : n;
@@ -67,24 +80,72 @@ function tid(req: Request): number | null {
 function actorFrom(req: Request, usedPin: boolean) {
   if (req.jwtUser?.isAdmin) return { type: "admin", id: "admin" };
   if (usedPin) return { type: "scorer_pin", id: "pin" };
-  return { type: "organizer", id: req.jwtUser?.organizerAccountId?.toString() ?? "organizer" };
+  return {
+    type: "organizer",
+    id: req.jwtUser?.organizerAccountId?.toString() ?? "organizer",
+  };
 }
 
-async function canWriteBadminton(
+// ── Authorization ─────────────────────────────────────────────────────────────
+
+/**
+ * Tighter tournament-specific auth for badminton writes.
+ *
+ * Grants access ONLY when the caller is:
+ *  1. An admin, OR
+ *  2. Explicitly listed as organizer for THIS tournament in their JWT
+ *     (organizer[tournamentId] === true).
+ *
+ * Deliberately does NOT grant access to any holder of organizerAccountId
+ * who is not specifically authorized for this tournament.  This prevents
+ * cross-tenant writes between independently-owned tournaments.
+ */
+function isTournamentOwner(req: Request, tournamentId: number): boolean {
+  const u = req.jwtUser;
+  if (!u) return false;
+  if (u.isAdmin) return true;
+  // Suspended organizer accounts are locked out entirely.
+  const status = req.organizerAccountLicenseStatus;
+  if (status === "suspended") return false;
+  // Tournament-specific grant only — NOT the broad organizerAccountId path.
+  // This prevents an organizer-account holder from writing to tournaments they
+  // do not explicitly own.
+  return !!(u.organizer?.[String(tournamentId)]);
+}
+
+/**
+ * Check write permission for a scoring action.
+ *
+ * Priority order:
+ *  1. Tournament owner / admin  → always allowed
+ *  2. Per-match scorer PIN      → only allows scoring on that specific match
+ *
+ * The PIN is looked up scoped to BOTH the tournamentId AND matchId,
+ * preventing a PIN from one match authorising scoring on another.
+ */
+async function canWriteScoring(
   req: Request,
   tournamentId: number,
-  scorerPin?: string,
+  matchId: number,
 ): Promise<{ ok: true; usedPin: boolean } | { ok: false }> {
-  if (isOrganizerOrAdmin(req, tournamentId)) return { ok: true, usedPin: false };
-  if (!scorerPin) return { ok: false };
+  if (isTournamentOwner(req, tournamentId)) return { ok: true, usedPin: false };
 
-  const [match] = await db
+  const pinHeader = req.headers["x-scorer-pin"] as string | undefined;
+  if (!pinHeader) return { ok: false };
+
+  // Scope PIN lookup to both tournamentId AND matchId.
+  const [detail] = await db
     .select({ scorerPin: badmintonMatchDetailsTable.scorerPin })
     .from(badmintonMatchDetailsTable)
-    .where(eq(badmintonMatchDetailsTable.tournamentId, tournamentId))
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),      // per-match
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),    // tenant guard
+      ),
+    )
     .limit(1);
 
-  if (match?.scorerPin && match.scorerPin === scorerPin) {
+  if (detail?.scorerPin && detail.scorerPin === pinHeader) {
     return { ok: true, usedPin: true };
   }
   return { ok: false };
@@ -92,6 +153,10 @@ async function canWriteBadminton(
 
 // ─── SSE stream ───────────────────────────────────────────────────────────────
 
+/**
+ * Public — scoreboards and OBS overlays embed this without auth.
+ * Client is registered with tournamentId so broadcasts are tenant-scoped.
+ */
 router.get("/stream", (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad tournament id" });
@@ -104,13 +169,7 @@ router.get("/stream", (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  const client = {
-    res,
-    matchId: matchId ?? 0,
-    tournamentId,
-  };
-
-  addBadmintonSseClient(client);
+  addBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
 
   const heartbeat = setInterval(() => {
     try {
@@ -120,13 +179,12 @@ router.get("/stream", (req, res) => {
     }
   }, 25000);
 
-  req.on("close", () => {
-    clearInterval(heartbeat);
-  });
+  req.on("close", () => clearInterval(heartbeat));
 });
 
 // ─── Players ─────────────────────────────────────────────────────────────────
 
+/** Public read — scoped by tournamentId. */
 router.get("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
@@ -140,10 +198,11 @@ router.get("/players", async (req, res) => {
   res.json(players);
 });
 
+/** Write — requires tournament owner. */
 router.post("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     firstName: z.string().min(1).max(100),
@@ -204,7 +263,7 @@ router.patch("/players/:playerId", async (req, res) => {
   const tournamentId = tid(req);
   const playerId = parseId((req.params as MergedParams).playerId);
   if (!tournamentId || !playerId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const [player] = await db
     .update(badmintonPlayersTable)
@@ -225,7 +284,7 @@ router.delete("/players/:playerId", async (req, res) => {
   const tournamentId = tid(req);
   const playerId = parseId((req.params as MergedParams).playerId);
   if (!tournamentId || !playerId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   await db
     .delete(badmintonPlayersTable)
@@ -257,7 +316,7 @@ router.get("/courts", async (req, res) => {
 router.post("/courts", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     name: z.string().min(1).max(100),
@@ -283,7 +342,7 @@ router.patch("/courts/:courtId", async (req, res) => {
   const tournamentId = tid(req);
   const courtId = parseId((req.params as MergedParams).courtId);
   if (!tournamentId || !courtId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const [court] = await db
     .update(badmintonCourtsTable)
@@ -305,7 +364,7 @@ router.delete("/courts/:courtId", async (req, res) => {
   const tournamentId = tid(req);
   const courtId = parseId((req.params as MergedParams).courtId);
   if (!tournamentId || !courtId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   await db
     .delete(badmintonCourtsTable)
@@ -337,7 +396,7 @@ router.get("/categories", async (req, res) => {
 router.post("/categories", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     name: z.string().min(1).max(200),
@@ -350,13 +409,15 @@ router.post("/categories", async (req, res) => {
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
     colorCode: z.string().max(10).optional(),
-    matchFormatJson: z.object({
-      totalGames: z.number(),
-      pointsPerGame: z.number(),
-      deuceAt: z.number(),
-      maxPoints: z.number(),
-      midGameSideChange: z.boolean(),
-    }).optional(),
+    matchFormatJson: z
+      .object({
+        totalGames: z.number(),
+        pointsPerGame: z.number(),
+        deuceAt: z.number(),
+        maxPoints: z.number(),
+        midGameSideChange: z.boolean(),
+      })
+      .optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -374,7 +435,7 @@ router.patch("/categories/:catId", async (req, res) => {
   const tournamentId = tid(req);
   const catId = parseId((req.params as MergedParams).catId);
   if (!tournamentId || !catId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const [cat] = await db
     .update(badmintonCategoriesTable)
@@ -393,6 +454,10 @@ router.patch("/categories/:catId", async (req, res) => {
 
 // ─── Registrations ────────────────────────────────────────────────────────────
 
+/**
+ * Registration read — joins players scoped to the same tournament so
+ * players from another tournament can never leak into this response.
+ */
 router.get("/categories/:catId/registrations", async (req, res) => {
   const tournamentId = tid(req);
   const catId = parseId((req.params as MergedParams).catId);
@@ -406,7 +471,10 @@ router.get("/categories/:catId/registrations", async (req, res) => {
     .from(badmintonRegistrationsTable)
     .leftJoin(
       badmintonPlayersTable,
-      eq(badmintonPlayersTable.id, badmintonRegistrationsTable.player1Id),
+      and(
+        eq(badmintonPlayersTable.id, badmintonRegistrationsTable.player1Id),
+        eq(badmintonPlayersTable.tournamentId, tournamentId), // player must belong to same tenant
+      ),
     )
     .where(
       and(
@@ -419,11 +487,15 @@ router.get("/categories/:catId/registrations", async (req, res) => {
   res.json(regs);
 });
 
+/**
+ * Registration write — validates that player1Id (and optional player2Id)
+ * belong to this tournament before creating the registration.
+ */
 router.post("/categories/:catId/registrations", async (req, res) => {
   const tournamentId = tid(req);
   const catId = parseId((req.params as MergedParams).catId);
   if (!tournamentId || !catId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     player1Id: z.number().int(),
@@ -434,6 +506,50 @@ router.post("/categories/:catId/registrations", async (req, res) => {
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  // Validate player1 belongs to this tournament.
+  const [p1] = await db
+    .select({ id: badmintonPlayersTable.id })
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.id, parsed.data.player1Id),
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!p1) return void res.status(400).json({ error: "player1Id not found in this tournament" });
+
+  // Validate player2 belongs to this tournament (doubles only).
+  if (parsed.data.player2Id) {
+    const [p2] = await db
+      .select({ id: badmintonPlayersTable.id })
+      .from(badmintonPlayersTable)
+      .where(
+        and(
+          eq(badmintonPlayersTable.id, parsed.data.player2Id),
+          eq(badmintonPlayersTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (!p2) return void res.status(400).json({ error: "player2Id not found in this tournament" });
+  }
+
+  // Validate category belongs to this tournament.
+  const [cat] = await db
+    .select({ id: badmintonCategoriesTable.id })
+    .from(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!cat) return void res.status(404).json({ error: "category not found in this tournament" });
 
   const [reg] = await db
     .insert(badmintonRegistrationsTable)
@@ -449,7 +565,9 @@ router.get("/fixtures", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const categoryId = req.query.categoryId ? parseId(req.query.categoryId as string) : null;
+  const categoryId = req.query.categoryId
+    ? parseId(req.query.categoryId as string)
+    : null;
 
   const whereConditions = [eq(badmintonFixturesTable.tournamentId, tournamentId)];
   if (categoryId) {
@@ -465,12 +583,12 @@ router.get("/fixtures", async (req, res) => {
   res.json(fixtures);
 });
 
-// Generate fixtures for a category (knockout draw)
+/** Generate a knockout draw for a category. */
 router.post("/categories/:catId/generate-draw", async (req, res) => {
   const tournamentId = tid(req);
   const catId = parseId((req.params as MergedParams).catId);
   if (!tournamentId || !catId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const [category] = await db
     .select()
@@ -502,7 +620,6 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
 
   const fixtures = generateKnockoutDraw(tournamentId, catId, registrations);
 
-  // Insert draw
   const [draw] = await db
     .insert(badmintonDrawsTable)
     .values({
@@ -521,10 +638,16 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     .values(fixtures.map((f) => ({ ...f, drawId: draw.id })))
     .returning();
 
+  // Fix: include tournamentId in the WHERE to prevent cross-tenant category mutation.
   await db
     .update(badmintonCategoriesTable)
     .set({ phase: "live", updatedAt: new Date() })
-    .where(eq(badmintonCategoriesTable.id, catId));
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    );
 
   res.status(201).json({ draw, fixtures: insertedFixtures });
 });
@@ -542,7 +665,7 @@ router.get("/matches", async (req, res) => {
 router.post("/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
-  if (!isOrganizerOrAdmin(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
+  if (!isTournamentOwner(req, tournamentId)) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     categoryId: z.number().int().optional(),
@@ -553,13 +676,15 @@ router.post("/matches", async (req, res) => {
     matchLabel: z.string().max(200).optional(),
     roundName: z.string().max(100).optional(),
     matchType: z.enum(["singles", "doubles", "mixed_doubles"]).default("singles"),
-    matchFormatJson: z.object({
-      totalGames: z.number(),
-      pointsPerGame: z.number(),
-      deuceAt: z.number(),
-      maxPoints: z.number(),
-      midGameSideChange: z.boolean(),
-    }).optional(),
+    matchFormatJson: z
+      .object({
+        totalGames: z.number(),
+        pointsPerGame: z.number(),
+        deuceAt: z.number(),
+        maxPoints: z.number(),
+        midGameSideChange: z.boolean(),
+      })
+      .optional(),
     leftSideJson: z.record(z.unknown()),
     rightSideJson: z.record(z.unknown()),
     scorerPin: z.string().max(20).optional(),
@@ -572,6 +697,22 @@ router.post("/matches", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  // If fixtureId supplied, verify it belongs to this tournament.
+  if (parsed.data.fixtureId) {
+    const [fix] = await db
+      .select({ id: badmintonFixturesTable.id })
+      .from(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, parsed.data.fixtureId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (!fix) return void res.status(400).json({ error: "fixtureId not found in this tournament" });
+  }
+
   const match = await createBadmintonMatch({
     tournamentId,
     ...parsed.data,
@@ -582,21 +723,33 @@ router.post("/matches", async (req, res) => {
   res.status(201).json(match);
 });
 
+/**
+ * Get a single match's current state.
+ *
+ * Scoped: both replayMatch AND the detail query include tournamentId.
+ * A matchId from a different tournament returns 404, not its data.
+ */
 router.get("/matches/:matchId", async (req, res) => {
   const tournamentId = tid(req);
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const state = await replayMatch(matchId);
+  // replayMatch now verifies match.tournamentId === tournamentId internally.
+  const state = await replayMatch(matchId, tournamentId);
   if (!state) return void res.status(404).json({ error: "match not found" });
 
   const [detail] = await db
     .select()
     .from(badmintonMatchDetailsTable)
-    .where(eq(badmintonMatchDetailsTable.scoringMatchId, matchId))
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId), // tenant guard
+      ),
+    )
     .limit(1);
 
-  res.json({ state, detail });
+  res.json({ state, detail: detail ?? null });
 });
 
 // ─── Scoring actions ──────────────────────────────────────────────────────────
@@ -606,18 +759,20 @@ router.post("/matches/:matchId/start", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
     matchKind: z.enum(["singles", "doubles", "mixed_doubles"]),
-    format: z.object({
-      totalGames: z.number(),
-      pointsPerGame: z.number(),
-      deuceAt: z.number(),
-      maxPoints: z.number(),
-      midGameSideChange: z.boolean(),
-    }).optional(),
+    format: z
+      .object({
+        totalGames: z.number(),
+        pointsPerGame: z.number(),
+        deuceAt: z.number(),
+        maxPoints: z.number(),
+        midGameSideChange: z.boolean(),
+      })
+      .optional(),
     leftSide: z.object({
       label: z.string(),
       shortLabel: z.string(),
@@ -649,6 +804,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
   try {
     const state = await startBadmintonMatch(
       matchId,
+      tournamentId,
       {
         ...parsed.data,
         format: parsed.data.format ?? STANDARD_FORMAT,
@@ -671,7 +827,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
@@ -685,6 +841,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
   try {
     const state = await awardPoint(
       matchId,
+      tournamentId,
       parsed.data.side,
       actorFrom(req, auth.usedPin),
       { rallyLength: parsed.data.rallyLength },
@@ -705,11 +862,11 @@ router.post("/matches/:matchId/undo", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   try {
-    const state = await undoLastPoint(matchId, actorFrom(req, auth.usedPin));
+    const state = await undoLastPoint(matchId, tournamentId, actorFrom(req, auth.usedPin));
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
@@ -725,7 +882,7 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
@@ -740,6 +897,7 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
   try {
     const state = await handleTimeout(
       matchId,
+      tournamentId,
       parsed.data.action,
       parsed.data.side ?? null,
       parsed.data.kind,
@@ -760,7 +918,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
@@ -774,6 +932,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
   try {
     const state = await handleRetirement(
       matchId,
+      tournamentId,
       parsed.data.retiringSide,
       actorFrom(req, auth.usedPin),
       parsed.data.reason,
@@ -793,7 +952,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await canWriteBadminton(req, tournamentId, req.headers["x-scorer-pin"] as string);
+  const auth = await canWriteScoring(req, tournamentId, matchId);
   if (!auth.ok) return void res.status(403).json({ error: "forbidden" });
 
   const schema = z.object({
@@ -807,6 +966,7 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
   try {
     const state = await handleWalkover(
       matchId,
+      tournamentId,
       parsed.data.winningSide,
       actorFrom(req, auth.usedPin),
       parsed.data.reason,
@@ -821,18 +981,13 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
   }
 });
 
-// ─── Dashboard / Analytics ───────────────────────────────────────────────────
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 router.get("/dashboard", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const [
-    totalPlayers,
-    totalCourts,
-    totalCategories,
-    matchStats,
-  ] = await Promise.all([
+  const [totalPlayers, totalCourts, totalCategories, matchStats] = await Promise.all([
     db
       .select({ count: count() })
       .from(badmintonPlayersTable)
@@ -846,10 +1001,7 @@ router.get("/dashboard", async (req, res) => {
       .from(badmintonCategoriesTable)
       .where(eq(badmintonCategoriesTable.tournamentId, tournamentId)),
     db
-      .select({
-        status: scoringMatchesTable.status,
-        count: count(),
-      })
+      .select({ status: scoringMatchesTable.status, count: count() })
       .from(scoringMatchesTable)
       .where(
         and(
@@ -861,19 +1013,17 @@ router.get("/dashboard", async (req, res) => {
   ]);
 
   const matchStatMap: Record<string, number> = {};
-  for (const row of matchStats) {
-    matchStatMap[row.status] = Number(row.count);
-  }
+  for (const row of matchStats) matchStatMap[row.status] = Number(row.count);
 
   const liveMatches = await db
-    .select({
-      match: scoringMatchesTable,
-      detail: badmintonMatchDetailsTable,
-    })
+    .select({ match: scoringMatchesTable, detail: badmintonMatchDetailsTable })
     .from(scoringMatchesTable)
     .leftJoin(
       badmintonMatchDetailsTable,
-      eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
     )
     .where(
       and(
@@ -890,15 +1040,17 @@ router.get("/dashboard", async (req, res) => {
     matchesScheduled: matchStatMap["scheduled"] ?? 0,
     matchesLive: matchStatMap["live"] ?? 0,
     matchesCompleted: matchStatMap["completed"] ?? 0,
-    liveMatches: liveMatches.map(({ match, detail }: { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null }) => ({
-      ...match,
-      detail: detail ?? null,
-      state: detail?.stateSnapshotJson ?? null,
-    })),
+    liveMatches: liveMatches.map(
+      ({ match, detail }: { match: typeof scoringMatchesTable.$inferSelect; detail: typeof badmintonMatchDetailsTable.$inferSelect | null }) => ({
+        ...match,
+        detail: detail ?? null,
+        state: detail?.stateSnapshotJson ?? null,
+      }),
+    ),
   });
 });
 
-// ─── Draw generator helper ────────────────────────────────────────────────────
+// ─── Draw generator ───────────────────────────────────────────────────────────
 
 function generateKnockoutDraw(
   tournamentId: number,
@@ -913,7 +1065,6 @@ function generateKnockoutDraw(
   registrationBId: number | null;
   status: string;
 }> {
-  // Sort: seeds first, then unseeded
   const seeds = registrations
     .filter((r) => r.seedNumber !== null)
     .sort((a, b) => (a.seedNumber ?? 99) - (b.seedNumber ?? 99));
@@ -922,19 +1073,11 @@ function generateKnockoutDraw(
     .sort(() => Math.random() - 0.5);
 
   const ordered = [...seeds, ...unseeded];
-  const n = ordered.length;
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(ordered.length)));
+  const slots: Array<number | null> = ordered
+    .map((r) => r.id)
+    .concat(Array(bracketSize - ordered.length).fill(null));
 
-  // Find next power of 2
-  const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
-  const byes = bracketSize - n;
-
-  // Build bracket slots
-  const slots: Array<number | null> = [];
-  for (let i = 0; i < bracketSize; i++) {
-    slots.push(i < n ? ordered[i].id : null);
-  }
-
-  // Create first-round fixtures
   const fixtures = [];
   for (let i = 0; i < bracketSize; i += 2) {
     fixtures.push({
@@ -947,7 +1090,6 @@ function generateKnockoutDraw(
       status: slots[i] && slots[i + 1] ? "scheduled" : "walkover",
     });
   }
-
   return fixtures;
 }
 
