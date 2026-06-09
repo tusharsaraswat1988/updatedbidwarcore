@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar } from "lucide-react";
+import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar, Globe } from "lucide-react";
 import { openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -175,6 +175,14 @@ export default function ScoringMatchListPage() {
               >
                 <Calendar className="w-4 h-4" />
                 Schedule
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-12 gap-2"
+                onClick={() => navigate(cricketPublicPath(tournamentId))}
+              >
+                <Globe className="w-4 h-4" />
+                Fan page
               </Button>
               <Button
                 variant="outline"

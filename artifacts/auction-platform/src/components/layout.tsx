@@ -3,9 +3,16 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Calendar, Globe,
 } from "lucide-react";
-import { auctionRoomPath, auctionResetPath, displayScreenPath, scoringPath } from "@/lib/tournament-navigation";
+import {
+  auctionRoomPath,
+  auctionResetPath,
+  cricketPublicPath,
+  displayScreenPath,
+  scoringPath,
+  scoringSchedulePath,
+} from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
@@ -197,10 +204,35 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
                 {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
-                  <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/scoring`)}>
-                    <CircleDot className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="font-medium">Match Scoring</span>}
-                  </Link>
+                  <>
+                    <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/score`)}>
+                      <CircleDot className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && <span className="font-medium">Match Scoring</span>}
+                    </Link>
+                    <Link
+                      href={scoringSchedulePath(tournamentId)}
+                      title="Fixtures & Schedule"
+                      className={navCls(`/tournament/${tournamentId}/score/schedule`)}
+                    >
+                      <Calendar className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && <span className="font-medium">Schedule</span>}
+                    </Link>
+                    <Link
+                      href={cricketPublicPath(tournamentId)}
+                      title="Public scorecards & leaderboards"
+                      className={navCls(`/tournament/${tournamentId}/cricket`)}
+                    >
+                      <Globe className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && (
+                        <span className="font-medium">
+                          Fan page
+                          <span className="block text-[10px] text-muted-foreground font-normal">
+                            Scorecards & stats
+                          </span>
+                        </span>
+                      )}
+                    </Link>
+                  </>
                 ) : null}
                 {tournament?.status === "completed" ? (
                   <Link href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={navCls(`/tournament/${tournamentId}/reports`)}>
