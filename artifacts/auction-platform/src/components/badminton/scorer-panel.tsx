@@ -4,13 +4,14 @@
  * Design principles:
  * - Huge, finger-friendly touch targets
  * - High contrast for court-side use
- * - Minimal cognitive load — action-driven, no forms
+ * - Minimal cognitive load � action-driven, no forms
  * - Single-hand operable on mobile
  * - Real-time state with optimistic UI
  */
 
 import { useState, useCallback } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { SidePlayerNames } from "@/components/badminton/side-players";
 import { cn } from "@/lib/utils";
 
 interface ScorerPanelProps {
@@ -119,9 +120,8 @@ export function ScorerPanel({
       <div className="flex-none grid grid-cols-2 gap-px bg-white/5">
         {/* Left side */}
         <ScorerSide
-          label={state.leftSide.label}
-          shortLabel={state.leftSide.shortLabel}
-          countryCode={state.leftSide.countryCode}
+          info={state.leftSide}
+          matchKind={state.matchKind}
           score={state.leftScore}
           gamesWon={state.gamesLeft}
           isServing={state.servingSide === "left"}
@@ -133,9 +133,8 @@ export function ScorerPanel({
         />
         {/* Right side */}
         <ScorerSide
-          label={state.rightSide.label}
-          shortLabel={state.rightSide.shortLabel}
-          countryCode={state.rightSide.countryCode}
+          info={state.rightSide}
+          matchKind={state.matchKind}
           score={state.rightScore}
           gamesWon={state.gamesRight}
           isServing={state.servingSide === "right"}
@@ -209,7 +208,7 @@ export function ScorerPanel({
         <div className="h-14 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center">
           <span className="text-xs text-white/40 uppercase tracking-widest">Game</span>
           <span className="text-2xl font-black text-white leading-none">
-            {state.gamesLeft}–{state.gamesRight}
+            {state.gamesLeft}�{state.gamesRight}
           </span>
         </div>
 
@@ -240,46 +239,46 @@ export function ScorerPanel({
             disabled={!!state.activeTimeout || !!pending}
             className="h-12 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-30 transition-colors"
           >
-            <span>⏱</span> TO — {state.leftSide.shortLabel}
+            <span>?</span> TO � {state.leftSide.shortLabel}
           </button>
           <button
             onClick={() => execute("timeout-right", () => onStartTimeout("right", "regular"))}
             disabled={!!state.activeTimeout || !!pending}
             className="h-12 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-30 transition-colors"
           >
-            <span>⏱</span> TO — {state.rightSide.shortLabel}
+            <span>?</span> TO � {state.rightSide.shortLabel}
           </button>
           <button
-            onClick={() => confirm("Medical Timeout — Left", () => onStartTimeout("left", "medical"))}
+            onClick={() => confirm("Medical Timeout � Left", () => onStartTimeout("left", "medical"))}
             disabled={!!state.activeTimeout || !!pending}
             className="h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-30 transition-colors"
           >
-            <span>🏥</span> Medical — L
+            <span>??</span> Medical � L
           </button>
           <button
-            onClick={() => confirm("Medical Timeout — Right", () => onStartTimeout("right", "medical"))}
+            onClick={() => confirm("Medical Timeout � Right", () => onStartTimeout("right", "medical"))}
             disabled={!!state.activeTimeout || !!pending}
             className="h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-30 transition-colors"
           >
-            <span>🏥</span> Medical — R
+            <span>??</span> Medical � R
           </button>
           <button
-            onClick={() => confirm(`Retirement — ${state.leftSide.shortLabel}`, () => onRetirement("left"))}
+            onClick={() => confirm(`Retirement � ${state.leftSide.shortLabel}`, () => onRetirement("left"))}
             className="h-12 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
           >
-            <span>🚫</span> Retire — L
+            <span>??</span> Retire � L
           </button>
           <button
-            onClick={() => confirm(`Retirement — ${state.rightSide.shortLabel}`, () => onRetirement("right"))}
+            onClick={() => confirm(`Retirement � ${state.rightSide.shortLabel}`, () => onRetirement("right"))}
             className="h-12 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
           >
-            <span>🚫</span> Retire — R
+            <span>??</span> Retire � R
           </button>
           <button
-            onClick={() => confirm(`Walkover — ${state.leftSide.shortLabel} wins`, () => onWalkover("left"))}
+            onClick={() => confirm(`Walkover � ${state.leftSide.shortLabel} wins`, () => onWalkover("left"))}
             className="h-12 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-300 text-xs font-semibold flex items-center justify-center gap-2 col-span-2 transition-colors"
           >
-            <span>🏆</span> Walkover — {state.leftSide.shortLabel} wins
+            <span>??</span> Walkover � {state.leftSide.shortLabel} wins
           </button>
         </div>
       )}
@@ -298,7 +297,7 @@ export function ScorerPanel({
               {state.winnerSide === "left" ? state.leftSide.label : state.rightSide.label}
             </p>
             <p className="text-sm text-white/60">
-              Wins {state.gamesLeft}–{state.gamesRight}
+              Wins {state.gamesLeft}�{state.gamesRight}
             </p>
           </div>
         </div>
@@ -325,12 +324,11 @@ export function ScorerPanel({
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ?? Sub-components ????????????????????????????????????????????????????????????
 
 interface ScorerSideProps {
-  label: string;
-  shortLabel: string;
-  countryCode?: string;
+  info: BadmintonMatchState["leftSide"];
+  matchKind: BadmintonMatchState["matchKind"];
   score: number;
   gamesWon: number;
   isServing: boolean;
@@ -342,8 +340,8 @@ interface ScorerSideProps {
 }
 
 function ScorerSide({
-  label,
-  shortLabel,
+  info,
+  matchKind,
   score,
   gamesWon,
   isServing,
@@ -377,16 +375,19 @@ function ScorerSide({
 
       {/* Winner crown */}
       {isWinner && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 text-2xl">🏆</div>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 text-2xl">??</div>
       )}
 
-      {/* Player name */}
-      <p className={cn(
-        "text-xs font-semibold uppercase tracking-wider mb-2",
-        side === "left" ? "text-[#4fc3f7]" : "text-[#ce93d8]",
-      )}>
-        {shortLabel}
-      </p>
+      <SidePlayerNames
+        info={info}
+        matchKind={matchKind}
+        side={side}
+        stacked
+        className={cn(
+          "text-xs font-semibold uppercase tracking-wider mb-2 max-w-[140px]",
+          side === "left" ? "text-[#4fc3f7]" : "text-[#ce93d8]",
+        )}
+      />
 
       {/* Big score */}
       <div className={cn(
@@ -464,7 +465,7 @@ function GameHistoryStrip({ games }: { games: BadmintonMatchState["games"] }) {
             className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2.5 py-1"
           >
             <span className="text-xs font-bold text-[#00e5ff]">{g.leftScore}</span>
-            <span className="text-white/30 text-xs">–</span>
+            <span className="text-white/30 text-xs">�</span>
             <span className="text-xs font-bold text-[#ff6b6b]">{g.rightScore}</span>
           </div>
         ))}

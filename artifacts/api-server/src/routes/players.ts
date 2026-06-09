@@ -9,6 +9,7 @@ import { parseOptionalEmail } from "@workspace/api-base/email";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason, isCriticalPlayerPatch } from "../lib/audit-reason";
 import { snapshotPlayer } from "../lib/audit-snapshots";
+import { syncAuctionPlayerToMasterAsync } from "../lib/master-sports/sync";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -279,6 +280,8 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     after: snapshotPlayer(player),
   });
 
+  syncAuctionPlayerToMasterAsync(player.id, tid);
+
   res.status(201).json(playerToJson(player));
 });
 
@@ -353,6 +356,8 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       eventType: "web_checkbox",
     });
   }
+
+  syncAuctionPlayerToMasterAsync(player.id, tid);
 
   res.status(201).json(playerToPublicJson(player));
 });
@@ -586,6 +591,8 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     after: snapshotPlayer(player),
     alertKey: isCriticalPlayerPatch(d) ? "player_critical_edit" : null,
   });
+
+  syncAuctionPlayerToMasterAsync(player.id, tid);
 
   res.json(playerToJson(player));
 });

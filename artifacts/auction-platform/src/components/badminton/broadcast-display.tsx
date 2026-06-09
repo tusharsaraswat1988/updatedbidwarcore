@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
 import { cn } from "@/lib/utils";
 
 interface BroadcastDisplayProps {
@@ -115,6 +116,7 @@ export function BroadcastDisplay({
         <PlayerBlock
           side="left"
           info={state.leftSide}
+          matchKind={state.matchKind}
           score={state.leftScore}
           gamesWon={state.gamesLeft}
           isServing={state.servingSide === "left"}
@@ -135,6 +137,7 @@ export function BroadcastDisplay({
         <PlayerBlock
           side="right"
           info={state.rightSide}
+          matchKind={state.matchKind}
           score={state.rightScore}
           gamesWon={state.gamesRight}
           isServing={state.servingSide === "right"}
@@ -267,15 +270,8 @@ function TopBar({
 
 interface PlayerBlockProps {
   side: "left" | "right";
-  info: {
-    label: string;
-    shortLabel: string;
-    countryCode?: string;
-    countryName?: string;
-    photoUrl?: string;
-    flagUrl?: string;
-    teamColor?: string;
-  };
+  info: BadmintonMatchState["leftSide"];
+  matchKind: BadmintonMatchState["matchKind"];
   score: number;
   gamesWon: number;
   isServing: boolean;
@@ -288,6 +284,7 @@ interface PlayerBlockProps {
 function PlayerBlock({
   side,
   info,
+  matchKind,
   score,
   gamesWon,
   isServing,
@@ -305,33 +302,15 @@ function PlayerBlock({
         isLeft ? "items-start" : "items-end",
       )}
     >
-      {/* Player photo */}
       <div className="relative">
-        {info.photoUrl ? (
-          <img
-            src={info.photoUrl}
-            alt={info.label}
-            className={cn(
-              "w-28 h-28 rounded-2xl object-cover border-2 transition-all duration-300",
-              flash ? "border-white scale-105 shadow-2xl shadow-white/30" :
-              isLeft ? "border-[#00e5ff]/30" : "border-[#ff6b6b]/30",
-              gameWinFlash && "border-[#ffd700] shadow-2xl shadow-[#ffd700]/40",
-            )}
-          />
-        ) : (
-          <div
-            className={cn(
-              "w-28 h-28 rounded-2xl flex items-center justify-center border-2 transition-all",
-              isLeft ? "bg-[#0d2560]/80 border-[#00e5ff]/20" : "bg-[#2d0a3a]/80 border-[#ff6b6b]/20",
-              flash && "scale-105 border-white/60",
-            )}
-          >
-            <span className="text-4xl font-black text-white/30">
-              {info.shortLabel.charAt(0)}
-            </span>
-          </div>
-        )}
-        {/* Serve indicator on photo */}
+        <SidePlayerPhotos
+          info={info}
+          matchKind={matchKind}
+          side={side}
+          size="lg"
+          flash={flash}
+          gameWinFlash={gameWinFlash}
+        />
         {isServing && (
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full px-2 py-0.5 flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-white" />
@@ -339,14 +318,50 @@ function PlayerBlock({
         )}
       </div>
 
-      {/* Name + country */}
+      {/* Name + team + country */}
       <div className={cn("flex flex-col gap-1", isLeft ? "items-start" : "items-end")}>
-        {info.flagUrl && (
-          <img src={info.flagUrl} alt={info.countryCode} className="h-5 w-auto rounded-sm" />
+        <div className={cn("flex items-center gap-2", !isLeft && "flex-row-reverse")}>
+          {info.teamLogoUrl && (
+            <img
+              src={info.teamLogoUrl}
+              alt={info.teamName ?? "Team"}
+              loading="lazy"
+              decoding="async"
+              className="h-6 w-6 object-contain"
+            />
+          )}
+          {!info.teamLogoUrl && info.flagUrl && (
+            <img
+              src={info.flagUrl}
+              alt={info.countryCode}
+              loading="lazy"
+              decoding="async"
+              className="h-5 w-auto rounded-sm"
+            />
+          )}
+          {info.sponsorLogoUrl && (
+            <img
+              src={info.sponsorLogoUrl}
+              alt={info.sponsorName ?? "Sponsor"}
+              loading="lazy"
+              decoding="async"
+              className="h-5 w-auto object-contain opacity-80"
+            />
+          )}
+        </div>
+        <SidePlayerNames
+          info={info}
+          matchKind={matchKind}
+          side={side}
+          stacked
+        />
+        {info.teamName && (
+          <p className={cn(
+            "text-xs font-bold uppercase tracking-[0.12em] text-white/50",
+          )}>
+            {info.teamName}
+          </p>
         )}
-        <h2 className="text-3xl font-black text-white leading-tight tracking-tight">
-          {info.label}
-        </h2>
         {info.countryName && (
           <p className={cn(
             "text-sm font-bold uppercase tracking-[0.15em]",

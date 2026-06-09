@@ -38,6 +38,10 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason } from "../lib/audit-reason";
+import {
+  onAuctionPlayerSoldAsync,
+  syncAllAuctionPlayersAsync,
+} from "../lib/master-sports/sync";
 import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
 
 const router = Router();
@@ -1272,6 +1276,10 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     soldToTeamName: team?.name,
   });
 
+  if (soldPlayer && team) {
+    onAuctionPlayerSoldAsync(soldPlayer, team, tid);
+  }
+
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
@@ -1408,6 +1416,10 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     metadata: { amount, teamId, isManual: true },
     alertKey: "auction_manual_sell",
   });
+
+  if (soldPlayer && team) {
+    onAuctionPlayerSoldAsync(soldPlayer, team, tid);
+  }
 
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
@@ -2232,6 +2244,8 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
     resource: { type: "auction_session", id: tid },
     metadata: { soldPlayersCount: soldCount, unsoldPlayersCount: unsoldCount, forced: body.data.force },
   });
+
+  syncAllAuctionPlayersAsync(tid);
 
   res.json(await broadcastState(tid, ["players"]));
 });

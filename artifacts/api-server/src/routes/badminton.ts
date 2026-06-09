@@ -54,6 +54,7 @@ import {
   startBadmintonMatch,
   undoLastPoint,
 } from "../lib/badminton-service";
+import { allocateTournamentInitials } from "../lib/master-sports/tournament-initials";
 import {
   addBadmintonSseClient,
   broadcastBadmintonMatchUpdate,
@@ -303,9 +304,17 @@ router.post("/players", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  const shortName =
+    parsed.data.shortName?.trim() ||
+    (await allocateTournamentInitials(tournamentId, {
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      displayName: parsed.data.displayName,
+    }));
+
   const [player] = await db
     .insert(badmintonPlayersTable)
-    .values({ tournamentId, ...parsed.data })
+    .values({ tournamentId, ...parsed.data, shortName })
     .returning();
 
   broadcastTournamentUpdate(tournamentId, { type: "player_created", player });
@@ -851,7 +860,26 @@ router.post("/matches/:matchId/start", async (req, res) => {
       photoUrl: z.string().optional(),
       flagUrl: z.string().optional(),
       teamColor: z.string().optional(),
+      teamName: z.string().optional(),
+      teamLogoUrl: z.string().optional(),
+      sponsorName: z.string().optional(),
+      sponsorLogoUrl: z.string().optional(),
+      masterPlayerId: z.string().optional(),
       playerIds: z.array(z.number()),
+      players: z.array(z.object({
+        label: z.string(),
+        shortLabel: z.string(),
+        countryCode: z.string().optional(),
+        countryName: z.string().optional(),
+        photoUrl: z.string().optional(),
+        flagUrl: z.string().optional(),
+        teamColor: z.string().optional(),
+        teamName: z.string().optional(),
+        teamLogoUrl: z.string().optional(),
+        sponsorName: z.string().optional(),
+        sponsorLogoUrl: z.string().optional(),
+        masterPlayerId: z.string().optional(),
+      })).optional(),
     }),
     rightSide: z.object({
       label: z.string(),
@@ -861,7 +889,26 @@ router.post("/matches/:matchId/start", async (req, res) => {
       photoUrl: z.string().optional(),
       flagUrl: z.string().optional(),
       teamColor: z.string().optional(),
+      teamName: z.string().optional(),
+      teamLogoUrl: z.string().optional(),
+      sponsorName: z.string().optional(),
+      sponsorLogoUrl: z.string().optional(),
+      masterPlayerId: z.string().optional(),
       playerIds: z.array(z.number()),
+      players: z.array(z.object({
+        label: z.string(),
+        shortLabel: z.string(),
+        countryCode: z.string().optional(),
+        countryName: z.string().optional(),
+        photoUrl: z.string().optional(),
+        flagUrl: z.string().optional(),
+        teamColor: z.string().optional(),
+        teamName: z.string().optional(),
+        teamLogoUrl: z.string().optional(),
+        sponsorName: z.string().optional(),
+        sponsorLogoUrl: z.string().optional(),
+        masterPlayerId: z.string().optional(),
+      })).optional(),
     }),
     firstServer: z.enum(["left", "right"]),
     courtNumber: z.string().optional(),

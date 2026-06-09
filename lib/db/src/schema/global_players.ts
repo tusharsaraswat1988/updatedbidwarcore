@@ -21,12 +21,27 @@ import { z } from "zod/v4";
 export const globalPlayersTable = pgTable(
   "global_players",
   {
-    id: text("id").primaryKey(), // gp_XXXXXX format
+    id: text("id").primaryKey(), // gp_XXXXXX format — MasterPlayer ID
     canonicalName: text("canonical_name").notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    displayName: text("display_name"),
     mobileNumber: text("mobile_number"), // unique dedup key
+    email: text("email"),
+    dob: text("dob"),
+    gender: text("gender"),
+    country: text("country"),
+    state: text("state"),
+    city: text("city"),
+    academy: text("academy"),
+    handedness: text("handedness"),
+    worldRanking: integer("world_ranking"),
+    nationalRanking: integer("national_ranking"),
+    sponsorId: text("sponsor_id"),
+    /** Direct link to auction players.id for sync dedup. */
+    auctionPlayerId: integer("auction_player_id"),
     sport: text("sport").notNull().default("cricket"),
     defaultRole: text("default_role"),
-    city: text("city"),
     age: integer("age"),
     photoUrl: text("photo_url"),
     notes: text("notes"),

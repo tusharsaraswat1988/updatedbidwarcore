@@ -15,6 +15,7 @@
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
 import { cn } from "@/lib/utils";
 
 type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor";
@@ -379,6 +380,7 @@ function IntroOverlay({
       <IntroCard
         side="left"
         info={state.leftSide}
+        matchKind={state.matchKind}
         tournamentName={tournamentName}
         roundName={roundName}
       />
@@ -399,6 +401,7 @@ function IntroOverlay({
       <IntroCard
         side="right"
         info={state.rightSide}
+        matchKind={state.matchKind}
         tournamentName={tournamentName}
         roundName={roundName}
       />
@@ -409,11 +412,13 @@ function IntroOverlay({
 function IntroCard({
   side,
   info,
+  matchKind,
   tournamentName,
   roundName,
 }: {
   side: "left" | "right";
   info: BadmintonMatchState["leftSide"];
+  matchKind: BadmintonMatchState["matchKind"];
   tournamentName?: string;
   roundName?: string;
 }) {
@@ -428,27 +433,35 @@ function IntroCard({
           : "bg-gradient-to-b from-[#2d0a4a]/95 to-[#12052a]/95",
       )}
     >
-      {/* Photo area */}
-      <div className="relative h-36 overflow-hidden">
-        {info.photoUrl ? (
-          <img src={info.photoUrl} alt={info.label} className="w-full h-full object-cover object-top" />
-        ) : (
-          <div className={cn(
-            "w-full h-full flex items-center justify-center",
-            isLeft ? "bg-[#0070f3]/20" : "bg-[#7c3aed]/20",
-          )}>
-            <span className="text-5xl font-black text-white/20">
-              {info.shortLabel.charAt(0)}
-            </span>
-          </div>
-        )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0d2560]/80 via-transparent to-transparent" />
+      <div className="relative h-36 overflow-hidden flex items-center justify-center gap-1 px-2">
+        <SidePlayerPhotos
+          info={info}
+          matchKind={matchKind}
+          side={side}
+          size="md"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0d2560]/80 via-transparent to-transparent pointer-events-none" />
       </div>
 
-      {/* Info */}
       <div className="px-4 pt-2 pb-4">
-        <h3 className="text-white font-black text-base leading-tight">{info.label}</h3>
+        <SidePlayerNames
+          info={info}
+          matchKind={matchKind}
+          side={side}
+          stacked
+          className="text-base"
+        />
+        {info.teamName && (
+          <p className="text-white/50 text-[10px] font-bold uppercase tracking-wider mt-0.5">{info.teamName}</p>
+        )}
+        <div className="flex items-center gap-2 mt-1">
+          {info.teamLogoUrl && (
+            <img src={info.teamLogoUrl} alt="" loading="lazy" className="h-4 w-4 object-contain" />
+          )}
+          {info.sponsorLogoUrl && (
+            <img src={info.sponsorLogoUrl} alt="" loading="lazy" className="h-3 w-auto object-contain opacity-70" />
+          )}
+        </div>
         {info.countryName && (
           <p className={cn(
             "text-xs font-bold uppercase tracking-wider mt-1",

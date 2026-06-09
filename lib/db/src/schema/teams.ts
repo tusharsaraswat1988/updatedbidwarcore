@@ -13,6 +13,8 @@ export const teamsTable = pgTable("teams", {
   ownerPhotoUrl: text("owner_photo_url"),
   color: text("color").default("#3B82F6"),
   logoUrl: text("logo_url"),
+  /** Canonical team in master_teams (mt_*). */
+  masterTeamId: text("master_team_id"),
   purse: integer("purse").notNull().default(10000000),
   purseUsed: integer("purse_used").notNull().default(0),
   isBiddingEnabled: boolean("is_bidding_enabled").notNull().default(true),

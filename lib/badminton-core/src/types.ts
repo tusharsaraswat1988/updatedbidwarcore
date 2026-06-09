@@ -34,6 +34,22 @@ export const BEST_OF_5_FORMAT: BadmintonMatchFormat = {
   midGameSideChange: true,
 };
 
+/** One athlete slot on a side (singles = 1, doubles = 2). */
+export type BadmintonPlayerSlot = {
+  label: string;
+  shortLabel: string;
+  countryCode?: string;
+  countryName?: string;
+  photoUrl?: string;
+  flagUrl?: string;
+  teamColor?: string;
+  teamName?: string;
+  teamLogoUrl?: string;
+  sponsorName?: string;
+  sponsorLogoUrl?: string;
+  masterPlayerId?: string;
+};
+
 /** Player/pair info for one side. */
 export type BadmintonSideInfo = {
   /** Display label (name or pair names). */
@@ -50,8 +66,20 @@ export type BadmintonSideInfo = {
   flagUrl?: string;
   /** National team color (hex). */
   teamColor?: string;
+  /** Franchise / team name (from master sports). */
+  teamName?: string;
+  /** Team logo URL. */
+  teamLogoUrl?: string;
+  /** Sponsor name. */
+  sponsorName?: string;
+  /** Sponsor logo URL. */
+  sponsorLogoUrl?: string;
+  /** Master player ID (global_players.id). */
+  masterPlayerId?: string;
   /** Internal player IDs (1 for singles, 2 for doubles). */
   playerIds: number[];
+  /** Individual players for doubles / mixed doubles display. */
+  players?: BadmintonPlayerSlot[];
 };
 
 export type BadmintonGameState = {

@@ -8,6 +8,13 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { isPairMatchKind, mergeDoublesSideJson } from "@workspace/badminton-core";
+import {
+  PairSidePicker,
+  emptySidePlayer,
+  sidePlayerFormToJson,
+  type SidePlayerForm,
+} from "@/components/badminton/pair-side-picker";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -248,31 +255,44 @@ function CreateMatchModal({
 }) {
   const [form, setForm] = useState({
     matchType: "singles",
-    matchLabel: "",
-    roundName: "",
     courtNumber: "",
     matchNumber: "",
     scorerPin: "",
     refereeName: "",
-    leftName: "",
-    leftShort: "",
-    leftCountry: "",
-    rightName: "",
-    rightShort: "",
-    rightCountry: "",
+    leftPlayer1: emptySidePlayer(),
+    leftPlayer2: emptySidePlayer(),
+    rightPlayer1: emptySidePlayer(),
+    rightPlayer2: emptySidePlayer(),
   });
+  const isPair = isPairMatchKind(form.matchType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const f = (field: keyof typeof form) => ({
+  type StringFormField = Exclude<
+    keyof typeof form,
+    "leftPlayer1" | "leftPlayer2" | "rightPlayer1" | "rightPlayer2"
+  >;
+
+  const f = (field: StringFormField) => ({
     value: form[field],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((prev) => ({ ...prev, [field]: e.target.value })),
   });
 
+  function buildSideJson(player1: SidePlayerForm, player2: SidePlayerForm) {
+    const side1 = sidePlayerFormToJson(player1);
+    if (!isPair) return side1;
+    const side2 = sidePlayerFormToJson(player2);
+    return mergeDoublesSideJson(side1, side2);
+  }
+
   async function handleCreate() {
-    if (!form.leftName || !form.rightName) {
-      setError("Both side names are required");
+    if (!form.leftPlayer1.masterId || !form.rightPlayer1.masterId) {
+      setError("Select a player for each side");
+      return;
+    }
+    if (isPair && (!form.leftPlayer2.masterId || !form.rightPlayer2.masterId)) {
+      setError("Select 2 players per side for doubles");
       return;
     }
     setSaving(true);
@@ -286,24 +306,12 @@ function CreateMatchModal({
           credentials: "include",
           body: JSON.stringify({
             matchType: form.matchType,
-            matchLabel: form.matchLabel || undefined,
-            roundName: form.roundName || undefined,
             courtNumber: form.courtNumber || undefined,
             matchNumber: form.matchNumber || undefined,
             scorerPin: form.scorerPin || undefined,
             refereeName: form.refereeName || undefined,
-            leftSideJson: {
-              label: form.leftName,
-              shortLabel: form.leftShort || form.leftName.split(" ").pop()?.toUpperCase() || "L",
-              countryCode: form.leftCountry || undefined,
-              playerIds: [],
-            },
-            rightSideJson: {
-              label: form.rightName,
-              shortLabel: form.rightShort || form.rightName.split(" ").pop()?.toUpperCase() || "R",
-              countryCode: form.rightCountry || undefined,
-              playerIds: [],
-            },
+            leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
+            rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
           }),
         },
       );
@@ -324,26 +332,30 @@ function CreateMatchModal({
           <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">×</button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={labelClass}>Match Type</label>
-              <select {...f("matchType")} className={inputClass}>
+              <select
+                value={form.matchType}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    matchType: e.target.value,
+                    leftPlayer2: emptySidePlayer(),
+                    rightPlayer2: emptySidePlayer(),
+                  }))
+                }
+                className={inputClass}
+              >
                 <option value="singles">Singles</option>
                 <option value="doubles">Doubles</option>
-                <option value="mixed_doubles">Mixed Doubles</option>
+                <option value="mixed_doubles">Mixed</option>
               </select>
             </div>
             <div>
-              <label className={labelClass}>Match Number</label>
-              <input {...f("matchNumber")} placeholder="e.g. M01" className={inputClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Round / Stage</label>
-              <input {...f("roundName")} placeholder="QF, SF, F…" className={inputClass} />
+              <label className={labelClass}>Match #</label>
+              <input {...f("matchNumber")} placeholder="M01" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Court</label>
@@ -351,50 +363,35 @@ function CreateMatchModal({
             </div>
           </div>
 
-          <div className="h-px bg-white/8" />
-
-          <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Players / Sides</p>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={labelClass}>Left Name</label>
-              <input {...f("leftName")} placeholder="V. Axelsen" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Short</label>
-              <input {...f("leftShort")} placeholder="AXELS" maxLength={10} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Country</label>
-              <input {...f("leftCountry")} placeholder="DEN" maxLength={3} className={inputClass} />
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <PairSidePicker
+              tournamentId={tournamentId}
+              sideLabel="Left"
+              isPair={isPair}
+              player1={form.leftPlayer1}
+              player2={form.leftPlayer2}
+              onPlayer1Change={(leftPlayer1) => setForm((p) => ({ ...p, leftPlayer1 }))}
+              onPlayer2Change={(leftPlayer2) => setForm((p) => ({ ...p, leftPlayer2 }))}
+            />
+            <PairSidePicker
+              tournamentId={tournamentId}
+              sideLabel="Right"
+              isPair={isPair}
+              player1={form.rightPlayer1}
+              player2={form.rightPlayer2}
+              onPlayer1Change={(rightPlayer1) => setForm((p) => ({ ...p, rightPlayer1 }))}
+              onPlayer2Change={(rightPlayer2) => setForm((p) => ({ ...p, rightPlayer2 }))}
+            />
           </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={labelClass}>Right Name</label>
-              <input {...f("rightName")} placeholder="K. Momota" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Short</label>
-              <input {...f("rightShort")} placeholder="MOMOTA" maxLength={10} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Country</label>
-              <input {...f("rightCountry")} placeholder="JPN" maxLength={3} className={inputClass} />
-            </div>
-          </div>
-
-          <div className="h-px bg-white/8" />
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Scorer PIN</label>
-              <input {...f("scorerPin")} placeholder="4-8 digits" type="tel" className={inputClass} />
+              <label className={labelClass}>Referee</label>
+              <input {...f("refereeName")} placeholder="Optional" className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Referee</label>
-              <input {...f("refereeName")} placeholder="Name" className={inputClass} />
+              <label className={labelClass}>Scorer PIN</label>
+              <input {...f("scorerPin")} placeholder="Optional" type="tel" className={inputClass} />
             </div>
           </div>
 

@@ -35,6 +35,7 @@ import {
   STANDARD_FORMAT,
 } from "@workspace/badminton-core";
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
+import { updateBadmintonStatisticsFromMatch } from "./master-sports/badminton";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -303,6 +304,31 @@ async function updateSnapshot(
           eq(scoringMatchesTable.tournamentId, tournamentId),
         ),
       );
+
+    const [detail] = await db
+      .select({
+        leftSideJson: badmintonMatchDetailsTable.leftSideJson,
+        rightSideJson: badmintonMatchDetailsTable.rightSideJson,
+      })
+      .from(badmintonMatchDetailsTable)
+      .where(
+        and(
+          eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+          eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (detail?.leftSideJson && detail?.rightSideJson) {
+      void updateBadmintonStatisticsFromMatch(
+        state,
+        tournamentId,
+        detail.leftSideJson as Record<string, unknown>,
+        detail.rightSideJson as Record<string, unknown>,
+      ).catch((err) => {
+        console.error("[master-sports] updateBadmintonStatisticsFromMatch failed:", err);
+      });
+    }
   } else if (state.matchStatus === "live") {
     await db
       .update(scoringMatchesTable)

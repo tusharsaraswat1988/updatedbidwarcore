@@ -21,6 +21,21 @@ export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof B
 
 // ── Payload schemas ─────────────────────────────────────────────────────────
 
+const playerSlotSchema = z.object({
+  label: z.string(),
+  shortLabel: z.string(),
+  countryCode: z.string().optional(),
+  countryName: z.string().optional(),
+  photoUrl: z.string().optional(),
+  flagUrl: z.string().optional(),
+  teamColor: z.string().optional(),
+  teamName: z.string().optional(),
+  teamLogoUrl: z.string().optional(),
+  sponsorName: z.string().optional(),
+  sponsorLogoUrl: z.string().optional(),
+  masterPlayerId: z.string().optional(),
+});
+
 const sideInfoSchema = z.object({
   label: z.string(),
   shortLabel: z.string(),
@@ -29,7 +44,13 @@ const sideInfoSchema = z.object({
   photoUrl: z.string().optional(),
   flagUrl: z.string().optional(),
   teamColor: z.string().optional(),
+  teamName: z.string().optional(),
+  teamLogoUrl: z.string().optional(),
+  sponsorName: z.string().optional(),
+  sponsorLogoUrl: z.string().optional(),
+  masterPlayerId: z.string().optional(),
   playerIds: z.array(z.number()),
+  players: z.array(playerSlotSchema).optional(),
 });
 
 const formatSchema = z.object({

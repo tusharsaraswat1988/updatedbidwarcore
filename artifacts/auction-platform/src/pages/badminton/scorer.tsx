@@ -12,6 +12,8 @@ import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { useBadmintonMatch, useBadmintonScorer } from "@/hooks/use-badminton-match";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { STANDARD_FORMAT } from "@workspace/badminton-core";
+import { sideJsonToStartSide } from "@/components/badminton/pair-side-picker";
+import { SidePlayerNames } from "@/components/badminton/side-players";
 import { FullscreenLayout } from "@/components/layout";
 
 export default function BadmintonScorerPage() {
@@ -189,22 +191,8 @@ function PreMatchSetup({
       await onStart({
         matchKind: matchType,
         format: STANDARD_FORMAT,
-        leftSide: {
-          label: (leftSideJson.label as string) ?? "Player A",
-          shortLabel: (leftSideJson.shortLabel as string) ?? "A",
-          countryCode: leftSideJson.countryCode as string | undefined,
-          countryName: leftSideJson.countryName as string | undefined,
-          photoUrl: leftSideJson.photoUrl as string | undefined,
-          playerIds: (leftSideJson.playerIds as number[]) ?? [],
-        },
-        rightSide: {
-          label: (rightSideJson.label as string) ?? "Player B",
-          shortLabel: (rightSideJson.shortLabel as string) ?? "B",
-          countryCode: rightSideJson.countryCode as string | undefined,
-          countryName: rightSideJson.countryName as string | undefined,
-          photoUrl: rightSideJson.photoUrl as string | undefined,
-          playerIds: (rightSideJson.playerIds as number[]) ?? [],
-        },
+        leftSide: sideJsonToStartSide(leftSideJson),
+        rightSide: sideJsonToStartSide(rightSideJson),
         firstServer,
       });
     } catch (e) {
@@ -214,8 +202,8 @@ function PreMatchSetup({
     }
   }
 
-  const leftLabel = (leftSideJson.label as string) ?? "Player A";
-  const rightLabel = (rightSideJson.label as string) ?? "Player B";
+  const leftSide = sideJsonToStartSide(leftSideJson);
+  const rightSide = sideJsonToStartSide(rightSideJson);
 
   return (
     <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
@@ -232,9 +220,13 @@ function PreMatchSetup({
         {/* Match info */}
         <div className="bg-white/5 rounded-2xl p-4 border border-white/8">
           <div className="flex items-center justify-center gap-4">
-            <p className="text-white font-bold text-lg text-right flex-1 truncate">{leftLabel}</p>
+            <div className="text-right flex-1">
+              <SidePlayerNames info={leftSide} matchKind={matchType} side="left" stacked className="text-lg" />
+            </div>
             <span className="text-white/30 text-sm font-light">vs</span>
-            <p className="text-white font-bold text-lg flex-1 truncate">{rightLabel}</p>
+            <div className="flex-1">
+              <SidePlayerNames info={rightSide} matchKind={matchType} side="right" stacked className="text-lg" />
+            </div>
           </div>
           <p className="text-center text-white/30 text-xs mt-2 uppercase tracking-widest">
             {matchType.replace("_", " ")} • Best of 3
@@ -258,7 +250,7 @@ function PreMatchSetup({
               {firstServer === "left" && (
                 <div className="w-3 h-3 rounded-full bg-[#ffd700] mb-1 animate-pulse" />
               )}
-              <span className="truncate max-w-[120px] px-2">{leftLabel}</span>
+              <span className="truncate max-w-[120px] px-2 text-center">{leftSide.shortLabel}</span>
             </button>
             <button
               onClick={() => setFirstServer("right")}
@@ -271,7 +263,7 @@ function PreMatchSetup({
               {firstServer === "right" && (
                 <div className="w-3 h-3 rounded-full bg-[#ffd700] mb-1 animate-pulse" />
               )}
-              <span className="truncate max-w-[120px] px-2">{rightLabel}</span>
+              <span className="truncate max-w-[120px] px-2 text-center">{rightSide.shortLabel}</span>
             </button>
           </div>
         </div>

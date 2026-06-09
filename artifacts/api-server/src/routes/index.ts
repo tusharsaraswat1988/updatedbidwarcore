@@ -27,6 +27,7 @@ import auditRouter from "./audit";
 import purseBoostersRouter from "./purse-boosters";
 import scoringRouter from "./scoring";
 import badmintonRouter from "./badminton";
+import masterSportsRouter from "./master-sports";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use(auditRouter);
 router.use(purseBoostersRouter);
 router.use(scoringRouter);
 router.use("/tournaments/:id/badminton", badmintonRouter);
+router.use("/tournaments/:id/badminton", masterSportsRouter);
 
 export default router;

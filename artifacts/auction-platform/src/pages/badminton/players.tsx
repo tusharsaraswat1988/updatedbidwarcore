@@ -40,6 +40,7 @@ export default function BadmintonPlayersPage() {
 
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editPlayer, setEditPlayer] = useState<BadmintonPlayer | null>(null);
 
   const { data: players = [], isLoading } = useQuery<BadmintonPlayer[]>({
@@ -82,16 +83,26 @@ export default function BadmintonPlayersPage() {
         title="Players"
         subtitle={`${players.length} registered`}
         actions={
-          <button
-            onClick={() => { setEditPlayer(null); setShowForm(true); }}
-            className="flex items-center gap-2 bg-[#0070f3] hover:bg-[#0060d3] rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
-          >
-            <span>+</span> Add Player
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 bg-white/8 hover:bg-white/12 border border-white/10 rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
+            >
+              Import From Auction
+            </button>
+            <button
+              onClick={() => { setEditPlayer(null); setShowForm(true); }}
+              className="flex items-center gap-2 bg-[#0070f3] hover:bg-[#0060d3] rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
+            >
+              <span>+</span> Add Player
+            </button>
+          </div>
         }
       />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
+        <AutoSyncSettings tournamentId={tournamentId} />
+
         {/* Search */}
         <div className="relative mb-6">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,6 +160,228 @@ export default function BadmintonPlayersPage() {
           }}
         />
       )}
+
+      {showImport && (
+        <ImportMasterPlayersModal
+          tournamentId={tournamentId}
+          onClose={() => setShowImport(false)}
+          onImported={() => {
+            qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
+            qc.invalidateQueries({ queryKey: ["master-players", tournamentId] });
+            setShowImport(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+interface MasterPlayerImport {
+  id: string;
+  displayName: string;
+  photoUrl: string | null;
+  teamName: string | null;
+  teamLogoUrl: string | null;
+  sponsorName: string | null;
+  sponsorLogoUrl: string | null;
+  alreadyImported: boolean;
+}
+
+function AutoSyncSettings({ tournamentId }: { tournamentId: number }) {
+  const qc = useQueryClient();
+  const { data: settings } = useQuery<{ autoSyncAuctionPlayers?: boolean; linkedAuctionTournamentId?: number }>({
+    queryKey: ["badminton-master-settings", tournamentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/settings`,
+        { credentials: "include" },
+      );
+      return res.json();
+    },
+    enabled: !!tournamentId,
+  });
+
+  const [auctionId, setAuctionId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save(enabled: boolean) {
+    setSaving(true);
+    try {
+      await fetch(`${API_BASE}/api/tournaments/${tournamentId}/badminton/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          autoSyncAuctionPlayers: enabled,
+          linkedAuctionTournamentId: auctionId ? parseInt(auctionId, 10) : null,
+        }),
+      });
+      qc.invalidateQueries({ queryKey: ["badminton-master-settings", tournamentId] });
+      qc.invalidateQueries({ queryKey: ["master-players", tournamentId] });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-6 p-4 rounded-2xl bg-white/3 border border-white/8">
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings?.autoSyncAuctionPlayers ?? false}
+            disabled={saving}
+            onChange={(e) => save(e.target.checked)}
+            className="w-4 h-4 accent-[#0070f3]"
+          />
+          <span className="text-white/80 text-sm font-medium">Auto Sync Auction Players</span>
+        </label>
+        <input
+          type="number"
+          placeholder="Linked auction tournament ID"
+          value={auctionId || (settings?.linkedAuctionTournamentId?.toString() ?? "")}
+          onChange={(e) => setAuctionId(e.target.value)}
+          className="h-9 w-48 px-3 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
+        />
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => save(settings?.autoSyncAuctionPlayers ?? false)}
+          className="text-xs text-[#4fc3f7] hover:underline disabled:opacity-50"
+        >
+          Save linked tournament
+        </button>
+      </div>
+      <p className="text-white/30 text-xs mt-2">
+        When enabled, master players from the linked auction tournament appear automatically — no manual import.
+      </p>
+    </div>
+  );
+}
+
+function ImportMasterPlayersModal({
+  tournamentId,
+  onClose,
+  onImported,
+}: {
+  tournamentId: number;
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState("");
+
+  const { data: masterPlayers = [], isLoading } = useQuery<MasterPlayerImport[]>({
+    queryKey: ["master-players", tournamentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players`,
+        { credentials: "include" },
+      );
+      return res.json();
+    },
+    enabled: !!tournamentId,
+  });
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleImport() {
+    if (selected.size === 0) return;
+    setImporting(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/import-master-players`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ masterPlayerIds: [...selected] }),
+        },
+      );
+      if (!res.ok) throw new Error("Import failed");
+      onImported();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const available = masterPlayers.filter((p) => !p.alreadyImported);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
+          <div>
+            <h2 className="text-white font-black text-lg">Import From Auction</h2>
+            <p className="text-white/40 text-sm">Select master players to add to this tournament</p>
+          </div>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {isLoading ? (
+            <p className="text-white/40 text-center py-8">Loading players…</p>
+          ) : available.length === 0 ? (
+            <p className="text-white/40 text-center py-8">No players available to import</p>
+          ) : (
+            available.map((p) => (
+              <label
+                key={p.id}
+                className="flex items-center gap-4 p-3 rounded-xl border border-white/8 hover:border-white/15 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(p.id)}
+                  onChange={() => toggle(p.id)}
+                  className="w-4 h-4 accent-[#0070f3]"
+                />
+                {p.photoUrl ? (
+                  <img src={p.photoUrl} alt="" className="w-12 h-12 rounded-xl object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/30">
+                    {p.displayName.charAt(0)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold">{p.displayName}</p>
+                  <p className="text-white/40 text-xs">
+                    {[p.teamName, p.sponsorName].filter(Boolean).join(" · ") || "—"}
+                  </p>
+                </div>
+                {p.teamLogoUrl && (
+                  <img src={p.teamLogoUrl} alt="" className="w-8 h-8 object-contain" loading="lazy" />
+                )}
+                {p.sponsorLogoUrl && (
+                  <img src={p.sponsorLogoUrl} alt="" className="w-8 h-8 object-contain opacity-70" loading="lazy" />
+                )}
+              </label>
+            ))
+          )}
+        </div>
+
+        <div className="p-4 border-t border-white/8 flex gap-3">
+          {error && <p className="text-red-400 text-sm flex-1">{error}</p>}
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-white/8 text-white/60">Cancel</button>
+          <button
+            onClick={handleImport}
+            disabled={importing || selected.size === 0}
+            className="px-6 py-2 rounded-xl bg-[#0070f3] text-white font-bold disabled:opacity-50"
+          >
+            {importing ? "Importing…" : `Import Selected (${selected.size})`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

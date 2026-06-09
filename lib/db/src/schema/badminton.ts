@@ -34,7 +34,9 @@ export const badmintonPlayersTable = pgTable(
   {
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
-    /** External global player reference (if linked). */
+    /** Master player ID (global_players.id / gp_*). */
+    masterPlayerId: text("master_player_id"),
+    /** @deprecated Use masterPlayerId. Kept for backward compat. */
     globalPlayerId: integer("global_player_id"),
     /** BWF player code (e.g. "INPV01234"). */
     bwfCode: text("bwf_code"),
@@ -42,7 +44,7 @@ export const badmintonPlayersTable = pgTable(
     lastName: text("last_name").notNull(),
     /** Display name (may include team name for club events). */
     displayName: text("display_name"),
-    /** Short identifier (used on scoreboard). */
+    /** Tournament-specific scoreboard initials (unique per tournament). */
     shortName: text("short_name"),
     /** National federation code (ISO 3166-1 alpha-3). */
     countryCode: text("country_code"),
