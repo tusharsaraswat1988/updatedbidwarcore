@@ -40,6 +40,8 @@ export class ScoringServiceError extends Error {
   }
 }
 
+const CRICKET_SPORT_SLUG = "cricket" as const;
+
 function rowToEnvelope(row: typeof scoringEventsTable.$inferSelect): ScoringEventEnvelope {
   return {
     id: row.id,
@@ -101,6 +103,9 @@ async function ensureTournamentScoring(tournamentId: number) {
   if (!tournament.scoringEnabled) {
     throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
   }
+  if (tournament.sport !== CRICKET_SPORT_SLUG) {
+    throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
+  }
   return tournament;
 }
 
@@ -128,9 +133,6 @@ export async function createScoringMatch(
   },
 ) {
   const tournament = await ensureTournamentScoring(tournamentId);
-  if (tournament.sport !== "cricket") {
-    throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
-  }
   if (input.homeTeamId === input.awayTeamId) {
     throw new ScoringServiceError("Home and away teams must differ", 400, "INVALID_TEAMS");
   }
@@ -213,6 +215,7 @@ export async function getLiveScoringDisplay(tournamentId: number) {
     .where(
       and(
         eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
         eq(scoringMatchesTable.status, "live"),
       ),
     )
@@ -227,6 +230,7 @@ export async function getLiveScoringDisplay(tournamentId: number) {
       .where(
         and(
           eq(scoringMatchesTable.tournamentId, tournamentId),
+          eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
           eq(scoringMatchesTable.status, "completed"),
         ),
       )
@@ -249,7 +253,12 @@ export async function listScoringMatches(tournamentId: number) {
   return db
     .select()
     .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.tournamentId, tournamentId))
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
+      ),
+    )
     .orderBy(desc(scoringMatchesTable.createdAt));
 }
 
@@ -260,7 +269,11 @@ export async function getScoringMatch(tournamentId: number, matchId: number) {
     .select()
     .from(scoringMatchesTable)
     .where(
-      and(eq(scoringMatchesTable.id, matchId), eq(scoringMatchesTable.tournamentId, tournamentId)),
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
+      ),
     )
     .limit(1);
 
@@ -320,6 +333,7 @@ export async function appendScoringEvent(
       .where(
         and(
           eq(scoringMatchesTable.tournamentId, tournamentId),
+          eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
           eq(scoringMatchesTable.status, "live"),
           ne(scoringMatchesTable.id, matchId),
         ),

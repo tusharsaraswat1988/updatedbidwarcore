@@ -18,6 +18,7 @@ import type {
   BadmintonEventEnvelope,
   BadmintonGameState,
   BadmintonMatchState,
+  BadmintonMatchStatus,
 } from "../types";
 import {
   createInitialBadmintonState,

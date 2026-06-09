@@ -3,8 +3,15 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { inArray, eq } from "drizzle-orm";
 import { z } from "zod";
+import { isBadmintonFeatureEnabled } from "../lib/badminton-feature";
 
 const router = Router();
+
+router.get("/settings/features", (_req, res) => {
+  res.json({
+    badminton: isBadmintonFeatureEnabled(),
+  });
+});
 
 // ─── Installer URL settings ───────────────────────────────────────────────────
 

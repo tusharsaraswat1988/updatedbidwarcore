@@ -27,11 +27,13 @@ import {
   tournamentToReadinessInput,
   type AuctionReadinessCheckId,
 } from "@workspace/api-base/auction-readiness";
+import { usePlatformFeatures } from "@/hooks/use-platform-features";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
+  const { badminton: badmintonFeatureEnabled } = usePlatformFeatures();
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -312,6 +314,28 @@ export default function TournamentHub() {
             )}
           </div>
         )}
+
+        {tournament?.sport === "badminton" && badmintonFeatureEnabled ? (
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="p-2.5 rounded-lg bg-primary/15">
+                <Trophy className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-display font-bold">Badminton Tournament</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                  Manage players, categories, draws, and live match scoring from the badminton hub.
+                </p>
+              </div>
+            </div>
+            <Button
+              className="h-11 shrink-0"
+              onClick={() => navigate(`/tournament/${tournamentId}/badminton`)}
+            >
+              Open Badminton Hub
+            </Button>
+          </div>
+        ) : null}
 
         {tournament?.sport === "cricket" && scoringEnabled ? (
           <>

@@ -7,6 +7,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { PageTracking } from "@/components/page-tracking";
+import { BadmintonFeatureGuard } from "@/components/badminton-feature-guard";
 
 import Landing from "@/pages/landing";
 
@@ -121,10 +122,16 @@ function Router() {
         <Route path="/tournament/:id/register" component={PlayerRegister} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 
-        {/* Badminton — public scoreboard / display / overlay pages */}
-        <Route path="/badminton/:matchId/score" component={BadmintonScorerPage} />
-        <Route path="/badminton/:matchId/display" component={BadmintonDisplayPage} />
-        <Route path="/badminton/:matchId/overlay" component={BadmintonOverlayPage} />
+        {/* Badminton — public scoreboard / display / overlay pages (feature-flagged) */}
+        <Route path="/badminton/:matchId/score">
+          {() => <BadmintonFeatureGuard><BadmintonScorerPage /></BadmintonFeatureGuard>}
+        </Route>
+        <Route path="/badminton/:matchId/display">
+          {() => <BadmintonFeatureGuard><BadmintonDisplayPage /></BadmintonFeatureGuard>}
+        </Route>
+        <Route path="/badminton/:matchId/overlay">
+          {() => <BadmintonFeatureGuard><BadmintonOverlayPage /></BadmintonFeatureGuard>}
+        </Route>
         <Route path="/tournament/:id/owner/:teamId">
           {(params) => (
             <RedirectToOwnerApp
@@ -290,23 +297,35 @@ function Router() {
           }}
         </Route>
 
-        {/* Badminton — organizer-protected management pages */}
+        {/* Badminton — organizer-protected management pages (feature-flagged) */}
         <Route path="/tournament/:id/badminton/players">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><BadmintonPlayersPage /></OrganizerGuard>;
+            return (
+              <BadmintonFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonPlayersPage /></OrganizerGuard>
+              </BadmintonFeatureGuard>
+            );
           }}
         </Route>
         <Route path="/tournament/:id/badminton/matches">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><BadmintonMatchesPage /></OrganizerGuard>;
+            return (
+              <BadmintonFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonMatchesPage /></OrganizerGuard>
+              </BadmintonFeatureGuard>
+            );
           }}
         </Route>
         <Route path="/tournament/:id/badminton">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><BadmintonTournamentHub /></OrganizerGuard>;
+            return (
+              <BadmintonFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonTournamentHub /></OrganizerGuard>
+              </BadmintonFeatureGuard>
+            );
           }}
         </Route>
 

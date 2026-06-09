@@ -75,6 +75,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `RATE_LIMIT_CHEER_MAX` | No | `30` | Dashboard | Defaults to 30 |
 | `RATE_LIMIT_PUSH_SUBSCRIBE_MAX` | No | `5` | Dashboard | Defaults to 5 |
 | `RATE_LIMIT_OWNER_LOOKUP_MAX` | No | `15` | Dashboard | Defaults to 15 |
+| `ENABLE_BADMINTON` | No | `true` | Dashboard | When unset/false, badminton API routes return 404 and UI hides badminton hub; cricket/auction unchanged. Set `true` on deployments that host badminton tournaments. |
 
 ---
 

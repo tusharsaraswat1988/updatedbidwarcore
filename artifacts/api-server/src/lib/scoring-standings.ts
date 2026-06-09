@@ -17,6 +17,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { ScoringServiceError } from "./scoring-service";
 
 const MIN_PLAYING_XI = 11;
+const CRICKET_SPORT_SLUG = "cricket" as const;
 
 /** Rebuild and persist standings from all finished matches in a tournament. */
 export async function rebuildTournamentStandings(tournamentId: number) {
@@ -34,6 +35,7 @@ export async function rebuildTournamentStandings(tournamentId: number) {
     .where(
       and(
         eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
         or(
           eq(scoringMatchesTable.status, "completed"),
           eq(scoringMatchesTable.status, "abandoned"),
@@ -190,7 +192,10 @@ export async function getSquadReadiness(tournamentId: number): Promise<SquadRead
 
 export async function ensureScoringEnabled(tournamentId: number) {
   const [tournament] = await db
-    .select({ scoringEnabled: tournamentsTable.scoringEnabled })
+    .select({
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
@@ -200,5 +205,8 @@ export async function ensureScoringEnabled(tournamentId: number) {
   }
   if (!tournament.scoringEnabled) {
     throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
+  }
+  if (tournament.sport !== CRICKET_SPORT_SLUG) {
+    throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
   }
 }

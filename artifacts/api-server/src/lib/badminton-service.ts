@@ -15,6 +15,8 @@ import {
   scoringEventsTable,
   badmintonMatchDetailsTable,
   badmintonFixturesTable,
+  tournamentsTable,
+  type ScoringSideJson,
 } from "@workspace/db";
 import type {
   BadmintonMatchState,
@@ -40,10 +42,56 @@ export class BadmintonServiceError extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    public readonly status: number = 400,
   ) {
     super(message);
     this.name = "BadmintonServiceError";
   }
+}
+
+const BADMINTON_SPORT = "badminton" as const;
+
+/** Reject badminton mutations on non-badminton tournaments. */
+export async function ensureBadmintonTournament(tournamentId: number): Promise<void> {
+  const [tournament] = await db
+    .select({ sport: tournamentsTable.sport })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    throw new BadmintonServiceError("TOURNAMENT_NOT_FOUND", "Tournament not found", 404);
+  }
+  if (tournament.sport !== BADMINTON_SPORT) {
+    throw new BadmintonServiceError(
+      "BADMINTON_SPORT_REQUIRED",
+      "Tournament sport must be badminton",
+      400,
+    );
+  }
+}
+
+/** Maps badminton left/right side payload to shared scoring_matches side JSON. */
+export function buildScoringSideFromBadmintonSide(side: Record<string, unknown>): ScoringSideJson {
+  const rawIds = side.playerIds;
+  const playerIds = Array.isArray(rawIds)
+    ? rawIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id))
+    : undefined;
+
+  const displayName =
+    typeof side.label === "string"
+      ? side.label
+      : typeof side.shortLabel === "string"
+        ? side.shortLabel
+        : typeof side.displayName === "string"
+          ? side.displayName
+          : undefined;
+
+  return {
+    teamId: 0,
+    ...(playerIds && playerIds.length > 0 ? { playerIds } : {}),
+    ...(displayName ? { displayName } : {}),
+  };
 }
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -566,6 +614,11 @@ export async function createBadmintonMatch(input: {
   umpireName?: string;
   scheduledAt?: Date;
 }) {
+  await ensureBadmintonTournament(input.tournamentId);
+
+  const homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
+  const awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
+
   const [match] = await db
     .insert(scoringMatchesTable)
     .values({
@@ -579,6 +632,8 @@ export async function createBadmintonMatch(input: {
       status: "scheduled",
       homeTeamId: 0,
       awayTeamId: 0,
+      homeSideJson,
+      awaySideJson,
       rulesJson: null,
     })
     .returning();
