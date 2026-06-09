@@ -180,6 +180,8 @@ interface MasterPlayerImport {
   id: string;
   displayName: string;
   photoUrl: string | null;
+  franchiseName?: string | null;
+  franchiseLogoUrl?: string | null;
   teamName: string | null;
   teamLogoUrl: string | null;
   sponsorName: string | null;
@@ -356,11 +358,20 @@ function ImportMasterPlayersModal({
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold">{p.displayName}</p>
                   <p className="text-white/40 text-xs">
-                    {[p.teamName, p.sponsorName].filter(Boolean).join(" · ") || "—"}
+                    {(() => {
+                      const franchise = p.franchiseName ?? p.teamName;
+                      if (franchise) return `Franchise: ${franchise}`;
+                      return "—";
+                    })()}
                   </p>
                 </div>
-                {p.teamLogoUrl && (
-                  <img src={p.teamLogoUrl} alt="" className="w-8 h-8 object-contain" loading="lazy" />
+                {(p.franchiseLogoUrl ?? p.teamLogoUrl) && (
+                  <img
+                    src={p.franchiseLogoUrl ?? p.teamLogoUrl ?? ""}
+                    alt=""
+                    className="w-8 h-8 object-contain"
+                    loading="lazy"
+                  />
                 )}
                 {p.sponsorLogoUrl && (
                   <img src={p.sponsorLogoUrl} alt="" className="w-8 h-8 object-contain opacity-70" loading="lazy" />

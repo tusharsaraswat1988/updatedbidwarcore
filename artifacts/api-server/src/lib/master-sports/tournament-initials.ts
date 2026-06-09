@@ -1,11 +1,14 @@
 /**
- * Tournament-specific player initials (badminton_players.short_name).
+ * Tournament-specific player initials — stored on tournament_player_profiles.
  * Unique within a tournament; stable once assigned.
  */
 
-import { eq, and, ne, isNotNull } from "drizzle-orm";
-import { db } from "@workspace/db";
-import { badmintonPlayersTable, type BadmintonPlayer } from "@workspace/db";
+import type { BadmintonPlayer } from "@workspace/db";
+import {
+  allocateProfileInitials,
+  ensureTournamentProfile,
+  syncBadmintonShortNameFromProfile,
+} from "./tournament-profile";
 
 export function computeBaseInitials(
   firstName: string,
@@ -30,28 +33,6 @@ export function computeBaseInitials(
   return "P";
 }
 
-export async function getUsedInitialsInTournament(
-  tournamentId: number,
-  excludePlayerId?: number,
-): Promise<Set<string>> {
-  const rows = await db
-    .select({ id: badmintonPlayersTable.id, shortName: badmintonPlayersTable.shortName })
-    .from(badmintonPlayersTable)
-    .where(
-      and(
-        eq(badmintonPlayersTable.tournamentId, tournamentId),
-        isNotNull(badmintonPlayersTable.shortName),
-        excludePlayerId ? ne(badmintonPlayersTable.id, excludePlayerId) : undefined,
-      ),
-    );
-
-  return new Set(
-    rows
-      .map((r) => r.shortName?.trim().toUpperCase())
-      .filter((s): s is string => Boolean(s)),
-  );
-}
-
 export function resolveUniqueInitials(base: string, used: Set<string>): string {
   const normalizedBase = base.toUpperCase();
   if (!used.has(normalizedBase)) return normalizedBase;
@@ -63,6 +44,7 @@ export function resolveUniqueInitials(base: string, used: Set<string>): string {
   return `${normalizedBase}${n}`;
 }
 
+/** @deprecated use allocateProfileInitials — kept for tests */
 export async function allocateTournamentInitials(
   tournamentId: number,
   input: {
@@ -72,33 +54,31 @@ export async function allocateTournamentInitials(
     excludePlayerId?: number;
   },
 ): Promise<string> {
-  const base = computeBaseInitials(input.firstName, input.lastName, input.displayName);
-  const used = await getUsedInitialsInTournament(tournamentId, input.excludePlayerId);
-  return resolveUniqueInitials(base, used);
+  return allocateProfileInitials(tournamentId, {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    displayName: input.displayName,
+  });
 }
 
-/** Return stable tournament initials; assign or fix collisions if needed. */
+/** Return stable tournament initials via profile layer; sync badminton short_name for compat. */
 export async function ensureTournamentInitials(player: BadmintonPlayer): Promise<string> {
-  const existing = player.shortName?.trim();
-  if (existing) {
-    const used = await getUsedInitialsInTournament(player.tournamentId, player.id);
-    const normalized = existing.toUpperCase();
-    if (!used.has(normalized)) return normalized;
+  if (!player.masterPlayerId) {
+    return player.shortName?.trim().toUpperCase() ?? "P";
   }
 
-  const initials = await allocateTournamentInitials(player.tournamentId, {
-    firstName: player.firstName,
-    lastName: player.lastName,
-    displayName: player.displayName,
-    excludePlayerId: player.id,
+  const profile = await ensureTournamentProfile(player.tournamentId, player.masterPlayerId, {
+    displayName: player.displayName ?? undefined,
+    photoOverrideUrl: player.photoUrl,
   });
 
-  if (initials !== player.shortName) {
-    await db
-      .update(badmintonPlayersTable)
-      .set({ shortName: initials, updatedAt: new Date() })
-      .where(eq(badmintonPlayersTable.id, player.id));
+  if (profile.initials !== player.shortName) {
+    await syncBadmintonShortNameFromProfile(
+      player.tournamentId,
+      player.masterPlayerId,
+      profile.initials,
+    );
   }
 
-  return initials;
+  return profile.initials;
 }

@@ -14,6 +14,8 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -82,7 +84,7 @@ export const insertMasterTeamSchema = createInsertSchema(masterTeamsTable).omit(
 export type MasterTeam = typeof masterTeamsTable.$inferSelect;
 export type InsertMasterTeam = z.infer<typeof insertMasterTeamSchema>;
 
-// ─── Player ↔ Team assignments (auction sales, franchise roster) ─────────────
+// ─── Player ↔ Team assignments (auction franchise roster — mutable) ─────────
 
 export const playerTeamAssignmentsTable = pgTable(
   "player_team_assignments",
@@ -93,7 +95,12 @@ export const playerTeamAssignmentsTable = pgTable(
     tournamentId: integer("tournament_id"),
     seasonId: text("season_id"),
     sport: text("sport").notNull().default("cricket"),
+    /** auction_sale | retained | transfer | unsold_replacement | interchange */
+    assignmentType: text("assignment_type").notNull().default("auction_sale"),
+    /** Only one active row per master player per tournament (cricket roster). */
+    isActive: boolean("is_active").notNull().default(true),
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
     auctionPlayerId: integer("auction_player_id"),
     auctionTeamId: integer("auction_team_id"),
   },
@@ -101,7 +108,7 @@ export const playerTeamAssignmentsTable = pgTable(
     index("ix_pta_player_id").on(t.playerId),
     index("ix_pta_team_id").on(t.teamId),
     index("ix_pta_tournament_id").on(t.tournamentId),
-    uniqueIndex("uq_pta_player_team_tournament").on(t.playerId, t.teamId, t.tournamentId),
+    index("ix_pta_active").on(t.tournamentId, t.isActive),
   ],
 );
 
@@ -124,6 +131,8 @@ export const playerStatisticsTable = pgTable(
     gamesLost: integer("games_lost").notNull().default(0),
     pointsScored: integer("points_scored").notNull().default(0),
     pointsConceded: integer("points_conceded").notNull().default(0),
+    /** Sport-specific aggregates (e.g. cricket runs, wickets). */
+    statsJson: jsonb("stats_json").$type<Record<string, unknown>>(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()

@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { resolveFranchiseLogoUrl, resolveFranchiseName } from "@workspace/badminton-core";
 import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
 import { cn } from "@/lib/utils";
 
@@ -294,6 +295,8 @@ function PlayerBlock({
   format,
 }: PlayerBlockProps) {
   const isLeft = side === "left";
+  const franchiseName = resolveFranchiseName(info);
+  const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
 
   return (
     <div
@@ -321,16 +324,16 @@ function PlayerBlock({
       {/* Name + team + country */}
       <div className={cn("flex flex-col gap-1", isLeft ? "items-start" : "items-end")}>
         <div className={cn("flex items-center gap-2", !isLeft && "flex-row-reverse")}>
-          {info.teamLogoUrl && (
+          {franchiseLogoUrl && (
             <img
-              src={info.teamLogoUrl}
-              alt={info.teamName ?? "Team"}
+              src={franchiseLogoUrl}
+              alt={franchiseName ?? "Franchise"}
               loading="lazy"
               decoding="async"
               className="h-6 w-6 object-contain"
             />
           )}
-          {!info.teamLogoUrl && info.flagUrl && (
+          {!franchiseLogoUrl && info.flagUrl && (
             <img
               src={info.flagUrl}
               alt={info.countryCode}
@@ -355,11 +358,11 @@ function PlayerBlock({
           side={side}
           stacked
         />
-        {info.teamName && (
+        {franchiseName && (
           <p className={cn(
-            "text-xs font-bold uppercase tracking-[0.12em] text-white/50",
+            "text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40",
           )}>
-            {info.teamName}
+            Franchise: {franchiseName}
           </p>
         )}
         {info.countryName && (

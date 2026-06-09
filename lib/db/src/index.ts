@@ -406,6 +406,53 @@ void pool
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_mssl_created_at ON master_sports_sync_log (created_at DESC);
+
+    ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS assignment_type TEXT NOT NULL DEFAULT 'auction_sale';
+    ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+    CREATE INDEX IF NOT EXISTS ix_pta_active ON player_team_assignments (tournament_id, is_active);
+    DROP INDEX IF EXISTS uq_pta_player_team_tournament;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_active_roster
+      ON player_team_assignments (player_id, tournament_id)
+      WHERE is_active = true AND sport = 'cricket';
+
+    ALTER TABLE player_statistics ADD COLUMN IF NOT EXISTS stats_json JSONB;
+
+    CREATE TABLE IF NOT EXISTS tournament_player_profiles (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      master_player_id TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      initials TEXT NOT NULL,
+      photo_override_url TEXT,
+      category TEXT,
+      seed_rank INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_tpp_tournament_master_player
+      ON tournament_player_profiles (tournament_id, master_player_id);
+    CREATE INDEX IF NOT EXISTS ix_tpp_tournament_id ON tournament_player_profiles (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_tpp_master_player_id ON tournament_player_profiles (master_player_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_tpp_tournament_initials
+      ON tournament_player_profiles (tournament_id, initials);
+
+    INSERT INTO tournament_player_profiles (
+      tournament_id, master_player_id, display_name, initials, photo_override_url
+    )
+    SELECT
+      bp.tournament_id,
+      bp.master_player_id,
+      COALESCE(bp.display_name, bp.first_name || ' ' || bp.last_name, 'Player'),
+      COALESCE(NULLIF(TRIM(bp.short_name), ''), 'P'),
+      bp.photo_url
+    FROM badminton_players bp
+    WHERE bp.master_player_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM tournament_player_profiles tpp
+        WHERE tpp.tournament_id = bp.tournament_id
+          AND tpp.master_player_id = bp.master_player_id
+      );
   `)
   .catch((err) => {
     console.error("[db] failed to ensure master sports tables:", err);

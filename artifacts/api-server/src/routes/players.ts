@@ -10,6 +10,7 @@ import { auditLog } from "../lib/audit-service";
 import { parseAuditReason, isCriticalPlayerPatch } from "../lib/audit-reason";
 import { snapshotPlayer } from "../lib/audit-snapshots";
 import { syncAuctionPlayerToMasterAsync } from "../lib/master-sports/sync";
+import { onAuctionPlayerRosterChangedAsync } from "../lib/master-sports/cricket-roster";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -593,6 +594,21 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   });
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
+
+  if (d.teamId !== undefined || d.status !== undefined) {
+    const assignmentType =
+      d.status === "sold" && existing.status !== "sold"
+        ? "unsold_replacement"
+        : d.teamId !== undefined && existing.teamId !== d.teamId
+          ? "transfer"
+          : undefined;
+    onAuctionPlayerRosterChangedAsync(
+      player,
+      existing.teamId,
+      tid,
+      assignmentType,
+    );
+  }
 
   res.json(playerToJson(player));
 });

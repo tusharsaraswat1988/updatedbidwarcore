@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetTournament,
   useListTeams,
@@ -27,8 +28,17 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ChevronRight, CircleDot, Monitor } from "lucide-react";
+import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw } from "lucide-react";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+type CricketMasterTeam = {
+  auctionTeamId: number;
+  name: string;
+  squadCount: number;
+  syncedToMaster: boolean;
+};
 
 function statusColor(status: string) {
   if (status === "live") return "text-green-400";
@@ -54,6 +64,54 @@ export default function ScoringMatchListPage() {
   const scoringActive = isCricket && scoringEnabled;
   const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId, scoringActive);
   const { data: squadData } = useSquadReadiness(tournamentId, scoringActive);
+  const qc = useQueryClient();
+
+  const { data: masterTeams } = useQuery<CricketMasterTeam[]>({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/scoring/master-teams`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to load teams");
+      return res.json();
+    },
+    enabled: scoringActive && !!tournamentId,
+  });
+
+  const [syncingRoster, setSyncingRoster] = useState(false);
+
+  async function handleSyncRoster() {
+    setSyncingRoster(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/scoring/sync-roster`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({}),
+        },
+      );
+      if (!res.ok) throw new Error("Sync failed");
+      const data = await res.json();
+      toast({
+        title: "Roster synced",
+        description: `${data.teamsSynced ?? 0} teams, ${data.playersSynced ?? 0} players linked to master sports.`,
+      });
+      void qc.invalidateQueries({ queryKey: ["cricket-master-teams", tournamentId] });
+    } catch (e) {
+      toast({
+        title: "Sync failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingRoster(false);
+    }
+  }
+
+  const unsyncedTeams = masterTeams?.filter((t) => !t.syncedToMaster).length ?? 0;
 
   useEffect(() => {
     if (!tournament || scoringActive) return;
@@ -112,6 +170,16 @@ export default function ScoringMatchListPage() {
               </Button>
               <Button
                 variant="outline"
+                className="h-12 gap-2 shrink-0"
+                disabled={syncingRoster}
+                onClick={() => void handleSyncRoster()}
+                title="Link auction teams and squads to master sports"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncingRoster ? "animate-spin" : ""}`} />
+                Sync
+              </Button>
+              <Button
+                variant="outline"
                 className="h-12 gap-2"
                 onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
               >
@@ -119,6 +187,12 @@ export default function ScoringMatchListPage() {
                 LED
               </Button>
             </div>
+
+            {unsyncedTeams > 0 ? (
+              <p className="text-xs text-amber-400/90 px-1">
+                {unsyncedTeams} team(s) not yet linked to master sports — tap Sync before scoring.
+              </p>
+            ) : null}
 
             {isLoading ? (
               <div className="space-y-2">

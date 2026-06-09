@@ -10,6 +10,54 @@ BidWar shared sports ecosystem: **one player profile** across Auction, Badminton
 
 ---
 
+## MASTER SPORTS DOMAIN SEPARATION
+
+**Non-negotiable rule:** these four concepts are independent forever.
+
+```
+Master Player  ≠  Auction Franchise  ≠  Playing Pair  ≠  Competition Side
+```
+
+| Layer | What it is | Example |
+|-------|------------|---------|
+| **Master Player** | One physical person (`global_players`) | Abhinav Keshri |
+| **Tournament Profile** | Tournament-specific display + initials (`tournament_player_profiles`) | Tournament A: initials `AK`; Tournament B: initials `ABK` |
+| **Auction Franchise Assignment** | Informational ownership (`player_team_assignments`) | Abhinav sold to Team B |
+| **Match Participation** | Who plays with whom in a match (side JSON / pairs) | Abhinav + Mohit vs Tushar + Rahul |
+| **Competition Side** | Left or right on scoreboard | Left side |
+
+### Independence examples
+
+- Abhinav may be **sold to Team B** in auction.
+- In a badminton doubles match, Abhinav may pair with **Mohit** (any franchise).
+- Auction franchise is **metadata only** — it must never control pairing logic.
+- Tournament initials live on **tournament profile**, never on master player.
+
+### Data flow
+
+```
+Master Player (global_players)
+        ↓
+Tournament Profile (display_name, initials, photo_override)
+        ↓
+Auction Franchise Assignment (informational badge)
+        ↓
+Match Participation (pair / side JSON at schedule time)
+        ↓
+Competition Side (left / right in scorer state)
+```
+
+### Field naming (badminton display)
+
+| Old (ambiguous) | New (clear) |
+|-----------------|-------------|
+| `teamName` | `franchiseName` (auction franchise) |
+| `teamLogoUrl` | `franchiseLogoUrl` |
+
+Legacy `teamName` / `teamLogoUrl` remain in side JSON for backward compatibility with existing matches and OBS URLs.
+
+---
+
 ## 1. Schema Changes
 
 ### MasterPlayer (`global_players` extended)
@@ -35,6 +83,18 @@ BidWar shared sports ecosystem: **one player profile** across Auction, Badminton
 | ownerName, sponsorId | text |
 
 `teams.master_team_id` links auction teams → master teams.
+
+### TournamentPlayerProfile (`tournament_player_profiles`)
+
+Tournament-scoped identity — **initials never stored on master player**.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| tournamentId, masterPlayerId | unique pair | One profile per player per tournament |
+| displayName | text | Tournament display label |
+| initials | text | Unique within tournament (`AK`, `AK2`, …) |
+| photoOverrideUrl | text | Optional tournament photo |
+| category, seedRank | text / int | Draw metadata |
 
 ### MasterSponsor (`master_sponsors`)
 
@@ -81,6 +141,7 @@ Badminton stats keyed by **master player id**, never by name:
 
 ```mermaid
 erDiagram
+    global_players ||--o{ tournament_player_profiles : "master_player_id"
     global_players ||--o{ players : "global_player_id"
     global_players ||--o{ badminton_players : "master_player_id"
     global_players ||--o{ player_team_assignments : "playerId"
@@ -193,6 +254,45 @@ POST /api/tournaments/:id/badminton/sync-auction-players
 | Badminton Matches | **MasterPlayerPicker** for left/right sides; manual override fields |
 | Broadcast Display | Photo → initials fallback; team name/logo; sponsor logo; `loading="lazy"` |
 | Tournament settings | `autoSyncAuctionPlayers` via PATCH `/badminton/settings` |
+| Cricket Scorer list | **Sync** button → POST `/scoring/sync-roster`; squad counts from auction |
+| Cricket pre-match | Lineup picker shows photo + name for sold/retained squad |
+
+---
+
+## 5b. Cricket Roster (mutable franchise squads)
+
+Cricket uses **auction teams** as live squads. Scoring still references auction `players.id` and `teams.id`.
+
+| Layer | Role |
+|-------|------|
+| `players.team_id` + status `sold`/`retained` | Live roster for playing XI |
+| `global_players` | Master identity (`players.global_player_id`) |
+| `master_teams` | Canonical franchise (`teams.master_team_id`) |
+| `player_team_assignments` | Current + historical roster (`is_active`, `ended_at`, `assignment_type`) |
+| `player_statistics` (`sport='cricket'`, `stats_json`) | Future per-player cricket aggregates |
+
+### Assignment types
+
+`auction_sale` | `retained` | `transfer` | `unsold_replacement` | `interchange`
+
+Only one **active** assignment per master player per tournament (partial unique index).
+
+### API routes (`/tournaments/:id/scoring/…`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/master-teams` | Teams + squad counts |
+| GET | `/master-players?teamId=` | All players (optional team filter) |
+| GET | `/squads/:auctionTeamId` | Sold/retained squad |
+| POST | `/sync-roster` | Sync teams + roster to master layer |
+
+### Hooks
+
+| Event | Handler |
+|-------|---------|
+| Auction sell | `createPlayerTeamAssignmentFromSale` |
+| Player PATCH (team/status) | `onAuctionPlayerRosterChangedAsync` |
+| Manual sync | `syncCricketRosterFromAuction` |
 
 ---
 
@@ -200,8 +300,13 @@ POST /api/tournaments/:id/badminton/sync-auction-players
 
 ```
 artifacts/api-server/src/lib/master-sports/
-├── sync.ts              # syncAuctionPlayerToMaster, team sync, assignments
+├── sync.ts              # syncAuctionPlayerToMaster, team sync, sale assignments
+├── tournament-profile.ts # tournament_player_profiles + initials allocation
+├── tournament-initials.ts # initials algorithm (profile-backed)
 ├── sync-helpers.ts      # audit log
+├── roster-assignments.ts # cricket franchise roster history (active/end)
+├── cricket-roster.ts    # cricket list/sync/roster change hooks
+├── cricket-stats.ts     # cricket stats baseline rows
 ├── badminton.ts         # import, list, side JSON, statistics
 ├── migrate-badminton.ts # one-time migration
 └── index.ts
@@ -219,7 +324,8 @@ artifacts/api-server/src/lib/master-sports/
 
 1. Sync player → master
 2. Sync team → master_teams
-3. Insert `player_team_assignments` (idempotent unique constraint)
+3. End prior active `player_team_assignments` row (if any)
+4. Insert new active assignment + ensure cricket stats baseline
 
 All sync calls are **fire-and-forget** from auction routes — auction latency unaffected.
 

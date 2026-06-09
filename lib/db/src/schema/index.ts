@@ -26,3 +26,4 @@ export * from "./scoring_events";
 export * from "./scoring_standings";
 export * from "./badminton";
 export * from "./master-sports";
+export * from "./tournament-player-profiles";

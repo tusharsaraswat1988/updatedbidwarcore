@@ -43,7 +43,13 @@ export type BadmintonPlayerSlot = {
   photoUrl?: string;
   flagUrl?: string;
   teamColor?: string;
+  /** Auction franchise name — informational only; does not define pairing. */
+  franchiseName?: string;
+  /** Auction franchise logo. */
+  franchiseLogoUrl?: string;
+  /** @deprecated use franchiseName */
   teamName?: string;
+  /** @deprecated use franchiseLogoUrl */
   teamLogoUrl?: string;
   sponsorName?: string;
   sponsorLogoUrl?: string;
@@ -66,9 +72,13 @@ export type BadmintonSideInfo = {
   flagUrl?: string;
   /** National team color (hex). */
   teamColor?: string;
-  /** Franchise / team name (from master sports). */
+  /** Auction franchise name — informational only; does not define pairing. */
+  franchiseName?: string;
+  /** Auction franchise logo. */
+  franchiseLogoUrl?: string;
+  /** @deprecated use franchiseName */
   teamName?: string;
-  /** Team logo URL. */
+  /** @deprecated use franchiseLogoUrl */
   teamLogoUrl?: string;
   /** Sponsor name. */
   sponsorName?: string;

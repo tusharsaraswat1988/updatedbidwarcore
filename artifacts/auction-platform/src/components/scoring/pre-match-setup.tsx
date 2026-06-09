@@ -15,6 +15,7 @@ import {
 import { squadPlayersForTeam } from "@/lib/scoring-squad";
 import { battingTeamId, bowlingTeamId } from "@/lib/scoring-match-logic";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
+import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
 
 type PreMatchSetupProps = {
   match: ScoringMatchJson;
@@ -272,10 +273,7 @@ function LineupPicker({
                   checked={selected.includes(p.id)}
                   onCheckedChange={() => toggle(p.id)}
                 />
-                <span className="text-sm flex-1">{p.name}</span>
-                {p.role ? (
-                  <span className="text-[10px] text-muted-foreground uppercase">{p.role}</span>
-                ) : null}
+                <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} role={p.role} />
               </label>
             </li>
           ))}

@@ -18,25 +18,36 @@ import {
 } from "@workspace/db";
 import type { BadmintonMatchKind, BadmintonMatchState } from "@workspace/badminton-core";
 import {
-  allocateTournamentInitials,
   ensureTournamentInitials,
 } from "./tournament-initials";
+import {
+  ensureTournamentProfile,
+  syncBadmintonShortNameFromProfile,
+} from "./tournament-profile";
 
 export type MasterPlayerListItem = {
   id: string;
   displayName: string;
-  firstName: string | null;
-  lastName: string | null;
   photoUrl: string | null;
-  country: string | null;
-  teamName: string | null;
-  teamLogoUrl: string | null;
-  sponsorName: string | null;
-  sponsorLogoUrl: string | null;
-  worldRanking: number | null;
-  nationalRanking: number | null;
+  /** Auction franchise — informational metadata only. */
+  franchiseName: string | null;
+  franchiseLogoUrl: string | null;
   alreadyImported: boolean;
   badmintonPlayerId: number | null;
+  /** Tournament profile initials when imported. */
+  tournamentInitials: string | null;
+  /** Legacy / admin fields — not shown in match picker. */
+  firstName?: string | null;
+  lastName?: string | null;
+  country?: string | null;
+  /** @deprecated use franchiseName */
+  teamName?: string | null;
+  /** @deprecated use franchiseLogoUrl */
+  teamLogoUrl?: string | null;
+  sponsorName?: string | null;
+  sponsorLogoUrl?: string | null;
+  worldRanking?: number | null;
+  nationalRanking?: number | null;
 };
 
 export type BadmintonTournamentSettings = {
@@ -97,8 +108,8 @@ export async function enrichMasterPlayerForTournament(
     )
     .limit(1);
 
-  let teamName: string | null = null;
-  let teamLogoUrl: string | null = null;
+  let franchiseName: string | null = null;
+  let franchiseLogoUrl: string | null = null;
   let sponsorName: string | null = null;
   let sponsorLogoUrl: string | null = null;
 
@@ -109,8 +120,8 @@ export async function enrichMasterPlayerForTournament(
       .where(eq(masterTeamsTable.id, assignment.teamId))
       .limit(1);
     if (team) {
-      teamName = team.name;
-      teamLogoUrl = team.logoUrl;
+      franchiseName = team.name;
+      franchiseLogoUrl = team.logoUrl;
       if (team.sponsorId) {
         const [sponsor] = await db
           .select()
@@ -143,12 +154,14 @@ export async function enrichMasterPlayerForTournament(
       masterPlayer.displayName ??
       masterPlayer.canonicalName ??
       [masterPlayer.firstName, masterPlayer.lastName].filter(Boolean).join(" "),
+    photoUrl: masterPlayer.photoUrl,
+    franchiseName,
+    franchiseLogoUrl,
+    teamName: franchiseName,
+    teamLogoUrl: franchiseLogoUrl,
     firstName: masterPlayer.firstName,
     lastName: masterPlayer.lastName,
-    photoUrl: masterPlayer.photoUrl,
     country: masterPlayer.country,
-    teamName,
-    teamLogoUrl,
     sponsorName,
     sponsorLogoUrl,
     worldRanking: masterPlayer.worldRanking,
@@ -213,10 +226,16 @@ export async function listMasterPlayersForBadminton(
       settings.linkedAuctionTournamentId,
     );
     const badmintonPlayerId = importedByMasterId.get(mp.id) ?? null;
+    let tournamentInitials: string | null = null;
+    if (badmintonPlayerId) {
+      const bp = imported.find((p) => p.id === badmintonPlayerId);
+      tournamentInitials = bp?.shortName ?? null;
+    }
     items.push({
       ...enriched,
       alreadyImported: badmintonPlayerId !== null,
       badmintonPlayerId,
+      tournamentInitials,
     });
   }
 
@@ -247,7 +266,12 @@ export async function ensureBadmintonPlayerFromMaster(
     .limit(1);
 
   if (existing) {
-    const initials = await ensureTournamentInitials(existing);
+    const profile = await ensureTournamentProfile(tournamentId, masterPlayerId, {
+      displayName: existing.displayName ?? undefined,
+      photoOverrideUrl: existing.photoUrl,
+    });
+    await syncBadmintonShortNameFromProfile(tournamentId, masterPlayerId, profile.initials);
+    const initials = await ensureTournamentInitials({ ...existing, shortName: profile.initials });
     return initials !== existing.shortName ? { ...existing, shortName: initials } : existing;
   }
 
@@ -262,11 +286,11 @@ export async function ensureBadmintonPlayerFromMaster(
   }
 
   const { firstName, lastName, displayName } = masterPlayerNameFields(mp);
-  const shortName = await allocateTournamentInitials(tournamentId, {
-    firstName,
-    lastName,
+  const profile = await ensureTournamentProfile(tournamentId, masterPlayerId, {
     displayName,
+    photoOverrideUrl: mp.photoUrl,
   });
+  const shortName = profile.initials;
 
   const [bp] = await db
     .insert(badmintonPlayersTable)
@@ -340,11 +364,11 @@ export async function importMasterPlayersToBadminton(
     }
 
     const { firstName, lastName, displayName } = masterPlayerNameFields(mp);
-    const shortName = await allocateTournamentInitials(tournamentId, {
-      firstName,
-      lastName,
+    const profile = await ensureTournamentProfile(tournamentId, masterId, {
       displayName,
+      photoOverrideUrl: mp.photoUrl,
     });
+    const shortName = profile.initials;
 
     const [bp] = await db
       .insert(badmintonPlayersTable)
@@ -436,19 +460,28 @@ export async function buildSideJsonFromMasterPlayer(
     settings.linkedAuctionTournamentId,
   );
 
-  const displayName = bp.displayName ?? enriched.displayName;
-  const shortLabel = bp.shortName ?? "P";
+  const profile = await ensureTournamentProfile(tournamentId, masterPlayerId, {
+    displayName: bp.displayName ?? enriched.displayName,
+    photoOverrideUrl: bp.photoUrl ?? mp.photoUrl,
+  });
+
+  const displayName = profile.displayName;
+  const shortLabel = profile.initials;
+  const franchiseName = enriched.franchiseName ?? undefined;
+  const franchiseLogoUrl = enriched.franchiseLogoUrl ?? undefined;
 
   return {
     label: displayName,
     shortLabel,
     countryCode: bp.countryCode ?? mp.country?.slice(0, 3).toUpperCase(),
     countryName: bp.countryName ?? mp.country ?? undefined,
-    photoUrl: bp.photoUrl ?? mp.photoUrl ?? undefined,
-    flagUrl: enriched.teamLogoUrl ?? undefined,
+    photoUrl: profile.photoOverrideUrl ?? bp.photoUrl ?? mp.photoUrl ?? undefined,
+    franchiseName,
+    franchiseLogoUrl,
+    teamName: franchiseName,
+    teamLogoUrl: franchiseLogoUrl,
+    flagUrl: franchiseLogoUrl ?? undefined,
     teamColor: undefined,
-    teamName: enriched.teamName ?? undefined,
-    teamLogoUrl: enriched.teamLogoUrl ?? undefined,
     sponsorName: enriched.sponsorName ?? undefined,
     sponsorLogoUrl: enriched.sponsorLogoUrl ?? undefined,
     masterPlayerId: mp.id,

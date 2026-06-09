@@ -15,6 +15,7 @@
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { resolveFranchiseLogoUrl, resolveFranchiseName } from "@workspace/badminton-core";
 import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
 import { cn } from "@/lib/utils";
 
@@ -423,6 +424,8 @@ function IntroCard({
   roundName?: string;
 }) {
   const isLeft = side === "left";
+  const franchiseName = resolveFranchiseName(info);
+  const franchiseLogoUrl = resolveFranchiseLogoUrl(info);
 
   return (
     <div
@@ -451,12 +454,12 @@ function IntroCard({
           stacked
           className="text-base"
         />
-        {info.teamName && (
-          <p className="text-white/50 text-[10px] font-bold uppercase tracking-wider mt-0.5">{info.teamName}</p>
+        {franchiseName && (
+          <p className="text-white/40 text-[10px] font-medium mt-0.5">Franchise: {franchiseName}</p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          {info.teamLogoUrl && (
-            <img src={info.teamLogoUrl} alt="" loading="lazy" className="h-4 w-4 object-contain" />
+          {franchiseLogoUrl && (
+            <img src={franchiseLogoUrl} alt="" loading="lazy" className="h-4 w-4 object-contain" />
           )}
           {info.sponsorLogoUrl && (
             <img src={info.sponsorLogoUrl} alt="" loading="lazy" className="h-3 w-auto object-contain opacity-70" />

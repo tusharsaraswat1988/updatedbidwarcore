@@ -10,13 +10,17 @@ import {
   teamsTable,
   masterTeamsTable,
   masterSponsorsTable,
-  playerTeamAssignmentsTable,
   type Player,
   type Team,
 } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { logSync } from "./sync-helpers";
+import {
+  assignPlayerToFranchiseRoster,
+  endActiveRosterAssignment,
+} from "./roster-assignments";
+import { ensureCricketStatisticsBaseline } from "./cricket-stats";
 
 export type SyncResult = {
   masterPlayerId: string;
@@ -285,37 +289,19 @@ export async function createPlayerTeamAssignmentFromSale(
   const masterTeamId = await syncAuctionTeamToMaster(auctionTeam.id, tournamentId);
   if (!masterTeamId) return;
 
-  const [existing] = await db
-    .select()
-    .from(playerTeamAssignmentsTable)
-    .where(
-      and(
-        eq(playerTeamAssignmentsTable.playerId, syncResult.masterPlayerId),
-        eq(playerTeamAssignmentsTable.teamId, masterTeamId),
-        eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
-      ),
-    )
-    .limit(1);
+  const assignmentType =
+    auctionPlayer.status === "retained" ? "retained" : "auction_sale";
 
-  if (!existing) {
-    await db.insert(playerTeamAssignmentsTable).values({
-      playerId: syncResult.masterPlayerId,
-      teamId: masterTeamId,
-      tournamentId,
-      sport: "cricket",
-      auctionPlayerId: auctionPlayer.id,
-      auctionTeamId: auctionTeam.id,
-    });
+  await assignPlayerToFranchiseRoster({
+    masterPlayerId: syncResult.masterPlayerId,
+    masterTeamId,
+    tournamentId,
+    auctionPlayerId: auctionPlayer.id,
+    auctionTeamId: auctionTeam.id,
+    assignmentType,
+  });
 
-    await logSync(
-      "team_assignment_created",
-      "auction_sale",
-      String(auctionPlayer.id),
-      syncResult.masterPlayerId,
-      masterTeamId,
-      { tournamentId },
-    );
-  }
+  await ensureCricketStatisticsBaseline(syncResult.masterPlayerId, tournamentId);
 }
 
 /** Fire-and-forget wrapper for auction hooks. */
