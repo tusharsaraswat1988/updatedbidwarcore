@@ -1,5 +1,9 @@
 # Cricket Scoring Phase 1 — Tournament Foundation
 
+> **Architecture context:** See [cricket-scoring-architecture.md](./cricket-scoring-architecture.md) for the full product architecture, CricHeroes parity matrix, gap analysis, and roadmap.
+
+**Status:** Shipped (merged to `main`)
+
 ## Schema
 
 | Table | Purpose |
