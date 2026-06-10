@@ -684,7 +684,7 @@ export default function AuctionOperator() {
     [teams],
   );
   const purseByTeamId = useMemo(
-    () => new Map((teamPurses ?? []).map((p) => [p.teamId, p])),
+    () => new Map<number, any>((teamPurses ?? []).map((p: any) => [p.teamId, p])),
     [teamPurses],
   );
   const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
