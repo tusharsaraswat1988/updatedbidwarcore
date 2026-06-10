@@ -193,7 +193,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
       console.error(`  • ${err}`);
     }
     console.error(
-      "[bidwar] Copy .env.example to .env and set all required values before starting.",
+      "[bidwar] Copy .env.example to .env (development) or .env.production.example to .env.production (local production) before starting.",
     );
     process.exit(1);
   }

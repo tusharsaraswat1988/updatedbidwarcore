@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./database-url": "./src/database-url.ts"
+    "./database-url": "./src/database-url.ts",
+    "./load-app-env": "./src/load-app-env.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

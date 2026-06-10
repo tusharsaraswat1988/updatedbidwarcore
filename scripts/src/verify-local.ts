@@ -3,11 +3,9 @@
  * Expects API on VERIFY_API_URL (default http://127.0.0.1:8080) and
  * frontend on VERIFY_FRONTEND_URL (default http://127.0.0.1:FRONTEND_PORT).
  */
-import { config } from "dotenv";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadAppEnv } from "@workspace/db/load-app-env";
 
-config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env") });
+loadAppEnv({ nodeEnv: "development" });
 import { isDevLocalhostOrigin } from "@workspace/api-base/dev-cors";
 import {
   API_PREFIX,

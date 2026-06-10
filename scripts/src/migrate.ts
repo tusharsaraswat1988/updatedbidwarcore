@@ -1,12 +1,15 @@
-import { config as loadEnv } from "dotenv";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-loadEnv({
-  path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env"),
-});
+import { loadAppEnv } from "@workspace/db/load-app-env";
 import pg from "pg";
 import { resolveDatabaseUrl } from "@workspace/db/database-url";
+
+const env = loadAppEnv();
+if (!env.loaded) {
+  console.error(
+    `[migrate] Missing ${env.file} at ${env.path} (NODE_ENV=${env.nodeEnv}).`,
+  );
+  process.exit(1);
+}
+console.log(`[migrate] using ${env.file} (${env.nodeEnv})`);
 
 const { Client } = pg;
 

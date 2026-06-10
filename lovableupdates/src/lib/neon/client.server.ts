@@ -17,8 +17,12 @@ declare global {
  */
 export function getNeonSql(): NeonQueryFunction<false, false> {
   if (!globalThis.__neonSql) {
-    const url = process.env.NEON_DATABASE_URL;
-    if (!url) throw new Error("NEON_DATABASE_URL not set");
+    const url =
+      process.env.DATABASE_URL?.trim() ||
+      process.env.NEON_DATABASE_URL?.trim();
+    if (!url) {
+      throw new Error("DATABASE_URL or NEON_DATABASE_URL not set");
+    }
     globalThis.__neonSql = neon(url);
   }
   return globalThis.__neonSql;

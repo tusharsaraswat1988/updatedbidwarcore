@@ -13,7 +13,7 @@ import {
   killChildTree,
 } from "./dev-ports.mjs";
 
-const { loaded, path: envPath } = loadRootEnv();
+const { loaded, path: envPath, file } = loadRootEnv();
 const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT } =
   getDevPorts();
 
@@ -78,10 +78,10 @@ const devPorts = [...new Set([API_PORT, FRONTEND_PORT, OWNER_APP_PORT])];
 
 console.log("\nBidWar — local development\n");
 if (loaded) {
-  console.log(`  Env:      ${envPath}`);
+  console.log(`  Env:      ${envPath} (${file})`);
 } else {
   console.warn(
-    `  Env:      (no .env at ${envPath} — copy .env.example to .env)\n`,
+    `  Env:      (no ${file} at ${envPath} — copy .env.example to .env)\n`,
   );
 }
 
