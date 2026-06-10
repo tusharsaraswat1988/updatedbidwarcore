@@ -30,28 +30,20 @@ const { isProduction: isProd, serveStatic } = getRuntimeConfig();
 // rate limiting and secure cookies work correctly.
 app.set("trust proxy", 1);
 
-// ── Canonical hostname redirect ────────────────────────────────────────────
-// Redirects bare bidwar.in → www.bidwar.in (canonical).
+// ── Canonical hostname redirect (opt-in) ───────────────────────────────────
+// IMPORTANT:
+// Host redirects are often also configured at Cloudflare/Render edge.
+// If both edge and app perform opposite redirects (www→non-www at edge, and
+// non-www→www in app), a production redirect loop occurs.
 //
-// CRITICAL: Use a whitelist-only exact-match check.
-// The previous `host !== CANONICAL_HOST` guard was too broad: behind Render's
-// reverse proxy, req.hostname (which reads X-Forwarded-Host with trust proxy:1)
-// can return an internal service hostname (.onrender.com) for www.bidwar.in
-// requests, causing every request to redirect and producing an infinite loop.
-//
-// The fix: only redirect the ONE known non-canonical hostname. Any request
-// whose host is not exactly "bidwar.in" (www, internal, CDN, health checkers)
-// passes through unconditionally — zero risk of a redirect loop.
+// Therefore app-level host redirect is disabled by default and can be enabled
+// explicitly with ENABLE_APP_HOST_REDIRECT=true once edge rules are aligned.
 const CANONICAL_HOST = "www.bidwar.in";
 const NON_CANONICAL_HOST = "bidwar.in";
+const ENABLE_APP_HOST_REDIRECT = process.env.ENABLE_APP_HOST_REDIRECT === "true";
 
-if (isProd) {
+if (isProd && ENABLE_APP_HOST_REDIRECT) {
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // Read headers in priority order:
-    //   1. X-Forwarded-Host — the original hostname set by Render's edge proxy
-    //   2. Host             — the HTTP Host header as received by Express
-    // Take only the first value (comma-separated in multi-proxy chains).
-    // Strip any port suffix. Lowercase for safe comparison.
     const xfh = req.headers["x-forwarded-host"];
     const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
     const host = (rawXfh.split(",")[0].trim() || req.headers["host"] || "")
@@ -59,8 +51,6 @@ if (isProd) {
       .toLowerCase()
       .trim();
 
-    // Whitelist: ONLY redirect the bare non-www domain.
-    // www.bidwar.in, .onrender.com, health-checkers → next()
     if (host === NON_CANONICAL_HOST) {
       return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
     }
