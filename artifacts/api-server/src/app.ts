@@ -180,20 +180,22 @@ if (serveStatic) {
       return res.send(html);
     });
 
-    // ── Dynamic robots.txt ────────────────────────────────────────────────────
+    // Dynamic robots.txt
     // Served as an explicit Express route BEFORE the static file middleware so
     // it always returns correct content regardless of build state. Cache-Control
     // is 1 hour — short enough for Googlebot to pick up changes quickly, long
     // enough to avoid hammering the server on every crawl.
     app.get("/robots.txt", (_req: express.Request, res: express.Response) => {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
-      // 1-hour cache — NOT immutable. Googlebot re-fetches robots.txt daily.
-      res.setHeader("Cache-Control", "public, max-age=3600");
+      // Keep robots unambiguous for crawlers:
+      // - no-store avoids stale intermediary cache responses during re-crawls
+      // - must-revalidate forces fresh validation at each fetch
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
       res.send([
         "User-agent: *",
         "Allow: /",
         "",
-        "# ── Block authenticated/private app pages ───────────────────────────────",
+        "# Block authenticated/private app pages",
         "Disallow: /tournament/",
         "Disallow: /admin/",
         "Disallow: /admin",
@@ -204,14 +206,14 @@ if (serveStatic) {
         "Disallow: /api/",
         "Disallow: /live/",
         "",
-        "# ── Core marketing pages ────────────────────────────────────────────────",
+        "# Core marketing pages",
         "Allow: /upcoming-auctions",
         "Allow: /contact",
         "Allow: /legal/",
         "Allow: /blog",
         "Allow: /blog/",
         "",
-        "# ── Commercial SEO landing pages ────────────────────────────────────────",
+        "# Commercial SEO landing pages",
         "Allow: /sports-auction-software",
         "Allow: /cricket-auction-software",
         "Allow: /badminton-scoring-software",
