@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# ── Block app routes (authenticated/private pages) ──────────────────────────
+# ── Block authenticated/private app pages ───────────────────────────────────
 Disallow: /tournament/
 Disallow: /admin/
 Disallow: /admin
@@ -10,16 +10,22 @@ Disallow: /organizer/
 Disallow: /complete-profile
 Disallow: /wa-consent/
 Disallow: /api/
-Disallow: /badminton/
 Disallow: /live/
 
-# ── Explicitly allow all public marketing pages ──────────────────────────────
+# ── Core marketing pages ──────────────────────────────────────────────────────
 Allow: /upcoming-auctions
 Allow: /contact
 Allow: /legal/
+Allow: /blog
+Allow: /blog/
 
-# ── Core SEO landing pages ───────────────────────────────────────────────────
+# ── Commercial SEO landing pages ──────────────────────────────────────────────
+Allow: /sports-auction-software
 Allow: /cricket-auction-software
+Allow: /badminton-scoring-software
+Allow: /franchise-auction-software
+Allow: /player-auction-software
+Allow: /sports-league-management-software
 Allow: /football-player-auction
 Allow: /kabaddi-auction-platform
 Allow: /tournament-auction-platform

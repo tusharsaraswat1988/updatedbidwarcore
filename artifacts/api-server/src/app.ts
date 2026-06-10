@@ -30,6 +30,24 @@ const { isProduction: isProd, serveStatic } = getRuntimeConfig();
 // rate limiting and secure cookies work correctly.
 app.set("trust proxy", 1);
 
+// ── Canonical hostname redirect ────────────────────────────────────────────
+// All canonical URLs, sitemap entries, and meta tags use www.bidwar.in.
+// Any request arriving at the bare domain (bidwar.in) or any non-canonical
+// host gets a permanent 301 redirect to the www canonical.
+// This runs before all other middleware so robots.txt, sitemap, and every
+// page are always served from one canonical origin.
+const CANONICAL_HOST = "www.bidwar.in";
+
+if (isProd) {
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const host = req.hostname; // port-stripped by Express
+    if (host !== CANONICAL_HOST) {
+      return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+    }
+    next();
+  });
+}
+
 // Gzip compression for all API JSON responses (level 6, skip payloads < 1 KB).
 // SSE streams are excluded: gzip buffers internally and holds events instead of
 // flushing them immediately, breaking live auction updates.
@@ -115,11 +133,14 @@ if (serveStatic) {
       serveStatic: {
         setHeaders(res: express.Response, filePath: string) {
           const base = path.basename(filePath).replace(/\.(br|gz)$/, "");
-          if (base === "index.html" || base.endsWith(".webmanifest")) {
-            // HTML and manifests must not be cached so SW updates propagate
+          // Never apply immutable cache to files that are not content-hashed.
+          // robots.txt, sitemap.xml, site.webmanifest, and index.html must
+          // always be re-fetched so crawlers pick up changes promptly.
+          const noCacheFiles = new Set(["index.html", "robots.txt", "sitemap.xml"]);
+          if (noCacheFiles.has(base) || base.endsWith(".webmanifest")) {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
           } else {
-            // Vite content-hashes every asset filename — safe to cache forever
+            // Vite content-hashes every JS/CSS asset — safe to cache forever
             res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
           }
         },
@@ -149,6 +170,58 @@ if (serveStatic) {
       return res.send(html);
     });
 
+    // ── Dynamic robots.txt ────────────────────────────────────────────────────
+    // Served as an explicit Express route BEFORE the static file middleware so
+    // it always returns correct content regardless of build state. Cache-Control
+    // is 1 hour — short enough for Googlebot to pick up changes quickly, long
+    // enough to avoid hammering the server on every crawl.
+    app.get("/robots.txt", (_req: express.Request, res: express.Response) => {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      // 1-hour cache — NOT immutable. Googlebot re-fetches robots.txt daily.
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send([
+        "User-agent: *",
+        "Allow: /",
+        "",
+        "# ── Block authenticated/private app pages ───────────────────────────────",
+        "Disallow: /tournament/",
+        "Disallow: /admin/",
+        "Disallow: /admin",
+        "Disallow: /organizer",
+        "Disallow: /organizer/",
+        "Disallow: /complete-profile",
+        "Disallow: /wa-consent/",
+        "Disallow: /api/",
+        "Disallow: /live/",
+        "",
+        "# ── Core marketing pages ────────────────────────────────────────────────",
+        "Allow: /upcoming-auctions",
+        "Allow: /contact",
+        "Allow: /legal/",
+        "Allow: /blog",
+        "Allow: /blog/",
+        "",
+        "# ── Commercial SEO landing pages ────────────────────────────────────────",
+        "Allow: /sports-auction-software",
+        "Allow: /cricket-auction-software",
+        "Allow: /badminton-scoring-software",
+        "Allow: /franchise-auction-software",
+        "Allow: /player-auction-software",
+        "Allow: /sports-league-management-software",
+        "Allow: /football-player-auction",
+        "Allow: /kabaddi-auction-platform",
+        "Allow: /tournament-auction-platform",
+        "Allow: /basketball-auction-software",
+        "Allow: /badminton-auction-platform",
+        "Allow: /volleyball-player-auction",
+        "Allow: /esports-auction-system",
+        "Allow: /business-league-auction",
+        "Allow: /live-player-bidding",
+        "",
+        `Sitemap: https://${CANONICAL_HOST}/sitemap.xml`,
+      ].join("\n"));
+    });
+
     // ── Dynamic sitemap ───────────────────────────────────────────────────────
     // Dynamically generated XML sitemap that includes marketing pages AND all
     // blog posts, category pages, and author pages from @workspace/blog-data.
@@ -165,17 +238,23 @@ if (serveStatic) {
         { loc: "https://www.bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
         { loc: "https://www.bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
         { loc: "https://www.bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
-        // ── SEO landing pages
-        { loc: "https://www.bidwar.in/cricket-auction-software",    changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/football-player-auction",     changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/kabaddi-auction-platform",    changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/tournament-auction-platform", changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/basketball-auction-software", changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/badminton-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/volleyball-player-auction",   changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/esports-auction-system",      changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/business-league-auction",     changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/live-player-bidding",         changefreq: "monthly", priority: "0.8", lastmod: today },
+        // ── SEO landing pages — primary commercial pages (highest priority)
+        { loc: "https://www.bidwar.in/sports-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/cricket-auction-software",     changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/badminton-scoring-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/franchise-auction-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/player-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/sports-league-management-software", changefreq: "monthly", priority: "0.9", lastmod: today },
+        // ── SEO landing pages — secondary sport-specific pages
+        { loc: "https://www.bidwar.in/football-player-auction",      changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/kabaddi-auction-platform",     changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/tournament-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/basketball-auction-software",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/badminton-auction-platform",   changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/volleyball-player-auction",    changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/esports-auction-system",       changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://www.bidwar.in/business-league-auction",      changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://www.bidwar.in/live-player-bidding",          changefreq: "monthly", priority: "0.7", lastmod: today },
         // ── Blog index
         { loc: "https://www.bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
         // ── Blog posts — use actual publishedAt / updatedAt for accuracy

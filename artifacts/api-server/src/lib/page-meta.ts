@@ -413,6 +413,91 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     )],
   },
 
+  "/sports-auction-software": {
+    title: "Sports Auction Software | Live Franchise Player Auctions — BidWar",
+    description: "Run professional franchise auctions for cricket, football, kabaddi, badminton, basketball and more with BidWar. Real-time bidding, LED display, mobile owner panels. Free trial available.",
+    canonical: `${BASE_URL}/sports-auction-software`,
+    keywords: "sports auction software, franchise auction software India, live sports player auction, multi-sport auction platform, franchise bidding software",
+    ogTitle: "Sports Auction Software — Professional Franchise Auctions | BidWar",
+    ogDescription: "One platform for all franchise sports auctions. Cricket, football, kabaddi, badminton, basketball — real-time bidding, LED display, mobile owner panels. Free trial.",
+    ogImage: DEFAULT_OG_IMAGE,
+    schemas: [graph(
+      sportSoftwareSchema("Sports Auction Software", "India's most complete sports auction platform for franchise leagues — cricket, football, kabaddi, badminton, basketball, and more.", `${BASE_URL}/sports-auction-software`),
+      ORGANIZATION_SCHEMA,
+      breadcrumb("Sports Auction Software", `${BASE_URL}/sports-auction-software`),
+    )],
+  },
+
+  "/badminton-scoring-software": {
+    title: "Badminton Scoring Software | Live Rally-by-Rally Scoring — BidWar",
+    description: "Digital badminton scoring software with live rally-by-rally scoring, LED scoreboards, standings, and tournament management. Works on any device. Free for club events.",
+    canonical: `${BASE_URL}/badminton-scoring-software`,
+    keywords: "badminton scoring software, live badminton score, badminton tournament scoring, digital badminton scorer, badminton scoreboard India",
+    ogTitle: "Badminton Scoring Software — Live Digital Scoring | BidWar",
+    ogDescription: "Rally-by-rally live badminton scoring on any device. LED scoreboards, automatic deuce/game detection, standings, and tournament reports.",
+    ogImage: DEFAULT_OG_IMAGE,
+    schemas: [graph(
+      sportSoftwareSchema("Badminton Scoring Software", "Live rally-by-rally badminton scoring platform with LED scoreboards, standings, and tournament management for clubs and leagues.", `${BASE_URL}/badminton-scoring-software`),
+      ORGANIZATION_SCHEMA,
+      breadcrumb("Badminton Scoring Software", `${BASE_URL}/badminton-scoring-software`),
+      sportFaq([
+        { q: "How does BidWar's badminton scoring software work?", a: "The umpire scores each rally on any smartphone browser — no app download needed. Points are instantly displayed on any TV or projector connected to BidWar's LED scoreboard mode. Deuce, game, and match detection is automatic based on BWF rules." },
+        { q: "Can I use BidWar for club badminton tournaments?", a: "Yes. BidWar's badminton scoring module is free for small club events. It handles singles, doubles, and mixed doubles — with separate scorecards for each court. Standings update automatically as matches complete." },
+        { q: "Does BidWar integrate auction and scoring for badminton leagues?", a: "Yes. BidWar handles the entire lifecycle: franchise player auction, team formation, match scheduling, and live rally-by-rally scoring — all in one platform. Teams created during the auction feed directly into the scoring system." },
+      ]),
+    )],
+  },
+
+  "/franchise-auction-software": {
+    title: "Franchise Auction Software | Automated Franchise Player Bidding — BidWar",
+    description: "Conduct professional franchise-based player auctions with automated bidding workflows, real-time updates, and broadcast-quality LED display. Free trial for 2 teams.",
+    canonical: `${BASE_URL}/franchise-auction-software`,
+    keywords: "franchise auction software, franchise player bidding, franchise league auction India, IPL franchise auction platform, automated franchise bidding",
+    ogTitle: "Franchise Auction Software — Automated Player Bidding | BidWar",
+    ogDescription: "Professional franchise player auctions with automated bidding workflows, purse tracking, category-based bidding, and broadcast LED display. Free trial available.",
+    ogImage: DEFAULT_OG_IMAGE,
+    schemas: [graph(
+      sportSoftwareSchema("Franchise Auction Software", "Professional franchise-based sports player auction platform with automated bidding, purse tracking, and broadcast LED display for all sports.", `${BASE_URL}/franchise-auction-software`),
+      ORGANIZATION_SCHEMA,
+      breadcrumb("Franchise Auction Software", `${BASE_URL}/franchise-auction-software`),
+    )],
+  },
+
+  "/player-auction-software": {
+    title: "Player Auction Software | Digital Sports Player Bidding Platform — BidWar",
+    description: "Digitize player auctions for sports leagues with automated bidding, team budgets, live auction controls, and mobile owner panels. Works for all sports. Free trial available.",
+    canonical: `${BASE_URL}/player-auction-software`,
+    keywords: "player auction software, sports player auction platform India, digital player bidding, player auction management, live player auction software",
+    ogTitle: "Player Auction Software — Digital Player Bidding for Sports Leagues | BidWar",
+    ogDescription: "Run live player auctions with automated bidding, team budget management, mobile owner panels, and broadcast display. Free trial for 2 teams.",
+    ogImage: DEFAULT_OG_IMAGE,
+    schemas: [graph(
+      sportSoftwareSchema("Player Auction Software", "Digital sports player auction platform with automated bidding workflows, team budget management, and live broadcast display for franchise leagues.", `${BASE_URL}/player-auction-software`),
+      ORGANIZATION_SCHEMA,
+      breadcrumb("Player Auction Software", `${BASE_URL}/player-auction-software`),
+    )],
+  },
+
+  "/sports-league-management-software": {
+    title: "Sports League Management Software | Registrations, Auctions, Scoring — BidWar",
+    description: "Manage registrations, player auctions, live scoring, standings, and tournament operations from one platform. BidWar's league management software supports all sports.",
+    canonical: `${BASE_URL}/sports-league-management-software`,
+    keywords: "sports league management software, league management platform India, sports tournament management, online league software, cricket league management system",
+    ogTitle: "Sports League Management Software — Full Season Operations | BidWar",
+    ogDescription: "One platform for the full league season: registrations, auctions, scheduling, live scoring, standings, and end-of-season reports. All sports supported.",
+    ogImage: DEFAULT_OG_IMAGE,
+    schemas: [graph(
+      sportSoftwareSchema("Sports League Management Software", "End-to-end sports league management platform for registrations, franchise auctions, match scheduling, live scoring, and standings.", `${BASE_URL}/sports-league-management-software`),
+      ORGANIZATION_SCHEMA,
+      breadcrumb("Sports League Management Software", `${BASE_URL}/sports-league-management-software`),
+      sportFaq([
+        { q: "What does BidWar's sports league management software include?", a: "BidWar covers the full league lifecycle: player registrations via QR code, franchise player auctions with live bidding, match scheduling, live scoring (including badminton rally-by-rally), standings calculation, and end-of-season reports with export options." },
+        { q: "Which sports does the league management platform support?", a: "BidWar supports cricket, football, kabaddi, badminton, basketball, volleyball, throwball, futsal, and corporate multi-sport events. Each sport uses sport-specific player categories, scoring rules, and display configurations." },
+        { q: "Can I run both the auction and the league season on BidWar?", a: "Yes. BidWar integrates the auction and league management into one platform. The teams built during the franchise auction become the squads used in the league season — no duplicate data entry. The same organizer dashboard manages both phases." },
+      ]),
+    )],
+  },
+
   "/volleyball-player-auction": {
     title: "Volleyball Player Auction Software | Franchise Bidding Platform — BidWar",
     description: "Run professional volleyball franchise player auctions with BidWar. Position categories (setter, libero, hitter, blocker), team budgets, mobile owner panels, and broadcast LED display. Free trial.",
@@ -473,7 +558,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
       ogDescription: "Practical guides for franchise league organisers running sports auctions with BidWar.",
       ogImage: DEFAULT_OG_IMAGE,
       schemas: [
-        JSON.stringify({
+        {
           "@context": "https://schema.org",
           "@graph": [
             {
@@ -491,7 +576,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
               ],
             },
           ],
-        }),
+        },
       ],
     };
   }
@@ -511,7 +596,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
         ogDescription: post.description,
         ogImage: post.heroImage ?? DEFAULT_OG_IMAGE,
         schemas: [
-          JSON.stringify({
+          {
             "@context": "https://schema.org",
             "@graph": [
               {
@@ -535,7 +620,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
                 ],
               },
             ],
-          }),
+          },
         ],
       };
     }

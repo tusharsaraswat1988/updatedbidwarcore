@@ -162,6 +162,7 @@ const pricing = [
     color: "border-border bg-card/30",
     badge: null,
     discountedPrice: null as number | null,
+    cta: "Signup for Free Demo",
   },
   {
     label: "Starter",
@@ -1069,14 +1070,29 @@ export default function Landing() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {pricing.map((p, i) => (
+            {pricing.map((p, i) => {
+              const handlePlanSelect = () =>
+                p.discountedPrice
+                  ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
+                  : navigate("/organizer");
+
+              return (
               <motion.div
                 key={p.label}
+                role="button"
+                tabIndex={0}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06 }}
-                className={`relative p-5 rounded-2xl border ${p.color} flex flex-col gap-4 transition-all hover:scale-[1.02]`}
+                onClick={handlePlanSelect}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handlePlanSelect();
+                  }
+                }}
+                className={`group relative p-5 rounded-2xl border ${p.color} flex flex-col gap-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-primary/50 hover:bg-primary/[0.04] hover:shadow-[0_0_20px_rgba(234,179,8,0.08)] active:scale-[0.99] active:border-primary/60 active:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60`}
               >
                 {p.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-black text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
@@ -1107,22 +1123,12 @@ export default function Landing() {
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
                 </div>
-                <button
-                  onClick={() =>
-                    p.discountedPrice
-                      ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
-                      : navigate("/organizer")
-                  }
-                  className={`mt-auto w-full py-2 rounded-xl text-sm font-bold transition-all ${
-                    p.highlight
-                      ? "bg-primary text-black hover:bg-primary/90"
-                      : "border border-border text-foreground hover:bg-card/80"
-                  }`}
-                >
-                  Get started
-                </button>
+                <div className="mt-auto w-full py-2 rounded-xl text-sm font-bold text-center transition-all duration-200 border border-border text-foreground group-hover:bg-primary group-hover:text-black group-hover:border-primary [.group:active_&]:bg-primary [.group:active_&]:text-black [.group:active_&]:border-primary">
+                  {"cta" in p && p.cta ? p.cta : "Get started"}
+                </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Notes row */}
