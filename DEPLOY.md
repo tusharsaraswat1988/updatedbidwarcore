@@ -91,7 +91,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
 
 1. **New Web Service → Connect Git repository**.
 2. Set:
-   - **Build command**: `pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `pnpm install --frozen-lockfile --prod=false && pnpm run build`
    - **Start command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
    - **Environment**: `Node`
 3. Add environment variables under **Environment**:
@@ -112,7 +112,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
 1. **Create App → GitHub** → select the repo.
 2. Component type: **Web Service**.
 3. Set:
-   - **Build command**: `pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `pnpm install --frozen-lockfile --prod=false && pnpm run build`
    - **Run command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
 4. Add environment variables (same as Render above, use your DO app domain).
 5. Deploy.

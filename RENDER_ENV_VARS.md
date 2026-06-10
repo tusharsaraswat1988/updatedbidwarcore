@@ -6,8 +6,11 @@ Render injects `PORT` automatically; you do not need to set it unless overriding
 Build command:
 
 ```bash
-pnpm install --frozen-lockfile && pnpm run build
+pnpm install --frozen-lockfile --prod=false && pnpm run build
 ```
+
+`--prod=false` is required when `NODE_ENV=production` is set in Render — otherwise pnpm skips
+devDependencies (TypeScript, `@types/*`, etc.) and the build fails during `tsc --build`.
 
 Start command:
 
@@ -21,7 +24,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 | Name | Required | Example format | Source | What breaks if missing |
 |------|----------|----------------|--------|------------------------|
-| `NODE_ENV` | Yes | `production` | Dashboard / secret | API exits at startup: "NODE_ENV is required" |
+| `NODE_ENV` | Yes | `production` | Dashboard / secret | API exits at startup: "NODE_ENV is required". Safe to set on Render; use `--prod=false` in the **build command** (see above) so devDependencies still install at build time. |
 | `DATABASE_URL` | Yes* | `postgresql://user:pass@host/db?sslmode=require` | Secret (Neon/Render Postgres) | API exits: "DATABASE_URL or NEON_DATABASE_URL is required" |
 | `APP_DOMAIN` | Yes | `your-app.onrender.com` or `bidwar.in,www.bidwar.in` | Dashboard | API exits: "APP_DOMAIN is required"; CORS and public URLs break |
 | `APP_PUBLIC_SCHEME` | Yes (prod) | `https` | Dashboard | Defaults to `https` in production; must not be `http` in prod |
