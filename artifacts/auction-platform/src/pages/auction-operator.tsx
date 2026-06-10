@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useRoute, useLocation } from "wouter";
 
 const FortuneWheelModal = lazy(() =>
@@ -52,11 +52,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, CheckCircle, XCircle,
-  Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
-  Settings2, Timer, LayoutGrid, Tag, X, Search,
-  Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert,
+  Shuffle, User, Trophy, Clock, RotateCcw, AlertTriangle,
+  Settings2, LayoutGrid, Tag, X, Search,
+  Hourglass, Users, Crown, ExternalLink, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
-  Wifi, WifiOff, RefreshCw, Coffee, PlusCircle, ChevronDown,
+  Wifi, WifiOff, RefreshCw, Coffee, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -309,20 +309,39 @@ export default function AuctionOperator() {
   const { data: players } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const shouldPollFallback = connectionStatus !== "connected";
   const { data: bids } = useListBids(tournamentId, {
-    query: { queryKey: getListBidsQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
+    query: {
+      queryKey: getListBidsQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      // Keep polling only as a fallback when SSE is not healthy.
+      refetchInterval: shouldPollFallback ? 5000 : false,
+    },
   });
   const lastSaleBid = useMemo(() => {
     if (!bids?.length) return null;
-    return [...bids].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    )[0];
+    let latest = bids[0];
+    let latestTimestamp = new Date(latest.timestamp).getTime();
+    for (let i = 1; i < bids.length; i += 1) {
+      const current = bids[i];
+      const ts = new Date(current.timestamp).getTime();
+      if (ts > latestTimestamp) {
+        latest = current;
+        latestTimestamp = ts;
+      }
+    }
+    return latest;
   }, [bids]);
   const { data: categories } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
-    query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
+    query: {
+      queryKey: getGetTeamPursesQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      // Keep polling only as a fallback when SSE is not healthy.
+      refetchInterval: shouldPollFallback ? 5000 : false,
+    },
   });
 
   const startAuction       = useStartAuction();
@@ -620,11 +639,37 @@ export default function AuctionOperator() {
   const hasPlayer  = !!state?.currentPlayer;
   const hasBid     = !!state?.currentBidTeamId;
   const timerActive = !!state?.timerEndsAt && !timerExpired;
-  const allPlayers  = players || [];
-  const available   = allPlayers.filter(p => p.status === "available");
-  const soldPlayers   = allPlayers.filter(p => p.status === "sold");
-  const unsoldPlayers = allPlayers.filter(p => p.status === "unsold");
-  const retainedPlayers = allPlayers.filter(p => p.status === "retained");
+  const allPlayers  = players ?? [];
+  const {
+    available,
+    soldPlayers,
+    unsoldPlayers,
+    retainedPlayers,
+  } = useMemo(() => {
+    const buckets: {
+      available: typeof allPlayers;
+      soldPlayers: typeof allPlayers;
+      unsoldPlayers: typeof allPlayers;
+      retainedPlayers: typeof allPlayers;
+    } = {
+      available: [],
+      soldPlayers: [],
+      unsoldPlayers: [],
+      retainedPlayers: [],
+    };
+    for (const player of allPlayers) {
+      if (player.status === "sold") {
+        buckets.soldPlayers.push(player);
+      } else if (player.status === "unsold") {
+        buckets.unsoldPlayers.push(player);
+      } else if (player.status === "retained") {
+        buckets.retainedPlayers.push(player);
+      } else {
+        buckets.available.push(player);
+      }
+    }
+    return buckets;
+  }, [allPlayers]);
   const mainRoundExhausted =
     (state as { mainRoundExhausted?: boolean } | undefined)?.mainRoundExhausted
     ?? (isActive && available.length === 0 && unsoldPlayers.length > 0 && !hasPlayer);
@@ -634,14 +679,32 @@ export default function AuctionOperator() {
     bidIncrement: increment,
     currentBidTeamId: state?.currentBidTeamId,
   });
-  const teamMap     = Object.fromEntries((teams || []).map(t => [t.id, t]));
+  const teamMap = useMemo(
+    () => Object.fromEntries((teams ?? []).map((t) => [t.id, t])),
+    [teams],
+  );
+  const purseByTeamId = useMemo(
+    () => new Map((teamPurses ?? []).map((p) => [p.teamId, p])),
+    [teamPurses],
+  );
   const activeCategoryIds: number[] | null = (state?.activeCategoryIds as number[] | null) ?? null;
-  const categoryMap = Object.fromEntries((categories || []).map(c => [c.id, c]));
+  const categoryMap = useMemo(
+    () => Object.fromEntries((categories ?? []).map((c) => [c.id, c])),
+    [categories],
+  );
   const selectionMode = (state as any)?.playerSelectionMode ?? "sequential";
   const licenseStatus: string = (state as any)?.licenseStatus ?? "trial";
   const isTrialMode = licenseStatus !== "active";
   const trialTeamIds: number[] | null = (state as any)?.trialTeamIds ?? null;
+  const trialTeamIdSet = useMemo(
+    () => (trialTeamIds ? new Set(trialTeamIds) : null),
+    [trialTeamIds],
+  );
   const deferredPlayerIds: number[] | null = (state as any)?.deferredPlayerIds ?? null;
+  const deferredPlayerIdSet = useMemo(
+    () => (deferredPlayerIds ? new Set(deferredPlayerIds) : null),
+    [deferredPlayerIds],
+  );
   const currentCountdown = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
 
   // Keyboard shortcuts — declared here so derived vars are in scope
@@ -665,32 +728,51 @@ export default function AuctionOperator() {
   }, [isActive, hasPlayer, timerActive, hasBid]);
 
   // Category-filtered available queue (used for category filter context)
-  const filteredQueue = activeCategoryIds && activeCategoryIds.length > 0
-    ? available.filter(p => p.categoryId && activeCategoryIds.includes(p.categoryId))
-    : available;
+  const activeCategoryIdSet = useMemo(
+    () => (activeCategoryIds && activeCategoryIds.length > 0 ? new Set(activeCategoryIds) : null),
+    [activeCategoryIds],
+  );
+  const filteredQueue = useMemo(() => {
+    if (!activeCategoryIdSet) return available;
+    return available.filter((p) => !!p.categoryId && activeCategoryIdSet.has(p.categoryId));
+  }, [available, activeCategoryIdSet]);
 
   // Status counts for the filter flyout
-  const statusCounts = {
-    all:       allPlayers.length,
-    available: filteredQueue.length,
-    sold:      soldPlayers.length,
-    unsold:    unsoldPlayers.length,
-    retained:  retainedPlayers.length,
-  };
+  const statusCounts = useMemo(
+    () => ({
+      all: allPlayers.length,
+      available: filteredQueue.length,
+      sold: soldPlayers.length,
+      unsold: unsoldPlayers.length,
+      retained: retainedPlayers.length,
+    }),
+    [allPlayers.length, filteredQueue.length, soldPlayers.length, unsoldPlayers.length, retainedPlayers.length],
+  );
 
   // Left panel list — filtered by status then search (name or player serial number)
-  const filterBySearch = <T extends { id: number; name: string }>(list: T[]): T[] =>
-    playerSearch.trim()
-      ? list.filter(p => playerMatchesSearch(p, playerSearch))
-      : list;
-
-  const statusBasedList = statusFilter === "all"       ? allPlayers
-    : statusFilter === "available" ? filteredQueue
-    : statusFilter === "sold"      ? soldPlayers
-    : statusFilter === "unsold"    ? unsoldPlayers
-    : retainedPlayers;
-
-  const leftPanelList = filterBySearch(statusBasedList).slice(0, 80);
+  const deferredPlayerSearch = useDeferredValue(playerSearch);
+  const leftPanelList = useMemo(() => {
+    const statusBasedList = statusFilter === "all"
+      ? allPlayers
+      : statusFilter === "available"
+      ? filteredQueue
+      : statusFilter === "sold"
+      ? soldPlayers
+      : statusFilter === "unsold"
+      ? unsoldPlayers
+      : retainedPlayers;
+    const query = deferredPlayerSearch.trim();
+    if (!query) return statusBasedList.slice(0, 80);
+    return statusBasedList.filter((p) => playerMatchesSearch(p, query)).slice(0, 80);
+  }, [
+    allPlayers,
+    filteredQueue,
+    soldPlayers,
+    unsoldPlayers,
+    retainedPlayers,
+    statusFilter,
+    deferredPlayerSearch,
+  ]);
   // LED overlay buttons
   const ledOverlayButtons = [
     { mode: "team"   as const, label: "Team",   icon: LayoutGrid,  bg: "bg-primary text-black"    },
@@ -1098,7 +1180,7 @@ export default function AuctionOperator() {
                   const isSold     = pStatus === "sold";
                   const isUnsold   = pStatus === "unsold";
                   const isRetained = pStatus === "retained";
-                  const isDeferred = isAvail && deferredPlayerIds?.includes(player.id);
+                  const isDeferred = isAvail && deferredPlayerIdSet?.has(player.id);
 
                   return (
                     <div key={player.id}
@@ -1505,7 +1587,7 @@ export default function AuctionOperator() {
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {teams.map(team => {
-                        const purseData = teamPurses?.find(p => p.teamId === team.id);
+                        const purseData = purseByTeamId.get(team.id);
                         const capacity = purseData?.effectiveCapacity ?? team.purse;
                         const spendable = purseData?.spendablePurse ?? (capacity - (team.purseUsed || 0));
                         const reserved  = purseData?.reservePurse ?? 0;
@@ -1515,7 +1597,7 @@ export default function AuctionOperator() {
                         const maxReached = maxSquad > 0 && bought >= maxSquad;
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid   = nextBidAmount;
-                        const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
+                        const isTrialRestricted = isTrialMode && trialTeamIdSet !== null && !trialTeamIdSet.has(team.id);
                         const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached;
                         return (
                           <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
@@ -1582,7 +1664,7 @@ export default function AuctionOperator() {
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-2.5 flex flex-col gap-2">
                   {(teams || []).map(team => {
-                    const purseData = teamPurses?.find(p => p.teamId === team.id);
+                    const purseData = purseByTeamId.get(team.id);
                     const spent = purseData?.purseUsed ?? team.purseUsed ?? 0;
                     const spendable = purseData?.spendablePurse ?? ((purseData?.effectiveCapacity ?? team.purse) - spent);
                     const reserved = purseData?.reservePurse ?? 0;
