@@ -31,17 +31,37 @@ const { isProduction: isProd, serveStatic } = getRuntimeConfig();
 app.set("trust proxy", 1);
 
 // ── Canonical hostname redirect ────────────────────────────────────────────
-// All canonical URLs, sitemap entries, and meta tags use www.bidwar.in.
-// Any request arriving at the bare domain (bidwar.in) or any non-canonical
-// host gets a permanent 301 redirect to the www canonical.
-// This runs before all other middleware so robots.txt, sitemap, and every
-// page are always served from one canonical origin.
+// Redirects bare bidwar.in → www.bidwar.in (canonical).
+//
+// CRITICAL: Use a whitelist-only exact-match check.
+// The previous `host !== CANONICAL_HOST` guard was too broad: behind Render's
+// reverse proxy, req.hostname (which reads X-Forwarded-Host with trust proxy:1)
+// can return an internal service hostname (.onrender.com) for www.bidwar.in
+// requests, causing every request to redirect and producing an infinite loop.
+//
+// The fix: only redirect the ONE known non-canonical hostname. Any request
+// whose host is not exactly "bidwar.in" (www, internal, CDN, health checkers)
+// passes through unconditionally — zero risk of a redirect loop.
 const CANONICAL_HOST = "www.bidwar.in";
+const NON_CANONICAL_HOST = "bidwar.in";
 
 if (isProd) {
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const host = req.hostname; // port-stripped by Express
-    if (host !== CANONICAL_HOST) {
+    // Read headers in priority order:
+    //   1. X-Forwarded-Host — the original hostname set by Render's edge proxy
+    //   2. Host             — the HTTP Host header as received by Express
+    // Take only the first value (comma-separated in multi-proxy chains).
+    // Strip any port suffix. Lowercase for safe comparison.
+    const xfh = req.headers["x-forwarded-host"];
+    const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
+    const host = (rawXfh.split(",")[0].trim() || req.headers["host"] || "")
+      .split(":")[0]
+      .toLowerCase()
+      .trim();
+
+    // Whitelist: ONLY redirect the bare non-www domain.
+    // www.bidwar.in, .onrender.com, health-checkers → next()
+    if (host === NON_CANONICAL_HOST) {
       return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
     }
     next();
