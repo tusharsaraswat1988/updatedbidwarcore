@@ -78,3 +78,119 @@
     font-size: clamp(1.35rem, 2.4vw, 2rem);
   }
 }
+
+/* ── V1 LED stage — theme tokens + broadcast animations ───────────── */
+.auction-stage {
+  --accent: #d4af37;
+  --accent-strong: #f0c541;
+  --accent-glow: rgba(212, 175, 55, 0.35);
+  --accent-on: #0a0a0a;
+  --stage-bg: #070708;
+  --stage-surface: #101013;
+  --stage-text: #ffffff;
+}
+
+@keyframes auction-bid-flash {
+  0% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  30% {
+    background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: 0 0 60px 8px var(--accent-glow);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes auction-urgency-pulse {
+  0%, 100% {
+    color: #fb7373;
+    text-shadow: 0 0 0 transparent;
+    transform: scale(1);
+  }
+  50% {
+    color: #ef4444;
+    text-shadow: 0 0 32px rgba(239, 68, 68, 0.8);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes auction-sold-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.4) rotate(-12deg);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.92) rotate(-4deg);
+    filter: blur(0);
+  }
+  80% {
+    transform: scale(1.04) rotate(-6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-6deg);
+  }
+}
+
+@keyframes auction-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes auction-bidder-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes auction-mega-glow {
+  0%, 100% {
+    text-shadow: 0 0 40px var(--accent-glow), 0 0 80px transparent;
+  }
+  50% {
+    text-shadow: 0 0 60px var(--accent-glow), 0 0 120px var(--accent-glow);
+  }
+}
+
+@keyframes auction-red-wash {
+  from { background-color: transparent; }
+  to { background-color: rgba(239, 68, 68, 0.08); }
+}
+
+@keyframes auction-team-sweep {
+  0% { transform: translateX(-110%) skewX(-12deg); opacity: 0; }
+  40% { opacity: 0.55; }
+  100% { transform: translateX(110%) skewX(-12deg); opacity: 0; }
+}
+
+@keyframes auction-wheel-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes auction-wheel-settle {
+  0% { transform: rotate(720deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes auction-toast-drop {
+  0% { transform: translate(-50%, -120%); opacity: 0; }
+  60% { transform: translate(-50%, 6%); opacity: 1; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+@keyframes auction-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+@keyframes auction-standby-loading {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
