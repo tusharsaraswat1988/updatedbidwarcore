@@ -189,27 +189,24 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
   // Derive countdown primitives from the raw server state for useBroadcastAudio
   // (audio scheduling must use the real server values, not the sticky copy).
   const _dc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
-  const displayCountdownType = (_dc?.type as "break" | "pre-auction" | null) ?? null;
-  const displayCountdownEndsAt = _dc?.endsAt ?? null;
+  const hasDisplayCountdown = _dc?.type === "break" || _dc?.type === "pre-auction";
+  const displayCountdownEndsAt = hasDisplayCountdown ? (_dc?.endsAt ?? null) : null;
 
   const { isUnlocked } = useBroadcastAudio({
     status: displayMode.phase,
     timerEndsAt: state?.timerEndsAt,
     soldKey,
     settings: audioSettings,
-    displayCountdownType,
+    hasDisplayCountdown,
     displayCountdownEndsAt,
   });
 
-  // Sticky countdown for the visual overlay — holds the pre-auction countdown
-  // alive for 5 s after the server clears it so the 4-s banner can complete.
+  // Sticky countdown for the visual overlay — holds the break countdown alive
+  // for 5 s after the server clears it so the post-expiry banner can complete.
   const stickyDc = useStickyCountdown(_dc);
   const isActive = displayMode.isLive;
   const isPaused = displayMode.isPaused;
   const teamColor = state?.currentBidTeamColor || "#F59E0B";
-
-  const stickyPreAuction = stickyDc?.type === "pre-auction" ? stickyDc : null;
-  const stickyBreak = stickyDc?.type === "break" ? stickyDc : null;
   const statusForHeader = displayMode.phase === "live" ? "active" : displayMode.phase;
   const statusLabel = displayMode.outcome?.isManual
     ? "Manual Sold"
@@ -314,25 +311,14 @@ export function DisplayShell({ tournamentId, theme }: { tournamentId: number; th
             showSoldOverlay ? "overflow-visible" : "overflow-hidden"
           } ${isStaleFeed ? "opacity-95 ring-2 ring-inset ring-amber-500/25" : ""}`}
         >
-          {/* Break / Pre-Auction countdown — scoped to content area so the top
+          {/* Pre Auction & Break Timer countdown — scoped to content area so the top
               AuctionHeader / sponsor strip remains visible. z-10 keeps it below
               the sold-stamp animations (z-20) in the stacking order. */}
-          {stickyBreak && (
-            <div key={stickyBreak.endsAt} className="absolute inset-0 z-10">
+          {stickyDc && (
+            <div key={stickyDc.endsAt} className="absolute inset-0 z-10">
               <BreakCountdownOverlay
-                type="break"
-                endsAt={stickyBreak.endsAt}
-                message={stickyBreak.message}
-                tournamentName={tournament?.name ?? null}
-              />
-            </div>
-          )}
-          {stickyPreAuction && (
-            <div key={stickyPreAuction.endsAt} className="absolute inset-0 z-10">
-              <BreakCountdownOverlay
-                type="pre-auction"
-                endsAt={stickyPreAuction.endsAt}
-                message={displayCountdownLabel}
+                endsAt={stickyDc.endsAt}
+                message={stickyDc.message ?? displayCountdownLabel}
                 tournamentName={tournament?.name ?? null}
               />
             </div>

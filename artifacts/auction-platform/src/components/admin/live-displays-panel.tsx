@@ -119,7 +119,7 @@ export function LiveDisplaysPanel({
         <div className="divide-y divide-border">
           <DisplayEndpointRow label="Live viewer" href={liveViewerPath(t.id)} tournamentId={t.id} />
           <DisplayEndpointRow label="Broadcast Overlay" href={`${base}/obs`} tournamentId={t.id} />
-          <DisplayEndpointRow label="Break timer display" href={`${base}/break-timer`} tournamentId={t.id} />
+          <DisplayEndpointRow label="Pre Auction & Break Timer display" href={`${base}/break-timer`} tournamentId={t.id} />
         </div>
       </div>
     </div>

@@ -1,9 +1,8 @@
 import { memo, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coffee, Clock } from "lucide-react";
+import { Coffee } from "lucide-react";
 
 interface BreakCountdownOverlayProps {
-  type: "break" | "pre-auction";
   endsAt: string;
   message: string | null;
   tournamentName: string | null | undefined;
@@ -85,7 +84,6 @@ function Colon() {
 }
 
 export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
-  type,
   endsAt,
   message,
   tournamentName,
@@ -103,35 +101,28 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
     setShowBanner(true);
     const id = setTimeout(() => setShowBanner(false), 4000);
     return () => clearTimeout(id);
-  }, [expired, type]);
+  }, [expired]);
 
   // Reset dismiss state when countdown is restarted (new endsAt received)
   useEffect(() => {
     setShowBanner(true);
   }, [endsAt]);
 
-  const isBreak = type === "break";
-  const defaultLabel = isBreak ? "Back soon" : "Auction starts in";
-  const displayLabel = message || defaultLabel;
-  const Icon = isBreak ? Coffee : Clock;
+  const displayLabel = message || "Back soon";
 
-  // Last-10-seconds urgency pulse for break timers only
-  const isUrgent = isBreak && !expired && (hours === 0 && mins === 0 && secs <= 10);
+  // Last-10-seconds urgency pulse
+  const isUrgent = !expired && (hours === 0 && mins === 0 && secs <= 10);
 
-  const iconColor = isBreak ? (isUrgent ? "text-red-400" : "text-amber-400") : "text-primary";
-  const accentColor = isBreak
-    ? (isUrgent ? "from-red-500/40 via-red-600/20" : "from-amber-500/30 via-orange-500/20")
-    : "from-primary/30 via-yellow-500/20";
-  const borderColor = isBreak ? (isUrgent ? "border-red-500/40" : "border-amber-500/20") : "border-primary/20";
+  const iconColor = isUrgent ? "text-red-400" : "text-amber-400";
+  const accentColor = isUrgent ? "from-red-500/40 via-red-600/20" : "from-amber-500/30 via-orange-500/20";
+  const borderColor = isUrgent ? "border-red-500/40" : "border-amber-500/20";
 
   const visible = !expired || showBanner;
 
   // ── Compact banner (OBS lower strip / tablet views) ───────────────────────
   if (compact) {
     const mmss = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-    const bannerText = expired
-      ? (isBreak ? "We're back!" : `${tournamentName || "Auction"} has officially started!`)
-      : (message || defaultLabel);
+    const bannerText = expired ? "We're back!" : (message || "Back soon");
     const isBottom = compactPlacement === "bottom";
     return (
       <AnimatePresence>
@@ -152,9 +143,9 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
                   : `mx-4 mt-3 flex items-center gap-3 px-4 py-3 rounded-2xl border ${borderColor} bg-black/80 backdrop-blur-sm shadow-lg`
               }
             >
-              <Icon className={`${isBottom ? "w-5 h-5" : "w-4 h-4"} flex-shrink-0 ${iconColor}`} />
+              <Coffee className={`${isBottom ? "w-5 h-5" : "w-4 h-4"} flex-shrink-0 ${iconColor}`} />
               <span className={`flex-1 font-semibold text-white/90 truncate ${isBottom ? "text-base uppercase tracking-wider" : "text-sm"}`}>
-                {isBreak && !expired ? "☕ Auction Break — " : ""}{bannerText}
+                {!expired ? "☕ " : ""}{bannerText}
               </span>
               {!expired && (
                 <span className={`font-display font-black tabular-nums ${iconColor} ${isBottom ? "text-2xl tracking-wider" : "text-sm"}`}>
@@ -180,7 +171,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
           transition={{ duration: 0.6 }}
           className="absolute inset-0 flex flex-col items-center justify-center z-40 overflow-hidden"
         >
-          {/* Background gradient — pulses red in the last 10 seconds of a break */}
+          {/* Background gradient — pulses red in the last 10 seconds */}
           <div className={`absolute inset-0 bg-gradient-to-b ${accentColor} to-transparent pointer-events-none ${isUrgent ? "animate-pulse" : ""}`} />
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
 
@@ -194,7 +185,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
           >
             {/* Icon + label */}
             <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border ${borderColor} bg-black/40 backdrop-blur-sm`}>
-              <Icon className={`w-5 h-5 ${iconColor}`} />
+              <Coffee className={`w-5 h-5 ${iconColor}`} />
               <span className="text-white/80 text-sm md:text-base font-semibold uppercase tracking-widest">
                 {displayLabel}
               </span>
@@ -210,9 +201,7 @@ export const BreakCountdownOverlay = memo(function BreakCountdownOverlay({
                   className="flex flex-col items-center gap-3"
                 >
                   <span className="text-4xl md:text-6xl font-display font-black text-white leading-tight">
-                    {isBreak
-                      ? "We're back!"
-                      : `${tournamentName || "Auction"} has now officially started!`}
+                    We're back!
                   </span>
                 </motion.div>
               ) : (

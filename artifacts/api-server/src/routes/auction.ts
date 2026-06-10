@@ -2297,8 +2297,7 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
     const endsAt = new Date(Date.now() + body.data.durationSeconds * 1000).toISOString();
     countdown = JSON.stringify({ type: "break", endsAt, message: body.data.message ?? null });
   } else if (body.data.action === "extend") {
-    // extend is only valid for an active break countdown — pre-auction
-    // countdowns are fixed at 10 s and cannot be extended.
+    // extend is only valid for an active break countdown.
     let existingCountdown: { type: string; endsAt: string; message: string | null } | null = null;
     if (session.displayCountdown) {
       try {
@@ -2317,30 +2316,6 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
     countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
   }
   // cancel: countdown stays null
-  await db
-    .update(auctionSessionsTable)
-    .set({ displayCountdown: countdown })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  res.json(await broadcastState(tid));
-});
-
-// POST pre-auction-countdown (trigger a fixed 10s pre-auction countdown on the LED display)
-// Body is optional — a bare POST with no body is treated as action="start".
-router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
-  const body = z.object({
-    action: z.enum(["start", "cancel"]).optional().default("start"),
-    message: z.string().max(60).optional(),
-  }).safeParse(req.body ?? {});
-  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-  await getOrCreateSession(tid);
-  let countdown: string | null = null;
-  if (body.data.action === "start") {
-    const endsAt = new Date(Date.now() + 10_000).toISOString();
-    countdown = JSON.stringify({ type: "pre-auction", endsAt, message: body.data.message ?? null });
-  }
   await db
     .update(auctionSessionsTable)
     .set({ displayCountdown: countdown })

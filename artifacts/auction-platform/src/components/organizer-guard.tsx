@@ -1,7 +1,9 @@
 import { useEffect, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useOrganizerAuth } from "@/hooks/use-auth";
+import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AppLayout } from "@/components/layout";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield } from "lucide-react";
 
@@ -10,6 +12,16 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   const [, navigate] = useLocation();
 
   const [location] = useLocation();
+
+  const {
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+    lockMinutes,
+  } = useOrganizerInactivityLogout({
+    enabled: isLoggedIn && !isLoading,
+    tournamentId,
+  });
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn && tournamentId) {
@@ -33,5 +45,17 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     );
   }
   if (!isLoggedIn) return null;
-  return <>{children}</>;
+
+  return (
+    <>
+      {children}
+      {warningVisible && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
+    </>
+  );
 }

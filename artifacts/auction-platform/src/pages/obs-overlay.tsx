@@ -421,11 +421,10 @@ export default function ObsOverlay() {
         <AuctionStatusOverlay mode="paused" />
       )}
 
-      {/* ── Break countdown — bottom strip so camera feed stays visible ── */}
-      {stickyDc?.type === "break" && (
+      {/* ── Pre Auction & Break Timer — bottom strip so camera feed stays visible ── */}
+      {stickyDc && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}
-          type="break"
           endsAt={stickyDc.endsAt}
           message={stickyDc.message}
           tournamentName={tournament?.name ?? null}
@@ -434,15 +433,6 @@ export default function ObsOverlay() {
           compactBottomOffset={
             SPONSOR_RIBBON_TOTAL_HEIGHT_PX + (teams.length > 0 && !showSold ? 46 : 0)
           }
-        />
-      )}
-      {stickyDc?.type === "pre-auction" && (
-        <BreakCountdownOverlay
-          key={stickyDc.endsAt}
-          type="pre-auction"
-          endsAt={stickyDc.endsAt}
-          message={stickyDc.message}
-          tournamentName={tournament?.name ?? null}
         />
       )}
 

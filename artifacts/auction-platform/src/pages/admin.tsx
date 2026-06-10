@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { useBranding } from "@/hooks/use-branding";
 import {
   listAdminTournaments,
@@ -3992,9 +3993,33 @@ export default function AdminDashboard() {
     isLoading: authLoading,
     logout,
   } = useAdminAuth();
-  const { locked } = useInactivityLock({
+  const [lockMinutes, setLockMinutes] = useState(10);
+  const [warningSeconds, setWarningSeconds] = useState(90);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch("/api/auth/admin/settings/session-lock", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { lockMinutes?: number; warningSeconds?: number }) => {
+        if (typeof d.lockMinutes === "number" && d.lockMinutes >= 10) {
+          setLockMinutes(d.lockMinutes);
+        }
+        if (typeof d.warningSeconds === "number" && d.warningSeconds > 0) {
+          setWarningSeconds(d.warningSeconds);
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn]);
+
+  const {
+    locked,
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+  } = useInactivityLock({
     enabled: isLoggedIn,
-    timeoutMs: 10 * 60 * 1000,
+    timeoutMs: lockMinutes * 60 * 1000,
+    warningMs: warningSeconds * 1000,
   });
   const { logos, brandName, miniBrandText } = useBranding();
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
@@ -4426,6 +4451,14 @@ export default function AdminDashboard() {
           />
         )}
       </AnimatePresence>
+
+      {warningVisible && !locked && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
 
     </FullscreenLayout>
   );

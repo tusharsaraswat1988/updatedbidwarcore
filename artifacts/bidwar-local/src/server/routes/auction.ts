@@ -734,25 +734,6 @@ export function createAuctionRouter(db: LocalDb) {
     res.json(await broadcastState(tid));
   });
 
-  // POST pre-auction-countdown (10-second fixed countdown before bidding opens)
-  router.post("/tournaments/:tournamentId/auction/pre-auction-countdown", async (req, res) => {
-    const tid = parseInt(req.params.tournamentId);
-    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const body = z.object({
-      action: z.enum(["start", "cancel"]).optional().default("start"),
-      message: z.string().max(60).optional(),
-    }).safeParse(req.body ?? {});
-    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
-    await getOrCreateSession(tid);
-    let countdown: string | null = null;
-    if (body.data.action === "start") {
-      const endsAt = new Date(Date.now() + 10_000).toISOString();
-      countdown = JSON.stringify({ type: "pre-auction", endsAt, message: body.data.message ?? null });
-    }
-    await db.update(auctionSessionsTable).set({ displayCountdown: countdown }).where(eq(auctionSessionsTable.tournamentId, tid));
-    res.json(await broadcastState(tid));
-  });
-
   // POST set active category filter
   router.post("/tournaments/:tournamentId/auction/category-filter", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);

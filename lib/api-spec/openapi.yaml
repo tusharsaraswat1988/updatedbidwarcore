@@ -1223,39 +1223,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
-  /tournaments/{tournamentId}/auction/pre-auction-countdown:
-    post:
-      operationId: setPreAuctionCountdown
-      tags: [auction]
-      summary: Trigger a fixed 10-second pre-auction countdown on the LED display
-      parameters:
-        - name: tournamentId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: false
-        description: Optional. Omitting the body or sending action=start triggers the countdown. Send action=cancel to clear it.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                action:
-                  type: string
-                  enum: [start, cancel]
-                  default: start
-                message:
-                  type: string
-      responses:
-        "200":
-          description: Countdown started or cancelled
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuctionState"
-
   /tournaments/{tournamentId}/auction/start-timer:
     post:
       operationId: startTimer
@@ -3066,7 +3033,7 @@ components:
       properties:
         type:
           type: string
-          enum: [break, pre-auction]
+          enum: [break]
         endsAt:
           type: string
           description: ISO timestamp when the countdown ends

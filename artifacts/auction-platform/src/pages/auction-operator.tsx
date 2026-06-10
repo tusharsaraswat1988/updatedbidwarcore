@@ -28,7 +28,6 @@ import {
   useSetCategoryFilter,
   useDeferPlayer,
   useSetBreakTimer,
-  useSetPreAuctionCountdown,
   useSyncFortuneWheel,
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
@@ -57,7 +56,7 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert, Star,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
-  Wifi, WifiOff, RefreshCw, Coffee, AlarmClock, PlusCircle, ChevronDown,
+  Wifi, WifiOff, RefreshCw, Coffee, PlusCircle, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -239,13 +238,12 @@ export default function AuctionOperator() {
   const [pendingCategoryIds, setPendingCategoryIds] = useState<number[]>([]);
   const [mobilePanel, setMobilePanel] = useState<"queue" | "control" | "teams">("control");
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  // Break timer / pre-auction countdown dialog
+  // Pre Auction & Break Timer dialog
   const [showFortuneWheel, setShowFortuneWheel] = useState(false);
   const [showPurseBooster, setShowPurseBooster] = useState(false);
   const syncFortuneWheel = useSyncFortuneWheel();
   const wheelResetOnMountRef = useRef(false);
   const [countdownDialogOpen, setCountdownDialogOpen] = useState(false);
-  const [countdownDialogType, setCountdownDialogType] = useState<"break" | "pre-auction">("break");
   const [countdownMinutes, setCountdownMinutes] = useState("5");
   const [countdownSeconds, setCountdownSeconds] = useState("0");
   const [countdownLabel, setCountdownLabel] = useState("");
@@ -348,7 +346,6 @@ export default function AuctionOperator() {
   const setCategoryFilter  = useSetCategoryFilter();
   const deferPlayerMut     = useDeferPlayer();
   const setBreakTimerMut   = useSetBreakTimer();
-  const setPreAuctionMut   = useSetPreAuctionCountdown();
 
   const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
@@ -480,8 +477,7 @@ export default function AuctionOperator() {
 
   async function handleDeferPlayer() { await deferPlayerMut.mutateAsync({ tournamentId }); invalidate(); }
 
-  function openCountdownDialog(type: "break" | "pre-auction") {
-    setCountdownDialogType(type);
+  function openCountdownDialog() {
     setCountdownMinutes("5");
     setCountdownSeconds("0");
     setCountdownLabel("");
@@ -498,51 +494,33 @@ export default function AuctionOperator() {
 
   async function handleStartCountdown() {
     const message = countdownLabel.trim() || undefined;
-    if (countdownDialogType === "break") {
-      const durationSeconds = parseCountdownDuration();
-      if (!durationSeconds) {
-        toast({
-          title: "Invalid duration",
-          description: "Enter at least 10 seconds and at most 60 minutes.",
-          variant: "destructive",
-        });
-        return;
-      }
-      try {
-        const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, message } });
-        qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-        setCountdownDialogOpen(false);
-        invalidate();
-        toast({
-          title: "Break timer started",
-          description: isActive ? "Auction paused — countdown is live on all displays." : "Countdown is live on all displays.",
-        });
-      } catch (err: unknown) {
-        const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not start break timer.";
-        toast({ title: "Break timer failed", description: msg, variant: "destructive" });
-      }
+    const durationSeconds = parseCountdownDuration();
+    if (!durationSeconds) {
+      toast({
+        title: "Invalid duration",
+        description: "Enter at least 10 seconds and at most 60 minutes.",
+        variant: "destructive",
+      });
       return;
     }
     try {
-      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start", ...(message ? { message } : {}) } });
+      const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, message } });
       qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
       setCountdownDialogOpen(false);
       invalidate();
+      toast({
+        title: "Countdown started",
+        description: isActive ? "Auction paused — countdown is live on all displays." : "Countdown is live on all displays.",
+      });
     } catch (err: unknown) {
-      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not start pre-auction countdown.";
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not start countdown.";
       toast({ title: "Countdown failed", description: msg, variant: "destructive" });
     }
   }
 
   async function handleCancelCountdown() {
-    const dc = (state as { displayCountdown?: { type?: string } | null } | undefined)?.displayCountdown;
-    if (dc?.type === "break") {
-      const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
-      qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    } else {
-      const result = await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
-      qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    }
+    const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
+    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
     invalidate();
   }
 
@@ -1008,11 +986,11 @@ export default function AuctionOperator() {
           {/* Active countdown badge */}
           {currentCountdown?.endsAt && (
             <div className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-semibold flex-shrink-0">
-              {currentCountdown.type === "break" ? <Coffee className="w-3.5 h-3.5 flex-shrink-0" /> : <AlarmClock className="w-3.5 h-3.5 flex-shrink-0" />}
+              <Coffee className="w-3.5 h-3.5 flex-shrink-0" />
               <CountdownClock endsAt={currentCountdown.endsAt} />
               <button
                 onClick={handleCancelCountdown}
-                disabled={setBreakTimerMut.isPending || setPreAuctionMut.isPending}
+                disabled={setBreakTimerMut.isPending}
                 className="ml-1 h-4 w-4 flex items-center justify-center rounded bg-amber-500/20 hover:bg-red-500/30 hover:text-red-400 transition-colors disabled:opacity-40"
               >
                 <X className="w-2.5 h-2.5" />
@@ -1328,17 +1306,10 @@ export default function AuctionOperator() {
               <div className="flex-1" />
 
               <button
-                onClick={() => openCountdownDialog("break")}
+                onClick={openCountdownDialog}
                 className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
               >
-                <Coffee className="w-3 h-3" /> Break
-              </button>
-              <button
-                onClick={() => openCountdownDialog("pre-auction")}
-                disabled={isActive || timerActive}
-                className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-white/15 bg-white/5 text-white/40 hover:text-white/65 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <AlarmClock className="w-3 h-3" /> Pre-Auction
+                <Coffee className="w-3 h-3" /> Pre Auction & Break Timer
               </button>
               <button
                 onClick={() => setShowFortuneWheel(true)}
@@ -1866,39 +1837,33 @@ export default function AuctionOperator() {
           </DialogContent>
         </Dialog>
 
-        {/* LED Countdown dialog */}
+        {/* Pre Auction & Break Timer dialog */}
         <Dialog open={countdownDialogOpen} onOpenChange={setCountdownDialogOpen}>
           <DialogContent className="dark max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                {countdownDialogType === "break" ? <Coffee className="w-4 h-4 text-amber-400" /> : <AlarmClock className="w-4 h-4 text-yellow-400" />}
-                {countdownDialogType === "break" ? "Break Timer" : "Pre-Auction Countdown"}
+                <Coffee className="w-4 h-4 text-amber-400" />
+                Pre Auction & Break Timer
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              {countdownDialogType === "break" ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Minutes</Label>
-                    <Input type="number" value={countdownMinutes} onChange={e => setCountdownMinutes(e.target.value)} min={0} max={60} step={1} placeholder="5" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Seconds</Label>
-                    <Input type="number" value={countdownSeconds} onChange={e => setCountdownSeconds(e.target.value)} min={0} max={59} step={1} placeholder="0" />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">Fixed 10-second countdown before bidding opens.</p>
-              )}
-              {countdownDialogType === "break" && (
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Label (optional)</Label>
-                  <Input value={countdownLabel} onChange={e => setCountdownLabel(e.target.value)} placeholder="e.g. Lunch Break" />
+                  <Label className="text-xs text-muted-foreground">Minutes</Label>
+                  <Input type="number" value={countdownMinutes} onChange={e => setCountdownMinutes(e.target.value)} min={0} max={60} step={1} placeholder="5" />
                 </div>
-              )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Seconds</Label>
+                  <Input type="number" value={countdownSeconds} onChange={e => setCountdownSeconds(e.target.value)} min={0} max={59} step={1} placeholder="0" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Label (optional)</Label>
+                <Input value={countdownLabel} onChange={e => setCountdownLabel(e.target.value)} placeholder="e.g. Pre Auction, Lunch Break" />
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCountdownDialogOpen(false)}>Cancel</Button>
-                <Button className="flex-1" disabled={setBreakTimerMut.isPending || setPreAuctionMut.isPending} onClick={handleStartCountdown}>
+                <Button className="flex-1" disabled={setBreakTimerMut.isPending} onClick={handleStartCountdown}>
                   Start
                 </Button>
               </div>

@@ -259,7 +259,7 @@ router.get("/auth/admin/builds/status", async (req, res) => {
 
 const SESSION_LOCK_KEY = "admin_session_lock_minutes";
 const DEFAULT_LOCK_MINUTES = 10;
-const WARNING_SECONDS = 60;
+const WARNING_SECONDS = 90;
 
 async function readSessionLockSettings() {
   const [row] = await db

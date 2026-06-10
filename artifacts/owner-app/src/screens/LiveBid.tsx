@@ -580,7 +580,9 @@ export function LiveBid({
     state?.status               ? state.status.toUpperCase() : "IDLE";
 
   // Break countdown
-  const breakEndsAt  = state?.displayCountdown?.type === "break" ? (state.displayCountdown.endsAt ?? null) : null;
+  const breakEndsAt  = (state?.displayCountdown?.type === "break" || state?.displayCountdown?.type === "pre-auction")
+    ? (state.displayCountdown.endsAt ?? null)
+    : null;
   const { secondsLeft: breakSecsLeft } = useCountdown(breakEndsAt);
   const breakMins    = Math.floor(breakSecsLeft / 60);
   const breakSecs    = breakSecsLeft % 60;

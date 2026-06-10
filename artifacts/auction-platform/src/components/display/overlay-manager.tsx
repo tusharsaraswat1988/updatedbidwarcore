@@ -15,7 +15,7 @@ import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow, WheelItem
  * Top 5 Buys is rendered in the main content area of DisplayShell (not here)
  * so the auction header and sponsor ticker stay visible.
  *
- * Break/pre-auction countdown is intentionally NOT rendered here — it is
+ * Pre Auction & Break Timer countdown is intentionally NOT rendered here — it is
  * rendered directly in the main content area of DisplayShell so it does not
  * cover the top AuctionHeader / sponsor strip, and sits below sold-stamp
  * animations in the stacking order.

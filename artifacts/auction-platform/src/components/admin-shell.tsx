@@ -60,14 +60,18 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [lockMinutes, setLockMinutes] = useState(10);
+  const [warningSeconds, setWarningSeconds] = useState(90);
 
   useEffect(() => {
     if (!isLoggedIn) return;
     fetch("/api/auth/admin/settings/session-lock", { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { lockMinutes?: number }) => {
+      .then((d: { lockMinutes?: number; warningSeconds?: number }) => {
         if (typeof d.lockMinutes === "number" && d.lockMinutes >= 10) {
           setLockMinutes(d.lockMinutes);
+        }
+        if (typeof d.warningSeconds === "number" && d.warningSeconds > 0) {
+          setWarningSeconds(d.warningSeconds);
         }
       })
       .catch(() => {});
@@ -81,6 +85,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   } = useInactivityLock({
     enabled: isLoggedIn,
     timeoutMs: lockMinutes * 60 * 1000,
+    warningMs: warningSeconds * 1000,
   });
 
   useEffect(() => {

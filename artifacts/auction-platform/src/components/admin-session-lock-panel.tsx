@@ -10,7 +10,7 @@ type SessionLockSettings = {
 };
 
 export function AdminSessionLockPanel() {
-  const [settings, setSettings] = useState<SessionLockSettings>({ lockMinutes: 10, warningSeconds: 60 });
+  const [settings, setSettings] = useState<SessionLockSettings>({ lockMinutes: 10, warningSeconds: 90 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

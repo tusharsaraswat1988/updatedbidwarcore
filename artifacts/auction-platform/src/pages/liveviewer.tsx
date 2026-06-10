@@ -997,7 +997,7 @@ export default function LiveViewerPage() {
   });
 
   // Sticky countdown: survives the server auto-clearing the countdown on read
-  // so the pre-auction 4-s "officially started" banner can complete fully.
+  // so the post-expiry banner can complete fully.
   const _rawDc = (state as { displayCountdown?: { type?: string; endsAt?: string; label?: string | null } | null } | undefined)?.displayCountdown;
   const stickyDc = useStickyCountdown(_rawDc);
   const displayMode = useMemo(
@@ -1920,20 +1920,10 @@ export default function LiveViewerPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Break / pre-auction full-screen countdown on live viewer ── */}
-      {!isCompleted && stickyDc?.type === "break" && (
+      {/* ── Pre Auction & Break Timer full-screen countdown on live viewer ── */}
+      {!isCompleted && stickyDc && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}
-          type="break"
-          endsAt={stickyDc.endsAt}
-          message={stickyDc.message}
-          tournamentName={tournament?.name}
-        />
-      )}
-      {!isCompleted && stickyDc?.type === "pre-auction" && (
-        <BreakCountdownOverlay
-          key={stickyDc.endsAt}
-          type="pre-auction"
           endsAt={stickyDc.endsAt}
           message={stickyDc.message}
           tournamentName={tournament?.name}
