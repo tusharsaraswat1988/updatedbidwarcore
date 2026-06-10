@@ -22,6 +22,11 @@ type Props = {
   aspect?: number;
   title?: string;
   onSave: (url: string) => void;
+  /** Max output dimension after crop (default 800 — use 1920 for LED banners). */
+  exportMaxWidthOrHeight?: number;
+  /** Max upload size in MB after compression (default 0.4). */
+  exportMaxSizeMB?: number;
+  exportHint?: string;
 };
 
 // Crop a source image (URL or data URL) to the given pixel area, optionally
@@ -91,7 +96,17 @@ async function autoEnhance(src: string): Promise<Blob> {
 }
 
 
-export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title = "Edit Image", onSave }: Props) {
+export function ImageEditorDialog({
+  open,
+  onClose,
+  initialUrl,
+  aspect = 1,
+  title = "Edit Image",
+  onSave,
+  exportMaxWidthOrHeight = 800,
+  exportMaxSizeMB = 0.4,
+  exportHint,
+}: Props) {
   // Image source loaded into the cropper. Either an object URL from a chosen
   // file, the original initialUrl, or a data URL produced by an effect.
   const [src, setSrc] = useState<string | undefined>(undefined);
@@ -253,7 +268,12 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
       // 2. Compress + cap dimensions for broadcast use.
       const compressed = await imageCompression(
         new File([blob], "image.png", { type: blob.type || "image/png" }),
-        { maxSizeMB: 0.4, maxWidthOrHeight: 800, useWebWorker: true, fileType: blob.type || "image/png" },
+        {
+          maxSizeMB: exportMaxSizeMB,
+          maxWidthOrHeight: exportMaxWidthOrHeight,
+          useWebWorker: true,
+          fileType: blob.type || "image/png",
+        },
       );
       // 3. Upload via API → Cloudinary. The server returns a secure HTTPS URL.
       setProcessing("Uploading to cloud storage...");
@@ -402,7 +422,8 @@ export function ImageEditorDialog({ open, onClose, initialUrl, aspect = 1, title
             )}
 
             <p className="text-[11px] text-muted-foreground">
-              Tip: drag inside the frame to reposition the crop. Output is capped at 800px and ~400 KB so the LED display stays smooth.
+              {exportHint ??
+                "Tip: drag inside the frame to reposition the crop. Output is capped at 800px and ~400 KB so the LED display stays smooth."}
             </p>
           </div>
         </div>

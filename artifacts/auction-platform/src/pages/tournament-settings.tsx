@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { BannerFrame } from "@/components/display/banner-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -59,7 +60,9 @@ export default function TournamentSettings() {
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
-  const [mainBannerUploading, setMainBannerUploading] = useState(false);
+  const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
+  const [bannerEditorInitial, setBannerEditorInitial] = useState<string | undefined>();
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
@@ -217,20 +220,35 @@ export default function TournamentSettings() {
     } catch { /* ignore */ }
   }
 
-  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function closeBannerEditor() {
+    if (bannerEditorInitial?.startsWith("blob:")) {
+      URL.revokeObjectURL(bannerEditorInitial);
+    }
+    setBannerEditorOpen(false);
+    setBannerEditorInitial(undefined);
+  }
+
+  function openBannerAdjust() {
+    const url = (editForm.mainBannerUrl as string) || undefined;
+    setBannerEditorInitial(url);
+    setBannerEditorOpen(true);
+  }
+
+  function handleBannerFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5 MB"); e.target.value = ""; return; }
-    setMainBannerUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!r.ok) throw new Error("Upload failed");
-      const data = await r.json() as { url?: string };
-      if (data.url) setEditForm(f => ({ ...f, mainBannerUrl: data.url as string }));
-    } catch { alert("Image upload failed. Please try again."); }
-    finally { setMainBannerUploading(false); e.target.value = ""; }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be under 5 MB");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose JPG, PNG, or WEBP");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setBannerEditorInitial(objectUrl);
+    setBannerEditorOpen(true);
   }
 
   async function handleSponsorLogoUpload(file: File, idx: number | "new") {
@@ -834,54 +852,87 @@ export default function TournamentSettings() {
                 <Switch checked={editForm.mainBannerEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, mainBannerEnabled: v }))} />
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
+                <input
+                  ref={bannerFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleBannerFilePick}
+                />
                 {editForm.mainBannerUrl ? (
                   <div className="space-y-2">
-                    <div className="relative rounded-md overflow-hidden border border-border/40 bg-black" style={{ aspectRatio: "16/7" }}>
-                      <img
-                        src={editForm.mainBannerUrl as string}
-                        alt="Banner preview"
-                        className="w-full h-full object-cover object-center"
+                    <div className="relative rounded-md overflow-hidden border border-border/40">
+                      <BannerFrame
+                        url={editForm.mainBannerUrl as string}
+                        fit={(editForm.mainBannerFit as string) || "cover"}
                       />
                       <button
                         type="button"
-                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors"
+                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors z-10"
                         onClick={() => setEditForm(f => ({ ...f, mainBannerUrl: "" }))}
                         title="Remove banner"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <label className="cursor-pointer">
-                      <div className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ${mainBannerUploading ? "cursor-wait opacity-60" : ""}`}>
-                        {mainBannerUploading
-                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</>
-                          : <><Upload className="w-3 h-3" /> Replace image</>
-                        }
-                      </div>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerUpload} disabled={mainBannerUploading} />
-                    </label>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      LED preview (16:9) — matches the big screen
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={openBannerAdjust}
+                      >
+                        <Crop className="w-3 h-3" />
+                        Adjust crop &amp; zoom
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => bannerFileInputRef.current?.click()}
+                      >
+                        <Upload className="w-3 h-3" />
+                        Replace image
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <label className="cursor-pointer block">
-                    <div className={`flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 py-7 transition-colors ${mainBannerUploading ? "cursor-wait bg-muted/10" : "hover:bg-muted/10 bg-muted/5"}`}>
-                      {mainBannerUploading
-                        ? <><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground">Uploading...</span></>
-                        : <><Upload className="w-5 h-5 text-muted-foreground" /><span className="text-xs font-medium text-muted-foreground">Click to upload banner image</span><span className="text-[10px] text-muted-foreground">JPG, PNG or WEBP &mdash; max 5 MB</span></>
-                      }
+                  <button
+                    type="button"
+                    className="cursor-pointer block w-full text-left"
+                    onClick={() => bannerFileInputRef.current?.click()}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 py-7 transition-colors hover:bg-muted/10 bg-muted/5">
+                      <Upload className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Click to upload banner image</span>
+                      <span className="text-[10px] text-muted-foreground">JPG, PNG or WEBP — max 5 MB — crop for 16:9 LED</span>
                     </div>
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerUpload} disabled={mainBannerUploading} />
-                  </label>
+                  </button>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Display mode</Label>
-                  <div className="flex gap-1.5">
-                    {(["cover", "contain"] as const).map(fit => (
-                      <button key={fit} type="button" onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))} className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${editForm.mainBannerFit === fit ? "bg-amber-500/20 border border-amber-500/40 text-amber-300" : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"}`}>
-                        {fit === "cover" ? "Crop to Fill" : "Fit to Screen"}
-                      </button>
-                    ))}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Display mode</Label>
+                    <div className="flex gap-1.5">
+                      {(["cover", "contain"] as const).map(fit => (
+                        <button key={fit} type="button" onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))} className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${editForm.mainBannerFit === fit ? "bg-amber-500/20 border border-amber-500/40 text-amber-300" : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"}`}>
+                          {fit === "cover" ? "Crop to Fill" : "Fit to Screen"}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Use <span className="font-medium text-foreground/80">Adjust crop &amp; zoom</span> to frame the banner for the LED.
+                    {" "}
+                    {editForm.mainBannerFit === "contain"
+                      ? "Fit to Screen keeps the full image visible with bars if needed."
+                      : "Crop to Fill stretches edge-to-edge — best after cropping to 16:9."}
+                  </p>
                 </div>
               </div>
               <div className="space-y-1.5 pt-1 border-t border-border/50">
@@ -1158,6 +1209,17 @@ export default function TournamentSettings() {
         aspect={1}
         title="Tournament Logo"
         onSave={url => setEditForm(f => ({ ...f, logoUrl: url }))}
+      />
+      <ImageEditorDialog
+        open={bannerEditorOpen}
+        onClose={closeBannerEditor}
+        initialUrl={bannerEditorInitial}
+        aspect={16 / 9}
+        title="Main Banner — LED crop"
+        exportMaxWidthOrHeight={1920}
+        exportMaxSizeMB={4.5}
+        exportHint="Drag to reposition, use the zoom slider to scale. Output is saved at 16:9 (up to 1920px) — the preview above matches the LED screen."
+        onSave={url => setEditForm(f => ({ ...f, mainBannerUrl: url }))}
       />
       </div>
     </AppLayout>

@@ -43,11 +43,10 @@ const PRESETS = {
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * 1920×1080 px — full-screen broadcast banner.
-   * q_auto:good gives excellent quality for a large hero image without
-   * the file size cost of q_auto:best.
+   * Full-screen broadcast banner — scale to max width, never crop server-side.
+   * Browser object-fit (cover/contain) matches the settings preview and LED display.
    */
-  banner: "w_1920,h_1080,c_fill,f_auto,q_auto:good",
+  banner: "w_1920,c_limit,f_auto,q_auto:good",
 } as const;
 
 export type CldPreset = keyof typeof PRESETS;

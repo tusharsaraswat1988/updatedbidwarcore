@@ -73,6 +73,24 @@ import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
 import { AuditReasonField } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 
+const OPERATOR_COACH_STORAGE_KEY = "bidwar_operator_coach_v1";
+
+function operatorCoachTourSeen(): boolean {
+  try {
+    return localStorage.getItem(OPERATOR_COACH_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markOperatorCoachTourSeen(): void {
+  try {
+    localStorage.setItem(OPERATOR_COACH_STORAGE_KEY, "1");
+  } catch {
+    /* private browsing / disabled storage */
+  }
+}
+
 function playerMatchesSearch(
   player: { id: number; name: string },
   rawQuery: string,
@@ -229,7 +247,7 @@ export default function AuctionOperator() {
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
-  const [coachStep, setCoachStep] = useState(0);
+  const [coachStep, setCoachStep] = useState(() => (operatorCoachTourSeen() ? 0 : 1));
   const [resumeBidDialogOpen, setResumeBidDialogOpen] = useState(false);
   const [currentBidPaused, setCurrentBidPaused] = useState(false);
   const [timerSecs, setTimerSecs] = useState("30");
@@ -250,8 +268,6 @@ export default function AuctionOperator() {
   const { toast } = useToast();
   // Status-based left panel filter
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const filterBtnRef = useRef<HTMLButtonElement>(null);
   // Player view filter popup
   const [playerFilterOpen, setPlayerFilterOpen] = useState(false);
   const [playerFilterStatus, setPlayerFilterStatus] = useState<"all" | "sold" | "unsold" | "available" | "retained">("all");
@@ -266,14 +282,10 @@ export default function AuctionOperator() {
     { title: "3. LED Big Screen", body: "On your projector laptop, open the LED screen and enter your LED code when asked." },
   ];
 
-  useEffect(() => {
-    if (!tournamentId) return;
-    try {
-      const key = `bidwar_operator_coach_${tournamentId}`;
-      if (localStorage.getItem(key)) return;
-      setCoachStep(1);
-    } catch { /* ignore */ }
-  }, [tournamentId]);
+  const dismissCoachTour = useCallback(() => {
+    markOperatorCoachTourSeen();
+    setCoachStep(0);
+  }, []);
 
   // Drop stale fortune-wheel broadcast from a prior session so the LED shows
   // the auction main view when the operator opens auction control.
@@ -289,8 +301,6 @@ export default function AuctionOperator() {
   // Close filter panels when clicking outside
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      const root = filterBtnRef.current?.closest("[data-filter-root]");
-      if (root && !root.contains(e.target as Node)) setShowFilterPanel(false);
       if (playerFilterContainerRef.current && !playerFilterContainerRef.current.contains(e.target as Node)) {
         setPlayerFilterOpen(false);
       }
@@ -307,6 +317,14 @@ export default function AuctionOperator() {
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
+
+  useEffect(() => {
+    const f = state?.displayPlayerFilter;
+    if (!f) return;
+    setPlayerFilterStatus(f.status ?? "all");
+    setPlayerFilterTeamId(f.teamId ?? null);
+  }, [state?.displayPlayerFilter?.status, state?.displayPlayerFilter?.teamId]);
+
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -683,8 +701,6 @@ export default function AuctionOperator() {
     : retainedPlayers;
 
   const leftPanelList = filterBySearch(statusBasedList).slice(0, 80);
-  const activeFilterLabel = statusFilter === "all" ? null : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1);
-
   // LED overlay buttons
   const ledOverlayButtons = [
     { mode: "team"   as const, label: "Team",   icon: LayoutGrid,  bg: "bg-primary text-black"    },
@@ -888,12 +904,14 @@ export default function AuctionOperator() {
                                 key={opt}
                                 onClick={async () => {
                                   setPlayerFilterStatus(opt);
-                                  setPlayerFilterTeamId(null);
-                                  await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: opt, teamId: null } });
+                                  await setDisplayPlayerFilterMut.mutateAsync({
+                                    tournamentId,
+                                    data: { status: opt, teamId: playerFilterTeamId },
+                                  });
                                   invalidate();
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize transition-all ${
-                                  playerFilterStatus === opt && playerFilterTeamId === null
+                                  playerFilterStatus === opt
                                     ? "bg-blue-600 text-white"
                                     : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
                                 }`}
@@ -924,8 +942,10 @@ export default function AuctionOperator() {
                                   key={team.id}
                                   onClick={async () => {
                                     setPlayerFilterTeamId(team.id);
-                                    setPlayerFilterStatus("all");
-                                    await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: "all", teamId: team.id } });
+                                    await setDisplayPlayerFilterMut.mutateAsync({
+                                      tournamentId,
+                                      data: { status: playerFilterStatus, teamId: team.id },
+                                    });
                                     invalidate();
                                   }}
                                   className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
@@ -1011,76 +1031,17 @@ export default function AuctionOperator() {
         </div>
 
         {/* ══════════ 3-COLUMN MAIN ═════════════════════════════════════════ */}
-        <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[240px_1fr]" : "lg:grid-cols-[240px_1fr_260px]"}`}>
+        <div className={`flex-1 grid grid-cols-1 min-h-0 overflow-hidden ${rightCollapsed ? "lg:grid-cols-[280px_1fr]" : "lg:grid-cols-[280px_1fr_260px]"}`}>
 
           {/* ══ LEFT: PLAYER QUEUE ══════════════════════════════════════════ */}
           <aside className={`border-r border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "queue" ? "flex" : "hidden"} lg:flex`}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 flex-shrink-0">
+            <div className="flex items-center px-3 py-2 border-b border-white/8 flex-shrink-0">
               <span className="text-xs font-black uppercase tracking-widest text-white/40">
                 Players
                 <span className="ml-1.5 text-white/25 font-normal normal-case tracking-normal">({leftPanelList.length})</span>
               </span>
-              <div className="flex items-center gap-1.5">
-                {/* Status filter flyout */}
-                <div className="relative" data-filter-root>
-                  <button
-                    ref={filterBtnRef}
-                    onClick={() => setShowFilterPanel(v => !v)}
-                    className={`flex items-center gap-1 h-6 px-2 rounded text-[11px] font-bold transition-all border ${
-                      showFilterPanel || statusFilter !== "all"
-                        ? "bg-yellow-400/15 border-yellow-400/40 text-yellow-300"
-                        : "border-white/12 text-white/35 hover:text-white/65 hover:border-white/25"
-                    }`}
-                  >
-                    <Tag className="w-3 h-3" />
-                    <span>{activeFilterLabel ?? "Filter"}</span>
-                    <span className="text-[9px] opacity-50">{showFilterPanel ? "▲" : "▼"}</span>
-                  </button>
-
-                  {showFilterPanel && (
-                    <div className="absolute top-full left-0 mt-1 z-50 rounded-xl border border-white/12 bg-[#1a1f2e] shadow-2xl overflow-hidden" style={{ minWidth: "210px" }}>
-                      <div className="px-3 py-2 border-b border-white/8 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/35">Filter by Status</span>
-                        <button onClick={() => setShowFilterPanel(false)} className="text-white/25 hover:text-white/60 text-xs transition-colors">✕</button>
-                      </div>
-                      <div className="p-2 space-y-0.5">
-                        {([
-                          { k: "all",       l: "All Players", c: statusCounts.all,       dot: "#ffffff50", cls: "text-white/60"   },
-                          { k: "available", l: "Available",   c: statusCounts.available, dot: "#60a5fa",   cls: "text-blue-300"   },
-                          { k: "sold",      l: "Sold",        c: statusCounts.sold,      dot: "#4ade80",   cls: "text-green-300"  },
-                          { k: "unsold",    l: "Unsold",      c: statusCounts.unsold,    dot: "#f87171",   cls: "text-red-300"    },
-                          { k: "retained",  l: "Retained",    c: statusCounts.retained,  dot: "#c084fc",   cls: "text-purple-300" },
-                        ] as { k: string; l: string; c: number; dot: string; cls: string }[]).map(({ k, l, c, dot, cls }) => (
-                          <button key={k}
-                            onClick={() => { setStatusFilter(k); setShowFilterPanel(false); setPlayerSearch(""); }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold transition-all text-left ${
-                              statusFilter === k
-                                ? "bg-yellow-400/15 border border-yellow-400/35 text-yellow-300"
-                                : `${cls} hover:bg-white/6 border border-transparent`
-                            }`}
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: dot }} />
-                              {l}
-                            </span>
-                            <span className={`text-xs font-mono ${statusFilter === k ? "text-yellow-400" : "text-white/30"}`}>{c}</span>
-                          </button>
-                        ))}
-                      </div>
-                      {statusFilter !== "all" && (
-                        <div className="px-2 pb-2">
-                          <button onClick={() => { setStatusFilter("all"); setShowFilterPanel(false); }}
-                            className="w-full py-1.5 text-[11px] text-white/30 hover:text-white/55 transition-colors border border-white/8 rounded-lg hover:bg-white/5">
-                            Show all players
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Search */}
@@ -1101,16 +1062,33 @@ export default function AuctionOperator() {
               </div>
             </div>
 
-            {/* Active filter pill */}
-            {statusFilter !== "all" && (
-              <div className="px-2 py-1 flex-shrink-0 border-b border-white/5 flex items-center gap-1.5">
-                <span className="text-[10px] text-white/30">Showing:</span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-yellow-300 bg-yellow-400/12 border border-yellow-400/25 rounded-full px-2 py-0.5">
-                  {activeFilterLabel}
-                  <button onClick={() => setStatusFilter("all")} className="text-yellow-400/50 hover:text-yellow-400 ml-0.5 transition-colors">✕</button>
-                </span>
+            {/* Status filters — always visible */}
+            <div className="px-2 py-2 flex-shrink-0 border-b border-white/5 space-y-1.5">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-white/30">Filter by status</p>
+              <div className="flex flex-wrap gap-1">
+                {([
+                  { k: "all",       l: "All",       c: statusCounts.all,       active: "bg-white/15 text-white border-white/25" },
+                  { k: "available", l: "Avail",     c: statusCounts.available, active: "bg-blue-500/25 text-blue-200 border-blue-400/40" },
+                  { k: "sold",      l: "Sold",      c: statusCounts.sold,      active: "bg-green-500/25 text-green-200 border-green-400/40" },
+                  { k: "unsold",    l: "Unsold",    c: statusCounts.unsold,    active: "bg-red-500/25 text-red-200 border-red-400/40" },
+                  { k: "retained",  l: "Retained",  c: statusCounts.retained,  active: "bg-purple-500/25 text-purple-200 border-purple-400/40" },
+                ] as const).map(({ k, l, c, active }) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { setStatusFilter(k); setPlayerSearch(""); }}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-semibold transition-all ${
+                      statusFilter === k
+                        ? active
+                        : "bg-white/5 border-white/10 text-white/45 hover:text-white/75 hover:bg-white/8"
+                    }`}
+                  >
+                    {l}
+                    <span className="font-mono text-[9px] opacity-70">{c}</span>
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Active category filter chips */}
             {activeCategoryIds && activeCategoryIds.length > 0 && (
@@ -1161,106 +1139,110 @@ export default function AuctionOperator() {
 
                   return (
                     <div key={player.id}
-                      className={`flex items-start gap-2 px-2 py-2.5 border-b border-white/4 transition-all ${
+                      className={`px-2 py-2 border-b border-white/4 transition-all ${
                         isNowOn ? "bg-yellow-400/8 border-yellow-400/15" : "hover:bg-white/4"
                       }`}>
 
-                      {/* Row number */}
-                      <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{idx + 1}</span>
+                      <div className="flex items-start gap-1.5 min-w-0">
+                        {/* Row number */}
+                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{idx + 1}</span>
 
-                      {/* Jersey */}
-                      {player.jerseyNumber && (
-                        <span className="text-[10px] font-mono font-bold text-white/30 w-6 text-right flex-shrink-0 pt-0.5">#{player.jerseyNumber}</span>
-                      )}
+                        {/* Jersey */}
+                        {player.jerseyNumber && (
+                          <span className="text-[10px] font-mono font-bold text-white/30 w-5 text-right flex-shrink-0 pt-0.5">#{player.jerseyNumber}</span>
+                        )}
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <p className={`text-xs font-semibold truncate leading-tight ${
-                            isNowOn ? "text-yellow-200" : isSold ? "text-white/70" : isUnsold ? "text-white/40" : isRetained ? "text-purple-200" : "text-white/65"
-                          }`}>
-                            {player.name}
-                          </p>
-                          {isDeferred && <Hourglass className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 opacity-70" />}
-                          {(player as any).playerTag && (() => {
-                            const tt = getTagTheme((player as any).playerTag);
-                            if (!tt) return null;
-                            return (
-                              <span style={{
-                                flexShrink: 0,
-                                padding: "2px 7px",
-                                borderRadius: 999,
-                                fontSize: "7px",
-                                fontWeight: 800,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
-                                background: tt.bg,
-                                border: `1px solid ${tt.border}`,
-                                color: tt.color,
-                                animation: TAG_PULSE_ANIMATION,
-                                whiteSpace: "nowrap",
-                                lineHeight: 1,
-                              }}>
-                                {tt.abbrev}
-                              </span>
-                            );
-                          })()}
-                          {(player as any).isNonPlayingMember && (
-                            <span className="flex-shrink-0 text-[7px] font-bold tracking-wider px-1 py-0.5 rounded bg-slate-500/15 border border-slate-400/20 text-slate-400 uppercase leading-none">NP</span>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <p className={`text-xs font-semibold truncate leading-tight max-w-full ${
+                              isNowOn ? "text-yellow-200" : isSold ? "text-white/70" : isUnsold ? "text-white/40" : isRetained ? "text-purple-200" : "text-white/65"
+                            }`}>
+                              {player.name}
+                            </p>
+                            {isDeferred && <Hourglass className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 opacity-70" />}
+                            {(player as any).playerTag && (() => {
+                              const tt = getTagTheme((player as any).playerTag);
+                              if (!tt) return null;
+                              return (
+                                <span style={{
+                                  flexShrink: 0,
+                                  padding: "2px 7px",
+                                  borderRadius: 999,
+                                  fontSize: "7px",
+                                  fontWeight: 800,
+                                  letterSpacing: "0.12em",
+                                  textTransform: "uppercase",
+                                  background: tt.bg,
+                                  border: `1px solid ${tt.border}`,
+                                  color: tt.color,
+                                  animation: TAG_PULSE_ANIMATION,
+                                  whiteSpace: "nowrap",
+                                  lineHeight: 1,
+                                }}>
+                                  {tt.abbrev}
+                                </span>
+                              );
+                            })()}
+                            {(player as any).isNonPlayingMember && (
+                              <span className="flex-shrink-0 text-[7px] font-bold tracking-wider px-1 py-0.5 rounded bg-slate-500/15 border border-slate-400/20 text-slate-400 uppercase leading-none">NP</span>
+                            )}
+                            {cat && <span className="text-[8px] font-semibold flex-shrink-0 truncate max-w-[4rem]" style={{ color: cat.colorCode || "#888" }}>{cat.name}</span>}
+                          </div>
+
+                          {/* Contextual second line */}
+                          {isSold && (
+                            <p className="text-[10px] leading-tight mt-0.5 truncate">
+                              <span className="text-green-400 font-mono font-bold">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
+                              {team && <><span className="text-white/30 mx-1">→</span><span className="text-white/45">{team.name}</span></>}
+                            </p>
                           )}
-                          {cat && <span className="text-[8px] font-semibold flex-shrink-0" style={{ color: cat.colorCode || "#888" }}>{cat.name}</span>}
+                          {isRetained && (
+                            <p className="text-[10px] leading-tight mt-0.5 truncate">
+                              <span className="text-purple-400 font-mono font-bold">{formatShortIndianRupee((player as any).retainedPrice || player.basePrice)}</span>
+                              {team && <><span className="text-white/30 mx-1">→</span><span className="font-semibold" style={{ color: team.color || "#a78bfa" }}>{team.name}</span></>}
+                              {!team && <span className="text-white/40 ml-1">No team assigned</span>}
+                            </p>
+                          )}
+                          {isUnsold && (
+                            <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {formatShortIndianRupee(player.basePrice)}</p>
+                          )}
+                          {(isAvail || isNowOn) && !isSold && !isRetained && !isUnsold && (
+                            <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {formatShortIndianRupee(player.basePrice)}</p>
+                          )}
                         </div>
-
-                        {/* Contextual second line */}
-                        {isSold && (
-                          <p className="text-[10px] leading-tight mt-0.5">
-                            <span className="text-green-400 font-mono font-bold">{formatShortIndianRupee(player.soldPrice || player.basePrice)}</span>
-                            {team && <><span className="text-white/30 mx-1">→</span><span className="text-white/45 truncate">{team.name}</span></>}
-                          </p>
-                        )}
-                        {isRetained && (
-                          <p className="text-[10px] leading-tight mt-0.5">
-                            <span className="text-purple-400 font-mono font-bold">{formatShortIndianRupee((player as any).retainedPrice || player.basePrice)}</span>
-                            {team && <><span className="text-white/30 mx-1">→</span><span className="font-semibold truncate" style={{ color: team.color || "#a78bfa" }}>{team.name}</span></>}
-                            {!team && <span className="text-white/40 ml-1">No team assigned</span>}
-                          </p>
-                        )}
-                        {isUnsold && (
-                          <p className="text-[10px] text-red-400/60 leading-tight mt-0.5">Unsold · base {formatShortIndianRupee(player.basePrice)}</p>
-                        )}
-                        {(isAvail || isNowOn) && !isSold && !isRetained && !isUnsold && (
-                          <p className="text-[10px] text-white/28 leading-tight mt-0.5">base {formatShortIndianRupee(player.basePrice)}</p>
-                        )}
                       </div>
 
-                      {/* Status + action */}
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0 pt-0.5">
-                        {isNowOn && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />}
-                        {isSold    && <span className="text-[8px] font-black text-green-400 bg-green-400/12 px-1 py-0.5 rounded">SOLD</span>}
-                        {isUnsold  && <span className="text-[8px] font-black text-red-400/70 bg-red-400/10 px-1 py-0.5 rounded">UNSOLD</span>}
-                        {isRetained && <span className="text-[8px] font-black text-purple-400 bg-purple-400/12 px-1 py-0.5 rounded">RET</span>}
+                      {/* Status + actions — own row so Re button is never clipped */}
+                      {(isNowOn || isSold || isUnsold || isRetained || (isAvail && !isNowOn)) && (
+                        <div className="flex items-center justify-end gap-1.5 mt-1.5 pl-5 flex-wrap">
+                          {isNowOn && <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />}
+                          {isSold    && <span className="text-[8px] font-black text-green-400 bg-green-400/12 px-1.5 py-0.5 rounded">SOLD</span>}
+                          {isUnsold  && <span className="text-[8px] font-black text-red-400/70 bg-red-400/10 px-1.5 py-0.5 rounded">UNSOLD</span>}
+                          {isRetained && <span className="text-[8px] font-black text-purple-400 bg-purple-400/12 px-1.5 py-0.5 rounded">RET</span>}
 
-                        {isAvail && !isNowOn && (
-                          <button
-                            disabled={!isActive || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
-                            title={timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
-                            onClick={() => handleNextPlayer("sequential", player.id)}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
-                          >
-                            Go
-                          </button>
-                        )}
-                        {(isSold || isUnsold) && (
-                          <button
-                            disabled={reAuction.isPending || isPaused}
-                            title={isPaused ? "Resume auction before re-auctioning" : undefined}
-                            onClick={() => void handleInstantReauction(player.id)}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold flex items-center gap-0.5 transition-all"
-                          >
-                            <RotateCcw className="w-2 h-2" /> Re
-                          </button>
-                        )}
-                      </div>
+                          {isAvail && !isNowOn && (
+                            <button
+                              disabled={!isActive || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
+                              title={timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
+                              onClick={() => handleNextPlayer("sequential", player.id)}
+                              className="text-[9px] px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
+                            >
+                              Go
+                            </button>
+                          )}
+                          {(isSold || isUnsold) && (
+                            <button
+                              disabled={reAuction.isPending || isPaused}
+                              title={isPaused ? "Resume auction before re-auctioning" : "Re-auction this player"}
+                              onClick={() => void handleInstantReauction(player.id)}
+                              className="text-[9px] px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold inline-flex items-center gap-0.5 transition-all whitespace-nowrap"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5" /> Re-auction
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1962,8 +1944,13 @@ export default function AuctionOperator() {
           </DialogContent>
         </Dialog>
 
-        {/* First-visit coach marks */}
-        <Dialog open={coachStep > 0} onOpenChange={() => {}}>
+        {/* First-visit coach marks — shown once per browser (localStorage) */}
+        <Dialog
+          open={coachStep > 0}
+          onOpenChange={(open) => {
+            if (!open) dismissCoachTour();
+          }}
+        >
           <DialogContent className="dark max-w-md" onPointerDownOutside={e => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{COACH_STEPS[coachStep - 1]?.title}</DialogTitle>
@@ -1973,10 +1960,7 @@ export default function AuctionOperator() {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => {
-                  try { localStorage.setItem(`bidwar_operator_coach_${tournamentId}`, "1"); } catch { /* ignore */ }
-                  setCoachStep(0);
-                }}
+                onClick={dismissCoachTour}
               >
                 Skip tour
               </Button>
@@ -1984,8 +1968,7 @@ export default function AuctionOperator() {
                 className="flex-1"
                 onClick={() => {
                   if (coachStep >= COACH_STEPS.length) {
-                    try { localStorage.setItem(`bidwar_operator_coach_${tournamentId}`, "1"); } catch { /* ignore */ }
-                    setCoachStep(0);
+                    dismissCoachTour();
                   } else {
                     setCoachStep(s => s + 1);
                   }
