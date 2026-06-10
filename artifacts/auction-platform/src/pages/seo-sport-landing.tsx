@@ -880,6 +880,25 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   },
 };
 
+// Backward-compatible SEO aliases used by homepage/internal marketing links.
+const SEO_ALIAS_CONFIGS: Record<string, keyof typeof SPORT_CONFIGS> = {
+  "sports-auction-software": "tournament-auction-platform",
+  "franchise-auction-software": "cricket-auction-software",
+  "player-auction-software": "live-player-bidding",
+  "sports-league-management-software": "tournament-auction-platform",
+  "badminton-scoring-software": "badminton-auction-platform",
+};
+
+for (const [aliasSlug, baseSlug] of Object.entries(SEO_ALIAS_CONFIGS)) {
+  if (!SPORT_CONFIGS[aliasSlug]) {
+    const baseConfig = SPORT_CONFIGS[baseSlug];
+    SPORT_CONFIGS[aliasSlug] = {
+      ...baseConfig,
+      canonical: `https://bidwar.in/${aliasSlug}`,
+    };
+  }
+}
+
 // ─── Helper Components ─────────────────────────────────────────────────────────
 
 function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
