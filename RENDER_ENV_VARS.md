@@ -3,14 +3,18 @@
 Configure these under **Environment** in the Render Web Service dashboard.
 Render injects `PORT` automatically; you do not need to set it unless overriding.
 
-Build command:
+Build command (copy exactly into Render **Settings → Build Command**):
 
 ```bash
-pnpm install --frozen-lockfile --prod=false && pnpm run build
+NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy
 ```
 
-`--prod=false` is required when `NODE_ENV=production` is set in Render — otherwise pnpm skips
-devDependencies (TypeScript, `@types/*`, etc.) and the build fails during `tsc --build`.
+Why two parts:
+
+1. **`NODE_ENV=development` during install** — Render sets `NODE_ENV=production` in your env vars, which makes `pnpm install` skip devDependencies (`esbuild`, `vite`, etc.). Overriding to `development` for install only fixes that.
+2. **`build:deploy`** — compiles the app (API + frontends) **without** `tsc --build` typecheck, which needs `@types/node` / `@types/pg` and fails on hosts when dev deps are omitted.
+
+Do **not** use `pnpm run build` on Render — it runs typecheck first and will fail with the same `@types/node` / `pg` errors you saw.
 
 Start command:
 
