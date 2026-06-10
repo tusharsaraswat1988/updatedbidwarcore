@@ -50,6 +50,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-base": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/blog-data": "workspace:*",
     "@workspace/cheer-presets": "workspace:*",
     "@workspace/badminton-core": "workspace:*",
     "@workspace/scoring-core": "workspace:*",

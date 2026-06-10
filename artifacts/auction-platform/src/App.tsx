@@ -61,6 +61,13 @@ const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
+// Blog
+const BlogIndex    = lazy(() => import("@/pages/blog/index"));
+const BlogArticle  = lazy(() => import("@/pages/blog/article"));
+const BlogCategory = lazy(() => import("@/pages/blog/category"));
+const BlogTag      = lazy(() => import("@/pages/blog/tag"));
+const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
+
 // Badminton Tournament System
 const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
 const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
@@ -198,6 +205,21 @@ function Router() {
         <Route path="/organizer/profile" component={OrganizerProfile} />
         <Route path="/legal/:slug" component={LegalPage} />
 
+        {/* Blog */}
+        <Route path="/blog" component={BlogIndex} />
+        <Route path="/blog/category/:slug">
+          {(params) => <BlogCategory slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/tag/:slug">
+          {(params) => <BlogTag slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/author/:slug">
+          {(params) => <BlogAuthor slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/:slug">
+          {(params) => <BlogArticle slug={params?.slug ?? ""} />}
+        </Route>
+
         {/* SEO landing pages */}
         <Route path="/cricket-auction-software">{() => <SeoSportLanding slug="cricket-auction-software" />}</Route>
         <Route path="/football-player-auction">{() => <SeoSportLanding slug="football-player-auction" />}</Route>
@@ -206,6 +228,9 @@ function Router() {
         <Route path="/business-league-auction">{() => <SeoSportLanding slug="business-league-auction" />}</Route>
         <Route path="/live-player-bidding">{() => <SeoSportLanding slug="live-player-bidding" />}</Route>
         <Route path="/tournament-auction-platform">{() => <SeoSportLanding slug="tournament-auction-platform" />}</Route>
+        <Route path="/basketball-auction-software">{() => <SeoSportLanding slug="basketball-auction-software" />}</Route>
+        <Route path="/badminton-auction-platform">{() => <SeoSportLanding slug="badminton-auction-platform" />}</Route>
+        <Route path="/volleyball-player-auction">{() => <SeoSportLanding slug="volleyball-player-auction" />}</Route>
 
         {/* Organizer-protected routes */}
         <Route path="/tournament/:id">

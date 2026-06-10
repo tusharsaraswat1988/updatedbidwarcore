@@ -17,6 +17,9 @@ import {
   getRuntimeConfig,
   isCorsOriginAllowed,
 } from "./lib/runtime-env";
+import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
+import { BLOG_POSTS_META } from "@workspace/blog-data";
+import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
 
 const app: Express = express();
 
@@ -122,6 +125,82 @@ if (serveStatic) {
         },
       },
     };
+
+    // Load the built index.html into memory once for meta injection.
+    loadIndexHtml(auctionDist);
+    logger.info("SEO: page-meta injector loaded");
+
+    // ── Server-side meta injection for marketing pages ────────────────────────
+    // For every known public marketing URL, we replace the PAGE_META_START/END
+    // and PAGE_SCHEMA_START/END blocks in index.html with route-specific
+    // <title>, <meta>, canonical, OG/Twitter tags, and JSON-LD schemas.
+    // This ensures social crawlers and bots that don't run JavaScript see the
+    // correct metadata for each page.
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.method !== "GET") return next();
+      const meta = getPageMeta(req.path);
+      if (!meta) return next();
+
+      const html = injectPageMeta(meta);
+      if (!html) return next();
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      return res.send(html);
+    });
+
+    // ── Dynamic sitemap ───────────────────────────────────────────────────────
+    // Dynamically generated XML sitemap that includes marketing pages AND all
+    // blog posts, category pages, and author pages from @workspace/blog-data.
+    app.get("/sitemap.xml", (_req: express.Request, res: express.Response) => {
+      const today = new Date().toISOString().slice(0, 10);
+
+      type SitemapEntry = { loc: string; changefreq: string; priority: string; lastmod?: string };
+
+      const urls: SitemapEntry[] = [
+        // ── Core marketing pages
+        { loc: "https://www.bidwar.in/",                   changefreq: "weekly",  priority: "1.0", lastmod: today },
+        { loc: "https://www.bidwar.in/upcoming-auctions",  changefreq: "daily",   priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/contact",            changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://www.bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://www.bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://www.bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
+        // ── SEO landing pages
+        { loc: "https://www.bidwar.in/cricket-auction-software",    changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/football-player-auction",     changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/kabaddi-auction-platform",    changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/tournament-auction-platform", changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://www.bidwar.in/basketball-auction-software", changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/badminton-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/volleyball-player-auction",   changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/esports-auction-system",      changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/business-league-auction",     changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://www.bidwar.in/live-player-bidding",         changefreq: "monthly", priority: "0.8", lastmod: today },
+        // ── Blog index
+        { loc: "https://www.bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
+        // ── Blog posts — use actual publishedAt / updatedAt for accuracy
+        ...BLOG_POSTS_META.map((p) => ({
+          loc: p.canonical,
+          changefreq: "monthly",
+          priority: "0.7",
+          lastmod: p.updatedAt ?? p.publishedAt,
+        })),
+        // ── Blog category pages
+        ...getAllBlogUrls()
+          .filter((u) => u.includes("/blog/category/") || u.includes("/blog/author/"))
+          .map((u) => ({ loc: u, changefreq: "weekly" as const, priority: "0.6", lastmod: today })),
+      ];
+
+      const urlXml = urls.map((u) =>
+        `  <url>\n    <loc>${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ""}\n  </url>`
+      ).join("\n");
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n${urlXml}\n\n</urlset>`;
+
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(xml);
+    });
 
     // Legacy owner URLs → canonical onboarding entry (full page loads only).
     app.get("/tournament/:tournamentId/owner/:teamId", (req, res) => {

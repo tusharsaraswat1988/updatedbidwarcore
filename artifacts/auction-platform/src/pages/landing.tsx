@@ -8,8 +8,9 @@ import {
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Building2, GraduationCap, ChevronDown,
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
-  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet,
+  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen,
 } from "lucide-react";
+import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
 import type { DisplayAuction } from "@/lib/auth";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
@@ -488,6 +489,9 @@ export default function Landing() {
             <a href="#use-cases" className="hover:text-white transition-colors">Use Cases</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <button onClick={() => navigate("/blog")} className="hover:text-white transition-colors flex items-center gap-1">
+              <BookOpen className="w-3.5 h-3.5" /> Blog
+            </button>
             <button onClick={() => navigate("/upcoming-auctions")} className="hover:text-white transition-colors text-primary font-semibold">Upcoming Auctions</button>
             <button onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-white transition-colors font-semibold text-primary">Pay</button>
           </div>
@@ -1123,6 +1127,73 @@ export default function Landing() {
         <Testimonials />
       </Suspense>
 
+      {/* ── Latest Blog Posts ───────────────────────────────────────── */}
+      <section id="blog" className="py-24 px-6 border-t border-border/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <div className="text-primary text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+                <BookOpen className="w-3.5 h-3.5" /> From the Blog
+              </div>
+              <h2 className="text-3xl md:text-4xl font-display font-black">
+                Guides & Resources
+              </h2>
+              <p className="text-muted-foreground mt-2 max-w-xl">
+                Practical how-tos, platform tips, and sport-specific auction guides written by the BidWar team.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/blog")}
+              className="hidden sm:flex items-center gap-2 text-sm text-primary font-semibold hover:underline"
+            >
+              View all articles <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {BLOG_POSTS_META.slice(0, 3).map((post) => {
+              const cat = BLOG_CATEGORIES.find((c) => c.slug === post.category);
+              return (
+                <a
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="group flex flex-col rounded-2xl border border-border/40 bg-card/40 hover:bg-card/70 hover:border-border/70 transition-all overflow-hidden"
+                >
+                  <div className="p-6 flex flex-col gap-4 flex-1">
+                    {cat && (
+                      <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full w-fit ${cat.color} ${cat.bgColor}`}>
+                        {cat.name}
+                      </span>
+                    )}
+                    <h3 className="font-display font-bold text-base leading-snug group-hover:text-primary transition-colors line-clamp-3">
+                      {post.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground line-clamp-3 flex-1">
+                      {post.excerpt}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground/60 pt-2 border-t border-border/30">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {post.readingTimeMinutes} min read
+                      </span>
+                      <span>{new Date(post.publishedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex sm:hidden justify-center">
+            <button
+              onClick={() => navigate("/blog")}
+              className="flex items-center gap-2 text-sm text-primary font-semibold hover:underline"
+            >
+              View all articles <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA Banner ──────────────────────────────────────────────── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-8">
@@ -1276,6 +1347,7 @@ export default function Landing() {
                   { label: "Pricing", href: "#pricing" },
                   { label: "FAQ", href: "#faq" },
                   { label: "Auction Gallery", href: "#gallery" },
+                  { label: "Blog & Guides", href: "/blog" },
                   { label: "Contact Us", href: "/contact" },
                 ].map(l => (
                   <a key={l.label} href={l.href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{l.label}</a>

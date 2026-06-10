@@ -13,6 +13,7 @@
   "dependencies": {
     "@workspace/api-base": "workspace:*",
     "@workspace/api-zod": "workspace:*",
+    "@workspace/blog-data": "workspace:*",
     "@workspace/cheer-presets": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/badminton-core": "workspace:*",
