@@ -3,13 +3,17 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { inArray, eq } from "drizzle-orm";
 import { z } from "zod";
-import { isBadmintonFeatureEnabled } from "../lib/badminton-feature";
+import { isScoringFeatureEnabled } from "../lib/scoring-feature";
 
 const router = Router();
 
 router.get("/settings/features", (_req, res) => {
+  const scoring = isScoringFeatureEnabled();
   res.json({
-    badminton: isBadmintonFeatureEnabled(),
+    scoring,
+    /** Same platform gate — kept for older clients */
+    badminton: scoring,
+    cricket: scoring,
   });
 });
 

@@ -1,5 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { isOrganizerOrAdmin } from "../middleware/require-organizer";
 import {
   appendScoringEvent,
@@ -22,6 +23,8 @@ import { logger } from "../lib/logger";
 import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
 
 const router = Router();
+
+router.use(scoringFeatureMiddleware);
 
 function parseId(value: string): number | null {
   const id = parseInt(value, 10);

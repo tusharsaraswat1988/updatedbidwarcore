@@ -19,8 +19,11 @@ import {
   updateScoringVenue,
 } from "../lib/scoring-foundation-service";
 import { ScoringServiceError } from "../lib/scoring-service";
+import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 
 const router = Router({ mergeParams: true });
+
+router.use(scoringFeatureMiddleware);
 
 function tid(req: { params: Record<string, string> }): number | null {
   const n = parseInt(req.params.tournamentId ?? req.params.id, 10);

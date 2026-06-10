@@ -102,7 +102,9 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
    APP_DOMAIN=<your-app>.onrender.com
    SESSION_SECRET=<openssl rand -hex 32>
    ADMIN_PASSWORD=<strong password>
+   SCORING=true
    ```
+   `SCORING=true` enables cricket and badminton scoring in the UI and API. Without it, scoring menus stay hidden and scoring routes return 404. Legacy alias: `ENABLE_BADMINTON=true` when `SCORING` is unset.
 4. Deploy. Render assigns a `.onrender.com` domain automatically.
 
 ---

@@ -106,13 +106,12 @@ export function useInactivityLock({
       warningEndRef.current = end;
       setWarningVisible(true);
       setWarningSecondsLeft(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
-      runCountdownInterval();
 
       if (endAt === undefined) {
         getBroadcast()?.postMessage({ type: "warning", endAt: end } satisfies SyncMessage);
       }
     },
-    [warningMs, timeoutMs, runCountdownInterval],
+    [warningMs, timeoutMs],
   );
 
   const scheduleWarning = useCallback(() => {
@@ -166,9 +165,19 @@ export function useInactivityLock({
 
     return () => {
       events.forEach((e) => window.removeEventListener(e, handler));
-      clearAllTimers();
+      // Only clear the idle schedule timer — not the warning countdown (owned separately).
+      clearTimeoutRef(warningTimerRef);
     };
-  }, [enabled, locked, warningVisible, scheduleWarning, clearAllTimers]);
+  }, [enabled, locked, warningVisible, scheduleWarning]);
+
+  // Keep the warning countdown ticking while the modal is visible.
+  useEffect(() => {
+    if (!warningVisible) return;
+    runCountdownInterval();
+    return () => clearIntervalRef(countdownRef);
+  }, [warningVisible, runCountdownInterval]);
+
+  useEffect(() => () => clearAllTimers(), [clearAllTimers]);
 
   // Activity in another tab resets the idle timer here too.
   useEffect(() => {

@@ -22,7 +22,7 @@ import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
-import { getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
+import { getAdminPassword, getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
 import {
   logBidEvent,
   logPlayerAuctionStart,
@@ -45,6 +45,39 @@ import {
 import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
 
 const router = Router();
+
+const WHEEL_SPIN_DURATION_MS = 5000;
+const wheelSpinStopTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+function clearWheelSpinStop(tournamentId: number) {
+  const timer = wheelSpinStopTimers.get(tournamentId);
+  if (timer) {
+    clearTimeout(timer);
+    wheelSpinStopTimers.delete(tournamentId);
+  }
+}
+
+function scheduleWheelSpinStop(tournamentId: number) {
+  clearWheelSpinStop(tournamentId);
+  const timer = setTimeout(async () => {
+    wheelSpinStopTimers.delete(tournamentId);
+    try {
+      const [session] = await db
+        .select({ wheelSpinning: auctionSessionsTable.wheelSpinning })
+        .from(auctionSessionsTable)
+        .where(eq(auctionSessionsTable.tournamentId, tournamentId));
+      if (!session?.wheelSpinning) return;
+      await db
+        .update(auctionSessionsTable)
+        .set({ wheelSpinning: false })
+        .where(eq(auctionSessionsTable.tournamentId, tournamentId));
+      await broadcastState(tournamentId);
+    } catch (err) {
+      logger.warn({ err, tournamentId }, "fortune wheel auto-stop failed");
+    }
+  }, WHEEL_SPIN_DURATION_MS);
+  wheelSpinStopTimers.set(tournamentId, timer);
+}
 
 async function getOrCreateSession(tournamentId: number) {
   let [session] = await db
@@ -609,7 +642,8 @@ async function buildAuctionState(tournamentId: number) {
     fortuneWheelActive: session.fortuneWheelActive,
     wheelSpinning: session.wheelSpinning,
     wheelItems,
-    wheelWinner: session.wheelWinner,
+    // Hide winner on live feeds while the wheel is still spinning.
+    wheelWinner: session.wheelSpinning ? null : session.wheelWinner,
     teamPurseViewActive: session.teamPurseViewActive,
     displayOverlay: session.displayOverlay,
     displayPlayerFilter: session.displayPlayerFilter
@@ -1658,7 +1692,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
-  const masterPw = getRuntimeConfig().adminPassword;
+  const masterPw = getAdminPassword();
   const isMasterMatch = !!masterPw && safeCompare(submittedPw, masterPw);
   const isOperatorMatch = !!tournament.organizerPassword && safeCompare(submittedPw, tournament.organizerPassword);
   const previousResetCount = tournament.resetCount ?? 0;
@@ -2106,14 +2140,28 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
       patch.wheelWinner = null;
     }
   }
-  if (body.data.active === false) { patch.wheelSpinning = false; patch.wheelWinner = null; }
+  if (body.data.active === false) {
+    patch.wheelSpinning = false;
+    patch.wheelWinner = null;
+    clearWheelSpinStop(tid);
+  }
+  if (body.data.spinning === false) clearWheelSpinStop(tid);
   if (Object.keys(patch).length > 0) {
     await db
       .update(auctionSessionsTable)
       .set(patch)
       .where(eq(auctionSessionsTable.tournamentId, tid));
   }
-  res.json(await broadcastState(tid));
+  if (body.data.spinning === true) scheduleWheelSpinStop(tid);
+  invalidateStateCache(tid);
+  const state = await getCachedOrBuildState(tid);
+  broadcastToTournament(tid, { type: "auction_state", state, invalidate: [] });
+  // Operator HTTP response may include the picked winner while spin is in progress.
+  if (body.data.spinning === true && patch.wheelWinner) {
+    res.json({ ...state, wheelWinner: patch.wheelWinner as string });
+    return;
+  }
+  res.json(state);
 });
 
 // POST set active category filter
@@ -2316,10 +2364,32 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
     const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
     countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
   }
-  // cancel: countdown stays null
+
+  const sessionPatch: Record<string, unknown> = { displayCountdown: countdown };
+  // cancel: clear countdown and auto-resume if the break timer had paused the auction
+  if (body.data.action === "cancel") {
+    if (session.status === "paused" && session.lastAction === "Auction paused for break") {
+      sessionPatch.status = "active";
+      sessionPatch.lastAction = "Break cancelled — auction resumed";
+      if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {
+        sessionPatch.timerEndsAt = new Date(Date.now() + session.pausedTimeRemaining * 1000).toISOString();
+        sessionPatch.pausedTimeRemaining = null;
+      }
+      await db.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
+      auditLog(req, {
+        category: "auction",
+        action: "auction.resumed",
+        summary: "Auction resumed after break timer cancelled",
+        tournamentId: tid,
+        resource: { type: "auction_session", id: tid },
+        metadata: { reason: "break_timer_cancelled" },
+      });
+    }
+  }
+
   await db
     .update(auctionSessionsTable)
-    .set({ displayCountdown: countdown })
+    .set(sessionPatch)
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });

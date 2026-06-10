@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ArrowLeft, Loader2, Hash, Info, X, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -216,7 +217,12 @@ export default function NewTournament() {
                         <FormItem>
                           <FormLabel>Auction Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <DatePicker
+                              value={field.value ?? ""}
+                              onChange={field.onChange}
+                              placeholder="Select auction date"
+                              disablePastDates
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

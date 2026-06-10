@@ -13,6 +13,7 @@ import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Rad
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
 import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
 import { liveViewerPath } from "@/lib/tournament-navigation";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
 
@@ -145,6 +146,8 @@ export default function LinksPage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
+  const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
+
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
@@ -180,7 +183,7 @@ export default function LinksPage() {
           </CardContent>
         </Card>
 
-        {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
+        {cricketScoringActive ? (
           <Card className="border-emerald-500/25 bg-emerald-500/5">
             <CardContent className="p-6">
               <h2 className="font-display font-bold text-lg mb-1">Cricket Scoreboard (LED)</h2>

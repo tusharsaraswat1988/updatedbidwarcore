@@ -33,7 +33,7 @@ export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
-  const { badminton: badmintonFeatureEnabled } = usePlatformFeatures();
+  const { scoring: scoringPlatform } = usePlatformFeatures();
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -47,7 +47,7 @@ export default function TournamentHub() {
   const scoringEnabled = tournament?.scoringEnabled === true;
   const { data: standings, isLoading: loadingStandings } = useScoringStandings(
     tournamentId,
-    tournament?.sport === "cricket" && scoringEnabled,
+    tournament?.sport === "cricket" && scoringPlatform && scoringEnabled,
   );
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
@@ -315,7 +315,7 @@ export default function TournamentHub() {
           </div>
         )}
 
-        {tournament?.sport === "badminton" && badmintonFeatureEnabled ? (
+        {tournament?.sport === "badminton" && scoringPlatform ? (
           <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-start gap-3 flex-1">
               <div className="p-2.5 rounded-lg bg-primary/15">
@@ -337,7 +337,7 @@ export default function TournamentHub() {
           </div>
         ) : null}
 
-        {tournament?.sport === "cricket" && scoringEnabled ? (
+        {tournament?.sport === "cricket" && scoringPlatform && scoringEnabled ? (
           <>
             <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex items-start gap-3 flex-1">

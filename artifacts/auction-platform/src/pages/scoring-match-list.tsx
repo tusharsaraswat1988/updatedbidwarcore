@@ -29,6 +29,7 @@ import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match"
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar } from "lucide-react";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -61,7 +62,7 @@ export default function ScoringMatchListPage() {
   });
   const isCricket = tournament?.sport === "cricket";
   const scoringEnabled = tournament?.scoringEnabled === true;
-  const scoringActive = isCricket && scoringEnabled;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId, scoringActive);
   const { data: squadData } = useSquadReadiness(tournamentId, scoringActive);
   const qc = useQueryClient();

@@ -90,6 +90,7 @@ import {
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -292,10 +293,11 @@ export function CreateTournamentModal({
                 <Label className="text-xs text-muted-foreground">
                   Auction Date
                 </Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={form.auctionDate}
-                  onChange={f("auctionDate")}
+                  onChange={auctionDate => setForm(p => ({ ...p, auctionDate }))}
+                  placeholder="Select auction date"
+                  disablePastDates
                 />
               </div>
               <div className="space-y-1.5">
@@ -962,16 +964,14 @@ function DetailPanel({
                     <Label className="text-xs text-muted-foreground">
                       Auction Date
                     </Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       className="h-8 text-sm"
                       value={(editForm.auctionDate as string) || ""}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          auctionDate: e.target.value,
-                        }))
+                      onChange={auctionDate =>
+                        setEditForm(f => ({ ...f, auctionDate }))
                       }
+                      placeholder="Select auction date"
+                      disablePastDates
                     />
                   </div>
                   <div className="space-y-1.5">

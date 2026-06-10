@@ -236,6 +236,16 @@ export function getSessionSecret(): string {
   return getRuntimeConfig().sessionSecret;
 }
 
+/** Super-admin password from ADMIN_PASSWORD (trimmed, cached at startup). */
+export function getAdminPassword(): string {
+  return getRuntimeConfig().adminPassword;
+}
+
+/** Optional data-entry admin password from ADMIN_DATA_PASSWORD. */
+export function getAdminDataPassword(): string | undefined {
+  return getRuntimeConfig().adminDataPassword;
+}
+
 /**
  * When SERVE_STATIC is enabled, the auction-platform build must exist or startup fails.
  */

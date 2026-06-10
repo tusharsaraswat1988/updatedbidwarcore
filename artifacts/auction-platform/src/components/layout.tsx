@@ -8,8 +8,9 @@ import {
 import { auctionRoomPath, auctionResetPath, displayScreenPath, scoringPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
-import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBranding } from "@/hooks/use-branding";
+import { logoutOrganizerAccount } from "@/lib/auth";
+import { useScoringPlatformEnabled } from "@/hooks/use-platform-features";
 import { cldUrl } from "@/lib/cloudinary";
 
 interface LayoutProps {
@@ -58,6 +59,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
+  const scoringPlatform = useScoringPlatformEnabled();
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -184,10 +186,16 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
-                {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
+                {tournament?.sport === "cricket" && scoringPlatform && tournament?.scoringEnabled ? (
                   <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/scoring`)}>
                     <CircleDot className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && <span className="font-medium">Match Scoring</span>}
+                  </Link>
+                ) : null}
+                {tournament?.sport === "badminton" && scoringPlatform ? (
+                  <Link href={`/tournament/${tournamentId}/badminton`} title="Badminton Scoring" className={navCls(`/tournament/${tournamentId}/badminton`)}>
+                    <Trophy className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Badminton Scoring</span>}
                   </Link>
                 ) : null}
                 {tournament?.status === "completed" ? (

@@ -3,8 +3,24 @@ import { db } from "@workspace/db";
 import { sportsTable, sportRolesTable, roleSpecGroupsTable, roleSpecOptionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { isScoringFeatureEnabled } from "../lib/scoring-feature";
 
 const router = Router();
+
+const DEFAULT_SPORTS = [
+  { name: "Cricket", slug: "cricket" },
+  { name: "Football", slug: "football" },
+  { name: "Kabaddi", slug: "kabaddi" },
+  { name: "Badminton", slug: "badminton" },
+  { name: "Volleyball", slug: "volleyball" },
+  { name: "E-Sports", slug: "esports" },
+  { name: "Other", slug: "other" },
+] as const;
+
+function visibleSports<T extends { slug: string }>(sports: T[]): T[] {
+  if (isScoringFeatureEnabled()) return sports;
+  return sports.filter((s) => s.slug !== "badminton");
+}
 
 // ─── GET /sports ─────────────────────────────────────────────────────────────
 // List all active sports (public — used by registration forms, tournament creation)
@@ -14,7 +30,13 @@ router.get("/sports", async (_req, res) => {
     .from(sportsTable)
     .where(eq(sportsTable.active, true))
     .orderBy(sportsTable.name);
-  res.json(sports);
+
+  if (sports.length === 0) {
+    res.json(visibleSports([...DEFAULT_SPORTS]));
+    return;
+  }
+
+  res.json(visibleSports(sports));
 });
 
 // ─── GET /sports/:sportId/roles ───────────────────────────────────────────────

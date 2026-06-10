@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
+import { usePlatformFeatures } from "@/hooks/use-platform-features";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
@@ -29,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
@@ -112,6 +114,16 @@ function formatAuctionSchedulePreview(date: string, hour12: number, minute: numb
 const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const TIME_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
+const FALLBACK_SPORTS: { slug: string; name: string }[] = [
+  { slug: "cricket", name: "Cricket" },
+  { slug: "football", name: "Football" },
+  { slug: "kabaddi", name: "Kabaddi" },
+  { slug: "badminton", name: "Badminton" },
+  { slug: "volleyball", name: "Volleyball" },
+  { slug: "esports", name: "E-Sports" },
+  { slug: "other", name: "Other" },
+];
+
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
 function AuthStepIndicator({ step, total }: { step: number; total: number }) {
@@ -156,14 +168,20 @@ function CreateTournamentModal({
     bidIncrement: "5000",
   };
 
+  const { scoring: scoringPlatform } = usePlatformFeatures();
+
   // Load sports from master table
   const [sports, setSports] = useState<{ slug: string; name: string }[]>([]);
   useEffect(() => {
     fetch("/api/sports")
       .then(r => r.json())
-      .then((d: { slug: string; name: string }[]) => setSports(d))
+      .then((d: { slug: string; name: string }[]) => setSports(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
+
+  const sportOptions = (sports.length > 0 ? sports : FALLBACK_SPORTS).filter(
+    s => s.slug !== "badminton" || scoringPlatform,
+  );
 
   function handleClose() {
     setCreatedCode(null);
@@ -297,18 +315,9 @@ function CreateTournamentModal({
                     <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {sports.length > 0
-                          ? sports.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)
-                          : (
-                            <>
-                              <SelectItem value="cricket">Cricket</SelectItem>
-                              <SelectItem value="football">Football</SelectItem>
-                              <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                              <SelectItem value="volleyball">Volleyball</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </>
-                          )
-                        }
+                        {sportOptions.map(s => (
+                          <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -323,10 +332,11 @@ function CreateTournamentModal({
                 </div>
                 <div className="space-y-2">
                   <Label>Auction Date</Label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={form.auctionDate}
-                    onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                    onChange={auctionDate => setForm(f => ({ ...f, auctionDate }))}
+                    placeholder="Select auction date"
+                    disablePastDates
                   />
                 </div>
                 <div className="space-y-2">

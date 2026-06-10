@@ -62,17 +62,11 @@ import {
 } from "../lib/badminton-broadcast";
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { STANDARD_FORMAT } from "@workspace/badminton-core";
-import { isBadmintonFeatureEnabled } from "../lib/badminton-feature";
+import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 
 const router = Router({ mergeParams: true });
 
-router.use((_req, res, next) => {
-  if (!isBadmintonFeatureEnabled()) {
-    res.status(404).json({ error: "Badminton is not enabled", code: "BADMINTON_DISABLED" });
-    return;
-  }
-  next();
-});
+router.use(scoringFeatureMiddleware);
 
 type MergedParams = Record<string, string>;
 

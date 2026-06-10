@@ -107,7 +107,7 @@ function playerMatchesSearch(
 
 // ─── Countdown clock (live) ───────────────────────────────────────────────────
 
-function CountdownClock({ endsAt }: { endsAt: string }) {
+function CountdownClock({ endsAt, className }: { endsAt: string; className?: string }) {
   const [display, setDisplay] = useState(() => {
     const ms = Math.max(0, new Date(endsAt).getTime() - Date.now());
     const s = Math.ceil(ms / 1000);
@@ -122,7 +122,11 @@ function CountdownClock({ endsAt }: { endsAt: string }) {
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
   }, [endsAt]);
-  return <span className="font-display font-black tabular-nums text-lg leading-none">{display}</span>;
+  return (
+    <span className={className ?? "font-display font-black tabular-nums text-lg leading-none"}>
+      {display}
+    </span>
+  );
 }
 
 // ─── Circular timer ring ──────────────────────────────────────────────────────
@@ -192,32 +196,6 @@ function CircularTimer({
   );
 }
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
-
-function StepIndicator({
-  isActive, hasPlayer, timerActive,
-}: {
-  isActive: boolean; hasPlayer: boolean; timerActive: boolean;
-}) {
-  const step = !isActive ? 0 : !hasPlayer ? 1 : !timerActive ? 2 : 3;
-  const config = [
-    { n: "1", label: "Start the auction", hint: "Click Start Auction in the top bar to begin", color: "text-white/30" },
-    { n: "2", label: "Load next player", hint: "Click Next Player to bring up the next player for bidding", color: "text-blue-300" },
-    { n: "3", label: "Start bidding", hint: "Click Start Bidding to open the bid window for this player", color: "text-yellow-300" },
-    { n: "4", label: "Bidding in progress", hint: "Pause current bid first, then click SOLD or UNSOLD to conclude", color: "text-green-300" },
-  ][step];
-
-  return (
-    <div className="flex-shrink-0 flex items-center gap-3 px-5 py-2 border-b border-white/5 bg-white/[0.02]">
-      <div className={`flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-semibold ${config.color}`}>
-        <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black">{config.n}</span>
-        {config.label}
-      </div>
-      <span className="text-white/28 text-xs hidden sm:block">{config.hint}</span>
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AuctionOperator() {
@@ -267,7 +245,7 @@ export default function AuctionOperator() {
   const [countdownLabel, setCountdownLabel] = useState("");
   const { toast } = useToast();
   // Status-based left panel filter
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("available");
   // Player view filter popup
   const [playerFilterOpen, setPlayerFilterOpen] = useState(false);
   const [playerFilterStatus, setPlayerFilterStatus] = useState<"all" | "sold" | "unsold" | "available" | "retained">("all");
@@ -537,9 +515,21 @@ export default function AuctionOperator() {
   }
 
   async function handleCancelCountdown() {
-    const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
-    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    invalidate();
+    try {
+      const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
+      qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+      invalidate();
+      toast({
+        title: "Break timer cancelled",
+        description:
+          result.status === "active"
+            ? "Auction resumed on all screens."
+            : "Countdown cleared on all displays.",
+      });
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not cancel countdown.";
+      toast({ title: "Cancel failed", description: msg, variant: "destructive" });
+    }
   }
 
   async function handleBringUnsoldPlayers() {
@@ -836,18 +826,6 @@ export default function AuctionOperator() {
             </button>
           ) : null}
 
-          {/* Reauction last player — one-click live action */}
-          <button
-            className="h-7 px-2 flex items-center gap-1 rounded-md text-white/50 hover:text-white hover:bg-white/8 flex-shrink-0 transition-colors disabled:opacity-30 text-[10px] font-bold uppercase tracking-wide"
-            onClick={() => void handleInstantReauction()}
-            disabled={!lastSaleBid || reAuction.isPending || isPaused}
-            title={isPaused ? "Resume auction before re-auctioning" : "Reverse the last sale and start a reauction"}
-          >
-            <RotateCcw className="w-3 h-3 flex-shrink-0" />
-            <span className="hidden lg:inline">Reauction Last Player</span>
-            <span className="lg:hidden">Reauction</span>
-          </button>
-
           <div className="flex-1 min-w-0" aria-hidden />
 
           {/* Trial badge */}
@@ -1002,21 +980,6 @@ export default function AuctionOperator() {
               {connectionStatus === "connected" ? "Live" : connectionStatus === "reconnecting" ? "Reconnecting" : "Offline"}
             </span>
           </div>
-
-          {/* Active countdown badge */}
-          {currentCountdown?.endsAt && (
-            <div className="flex items-center gap-1.5 h-7 px-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-semibold flex-shrink-0">
-              <Coffee className="w-3.5 h-3.5 flex-shrink-0" />
-              <CountdownClock endsAt={currentCountdown.endsAt} />
-              <button
-                onClick={handleCancelCountdown}
-                disabled={setBreakTimerMut.isPending}
-                className="ml-1 h-4 w-4 flex items-center justify-center rounded bg-amber-500/20 hover:bg-red-500/30 hover:text-red-400 transition-colors disabled:opacity-40"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          )}
 
           {/* Right panel toggle */}
           <button
@@ -1287,12 +1250,35 @@ export default function AuctionOperator() {
 
               <div className="flex-1" />
 
-              <button
-                onClick={openCountdownDialog}
-                className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
-              >
-                <Coffee className="w-3 h-3" /> Pre Auction & Break Timer
-              </button>
+              {currentCountdown?.endsAt ? (
+                <div
+                  title={currentCountdown.message ?? "Pre Auction & Break"}
+                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/40 bg-amber-500/15 text-amber-300 flex-shrink-0"
+                >
+                  <Coffee className="w-3 h-3 flex-shrink-0" />
+                  <CountdownClock
+                    endsAt={currentCountdown.endsAt}
+                    className="font-mono font-bold tabular-nums text-sm leading-none min-w-[2.75rem] text-center"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCancelCountdown}
+                    disabled={setBreakTimerMut.isPending}
+                    title="Cancel break timer"
+                    className="h-5 w-5 flex items-center justify-center rounded bg-amber-500/25 hover:bg-red-500/35 hover:text-red-300 transition-colors disabled:opacity-40 flex-shrink-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openCountdownDialog}
+                  className="h-7 px-2.5 flex items-center gap-1.5 text-xs font-semibold rounded border border-amber-500/35 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all"
+                >
+                  <Coffee className="w-3 h-3" /> Pre Auction & Break Timer
+                </button>
+              )}
               <button
                 onClick={() => setShowFortuneWheel(true)}
                 disabled={timerActive}
@@ -1302,9 +1288,6 @@ export default function AuctionOperator() {
                 <Shuffle className="w-3 h-3" /> Fortune Wheel
               </button>
             </div>
-
-            {/* Step indicator */}
-            <StepIndicator isActive={isActive} hasPlayer={hasPlayer} timerActive={timerActive} />
 
             {/* Scrollable core */}
             <div className="flex-1 overflow-y-auto">
@@ -1459,6 +1442,20 @@ export default function AuctionOperator() {
                     </button>
                   ))}
                 </div>
+
+                {/* Reauction last player */}
+                <button
+                  onClick={() => void handleInstantReauction()}
+                  disabled={!lastSaleBid || reAuction.isPending || isPaused}
+                  title={isPaused ? "Resume auction before re-auctioning" : "Reverse the last sale and start a reauction [Z]"}
+                  className="w-full flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 text-orange-300 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed hover:bg-orange-500/20 enabled:hover:scale-[1.01]"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  Reauction Last Player
+                  <span className="text-[10px] font-normal opacity-55">
+                    {isPaused ? "Resume first [Z]" : !lastSaleBid ? "No recent sale [Z]" : "Undo last sale [Z]"}
+                  </span>
+                </button>
 
                 {/* NEXT PLAYER + START/STOP BIDDING */}
                 <div className="grid grid-cols-5 gap-2">

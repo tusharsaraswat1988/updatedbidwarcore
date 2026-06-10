@@ -6,6 +6,7 @@
  */
 import { Router } from "express";
 import { pool } from "@workspace/db";
+import { getAdminPassword } from "../lib/runtime-env";
 
 const router = Router();
 
@@ -142,7 +143,7 @@ function randomInt(min: number, max: number) { return Math.floor(Math.random() *
 router.post("/seed/demo", async (req, res) => {
   // Auth check
   const key = req.headers["x-seed-key"];
-  const adminPass = process.env.ADMIN_PASSWORD;
+  const adminPass = getAdminPassword();
   if (!adminPass || key !== adminPass) {
     res.status(401).json({ error: "Unauthorized — wrong or missing X-Seed-Key" });
     return;

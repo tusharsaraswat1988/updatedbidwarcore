@@ -20,6 +20,14 @@ export {
 export { parseOptionalEmail } from "./email.ts";
 
 export {
+  getIstTodayDateString,
+  validateAuctionDate,
+  parseAuctionDateString,
+  AUCTION_DATE_PAST_ERROR,
+  type AuctionDateValidationResult,
+} from "./auction-date.ts";
+
+export {
   OWNER_APP_BASE,
   ownerJoinPath,
   ownerDashboardAppPath,

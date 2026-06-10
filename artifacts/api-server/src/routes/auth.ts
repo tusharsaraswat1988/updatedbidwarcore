@@ -16,7 +16,7 @@ import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
-import { buildPublicUrl } from "../lib/runtime-env";
+import { buildPublicUrl, getAdminDataPassword, getAdminPassword } from "../lib/runtime-env";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
   DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
@@ -148,13 +148,8 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 
 router.post("/auth/admin/login", authLimiter, (req, res) => {
-  const masterPw = process.env.ADMIN_PASSWORD;
-  const dataPw = process.env.ADMIN_DATA_PASSWORD;
-
-  if (!masterPw && !dataPw) {
-    res.status(503).json({ error: "Admin login not configured. Set ADMIN_PASSWORD or ADMIN_DATA_PASSWORD." });
-    return;
-  }
+  const masterPw = getAdminPassword();
+  const dataPw = getAdminDataPassword();
 
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -234,8 +229,8 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const masterPw = process.env.ADMIN_PASSWORD;
-  const dataPw = process.env.ADMIN_DATA_PASSWORD;
+  const masterPw = getAdminPassword();
+  const dataPw = getAdminDataPassword();
 
   if (masterPw && safeCompare(body.data.password, masterPw)) {
     const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };

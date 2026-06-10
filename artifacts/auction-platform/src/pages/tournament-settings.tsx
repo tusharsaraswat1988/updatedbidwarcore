@@ -11,6 +11,7 @@ import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { BannerFrame } from "@/components/display/banner-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -545,7 +546,12 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
-                  <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                  <DatePicker
+                    value={editForm.auctionDate as string || ""}
+                    onChange={auctionDate => setEditForm(f => ({ ...f, auctionDate }))}
+                    placeholder="Select auction date"
+                    disablePastDates
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>

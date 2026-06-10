@@ -47,6 +47,7 @@ export function createTournamentsRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
+
     const [row] = await db.insert(tournamentsTable).values({
       name: d.name, sport: d.sport ?? "cricket",
       venue: d.venue ?? null, auctionDate: d.auctionDate ?? null,

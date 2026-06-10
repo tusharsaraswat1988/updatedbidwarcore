@@ -28,6 +28,7 @@ import {
   listFixtures,
   listVenues,
 } from "@/lib/scoring-foundation-api";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { scoringPath, cricketPublicPath } from "@/lib/tournament-navigation";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
@@ -44,7 +45,7 @@ export default function ScoringSchedulePage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
   const { data: draws, isLoading: drawsLoading } = useQuery({
     queryKey: ["scoring-draws", tournamentId],

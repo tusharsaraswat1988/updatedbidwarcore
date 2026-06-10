@@ -222,7 +222,8 @@ export function createAuctionRouter(db: LocalDb) {
       fortuneWheelActive: session.fortuneWheelActive,
       wheelSpinning: session.wheelSpinning ?? false,
       wheelItems,
-      wheelWinner: session.wheelWinner, teamPurseViewActive: session.teamPurseViewActive,
+      wheelWinner: session.wheelSpinning ? null : session.wheelWinner,
+      teamPurseViewActive: session.teamPurseViewActive,
       isBreak: session.isBreak ?? false,
       breakEndsAt: session.breakEndsAt ?? null,
       displayCountdown,
@@ -730,7 +731,21 @@ export function createAuctionRouter(db: LocalDb) {
       const endsAt = new Date(baseTime + extendSecs * 1000).toISOString();
       countdown = JSON.stringify({ type: "break", endsAt, message: existingCountdown.message });
     }
-    await db.update(auctionSessionsTable).set({ displayCountdown: countdown }).where(eq(auctionSessionsTable.tournamentId, tid));
+
+    const sessionPatch: Record<string, unknown> = { displayCountdown: countdown };
+    if (body.data.action === "cancel") {
+      if (session.status === "paused" && session.lastAction === "Auction paused for break") {
+        sessionPatch.status = "active";
+        sessionPatch.lastAction = "Break cancelled — auction resumed";
+        if (session.pausedTimeRemaining && session.pausedTimeRemaining > 0 && session.currentPlayerId) {
+          sessionPatch.timerEndsAt = new Date(Date.now() + session.pausedTimeRemaining * 1000).toISOString();
+          sessionPatch.pausedTimeRemaining = null;
+        }
+        await db.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
+      }
+    }
+
+    await db.update(auctionSessionsTable).set(sessionPatch).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid));
   });
 
