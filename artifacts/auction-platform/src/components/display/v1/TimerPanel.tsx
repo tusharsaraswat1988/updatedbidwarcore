@@ -8,14 +8,15 @@ function fmt(secs: number): string {
 }
 
 /**
- * TIMER PANEL — production 30s countdown (state.countdown). Urgency at ≤5s.
+ * TIMER PANEL — countdown with progress bar scaled to tournament timer settings.
  */
 export const TimerPanel = memo(function TimerPanel({ view }: { view: LedView }) {
-  const { state, nextMinLabel, incrementLabel } = view;
+  const { state, nextMinLabel, incrementLabel, timerCeiling } = view;
   const countdown = state.countdown;
   const live = state.isBidding;
   const urgent = live && countdown <= 5 && countdown > 0;
-  const pct = Math.max(0, Math.min(100, (countdown / 30) * 100));
+  const ceiling = Math.max(1, timerCeiling);
+  const pct = Math.max(0, Math.min(100, (countdown / ceiling) * 100));
 
   return (
     <div className="flex flex-col items-end justify-between gap-4 h-full">

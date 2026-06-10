@@ -133,6 +133,8 @@ export type LedAuctionStateSlice = {
   lastPurseBooster?: { teamName: string; amount: number } | null;
   isBreak?: boolean;
   breakEndsAt?: string | null;
+  pausedTimeRemaining?: number | null;
+  bidTimerSeconds?: number | null;
 };
 
 export type LiveBannerDTO = {
@@ -185,6 +187,7 @@ export type LedView = {
   teamSquads: LedTeamSquad[];
   filteredPlayers: LedPlayer[];
   topSoldPlayers: LedTopSold[];
+  timerCeiling: number;
   loading: boolean;
   error: string | null;
   connectionStatus: "connected" | "connecting" | "disconnected" | "error" | "reconnecting";

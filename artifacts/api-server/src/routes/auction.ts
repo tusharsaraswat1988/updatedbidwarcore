@@ -627,6 +627,7 @@ async function buildAuctionState(tournamentId: number) {
     lastSoldPlayer,
     lastPurseBooster,
     ledPurseToast,
+    pausedTimeRemaining: session.pausedTimeRemaining ?? null,
   };
 }
 

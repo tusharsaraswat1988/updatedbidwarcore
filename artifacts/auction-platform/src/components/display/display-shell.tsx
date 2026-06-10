@@ -8,12 +8,12 @@ import {
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useLedView } from "@/lib/led-view/use-led-view";
-import { displayThemeToStageTheme } from "@/lib/led-stage-theme";
 import type { DisplayTheme } from "@/lib/display-theme";
+import { DISPLAY_THEMES } from "@/lib/display-theme";
 import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { DisplayConnectionBanner } from "./display-connection-banner";
-import { LedStageContent, StageThemeProvider } from "./v1";
+import { LedStageContent, StageThemeProvider, DevThemePicker } from "./v1";
 import type { AudioSettings } from "@/lib/audio-manager";
 
 /**
@@ -41,20 +41,7 @@ export function DisplayShell({
     },
   });
 
-  const stageTheme = useMemo(
-    () =>
-      displayThemeToStageTheme(
-        theme ?? {
-          id: "broadcast-gold",
-          label: "Broadcast Gold",
-          dot: "#d97706",
-          bg: "#0c0800",
-          secondaryGlow: "#d97706",
-          accentColor: "#d97706",
-        },
-      ),
-    [theme],
-  );
+  const resolvedTheme = theme ?? DISPLAY_THEMES["stadium-gold"];
 
   const displayMode = useMemo(() => deriveAuctionDisplayMode(state), [state]);
 
@@ -114,8 +101,9 @@ export function DisplayShell({
         isStaleFeed ? "ring-2 ring-inset ring-amber-500/25" : ""
       }`}
     >
-      <StageThemeProvider theme={stageTheme}>
+      <StageThemeProvider initialTheme={resolvedTheme}>
         <LedStageContent view={view} />
+        <DevThemePicker />
       </StageThemeProvider>
 
       <DisplayConnectionBanner status={connectionStatus} />

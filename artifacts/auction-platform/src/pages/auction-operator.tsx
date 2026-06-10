@@ -54,7 +54,7 @@ import {
   Play, Pause, SkipForward, CheckCircle, XCircle,
   Shuffle, User, Trophy, Clock, Gavel, RotateCcw, AlertTriangle,
   Settings2, Timer, LayoutGrid, Tag, X, Search,
-  Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert, Star,
+  Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
   Wifi, WifiOff, RefreshCw, Coffee, PlusCircle, ChevronDown,
 } from "lucide-react";
@@ -1572,90 +1572,125 @@ export default function AuctionOperator() {
           <aside className={`border-l border-white/8 flex-col min-h-0 overflow-hidden bg-[#141720] ${mobilePanel === "teams" ? "flex" : "hidden"} ${rightCollapsed ? "lg:hidden" : "lg:flex"}`}>
 
             {/* Teams & Purse */}
-            <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "52%" }}>
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/8 flex-shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-white/40" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-white/50">Teams &amp; Purse</span>
+            <div className="flex flex-col flex-shrink-0" style={{ maxHeight: "55%" }}>
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/8 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-white/45" />
+                  <span className="text-sm font-bold uppercase tracking-wider text-white/60">Teams &amp; Purse</span>
                 </div>
-                <a href={`/tournament/${tournamentId}/teams`} className="text-[9px] text-white/25 hover:text-white/55 transition-colors flex items-center gap-0.5">
-                  All <ExternalLink className="w-2.5 h-2.5" />
+                <a href={`/tournament/${tournamentId}/teams`} className="text-[11px] text-white/35 hover:text-white/65 transition-colors flex items-center gap-1">
+                  All <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
               <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 grid grid-cols-2 gap-1.5">
+                <div className="p-2.5 flex flex-col gap-2">
                   {(teams || []).map(team => {
-                    const purseData  = teamPurses?.find(p => p.teamId === team.id);
-                    const capacity   = purseData?.effectiveCapacity ?? team.purse;
-                    const boosterTotal = purseData?.boosterTotal ?? 0;
-                    const originalPurse = purseData?.originalPurse ?? team.purse;
-                    const spendable  = purseData?.spendablePurse ?? (capacity - (team.purseUsed || 0));
-                    const reserved   = purseData?.reservePurse ?? 0;
+                    const purseData = teamPurses?.find(p => p.teamId === team.id);
+                    const spent = purseData?.purseUsed ?? team.purseUsed ?? 0;
+                    const spendable = purseData?.spendablePurse ?? ((purseData?.effectiveCapacity ?? team.purse) - spent);
+                    const reserved = purseData?.reservePurse ?? 0;
                     const slotsNeeded = purseData?.slotsRequired ?? 0;
-                    const bought     = purseData?.playersBought ?? 0;
-                    const maxSquad   = purseData?.maximumSquadSize ?? 0;
+                    const bought = purseData?.playersBought ?? 0;
+                    const maxSquad = purseData?.maximumSquadSize ?? 0;
                     const maxReached = maxSquad > 0 && bought >= maxSquad;
-                    const isLeading  = state?.currentBidTeamId === team.id;
-                    const usedPct    = capacity > 0 ? Math.min(100, Math.round(((team.purseUsed || 0) / capacity) * 100)) : 0;
+                    const isLeading = state?.currentBidTeamId === team.id;
+                    const capacity = purseData?.effectiveCapacity ?? team.purse;
+                    const usedPct = capacity > 0 ? Math.min(100, Math.round((spent / capacity) * 100)) : 0;
                     return (
-                      <div key={team.id}
-                        className={`rounded-lg p-2 border transition-all ${isLeading ? "border-2 scale-[1.02]" : "border-white/8"}`}
-                        style={{ borderColor: isLeading ? team.color || "#fff" : undefined, boxShadow: isLeading ? `0 0 12px ${team.color}33` : undefined, backgroundColor: `${team.color || "#888"}08` }}
+                      <div
+                        key={team.id}
+                        className={`rounded-xl p-3 border transition-all ${isLeading ? "border-2" : "border-white/10"}`}
+                        style={{
+                          borderColor: isLeading ? team.color || "#fff" : undefined,
+                          boxShadow: isLeading ? `0 0 14px ${team.color}33` : undefined,
+                          backgroundColor: `${team.color || "#888"}0c`,
+                        }}
                       >
-                        <div className="flex items-center gap-1.5 mb-1">
+                        <div className="flex items-start gap-3 mb-2.5">
                           {team.logoUrl ? (
-                            <img src={team.logoUrl} alt={team.name} className="w-5 h-5 rounded object-contain flex-shrink-0" />
+                            <img
+                              src={team.logoUrl}
+                              alt={team.name}
+                              className="w-11 h-11 rounded-md object-contain flex-shrink-0 bg-white/5 p-0.5"
+                            />
                           ) : (
-                            <div className="w-5 h-5 rounded text-[8px] font-mono font-black flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${team.color}25`, color: team.color || "#fff" }}>
+                            <div
+                              className="w-11 h-11 rounded-md text-xs font-mono font-black flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: `${team.color}25`, color: team.color || "#fff" }}
+                            >
                               {team.shortCode?.slice(0, 3) || "T"}
                             </div>
                           )}
-                          <span className="text-[10px] font-bold truncate text-white/85">{team.shortCode || team.name}</span>
-                          {isLeading && <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: team.color || "#fff" }} />}
-                          {reserved > 0 && (
-                            <span title={`${formatShortIndianRupee(reserved)} reserved for ${slotsNeeded} slot${slotsNeeded !== 1 ? "s" : ""}`} className="flex-shrink-0 ml-auto">
-                              <ShieldAlert className="w-2.5 h-2.5 text-amber-400/60" />
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-xs font-mono font-bold ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
-                          {maxReached ? "FULL" : formatShortIndianRupee(spendable)}
-                        </p>
-                        <p className="text-[8px] text-white/30 leading-none">max bid</p>
-                        {boosterTotal > 0 && (
-                          <p className="text-[8px] text-amber-400/70 font-mono leading-tight mt-0.5">
-                            +{formatShortIndianRupee(boosterTotal)} boost
-                          </p>
-                        )}
-                        <p className="text-[8px] text-white/25 font-mono leading-tight">
-                          cap {formatShortIndianRupee(capacity)}
-                        </p>
-                        {reserved > 0 && (
-                          <p className="text-[9px] text-amber-400/60 font-mono leading-tight mt-0.5">+{formatShortIndianRupee(reserved)} rsv · {slotsNeeded}slot{slotsNeeded !== 1 ? "s" : ""}</p>
-                        )}
-                        <div className="mt-1 h-1 bg-white/8 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }} />
-                        </div>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className={`text-[9px] font-medium ${maxReached ? "text-red-400" : slotsNeeded > 0 ? "text-amber-400" : bought > 0 ? "text-green-400/70" : "text-white/30"}`}>
-                            {bought}{maxSquad > 0 ? `/${maxSquad}` : ""}p
-                          </span>
-                          {slotsNeeded > 0 && !maxReached && <span className="text-[8px] text-amber-400/60">need {slotsNeeded}</span>}
-                          {maxReached && <span className="text-[8px] text-red-400 font-bold">FULL</span>}
-                        </div>
-                        {purseData?.topPlayerName && (
-                          <div className="flex items-center gap-0.5 mt-0.5 min-w-0">
-                            <Star className="w-2 h-2 flex-shrink-0 text-amber-400/50" />
-                            <span className="text-[8px] text-white/40 truncate">{purseData.topPlayerName}</span>
-                            {purseData.topPlayerAmount != null && (
-                              <span className="text-[8px] font-mono text-amber-400/60 flex-shrink-0 ml-auto tabular-nums">{formatShortIndianRupee(purseData.topPlayerAmount)}</span>
-                            )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold leading-tight text-white truncate">{team.name}</p>
+                              {isLeading && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase flex-shrink-0"
+                                  style={{ color: team.color || "#fff", backgroundColor: `${team.color || "#fff"}18` }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: team.color || "#fff" }} />
+                                  Lead
+                                </span>
+                              )}
+                            </div>
+                            {team.shortCode ? (
+                              <p className="text-[11px] text-white/40 mt-0.5">{team.shortCode}</p>
+                            ) : null}
                           </div>
-                        )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Max Bid</span>
+                            <span className={`text-base font-mono font-bold tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
+                              {maxReached ? "SQUAD FULL" : formatShortIndianRupee(spendable)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Squad</span>
+                            <span className="text-sm font-semibold text-white/90 tabular-nums text-right">
+                              {bought}
+                              {maxSquad > 0 ? ` / ${maxSquad}` : ""} players
+                              <span className="text-white/35 mx-1">·</span>
+                              <span className="text-white/75">{formatShortIndianRupee(spent)} spent</span>
+                            </span>
+                          </div>
+
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">Reserve</span>
+                            <span className="text-sm font-mono font-semibold text-amber-400/90 tabular-nums text-right">
+                              {reserved > 0 ? (
+                                <>
+                                  {formatShortIndianRupee(reserved)}
+                                  {slotsNeeded > 0 ? (
+                                    <span className="text-amber-300/70 font-sans font-medium">
+                                      {" "}
+                                      · {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <span className="text-white/35">—</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${usedPct}%`, backgroundColor: team.color || "#888" }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[10px] text-white/30 tabular-nums">
+                          {formatShortIndianRupee(spent)} of {formatShortIndianRupee(capacity)} used
+                        </p>
                       </div>
                     );
                   })}
-                  {!teams?.length && <p className="col-span-2 text-center text-xs text-white/25 py-4">No teams</p>}
+                  {!teams?.length && <p className="text-center text-sm text-white/30 py-6">No teams</p>}
                 </div>
               </ScrollArea>
             </div>

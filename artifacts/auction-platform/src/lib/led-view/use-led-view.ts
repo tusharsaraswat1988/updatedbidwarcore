@@ -155,6 +155,7 @@ const EMPTY_VIEW: LedView = {
   teamSquads: [],
   filteredPlayers: [],
   topSoldPlayers: [],
+  timerCeiling: 30,
   loading: true,
   error: null,
   connectionStatus: "connecting",
@@ -272,6 +273,14 @@ export function useLedView(
       !fortuneWheelActive &&
       !teamPurseViewActive &&
       !!state?.timerEndsAt;
+
+    const bidTimerSecs =
+      state?.bidTimerSeconds ?? tournament.bidTimerSeconds ?? 15;
+    const startTimerSecs = state?.timerSeconds ?? tournament.timerSeconds ?? 30;
+    const timerCeiling = Math.max(
+      1,
+      isBidding && state?.timerType === "bid" ? bidTimerSecs : startTimerSecs,
+    );
 
     let countdown = 0;
     if (state?.timerEndsAt) {
@@ -555,13 +564,14 @@ export function useLedView(
         type: breakType,
         message: breakMessage,
       },
-      pausedSeconds: null,
+      pausedSeconds: stateExt?.pausedTimeRemaining ?? null,
       teamPurseViewActive,
       displayOverlay: overlay,
       displayPlayerFilter: filter,
       teamSquads,
       filteredPlayers,
       topSoldPlayers,
+      timerCeiling,
       loading: false,
       error: error ? String(error) : null,
       connectionStatus,
