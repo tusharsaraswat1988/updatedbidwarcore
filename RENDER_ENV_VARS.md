@@ -35,7 +35,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `SESSION_SECRET` | Yes | 64-char hex (`openssl rand -hex 32`) | Secret | API exits: session secret missing or &lt; 32 chars; auth breaks |
 | `ADMIN_PASSWORD` | Yes | Strong password string | Secret | API exits: "ADMIN_PASSWORD is required"; admin login disabled |
 | `SERVE_STATIC` | Yes | `true` | Dashboard | Without build + static serving, UI returns 404; defaults to `true` in prod |
-| `PORT` | Yes | `10000` (Render-assigned) | **Injected by Render** | API exits: "PORT is required" if not injected |
+| `PORT` | No | *(leave unset on Render)* | **Injected by Render** | Render assigns the port automatically. **Do not set `PORT=3000`** in the dashboard — it can cause "no open ports detected". The app reads `process.env.PORT` at startup. |
 
 \* `NEON_DATABASE_URL` is an accepted alias for `DATABASE_URL` (takes priority when both are set).
 
@@ -90,6 +90,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 | Name | Why |
 |------|-----|
+| `PORT=3000` (manual override) | Let Render inject `PORT` — overriding it often causes port scan timeout |
 | `BYPASS_OTP=true` | Startup fails in production |
 | `EXTRA_CORS_ORIGINS` | Development-only CORS helper |
 | `API_PORT`, `FRONTEND_PORT`, `WEB_PORT`, `OWNER_APP_PORT` | Split-dev Vite ports only |
