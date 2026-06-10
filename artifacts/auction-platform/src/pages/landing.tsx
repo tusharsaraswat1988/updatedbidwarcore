@@ -1661,9 +1661,9 @@ export default function Landing() {
                   <Phone className="w-3.5 h-3.5 flex-shrink-0 text-green-400" />
                   +91 8707488250
                 </a>
-                <a href="https://www.bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+                <a href="https://bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
                   <Globe className="w-3.5 h-3.5 flex-shrink-0" />
-                  www.bidwar.in
+                  bidwar.in
                 </a>
               </div>
             </div>

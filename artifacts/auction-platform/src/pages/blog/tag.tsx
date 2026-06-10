@@ -24,7 +24,7 @@ export default function TagPage({ slug }: TagPageProps) {
   }
 
   const posts = getPostsByTag(slug);
-  const canonicalUrl = `https://www.bidwar.in/blog/tag/${slug}`;
+  const canonicalUrl = `https://bidwar.in/blog/tag/${slug}`;
 
   return (
     <BlogLayout>

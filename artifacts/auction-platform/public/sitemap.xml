@@ -9,19 +9,19 @@
 
   <!-- Core marketing pages -->
   <url>
-    <loc>https://www.bidwar.in/</loc>
+    <loc>https://bidwar.in/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/upcoming-auctions</loc>
+    <loc>https://bidwar.in/upcoming-auctions</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/contact</loc>
+    <loc>https://bidwar.in/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <lastmod>2026-06-01</lastmod>
@@ -29,42 +29,42 @@
 
   <!-- Legal pages (low priority, no-index in meta but listed for crawl) -->
   <url>
-    <loc>https://www.bidwar.in/legal/terms</loc>
+    <loc>https://bidwar.in/legal/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://www.bidwar.in/legal/privacy</loc>
+    <loc>https://bidwar.in/legal/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://www.bidwar.in/legal/acceptable-use</loc>
+    <loc>https://bidwar.in/legal/acceptable-use</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
   <!-- Core SEO landing pages -->
   <url>
-    <loc>https://www.bidwar.in/cricket-auction-software</loc>
+    <loc>https://bidwar.in/cricket-auction-software</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/football-player-auction</loc>
+    <loc>https://bidwar.in/football-player-auction</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/kabaddi-auction-platform</loc>
+    <loc>https://bidwar.in/kabaddi-auction-platform</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/tournament-auction-platform</loc>
+    <loc>https://bidwar.in/tournament-auction-platform</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <lastmod>2026-06-01</lastmod>
@@ -72,37 +72,37 @@
 
   <!-- Sport-specific SEO landing pages -->
   <url>
-    <loc>https://www.bidwar.in/basketball-auction-software</loc>
+    <loc>https://bidwar.in/basketball-auction-software</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-11</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/badminton-auction-platform</loc>
+    <loc>https://bidwar.in/badminton-auction-platform</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-11</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/volleyball-player-auction</loc>
+    <loc>https://bidwar.in/volleyball-player-auction</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-11</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/esports-auction-system</loc>
+    <loc>https://bidwar.in/esports-auction-system</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/business-league-auction</loc>
+    <loc>https://bidwar.in/business-league-auction</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-01</lastmod>
   </url>
   <url>
-    <loc>https://www.bidwar.in/live-player-bidding</loc>
+    <loc>https://bidwar.in/live-player-bidding</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <lastmod>2026-06-01</lastmod>

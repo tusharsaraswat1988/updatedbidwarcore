@@ -13,7 +13,7 @@ type Policy = {
 };
 
 const CONTACT_BLOCK = `BidWar
-Website: www.bidwar.in
+Website: bidwar.in
 Instagram / Facebook: @bidwar.in  ·  YouTube: @bidwarofficial
 Support: bidwarsupport@gmail.com  ·  +91 8707488250
 Billing Entity: CWP Detailers & Motors  ·  GSTIN: 09BYWPS9468R3ZG

@@ -48,7 +48,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "cricket-auction-software": {
     title: "Cricket Auction Software | IPL-Style Player Auction Platform — BidWar",
     description: "Run professional cricket player auctions with BidWar — IPL-style categories, team purse limits, LED broadcast display, and mobile owner panels. Free trial for 2 teams. No credit card.",
-    canonical: "https://www.bidwar.in/cricket-auction-software",
+    canonical: "https://bidwar.in/cricket-auction-software",
     eyebrow: "Cricket Auction Software",
     h1: <>IPL-Style <span className="text-primary">Cricket Auction</span> Software for Local Leagues</>,
     subheading: "Run franchise cricket player auctions the way the IPL does — player categories, team purse limits, real-time mobile bidding, and a broadcast-quality LED display that has the whole room on its feet.",
@@ -131,7 +131,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "football-player-auction": {
     title: "Football Player Auction Software | Live Franchise Bidding — BidWar",
     description: "Run live football player auctions with BidWar — position-based categories, team budgets, mobile owner panels, and broadcast LED display. Free trial available. No credit card.",
-    canonical: "https://www.bidwar.in/football-player-auction",
+    canonical: "https://bidwar.in/football-player-auction",
     eyebrow: "Football Player Auction",
     h1: <>Football Player <span className="text-primary">Auction Software</span> for Franchise Leagues</>,
     subheading: "Conduct live football franchise player auctions with real-time bidding, position-based categories, team budget management, and a broadcast display — from local 5-a-side leagues to full ISL-style championships.",
@@ -215,7 +215,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "kabaddi-auction-platform": {
     title: "Kabaddi Auction Platform | PKL-Style Player Bidding — BidWar",
     description: "Professional kabaddi auction platform for PKL-style franchise leagues. Raider, defender, and all-rounder categories, live bidding, LED broadcast display, and team owner mobile panels. Free trial.",
-    canonical: "https://www.bidwar.in/kabaddi-auction-platform",
+    canonical: "https://bidwar.in/kabaddi-auction-platform",
     eyebrow: "Kabaddi Auction Platform",
     h1: <>Kabaddi Auction Platform for <span className="text-primary">PKL-Style</span> Franchise Leagues</>,
     subheading: "Run professional kabaddi franchise auctions inspired by the Pro Kabaddi League — raider, defender, and all-rounder categories, team purse management, and a live broadcast display that electrifies your audience.",
@@ -299,7 +299,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "esports-auction-system": {
     title: "Esports Auction System | Live Gaming Team Draft Platform — BidWar",
     description: "Professional esports player auction and team draft system. Role-based categories, real-time bidding, team manager panels, and live display for BGMI, Valorant, CS2 and college esports leagues.",
-    canonical: "https://www.bidwar.in/esports-auction-system",
+    canonical: "https://bidwar.in/esports-auction-system",
     eyebrow: "Esports Auction System",
     h1: <>Esports Auction System for <span className="text-primary">Franchise Drafts</span> and Player Bidding</>,
     subheading: "Run professional esports franchise player auctions with role-based categories — IGL, entry fragger, support, AWPer — real-time bidding from team managers, and a live display screen for your LAN or online event.",
@@ -383,7 +383,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "business-league-auction": {
     title: "Business Sports League Auction Software | Corporate Cricket & Football — BidWar",
     description: "Run professional corporate sports franchise auctions with BidWar — sponsor branding, Broadcast Overlay, mobile bidding, and LED display. For cricket, football, and kabaddi business leagues.",
-    canonical: "https://www.bidwar.in/business-league-auction",
+    canonical: "https://bidwar.in/business-league-auction",
     eyebrow: "Business Sports League Auction",
     h1: <>Business Sports League <span className="text-primary">Auction Software</span> for Corporate Events</>,
     subheading: "Transform your corporate sports day into a professional franchise auction event — sponsor branding on the display screen, mobile bidding for executives, YouTube Live streaming overlay, and real-time analytics.",
@@ -467,7 +467,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "live-player-bidding": {
     title: "Live Player Bidding Platform | Real-Time Sports Auction Software — BidWar",
     description: "Real-time live player bidding for sports tournaments. Team owner mobile panels, LED broadcast display, operator control — all synced live in under 1 second across every connected screen.",
-    canonical: "https://www.bidwar.in/live-player-bidding",
+    canonical: "https://bidwar.in/live-player-bidding",
     eyebrow: "Live Player Bidding Platform",
     h1: <>Live Player <span className="text-primary">Bidding Platform</span> for Sports Auctions</>,
     subheading: "A purpose-built real-time bidding engine — team owners bid from their phones, the operator controls the session, and a broadcast display shows the live action. All screens sync in under one second, every time.",
@@ -551,7 +551,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "tournament-auction-platform": {
     title: "Tournament Auction Platform | Multi-Sport Franchise Bidding — BidWar",
     description: "BidWar is India's tournament auction platform — cricket, football, kabaddi, esports, and all franchise sports. Real-time bidding, LED display, mobile owner panels, and post-event analytics.",
-    canonical: "https://www.bidwar.in/tournament-auction-platform",
+    canonical: "https://bidwar.in/tournament-auction-platform",
     eyebrow: "Tournament Auction Platform",
     h1: <>India's <span className="text-primary">Tournament Auction Platform</span> for Franchise Sports</>,
     subheading: "From cricket to kabaddi, football to esports — BidWar is the complete tournament auction infrastructure. Player categories, purse management, live bidding, broadcast display, and analytics for every sport, every size.",
@@ -635,7 +635,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "basketball-auction-software": {
     title: "Basketball Auction Software | Franchise Player Bidding — BidWar",
     description: "Run professional basketball franchise player auctions with BidWar. Position-based categories, team budgets, mobile owner bidding, and broadcast LED display. Free trial for 2 teams. No credit card.",
-    canonical: "https://www.bidwar.in/basketball-auction-software",
+    canonical: "https://bidwar.in/basketball-auction-software",
     eyebrow: "Basketball Auction Software",
     h1: <>Basketball <span className="text-primary">Franchise Auction</span> Software for Local Leagues</>,
     subheading: "Run live basketball franchise player auctions with position-based categories — guards, forwards, and centers — team budgets, one-tap mobile bidding, and a broadcast-quality LED display that puts your event on another level.",
@@ -718,7 +718,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "badminton-auction-platform": {
     title: "Badminton Auction Platform | Franchise Player Bidding & Live Scoring — BidWar",
     description: "Run live badminton franchise player auctions with BidWar. Category bidding (singles, doubles, mixed), team budgets, mobile owner panels, LED display, and a built-in real-time badminton scoring system. Free trial.",
-    canonical: "https://www.bidwar.in/badminton-auction-platform",
+    canonical: "https://bidwar.in/badminton-auction-platform",
     eyebrow: "Badminton Auction Platform",
     h1: <>Badminton <span className="text-primary">Franchise Auction</span> with Built-In Live Scoring</>,
     subheading: "BidWar is the only platform that combines a professional franchise badminton player auction with a built-in real-time scoring system — run your auction day and your match day on the same platform.",
@@ -801,7 +801,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "volleyball-player-auction": {
     title: "Volleyball Player Auction Software | Franchise Bidding Platform — BidWar",
     description: "Run live volleyball franchise player auctions with BidWar. Position categories (setter, libero, outside hitter, middle blocker), team budgets, mobile owner panels, and broadcast LED display. Free trial for 2 teams.",
-    canonical: "https://www.bidwar.in/volleyball-player-auction",
+    canonical: "https://bidwar.in/volleyball-player-auction",
     eyebrow: "Volleyball Player Auction",
     h1: <>Volleyball <span className="text-primary">Franchise Auction</span> Platform for Local Leagues</>,
     subheading: "Run professional volleyball franchise player auctions with position-based categories — setters, liberos, hitters, and blockers — team budgets, one-tap mobile bidding, and a broadcast-quality LED display that energizes your event.",
@@ -939,7 +939,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
         title={config.title}
         description={config.description}
         canonical={config.canonical}
-        ogImage="https://www.bidwar.in/opengraph.jpg"
+        ogImage="https://bidwar.in/opengraph.jpg"
       />
       <SportLandingSchemaMarkup
         name={config.breadcrumbLabel}

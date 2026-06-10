@@ -175,7 +175,7 @@ export function wrapBidWarEmailShell(params: BidWarEmailShellParams): string {
 
 /** Generic branded layout for simpler transactional emails. */
 export function wrapEmailLayout(params: EmailLayoutParams): string {
-  const appUrl = normalizeAppUrl(params.appUrl ?? "https://www.bidwar.in");
+  const appUrl = normalizeAppUrl(params.appUrl ?? "https://bidwar.in");
   const ctaBlock =
     params.ctaLabel && params.ctaUrl
       ? `<tr><td class="email-pad" style="padding:8px 32px 24px;">${bidwarCtaButton(params.ctaLabel, params.ctaUrl)}</td></tr>`

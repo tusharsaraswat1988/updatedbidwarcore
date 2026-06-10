@@ -25,7 +25,7 @@ export default function AuthorPage({ slug }: AuthorPageProps) {
   }
 
   const posts = getPostsByAuthor(slug);
-  const canonicalUrl = `https://www.bidwar.in/blog/author/${slug}`;
+  const canonicalUrl = `https://bidwar.in/blog/author/${slug}`;
 
   const authorSchema = {
     "@context": "https://schema.org",

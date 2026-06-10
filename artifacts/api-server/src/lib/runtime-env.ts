@@ -154,7 +154,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
   const appDomainRaw = process.env.APP_DOMAIN?.trim();
   if (!appDomainRaw) {
     errors.push(
-      "APP_DOMAIN is required (comma-separated hostnames, e.g. bidwar.in,www.bidwar.in)",
+      "APP_DOMAIN is required (comma-separated hostnames, e.g. bidwar.in,bidwar.in)",
     );
   } else {
     const hosts = parseCommaList(appDomainRaw);

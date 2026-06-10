@@ -22,17 +22,17 @@ export function ArticleSchema({ post }: ArticleSchemaProps) {
           "@type": "Person",
           name: author.name,
           description: author.bio,
-          url: `https://www.bidwar.in/blog/author/${author.slug}`,
+          url: `https://bidwar.in/blog/author/${author.slug}`,
           ...(author.twitterHandle ? { sameAs: [`https://twitter.com/${author.twitterHandle.replace("@", "")}`] } : {}),
         }
       : { "@type": "Organization", name: "BidWar" },
     publisher: {
       "@type": "Organization",
       name: "BidWar",
-      url: "https://www.bidwar.in",
+      url: "https://bidwar.in",
       logo: {
         "@type": "ImageObject",
-        url: "https://www.bidwar.in/bidwar-logo.png",
+        url: "https://bidwar.in/bidwar-logo.png",
       },
     },
     mainEntityOfPage: {
@@ -47,7 +47,7 @@ export function ArticleSchema({ post }: ArticleSchemaProps) {
     isPartOf: {
       "@type": "Blog",
       name: "BidWar Blog",
-      url: "https://www.bidwar.in/blog",
+      url: "https://bidwar.in/blog",
     },
   };
 
@@ -55,10 +55,10 @@ export function ArticleSchema({ post }: ArticleSchemaProps) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home",    item: "https://www.bidwar.in/" },
-      { "@type": "ListItem", position: 2, name: "Blog",    item: "https://www.bidwar.in/blog" },
+      { "@type": "ListItem", position: 1, name: "Home",    item: "https://bidwar.in/" },
+      { "@type": "ListItem", position: 2, name: "Blog",    item: "https://bidwar.in/blog" },
       ...(category
-        ? [{ "@type": "ListItem", position: 3, name: category.name, item: `https://www.bidwar.in/blog/category/${category.slug}` }]
+        ? [{ "@type": "ListItem", position: 3, name: category.name, item: `https://bidwar.in/blog/category/${category.slug}` }]
         : []),
       { "@type": "ListItem", position: category ? 4 : 3, name: post.title, item: post.canonical },
     ],

@@ -24,7 +24,7 @@ export default function CategoryPage({ slug }: CategoryPageProps) {
   }
 
   const posts = getPostsByCategory(slug);
-  const canonicalUrl = `https://www.bidwar.in/blog/category/${slug}`;
+  const canonicalUrl = `https://bidwar.in/blog/category/${slug}`;
 
   return (
     <BlogLayout>

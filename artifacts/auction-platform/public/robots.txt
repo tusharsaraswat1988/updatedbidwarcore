@@ -36,4 +36,4 @@ Allow: /esports-auction-system
 Allow: /business-league-auction
 Allow: /live-player-bidding
 
-Sitemap: https://www.bidwar.in/sitemap.xml
+Sitemap: https://bidwar.in/sitemap.xml

@@ -38,7 +38,7 @@ app.set("trust proxy", 1);
 //
 // Therefore app-level host redirect is disabled by default and can be enabled
 // explicitly with ENABLE_APP_HOST_REDIRECT=true once edge rules are aligned.
-const CANONICAL_HOST = "www.bidwar.in";
+const CANONICAL_HOST = "bidwar.in";
 const NON_CANONICAL_HOST = "bidwar.in";
 const ENABLE_APP_HOST_REDIRECT = process.env.ENABLE_APP_HOST_REDIRECT === "true";
 
@@ -242,31 +242,31 @@ if (serveStatic) {
 
       const urls: SitemapEntry[] = [
         // ── Core marketing pages
-        { loc: "https://www.bidwar.in/",                   changefreq: "weekly",  priority: "1.0", lastmod: today },
-        { loc: "https://www.bidwar.in/upcoming-auctions",  changefreq: "daily",   priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/contact",            changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://www.bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
-        { loc: "https://www.bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
-        { loc: "https://www.bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
+        { loc: "https://bidwar.in/",                   changefreq: "weekly",  priority: "1.0", lastmod: today },
+        { loc: "https://bidwar.in/upcoming-auctions",  changefreq: "daily",   priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/contact",            changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
         // ── SEO landing pages — primary commercial pages (highest priority)
-        { loc: "https://www.bidwar.in/sports-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/cricket-auction-software",     changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/badminton-scoring-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/franchise-auction-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/player-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
-        { loc: "https://www.bidwar.in/sports-league-management-software", changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/sports-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/cricket-auction-software",     changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/badminton-scoring-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/franchise-auction-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/player-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/sports-league-management-software", changefreq: "monthly", priority: "0.9", lastmod: today },
         // ── SEO landing pages — secondary sport-specific pages
-        { loc: "https://www.bidwar.in/football-player-auction",      changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/kabaddi-auction-platform",     changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/tournament-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/basketball-auction-software",  changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/badminton-auction-platform",   changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/volleyball-player-auction",    changefreq: "monthly", priority: "0.8", lastmod: today },
-        { loc: "https://www.bidwar.in/esports-auction-system",       changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://www.bidwar.in/business-league-auction",      changefreq: "monthly", priority: "0.7", lastmod: today },
-        { loc: "https://www.bidwar.in/live-player-bidding",          changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/football-player-auction",      changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/kabaddi-auction-platform",     changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/tournament-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/basketball-auction-software",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/badminton-auction-platform",   changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/volleyball-player-auction",    changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/esports-auction-system",       changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/business-league-auction",      changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/live-player-bidding",          changefreq: "monthly", priority: "0.7", lastmod: today },
         // ── Blog index
-        { loc: "https://www.bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
         // ── Blog posts — use actual publishedAt / updatedAt for accuracy
         ...BLOG_POSTS_META.map((p) => ({
           loc: p.canonical,

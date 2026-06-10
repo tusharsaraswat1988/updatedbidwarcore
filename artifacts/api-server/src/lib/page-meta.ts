@@ -22,7 +22,7 @@ import {
   getAllBlogUrls,
 } from "@workspace/blog-data";
 
-const BASE_URL = "https://www.bidwar.in";
+const BASE_URL = "https://bidwar.in";
 const DEFAULT_OG_IMAGE = `${BASE_URL}/opengraph.jpg`;
 const PHONE = "+91-8707488250";
 

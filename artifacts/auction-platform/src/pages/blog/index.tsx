@@ -20,7 +20,7 @@ export default function BlogIndex() {
       <BlogListingSchema
         name="BidWar Blog — Sports Auction Guides & Tips"
         description="Practical guides, sport-specific auction formats, platform walkthroughs, and organizer tips for running franchise league player auctions with BidWar."
-        url="https://www.bidwar.in/blog"
+        url="https://bidwar.in/blog"
         posts={BLOG_POSTS}
       />
 

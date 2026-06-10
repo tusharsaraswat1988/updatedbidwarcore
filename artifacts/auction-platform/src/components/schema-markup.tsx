@@ -4,7 +4,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
   "name": "BidWar",
   "alternateName": "BidWar Sports Auction Platform",
   "description": "India's live sports auction platform. IPL-grade auction infrastructure for cricket, football, kabaddi and all franchise leagues. Real-time bidding, LED broadcast display, team owner mobile panels.",
-  "url": "https://www.bidwar.in",
+  "url": "https://bidwar.in",
   "applicationCategory": "SportsApplication",
   "applicationSubCategory": "Sports Auction Software",
   "operatingSystem": "Web Browser",
@@ -65,7 +65,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
   "author": {
     "@type": "Organization",
     "name": "BidWar",
-    "url": "https://www.bidwar.in",
+    "url": "https://bidwar.in",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+91-8707488250",
@@ -86,7 +86,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
     "IPL-style player categories",
     "Team purse management",
   ],
-  "screenshot": "https://www.bidwar.in/bidwar-screenshot.png",
+  "screenshot": "https://bidwar.in/bidwar-screenshot.png",
   "sameAs": [
     "https://www.instagram.com/bidwar.in",
     "https://www.facebook.com/bidwar.in",
@@ -185,8 +185,8 @@ const ORGANIZATION_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "BidWar",
-  "url": "https://www.bidwar.in",
-  "logo": "https://www.bidwar.in/bidwar-logo-transparent.png",
+  "url": "https://bidwar.in",
+  "logo": "https://bidwar.in/bidwar-logo-transparent.png",
   "description": "India's live sports auction platform for cricket, football, kabaddi and franchise leagues.",
   "foundingLocation": {
     "@type": "Place",
@@ -211,14 +211,14 @@ const WEBSITE_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "name": "BidWar",
-  "url": "https://www.bidwar.in",
+  "url": "https://bidwar.in",
   "description": "India's live sports auction platform. Run IPL-style cricket, football and kabaddi auctions with real-time bidding, LED display and mobile owner panels.",
   "inLanguage": "en-IN",
   "potentialAction": {
     "@type": "SearchAction",
     "target": {
       "@type": "EntryPoint",
-      "urlTemplate": "https://www.bidwar.in/?q={search_term_string}",
+      "urlTemplate": "https://bidwar.in/?q={search_term_string}",
     },
     "query-input": "required name=search_term_string",
   },
@@ -287,7 +287,7 @@ export function SportLandingSchemaMarkup({
     "author": {
       "@type": "Organization",
       "name": "BidWar",
-      "url": "https://www.bidwar.in",
+      "url": "https://bidwar.in",
     },
   };
 

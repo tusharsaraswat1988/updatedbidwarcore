@@ -53,7 +53,7 @@ function buildMetaBlock(meta: PageMeta): string {
   const canonical = esc(meta.canonical);
   const ogTitle = esc(meta.ogTitle ?? meta.title);
   const ogDesc = esc(meta.ogDescription ?? meta.description);
-  const ogImage = esc(meta.ogImage ?? "https://www.bidwar.in/opengraph.jpg");
+  const ogImage = esc(meta.ogImage ?? "https://bidwar.in/opengraph.jpg");
   const twitterTitle = esc(meta.twitterTitle ?? meta.ogTitle ?? meta.title);
   const twitterDesc = esc(meta.twitterDescription ?? meta.ogDescription ?? meta.description);
   const robots = esc(meta.robots ?? "index, follow");

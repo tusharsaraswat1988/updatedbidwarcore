@@ -4,7 +4,7 @@
    Full article content (body blocks) lives in the frontend package only.
 ─────────────────────────────────────────────────────────────────────────── */
 
-export const BLOG_BASE_URL = "https://www.bidwar.in/blog";
+export const BLOG_BASE_URL = "https://bidwar.in/blog";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
