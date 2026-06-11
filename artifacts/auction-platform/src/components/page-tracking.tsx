@@ -15,6 +15,7 @@ const BLOCKED_PREFIXES = [
 ];
 
 let trackingLoaded = false;
+let trackingScheduled = false;
 
 function loadTracking(): void {
   if (trackingLoaded) return;
@@ -40,13 +41,36 @@ function loadTracking(): void {
   document.head.appendChild(clarityInit);
 }
 
+/**
+ * Schedule analytics loading after the page is interactive and idle.
+ * Uses requestIdleCallback with a minimum delay so analytics scripts
+ * don't compete with LCP / TBT on slow mobile connections.
+ * Falls back to a plain timeout in browsers that lack requestIdleCallback.
+ */
+function scheduleTracking(): void {
+  if (trackingScheduled) return;
+  trackingScheduled = true;
+
+  const doLoad = () => loadTracking();
+
+  if (typeof window.requestIdleCallback === "function") {
+    // Load when the browser is idle, with a 5-second maximum timeout.
+    // On fast devices this fires within ~1s; on slow/throttled devices it
+    // waits up to 5s, keeping analytics out of the LCP/TBT critical window.
+    window.requestIdleCallback(doLoad, { timeout: 5000 });
+  } else {
+    // Safari / older browsers: plain timeout after 3 seconds
+    setTimeout(doLoad, 3000);
+  }
+}
+
 export function PageTracking(): null {
   const [pathname] = useLocation();
 
   useEffect(() => {
     const blocked = BLOCKED_PREFIXES.some((p) => pathname.startsWith(p));
     if (!blocked) {
-      loadTracking();
+      scheduleTracking();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally only fires on initial page load

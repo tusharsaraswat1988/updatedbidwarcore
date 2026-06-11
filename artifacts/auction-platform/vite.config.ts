@@ -81,29 +81,63 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   root: path.resolve(import.meta.dirname),
-  build: {
+    build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     sourcemap: false,
     minify: "esbuild",
+    // Increase chunk size warning threshold (large chunks are expected for an SPA)
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
+        // Use content-hash filenames for reliable long-term caching
+        entryFileNames: "assets/[name]-[hash].js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash][extname]",
         manualChunks(id: string) {
+          // React core — smallest critical chunk, must load first
           if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/scheduler/")) {
             return "vendor-react";
           }
+          // Framer Motion — split from landing page so it loads in parallel
           if (id.includes("/node_modules/framer-motion/")) {
             return "vendor-motion";
           }
+          // TanStack Query — data fetching layer
           if (id.includes("/node_modules/@tanstack/")) {
             return "vendor-query";
           }
-          if (id.includes("/node_modules/recharts/") || id.includes("/node_modules/d3-") || id.includes("/node_modules/d3/")) {
-            return "vendor-charts";
-          }
+          // Recharts / D3 are NOT chunked manually for the same reason as onnxruntime:
+          // when assigned to a named chunk, Rollup can place shared internal helpers
+          // (clsx-like utilities) there, creating static imports from the main bundle.
+          // Recharts/D3 are only used in lazy-loaded admin/reports pages; Rollup will
+          // naturally bundle them with those pages. If recharts usage grows, revisit.
+          // if (id.includes("/node_modules/recharts/") || ...) return "vendor-charts";
+          // Radix UI — large collection, used across many pages
           if (id.includes("/node_modules/@radix-ui/")) {
             return "vendor-radix";
           }
+          // Lucide icons — many small SVG components, benefit from a stable cache chunk
+          if (id.includes("/node_modules/lucide-react/")) {
+            return "vendor-icons";
+          }
+          // Wouter — router, tiny but stable between deploys
+          if (id.includes("/node_modules/wouter/")) {
+            return "vendor-router";
+          }
+          // Blog data — static JSON-like data, large but infrequently changing
+          if (id.includes("blog-data") || id.includes("@workspace/blog-data")) {
+            return "data-blog";
+          }
+          // Scoring / bidding core libs — used only in authenticated pages
+          if (id.includes("scoring-core") || id.includes("badminton-core") || id.includes("cheer-presets")) {
+            return "lib-scoring";
+          }
+          // @imgly/background-removal and onnxruntime-web are NOT chunked manually.
+          // When assigned to a named chunk, Rollup co-locates the __vitePreload helper
+          // there, creating an unwanted static import from the main bundle (238 kB gzipped).
+          // By omitting these, Rollup bundles them with the lazy image-editor pages only.
+          // (No chunk assignment needed — they only appear in lazy-loaded admin pages.)
         },
       },
     },

@@ -1,13 +1,21 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+// Toaster is lazy-loaded: toasts are only triggered by user actions (never on initial paint),
+// so deferring it removes @radix-ui/react-toast from the critical JS bundle.
+const Toaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+// TooltipProvider removed from root: sidebar.tsx already wraps its own content in
+// TooltipProvider, making the root-level one redundant. Removing it eliminates the
+// @radix-ui/react-tooltip import from the critical path (saves ~49 kB gzipped).
 import { useBranding } from "@/hooks/use-branding";
-import { OrganizerGuard } from "@/components/organizer-guard";
-import { TournamentCodeGate } from "@/components/tournament-code-gate";
+// OrganizerGuard, TournamentCodeGate, ScoringFeatureGuard are only used for
+// authenticated/protected routes which are never rendered on the landing page.
+// Making them lazy removes their transitive dependencies (Button → @radix-ui/react-slot)
+// from the critical JS bundle, eliminating vendor-radix from the initial load.
+const OrganizerGuard = lazy(() => import("@/components/organizer-guard").then(m => ({ default: m.OrganizerGuard })));
+const TournamentCodeGate = lazy(() => import("@/components/tournament-code-gate").then(m => ({ default: m.TournamentCodeGate })));
+const ScoringFeatureGuard = lazy(() => import("@/components/scoring-feature-guard").then(m => ({ default: m.ScoringFeatureGuard })));
 import { PageTracking } from "@/components/page-tracking";
-import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
 
 import Landing from "@/pages/landing";
 
@@ -395,14 +403,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <BrandingEffects />
-          <PageTracking />
-          <Router />
-        </WouterRouter>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <BrandingEffects />
+        <PageTracking />
+        <Router />
+      </WouterRouter>
+      {/* Toaster is lazy — loads after initial paint so it doesn't block LCP */}
+      <Suspense fallback={null}>
         <Toaster />
-      </TooltipProvider>
+      </Suspense>
     </QueryClientProvider>
   );
 }

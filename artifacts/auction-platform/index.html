@@ -35,20 +35,37 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#09090b" />
 
-    <!-- Critical CSS: prevents white flash before React + full stylesheet load -->
-    <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}#root{min-height:100vh;background:#09090b}</style>
+    <!-- Critical CSS: prevents white flash before React + full stylesheet load.
+         Includes hero-critical font metrics to avoid layout shift on font swap. -->
+    <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0;background:#09090b;color:#fafafa;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;line-height:1.5}#root{min-height:100vh;background:#09090b}h1,h2,h3,h4,h5,h6{font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.1;letter-spacing:-0.02em}nav{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(9,9,11,0.8)}</style>
 
-    <!-- Fonts: non-render-blocking (preconnect + preload + print-swap).
-         Both Inter and Space Grotesk loaded here — no @import url() in CSS.
-         Space Grotesk: only weights 600;700 used for headings (was 300-700). -->
+    <!-- DNS prefetch for all external services (resolved in parallel, zero cost) -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.clarity.ms" />
+
+    <!-- Fonts: non-render-blocking (preconnect + print-swap).
+         Split into two requests:
+         1. Critical body/heading fonts (Inter + Space Grotesk) — loaded first.
+         2. Specialty display fonts (Bebas Neue, Barlow Condensed, JetBrains Mono)
+            — only used in below-fold LED/broadcast UI, loaded after interaction. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" media="print" onload="this.media='all'" />
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" /></noscript>
+    <!-- Critical fonts: Inter (body) + Space Grotesk (headings) -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" /></noscript>
+    <!-- Non-critical specialty fonts: loaded after page is interactive -->
+    <script>
+      (function(){function loadSpecialtyFonts(){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap';document.head.appendChild(l);}
+      if(window.requestIdleCallback){requestIdleCallback(loadSpecialtyFonts,{timeout:3000});}else{setTimeout(loadSpecialtyFonts,2000);}})();
+    </script>
 
-    <!-- Preload above-fold logo (WebP) -->
-    <link rel="preload" as="image" href="/bidwar-logo-transparent.webp" type="image/webp" />
+    <!-- Preload above-fold logo (WebP) with high fetch priority -->
+    <link rel="preload" as="image" href="/bidwar-logo-transparent.webp" type="image/webp" fetchpriority="high" />
 
     <!-- PAGE_SCHEMA_START -->
     <!-- Structured Data: SoftwareApplication -->

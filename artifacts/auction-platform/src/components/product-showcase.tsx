@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m as motion, AnimatePresence } from "framer-motion";
 import { Monitor, Smartphone, BarChart3, Gavel, Check, ChevronRight } from "lucide-react";
 
 const TABS = [
@@ -395,6 +395,7 @@ export function ProductShowcase() {
   };
 
   return (
+    <LazyMotion features={domAnimation} strict={false}>
     <section id="product" className="py-24 px-6 border-t border-border/40">
       <div className="max-w-6xl mx-auto space-y-12">
         <div className="text-center space-y-4">
@@ -492,5 +493,6 @@ export function ProductShowcase() {
         </div>
       </div>
     </section>
+    </LazyMotion>
   );
 }

@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react"
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
-import { motion, AnimatePresence } from "framer-motion";
+// Use m (lightweight) + LazyMotion with domAnimation (DOM-only features subset).
+// This reduces the framer-motion JS that runs synchronously on initial React render,
+// improving TBT and LCP on CPU-throttled mobile devices.
+import { LazyMotion, domAnimation, m as motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
@@ -10,7 +13,9 @@ import {
   Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
   MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen,
 } from "lucide-react";
-import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
+// Blog post meta and categories are only used in the below-fold "Popular Resources"
+// section. Dynamic import keeps them out of the critical JS bundle.
+import type { BlogPostMeta, BlogCategory } from "@workspace/blog-data";
 
 // ─── Solutions Hub Data ───────────────────────────────────────────────────────
 
@@ -93,13 +98,16 @@ const RESOURCE_SLUGS = [
 ];
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
 import type { DisplayAuction } from "@/lib/auth";
-import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 
+// Heavy below-fold components — all lazy-loaded to keep landing page critical bundle small
 const ProductShowcase = lazy(() => import("@/components/product-showcase").then(m => ({ default: m.ProductShowcase })));
 const Testimonials = lazy(() => import("@/components/testimonials").then(m => ({ default: m.Testimonials })));
 const DemoRequest = lazy(() => import("@/components/demo-request").then(m => ({ default: m.DemoRequest })));
 const PaymentModal = lazy(() => import("@/components/payment-modal").then(m => ({ default: m.PaymentModal })));
+// HomeSchemaMarkup renders JSON-LD <script> tags — functionally fine to lazy-load
+// (bots render JavaScript and SEO spiders wait for full hydration)
+const HomeSchemaMarkup = lazy(() => import("@/components/schema-markup").then(m => ({ default: m.HomeSchemaMarkup })));
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -397,6 +405,7 @@ function GalleryCard({
         src={item.img}
         alt={item.alt}
         loading="lazy"
+        decoding="async"
         width={600}
         height={380}
         className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500"
@@ -487,12 +496,30 @@ export default function Landing() {
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[] | null>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Blog data loaded lazily — only needed by the below-fold resources section
+  const [blogPosts, setBlogPosts] = useState<BlogPostMeta[] | null>(null);
+  const [blogCategories, setBlogCategories] = useState<BlogCategory[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/showcase-events")
-      .then((r) => r.json())
-      .then((data: ShowcaseItem[]) => { if (Array.isArray(data)) setShowcaseItems(data); })
-      .catch(() => {});
+    // Showcase images are in the below-fold gallery section. Defer this fetch
+    // by 2 seconds so it doesn't compete with the critical JS/CSS needed for LCP.
+    const timer = setTimeout(() => {
+      fetch("/api/showcase-events")
+        .then((r) => r.json())
+        .then((data: ShowcaseItem[]) => { if (Array.isArray(data)) setShowcaseItems(data); })
+        .catch(() => {});
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    // Blog data (BLOG_POSTS_META + BLOG_CATEGORIES) is only used in the
+    // "Popular Resources" section far below fold. Dynamic import keeps 27 kB
+    // of blog data out of the critical JS bundle.
+    import("@workspace/blog-data").then(m => {
+      setBlogPosts(m.BLOG_POSTS_META);
+      setBlogCategories(m.BLOG_CATEGORIES);
+    }).catch(() => {});
   }, []);
 
   const activeGallery: Array<{ img: string; caption: string; tag: string; alt: string; description?: string | null }> =
@@ -551,6 +578,7 @@ export default function Landing() {
   }, []);
 
   return (
+    <LazyMotion features={domAnimation} strict={false}>
     <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
 
       {/* ── Schema Markup ───────────────────────────────────────────── */}
@@ -562,7 +590,7 @@ export default function Landing() {
           <div className="flex items-center gap-2.5">
             {brandingLoading
               ? <div className="h-9 w-9 flex-shrink-0" />
-              : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
+              : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} fetchPriority="high" decoding="async" />}
             <span className="font-display font-black text-xl tracking-tight text-white">{brandName.toUpperCase()}</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
@@ -1329,10 +1357,10 @@ export default function Landing() {
 
           {/* Article Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {RESOURCE_SLUGS.map((slug) => {
-              const post = BLOG_POSTS_META.find((p) => p.slug === slug);
+            {blogPosts && RESOURCE_SLUGS.map((slug) => {
+              const post = blogPosts.find((p) => p.slug === slug);
               if (!post) return null;
-              const cat = BLOG_CATEGORIES.find((c) => c.slug === post.category);
+              const cat = blogCategories?.find((c) => c.slug === post.category);
               return (
                 <a
                   key={post.slug}
@@ -1596,7 +1624,7 @@ export default function Landing() {
               <div className="flex items-center gap-2.5">
                 {brandingLoading
                   ? <div className="h-9 w-9 flex-shrink-0" />
-                  : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
+                  : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} loading="lazy" />}
                 <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1685,5 +1713,6 @@ export default function Landing() {
         <PaymentModal plan={payingPlan} onClose={() => setPayingPlan(null)} />
       </Suspense>
     </div>
+    </LazyMotion>
   );
 }
