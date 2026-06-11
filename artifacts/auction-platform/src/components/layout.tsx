@@ -293,20 +293,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <span>Clear Practice Data</span>
                   </Link>
                 )}
-                <div
-                  title="Local Mode — coming soon"
-                  className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                  }`}
-                >
-                  <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="font-medium">Local Mode</span>
-                      <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Coming Soon</span>
-                    </>
-                  )}
-                </div>
+                {tournament?.localModeEnabled && (
+                  <Link href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={navCls(`/tournament/${tournamentId}/local-mode`)}>
+                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span>Local Mode</span>}
+                  </Link>
+                )}
               </nav>
             </>
           )}

@@ -1,9 +1,11 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
 import { teamsTable } from "@workspace/db-local";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
+import { getLocalJwtUser } from "../middleware/local-jwt-auth.js";
+import { isOrganizerForTournament } from "../lib/local-auth.js";
 
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
@@ -11,6 +13,27 @@ const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   purse: t.purse, purseUsed: t.purseUsed, isBiddingEnabled: t.isBiddingEnabled,
   accessCode: t.accessCode, cloudId: t.cloudId, createdAt: t.createdAt,
 });
+
+// Public serializer: omits accessCode and ownerMobile (not set to null).
+// Adds requiresAccessCode so owner-app access gate works without exposing the code.
+const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
+  id: t.id,
+  tournamentId: t.tournamentId,
+  name: t.name,
+  shortCode: t.shortCode,
+  ownerName: t.ownerName,
+  color: t.color,
+  logoUrl: t.logoUrl,
+  purse: t.purse,
+  purseUsed: t.purseUsed,
+  isBiddingEnabled: t.isBiddingEnabled,
+  requiresAccessCode: !!t.accessCode,
+  createdAt: t.createdAt,
+});
+
+function isLocalOrganizer(req: Request, tournamentId: number): boolean {
+  return isOrganizerForTournament(getLocalJwtUser(req), tournamentId);
+}
 
 const DUPLICATE_OWNER_MOBILE_ERROR =
   "This mobile number is already assigned to another team in this tournament.";
@@ -41,8 +64,10 @@ export function createTeamsRouter(db: LocalDb) {
   router.get("/tournaments/:tournamentId/teams", async (req, res) => {
     const tid = parseInt(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const serializer: (t: typeof teamsTable.$inferSelect) => Record<string, unknown> =
+      isLocalOrganizer(req, tid) ? teamToJson : teamToPublicJson;
     const rows = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid));
-    res.json(rows.map(teamToJson));
+    res.json(rows.map(serializer));
   });
 
   router.post("/tournaments/:tournamentId/teams", async (req, res) => {
@@ -84,7 +109,22 @@ export function createTeamsRouter(db: LocalDb) {
       and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid))
     );
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
-    res.json(teamToJson(row));
+    res.json(isLocalOrganizer(req, tid) ? teamToJson(row) : teamToPublicJson(row));
+  });
+
+  router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    const teamId = parseInt(req.params.teamId);
+    if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const body = z.object({ code: z.string() }).safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const [team] = await db
+      .select()
+      .from(teamsTable)
+      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+    if (!team) { res.status(404).json({ error: "Not found" }); return; }
+    const valid = !team.accessCode || team.accessCode.toUpperCase() === body.data.code.toUpperCase();
+    res.json({ valid });
   });
 
   router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {

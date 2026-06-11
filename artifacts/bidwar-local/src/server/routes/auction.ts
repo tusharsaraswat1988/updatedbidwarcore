@@ -456,8 +456,10 @@ export function createAuctionRouter(db: LocalDb) {
     const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     if (!team) { res.status(404).json({ error: "Team not found" }); return; }
     // Access code check — if the team has one set, the caller must supply it
-    if (team.accessCode && accessCode !== team.accessCode) {
-      res.status(403).json({ error: "Invalid team access code" }); return;
+    if (team.accessCode) {
+      if (!accessCode || team.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
+        res.status(403).json({ error: "Invalid team access code" }); return;
+      }
     }
     if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
     const boosterTotal = await getActiveBoosterTotal(db, tid, teamId);
@@ -591,6 +593,53 @@ export function createAuctionRouter(db: LocalDb) {
     await db.update(auctionSessionsTable)
       .set({ lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue` })
       .where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid, ["players"]));
+  });
+
+  // POST conclude auction — operator explicitly ends the auction
+  router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const body = z.object({ force: z.boolean().optional().default(false) }).safeParse(req.body ?? {});
+    if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+    await getOrCreateSession(tid);
+    const allPlayers = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid));
+    const soldCount = allPlayers.filter((p) => p.status === "sold").length;
+    const unsoldCount = allPlayers.filter((p) => p.status === "unsold").length;
+
+    if (unsoldCount > 0 && !body.data.force) {
+      res.status(409).json({
+        error: "Unsold players remain",
+        requiresConfirmation: true,
+        soldPlayersCount: soldCount,
+        unsoldPlayersCount: unsoldCount,
+      });
+      return;
+    }
+
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        pausedTimeRemaining: null,
+        displayCountdown: null,
+        lastAction:
+          unsoldCount > 0
+            ? `Auction concluded by operator — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remain`
+            : "Auction concluded by operator",
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+
     res.json(await broadcastState(tid, ["players"]));
   });
 

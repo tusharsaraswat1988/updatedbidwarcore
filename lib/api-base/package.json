@@ -13,6 +13,7 @@
     "./purse-capacity": "./src/purse-capacity.ts",
     "./owner-auth": "./src/owner-auth.ts",
     "./owner-urls": "./src/owner-urls.ts",
+    "./local-venue-urls": "./src/local-venue-urls.ts",
     "./mobile": "./src/mobile.ts",
     "./email": "./src/email.ts",
     "./organizer-account": "./src/organizer-account.ts",

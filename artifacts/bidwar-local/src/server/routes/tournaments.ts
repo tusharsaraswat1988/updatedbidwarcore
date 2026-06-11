@@ -24,6 +24,7 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTier2UpTo: t.bidTier2UpTo, bidTier2Increment: t.bidTier2Increment,
   bidTier3Increment: t.bidTier3Increment, bidTiers: t.bidTiers, timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds, playerSelectionMode: t.playerSelectionMode,
+  localModeEnabled: !!t.localModeEnabled,
   status: t.status, cloudId: t.cloudId, createdAt: t.createdAt,
 });
 
@@ -106,11 +107,9 @@ export function createTournamentsRouter(db: LocalDb) {
     res.status(204).send();
   });
 
-  router.get("/tournaments/:tournamentId/summary", async (req, res) => {
-    const id = parseInt(req.params.tournamentId);
-    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
-    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
+  async function respondTournamentSummary(tournamentId: number, res: import("express").Response) {
+    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId));
+    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId));
     const sold = players.filter(p => p.status === "sold");
     const totalSpent = sold.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
     res.json({
@@ -120,29 +119,88 @@ export function createTournamentsRouter(db: LocalDb) {
       retainedPlayers: players.filter(p => p.status === "retained").length,
       totalTeams: teams.length, totalPurse: teams.reduce((s, t) => s + t.purse, 0), totalSpent,
     });
-  });
+  }
 
-  router.get("/tournaments/:tournamentId/team-purses", async (req, res) => {
+  router.get("/tournaments/:tournamentId/summary", async (req, res) => {
     const id = parseInt(req.params.tournamentId);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
-    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
-    const boosterTotals = await getActiveBoosterTotalsForTeams(db, id, teams.map(t => t.id));
+    await respondTournamentSummary(id, res);
+  });
+
+  // Cloud SPA calls /analytics/summary — alias to the local summary handler.
+  router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
+    const id = parseInt(req.params.tournamentId);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    await respondTournamentSummary(id, res);
+  });
+
+  async function respondTeamPurses(tournamentId: number, res: import("express").Response) {
+    const [tournamentRow] = await db
+      .select({
+        minimumSquadSize: tournamentsTable.minimumSquadSize,
+        maximumSquadSize: tournamentsTable.maximumSquadSize,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+
+    const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId));
+    const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId));
+    const boosterTotals = await getActiveBoosterTotalsForTeams(db, tournamentId, teams.map(t => t.id));
+
     res.json(teams.map(t => {
       const boosterTotal = boosterTotals.get(t.id) ?? 0;
       const effectiveCapacity = computeEffectiveCapacity(t.purse, boosterTotal);
+      const purseRemaining = effectiveCapacity - t.purseUsed;
+      const teamSoldRetained = players.filter(
+        p => p.teamId === t.id && (p.status === "sold" || p.status === "retained"),
+      );
+      const playersBought = teamSoldRetained.filter(p => p.status === "sold").length;
+      const retainedCount = players.filter(p => p.teamId === t.id && p.status === "retained").length;
+      const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>((best, p) => {
+        const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
+        const bAmt = best
+          ? (best.status === "retained" ? (best.retainedPrice ?? 0) : (best.soldPrice ?? 0))
+          : -1;
+        return pAmt > bAmt ? p : best;
+      }, null);
+
       return {
-        teamId: t.id, teamName: t.name, shortCode: t.shortCode, color: t.color,
-        logoUrl: t.logoUrl,
+        teamId: t.id, teamName: t.name, shortCode: t.shortCode, ownerName: t.ownerName,
+        color: t.color, logoUrl: t.logoUrl,
         originalPurse: t.purse,
         boosterTotal,
         effectiveCapacity,
         purse: effectiveCapacity,
         purseUsed: t.purseUsed,
-        purseRemaining: effectiveCapacity - t.purseUsed,
-        playersBought: players.filter(p => p.teamId === t.id && p.status === "sold").length,
+        purseRemaining,
+        playersBought,
+        retainedCount,
+        reservePurse: 0,
+        spendablePurse: purseRemaining,
+        slotsRequired: 0,
+        lowestBasePrice: 0,
+        minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
+        maximumSquadSize: tournamentRow?.maximumSquadSize ?? 0,
+        topPlayerName: topPlayer?.name ?? null,
+        topPlayerAmount: topPlayer
+          ? (topPlayer.status === "retained" ? (topPlayer.retainedPrice ?? null) : (topPlayer.soldPrice ?? null))
+          : null,
       };
     }));
+  }
+
+  router.get("/tournaments/:tournamentId/team-purses", async (req, res) => {
+    const id = parseInt(req.params.tournamentId);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    await respondTeamPurses(id, res);
+  });
+
+  // Operator panel calls /analytics/team-purses (cloud path). Without this alias the SPA
+  // catch-all returns HTML and React crashes with "find is not a function".
+  router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) => {
+    const id = parseInt(req.params.tournamentId);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    await respondTeamPurses(id, res);
   });
 
   return router;

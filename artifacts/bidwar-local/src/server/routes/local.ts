@@ -1,4 +1,5 @@
 import { Router } from "express";
+import os from "node:os";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import QRCode from "qrcode";
@@ -7,6 +8,46 @@ import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
   auctionSessionsTable, bidsTable, syncQueueTable, purseBoostersTable,
 } from "@workspace/db-local";
+import { ownerJoinPublicUrl } from "@workspace/api-base/owner-urls";
+import {
+  localDisplayPath,
+  localOperatorPath,
+  localVenuePublicUrl,
+} from "@workspace/api-base/local-venue-urls";
+import { grantOrganizerForTournament } from "../lib/local-auth.js";
+import { getLocalJwtUser } from "../middleware/local-jwt-auth.js";
+
+function detectLocalLanIp(): string {
+  const interfaces = os.networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    if (!iface) continue;
+    for (const addr of iface) {
+      if (addr.family === "IPv4" && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return "127.0.0.1";
+}
+
+function resolveLocalBaseUrl(req: import("express").Request): string {
+  const ip = String(req.headers["x-local-ip"] || detectLocalLanIp());
+  const port = String(req.headers["x-local-port"] || process.env.PORT || "3741");
+  return `http://${ip}:${port}`;
+}
+
+function isAllowedQrTarget(targetUrl: string, baseUrl: string): boolean {
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol !== "http:") return false;
+    const base = new URL(baseUrl);
+    if (parsed.host === base.host) return true;
+    const host = parsed.hostname;
+    return host === "127.0.0.1" || host === "localhost";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Verify operator PIN for a given tournament.
@@ -49,6 +90,10 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         bidIncrement: z.number(), bidTiers: z.string().nullish(),
         timerSeconds: z.number(), bidTimerSeconds: z.number(),
         playerSelectionMode: z.string(),
+        minimumSquadSize: z.number().int().min(0).optional(),
+        maximumSquadSize: z.number().int().min(0).optional(),
+        localModeEnabled: z.boolean().optional(),
+        organizerPassword: z.string().nullish(),
       }),
       teams: z.array(z.object({
         id: z.number(), name: z.string(), shortCode: z.string(), ownerName: z.string(),
@@ -75,6 +120,9 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid snapshot format", details: parsed.error.issues }); return; }
     const { tournament: t, teams, players, categories, exportToken, cloudBaseUrl } = parsed.data;
+    const minimumSquadSize = t.minimumSquadSize ?? 0;
+    const maximumSquadSize = t.maximumSquadSize ?? 0;
+    const localModeEnabled = (t.localModeEnabled ?? true) ? 1 : 0;
 
     const now = new Date().toISOString();
 
@@ -89,7 +137,10 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         logoUrl: t.logoUrl ?? null, sponsorLogos: t.sponsorLogos ?? null,
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
-        playerSelectionMode: t.playerSelectionMode, status: "setup", updatedAt: now,
+        playerSelectionMode: t.playerSelectionMode, minimumSquadSize, maximumSquadSize,
+        localModeEnabled,
+        status: "setup", updatedAt: now,
+        organizerPassword: t.organizerPassword ?? null,
         ...(cloudBaseUrl ? { cloudBaseUrl } : {}),
         ...(exportToken ? { exportToken } : {}),
       }).where(eq(tournamentsTable.id, localTid));
@@ -100,9 +151,12 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         logoUrl: t.logoUrl ?? null, sponsorLogos: t.sponsorLogos ?? null,
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
-        playerSelectionMode: t.playerSelectionMode, status: "setup", cloudId: t.id,
+        playerSelectionMode: t.playerSelectionMode, minimumSquadSize, maximumSquadSize,
+        localModeEnabled,
+        status: "setup", cloudId: t.id,
         cloudBaseUrl: cloudBaseUrl ?? null,
         exportToken: exportToken ?? null,
+        organizerPassword: t.organizerPassword ?? null,
       }).returning();
       localTid = inserted.id;
     }
@@ -156,6 +210,8 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         cloudId: player.id,
       });
     }
+
+    grantOrganizerForTournament(res, getLocalJwtUser(req), localTid);
 
     res.json({ ok: true, tournamentId: localTid, message: `Imported ${players.length} players, ${teams.length} teams` });
   });
@@ -263,18 +319,78 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     res.json(result);
   });
 
-  // GET /local/qr.png — QR code image for the local server URL (for easy device onboarding)
-  // Reads localIP from X-Local-IP header sent by the Electron renderer (or falls back to req.hostname)
+  // GET /local/network-info — LAN address for venue devices (handles IP changes on reconnect)
+  router.get("/network-info", (req, res) => {
+    const baseUrl = resolveLocalBaseUrl(req);
+    const parsed = new URL(baseUrl);
+    res.json({
+      ip: parsed.hostname,
+      port: Number(parsed.port) || 3741,
+      baseUrl,
+    });
+  });
+
+  // GET /local/connection-kit — operator, display, and per-team owner URLs for the venue
+  router.get("/connection-kit", async (req, res) => {
+    const tournamentId = parseInt(String(req.query.tournamentId ?? ""), 10);
+    if (!Number.isFinite(tournamentId) || tournamentId < 1) {
+      res.status(400).json({ error: "tournamentId query parameter is required" });
+      return;
+    }
+
+    const [tournament] = await db
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    if (!tournament) {
+      res.status(404).json({ error: "Tournament not found" });
+      return;
+    }
+
+    const teams = await db
+      .select()
+      .from(teamsTable)
+      .where(eq(teamsTable.tournamentId, tournamentId));
+
+    const baseUrl = resolveLocalBaseUrl(req);
+    const operatorPath = localOperatorPath(tournamentId);
+    const displayPath = localDisplayPath(tournamentId);
+
+    res.json({
+      baseUrl,
+      tournamentId,
+      tournamentName: tournament.name,
+      operator: {
+        url: localVenuePublicUrl(baseUrl, operatorPath),
+        path: operatorPath,
+      },
+      display: {
+        url: localVenuePublicUrl(baseUrl, displayPath),
+        path: displayPath,
+      },
+      teams: teams.map((team) => ({
+        id: team.id,
+        name: team.name,
+        shortCode: team.shortCode,
+        ownerName: team.ownerName,
+        ownerMobile: team.ownerMobile,
+        accessCode: team.accessCode,
+        ownerUrl: ownerJoinPublicUrl(baseUrl, tournamentId, team.id),
+      })),
+    });
+  });
+
+  // GET /local/qr.png — QR for base URL or ?url= deep link (operator, display, owner join)
   router.get("/qr.png", async (req, res) => {
-    const ip = String(req.headers["x-local-ip"] || req.hostname || "127.0.0.1");
-    const port = String(req.headers["x-local-port"] || "3741");
-    const url = `http://${ip}:${port}`;
+    const baseUrl = resolveLocalBaseUrl(req);
+    const urlParam = typeof req.query.url === "string" ? req.query.url : null;
+    const url = urlParam && isAllowedQrTarget(urlParam, baseUrl) ? urlParam : baseUrl;
     try {
       const png = await QRCode.toBuffer(url, { type: "png", width: 300, margin: 2 });
       res.set("Content-Type", "image/png");
       res.set("Cache-Control", "no-store");
       res.send(png);
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: "QR generation failed" });
     }
   });

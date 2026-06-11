@@ -9,6 +9,16 @@ export async function checkOrganizerAuth(tournamentId: number): Promise<boolean>
   } catch { return false; }
 }
 
+/** Grant local organizer session for an imported tournament (LAN / offline). */
+export async function bootstrapLocalOrganizer(tournamentId: number): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/auth/organizer/${tournamentId}/bootstrap`, { method: "POST" });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function loginOrganizer(tournamentId: number, password: string): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/organizer/${tournamentId}/login`, {

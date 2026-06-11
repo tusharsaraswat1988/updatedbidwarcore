@@ -26,15 +26,19 @@
     "@libsql/client": "^0.17.3",
     "@workspace/api-base": "workspace:*",
     "@workspace/db-local": "workspace:*",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "drizzle-orm": "catalog:",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
     "qrcode": "^1.5.4",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.6",
     "electron": "^36.3.2",
@@ -53,6 +57,7 @@
       "dist-electron/**",
       "dist-server/**",
       "frontend-dist/**",
+      "owner-app-dist/**",
       "renderer/**",
       "node_modules/**"
     ],

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  checkOrganizerAuth, loginOrganizer, logoutOrganizer,
+  checkOrganizerAuth, bootstrapLocalOrganizer, loginOrganizer, logoutOrganizer,
   checkAdminAuth, loginAdmin, logoutAdmin,
 } from "@/lib/auth";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 export function useOrganizerAuth(tournamentId: number) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -11,7 +12,11 @@ export function useOrganizerAuth(tournamentId: number) {
   const check = useCallback(async () => {
     if (!tournamentId) { setIsLoading(false); return; }
     setIsLoading(true);
-    const ok = await checkOrganizerAuth(tournamentId);
+    let ok = await checkOrganizerAuth(tournamentId);
+    if (!ok && isBidWarLocalHost()) {
+      await bootstrapLocalOrganizer(tournamentId);
+      ok = await checkOrganizerAuth(tournamentId);
+    }
     setIsLoggedIn(ok);
     setIsLoading(false);
   }, [tournamentId]);

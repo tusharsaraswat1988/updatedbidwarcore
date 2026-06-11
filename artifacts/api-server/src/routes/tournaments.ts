@@ -473,7 +473,11 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
     exportedAt: new Date().toISOString(),
     exportToken,
     cloudBaseUrl,
-    tournament: tournamentToJson(tournament),
+    tournament: {
+      ...tournamentToJson(tournament),
+      // Offline venue login only — included in local export snapshot, not public tournament APIs.
+      organizerPassword: tournament.organizerPassword ?? null,
+    },
     teams: teams.map(t => ({
       id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
       ownerName: t.ownerName, ownerMobile: t.ownerMobile, color: t.color,

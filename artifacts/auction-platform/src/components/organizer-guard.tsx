@@ -5,7 +5,8 @@ import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-l
 import { AppLayout } from "@/components/layout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Shield } from "lucide-react";
+import { Shield, MonitorDown } from "lucide-react";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
   const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
@@ -24,7 +25,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   });
 
   useEffect(() => {
-    if (!isLoading && !isLoggedIn && tournamentId) {
+    if (!isLoading && !isLoggedIn && tournamentId && !isBidWarLocalHost()) {
       navigate(`/organizer?next=${encodeURIComponent(location)}`);
     }
   }, [isLoggedIn, isLoading, tournamentId, navigate, location]);
@@ -44,7 +45,24 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
       </AppLayout>
     );
   }
-  if (!isLoggedIn) return null;
+  if (!isLoggedIn) {
+    if (isBidWarLocalHost()) {
+      return (
+        <AppLayout tournamentId={tournamentId}>
+          <div className="max-w-lg space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
+            <div className="flex items-center gap-2 text-amber-300">
+              <MonitorDown className="h-5 w-5" />
+              <span className="font-semibold">Import required</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Open the BidWar Local app on this computer, import your tournament export file, then return here to run the auction.
+            </p>
+          </div>
+        </AppLayout>
+      );
+    }
+    return null;
+  }
 
   return (
     <>
