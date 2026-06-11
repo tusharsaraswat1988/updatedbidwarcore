@@ -4,8 +4,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
-import { ownerJoinPath } from "@workspace/api-base/owner-urls";
-import { createViteApiProxy } from "@workspace/api-base/vite-proxy";
+import { ownerJoinPath } from "../../lib/api-base/src/owner-urls.ts";
+import { createViteApiProxy } from "../../lib/api-base/src/vite-proxy.ts";
 import type { Plugin } from "vite";
 
 function apiBaseAliases(dirname: string): Record<string, string> {

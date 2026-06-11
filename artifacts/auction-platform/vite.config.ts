@@ -7,7 +7,7 @@ import { compression } from "vite-plugin-compression2";
 import {
   createViteDevProxies,
   ownerAppDevProxyPlugin,
-} from "@workspace/api-base/vite-proxy";
+} from "../../lib/api-base/src/vite-proxy.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
