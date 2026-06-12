@@ -485,7 +485,7 @@ export default function Landing() {
                 <h2 className="mt-3 font-display text-4xl font-black md:text-5xl">Organizers need confidence, not fake names.</h2>
               </div>
               <p className="max-w-lg text-muted-foreground">
-                Swap these with verified organizer names when Tushar approves. Until then, city + sport keeps it honest.
+                City, sport and event outcome are visible so the proof feels grounded to local organizers.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
