@@ -11,11 +11,10 @@ import { AppLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
-import { openAuctionRoom } from "@/lib/tournament-navigation";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, MessageCircle, CircleDot, Trophy,
+  CheckCircle2, Circle, CircleDot, Trophy,
 } from "lucide-react";
 import { cricketPublicPath, openScoreDisplay, scoringPath, scoringSchedulePath } from "@/lib/tournament-navigation";
 import { useScoringStandings } from "@/hooks/use-scoring-match";
@@ -60,8 +59,6 @@ export default function TournamentHub() {
     playerOrder: readinessFixPath(tournamentId, "playerOrder"),
     bidTiers: readinessFixPath(tournamentId, "bidTiers"),
     minSquad: readinessFixPath(tournamentId, "minSquad"),
-    maxSquad: readinessFixPath(tournamentId, "maxSquad"),
-    squadRange: readinessFixPath(tournamentId, "squadRange"),
   };
   const isSetupPhase = tournament?.status === "setup";
   const minPlayersNeeded = readinessMode === "trial" ? 1 : 2;
@@ -79,7 +76,6 @@ export default function TournamentHub() {
   const readinessDoneCount = readinessChecks.filter((c) => c.done).length;
   const readinessTotal = readinessChecks.length;
   const readinessPercent = readinessTotal > 0 ? Math.round((readinessDoneCount / readinessTotal) * 100) : 0;
-  const isPracticeMode = tournament?.licenseStatus !== "active";
   const statusLabel = tournament?.status === "setup"
     ? "Getting Ready"
     : tournament?.status === "active"
@@ -87,10 +83,6 @@ export default function TournamentHub() {
       : tournament?.status === "completed"
         ? "Auction Done"
         : tournament?.status ?? "";
-
-  const liveHelpWhatsApp = `https://wa.me/?text=${encodeURIComponent(
-    `Hi BidWar, I have completed practice setup for "${tournament?.name ?? "my tournament"}". Please help me activate the live auction.`,
-  )}`;
 
   if (loadingTournament) {
     return (
@@ -124,7 +116,9 @@ export default function TournamentHub() {
             <span>· Team budget: {formatIndianRupee(tournament?.basePurse)}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-2 max-w-2xl">
-            Add teams and players, finish settings, then open Auction Control in a new tab when you are ready.
+            {isSetupPhase && readinessComplete
+              ? "Setup complete — open Auction Control when you are ready to start."
+              : "Add teams and players, finish settings, then open Auction Control in a new tab when you are ready."}
           </p>
         </div>
 
@@ -237,8 +231,8 @@ export default function TournamentHub() {
           )}
         </div>
 
-        {/* Setup Checklist — visible during setup phase only */}
-        {tournament?.status === "setup" && (
+        {/* Setup Checklist — hidden once every item is complete */}
+        {isSetupPhase && !readinessComplete && (
           <div className="rounded-xl border border-border bg-card/30 p-5 space-y-4">
             <div>
               <h2 className="text-base font-display font-bold flex items-center gap-2">
@@ -285,33 +279,6 @@ export default function TournamentHub() {
                 </div>
               ))}
             </div>
-            {readinessComplete && (
-              <div className="flex items-center gap-3 pt-1 border-t border-border/40">
-                <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                <p className="text-sm font-medium flex-1">
-                  All set — you can start the {readinessMode === "trial" ? "practice" : "live"} auction.
-                </p>
-                <button
-                  onClick={() => openAuctionRoom(tournamentId)}
-                  className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
-                >
-                  Open Auction Control ↗
-                </button>
-              </div>
-            )}
-            {readinessComplete && isPracticeMode && (
-              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
-                <p className="text-sm font-semibold text-amber-300">Ready for the live auction?</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Run a practice auction first. When you are happy, contact BidWar to activate live mode, then clear practice data before the real event.
-                </p>
-                <Button size="sm" variant="outline" className="gap-2 border-amber-500/30 text-amber-300 hover:bg-amber-500/10" asChild>
-                  <a href={liveHelpWhatsApp} target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="w-3.5 h-3.5" /> Contact BidWar on WhatsApp
-                  </a>
-                </Button>
-              </div>
-            )}
           </div>
         )}
 

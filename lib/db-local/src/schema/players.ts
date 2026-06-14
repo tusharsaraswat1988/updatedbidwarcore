@@ -11,6 +11,7 @@ export const playersTable = sqliteTable("players", {
   battingStyle: text("batting_style"),
   bowlingStyle: text("bowling_style"),
   age: integer("age"),
+  gender: text("gender"),
   photoUrl: text("photo_url"),
   basePrice: integer("base_price").notNull().default(100000),
   soldPrice: integer("sold_price"),

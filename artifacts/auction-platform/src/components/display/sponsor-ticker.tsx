@@ -66,7 +66,7 @@ export const SponsorTicker = memo(function SponsorTicker({
   if (!names.length) return null;
 
   const baseDuration = Math.min(30, Math.max(25, 25 + names.length));
-  const duration = baseDuration * 0.9;
+  const duration = (baseDuration * 0.9) / 1.3;
 
   return (
     <div

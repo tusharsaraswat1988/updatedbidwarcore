@@ -1,29 +1,43 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+import { User, UserRound } from "lucide-react";
 import type { LedView } from "@/lib/auction-demo/use-auction-state";
 
-/**
- * PLAYER PORTRAIT — real photo, identity, role badge, jersey #, City/Age/Hand/Base.
- * Pure presentation over view.currentPlayer.
- */
+function hasUsablePortrait(url: string | null | undefined): boolean {
+  return Boolean(url?.trim());
+}
+
 export const PlayerPortrait = memo(function PlayerPortrait({
   view,
 }: {
   view: LedView;
 }) {
   const { currentPlayer, roleLabel, basePriceLabel } = view;
+  const [photoFailed, setPhotoFailed] = useState(false);
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [currentPlayer?.id, currentPlayer?.portrait]);
+
   if (!currentPlayer) return null;
+
+  const showPhoto = hasUsablePortrait(currentPlayer.portrait) && !photoFailed;
 
   return (
     <div className="relative overflow-hidden bg-black/40 border border-white/10 h-full">
-      {/* Portrait image */}
-      <img
-        src={currentPlayer.portrait}
-        alt={currentPlayer.name}
-        className="absolute inset-0 w-full h-full object-cover"
-        loading="eager"
-      />
+      {showPhoto ? (
+        <img
+          src={currentPlayer.portrait}
+          alt={currentPlayer.name}
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          onError={() => setPhotoFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white/[0.06] via-black/20 to-black/70">
+          <GenderPortraitIcon gender={currentPlayer.gender} />
+        </div>
+      )}
 
-      {/* Gradient floor */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
       <div
         className="absolute inset-0 opacity-30 mix-blend-overlay"
@@ -33,7 +47,6 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         }}
       />
 
-      {/* Jersey number badge */}
       <div className="absolute top-3 right-3 z-10">
         <div
           className="size-14 grid place-items-center font-['Bebas_Neue'] text-2xl italic shadow-2xl"
@@ -46,7 +59,6 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
       </div>
 
-      {/* Identity */}
       <div className="absolute inset-x-0 bottom-0 p-4 z-10">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span
@@ -74,7 +86,6 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
       </div>
 
-      {/* Accent corner */}
       <div
         className="absolute top-0 left-0 h-1 w-16"
         style={{ backgroundColor: "var(--accent)" }}
@@ -82,6 +93,15 @@ export const PlayerPortrait = memo(function PlayerPortrait({
     </div>
   );
 });
+
+function GenderPortraitIcon({ gender }: { gender: "male" | "female" | null }) {
+  const className =
+    "w-[clamp(5rem,18vw,9rem)] h-[clamp(5rem,18vw,9rem)] text-white/20";
+  if (gender === "female") {
+    return <UserRound className={className} strokeWidth={1.15} aria-hidden />;
+  }
+  return <User className={className} strokeWidth={1.15} aria-hidden />;
+}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (

@@ -52,6 +52,7 @@ export function snapshotPlayer(p: Player): Record<string, unknown> {
     status: p.status,
     teamId: p.teamId,
     categoryId: p.categoryId,
+    gender: p.gender,
     basePrice: p.basePrice,
     soldPrice: p.soldPrice,
     retainedPrice: p.retainedPrice,

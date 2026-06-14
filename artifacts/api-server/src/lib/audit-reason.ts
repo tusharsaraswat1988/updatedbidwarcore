@@ -86,3 +86,66 @@ export function isCriticalPlayerPatch(data: {
     data.mobileNumber !== undefined
   );
 }
+
+/** Auto-generated audit reason when organizer edits without typing one. */
+export function defaultPlayerPatchReason(
+  data: Parameters<typeof isCriticalPlayerPatch>[0],
+  existing?: { status?: string | null; teamId?: number | null; basePrice?: number | null },
+): string {
+  const parts: string[] = [];
+  if (data.status !== undefined && existing?.status !== undefined && data.status !== existing.status) {
+    parts.push(`status ${existing.status} → ${data.status}`);
+  } else if (data.status !== undefined) {
+    parts.push(`status set to ${data.status}`);
+  }
+  if (data.teamId !== undefined) parts.push("team assignment");
+  if (data.retainedPrice !== undefined) parts.push("retained price");
+  if (data.basePrice !== undefined && data.basePrice !== existing?.basePrice) {
+    parts.push("base price");
+  }
+  if (data.mobileNumber !== undefined) parts.push("mobile number");
+  if (parts.length > 0) {
+    return `Organizer dashboard: player ${parts.join(", ")} updated`;
+  }
+  return "Organizer dashboard: player profile updated";
+}
+
+/** Auto-generated audit reason when organizer edits without typing one. */
+export function defaultTeamPatchReason(data: {
+  purse?: number;
+  ownerName?: string;
+  ownerMobile?: string;
+  ownerEmail?: string;
+  regenerateCode?: boolean;
+}): string {
+  if (data.purse !== undefined) {
+    return "Organizer dashboard: team purse updated";
+  }
+  if (
+    data.ownerName !== undefined ||
+    data.ownerMobile !== undefined ||
+    data.ownerEmail !== undefined
+  ) {
+    return "Organizer dashboard: team owner details updated";
+  }
+  if (data.regenerateCode) {
+    return "Organizer dashboard: team access code regenerated";
+  }
+  return "Organizer dashboard: team profile updated";
+}
+
+/** Use explicit reason when provided; otherwise fall back to a predefined log message. */
+export function resolveAuditReasonWithDefault(
+  body: unknown,
+  defaultReason: string,
+): { ok: true; reason: string } | { ok: false; error: string } {
+  const raw = (body as { reason?: unknown })?.reason;
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, reason: defaultReason };
+  }
+  const parsed = reasonSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid reason" };
+  }
+  return { ok: true, reason: parsed.data };
+}

@@ -125,6 +125,7 @@ function buildMasterPlayerFields(auctionPlayer: Player) {
     email: emailParsed?.ok ? emailParsed.email : null,
     city: auctionPlayer.city,
     age: auctionPlayer.age,
+    gender: auctionPlayer.gender,
     photoUrl: auctionPlayer.photoUrl,
     auctionPlayerId: auctionPlayer.id,
     defaultRole: auctionPlayer.role,

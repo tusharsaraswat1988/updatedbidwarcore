@@ -73,23 +73,6 @@ import { PurseBoosterDialog } from "@/components/purse-booster-dialog";
 import { AuditReasonField } from "@/components/audit-reason-field";
 import { useToast } from "@/hooks/use-toast";
 
-const OPERATOR_COACH_STORAGE_KEY = "bidwar_operator_coach_v1";
-
-function operatorCoachTourSeen(): boolean {
-  try {
-    return localStorage.getItem(OPERATOR_COACH_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markOperatorCoachTourSeen(): void {
-  try {
-    localStorage.setItem(OPERATOR_COACH_STORAGE_KEY, "1");
-  } catch {
-    /* private browsing / disabled storage */
-  }
-}
 
 function playerMatchesSearch(
   player: { id: number; name: string },
@@ -212,8 +195,6 @@ export default function AuctionOperator() {
     playerOrder: readinessFixPath(tournamentId, "playerOrder"),
     bidTiers: readinessFixPath(tournamentId, "bidTiers"),
     minSquad: readinessFixPath(tournamentId, "minSquad"),
-    maxSquad: readinessFixPath(tournamentId, "maxSquad"),
-    squadRange: readinessFixPath(tournamentId, "squadRange"),
   };
 
   const [manualSellOpen, setManualSellOpen] = useState(false);
@@ -225,7 +206,6 @@ export default function AuctionOperator() {
   const [concludeDialogOpen, setConcludeDialogOpen] = useState(false);
   const [readinessModalOpen, setReadinessModalOpen] = useState(false);
   const [readinessIssues, setReadinessIssues] = useState<AuctionReadinessIssue[]>([]);
-  const [coachStep, setCoachStep] = useState(() => (operatorCoachTourSeen() ? 0 : 1));
   const [resumeBidDialogOpen, setResumeBidDialogOpen] = useState(false);
   const [currentBidPaused, setCurrentBidPaused] = useState(false);
   const [timerSecs, setTimerSecs] = useState("30");
@@ -253,17 +233,6 @@ export default function AuctionOperator() {
   const playerFilterContainerRef = useRef<HTMLDivElement>(null);
   // Per-team bid debounce
   const bidDebounce = useRef<Map<number, number>>(new Map());
-
-  const COACH_STEPS = [
-    { title: "1. Start the auction", body: "Click Start Practice when your setup checklist is complete." },
-    { title: "2. Sell or mark unsold", body: "When bidding ends, mark the player Sold or Unsold from the control bar." },
-    { title: "3. LED Big Screen", body: "On your projector laptop, open the LED screen and enter your LED code when asked." },
-  ];
-
-  const dismissCoachTour = useCallback(() => {
-    markOperatorCoachTourSeen();
-    setCoachStep(0);
-  }, []);
 
   // Drop stale fortune-wheel broadcast from a prior session so the LED shows
   // the auction main view when the operator opens auction control.
@@ -678,7 +647,7 @@ export default function AuctionOperator() {
     retained:  retainedPlayers.length,
   };
 
-  // Left panel list — filtered by status then search (name or player serial number)
+  // Left panel list — filtered by status then search (name or player #, same as Players page)
   const filterBySearch = <T extends { id: number; name: string }>(list: T[]): T[] =>
     playerSearch.trim()
       ? list.filter(p => playerMatchesSearch(p, playerSearch))
@@ -690,7 +659,7 @@ export default function AuctionOperator() {
     : statusFilter === "unsold"    ? unsoldPlayers
     : retainedPlayers;
 
-  const leftPanelList = filterBySearch(statusBasedList).slice(0, 80);
+  const leftPanelList = filterBySearch(statusBasedList);
   // LED overlay buttons
   const ledOverlayButtons = [
     { mode: "team"   as const, label: "Team",   icon: LayoutGrid,  bg: "bg-primary text-black"    },
@@ -1089,7 +1058,7 @@ export default function AuctionOperator() {
                   <p className="text-center text-white/25 text-xs py-8">
                     {playerSearch ? "No matches" : statusFilter === "all" ? "No players" : `No ${statusFilter} players`}
                   </p>
-                ) : leftPanelList.map((player, idx) => {
+                ) : leftPanelList.map((player) => {
                   const cat        = player.categoryId ? categoryMap[player.categoryId] : null;
                   const team       = player.teamId ? teamMap[player.teamId] : null;
                   const isNowOn    = state?.currentPlayer?.id === player.id;
@@ -1107,8 +1076,8 @@ export default function AuctionOperator() {
                       }`}>
 
                       <div className="flex items-start gap-1.5 min-w-0">
-                        {/* Row number */}
-                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{idx + 1}</span>
+                        {/* Player # — matches Players page serial column */}
+                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{player.id}</span>
 
                         {/* Jersey */}
                         {player.jerseyNumber && (
@@ -1134,8 +1103,7 @@ export default function AuctionOperator() {
                                   borderRadius: 999,
                                   fontSize: "7px",
                                   fontWeight: 800,
-                                  letterSpacing: "0.12em",
-                                  textTransform: "uppercase",
+                                  letterSpacing: "0.06em",
                                   background: tt.bg,
                                   border: `1px solid ${tt.border}`,
                                   color: tt.color,
@@ -1143,7 +1111,7 @@ export default function AuctionOperator() {
                                   whiteSpace: "nowrap",
                                   lineHeight: 1,
                                 }}>
-                                  {tt.abbrev}
+                                  {tt.label}
                                 </span>
                               );
                             })()}
@@ -1316,6 +1284,7 @@ export default function AuctionOperator() {
                             <div className="min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
                                 {state?.currentPlayer?.role?.toUpperCase() || "PLAYER"}
+                                <span className="ml-2 font-mono text-white/25">#{state.currentPlayer.id}</span>
                                 {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
                                   <span className="ml-2" style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined }}>
                                     · {categoryMap[state.currentPlayer.categoryId].name}
@@ -1973,43 +1942,6 @@ export default function AuctionOperator() {
                 Close
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* First-visit coach marks — shown once per browser (localStorage) */}
-        <Dialog
-          open={coachStep > 0}
-          onOpenChange={(open) => {
-            if (!open) dismissCoachTour();
-          }}
-        >
-          <DialogContent className="dark max-w-md" onPointerDownOutside={e => e.preventDefault()}>
-            <DialogHeader>
-              <DialogTitle>{COACH_STEPS[coachStep - 1]?.title}</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground py-2">{COACH_STEPS[coachStep - 1]?.body}</p>
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={dismissCoachTour}
-              >
-                Skip tour
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  if (coachStep >= COACH_STEPS.length) {
-                    dismissCoachTour();
-                  } else {
-                    setCoachStep(s => s + 1);
-                  }
-                }}
-              >
-                {coachStep >= COACH_STEPS.length ? "Got it" : "Next →"}
-              </Button>
-            </div>
-            <p className="text-[10px] text-center text-muted-foreground">Step {coachStep} of {COACH_STEPS.length}</p>
           </DialogContent>
         </Dialog>
 

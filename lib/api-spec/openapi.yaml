@@ -2473,6 +2473,10 @@ components:
           type: ["string", "null"]
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
+          description: Player gender — M (Male) or F (Female)
         photoUrl:
           type: ["string", "null"]
         basePrice:
@@ -2529,6 +2533,9 @@ components:
           type: string
         age:
           type: integer
+        gender:
+          type: string
+          enum: [M, F]
         photoUrl:
           type: string
         basePrice:
@@ -2581,6 +2588,10 @@ components:
           type: string
         age:
           type: integer
+        gender:
+          type: string
+          enum: [M, F]
+          nullable: true
         photoUrl:
           type: string
         basePrice:
@@ -3321,6 +3332,9 @@ components:
           type: ["string", "null"]
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
         role:
           type: ["string", "null"]
         photoUrl:
@@ -3375,6 +3389,9 @@ components:
           type: ["string", "null"]
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
         mobileNumber:
           type: ["string", "null"]
         photoUrl:

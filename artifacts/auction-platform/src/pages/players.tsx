@@ -56,17 +56,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
-import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
+import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { useToast } from "@/hooks/use-toast";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
+import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -76,6 +77,7 @@ type SuggestionProfile = {
   mobileNumber?: string | null;
   city?: string | null;
   age?: number | null;
+  gender?: string | null;
   role?: string | null;
   photoUrl?: string | null;
   battingStyle?: string | null;
@@ -394,19 +396,9 @@ function TournamentImportDialog({ tournamentId, onClose }: {
 
 // ─── Player Form ───────────────────────────────────────────────────────────────
 
-const PLAYER_TAGS = [
-  { value: "captain",      label: "Captain" },
-  { value: "vice_captain", label: "Vice Captain" },
-  { value: "owner",        label: "Owner" },
-  { value: "co_owner",     label: "Co-Owner" },
-  { value: "booster",      label: "Booster" },
-  { value: "icon",         label: "Icon" },
-  { value: "star_player",  label: "Star Player" },
-] as const;
+const PLAYER_TAGS = PLAYER_TAG_OPTIONS;
 
-export function playerTagLabel(tag: string | null | undefined) {
-  return PLAYER_TAGS.find(t => t.value === tag)?.label ?? null;
-}
+export { playerTagLabel };
 
 function PlayerForm({ tournamentId, player, categories, teams, tournament, onClose }: {
   tournamentId: number;
@@ -429,7 +421,6 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const [pendingMobileProfile, setPendingMobileProfile] = useState<SuggestionProfile | null>(null);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
-  const [auditReason, setAuditReason] = useState("");
   const isEdit = !!player;
 
   // Dynamic roles from sport master table
@@ -464,6 +455,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     bowlingStyle: player?.bowlingStyle || "",
     specialization: player?.specialization || "",
     age: player?.age ? String(player.age) : "",
+    gender: player?.gender ?? "",
     photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
     jerseyNumber: player?.jerseyNumber || "",
@@ -561,6 +553,12 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
       age: form.age ? parseInt(form.age) : undefined,
+      gender:
+        form.gender === "M" || form.gender === "F"
+          ? form.gender
+          : isEdit
+            ? null
+            : undefined,
       photoUrl: form.photoUrl || undefined,
       basePrice: parseInt(String(form.basePrice)) || 0,
       jerseyNumber: form.jerseyNumber || undefined,
@@ -577,16 +575,12 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
     };
-    if (isEdit && !isAuditReasonValid(auditReason)) {
-      setSubmitError("A reason is required when editing a player (minimum 10 characters).");
-      return;
-    }
     try {
       if (player) {
         await updatePlayer.mutateAsync({
           tournamentId,
           playerId: player.id,
-          data: { ...data, reason: auditReason.trim() },
+          data,
         });
       } else {
         await createPlayer.mutateAsync({ tournamentId, data });
@@ -615,6 +609,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       city: p.city || prev.city,
       role: p.role || prev.role,
       age: p.age != null ? String(p.age) : prev.age,
+      gender: p.gender || prev.gender,
       photoUrl: p.photoUrl || prev.photoUrl,
       battingStyle: p.battingStyle || prev.battingStyle,
       bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
@@ -748,8 +743,8 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
         onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
         error={emailError || undefined}
       />
-      {/* Row 3: City | Age */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Row 3: City | Age | Gender */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>City</Label>
           <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
@@ -758,6 +753,10 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           <Label>Age</Label>
           <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
         </div>
+        <PlayerGenderSelect
+          value={form.gender}
+          onChange={(v) => f("gender", v)}
+        />
       </div>
       {/* Row 4: Base Price | Jersey No */}
       <div className="grid grid-cols-2 gap-4">
@@ -1014,18 +1013,11 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           {submitError}
         </div>
       )}
-      {isEdit && (
-        <AuditReasonField
-          value={auditReason}
-          onChange={setAuditReason}
-          placeholder="Explain why this player record is being changed…"
-        />
-      )}
       <div className="flex gap-3 pt-4">
         <Button
           type="submit"
           className="flex-1"
-          disabled={createPlayer.isPending || updatePlayer.isPending || (isEdit && !isAuditReasonValid(auditReason))}
+          disabled={createPlayer.isPending || updatePlayer.isPending}
         >
           {player ? "Update Player" : "Add Player"}
         </Button>
@@ -1048,10 +1040,10 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
+  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,gender,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
 
   function downloadTemplate() {
-    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
+    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,M,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
     const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1082,6 +1074,10 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
         role: row["role"] || undefined,
         city: row["city"] || undefined,
         age: row["age"] ? parseInt(row["age"]) : undefined,
+        gender: (() => {
+          const g = (row["gender"] || "").trim().toUpperCase();
+          return g === "M" || g === "F" ? g : undefined;
+        })(),
         battingStyle: row["battingstyle"] || row["batting_style"] || undefined,
         bowlingStyle: row["bowlingstyle"] || row["bowling_style"] || undefined,
         specialization: row["specialization"] || undefined,
@@ -1241,12 +1237,13 @@ type PlayersFilterPersist = {
   categoryIds: number[];
   teamIds: number[];
   tagFilters: string[];
+  genderFilters: string[];
   missingMobileOnly: boolean;
   sortKey: PlayerSortKey;
   sortDir: SortDir;
 };
 
-const FILTER_STORAGE_VERSION = "v1";
+const FILTER_STORAGE_VERSION = "v2";
 function filterStorageKey(tournamentId: number) {
   return `players-filters:${FILTER_STORAGE_VERSION}:${tournamentId}`;
 }
@@ -1326,12 +1323,17 @@ function sortPlayers(
   });
 }
 
+function playerGenderFilterKey(gender: string | null | undefined): string {
+  return gender === "M" || gender === "F" ? gender : "_unset";
+}
+
 function playerPassesAdvancedFilters(
   player: any,
   opts: {
     categoryIds: Set<number>;
     teamIds: Set<number>;
     tagFilters: Set<string>;
+    genderFilters: Set<string>;
     missingMobileOnly: boolean;
     teamFilterActive: boolean;
   },
@@ -1343,6 +1345,9 @@ function playerPassesAdvancedFilters(
     return false;
   }
   if (opts.tagFilters.size > 0 && (!player.playerTag || !opts.tagFilters.has(player.playerTag))) {
+    return false;
+  }
+  if (opts.genderFilters.size > 0 && !opts.genderFilters.has(playerGenderFilterKey(player.gender))) {
     return false;
   }
   if (opts.missingMobileOnly && player.mobileNumber) {
@@ -1495,9 +1500,10 @@ const statusBorderAccent: Record<string, string> = {
   retained: "border-l-purple-500",
 };
 
-function PlayerPhoto({ photoUrl, name, size = "sm" }: { photoUrl?: string | null; name: string; size?: "sm" | "lg" }) {
+function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: string | null; name: string; gender?: string | null; size?: "sm" | "lg" }) {
   const dim = size === "lg" ? "w-16 h-16" : "w-9 h-9";
   const iconDim = size === "lg" ? "w-7 h-7" : "w-4 h-4";
+  const portraitGender = mapStoredGenderToPortrait(gender);
   return (
     <div className={`${dim} rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0`}>
       {photoUrl ? (
@@ -1508,8 +1514,10 @@ function PlayerPhoto({ photoUrl, name, size = "sm" }: { photoUrl?: string | null
           loading="lazy"
           decoding="async"
         />
+      ) : portraitGender === "female" ? (
+        <UserRound className={`${iconDim} text-muted-foreground/50`} aria-hidden />
       ) : (
-        <User className={`${iconDim} text-muted-foreground/50`} />
+        <User className={`${iconDim} text-muted-foreground/50`} aria-hidden />
       )}
     </div>
   );
@@ -1556,7 +1564,7 @@ function PlayerDetailPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-4">
-        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} size="lg" />
+        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">#{player.id}</span>
@@ -1568,8 +1576,7 @@ function PlayerDetailPanel({
                   borderRadius: 999,
                   fontSize: "10px",
                   fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
                   background: tagTheme.bg,
                   border: `1px solid ${tagTheme.border}`,
                   color: tagTheme.color,
@@ -1637,6 +1644,12 @@ function PlayerDetailPanel({
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Age</p>
             <p>{player.age}</p>
+          </div>
+        )}
+        {formatPlayerGender(player.gender) && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Gender</p>
+            <p>{formatPlayerGender(player.gender)}</p>
           </div>
         )}
         {player.jerseyNumber && (
@@ -1762,6 +1775,7 @@ export default function Players() {
   const deletePlayer = useDeletePlayer();
   const [regDeadline, setRegDeadline] = useState("");
   const [regLimit, setRegLimit] = useState("");
+  const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -1771,6 +1785,7 @@ export default function Players() {
   const [categoryIds, setCategoryIds] = useState<Set<number>>(new Set());
   const [teamIds, setTeamIds] = useState<Set<number>>(new Set());
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+  const [genderFilters, setGenderFilters] = useState<Set<string>>(new Set());
   const [missingMobileOnly, setMissingMobileOnly] = useState(false);
   const [sortKey, setSortKey] = useState<PlayerSortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -1790,6 +1805,7 @@ export default function Players() {
       setCategoryIds(new Set(saved.categoryIds ?? []));
       setTeamIds(new Set(saved.teamIds ?? []));
       setTagFilters(new Set(saved.tagFilters ?? []));
+      setGenderFilters(new Set(saved.genderFilters ?? []));
       setMissingMobileOnly(saved.missingMobileOnly ?? false);
       setSortKey(saved.sortKey ?? "id");
       setSortDir(saved.sortDir ?? "asc");
@@ -1799,6 +1815,7 @@ export default function Players() {
       setCategoryIds(new Set());
       setTeamIds(new Set());
       setTagFilters(new Set());
+      setGenderFilters(new Set());
       setMissingMobileOnly(false);
       setSortKey("id");
       setSortDir("asc");
@@ -1816,11 +1833,12 @@ export default function Players() {
       categoryIds: [...categoryIds],
       teamIds: [...teamIds],
       tagFilters: [...tagFilters],
+      genderFilters: [...genderFilters],
       missingMobileOnly,
       sortKey,
       sortDir,
     });
-  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, missingMobileOnly, sortKey, sortDir]);
+  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, sortKey, sortDir]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -1866,6 +1884,7 @@ export default function Players() {
     setCategoryIds(new Set());
     setTeamIds(new Set());
     setTagFilters(new Set());
+    setGenderFilters(new Set());
     setMissingMobileOnly(false);
   }
 
@@ -1891,7 +1910,7 @@ export default function Players() {
 
   const teamFilterEnabled = tab === "all" || tab === "sold" || tab === "retained";
   const hasAdvancedFilters =
-    categoryIds.size > 0 || (teamFilterEnabled && teamIds.size > 0) || tagFilters.size > 0 || missingMobileOnly;
+    categoryIds.size > 0 || (teamFilterEnabled && teamIds.size > 0) || tagFilters.size > 0 || genderFilters.size > 0 || missingMobileOnly;
 
   const filtered = useMemo(() => {
     const list = (players || []).filter(p => {
@@ -1901,12 +1920,13 @@ export default function Players() {
         categoryIds,
         teamIds,
         tagFilters,
+        genderFilters,
         missingMobileOnly,
         teamFilterActive: teamFilterEnabled,
       });
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
-  }, [players, tab, search, categoryIds, teamIds, tagFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
+  }, [players, tab, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
@@ -1922,6 +1942,11 @@ export default function Players() {
     color: t.color,
   }));
   const tagOptions = PLAYER_TAGS.map(t => ({ value: t.value, label: t.label }));
+  const genderOptions = [
+    { value: "M", label: "Male" },
+    { value: "F", label: "Female" },
+    { value: "_unset", label: "Not specified" },
+  ];
 
   const regUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/register` : "";
 
@@ -1941,7 +1966,16 @@ export default function Players() {
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
     qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-    toast({ title: "Registration limits saved" });
+    toast({ title: "Registration link settings saved" });
+    setRegSettingsOpen(false);
+  }
+
+  function closeRegSettingsDialog() {
+    if (tournament) {
+      setRegDeadline(tournament.registrationDeadline || "");
+      setRegLimit(tournament.registrationLimit != null ? String(tournament.registrationLimit) : "");
+    }
+    setRegSettingsOpen(false);
   }
 
   return (
@@ -1967,7 +2001,7 @@ export default function Players() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <button
             type="button"
             onClick={() => { setEditing(null); setOpen(true); }}
@@ -1996,7 +2030,7 @@ export default function Players() {
           </button>
           <button
             type="button"
-            onClick={() => window.open(`/tournament/${tournamentId}/register`, "_blank")}
+            onClick={() => setRegSettingsOpen(true)}
             className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -2007,68 +2041,92 @@ export default function Players() {
             </div>
             <p className="text-xs text-muted-foreground">Players fill their own details — entries appear here automatically.</p>
           </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Download className="w-5 h-5 text-primary" />
+              </div>
+              <p className="font-semibold">Import from tournament</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Copy players from a past auction — skip re-entering names and details.</p>
+          </button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4 max-w-2xl">
-          <div>
-            <p className="font-semibold text-sm">Player registration link</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Share early in setup — players register before auction day.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
-            <CopyTextButton text={regUrl} label="Copy link" />
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
-              <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="w-3 h-3" /> WhatsApp
-              </a>
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
-              <ExternalLink className="w-3 h-3" /> Open
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
-            <div className="space-y-2">
-              <Label className="text-xs">Last date to register</Label>
-              <Input type="date" value={regDeadline} onChange={e => setRegDeadline(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Max registrations</Label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="e.g. 100"
-                value={regLimit}
-                onChange={e => setRegLimit(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" onClick={() => void saveRegistrationLimits()} disabled={updateTournament.isPending}>
-              {updateTournament.isPending ? "Saving…" : "Save limits"}
-            </Button>
+        <Dialog open={regSettingsOpen} onOpenChange={(v) => { if (!v) closeRegSettingsDialog(); else setRegSettingsOpen(true); }}>
+          <DialogContent className="max-w-lg dark">
+            <DialogHeader>
+              <DialogTitle>Share registration link</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground -mt-2">
+              Share this link before auction day. Players register themselves and appear in your list automatically.
+            </p>
             {regStatus && (
-              regStatus.open ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
-                  <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
-                </span>
-              ) : regStatus.reason === "deadline_passed" ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                  <CalendarX className="w-3 h-3" /> Closed — deadline passed
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                  <Lock className="w-3 h-3" /> Closed — limit reached
-                </span>
-              )
+              <div className="pt-1">
+                {regStatus.open ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
+                    <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
+                  </span>
+                ) : regStatus.reason === "deadline_passed" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <Lock className="w-3 h-3" /> Closed — limit reached
+                  </span>
+                )}
+              </div>
             )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 h-8 text-xs text-muted-foreground" onClick={() => setImportOpen(true)}>
-            <Upload className="w-3.5 h-3.5" /> Import from another tournament
-          </Button>
-        </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
+              <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+              <CopyTextButton text={regUrl} label="Copy link" />
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-3 h-3" /> WhatsApp
+                </a>
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+                <ExternalLink className="w-3 h-3" /> Open
+              </Button>
+            </div>
+            <div className="space-y-3 pt-1 border-t border-border/50">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Link settings <span className="normal-case font-normal">(optional)</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                Leave blank to keep registration open with no player cap.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Last date to register</Label>
+                  <Input type="date" value={regDeadline} onChange={e => setRegDeadline(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Max registrations</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 100"
+                    value={regLimit}
+                    onChange={e => setRegLimit(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={closeRegSettingsDialog} disabled={updateTournament.isPending}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void saveRegistrationLimits()} disabled={updateTournament.isPending}>
+                {updateTournament.isPending ? "Saving…" : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
           <DialogContent
@@ -2140,6 +2198,13 @@ export default function Players() {
               selected={tagFilters}
               onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
               onClear={() => setTagFilters(new Set())}
+            />
+            <MultiFilterPopover
+              label="Gender"
+              options={genderOptions}
+              selected={genderFilters}
+              onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
+              onClear={() => setGenderFilters(new Set())}
             />
             <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-sm cursor-pointer hover:bg-accent/50">
               <Checkbox
@@ -2220,7 +2285,7 @@ export default function Players() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/60">
                     <SortableTableHead
-                      label="#"
+                      label="Serial #"
                       sortKey="id"
                       activeKey={sortKey}
                       sortDir={sortDir}
@@ -2292,7 +2357,7 @@ export default function Players() {
                             {player.id}
                           </TableCell>
                           <TableCell>
-                            <PlayerPhoto photoUrl={player.photoUrl} name={player.name} />
+                            <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2 min-w-0">
@@ -2306,9 +2371,8 @@ export default function Players() {
                                     borderColor: tagTheme.border,
                                     background: tagTheme.bg,
                                   }}
-                                  title={tagTheme.label}
                                 >
-                                  {tagTheme.abbrev}
+                                  {tagTheme.label}
                                 </Badge>
                               )}
                             </div>
@@ -2422,7 +2486,7 @@ export default function Players() {
                   >
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.id}</span>
-                      <PlayerPhoto photoUrl={player.photoUrl} name={player.name} />
+                      <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold truncate">{player.name}</span>
@@ -2432,7 +2496,7 @@ export default function Players() {
                               className="text-[9px] font-bold shrink-0"
                               style={{ color: tagTheme.color, borderColor: tagTheme.border, background: tagTheme.bg }}
                             >
-                              {tagTheme.abbrev}
+                              {tagTheme.label}
                             </Badge>
                           )}
                         </div>

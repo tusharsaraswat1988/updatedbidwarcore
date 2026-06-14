@@ -34,23 +34,43 @@ export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
         {currentBidLabel}
       </div>
 
-      {/* Leading team card */}
-      {showLeading && leadingTeam ? (
-        <div
-          className="mt-4 flex items-center gap-4 px-5 py-2 border-l-4 bg-white/95 text-black"
-          style={{ borderLeftColor: leadingTeam.color }}
-        >
-          <span className="font-['Bebas_Neue'] text-2xl tracking-widest">
-            {leadingTeam.short}
-          </span>
-          <div className="h-5 w-px bg-black/20" />
-          <span className="text-xs font-bold uppercase tracking-wider">
-            {leadingTeam.name}
-          </span>
+      {/* Leading team card — logo + name; label confirms highest bidder */}
+      {showLeading && leadingTeam && state.currentBid > 0 ? (
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <div
+            className="flex items-center gap-6 px-8 py-3 border-l-[6px] bg-white/95 text-black min-h-[4.5rem]"
+            style={{ borderLeftColor: leadingTeam.color }}
+          >
+            {leadingTeam.logoUrl ? (
+              <img
+                src={leadingTeam.logoUrl}
+                alt={leadingTeam.name}
+                className="h-16 w-16 shrink-0 object-contain"
+              />
+            ) : (
+              <span className="font-['Bebas_Neue'] text-4xl tracking-widest leading-none">
+                {leadingTeam.short}
+              </span>
+            )}
+            <div className="h-8 w-px bg-black/20" />
+            <span className="text-lg font-bold uppercase tracking-wider leading-tight">
+              {leadingTeam.name}
+            </span>
+          </div>
+          <p
+            className="font-mono text-xs md:text-sm uppercase tracking-[0.45em]"
+            style={{ color: leadingTeam.color }}
+          >
+            Highest Bidder
+          </p>
+        </div>
+      ) : showLeading && state.isBidding ? (
+        <div className="mt-4 text-white/40 text-xs font-mono uppercase tracking-[0.3em]">
+          Waiting for first bid…
         </div>
       ) : (
         <div className="mt-4 text-white/40 text-xs font-mono uppercase tracking-[0.3em]">
-          {state.isBidding ? "Waiting for first bid…" : "Awaiting auctioneer"}
+          Awaiting auctioneer
         </div>
       )}
 

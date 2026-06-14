@@ -3,6 +3,7 @@
 // DisplayShell only; individual leaves are re-exported for future
 // composition (livestream graphics, multi-screen broadcasts, etc.).
 export { DisplayShell } from "./display-shell";
+export { SideDisplayShell } from "./side-display-shell";
 export { StaticBackground } from "./static-background";
 export { AuctionHeader } from "./auction-header";
 export { PlayerCard } from "./player-card";

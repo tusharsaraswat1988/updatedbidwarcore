@@ -20,6 +20,7 @@ const Players = lazy(() => import("@/pages/players"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const AuctionReset = lazy(() => import("@/pages/auction-reset"));
 const DisplayView = lazy(() => import("@/pages/display"));
+const SideDisplayView = lazy(() => import("@/pages/side-display"));
 import { RedirectToOwnerApp } from "@/components/redirect-to-owner-app";
 const Reports = lazy(() => import("@/pages/reports"));
 const LinksPage = lazy(() => import("@/pages/links"));
@@ -115,6 +116,7 @@ function Router() {
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/tournament/:id/display" component={DisplayView} />
+        <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
         {/* Public live viewer — no auction code gate; share /live/:id with fans */}
         <Route path="/live/:id" component={LiveViewer} />

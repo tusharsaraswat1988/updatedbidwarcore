@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
 import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
-import { liveViewerPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
@@ -150,6 +150,8 @@ export default function LinksPage() {
 
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
+  const sideSponsorUrl = `${base}${sideDisplayPath(tournamentId, "sponsors", tournament?.auctionCode)}`;
+  const sidePlayerUrl = `${base}${sideDisplayPath(tournamentId, "player", tournament?.auctionCode)}`;
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
@@ -179,6 +181,18 @@ export default function LinksPage() {
                   : "Open on the big screen at your venue. Press F11 for full screen."
               }
               shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
+            />
+            <LinkRow
+              label="Side LED — Sponsors (left / right screen)"
+              url={sideSponsorUrl}
+              description="Portrait or landscape flanking screen — professional sponsor carousel. Stays on sponsors even when operator switches main LED to team/player/top 5 views."
+              shareText={`Sponsor side screen for ${tournament?.name ?? "our auction"}: ${sideSponsorUrl}`}
+            />
+            <LinkRow
+              label="Side LED — Live Player Profile"
+              url={sidePlayerUrl}
+              description="Portrait or landscape flanking screen — full profile of the player on block with live bid and timer. Independent of operator LED overlay controls."
+              shareText={`Player profile side screen for ${tournament?.name ?? "our auction"}: ${sidePlayerUrl}`}
             />
           </CardContent>
         </Card>

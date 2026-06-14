@@ -390,8 +390,8 @@ export default function TournamentSettings() {
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+    setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos));
     toast({ title: "Settings saved", description: "Your auction rules have been updated." });
-    navigate(`/tournament/${tournamentId}`);
   }
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
@@ -777,7 +777,7 @@ export default function TournamentSettings() {
                     </Label>
                     <Input type="number" min={0} max={100} value={editForm.minimumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))} />
                   </div>
-                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", Number(editForm.maximumSquadSize) <= 0)}`}>
+                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad")}`}>
                     <Label className="text-xs flex items-center gap-1">
                       Maximum Players
                       <FieldTooltip text="Teams cannot bid once they reach this count." />

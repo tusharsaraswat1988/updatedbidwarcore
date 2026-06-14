@@ -28,9 +28,6 @@ import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
-import { teamEditNeedsReason } from "@/lib/audit-reason";
-import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -109,8 +106,6 @@ function TeamForm({
   const [ownerPhotoEditorOpen, setOwnerPhotoEditorOpen] = useState(false);
   const [error, setError] = useState("");
   const [ownerEmailError, setOwnerEmailError] = useState("");
-  const [auditReason, setAuditReason] = useState("");
-  const needsReason = !!team && teamEditNeedsReason(team, form);
 
   const takenCodes = new Set(
     existingShortCodes.filter(c => !team || c !== team.shortCode)
@@ -161,10 +156,6 @@ function TeamForm({
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
     }
-    if (needsReason && !isAuditReasonValid(auditReason)) {
-      setError("A reason is required for purse or owner changes (minimum 10 characters).");
-      return;
-    }
     const payload = {
       name: form.name.trim(),
       shortCode: form.shortCode.trim().toUpperCase(),
@@ -175,7 +166,6 @@ function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       ...(team ? { purse: form.purse } : {}),
-      ...(needsReason ? { reason: auditReason.trim() } : {}),
     };
     try {
       if (team) {
@@ -416,19 +406,11 @@ function TeamForm({
         />
       </div>
 
-      {needsReason && (
-        <AuditReasonField
-          value={auditReason}
-          onChange={setAuditReason}
-          placeholder="Explain why purse or owner details are being changed…"
-        />
-      )}
-
       <div className="flex gap-3 pt-4">
         <Button
           type="submit"
           className="flex-1"
-          disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate || (needsReason && !isAuditReasonValid(auditReason))}
+          disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate}
         >
           {team ? "Update Team" : "Add Team"}
         </Button>
@@ -495,12 +477,12 @@ export default function Teams() {
     setRegenerateTarget(teamId);
   }
 
-  async function confirmRegenerateCode(reason: string) {
+  async function confirmRegenerateCode() {
     if (!regenerateTarget) return;
     await updateTeam.mutateAsync({
       tournamentId,
       teamId: regenerateTarget,
-      data: { regenerateCode: true, reason },
+      data: { regenerateCode: true },
     });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
     setRegenerateTarget(null);
@@ -872,15 +854,30 @@ export default function Teams() {
         </DialogContent>
       </Dialog>
 
-      <AuditReasonDialog
-        open={regenerateTarget !== null}
-        onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}
-        title="Regenerate owner access code"
-        description="The old code will stop working immediately. Explain why you are regenerating it."
-        confirmLabel="Regenerate code"
-        loading={updateTeam.isPending}
-        onConfirm={confirmRegenerateCode}
-      />
+      <Dialog open={regenerateTarget !== null} onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle>Regenerate owner access code?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The old code will stop working immediately. Team owners will need the new code to bid.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateTarget(null)} disabled={updateTeam.isPending}>
+              Cancel
+            </Button>
+            <Button disabled={updateTeam.isPending} onClick={() => void confirmRegenerateCode()}>
+              {updateTeam.isPending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Regenerating…
+                </>
+              ) : (
+                "Regenerate code"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

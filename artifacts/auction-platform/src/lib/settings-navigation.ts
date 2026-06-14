@@ -32,8 +32,6 @@ const READINESS_TO_SETTINGS: Partial<Record<AuctionReadinessCheckId, SettingsFoc
   playerOrder: "playerOrder",
   bidTiers: "bidTiers",
   minSquad: "minSquad",
-  maxSquad: "maxSquad",
-  squadRange: "maxSquad",
 };
 
 export function readinessFixPath(tournamentId: number, checkId: AuctionReadinessCheckId): string {

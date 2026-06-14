@@ -689,6 +689,10 @@ export const ExportTournamentForLocalResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -1190,6 +1194,10 @@ export const ListPlayersResponseItem = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
   soldPrice: zod.number().nullish(),
@@ -1239,6 +1247,7 @@ export const CreatePlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
   basePrice: zod.number(),
   jerseyNumber: zod.string().optional(),
@@ -1307,6 +1316,7 @@ export const RegisterPlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
   basePrice: zod.number(),
   jerseyNumber: zod.string().optional(),
@@ -1357,6 +1367,7 @@ export const BulkCreatePlayersBody = zod.object({
       bowlingStyle: zod.string().optional(),
       specialization: zod.string().optional(),
       age: zod.number().optional(),
+      gender: zod.enum(["M", "F"]).optional(),
       photoUrl: zod.string().optional(),
       basePrice: zod.number(),
       jerseyNumber: zod.string().optional(),
@@ -1417,6 +1428,10 @@ export const GetPlayerResponse = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
   soldPrice: zod.number().nullish(),
@@ -1466,6 +1481,7 @@ export const UpdatePlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
   basePrice: zod.number().optional(),
   jerseyNumber: zod.string().optional(),
@@ -1510,6 +1526,10 @@ export const UpdatePlayerResponse = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
   soldPrice: zod.number().nullish(),
@@ -1573,6 +1593,10 @@ export const GetAuctionStateResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -1711,7 +1735,7 @@ export const GetAuctionStateResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -1763,6 +1787,10 @@ export const StartAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -1901,7 +1929,7 @@ export const StartAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -1953,6 +1981,10 @@ export const PauseAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -2091,7 +2123,7 @@ export const PauseAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2148,6 +2180,10 @@ export const NextPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -2286,7 +2322,7 @@ export const NextPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2347,6 +2383,10 @@ export const PlaceBidResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -2485,7 +2525,7 @@ export const PlaceBidResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2537,6 +2577,10 @@ export const SellPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -2675,7 +2719,7 @@ export const SellPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2736,6 +2780,10 @@ export const ManualSellResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -2874,7 +2922,7 @@ export const ManualSellResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2926,6 +2974,10 @@ export const MarkUnsoldResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -3064,7 +3116,7 @@ export const MarkUnsoldResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3125,6 +3177,10 @@ export const ReAuctionPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -3263,7 +3319,7 @@ export const ReAuctionPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3322,6 +3378,10 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -3460,7 +3520,7 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3519,6 +3579,10 @@ export const ConcludeAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -3657,7 +3721,7 @@ export const ConcludeAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3709,6 +3773,10 @@ export const UndoLastActionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -3847,7 +3915,7 @@ export const UndoLastActionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3908,6 +3976,10 @@ export const ResetTrialAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -4046,7 +4118,7 @@ export const ResetTrialAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4102,6 +4174,10 @@ export const SetDisplayOverlayResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -4240,7 +4316,7 @@ export const SetDisplayOverlayResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4298,6 +4374,10 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -4436,7 +4516,7 @@ export const SetDisplayPlayerFilterResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4550,6 +4630,10 @@ export const SyncFortuneWheelResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -4688,7 +4772,7 @@ export const SyncFortuneWheelResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4744,6 +4828,10 @@ export const SetCategoryFilterResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -4882,7 +4970,7 @@ export const SetCategoryFilterResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4950,6 +5038,10 @@ export const SetBreakTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -5088,206 +5180,7 @@ export const SetBreakTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
-      endsAt: zod
-        .string()
-        .optional()
-        .describe("ISO timestamp when the countdown ends"),
-      message: zod
-        .string()
-        .nullish()
-        .describe("Optional display message override"),
-    })
-    .nullish(),
-  lastPurseBooster: zod
-    .object({
-      id: zod.number(),
-      teamId: zod.number(),
-      teamName: zod.string(),
-      amount: zod.number(),
-      previousCapacity: zod.number(),
-      newCapacity: zod.number(),
-      appliedAt: zod.coerce.date(),
-    })
-    .nullish(),
-  ledPurseToast: zod
-    .object({
-      teamName: zod.string(),
-    })
-    .nullish(),
-});
-
-/**
- * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
- */
-export const SetPreAuctionCountdownParams = zod.object({
-  tournamentId: zod.coerce.number(),
-});
-
-export const setPreAuctionCountdownBodyActionDefault = `start`;
-
-export const SetPreAuctionCountdownBody = zod.object({
-  action: zod
-    .enum(["start", "cancel"])
-    .default(setPreAuctionCountdownBodyActionDefault),
-  message: zod.string().optional(),
-});
-
-export const SetPreAuctionCountdownResponse = zod.object({
-  tournamentId: zod.number(),
-  status: zod.enum(["idle", "active", "paused", "completed"]),
-  currentPlayer: zod
-    .object({
-      id: zod.number(),
-      tournamentId: zod.number(),
-      categoryId: zod.number().nullish(),
-      teamId: zod.number().nullish(),
-      name: zod.string(),
-      city: zod.string().nullish(),
-      role: zod.string().nullish(),
-      battingStyle: zod.string().nullish(),
-      bowlingStyle: zod.string().nullish(),
-      specialization: zod.string().nullish(),
-      age: zod.number().nullish(),
-      photoUrl: zod.string().nullish(),
-      basePrice: zod.number(),
-      soldPrice: zod.number().nullish(),
-      retainedPrice: zod.number().nullish(),
-      status: zod.enum(["available", "sold", "unsold", "retained"]),
-      jerseyNumber: zod.string().nullish(),
-      achievements: zod.string().nullish(),
-      mobileNumber: zod.string().nullish(),
-      email: zod.string().nullish(),
-      cricheroUrl: zod.string().nullish(),
-      availabilityDates: zod.string().nullish(),
-      playerTag: zod
-        .union([
-          zod.literal("captain"),
-          zod.literal("vice_captain"),
-          zod.literal("owner"),
-          zod.literal("co_owner"),
-          zod.literal("booster"),
-          zod.literal("icon"),
-          zod.literal("star_player"),
-          zod.literal(null),
-        ])
-        .nullish()
-        .describe("Cosmetic tag — no calculation impact"),
-      playerTagTeamId: zod
-        .number()
-        .nullish()
-        .describe("Team this tag applies to"),
-      isNonPlayingMember: zod
-        .boolean()
-        .optional()
-        .describe("Excluded from squad-slot counts but visible in team roster"),
-      createdAt: zod.string(),
-    })
-    .nullish(),
-  currentBid: zod.number().nullish(),
-  currentBidTeamId: zod.number().nullish(),
-  currentBidTeamName: zod.string().nullish(),
-  currentBidTeamColor: zod.string().nullish(),
-  currentBidTeamLogoUrl: zod.string().nullish(),
-  bidIncrement: zod.number().optional(),
-  timerSeconds: zod.number().nullish(),
-  bidTimerSeconds: zod.number().nullish(),
-  timerEndsAt: zod.string().nullish(),
-  timerType: zod
-    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
-    .nullish()
-    .describe(
-      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
-    ),
-  lastAction: zod.string().nullish(),
-  outcome: zod
-    .object({
-      type: zod.enum(["sold", "unsold"]),
-      playerId: zod.number().nullish(),
-      playerName: zod.string(),
-      photoUrl: zod.string().nullish(),
-      teamId: zod.number().nullish(),
-      teamName: zod.string().nullish(),
-      teamColor: zod.string().nullish(),
-      teamLogoUrl: zod.string().nullish(),
-      amount: zod.number().nullish(),
-      isManual: zod.boolean().optional(),
-    })
-    .describe(
-      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
-    )
-    .nullish(),
-  soldPlayersCount: zod.number().optional(),
-  unsoldPlayersCount: zod.number().optional(),
-  remainingPlayersCount: zod.number().optional(),
-  mainRoundExhausted: zod
-    .boolean()
-    .optional()
-    .describe("True when no available players remain but unsold players exist"),
-  bidExtensionEnabled: zod.boolean().optional(),
-  bidExtensionThresholdSeconds: zod.number().optional(),
-  bidExtensionSeconds: zod.number().optional(),
-  fortuneWheelActive: zod.boolean().optional(),
-  wheelSpinning: zod.boolean().optional(),
-  wheelItems: zod
-    .array(
-      zod.object({
-        label: zod.string(),
-        color: zod.string(),
-      }),
-    )
-    .optional(),
-  wheelWinner: zod.string().nullish(),
-  teamPurseViewActive: zod.boolean().optional(),
-  displayOverlay: zod
-    .union([
-      zod.literal("team"),
-      zod.literal("player"),
-      zod.literal("top5"),
-      zod.literal("banner"),
-      zod.literal(null),
-    ])
-    .nullish()
-    .describe("Active LED overlay mode. null\/absent means no overlay."),
-  displayPlayerFilter: zod
-    .object({
-      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
-      categoryId: zod.number().nullish(),
-      teamId: zod.number().nullish(),
-    })
-    .optional(),
-  activeCategoryIds: zod.array(zod.number()).nullish(),
-  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
-  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
-  trialTeamIds: zod
-    .array(zod.number())
-    .nullish()
-    .describe("First 2 team IDs eligible to bid in trial mode"),
-  deferredPlayerIds: zod
-    .array(zod.number())
-    .nullish()
-    .describe("Player IDs deferred to the back of the queue"),
-  currentCategoryMaxPlayers: zod
-    .number()
-    .nullish()
-    .describe(
-      "Max players per team allowed in the current player's category. Null if no limit is set.",
-    ),
-  currentCategoryName: zod
-    .string()
-    .nullish()
-    .describe(
-      "Name of the current player's category. Null if player has no category or category has no max.",
-    ),
-  teamCategoryPlayerCounts: zod
-    .record(zod.string(), zod.number())
-    .nullish()
-    .describe(
-      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
-    ),
-  displayCountdown: zod
-    .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5349,6 +5242,10 @@ export const StartTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -5487,7 +5384,7 @@ export const StartTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5539,6 +5436,10 @@ export const StopTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -5677,7 +5578,7 @@ export const StopTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5729,6 +5630,10 @@ export const DeferPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
       soldPrice: zod.number().nullish(),
@@ -5867,7 +5772,7 @@ export const DeferPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -6164,6 +6069,9 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   mobileNumber: zod.string().nullish(),
   city: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish(),
   role: zod.string().nullish(),
   photoUrl: zod.string().nullish(),
   battingStyle: zod.string().nullish(),
@@ -6217,6 +6125,9 @@ export const ListImportCandidatesResponseItem = zod.object({
   role: zod.string().nullish(),
   city: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish(),
   mobileNumber: zod.string().nullish(),
   photoUrl: zod.string().nullish(),
   categoryId: zod.number().nullish(),

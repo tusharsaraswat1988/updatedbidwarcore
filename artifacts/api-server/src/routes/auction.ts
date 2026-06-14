@@ -262,6 +262,7 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   bowlingStyle: p.bowlingStyle,
   specialization: p.specialization,
   age: p.age,
+  gender: p.gender ?? null,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
   soldPrice: p.soldPrice,

@@ -64,7 +64,6 @@ import type {
   SetBreakTimerBody,
   SetCategoryFilterBody,
   SetDisplayOverlayBody,
-  SetPreAuctionCountdownBody,
   ShowcaseEvent,
   ShowcaseEventInput,
   Team,
@@ -4294,94 +4293,6 @@ export const useSetBreakTimer = <
   TContext
 > => {
   return useMutation(getSetBreakTimerMutationOptions(options));
-};
-
-/**
- * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
- */
-export const getSetPreAuctionCountdownUrl = (tournamentId: number) => {
-  return `/api/tournaments/${tournamentId}/auction/pre-auction-countdown`;
-};
-
-export const setPreAuctionCountdown = async (
-  tournamentId: number,
-  setPreAuctionCountdownBody?: SetPreAuctionCountdownBody,
-  options?: RequestInit,
-): Promise<AuctionState> => {
-  return customFetch<AuctionState>(getSetPreAuctionCountdownUrl(tournamentId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(setPreAuctionCountdownBody),
-  });
-};
-
-export const getSetPreAuctionCountdownMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
-    TError,
-    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof setPreAuctionCountdown>>,
-  TError,
-  { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
-  TContext
-> => {
-  const mutationKey = ["setPreAuctionCountdown"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
-    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> }
-  > = (props) => {
-    const { tournamentId, data } = props ?? {};
-
-    return setPreAuctionCountdown(tournamentId, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SetPreAuctionCountdownMutationResult = NonNullable<
-  Awaited<ReturnType<typeof setPreAuctionCountdown>>
->;
-export type SetPreAuctionCountdownMutationBody =
-  BodyType<SetPreAuctionCountdownBody>;
-export type SetPreAuctionCountdownMutationError = ErrorType<unknown>;
-
-/**
- * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
- */
-export const useSetPreAuctionCountdown = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof setPreAuctionCountdown>>,
-    TError,
-    { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof setPreAuctionCountdown>>,
-  TError,
-  { tournamentId: number; data: BodyType<SetPreAuctionCountdownBody> },
-  TContext
-> => {
-  return useMutation(getSetPreAuctionCountdownMutationOptions(options));
 };
 
 /**

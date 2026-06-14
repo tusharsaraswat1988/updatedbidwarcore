@@ -5,6 +5,7 @@ import { BidCenter } from "./BidCenter";
 import { TimerPanel } from "./TimerPanel";
 import { BidLadder } from "./BidLadder";
 import { ChyronStrip } from "./ChyronStrip";
+import { SponsorSpotlight } from "./SponsorSpotlight";
 import { EffectsLayer } from "./EffectsLayer";
 import type { LedView } from "@/lib/led-view/types";
 
@@ -49,8 +50,15 @@ export function LedStageContent({ view }: { view: LedView }) {
   if (!view.currentPlayer && !overlayActive) {
     return (
       <StageFrame>
-        <div className="absolute inset-0 grid place-items-center text-white/40 font-mono uppercase tracking-[0.3em] text-xs">
-          {view.tournament.name} · Awaiting next player
+        <div className="absolute inset-0 grid grid-rows-[8%_1fr_8%] font-['Barlow_Condensed']">
+          <TopStrip view={view} />
+          <div className="relative min-h-0 h-full w-full">
+            <SponsorSpotlight
+              tournamentName={view.tournament.name}
+              sponsors={view.sponsors ?? []}
+            />
+          </div>
+          <ChyronStrip view={view} />
         </div>
         <EffectsLayer view={view} />
       </StageFrame>

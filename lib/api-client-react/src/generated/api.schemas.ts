@@ -517,6 +517,19 @@ export interface CategoryUpdate {
   sortOrder?: number;
 }
 
+/**
+ * Player gender — M (Male) or F (Female)
+ * @nullable
+ */
+export type PlayerGender =
+  | (typeof PlayerGender)[keyof typeof PlayerGender]
+  | null;
+
+export const PlayerGender = {
+  M: "M",
+  F: "F",
+} as const;
+
 export type PlayerStatus = (typeof PlayerStatus)[keyof typeof PlayerStatus];
 
 export const PlayerStatus = {
@@ -564,6 +577,11 @@ export interface Player {
   specialization?: string | null;
   /** @nullable */
   age?: number | null;
+  /**
+   * Player gender — M (Male) or F (Female)
+   * @nullable
+   */
+  gender?: PlayerGender;
   /** @nullable */
   photoUrl?: string | null;
   basePrice: number;
@@ -599,6 +617,14 @@ export interface Player {
   createdAt: string;
 }
 
+export type PlayerInputGender =
+  (typeof PlayerInputGender)[keyof typeof PlayerInputGender];
+
+export const PlayerInputGender = {
+  M: "M",
+  F: "F",
+} as const;
+
 export type PlayerInputPlayerTag =
   (typeof PlayerInputPlayerTag)[keyof typeof PlayerInputPlayerTag];
 
@@ -621,6 +647,7 @@ export interface PlayerInput {
   bowlingStyle?: string;
   specialization?: string;
   age?: number;
+  gender?: PlayerInputGender;
   photoUrl?: string;
   basePrice: number;
   jerseyNumber?: string;
@@ -639,6 +666,14 @@ export interface PlayerInput {
   playerTagTeamId?: number;
   isNonPlayingMember?: boolean;
 }
+
+export type PlayerUpdateGender =
+  (typeof PlayerUpdateGender)[keyof typeof PlayerUpdateGender];
+
+export const PlayerUpdateGender = {
+  M: "M",
+  F: "F",
+} as const;
 
 export type PlayerUpdatePlayerTag =
   (typeof PlayerUpdatePlayerTag)[keyof typeof PlayerUpdatePlayerTag];
@@ -662,6 +697,8 @@ export interface PlayerUpdate {
   bowlingStyle?: string;
   specialization?: string;
   age?: number;
+  /** @nullable */
+  gender?: PlayerUpdateGender | null;
   photoUrl?: string;
   basePrice?: number;
   jerseyNumber?: string;
@@ -888,7 +925,6 @@ export type DisplayCountdownType =
 
 export const DisplayCountdownType = {
   break: "break",
-  "pre-auction": "pre-auction",
 } as const;
 
 export interface DisplayCountdown {
@@ -1222,6 +1258,18 @@ export interface CategoryBreakdown {
   totalSpent?: number;
 }
 
+/**
+ * @nullable
+ */
+export type GlobalPlayerSuggestionGender =
+  | (typeof GlobalPlayerSuggestionGender)[keyof typeof GlobalPlayerSuggestionGender]
+  | null;
+
+export const GlobalPlayerSuggestionGender = {
+  M: "M",
+  F: "F",
+} as const;
+
 export interface GlobalPlayerSuggestion {
   id: number;
   /** @nullable */
@@ -1233,6 +1281,8 @@ export interface GlobalPlayerSuggestion {
   city?: string | null;
   /** @nullable */
   age?: number | null;
+  /** @nullable */
+  gender?: GlobalPlayerSuggestionGender;
   /** @nullable */
   role?: string | null;
   /** @nullable */
@@ -1264,6 +1314,18 @@ export interface ImportSource {
   playerCount: number;
 }
 
+/**
+ * @nullable
+ */
+export type ImportCandidatePlayerGender =
+  | (typeof ImportCandidatePlayerGender)[keyof typeof ImportCandidatePlayerGender]
+  | null;
+
+export const ImportCandidatePlayerGender = {
+  M: "M",
+  F: "F",
+} as const;
+
 export interface ImportCandidatePlayer {
   id: number;
   tournamentId: number;
@@ -1274,6 +1336,8 @@ export interface ImportCandidatePlayer {
   city?: string | null;
   /** @nullable */
   age?: number | null;
+  /** @nullable */
+  gender?: ImportCandidatePlayerGender;
   /** @nullable */
   mobileNumber?: string | null;
   /** @nullable */
@@ -1539,19 +1603,6 @@ export type SetBreakTimerBody = {
    * @maximum 3600
    */
   durationSeconds?: number;
-  message?: string;
-};
-
-export type SetPreAuctionCountdownBodyAction =
-  (typeof SetPreAuctionCountdownBodyAction)[keyof typeof SetPreAuctionCountdownBodyAction];
-
-export const SetPreAuctionCountdownBodyAction = {
-  start: "start",
-  cancel: "cancel",
-} as const;
-
-export type SetPreAuctionCountdownBody = {
-  action?: SetPreAuctionCountdownBodyAction;
   message?: string;
 };
 

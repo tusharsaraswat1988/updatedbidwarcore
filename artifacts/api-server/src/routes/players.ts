@@ -6,8 +6,9 @@ import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
-import { parseAuditReason, isCriticalPlayerPatch } from "../lib/audit-reason";
+import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotPlayer } from "../lib/audit-snapshots";
 import { syncAuctionPlayerToMasterAsync } from "../lib/master-sports/sync";
 import { onAuctionPlayerRosterChangedAsync } from "../lib/master-sports/cricket-roster";
@@ -96,6 +97,7 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   bowlingStyle: p.bowlingStyle,
   specialization: p.specialization,
   age: p.age,
+  gender: p.gender ?? null,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
   soldPrice: p.soldPrice,
@@ -126,6 +128,7 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   bowlingStyle: p.bowlingStyle,
   specialization: p.specialization,
   age: p.age,
+  gender: p.gender ?? null,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
   soldPrice: p.soldPrice,
@@ -161,6 +164,7 @@ const playerInputSchema = z.object({
   bowlingStyle: z.string().optional(),
   specialization: z.string().optional(),
   age: z.number().int().optional(),
+  gender: playerGenderSchema.nullable().optional(),
   photoUrl: cloudinaryImageUrl,
   basePrice: z.number().int(),
   jerseyNumber: z.string().optional(),
@@ -249,6 +253,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       bowlingStyle: d.bowlingStyle ?? null,
       specialization: d.specialization ?? null,
       age: d.age ?? null,
+      gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
@@ -329,6 +334,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       bowlingStyle: d.bowlingStyle ?? null,
       specialization: d.specialization ?? null,
       age: d.age ?? null,
+      gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
@@ -415,6 +421,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         bowlingStyle: pd.bowlingStyle ?? null,
         specialization: pd.specialization ?? null,
         age: pd.age ?? null,
+        gender: pd.gender ?? null,
         photoUrl: pd.photoUrl ?? null,
         basePrice: pd.basePrice,
         jerseyNumber: pd.jerseyNumber ?? null,
@@ -465,6 +472,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     bowlingStyle: z.string().optional(),
     specialization: z.string().optional(),
     age: z.number().int().optional(),
+    gender: playerGenderSchema.nullable().optional(),
     photoUrl: cloudinaryImageUrl,
     basePrice: z.number().int().optional(),
     jerseyNumber: z.string().optional(),
@@ -482,13 +490,11 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const d = parsed.data;
-
-  if (isCriticalPlayerPatch(d)) {
-    const reasonResult = parseAuditReason(req.body, true);
-    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
   }
+  const d = parsed.data;
 
   const [existing] = await db
     .select()
@@ -540,6 +546,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.bowlingStyle !== undefined) updates.bowlingStyle = d.bowlingStyle;
   if (d.specialization !== undefined) updates.specialization = d.specialization;
   if (d.age !== undefined) updates.age = d.age;
+  if (d.gender !== undefined) updates.gender = d.gender;
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
   if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
@@ -573,7 +580,14 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     await recalcTeamPurseUsed(tid, tid2);
   }
 
-  const reasonResult = parseAuditReason(req.body, isCriticalPlayerPatch(d));
+  const reasonResult = resolveAuditReasonWithDefault(
+    req.body,
+    defaultPlayerPatchReason(d, existing),
+  );
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
   let action = "player.updated";
   if (d.status === "retained" || (d.teamId !== undefined && d.retainedPrice !== undefined)) {
     action = "player.retained_set";
@@ -583,7 +597,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     action,
     summary: `Player "${player.name}" updated`,
     severity: isCriticalPlayerPatch(d) ? "critical" : "info",
-    reason: reasonResult.ok ? reasonResult.reason : null,
+    reason: reasonResult.reason,
     tournamentId: tid,
     playerId: player.id,
     teamId: player.teamId ?? undefined,
@@ -781,6 +795,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       bowlingStyle: p.bowlingStyle,
       specialization: p.specialization,
       age: p.age,
+      gender: p.gender,
       photoUrl: p.photoUrl,
       basePrice: defaultBasePrice,
       jerseyNumber: p.jerseyNumber,

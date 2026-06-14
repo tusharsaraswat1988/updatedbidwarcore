@@ -131,7 +131,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
       <div className="relative flex-1 px-4 md:px-6 pb-6 overflow-hidden">
         <div className="h-full rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm flex flex-col">
           <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-white/15 text-[10px] md:text-xs font-bold uppercase tracking-widest text-white/60">
-            <div className="col-span-1 text-center">#</div>
+            <div className="col-span-1 text-center">Serial #</div>
             <div className="col-span-4 md:col-span-3">Player</div>
             <div className="col-span-2 hidden md:block">Category</div>
             <div className="col-span-1 hidden md:block">Role</div>
@@ -161,7 +161,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                     }}
                   >
                     <div className="col-span-1 text-center text-xs md:text-sm font-display font-black tabular-nums text-white/40">
-                      {String(i + 1).padStart(3, "0")}
+                      {p.id}
                     </div>
                     <div className="col-span-4 md:col-span-3 flex items-center gap-2 md:gap-3 min-w-0">
                       {p.photoUrl ? (
@@ -197,8 +197,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                                 borderRadius: 999,
                                 fontSize: "8px",
                                 fontWeight: 800,
-                                letterSpacing: "0.12em",
-                                textTransform: "uppercase",
+                                letterSpacing: "0.06em",
                                 background: tagTheme.bg,
                                 border: `1px solid ${tagTheme.border}`,
                                 color: tagTheme.color,
@@ -206,7 +205,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {tagTheme.abbrev}
+                              {tagTheme.label}
                             </span>
                           )}
                           {p.isNonPlayingMember && (

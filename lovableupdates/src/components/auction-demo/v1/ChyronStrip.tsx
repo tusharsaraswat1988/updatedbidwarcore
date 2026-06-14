@@ -5,6 +5,8 @@ import type { LedView } from "@/lib/auction-demo/use-auction-state";
  * CHYRON STRIP — sponsor logos pulled live from the production tournament.
  * Falls back to brand mark if no sponsors are configured.
  */
+const CHYRON_TICKER_DURATION_S = 36 / 1.3; // 30% faster than 36s baseline
+
 export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }) {
   const sponsors = view.sponsors ?? [];
   const branding = view.branding;
@@ -17,7 +19,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         className="h-full px-4 grid place-items-center"
         style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
       >
-        <span className="font-['Bebas_Neue'] text-sm tracking-[0.3em] uppercase">
+        <span className="font-['Bebas_Neue'] text-base md:text-lg font-bold tracking-[0.3em] uppercase">
           Official Partners
         </span>
       </div>
@@ -26,7 +28,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         {loop.length > 0 ? (
           <div
             className="flex items-center gap-10 whitespace-nowrap"
-            style={{ animation: "auction-ticker-scroll 36s linear infinite" }}
+            style={{ animation: `auction-ticker-scroll ${CHYRON_TICKER_DURATION_S}s linear infinite` }}
             aria-hidden
           >
             {loop.map((s, i) => (

@@ -5,11 +5,13 @@ import {
   useGetTournament,
   useListPlayers,
   useListBids,
+  useListCategories,
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getGetTournamentQueryKey,
   getListPlayersQueryKey,
   getListBidsQueryKey,
+  getListCategoriesQueryKey,
   type Player,
   type TeamPurse,
 } from "@workspace/api-client-react";
@@ -30,6 +32,7 @@ import {
   type LiveLastOutcome,
   type LedAuctionStateSlice,
 } from "./types";
+import { resolvePlayerPortraitGender } from "./player-gender";
 
 const ROLE_LABEL: Record<LedRoleCode, string> = {
   BAT: "Batter",
@@ -86,20 +89,30 @@ function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam 
   };
 }
 
-function toLedPlayer(p: Player, serialNo: number, currentPlayerId: number | null | undefined): LedPlayer {
+function toLedPlayer(
+  p: Player,
+  currentPlayerId: number | null | undefined,
+  categoryName?: string | null,
+): LedPlayer {
   return {
     id: String(p.id),
     name: p.name,
     role: mapRole(p.role),
+    roleRaw: p.role?.trim() || ROLE_LABEL[mapRole(p.role)],
     basePrice: p.basePrice,
     city: p.city ?? "",
     age: p.age ?? 0,
     battingHand: mapHand(p.battingStyle),
-    serialNo,
+    serialNo: p.id,
     portrait: p.photoUrl ?? "",
+    gender: resolvePlayerPortraitGender(p.gender, categoryName),
     status: mapPlayerStatus(p.status, p.id, currentPlayerId),
     soldToTeamId: p.teamId != null ? String(p.teamId) : null,
     soldPrice: p.soldPrice ?? p.retainedPrice ?? null,
+    bowlingStyle: p.bowlingStyle?.trim() || "",
+    specialization: p.specialization?.trim() || "",
+    achievements: p.achievements?.trim() || "",
+    categoryName: categoryName ?? null,
   };
 }
 
@@ -148,6 +161,7 @@ const EMPTY_VIEW: LedView = {
   wheel: { active: false, spinning: false, items: [], winner: null },
   breakInfo: { active: false, endsAt: null, secondsLeft: 0, type: "break", message: null },
   pausedSeconds: null,
+  auctionStatus: "idle",
   teamPurseViewActive: false,
   displayOverlay: null,
   displayPlayerFilter: null,
@@ -200,6 +214,13 @@ export function useLedView(
     },
   });
 
+  const { data: categories } = useListCategories(tournamentId, {
+    query: {
+      queryKey: getListCategoriesQueryKey(tournamentId),
+      enabled: !!tournamentId,
+    },
+  });
+
   const currentPlayerId = state?.currentPlayer?.id ?? (state as LedAuctionStateSlice | undefined)?.outcome?.playerId ?? null;
 
   const { data: allBids } = useListBids(tournamentId, {
@@ -247,14 +268,18 @@ export function useLedView(
 
     const playersSource = allPlayers ?? (state?.currentPlayer ? [state.currentPlayer] : []);
     const currentPlayerIdResolved = state?.currentPlayer?.id ?? outcome?.playerId ?? null;
-    const players = playersSource.map((p, i) => toLedPlayer(p, i + 1, currentPlayerIdResolved));
-    const serialById = new Map(players.map((p) => [p.id, p.serialNo]));
+    const categoryNameById = new Map((categories ?? []).map((c) => [c.id, c.name]));
+    const categoryNameFor = (p: Player) =>
+      p.categoryId != null ? categoryNameById.get(p.categoryId) ?? null : null;
+    const players = playersSource.map((p) =>
+      toLedPlayer(p, currentPlayerIdResolved, categoryNameFor(p)),
+    );
 
     const currentPlayer = state?.currentPlayer
       ? toLedPlayer(
           state.currentPlayer,
-          serialById.get(String(state.currentPlayer.id)) ?? 0,
           currentPlayerIdResolved,
+          categoryNameFor(state.currentPlayer),
         )
       : outcome?.playerId
         ? players.find((p) => p.id === String(outcome.playerId)) ?? null
@@ -565,6 +590,7 @@ export function useLedView(
         message: breakMessage,
       },
       pausedSeconds: stateExt?.pausedTimeRemaining ?? null,
+      auctionStatus: state?.status ?? "idle",
       teamPurseViewActive,
       displayOverlay: overlay,
       displayPlayerFilter: filter,
@@ -585,6 +611,7 @@ export function useLedView(
     stateError,
     teamPurses,
     allPlayers,
+    categories,
     allBids,
     brandingHook.brandName,
     brandingHook.miniBrandText,

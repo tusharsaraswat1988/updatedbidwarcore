@@ -683,6 +683,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="font-['Bebas_Neue'] text-base text-white tracking-wider truncate">
+                      <span className="text-white/35 font-mono text-sm mr-1.5">#{p.serialNo}</span>
                       {p.name}
                     </p>
                     <p className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/50">

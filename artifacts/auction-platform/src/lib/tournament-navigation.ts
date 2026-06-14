@@ -47,6 +47,21 @@ export function displayScreenPath(
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
 }
 
+export type SideLedPanelMode = "sponsors" | "player";
+
+/** Side LED panel — sponsors carousel or live player profile (ignores operator overlays). */
+export function sideDisplayPath(
+  tournamentId: number,
+  panel: SideLedPanelMode = "player",
+  auctionCode?: string | null,
+): string {
+  const params = new URLSearchParams({ panel });
+  if (auctionCode?.trim()) {
+    params.set("code", auctionCode.trim());
+  }
+  return `/tournament/${tournamentId}/side-display?${params.toString()}`;
+}
+
 /** Public live auction viewer — shareable, no auction code required. */
 export function liveViewerPath(tournamentId: number): string {
   return `/live/${tournamentId}`;
@@ -118,6 +133,18 @@ export function openDisplayScreen(
 ): void {
   window.open(
     displayScreenPath(tournamentId, auctionCode),
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+export function openSideDisplayScreen(
+  tournamentId: number,
+  panel: SideLedPanelMode = "player",
+  auctionCode?: string | null,
+): void {
+  window.open(
+    sideDisplayPath(tournamentId, panel, auctionCode),
     "_blank",
     "noopener,noreferrer",
   );

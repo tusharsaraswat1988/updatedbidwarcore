@@ -291,7 +291,7 @@ function SquadLineupPicker({
               <li key={p.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/40">
                 <label className="flex flex-1 items-center gap-2 cursor-pointer min-w-0">
                   <Checkbox checked={inXi} onCheckedChange={() => toggleXi(p.id)} />
-                  <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} role={p.role} />
+                  <ScoringPlayerLabel name={p.name} photoUrl={p.photoUrl} gender={p.gender} role={p.role} />
                 </label>
                 {!inXi ? (
                   <Button

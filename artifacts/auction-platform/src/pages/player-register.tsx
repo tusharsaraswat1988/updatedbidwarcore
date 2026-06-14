@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
+import { PlayerGenderSelect } from "@/components/player-gender-select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -33,6 +34,7 @@ interface GlobalPlayerLookup {
   mobileNumber: string | null;
   city: string | null;
   age: number | null;
+  gender?: string | null;
   role: string | null;
   photoUrl: string | null;
   battingStyle: string | null;
@@ -93,6 +95,7 @@ export default function PlayerRegister() {
     city: "",
     role: "",
     age: "",
+    gender: "",
     jerseyNumber: "",
     achievements: "",
     availabilityDates: "",
@@ -222,6 +225,7 @@ export default function PlayerRegister() {
               name: prev.name || match.name,
               city: prev.city || (match.city ?? ""),
               age: prev.age || (match.age ? String(match.age) : ""),
+              gender: prev.gender || (match.gender ?? ""),
               role: prev.role || (match.role ?? ""),
               photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
               battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
@@ -275,6 +279,7 @@ export default function PlayerRegister() {
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,
           age: form.age ? parseInt(form.age) : undefined,
+          gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
           jerseyNumber: form.jerseyNumber || undefined,
           achievements: form.achievements || undefined,
           availabilityDates: form.availabilityDates || undefined,
@@ -468,11 +473,12 @@ export default function PlayerRegister() {
                         inputClassName="h-11 sm:h-9 text-base"
                       />
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Full Name *</Label>
-                          <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Full Name *</Label>
+                        <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>City</Label>
                           <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" className="h-11 sm:h-9" autoComplete="address-level2" />
@@ -481,6 +487,11 @@ export default function PlayerRegister() {
                           <Label>Age</Label>
                           <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" className="h-11 sm:h-9" />
                         </div>
+                        <PlayerGenderSelect
+                          value={form.gender}
+                          onChange={(v) => f("gender", v)}
+                          triggerClassName="h-11 sm:h-9"
+                        />
                       </div>
 
                       {/* Dynamic role dropdown */}

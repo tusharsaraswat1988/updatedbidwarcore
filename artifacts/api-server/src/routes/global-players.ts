@@ -41,6 +41,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
           p.mobile_number,
           p.city,
           p.age,
+          p.gender,
           p.role,
           p.photo_url,
           p.batting_style,
@@ -71,6 +72,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
         mobile_number AS "mobileNumber",
         city,
         age,
+        gender,
         role,
         photo_url AS "photoUrl",
         batting_style AS "battingStyle",
@@ -115,6 +117,7 @@ router.get("/global-players/:gpid", async (req, res) => {
     defaultRole: gp.defaultRole,
     city: gp.city,
     age: gp.age,
+    gender: gp.gender,
     photoUrl: gp.photoUrl,
     notes: gp.notes,
     createdAt: gp.createdAt.toISOString(),
@@ -130,6 +133,7 @@ router.post("/global-players", async (req, res) => {
     defaultRole: z.string().optional(),
     city: z.string().optional(),
     age: z.number().int().optional(),
+    gender: z.enum(["M", "F"]).nullable().optional(),
     photoUrl: cloudinaryImageUrl,
     notes: z.string().optional(),
   });
@@ -167,6 +171,7 @@ router.post("/global-players", async (req, res) => {
           defaultRole: d.defaultRole ?? existing.defaultRole,
           city: d.city ?? existing.city,
           age: d.age ?? existing.age,
+          gender: d.gender ?? existing.gender,
           photoUrl: d.photoUrl ?? existing.photoUrl,
           notes: d.notes ?? existing.notes,
         })
@@ -190,6 +195,7 @@ router.post("/global-players", async (req, res) => {
       defaultRole: d.defaultRole ?? null,
       city: d.city ?? null,
       age: d.age ?? null,
+      gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
       notes: d.notes ?? null,
     })

@@ -1,4 +1,7 @@
 import type { DisplayPlayerFilter as ApiDisplayPlayerFilter } from "@workspace/api-client-react";
+import type { PlayerGender } from "./player-gender";
+
+export type { PlayerGender } from "./player-gender";
 
 export type LedRoleCode = "BAT" | "BOWL" | "AR" | "WK";
 export type LedPlayerStatus = "queue" | "live" | "sold" | "unsold" | "retained";
@@ -21,15 +24,23 @@ export type LedPlayer = {
   id: string;
   name: string;
   role: LedRoleCode;
+  /** Raw role label from tournament setup (e.g. "Opening Batsman"). */
+  roleRaw: string;
   basePrice: number;
   city: string;
   age: number;
   battingHand: "Right" | "Left";
+  /** Player serial # — same as `players.id` (Players page Serial # column). */
   serialNo: number;
   portrait: string;
+  gender: PlayerGender;
   status: LedPlayerStatus;
   soldToTeamId: string | null;
   soldPrice: number | null;
+  bowlingStyle: string;
+  specialization: string;
+  achievements: string;
+  categoryName: string | null;
 };
 
 export type DerivedState =
@@ -181,6 +192,8 @@ export type LedView = {
     message: string | null;
   };
   pausedSeconds: number | null;
+  /** Raw auction status from API — used by side panels to detect real pause vs operator overlay. */
+  auctionStatus: string;
   teamPurseViewActive: boolean;
   displayOverlay: string | null;
   displayPlayerFilter: LivePlayerFilter | null;

@@ -113,6 +113,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     role: p.role ?? null,
     city: p.city ?? null,
     age: p.age ?? null,
+    gender: p.gender ?? null,
     photoUrl: p.photoUrl ?? null,
     mobileNumber: p.mobileNumber || null,
     email: p.email ?? null,

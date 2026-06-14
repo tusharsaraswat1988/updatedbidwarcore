@@ -81,6 +81,7 @@ export type LedPlayer = {
   battingHand: "Right" | "Left";
   serialNo: number;
   portrait: string;
+  gender: "male" | "female" | null;
   status: LivePlayerDTO["status"];
   soldToTeamId: string | null;
   soldPrice: number | null;
@@ -193,7 +194,8 @@ function toLedTeam(
   };
 }
 
-function toLedPlayer(p: LivePlayerDTO, serialNo: number): LedPlayer {
+function toLedPlayer(p: LivePlayerDTO): LedPlayer {
+  const serialNo = Number.parseInt(String(p.id), 10) || 0;
   return {
     id: p.id,
     name: p.name,
@@ -204,6 +206,7 @@ function toLedPlayer(p: LivePlayerDTO, serialNo: number): LedPlayer {
     battingHand: p.battingHand,
     serialNo,
     portrait: p.portrait,
+    gender: null,
     status: p.status,
     soldToTeamId: p.soldToTeamId ?? null,
     soldPrice: p.soldPrice ?? null,
@@ -293,9 +296,8 @@ export function useLedView(): LedView {
     }
 
     const teams = snap.teams.map((tm) => toLedTeam(tm, snap.tournament!.minBid, snap.tournament!.minSquadSize));
-    const players = snap.players.map((p, i) => toLedPlayer(p, i + 1));
-    const serialById = new Map(players.map((p) => [p.id, p.serialNo]));
-    const currentPlayer = snap.currentPlayer ? toLedPlayer(snap.currentPlayer, serialById.get(snap.currentPlayer.id) ?? 0) : null;
+    const players = snap.players.map((p) => toLedPlayer(p));
+    const currentPlayer = snap.currentPlayer ? toLedPlayer(snap.currentPlayer) : null;
 
     const sess = snap.session;
     const isBidding = !!sess?.isBidding;

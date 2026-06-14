@@ -11,7 +11,7 @@ import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { buildPublicUrl } from "../lib/runtime-env";
 import { auditLog } from "../lib/audit-service";
-import { parseAuditReason, isCriticalTeamPatch } from "../lib/audit-reason";
+import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotTeam } from "../lib/audit-snapshots";
 
 const cloudinaryLogoUrl = z
@@ -332,14 +332,6 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   }
   const d = parsed.data;
 
-  if (isCriticalTeamPatch(d)) {
-    const reasonResult = parseAuditReason(req.body, true);
-    if (!reasonResult.ok) {
-      res.status(400).json({ error: reasonResult.error });
-      return;
-    }
-  }
-
   const [beforeTeam] = await db
     .select()
     .from(teamsTable)
@@ -419,8 +411,15 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   }
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
 
-  const reasonResult = parseAuditReason(req.body, isCriticalTeamPatch(d));
-  const reason = reasonResult.ok ? reasonResult.reason : null;
+  const reasonResult = resolveAuditReasonWithDefault(
+    req.body,
+    defaultTeamPatchReason(d),
+  );
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
+  const reason = reasonResult.reason;
   const beforeSnap = snapshotTeam(beforeTeam);
   const afterSnap = snapshotTeam(team);
 
