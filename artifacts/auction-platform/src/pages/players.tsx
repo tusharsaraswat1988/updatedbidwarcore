@@ -68,6 +68,9 @@ import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
+import { CityAutocomplete } from "@/components/city-autocomplete";
+import { JerseySizeSelect } from "@/components/jersey-size-select";
+import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
 import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
@@ -88,6 +91,7 @@ type SuggestionProfile = {
   specialization?: string | null;
   achievements?: string | null;
   jerseyNumber?: string | null;
+  jerseySize?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   basePrice?: number;
@@ -464,6 +468,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
     jerseyNumber: player?.jerseyNumber || "",
+    jerseySize: (player?.jerseySize as JerseySize | null) || "",
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
     email: player?.email || "",
@@ -585,6 +590,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       photoUrl: form.photoUrl || undefined,
       basePrice: parseInt(String(form.basePrice)) || 0,
       jerseyNumber: form.jerseyNumber || undefined,
+      jerseySize: form.jerseySize || undefined,
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,
@@ -641,6 +647,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       specialization: p.specialization || prev.specialization,
       achievements: p.achievements || prev.achievements,
       jerseyNumber: p.jerseyNumber || prev.jerseyNumber,
+      jerseySize: (p.jerseySize as JerseySize | null) || prev.jerseySize,
       cricheroUrl: p.cricheroUrl || prev.cricheroUrl,
       mobileNumber: p.mobileNumber || prev.mobileNumber,
       basePrice: p.basePrice || prev.basePrice,
@@ -780,7 +787,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>City</Label>
-          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
+          <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
         </div>
         <div className="space-y-2">
           <Label>Age</Label>
@@ -791,15 +798,19 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           onChange={(v) => f("gender", v)}
         />
       </div>
-      {/* Row 4: Base Price | Jersey No */}
+      {/* Row 4: Jersey No | Jersey Size */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Jersey No.</Label>
+          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
+        </div>
+        <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
+      </div>
+      {/* Row 5: Base Price */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
           <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
-        </div>
-        <div className="space-y-2">
-          <Label>Jersey No.</Label>
-          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
         </div>
       </div>
       {/* Dynamic spec groups: loaded from sport master per selected role */}
@@ -1093,7 +1104,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,gender,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
+  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,gender,battingStyle,bowlingStyle,specialization,jerseyNumber,jerseySize,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
 
   function downloadTemplate() {
     const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,M,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
@@ -1135,6 +1146,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
         bowlingStyle: row["bowlingstyle"] || row["bowling_style"] || undefined,
         specialization: row["specialization"] || undefined,
         jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
+        jerseySize: row["jerseysize"] || row["jersey_size"] || undefined,
         achievements: row["achievements"] || undefined,
         mobileNumber: (() => {
           const raw = row["mobilenumber"] || row["mobile_number"] || row["mobile"] || "";
@@ -1729,6 +1741,12 @@ function PlayerDetailPanel({
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey #</p>
             <p className="font-mono">#{player.jerseyNumber}</p>
+          </div>
+        )}
+        {player.jerseySize && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey Size</p>
+            <p>{player.jerseySize}</p>
           </div>
         )}
         {player.basePrice != null && player.basePrice > 0 && (

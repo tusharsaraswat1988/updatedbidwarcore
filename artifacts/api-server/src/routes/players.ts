@@ -6,6 +6,7 @@ import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
 import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
 import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
@@ -108,6 +109,7 @@ function buildPublicRegistrationProfileUpdates(
     gender: d.gender ?? null,
     photoUrl: d.photoUrl ?? null,
     jerseyNumber: d.jerseyNumber ?? null,
+    jerseySize: d.jerseySize ?? null,
     achievements: d.achievements ?? null,
     email,
     cricheroUrl: d.cricheroUrl ?? null,
@@ -210,6 +212,7 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   retainedPrice: p.retainedPrice,
   status: p.status,
   jerseyNumber: p.jerseyNumber,
+  jerseySize: p.jerseySize ?? null,
   achievements: p.achievements,
   mobileNumber: p.mobileNumber,
   email: p.email ?? null,
@@ -245,6 +248,7 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   retainedPrice: p.retainedPrice,
   status: p.status,
   jerseyNumber: p.jerseyNumber,
+  jerseySize: p.jerseySize ?? null,
   achievements: p.achievements,
   cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates,
@@ -263,6 +267,7 @@ const cloudinaryImageUrl = z
   );
 
 const PLAYER_TAG_VALUES = ["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"] as const;
+const jerseySizeSchema = z.enum(JERSEY_SIZE_VALUES);
 
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
@@ -278,6 +283,7 @@ const playerInputSchema = z.object({
   photoUrl: cloudinaryImageUrl,
   basePrice: z.number().int(),
   jerseyNumber: z.string().optional(),
+  jerseySize: jerseySizeSchema.optional(),
   achievements: z.string().optional(),
   mobileNumber: z.string().min(1, "Mobile number is required for communication features"),
   email: z.string().optional(),
@@ -373,6 +379,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       photoUrl: d.photoUrl ?? null,
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
+      jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -546,6 +553,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       photoUrl: d.photoUrl ?? null,
       basePrice: d.basePrice,
       jerseyNumber: d.jerseyNumber ?? null,
+      jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -631,6 +639,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         photoUrl: pd.photoUrl ?? null,
         basePrice: pd.basePrice,
         jerseyNumber: pd.jerseyNumber ?? null,
+        jerseySize: pd.jerseySize ?? null,
         achievements: pd.achievements ?? null,
         mobileNumber: bulkMobile,
         email: bulkEmailParsed.email,
@@ -682,6 +691,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     photoUrl: cloudinaryImageUrl,
     basePrice: z.number().int().optional(),
     jerseyNumber: z.string().optional(),
+    jerseySize: jerseySizeSchema.nullable().optional(),
     achievements: z.string().optional(),
     mobileNumber: z.string().min(1).optional(),
     email: z.string().optional(),
@@ -756,6 +766,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
   if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
+  if (d.jerseySize !== undefined) updates.jerseySize = d.jerseySize;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
   if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
@@ -1015,6 +1026,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       photoUrl: p.photoUrl,
       basePrice: defaultBasePrice,
       jerseyNumber: p.jerseyNumber,
+      jerseySize: p.jerseySize,
       achievements: p.achievements,
       mobileNumber: normalizedMobile,
       cricheroUrl: p.cricheroUrl,

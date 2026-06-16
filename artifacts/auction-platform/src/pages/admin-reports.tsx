@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { listAdminTournaments, AdminTournamentRow } from "@/lib/auth";
 import { AdminShell } from "@/components/admin-shell";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { motion } from "framer-motion";
 import {
   ShieldCheck, FileText, FileSpreadsheet, FileType, Download, RefreshCw,
@@ -47,6 +48,8 @@ type ReportContext = {
   categories: { id: number; name: string; colorCode: string | null }[];
   roles: string[];
   cities: string[];
+  jerseySizes: string[];
+  jerseySizeOptions: string[];
   playerCount: number;
 };
 
@@ -56,6 +59,7 @@ type Filters = {
   statuses?: string[];
   roles?: string[];
   city?: string;
+  jerseySizes?: string[];
   search?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -86,6 +90,7 @@ const REPORT_ICON: Record<string, typeof FileText> = {
   master_catalogue: Users,
   category_wise: ListChecks,
   city_wise: MapPin,
+  jersey_sizing: Users,
   contact_directory: Phone,
   sold_players: BadgeCheck,
   unsold_players: X,
@@ -513,6 +518,7 @@ function FilterBar({
     (filters.statuses?.length ?? 0) +
     (filters.roles?.length ?? 0) +
     (filters.city ? 1 : 0) +
+    (filters.jerseySizes?.length ?? 0) +
     (filters.search ? 1 : 0) +
     (filters.minPrice !== undefined ? 1 : 0) +
     (filters.maxPrice !== undefined ? 1 : 0)
@@ -569,12 +575,20 @@ function FilterBar({
             selected={filters.roles ?? []}
             onToggle={r => toggle("roles", r, filters.roles)}
           />
+          <FilterMultiText
+            label="Jersey Size"
+            options={(ctx.jerseySizeOptions.length ? ctx.jerseySizeOptions : ctx.jerseySizes).map(s => ({ id: s, label: s }))}
+            selected={filters.jerseySizes ?? []}
+            onToggle={s => toggle("jerseySizes", s, filters.jerseySizes)}
+          />
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">City contains</Label>
-            <Input
+            <CityAutocomplete
               value={filters.city ?? ""}
-              onChange={e => setFilters(p => ({ ...p, city: e.target.value || undefined }))}
-              className="h-8 text-sm" placeholder="e.g. Mumbai"
+              onChange={v => setFilters(p => ({ ...p, city: v || undefined }))}
+              placeholder="e.g. Mumbai"
+              className="h-8 text-sm"
+              showHint={false}
             />
           </div>
           <div className="space-y-1.5">

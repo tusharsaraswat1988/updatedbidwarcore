@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export const OPTIONAL_EMAIL_HINT =
-  "Optional — add your email so you don't miss important updates like schedule changes, auction timings, and tournament announcements.";
+  "Add your email so you don't miss important updates like schedule changes, auction timings, and tournament announcements.";
 
 type OptionalEmailFieldProps = {
   id?: string;
@@ -16,7 +16,7 @@ type OptionalEmailFieldProps = {
 
 export function OptionalEmailField({
   id = "email",
-  label = "Email Address",
+  label = "Email Address (Optional)",
   value,
   onChange,
   error,

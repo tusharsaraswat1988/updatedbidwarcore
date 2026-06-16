@@ -28,6 +28,12 @@ void pool
   });
 
 void pool
+  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_size text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.jersey_size column:", err);
+  });
+
+void pool
   .query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
   .catch((err) => {
     console.error("[db] failed to ensure teams.owner_email column:", err);

@@ -32,6 +32,7 @@ const OPTIONAL_COLS = [
   { key: "categoryName",     label: "Category" },
   { key: "role",             label: "Role" },
   { key: "jerseyNumber",     label: "Jersey Number" },
+  { key: "jerseySize",       label: "Jersey Size" },
   { key: "status",           label: "Type (Retained/Pre-Sold)" },
   { key: "remainingBalance", label: "Remaining Balance" },
 ] as const;
@@ -40,7 +41,7 @@ type ColKey = typeof OPTIONAL_COLS[number]["key"];
 const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
   basic:    [],
   auction:  ["photo", "categoryName", "remainingBalance"],
-  detailed: ["photo", "mobileNumber", "email", "age", "city", "categoryName", "role", "jerseyNumber", "status", "remainingBalance"],
+  detailed: ["photo", "mobileNumber", "email", "age", "city", "categoryName", "role", "jerseyNumber", "jerseySize", "status", "remainingBalance"],
 };
 
 function loadCols(tid: number): Set<ColKey> {
@@ -61,7 +62,7 @@ function saveCols(tid: number, cols: Set<ColKey>) {
 
 type ReportPlayer = {
   id: number; name: string; role: string | null; city: string | null; age: number | null;
-  photoUrl: string | null; mobileNumber: string | null; email: string | null; jerseyNumber: string | null;
+  photoUrl: string | null; mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null;
   categoryName: string | null; categoryColor: string | null;
   soldPrice: number | null; retainedPrice: number | null;
   status: string; isNonPlayingMember: boolean;
@@ -128,6 +129,7 @@ function PlayerTable({
             {cols.has("categoryName") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Category</th>}
             {cols.has("role") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Role</th>}
             {cols.has("jerseyNumber") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Jersey</th>}
+            {cols.has("jerseySize") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Size</th>}
             {cols.has("status") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Type</th>}
             <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
             {cols.has("remainingBalance") && <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Balance</th>}
@@ -163,6 +165,7 @@ function PlayerTable({
                 )}
                 {cols.has("role") && <td className={`${cell} capitalize text-gray-600`}>{p.role?.replace(/_/g, " ") || "-"}</td>}
                 {cols.has("jerseyNumber") && <td className={`${cell} text-center text-gray-600`}>{p.jerseyNumber || "-"}</td>}
+                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600`}>{p.jerseySize || "-"}</td>}
                 {cols.has("status") && (
                   <td className={cell}>
                     <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>

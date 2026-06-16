@@ -118,6 +118,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     mobileNumber: p.mobileNumber || null,
     email: p.email ?? null,
     jerseyNumber: p.jerseyNumber ?? null,
+    jerseySize: p.jerseySize ?? null,
     categoryId: p.categoryId ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     categoryColor: p.categoryId ? (catMap.get(p.categoryId)?.colorCode ?? null) : null,
@@ -206,13 +207,13 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
 
   type EnrichedPlayer = {
     id: number; name: string; role: string | null; city: string | null; age: number | null;
-    mobileNumber: string | null; email: string | null; jerseyNumber: string | null; categoryName: string | null;
+    mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null; categoryName: string | null;
     soldPrice: number | null; retainedPrice: number | null; status: string; isNonPlayingMember: boolean;
   };
 
   const enrich = (p: typeof playersTable.$inferSelect): EnrichedPlayer => ({
     id: p.id, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
-    mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null,
+    mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null, jerseySize: p.jerseySize ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     soldPrice: p.soldPrice ?? null, retainedPrice: p.retainedPrice ?? null,
     status: p.status, isNonPlayingMember: p.isNonPlayingMember,
@@ -239,6 +240,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     { key: "categoryName", label: "Category" },
     { key: "role", label: "Role" },
     { key: "jerseyNumber", label: "Jersey No." },
+    { key: "jerseySize", label: "Jersey Size" },
     { key: "status", label: "Status" },
     { key: "remainingBalance", label: "Balance" },
   ].filter(c => selectedCols.includes(c.key));
@@ -359,6 +361,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     categoryName: { label: "Category", width: 0.9, get: (p) => p.categoryName || "-" },
     role: { label: "Role", width: 0.9, get: (p) => p.role?.replace(/_/g, " ") || "-" },
     jerseyNumber: { label: "Jersey", width: 0.55, get: (p) => p.jerseyNumber || "-" },
+    jerseySize: { label: "Size", width: 0.55, get: (p) => p.jerseySize || "-" },
     status: { label: "Type", width: 0.7, get: (p) => p.status === "retained" ? "Retained" : "Pre-Sold" },
     remainingBalance: { label: "Balance", width: 0.95, get: (_p, balance) => fmtShort(balance) },
   };

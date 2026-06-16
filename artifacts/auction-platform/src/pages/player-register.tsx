@@ -21,7 +21,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
+import { CityAutocomplete } from "@/components/city-autocomplete";
+import { JerseySizeSelect } from "@/components/jersey-size-select";
 import { PlayerGenderSelect } from "@/components/player-gender-select";
+import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 
@@ -42,6 +45,7 @@ interface GlobalPlayerLookup {
   bowlingStyle: string | null;
   specialization: string | null;
   jerseyNumber?: string | null;
+  jerseySize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
   appearanceCount?: number;
@@ -100,6 +104,7 @@ export default function PlayerRegister() {
     age: "",
     gender: "",
     jerseyNumber: "",
+    jerseySize: "" as JerseySize | "",
     achievements: "",
     availabilityDates: "",
     cricheroUrl: "",
@@ -262,6 +267,7 @@ export default function PlayerRegister() {
               bowlingStyle: tp.bowlingStyle ?? prev.bowlingStyle,
               specialization: tp.specialization ?? prev.specialization,
               jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
+              jerseySize: (tp.jerseySize as JerseySize | null) ?? prev.jerseySize,
               achievements: tp.achievements ?? prev.achievements,
               cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
               availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
@@ -279,6 +285,7 @@ export default function PlayerRegister() {
               bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
               specialization: prev.specialization || (match.specialization ?? ""),
               jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
+              jerseySize: prev.jerseySize || ((match.jerseySize as JerseySize | null) ?? ""),
               achievements: prev.achievements || (match.achievements ?? ""),
               cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
             }));
@@ -341,6 +348,7 @@ export default function PlayerRegister() {
           age: form.age ? parseInt(form.age) : undefined,
           gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
           jerseyNumber: form.jerseyNumber || undefined,
+          jerseySize: form.jerseySize || undefined,
           achievements: form.achievements || undefined,
           availabilityDates: form.availabilityDates || undefined,
           cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
@@ -479,7 +487,7 @@ export default function PlayerRegister() {
                         setUtrNumber(""); setPaymentScreenshotUrl("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
-                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "",
+                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
                           cricheroUrl: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
                         });
@@ -581,7 +589,11 @@ export default function PlayerRegister() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>City</Label>
-                          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" className="h-11 sm:h-9" autoComplete="address-level2" />
+                          <CityAutocomplete
+                            value={form.city}
+                            onChange={v => f("city", v)}
+                            className="h-11 sm:h-9"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Age</Label>
@@ -596,7 +608,7 @@ export default function PlayerRegister() {
 
                       {/* Dynamic role dropdown */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                        <div className="space-y-2 sm:col-span-2">
                           <Label>Role *</Label>
                           <Select value={form.role} onValueChange={v => f("role", v)}>
                             <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select role" /></SelectTrigger>
@@ -619,6 +631,11 @@ export default function PlayerRegister() {
                           <Label>Jersey Number</Label>
                           <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
                         </div>
+                        <JerseySizeSelect
+                          value={form.jerseySize}
+                          onChange={v => f("jerseySize", v)}
+                          triggerClassName="h-11 sm:h-9"
+                        />
                       </div>
 
                       {/* Dynamic spec groups — same logic as admin form */}

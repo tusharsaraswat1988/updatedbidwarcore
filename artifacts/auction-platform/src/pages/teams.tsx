@@ -273,7 +273,7 @@ function TeamForm({
 
       <OptionalEmailField
         id="owner-email"
-        label="Owner Email Address"
+        label="Owner Email Address (Optional)"
         value={form.ownerEmail}
         onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
         error={ownerEmailError || undefined}

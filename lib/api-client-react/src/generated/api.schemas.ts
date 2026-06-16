@@ -584,6 +584,19 @@ export interface CategoryUpdate {
   sortOrder?: number;
 }
 
+export type JerseySize = (typeof JerseySize)[keyof typeof JerseySize];
+
+export const JerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 /**
  * Player gender — M (Male) or F (Female)
  * @nullable
@@ -604,6 +617,24 @@ export const PlayerStatus = {
   sold: "sold",
   unsold: "unsold",
   retained: "retained",
+} as const;
+
+/**
+ * @nullable
+ */
+export type PlayerJerseySize =
+  | (typeof PlayerJerseySize)[keyof typeof PlayerJerseySize]
+  | null;
+
+export const PlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
 } as const;
 
 /**
@@ -673,6 +704,8 @@ export interface Player {
   /** @nullable */
   jerseyNumber?: string | null;
   /** @nullable */
+  jerseySize?: PlayerJerseySize;
+  /** @nullable */
   achievements?: string | null;
   /** @nullable */
   mobileNumber?: string | null;
@@ -739,6 +772,7 @@ export interface PlayerInput {
   photoUrl?: string;
   basePrice: number;
   jerseyNumber?: string;
+  jerseySize?: JerseySize;
   achievements?: string;
   mobileNumber?: string;
   email?: string;
@@ -796,6 +830,7 @@ export interface PlayerUpdate {
   photoUrl?: string;
   basePrice?: number;
   jerseyNumber?: string;
+  jerseySize?: JerseySize;
   achievements?: string;
   mobileNumber?: string;
   email?: string;
@@ -1393,6 +1428,24 @@ export const GlobalPlayerSuggestionGender = {
   F: "F",
 } as const;
 
+/**
+ * @nullable
+ */
+export type GlobalPlayerSuggestionJerseySize =
+  | (typeof GlobalPlayerSuggestionJerseySize)[keyof typeof GlobalPlayerSuggestionJerseySize]
+  | null;
+
+export const GlobalPlayerSuggestionJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 export interface GlobalPlayerSuggestion {
   id: number;
   /** @nullable */
@@ -1421,6 +1474,8 @@ export interface GlobalPlayerSuggestion {
   /** @nullable */
   jerseyNumber?: string | null;
   /** @nullable */
+  jerseySize?: GlobalPlayerSuggestionJerseySize;
+  /** @nullable */
   cricheroUrl?: string | null;
   /** @nullable */
   availabilityDates?: string | null;
@@ -1447,6 +1502,24 @@ export type ImportCandidatePlayerGender =
 export const ImportCandidatePlayerGender = {
   M: "M",
   F: "F",
+} as const;
+
+/**
+ * @nullable
+ */
+export type ImportCandidatePlayerJerseySize =
+  | (typeof ImportCandidatePlayerJerseySize)[keyof typeof ImportCandidatePlayerJerseySize]
+  | null;
+
+export const ImportCandidatePlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
 } as const;
 
 export interface ImportCandidatePlayer {
@@ -1478,6 +1551,8 @@ export interface ImportCandidatePlayer {
   specialization?: string | null;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: ImportCandidatePlayerJerseySize;
   isDuplicate: boolean;
 }
 
@@ -1542,6 +1617,24 @@ export interface TeamReportListItem {
   nonPlayingCount: number;
 }
 
+/**
+ * @nullable
+ */
+export type TeamReportPlayerJerseySize =
+  | (typeof TeamReportPlayerJerseySize)[keyof typeof TeamReportPlayerJerseySize]
+  | null;
+
+export const TeamReportPlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 export interface TeamReportPlayer {
   id: number;
   name: string;
@@ -1557,6 +1650,8 @@ export interface TeamReportPlayer {
   mobileNumber?: string | null;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: TeamReportPlayerJerseySize;
   /** @nullable */
   categoryId?: number | null;
   /** @nullable */

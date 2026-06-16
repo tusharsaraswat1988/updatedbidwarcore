@@ -18,6 +18,7 @@ export const playersTable = sqliteTable("players", {
   retainedPrice: integer("retained_price"),
   status: text("status").notNull().default("available"),
   jerseyNumber: text("jersey_number"),
+  jerseySize: text("jersey_size"),
   achievements: text("achievements"),
   mobileNumber: text("mobile_number"),
   email: text("email"),

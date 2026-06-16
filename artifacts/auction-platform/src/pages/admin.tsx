@@ -112,6 +112,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SportSelect } from "@/components/sport-select";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Switch } from "@/components/ui/switch";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
@@ -2947,7 +2948,13 @@ function DisplayAuctionForm({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">City</Label>
-                <Input className="h-8 text-xs" value={form.city} onChange={e => f("city", e.target.value)} placeholder="Lucknow" />
+                <CityAutocomplete
+                  value={form.city}
+                  onChange={v => f("city", v)}
+                  placeholder="Lucknow"
+                  className="h-8 text-xs"
+                  showHint={false}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">State</Label>

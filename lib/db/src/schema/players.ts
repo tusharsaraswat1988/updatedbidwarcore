@@ -22,6 +22,7 @@ export const playersTable = pgTable(
     retainedPrice: integer("retained_price"),
     status: text("status").notNull().default("available"), // available | sold | unsold | retained
     jerseyNumber: text("jersey_number"),
+    jerseySize: text("jersey_size"),
     achievements: text("achievements"),
     mobileNumber: text("mobile_number").notNull().default(""),
     email: text("email"),

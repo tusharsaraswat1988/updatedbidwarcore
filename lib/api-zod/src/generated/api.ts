@@ -815,6 +815,19 @@ export const ExportTournamentForLocalResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -1331,6 +1344,19 @@ export const ListPlayersResponseItem = zod.object({
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1389,6 +1415,9 @@ export const CreatePlayerBody = zod.object({
   photoUrl: zod.string().optional(),
   basePrice: zod.number(),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1492,6 +1521,9 @@ export const RegisterPlayerBody = zod.object({
   photoUrl: zod.string().optional(),
   basePrice: zod.number(),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1557,6 +1589,9 @@ export const BulkCreatePlayersBody = zod.object({
       photoUrl: zod.string().optional(),
       basePrice: zod.number(),
       jerseyNumber: zod.string().optional(),
+      jerseySize: zod
+        .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+        .optional(),
       achievements: zod.string().optional(),
       mobileNumber: zod.string().optional(),
       email: zod.string().optional(),
@@ -1638,6 +1673,19 @@ export const GetPlayerResponse = zod.object({
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1696,6 +1744,9 @@ export const UpdatePlayerBody = zod.object({
   photoUrl: zod.string().optional(),
   basePrice: zod.number().optional(),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1747,6 +1798,19 @@ export const UpdatePlayerResponse = zod.object({
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1822,6 +1886,19 @@ export const ApproveRegistrationPaymentResponse = zod.object({
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1889,6 +1966,19 @@ export const RejectRegistrationPaymentResponse = zod.object({
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1959,6 +2049,19 @@ export const GetAuctionStateResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2201,6 +2304,19 @@ export const StartAuctionResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2443,6 +2559,19 @@ export const PauseAuctionResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2690,6 +2819,19 @@ export const NextPlayerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2941,6 +3083,19 @@ export const PlaceBidResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3183,6 +3338,19 @@ export const SellPlayerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3434,6 +3602,19 @@ export const ManualSellResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3676,6 +3857,19 @@ export const MarkUnsoldResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3927,6 +4121,19 @@ export const ReAuctionPlayerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4176,6 +4383,19 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4425,6 +4645,19 @@ export const ConcludeAuctionResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4667,6 +4900,19 @@ export const UndoLastActionResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4918,6 +5164,19 @@ export const ResetTrialAuctionResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5164,6 +5423,19 @@ export const SetDisplayOverlayResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5412,6 +5684,19 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5716,6 +6001,19 @@ export const SyncFortuneWheelResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5962,6 +6260,19 @@ export const SetCategoryFilterResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -6220,6 +6531,19 @@ export const SetBreakTimerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -6472,6 +6796,19 @@ export const StartTimerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -6714,6 +7051,19 @@ export const StopTimerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -6956,6 +7306,19 @@ export const DeferPlayerResponse = zod.object({
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -7443,6 +7806,19 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   specialization: zod.string().nullish(),
   achievements: zod.string().nullish(),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
   basePrice: zod.number().optional(),
@@ -7501,6 +7877,19 @@ export const ListImportCandidatesResponseItem = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   isDuplicate: zod.boolean(),
 });
 export const ListImportCandidatesResponse = zod.array(
@@ -7596,6 +7985,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
@@ -7615,6 +8017,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
@@ -7634,6 +8049,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
