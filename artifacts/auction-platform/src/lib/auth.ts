@@ -106,7 +106,7 @@ export async function resetTournamentAsAdmin(
     const r = await apiFetch(`/tournaments/${tournamentId}/auction/reset-trial`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, reason }),
+      body: JSON.stringify({ password, reason, resetContext: "admin" }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));

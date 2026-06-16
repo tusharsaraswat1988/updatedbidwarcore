@@ -77,7 +77,7 @@ export default defineConfig({
     },
   ],
   optimizeDeps: {
-    include: ["html2canvas-pro", "jspdf"],
+    include: ["html2canvas-pro", "jspdf", "xlsx"],
   },
   resolve: {
     alias: {

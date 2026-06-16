@@ -9,8 +9,11 @@ interface CompactScreenshotUploadProps {
   disabled?: boolean;
 }
 
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
+
 export function CompactScreenshotUpload({ value, onChange, disabled }: CompactScreenshotUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,9 +79,21 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
           } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
         >
           <input
-            ref={inputRef}
+            ref={galleryInputRef}
             type="file"
-            accept="image/*"
+            accept={IMAGE_ACCEPT}
+            className="sr-only"
+            disabled={disabled || uploading}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) void handleFile(file);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept={IMAGE_ACCEPT}
             capture="environment"
             className="sr-only"
             disabled={disabled || uploading}
@@ -94,19 +109,31 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
             </div>
             <div className="flex-1 space-y-2">
               <p className="text-xs text-muted-foreground">
-                Drag and drop, browse, or pick from gallery
+                Drag and drop on desktop, or choose from gallery / camera on mobile
               </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5"
-                disabled={disabled || uploading}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload className="w-3.5 h-3.5" />
-                {uploading ? "Uploading..." : "Browse file"}
-              </Button>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  disabled={disabled || uploading}
+                  onClick={() => galleryInputRef.current?.click()}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploading ? "Uploading..." : "Choose from Gallery"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1.5 sm:hidden"
+                  disabled={disabled || uploading}
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  {uploading ? "Uploading..." : "Take Photo"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

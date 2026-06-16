@@ -58,9 +58,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, FileSpreadsheet } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
+import { exportPlayersToExcel } from "@/lib/export-players-excel";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
@@ -1967,8 +1968,8 @@ export default function Players() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [drawerPlayer, setDrawerPlayer] = useState<any | null>(null);
-
-  const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setFiltersHydrated(false);
@@ -2070,6 +2071,23 @@ export default function Players() {
     () => Object.fromEntries((teams || []).map(t => [t.id, t])) as Record<number, { name: string; color?: string | null }>,
     [teams],
   );
+
+  const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+
+  async function handleExportExcel() {
+    if (!players?.length) return;
+    setExportingExcel(true);
+    try {
+      const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
+      await exportPlayersToExcel(players, catMap, teamMap, `${fileStem}_Players_Master`);
+      toast({ title: "Excel exported", description: `${players.length} players downloaded.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not export players.";
+      toast({ title: "Export failed", description: message, variant: "destructive" });
+    } finally {
+      setExportingExcel(false);
+    }
+  }
 
   const statusCounts = useMemo(() => {
     const list = players || [];
@@ -2294,22 +2312,39 @@ export default function Players() {
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            {STATUS_FILTER_CHIPS.map(chip => (
-              <StatusFilterChip
-                key={chip.value}
-                label={chip.label}
-                count={statusCounts[chip.value]}
-                active={tab === chip.value}
-                onClick={() => setTab(chip.value)}
-                idleClass={chip.idleClass}
-                activeClass={chip.activeClass}
-              />
-            ))}
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+              {STATUS_FILTER_CHIPS.map(chip => (
+                <StatusFilterChip
+                  key={chip.value}
+                  label={chip.label}
+                  count={statusCounts[chip.value]}
+                  active={tab === chip.value}
+                  onClick={() => setTab(chip.value)}
+                  idleClass={chip.idleClass}
+                  activeClass={chip.activeClass}
+                />
+              ))}
+            </div>
             {filtered.length !== statusCounts.all && (
-              <span className="ml-auto text-[11px] text-muted-foreground/80 whitespace-nowrap">
+              <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap">
                 Showing {filtered.length} of {statusCounts.all}
               </span>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs shrink-0"
+              disabled={!players?.length || exportingExcel}
+              onClick={() => void handleExportExcel()}
+            >
+              {exportingExcel ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+              )}
+              {exportingExcel ? "Exporting..." : "Export to Excel"}
+            </Button>
           </div>
 
           {paymentEnabled && (

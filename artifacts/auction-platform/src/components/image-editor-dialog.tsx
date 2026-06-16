@@ -15,6 +15,8 @@ import {
 // cache, so we skip the "25 MB download" confirmation on subsequent presses.
 let bgModelCached = false;
 
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -120,7 +122,8 @@ export function ImageEditorDialog({
   // kicking off background removal for the first time.
   const [confirmBgRemove, setConfirmBgRemove] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   // Track object URLs we created so we can revoke them on unmount/replace.
   const objectUrlRef = useRef<string | null>(null);
 
@@ -333,10 +336,14 @@ export function ImageEditorDialog({
                   objectFit="contain"
                 />
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                <button
+                  type="button"
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground"
+                  onClick={() => galleryInputRef.current?.click()}
+                >
                   <ImageIcon className="w-12 h-12 opacity-30" />
-                  <p className="text-sm">Drag an image here, or click Upload Photo to begin.</p>
-                </div>
+                  <p className="text-sm px-4">Tap to choose from gallery, or use the buttons below.</p>
+                </button>
               )}
               {processing && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur flex flex-col items-center justify-center gap-3 z-10">
@@ -369,19 +376,35 @@ export function ImageEditorDialog({
             {/* Action buttons */}
             <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
               <input
-                ref={fileInputRef}
+                ref={galleryInputRef}
                 type="file"
-                accept="image/*"
+                accept={IMAGE_ACCEPT}
+                className="hidden"
+                onChange={e => onPickFile(e.target.files?.[0])}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept={IMAGE_ACCEPT}
+                capture="environment"
                 className="hidden"
                 onChange={e => onPickFile(e.target.files?.[0])}
               />
               <Button
                 variant="outline"
                 className="gap-2 h-11 sm:h-9 w-full sm:w-auto"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => galleryInputRef.current?.click()}
                 disabled={!!processing}
               >
-                <Upload className="w-4 h-4" /> {src ? "Replace Photo" : "Upload Photo"}
+                <Upload className="w-4 h-4" /> {src ? "Replace from Gallery" : "Choose from Gallery"}
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 h-11 sm:h-9 w-full sm:w-auto sm:hidden"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={!!processing}
+              >
+                <Upload className="w-4 h-4" /> {src ? "Retake Photo" : "Take Photo"}
               </Button>
               <Button
                 variant="outline"

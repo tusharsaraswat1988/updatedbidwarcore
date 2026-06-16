@@ -678,21 +678,17 @@ export default function TournamentSettings() {
                 return (
                   <>
                     <div className="flex gap-2">
-                      <Input
-                        type="date"
+                      <DatePicker
                         value={datePickerVal}
-                        onChange={e => setDatePickerVal(e.target.value)}
-                        className="w-auto"
-                        onKeyDown={e => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
-                            setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
-                            setDatePickerVal("");
-                          }
-                        }}
+                        onChange={setDatePickerVal}
+                        placeholder="Select match date"
+                        className="w-auto min-w-[11rem]"
                       />
-                      <Button type="button" variant="outline" size="sm" disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)} onClick={() => {
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)}
+                        onClick={() => {
                         if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
                         setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
                         setDatePickerVal("");
@@ -1435,13 +1431,18 @@ export default function TournamentSettings() {
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3"
+                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3 disabled:opacity-50 disabled:pointer-events-none"
+                  disabled={tournament?.status === "completed"}
                   onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
                 >
                   <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                   <div className="flex flex-col items-start text-left">
                     <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                    <span className="text-[11px] text-muted-foreground font-normal">Password-protected — requires organizer password and audit reason.</span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      {tournament?.status === "completed"
+                        ? "Unavailable after the tournament is marked completed."
+                        : "Password-protected — requires organizer password only."}
+                    </span>
                   </div>
                 </Button>
               </div>
