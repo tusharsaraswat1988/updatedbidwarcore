@@ -238,4 +238,60 @@ router.delete("/auth/admin/sport-roles/:roleId", async (req, res) => {
   res.json({ ok: true });
 });
 
+const reorderSchema = z.object({ ids: z.array(z.number().int().positive()) });
+
+// ─── Admin: POST /auth/admin/sports/:sportId/roles/reorder ───────────────────
+router.post("/auth/admin/sports/:sportId/roles/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const sportId = parseInt(req.params.sportId);
+  if (isNaN(sportId)) { res.status(400).json({ error: "Invalid sport ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(sportRolesTable)
+        .set({ displayOrder: i })
+        .where(and(eq(sportRolesTable.id, id), eq(sportRolesTable.sportId, sportId))),
+    ),
+  );
+  res.json({ ok: true });
+});
+
+// ─── Admin: POST /auth/admin/sport-roles/:roleId/spec-groups/reorder ─────────
+router.post("/auth/admin/sport-roles/:roleId/spec-groups/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const roleId = parseInt(req.params.roleId);
+  if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(roleSpecGroupsTable)
+        .set({ displayOrder: i })
+        .where(and(eq(roleSpecGroupsTable.id, id), eq(roleSpecGroupsTable.roleId, roleId))),
+    ),
+  );
+  res.json({ ok: true });
+});
+
+// ─── Admin: POST /auth/admin/spec-groups/:groupId/options/reorder ────────────
+router.post("/auth/admin/spec-groups/:groupId/options/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const groupId = parseInt(req.params.groupId);
+  if (isNaN(groupId)) { res.status(400).json({ error: "Invalid group ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(roleSpecOptionsTable)
+        .set({ displayOrder: i })
+        .where(and(eq(roleSpecOptionsTable.id, id), eq(roleSpecOptionsTable.groupId, groupId))),
+    ),
+  );
+  res.json({ ok: true });
+});
+
 export default router;
