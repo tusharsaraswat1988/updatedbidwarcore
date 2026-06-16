@@ -142,7 +142,7 @@ function TeamTicker({ teams }: { teams: Array<{ name: string; shortCode: string;
 
   return (
     <div style={{
-      height: 46,
+      height: 52,
       background: "rgba(0,0,0,0.82)",
       borderTop: "1px solid rgba(255,255,255,0.08)",
       overflow: "hidden",
@@ -170,8 +170,8 @@ function TeamTicker({ teams }: { teams: Array<{ name: string; shortCode: string;
             ) : (
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color || "#666", flexShrink: 0 }} />
             )}
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.05em" }}>{t.shortCode}</span>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{t.name}</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#fff", letterSpacing: "0.05em" }}>{t.shortCode}</span>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.78)" }}>{t.name}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: t.color || "#F59E0B", fontFamily: "monospace" }}>
               {formatShortIndianRupee(t.purseRemaining)}
             </span>
@@ -344,11 +344,10 @@ export default function ObsOverlay() {
         <BroadcastOverlayBrandMark />
         {tournament?.logoUrl && (
           <div style={{
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(12px)",
+            background: "rgba(0,0,0,0.92)",
             borderRadius: 12,
             padding: "8px 14px",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.12)",
           }}>
             <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
           </div>
@@ -462,7 +461,7 @@ export default function ObsOverlay() {
 
             {/* Main panel */}
             <div style={{
-              background: "rgba(0,0,0,0.88)",
+              background: "rgba(0,0,0,0.94)",
               borderTop: `3px solid ${isActive ? bidColor : "rgba(255,255,255,0.1)"}`,
               boxShadow: isActive ? `0 -4px 40px ${bidColor}33` : "none",
               padding: `18px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
@@ -490,7 +489,7 @@ export default function ObsOverlay() {
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#71717a", letterSpacing: "0.25em" }}>UP NEXT</span>
                   )}
                 </div>
-                <div style={{ fontSize: 42, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 54, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
                   {state?.currentPlayer?.name}
                 </div>
                 {(() => {
@@ -515,7 +514,7 @@ export default function ObsOverlay() {
                     </div>
                   ) : null;
                 })()}
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 5, display: "flex", gap: 12 }}>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.80)", marginTop: 5, display: "flex", gap: 12 }}>
                   {state?.currentPlayer?.role && <span>{state.currentPlayer.role}</span>}
                   {state?.currentPlayer?.city && <span style={{ opacity: 0.6 }}>· {state.currentPlayer.city}</span>}
                 </div>
@@ -547,15 +546,15 @@ export default function ObsOverlay() {
                 {hasBid ? (
                   freezeBidUpdates ? (
                     <div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                      <div style={{ fontSize: 52, fontWeight: 900, color: bidColor, lineHeight: 1, filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
+                      <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                         {formatIndianRupee(state?.currentBid ?? 0)}
                       </div>
                       <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                         {state?.currentBidTeamLogoUrl && (
                           <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                         )}
-                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                       </div>
                     </div>
                   ) : (
@@ -565,25 +564,25 @@ export default function ObsOverlay() {
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   >
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                    <div style={{ fontSize: 52, fontWeight: 900, color: bidColor, lineHeight: 1, filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
                     <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                       {state?.currentBidTeamLogoUrl && (
                         <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                       )}
-                      <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                      <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                     </div>
                   </motion.div>
                   )
                 ) : (
                   <div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
-                    <div style={{ fontSize: 52, fontWeight: 900, color: "rgba(255,255,255,0.35)", lineHeight: 1 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.95)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: "rgba(255,255,255,0.95)", lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)" }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
-                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 6 }}>Waiting for first bid...</div>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.80)", marginTop: 6 }}>Waiting for first bid...</div>
                   </div>
                 )}
               </div>
