@@ -26,10 +26,10 @@ export const DISPLAY_THEMES: Record<DisplayThemeName, DisplayTheme> = {
   "stadium-gold": {
     id: "stadium-gold",
     label: "Stadium Gold",
-    dot: "#D4AF37",
+    dot: "#FFC400",
     bg: "#070708",
-    secondaryGlow: "rgba(212, 175, 55, 0.35)",
-    accentColor: "#D4AF37",
+    secondaryGlow: "rgba(255, 196, 0, 0.35)",
+    accentColor: "#FFC400",
     stagePreset: "gold",
   },
   "royal-sapphire": {
@@ -63,10 +63,10 @@ export const DISPLAY_THEMES: Record<DisplayThemeName, DisplayTheme> = {
   "broadcast-gold": {
     id: "broadcast-gold",
     label: "Broadcast Gold",
-    dot: "#D4AF37",
+    dot: "#FFC400",
     bg: "#070708",
-    secondaryGlow: "rgba(212, 175, 55, 0.35)",
-    accentColor: "#D4AF37",
+    secondaryGlow: "rgba(255, 196, 0, 0.35)",
+    accentColor: "#FFC400",
     stagePreset: "gold",
   },
   /** @deprecated use royal-sapphire */

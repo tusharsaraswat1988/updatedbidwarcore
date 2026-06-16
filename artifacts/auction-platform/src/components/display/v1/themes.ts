@@ -27,9 +27,9 @@ export const THEME_PRESETS: Theme[] = [
     id: "gold",
     name: "Stadium Gold",
     vars: {
-      "--accent": "#D4AF37",
-      "--accent-strong": "#F0C541",
-      "--accent-glow": "rgba(212, 175, 55, 0.35)",
+      "--accent": "#FFC400",
+      "--accent-strong": "#FFD633",
+      "--accent-glow": "rgba(255, 196, 0, 0.35)",
       "--accent-on": "#0a0a0a",
       "--stage-bg": "#070708",
       "--stage-surface": "#101013",

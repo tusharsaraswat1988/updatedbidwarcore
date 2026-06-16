@@ -81,9 +81,9 @@
 
 /* ── V1 LED stage — theme tokens + broadcast animations ───────────── */
 .auction-stage {
-  --accent: #d4af37;
-  --accent-strong: #f0c541;
-  --accent-glow: rgba(212, 175, 55, 0.35);
+  --accent: #ffc400;
+  --accent-strong: #ffd633;
+  --accent-glow: rgba(255, 196, 0, 0.35);
   --accent-on: #0a0a0a;
   --stage-bg: #070708;
   --stage-surface: #101013;

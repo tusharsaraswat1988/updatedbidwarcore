@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X, ExternalLink } from "lucide-react";
+import { CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X, ExternalLink } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
@@ -26,7 +26,7 @@ import { JerseySizeSelect } from "@/components/jersey-size-select";
 import { PlayerGenderSelect } from "@/components/player-gender-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
-import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
+import { RegistrationPageHeader } from "@/components/registration-page-header";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 
@@ -415,23 +415,13 @@ export default function PlayerRegister() {
     <FullscreenLayout>
       <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-4">
         <div className="w-full max-w-lg">
-          {/* Header */}
-          <div className="text-center mb-6 sm:mb-8">
-            {(tournament as { logoUrl?: string | null } | undefined)?.logoUrl ? (
-              <img src={(tournament as { logoUrl?: string | null }).logoUrl!} alt={tournament?.name} className="h-16 w-16 object-contain mx-auto mb-4 rounded-xl" />
-            ) : (
-              <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
-            )}
-            <h1 className="text-2xl sm:text-3xl font-display font-black text-white leading-tight px-1">
-              {tournament?.name || brandName}
-            </h1>
-            <p className="text-muted-foreground mt-1">Player Registration</p>
-            {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
-              <p className="text-xs font-mono text-amber-400 mt-1">
-                Code: {(tournament as { auctionCode?: string | null }).auctionCode}
-              </p>
-            )}
-          </div>
+          <RegistrationPageHeader
+            tournamentName={tournament?.name}
+            tournamentLogoUrl={(tournament as { logoUrl?: string | null } | undefined)?.logoUrl}
+            auctionCode={(tournament as { auctionCode?: string | null } | undefined)?.auctionCode}
+            sponsorLogosJson={(tournament as { sponsorLogos?: string | null } | undefined)?.sponsorLogos}
+            brandNameFallback={brandName}
+          />
 
           <AnimatePresence mode="wait">
             {isClosed ? (
@@ -912,10 +902,6 @@ export default function PlayerRegister() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          <div className="mt-6 sm:mt-8 flex justify-center pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <PoweredByBidWarLink />
-          </div>
         </div>
       </div>
     </FullscreenLayout>

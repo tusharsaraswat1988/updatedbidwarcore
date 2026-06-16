@@ -4,10 +4,45 @@ import { ExternalLink } from "lucide-react";
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
-export function PoweredByBidWarLink({ className }: { className?: string }) {
+type PoweredByBidWarLinkProps = {
+  className?: string;
+  variant?: "default" | "header";
+};
+
+export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
   const { logos, brandName, poweredByText } = useBranding();
   const logoSrc = cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp";
   const label = poweredByText?.trim() || "Powered by BidWar";
+
+  if (variant === "header") {
+    return (
+      <a
+        href={BIDWAR_HOME_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${label} — opens BidWar home page in a new tab`}
+        className={[
+          "group inline-flex flex-col items-center gap-1 px-1 py-0.5",
+          "transition-all duration-300",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-lg",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <img
+          src={logoSrc}
+          alt={brandName}
+          className="h-5 sm:h-6 w-auto opacity-60 transition-all duration-300 group-hover:opacity-95 group-hover:scale-105"
+          loading="lazy"
+          decoding="async"
+        />
+        <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/60 text-center leading-tight transition-colors duration-300 group-hover:text-primary/90">
+          {label}
+        </span>
+      </a>
+    );
+  }
 
   return (
     <a
