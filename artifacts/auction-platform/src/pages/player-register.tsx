@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRoute } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import {
@@ -26,7 +26,9 @@ import { JerseySizeSelect } from "@/components/jersey-size-select";
 import { PlayerGenderSelect } from "@/components/player-gender-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
+import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -79,9 +81,10 @@ function useRoleSpecs(roleId: number | undefined) {
 export default function PlayerRegister() {
   const [, params] = useRoute("/tournament/:id/register");
   const tournamentId = parseInt(params?.id || "0");
-  const { brandName, poweredByText, logos } = useBranding();
+  const { brandName } = useBranding();
   const [submitted, setSubmitted] = useState(false);
   const [waConsent, setWaConsent] = useState(false);
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
@@ -211,6 +214,21 @@ export default function PlayerRegister() {
   ) as PaymentVerificationMethod;
   const paymentConfigured = paymentEnabled && registrationFee > 0 && !!upiId.trim() && !!verificationMethod;
 
+  const declarationPoints = useMemo(() => {
+    const fromStatus = status?.registrationDeclarationPoints;
+    if (fromStatus?.length) return fromStatus;
+    const tournamentEnabled = (tournament as { enableRegistrationDeclaration?: boolean } | undefined)?.enableRegistrationDeclaration;
+    const tournamentText = (tournament as { registrationDeclarationText?: string | null } | undefined)?.registrationDeclarationText;
+    if (status?.enableRegistrationDeclaration || tournamentEnabled) {
+      return parseRegistrationDeclarationPoints(
+        status?.registrationDeclarationText ?? tournamentText,
+      );
+    }
+    return [];
+  }, [status, tournament]);
+
+  const declarationRequired = declarationPoints.length > 0;
+
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
     try {
@@ -333,6 +351,11 @@ export default function PlayerRegister() {
       }
     }
 
+    if (declarationRequired && !declarationAccepted) {
+      setErrorMsg("Please accept the declaration to continue.");
+      return;
+    }
+
     try {
       const result = await registerPlayer.mutateAsync({
         tournamentId,
@@ -355,6 +378,7 @@ export default function PlayerRegister() {
           photoUrl: form.photoUrl || undefined,
           basePrice: 100000,
           whatsappConsent: waConsent,
+          registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
           utrNumber: utrNumber.trim() || undefined,
           paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
         },
@@ -366,6 +390,10 @@ export default function PlayerRegister() {
       const data = err?.data ?? err?.response?.data;
       if (data?.field === "email") {
         setEmailError(data.error || "Please enter a valid email address");
+        return;
+      }
+      if (data?.field === "registrationDeclarationAccepted") {
+        setErrorMsg(data.error || "Please accept the declaration to continue.");
         return;
       }
       if (data && typeof data === "object" && data.reason) {
@@ -483,7 +511,7 @@ export default function PlayerRegister() {
                       className="mt-4"
                       variant="outline"
                       onClick={() => {
-                        setSubmitted(false); setWaConsent(false); setErrorMsg(null); setEmailError("");
+                        setSubmitted(false); setWaConsent(false); setDeclarationAccepted(false); setErrorMsg(null); setEmailError("");
                         setUtrNumber(""); setPaymentScreenshotUrl("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
@@ -808,6 +836,28 @@ export default function PlayerRegister() {
                         />
                       </div>
 
+                      {declarationRequired && (
+                        <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
+                          <p className="text-sm font-semibold text-foreground">Declaration & Consent</p>
+                          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                            {declarationPoints.map((point, i) => (
+                              <li key={i} className="leading-relaxed">{point}</li>
+                            ))}
+                          </ol>
+                          <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1 border-t border-border/50 pt-3">
+                            <input
+                              type="checkbox"
+                              checked={declarationAccepted}
+                              onChange={e => setDeclarationAccepted(e.target.checked)}
+                              className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
+                            />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-relaxed">
+                              I have read and accept all of the above declarations
+                            </span>
+                          </label>
+                        </div>
+                      )}
+
                       {/* WhatsApp consent */}
                       <div className="space-y-2">
                         <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1">
@@ -851,7 +901,7 @@ export default function PlayerRegister() {
                         type="submit"
                         size="lg"
                         className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
-                        disabled={registerPlayer.isPending}
+                        disabled={registerPlayer.isPending || (declarationRequired && !declarationAccepted)}
                       >
                         {registerPlayer.isPending ? (
                           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
@@ -868,9 +918,8 @@ export default function PlayerRegister() {
             )}
           </AnimatePresence>
 
-          <div className="mt-6 sm:mt-8 flex flex-col items-center gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-30" />}
-            <p className="text-[11px] text-muted-foreground/40 uppercase tracking-widest">{poweredByText}</p>
+          <div className="mt-6 sm:mt-8 flex justify-center pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <PoweredByBidWarLink />
           </div>
         </div>
       </div>

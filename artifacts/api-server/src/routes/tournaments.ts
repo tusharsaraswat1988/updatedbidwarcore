@@ -108,6 +108,8 @@ const tournamentToJson = (
   upiId: t.upiId ?? null,
   paymentVerificationMethod: t.paymentVerificationMethod ?? null,
   paymentCollectionMode: t.paymentCollectionMode ?? "manual_verification",
+  enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
+  registrationDeclarationText: t.registrationDeclarationText ?? null,
   resetCount: t.resetCount ?? 0,
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
@@ -301,6 +303,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     upiId: z.string().nullable().optional(),
     paymentVerificationMethod: z.enum(PAYMENT_VERIFICATION_METHODS).nullable().optional(),
     paymentCollectionMode: z.enum(PAYMENT_COLLECTION_MODES).optional(),
+    enableRegistrationDeclaration: z.boolean().optional(),
+    registrationDeclarationText: z.string().nullable().optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
     audioEnabled: z.boolean().optional(),
@@ -370,6 +374,10 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.upiId !== undefined) updates.upiId = d.upiId === "" ? null : d.upiId;
   if (d.paymentVerificationMethod !== undefined) updates.paymentVerificationMethod = d.paymentVerificationMethod;
   if (d.paymentCollectionMode !== undefined) updates.paymentCollectionMode = d.paymentCollectionMode;
+  if (d.enableRegistrationDeclaration !== undefined) updates.enableRegistrationDeclaration = d.enableRegistrationDeclaration;
+  if (d.registrationDeclarationText !== undefined) {
+    updates.registrationDeclarationText = d.registrationDeclarationText === "" ? null : d.registrationDeclarationText;
+  }
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
   if (d.audioEnabled !== undefined) updates.audioEnabled = d.audioEnabled;

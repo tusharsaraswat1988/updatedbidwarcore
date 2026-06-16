@@ -145,6 +145,13 @@ export interface Tournament {
   /** @nullable */
   paymentVerificationMethod?: TournamentPaymentVerificationMethod;
   paymentCollectionMode?: TournamentPaymentCollectionMode;
+  /** When true, players must accept organizer declaration points during registration */
+  enableRegistrationDeclaration?: boolean;
+  /**
+   * Newline-separated declaration/consent points for player registration
+   * @nullable
+   */
+  registrationDeclarationText?: string | null;
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -364,6 +371,9 @@ export interface TournamentUpdate {
   /** @nullable */
   paymentVerificationMethod?: TournamentUpdatePaymentVerificationMethod;
   paymentCollectionMode?: TournamentUpdatePaymentCollectionMode;
+  enableRegistrationDeclaration?: boolean;
+  /** @nullable */
+  registrationDeclarationText?: string | null;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -793,6 +803,8 @@ export interface PlayerInput {
   paymentScreenshotUrl?: string;
   /** Organizer manual entry — mark offline payment as completed */
   markPaymentCompleted?: boolean;
+  /** Player accepts organizer registration declaration (required when enabled) */
+  registrationDeclarationAccepted?: boolean;
 }
 
 export type PlayerUpdateGender =
@@ -1293,6 +1305,15 @@ export interface RegistrationStatus {
   upiId?: string | null;
   /** @nullable */
   paymentVerificationMethod?: RegistrationStatusPaymentVerificationMethod;
+  /** Whether registration declaration acceptance is required */
+  enableRegistrationDeclaration?: boolean;
+  /**
+   * Raw declaration text (organizer-defined, newline-separated)
+   * @nullable
+   */
+  registrationDeclarationText?: string | null;
+  /** Parsed declaration points shown on the registration form */
+  registrationDeclarationPoints?: string[];
 }
 
 export interface TournamentSummary {

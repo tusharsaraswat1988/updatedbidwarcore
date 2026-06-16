@@ -46,6 +46,10 @@ export const tournamentsTable = pgTable("tournaments", {
   upiId: text("upi_id"),
   paymentVerificationMethod: text("payment_verification_method"), // utr | screenshot | utr_and_screenshot
   paymentCollectionMode: text("payment_collection_mode").notNull().default("manual_verification"),
+  /** When enabled, public registration requires accepting organizer declaration points */
+  enableRegistrationDeclaration: boolean("enable_registration_declaration").notNull().default(false),
+  /** Newline-separated declaration/consent points shown on player registration form */
+  registrationDeclarationText: text("registration_declaration_text"),
   // Super admin controls
   licenseStatus: text("license_status").notNull().default("trial"),
   licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),

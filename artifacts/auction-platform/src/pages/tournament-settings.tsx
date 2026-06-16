@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
@@ -31,7 +32,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,7 @@ import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
@@ -109,6 +111,8 @@ export default function TournamentSettings() {
       registrationFee: t.registrationFee != null ? String(t.registrationFee) : "",
       upiId: t.upiId || "",
       paymentVerificationMethod: t.paymentVerificationMethod || "utr",
+      enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
+      registrationDeclarationText: t.registrationDeclarationText || "",
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
       audioEnabled: t.audioEnabled ?? true,
@@ -172,12 +176,12 @@ export default function TournamentSettings() {
     if (!initialized) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
+    if (tab === "identity" || tab === "playerRegistration" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
       setActiveSection(tab);
     }
     const focus = params.get("focus") as SettingsFocusField | null;
     if (!focus) return;
-    if (focus === "registration") setActiveSection("identity");
+    if (focus === "registration") setActiveSection("playerRegistration");
     if (focus === "bidTiers") setShowAdvancedAuction(true);
     setHighlightField(focus);
     const scrollTimer = window.setTimeout(() => {
@@ -362,6 +366,12 @@ export default function TournamentSettings() {
         return "Choose a verification method to save";
       }
     }
+    if (editForm.enableRegistrationDeclaration === true) {
+      const points = parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string);
+      if (points.length === 0) {
+        return "Add at least one declaration point or turn off the declaration";
+      }
+    }
     return null;
   }, [editForm]);
 
@@ -412,6 +422,8 @@ export default function TournamentSettings() {
             ? (editForm.paymentVerificationMethod as import("@workspace/api-client-react").TournamentUpdatePaymentVerificationMethod)
             : null,
           paymentCollectionMode: "manual_verification",
+          enableRegistrationDeclaration: editForm.enableRegistrationDeclaration === true,
+          registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
           audioEnabled: editForm.audioEnabled === true,
           masterVolume: Number(editForm.masterVolume) || 80,
           countdownSoundEnabled: editForm.countdownSoundEnabled === true,
@@ -489,6 +501,7 @@ export default function TournamentSettings() {
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: "identity", label: "Basic Info", icon: Building2 },
+    { id: "playerRegistration", label: "Player Registration", icon: UserPlus },
     { id: "auction", label: "Auction Rules", icon: Gavel },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
     { id: "recovery", label: "Reset", icon: ShieldAlert },
@@ -650,90 +663,6 @@ export default function TournamentSettings() {
             </SettingsCard>
 
             <SettingsCard
-              title="Registration"
-              description="Control the public self-registration form. Leave blank for no limit."
-              icon={<UserPlus className="w-4 h-4 text-muted-foreground" />}
-              className={fieldWrapClass("registration")}
-            >
-              <div id="settings-field-registration" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last Registration Date
-                  </Label>
-                  <Input type="date" value={editForm.registrationDeadline as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))} />
-                  <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Max Registrations</Label>
-                  <Input type="number" min={1} value={editForm.registrationLimit as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))} placeholder="e.g. 100" />
-                  <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Registration Payments"
-              description="Optional registration fee collection with manual payment verification."
-              icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
-              className={fieldWrapClass("registration")}
-            >
-              <div id="settings-field-registration-payments" className="space-y-3">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
-                  <div>
-                    <p className="text-sm font-medium">Collect Registration Fee</p>
-                    <p className="text-[10px] text-muted-foreground">Players pay via UPI and submit proof during registration.</p>
-                  </div>
-                  <Switch
-                    checked={editForm.enableRegistrationPayment === true}
-                    onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
-                  />
-                </div>
-
-                <Collapsible open={editForm.enableRegistrationPayment === true}>
-                  <CollapsibleContent className="space-y-3 pt-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Registration Fee (₹) <span className="text-destructive">*</span></Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={editForm.registrationFee as string || ""}
-                          onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
-                          placeholder="e.g. 500"
-                        />
-                      </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label className="text-xs">UPI ID <span className="text-destructive">*</span></Label>
-                        <Input
-                          value={editForm.upiId as string || ""}
-                          onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
-                          placeholder="yourname@upi"
-                        />
-                      </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <Label className="text-xs">Verification Method <span className="text-destructive">*</span></Label>
-                        <Select
-                          value={(editForm.paymentVerificationMethod as string) || "utr"}
-                          onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent className="dark">
-                            <SelectItem value="utr">UTR Number only</SelectItem>
-                            <SelectItem value="screenshot">Payment screenshot only</SelectItem>
-                            <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Payment gateway integration (Cashfree, Razorpay) coming soon. Manual verification is active.
-                    </p>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
               title="Match Schedule"
               description="When set, player availability uses per-day checkboxes instead of free text."
               icon={<CalendarDays className="w-4 h-4 text-amber-400" />}
@@ -794,6 +723,174 @@ export default function TournamentSettings() {
             <p className="lg:col-span-2 text-[11px] text-muted-foreground">
               Organizer account, login password and contact details are managed by the platform support team.
             </p>
+          </div>
+        )}
+
+        {/* ── PLAYER REGISTRATION ── */}
+        {activeSection === "playerRegistration" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs font-normal">All settings optional</Badge>
+              <p className="text-[11px] text-muted-foreground">
+                Configure the public player registration link. Changes save automatically.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SettingsCard
+                title="Registration Limits"
+                description="Close the form after a date or player count. Leave blank for no limit."
+                icon={<CalendarIcon className="w-4 h-4 text-muted-foreground" />}
+                className={fieldWrapClass("registration")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                </div>
+                <div id="settings-field-registration" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last date to register
+                    </Label>
+                    <Input
+                      type="date"
+                      value={editForm.registrationDeadline as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
+                    />
+                    <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Max registrations</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editForm.registrationLimit as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
+                      placeholder="e.g. 100"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
+                  </div>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Registration Payments"
+                description="Collect a registration fee with manual UPI payment verification."
+                icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
+                className={fieldWrapClass("registration")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                </div>
+                <div id="settings-field-registration-payments" className="space-y-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">Collect Registration Fee</p>
+                      <p className="text-[10px] text-muted-foreground">Players pay via UPI and submit proof during registration.</p>
+                    </div>
+                    <Switch
+                      checked={editForm.enableRegistrationPayment === true}
+                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
+                    />
+                  </div>
+
+                  <Collapsible open={editForm.enableRegistrationPayment === true}>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Registration Fee (₹) <span className="text-destructive">*</span></Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={editForm.registrationFee as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
+                            placeholder="e.g. 500"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">UPI ID <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={editForm.upiId as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
+                            placeholder="yourname@upi"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Verification Method <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={(editForm.paymentVerificationMethod as string) || "utr"}
+                            onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent className="dark">
+                              <SelectItem value="utr">UTR Number only</SelectItem>
+                              <SelectItem value="screenshot">Payment screenshot only</SelectItem>
+                              <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Payment gateway integration (Cashfree, Razorpay) coming soon. Manual verification is active.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Declaration & Consent"
+                description="Point-wise declaration shown on the registration form. Players must accept before submitting."
+                icon={<ClipboardList className="w-4 h-4 text-muted-foreground" />}
+                className="lg:col-span-2"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Info className="w-3 h-3 text-blue-400" /> Enter one declaration point per line.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">Require declaration acceptance</p>
+                      <p className="text-[10px] text-muted-foreground">Players must accept your declaration before the form can be submitted.</p>
+                    </div>
+                    <Switch
+                      checked={editForm.enableRegistrationDeclaration === true}
+                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationDeclaration: v }))}
+                    />
+                  </div>
+
+                  <Collapsible open={editForm.enableRegistrationDeclaration === true}>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Declaration points</Label>
+                        <Textarea
+                          value={editForm.registrationDeclarationText as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, registrationDeclarationText: e.target.value }))}
+                          placeholder={"I consent to be present for all the matches on 4 & 5 July 2026.\nI agree to abide by the league's rules, regulations, and code of conduct.\nI declare that I am physically and medically fit to participate in the league."}
+                          rows={12}
+                          className="text-sm font-normal leading-relaxed"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Each line becomes a numbered point on the registration form. Add as many points as your tournament requires.
+                        </p>
+                      </div>
+                      {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length > 0 ? (
+                        <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Preview</p>
+                          <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
+                            {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).map((point, i) => (
+                              <li key={i} className="leading-relaxed">{point}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : null}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </SettingsCard>
+            </div>
           </div>
         )}
 

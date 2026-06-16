@@ -7,7 +7,6 @@ import {
   useListTeams,
   useGetTournament,
   useGetRegistrationStatus,
-  useUpdateTournament,
   useCreatePlayer,
   useUpdatePlayer,
   useDeletePlayer,
@@ -74,6 +73,7 @@ import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
 import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
+import { settingsPath } from "@/lib/settings-navigation";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -1947,11 +1947,7 @@ export default function Players() {
       refetchInterval: 15000,
     },
   });
-  const updateTournament = useUpdateTournament();
-  const { toast } = useToast();
   const deletePlayer = useDeletePlayer();
-  const [regDeadline, setRegDeadline] = useState("");
-  const [regLimit, setRegLimit] = useState("");
   const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -2134,34 +2130,6 @@ export default function Players() {
 
   const regUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/register` : "";
 
-  useEffect(() => {
-    if (!tournament) return;
-    setRegDeadline(tournament.registrationDeadline || "");
-    setRegLimit(tournament.registrationLimit != null ? String(tournament.registrationLimit) : "");
-  }, [tournament?.registrationDeadline, tournament?.registrationLimit, tournament]);
-
-  async function saveRegistrationLimits() {
-    await updateTournament.mutateAsync({
-      tournamentId,
-      data: {
-        registrationDeadline: regDeadline || null,
-        registrationLimit: regLimit !== "" ? Number(regLimit) || null : null,
-      },
-    });
-    qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-    qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-    toast({ title: "Registration link settings saved" });
-    setRegSettingsOpen(false);
-  }
-
-  function closeRegSettingsDialog() {
-    if (tournament) {
-      setRegDeadline(tournament.registrationDeadline || "");
-      setRegLimit(tournament.registrationLimit != null ? String(tournament.registrationLimit) : "");
-    }
-    setRegSettingsOpen(false);
-  }
-
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="space-y-6">
@@ -2240,7 +2208,7 @@ export default function Players() {
           </button>
         </div>
 
-        <Dialog open={regSettingsOpen} onOpenChange={(v) => { if (!v) closeRegSettingsDialog(); else setRegSettingsOpen(true); }}>
+        <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
           <DialogContent className="max-w-lg dark">
             <DialogHeader>
               <DialogTitle>Share registration link</DialogTitle>
@@ -2277,36 +2245,19 @@ export default function Players() {
                 <ExternalLink className="w-3 h-3" /> Open
               </Button>
             </div>
-            <div className="space-y-3 pt-1 border-t border-border/50">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Link settings <span className="normal-case font-normal">(optional)</span>
-              </p>
-              <p className="text-[11px] text-muted-foreground -mt-1">
-                Leave blank to keep registration open with no player cap.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs">Last date to register</Label>
-                  <Input type="date" value={regDeadline} onChange={e => setRegDeadline(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Max registrations</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="e.g. 100"
-                    value={regLimit}
-                    onChange={e => setRegLimit(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+            <p className="text-[11px] text-muted-foreground border-t border-border/50 pt-3">
+              Configure registration deadline, payment, and declaration in{" "}
+              <a
+                href={settingsPath(tournamentId, "playerRegistration")}
+                className="text-primary font-medium hover:underline"
+              >
+                Tournament Settings → Player Registration
+              </a>
+              .
+            </p>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeRegSettingsDialog} disabled={updateTournament.isPending}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => void saveRegistrationLimits()} disabled={updateTournament.isPending}>
-                {updateTournament.isPending ? "Saving…" : "Save"}
+              <Button type="button" onClick={() => setRegSettingsOpen(false)}>
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>

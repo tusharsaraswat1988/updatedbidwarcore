@@ -7,6 +7,7 @@ import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
 import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
@@ -33,6 +34,8 @@ async function computeRegistrationStatus(tid: number) {
       registrationFee: tournamentsTable.registrationFee,
       upiId: tournamentsTable.upiId,
       paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
+      enableRegistrationDeclaration: tournamentsTable.enableRegistrationDeclaration,
+      registrationDeclarationText: tournamentsTable.registrationDeclarationText,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -66,6 +69,12 @@ async function computeRegistrationStatus(tid: number) {
     registrationFee: tournament.registrationFee ?? null,
     upiId: tournament.upiId ?? null,
     paymentVerificationMethod: tournament.paymentVerificationMethod ?? null,
+    enableRegistrationDeclaration: tournament.enableRegistrationDeclaration ?? false,
+    registrationDeclarationText: tournament.registrationDeclarationText ?? null,
+    registrationDeclarationPoints:
+      tournament.enableRegistrationDeclaration && tournament.registrationDeclarationText
+        ? parseRegistrationDeclarationPoints(tournament.registrationDeclarationText)
+        : [],
   };
 }
 
@@ -298,6 +307,7 @@ const playerInputSchema = z.object({
   utrNumber: z.string().optional(),
   paymentScreenshotUrl: cloudinaryImageUrl,
   markPaymentCompleted: z.boolean().optional(),
+  registrationDeclarationAccepted: z.boolean().optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -493,6 +503,17 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   }
 
   const paymentFields = buildPaymentInsertFields(paymentConfig, d, "public");
+
+  const declarationRequired =
+    status.enableRegistrationDeclaration === true
+    && parseRegistrationDeclarationPoints(status.registrationDeclarationText).length > 0;
+  if (declarationRequired && d.registrationDeclarationAccepted !== true) {
+    res.status(400).json({
+      error: "You must accept the registration declaration to continue.",
+      field: "registrationDeclarationAccepted",
+    });
+    return;
+  }
 
   const existingDup = await findDuplicatePlayerMobile(tid, mobileNumber);
   if (existingDup) {

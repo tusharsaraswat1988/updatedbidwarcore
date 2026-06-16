@@ -20,7 +20,8 @@
     "./jersey-size": "./src/jersey-size.ts",
     "./organizer-account": "./src/organizer-account.ts",
     "./auction-date": "./src/auction-date.ts",
-    "./registration-payment": "./src/registration-payment.ts"
+    "./registration-payment": "./src/registration-payment.ts",
+    "./registration-declaration": "./src/registration-declaration.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

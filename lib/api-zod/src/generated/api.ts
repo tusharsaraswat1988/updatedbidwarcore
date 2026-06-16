@@ -421,6 +421,8 @@ export const UpdateTournamentBody = zod.object({
   paymentCollectionMode: zod
     .enum(["manual_verification", "cashfree", "razorpay"])
     .optional(),
+  enableRegistrationDeclaration: zod.boolean().optional(),
+  registrationDeclarationText: zod.string().nullish(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
   audioEnabled: zod.boolean().optional(),
@@ -1499,6 +1501,18 @@ export const GetRegistrationStatusResponse = zod.object({
       zod.literal(null),
     ])
     .nullish(),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe("Whether registration declaration acceptance is required"),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe("Raw declaration text (organizer-defined, newline-separated)"),
+  registrationDeclarationPoints: zod
+    .array(zod.string())
+    .optional()
+    .describe("Parsed declaration points shown on the registration form"),
 });
 
 /**
@@ -1565,6 +1579,10 @@ export const RegisterPlayerBody = zod.object({
     .boolean()
     .optional()
     .describe("Organizer manual entry — mark offline payment as completed"),
+  registrationDeclarationAccepted: zod
+    .boolean()
+    .optional()
+    .describe("Player accepts organizer registration declaration (required when enabled)"),
 });
 
 /**

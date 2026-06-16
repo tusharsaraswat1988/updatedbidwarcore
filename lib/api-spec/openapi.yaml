@@ -1976,6 +1976,12 @@ components:
           type: string
           enum: [manual_verification, cashfree, razorpay]
           default: manual_verification
+        enableRegistrationDeclaration:
+          type: boolean
+          description: When true, players must accept organizer declaration points during registration
+        registrationDeclarationText:
+          type: ["string", "null"]
+          description: Newline-separated declaration/consent points for player registration
         resetCount:
           type: integer
         lastResetAt:
@@ -2226,6 +2232,10 @@ components:
         paymentCollectionMode:
           type: string
           enum: [manual_verification, cashfree, razorpay]
+        enableRegistrationDeclaration:
+          type: boolean
+        registrationDeclarationText:
+          type: ["string", "null"]
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2671,6 +2681,9 @@ components:
         markPaymentCompleted:
           type: boolean
           description: Organizer manual entry — mark offline payment as completed
+        registrationDeclarationAccepted:
+          type: boolean
+          description: Player accepts organizer registration declaration (required when enabled)
 
     PlayerUpdate:
       type: object
@@ -3189,6 +3202,17 @@ components:
         paymentVerificationMethod:
           type: ["string", "null"]
           enum: [utr, screenshot, utr_and_screenshot, null]
+        enableRegistrationDeclaration:
+          type: boolean
+          description: Whether registration declaration acceptance is required
+        registrationDeclarationText:
+          type: ["string", "null"]
+          description: Raw declaration text (organizer-defined, newline-separated)
+        registrationDeclarationPoints:
+          type: array
+          items:
+            type: string
+          description: Parsed declaration points shown on the registration form
 
     TournamentSummary:
       type: object
