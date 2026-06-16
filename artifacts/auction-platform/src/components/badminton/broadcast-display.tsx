@@ -10,8 +10,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { resolveFranchiseLogoUrl, resolveFranchiseName } from "@workspace/badminton-core";
+import { resolveFranchiseLogoUrl, resolveFranchiseName, isPairMatchKind, currentReceiverLabel, currentServerLabel } from "@workspace/badminton-core";
 import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
+import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
+import {
+  ScoreBoardSponsorPanel,
+  type ScoreBoardSponsor,
+  hasScoreBoardSponsor,
+} from "@/components/badminton/score-board-sponsor-panel";
 import { cn } from "@/lib/utils";
 
 interface BroadcastDisplayProps {
@@ -22,6 +28,7 @@ interface BroadcastDisplayProps {
   matchNumber?: string;
   roundName?: string;
   sponsorLogos?: string[];
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
 }
 
 export function BroadcastDisplay({
@@ -32,6 +39,7 @@ export function BroadcastDisplay({
   matchNumber,
   roundName,
   sponsorLogos = [],
+  scoreBoardSponsor = null,
 }: BroadcastDisplayProps) {
   const [gameWinFlash, setGameWinFlash] = useState<"left" | "right" | null>(null);
   const [matchWinFlash, setMatchWinFlash] = useState<"left" | "right" | null>(null);
@@ -79,6 +87,9 @@ export function BroadcastDisplay({
 
   const isLive = state.matchStatus === "live";
   const isTimeout = !!state.activeTimeout;
+  const isDoubles = isPairMatchKind(state.matchKind);
+  const serverLabel = isDoubles ? currentServerLabel(state) : null;
+  const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
 
   return (
     <div className="relative w-full h-full bg-[#050a17] overflow-hidden font-sans">
@@ -120,7 +131,10 @@ export function BroadcastDisplay({
           matchKind={state.matchKind}
           score={state.leftScore}
           gamesWon={state.gamesLeft}
-          isServing={state.servingSide === "left"}
+          isServing={!isDoubles && state.servingSide === "left"}
+          servingPlayerLabel={
+            isDoubles && state.doublesServe?.servingSide === "left" ? serverLabel : null
+          }
           isWinner={state.winnerSide === "left"}
           flash={pointFlash === "left"}
           gameWinFlash={gameWinFlash === "left"}
@@ -132,6 +146,9 @@ export function BroadcastDisplay({
           state={state}
           isTimeout={isTimeout}
           timeoutSide={state.activeTimeout?.side}
+          isDoubles={isDoubles}
+          serverLabel={serverLabel}
+          receiverLabel={receiverLabel}
         />
 
         {/* Right player block */}
@@ -141,13 +158,23 @@ export function BroadcastDisplay({
           matchKind={state.matchKind}
           score={state.rightScore}
           gamesWon={state.gamesRight}
-          isServing={state.servingSide === "right"}
+          isServing={!isDoubles && state.servingSide === "right"}
+          servingPlayerLabel={
+            isDoubles && state.doublesServe?.servingSide === "right" ? serverLabel : null
+          }
           isWinner={state.winnerSide === "right"}
           flash={pointFlash === "right"}
           gameWinFlash={gameWinFlash === "right"}
           format={state.format}
         />
       </div>
+
+      {/* Scoreboard sponsor — prominent side panel */}
+      {hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor && (
+        <div className="absolute right-[3%] top-1/2 -translate-y-1/2 z-20 pointer-events-none">
+          <ScoreBoardSponsorPanel sponsor={scoreBoardSponsor} variant="display" />
+        </div>
+      )}
 
       {/* BOTTOM BAR — Sponsor logos + game history */}
       <BottomBar
@@ -276,6 +303,8 @@ interface PlayerBlockProps {
   score: number;
   gamesWon: number;
   isServing: boolean;
+  /** Doubles — highlight specific serving player name instead of whole side. */
+  servingPlayerLabel?: string | null;
   isWinner: boolean;
   flash: boolean;
   gameWinFlash: boolean;
@@ -289,6 +318,7 @@ function PlayerBlock({
   score,
   gamesWon,
   isServing,
+  servingPlayerLabel,
   isWinner,
   flash,
   gameWinFlash,
@@ -317,6 +347,11 @@ function PlayerBlock({
         {isServing && (
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full px-2 py-0.5 flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          </div>
+        )}
+        {servingPlayerLabel && (
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#ffd700] rounded-full px-2 py-0.5">
+            <span className="text-[10px] font-bold text-black whitespace-nowrap">🟡 {servingPlayerLabel}</span>
           </div>
         )}
       </div>
@@ -401,29 +436,57 @@ function CentrePanel({
   state,
   isTimeout,
   timeoutSide,
+  isDoubles,
+  serverLabel,
+  receiverLabel,
 }: {
   state: BadmintonMatchState;
   isTimeout: boolean;
   timeoutSide?: string;
+  isDoubles?: boolean;
+  serverLabel?: string | null;
+  receiverLabel?: string | null;
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 min-w-[200px]">
-      {/* Serve diamond indicator */}
-      <div className="flex items-center gap-3">
-        <div className={cn(
-          "w-3 h-3 rotate-45",
-          state.servingSide === "left"
-            ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
-            : "bg-white/10",
-        )} />
-        <span className="text-white/30 text-xs uppercase tracking-widest font-semibold">vs</span>
-        <div className={cn(
-          "w-3 h-3 rotate-45",
-          state.servingSide === "right"
-            ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
-            : "bg-white/10",
-        )} />
-      </div>
+      {!isDoubles && (
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-3 h-3 rotate-45",
+            state.servingSide === "left"
+              ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
+              : "bg-white/10",
+          )} />
+          <span className="text-white/30 text-xs uppercase tracking-widest font-semibold">vs</span>
+          <div className={cn(
+            "w-3 h-3 rotate-45",
+            state.servingSide === "right"
+              ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
+              : "bg-white/10",
+          )} />
+        </div>
+      )}
+
+      {isDoubles && serverLabel && (
+        <div className="flex flex-col items-center gap-1 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-[#ffd700]">🟡</span>
+            <span className="text-white/50">Serving:</span>
+            <span className="font-bold text-[#ffd700]">{serverLabel}</span>
+          </div>
+          {receiverLabel && (
+            <div className="flex items-center gap-2">
+              <span className="text-[#4fc3f7]">👁</span>
+              <span className="text-white/50">Receiving:</span>
+              <span className="font-bold text-[#4fc3f7]">{receiverLabel}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isDoubles && state.doublesServe && (
+        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[180px]" />
+      )}
 
       {/* Main scores — large */}
       <div className="flex items-center gap-4">

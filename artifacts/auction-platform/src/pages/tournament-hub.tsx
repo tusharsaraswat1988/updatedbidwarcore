@@ -26,7 +26,7 @@ import {
   tournamentToReadinessInput,
   type AuctionReadinessCheckId,
 } from "@workspace/api-base/auction-readiness";
-import { usePlatformFeatures } from "@/hooks/use-platform-features";
+import { useBadmintonScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
@@ -44,6 +44,7 @@ export default function TournamentHub() {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const scoringEnabled = tournament?.scoringEnabled === true;
+  const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const { data: standings, isLoading: loadingStandings } = useScoringStandings(
     tournamentId,
     tournament?.sport === "cricket" && scoringPlatform && scoringEnabled,
@@ -282,7 +283,7 @@ export default function TournamentHub() {
           </div>
         )}
 
-        {tournament?.sport === "badminton" && scoringPlatform ? (
+        {badmintonScoringActive ? (
           <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-start gap-3 flex-1">
               <div className="p-2.5 rounded-lg bg-primary/15">

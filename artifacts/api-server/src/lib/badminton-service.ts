@@ -52,10 +52,13 @@ export class BadmintonServiceError extends Error {
 
 const BADMINTON_SPORT = "badminton" as const;
 
-/** Reject badminton mutations on non-badminton tournaments. */
+/** Reject badminton mutations on non-badminton or scoring-disabled tournaments. */
 export async function ensureBadmintonTournament(tournamentId: number): Promise<void> {
   const [tournament] = await db
-    .select({ sport: tournamentsTable.sport })
+    .select({
+      sport: tournamentsTable.sport,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
@@ -68,6 +71,13 @@ export async function ensureBadmintonTournament(tournamentId: number): Promise<v
       "BADMINTON_SPORT_REQUIRED",
       "Tournament sport must be badminton",
       400,
+    );
+  }
+  if (!tournament.scoringEnabled) {
+    throw new BadmintonServiceError(
+      "SCORING_DISABLED",
+      "Scoring is not enabled for this tournament",
+      403,
     );
   }
 }

@@ -64,8 +64,8 @@ export function PairSidePicker({
   const player2Label = "Player 2";
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3 space-y-3">
-      <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{sideLabel}</p>
+    <div className="rounded-xl border border-white/10 bg-[#121c34]/60 p-4 space-y-3">
+      <p className="text-[#4fc3f7] text-[11px] font-bold uppercase tracking-[0.16em]">{sideLabel}</p>
       <MasterPlayerPicker
         tournamentId={tournamentId}
         label={player1Label}

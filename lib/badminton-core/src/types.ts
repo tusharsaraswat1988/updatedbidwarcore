@@ -162,8 +162,14 @@ export type BadmintonMatchState = {
   /** All games (including current). */
   games: BadmintonGameState[];
 
-  /** Which side is currently serving. */
+  /** Which side is currently serving (pair side in doubles). */
   servingSide: BadmintonSide;
+
+  /**
+   * Doubles / mixed doubles only — player-level service, receiver, and court positions.
+   * Singles matches leave this undefined.
+   */
+  doublesServe?: import("./scoring/types").DoublesServeState;
 
   /** Is the match in the 11-point interval break of the deciding game? */
   inInterval: boolean;

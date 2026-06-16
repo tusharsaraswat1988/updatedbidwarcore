@@ -15,6 +15,17 @@ import {
   sidePlayerFormToJson,
   type SidePlayerForm,
 } from "@/components/badminton/pair-side-picker";
+import {
+  BtnPrimary,
+  DarkSelect,
+  FormActions,
+  FormError,
+  FormField,
+  FormModal,
+  HubPageShell,
+  inputClass,
+  PageHeader,
+} from "@/components/badminton/page-chrome";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -59,21 +70,15 @@ export default function BadmintonMatchesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060c1a] text-white">
-      <div className="bg-gradient-to-b from-[#0d1529] to-transparent border-b border-white/5 px-6 py-5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-black text-white">Matches</h1>
-            <p className="text-white/40 text-sm">{matches.length} total</p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-[#0070f3] hover:bg-[#0060d3] rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
-          >
-            + Create Match
-          </button>
-        </div>
-      </div>
+    <HubPageShell>
+      <PageHeader
+        title="Matches"
+        subtitle={`${matches.length} total`}
+        backHref={`/tournament/${tournamentId}/badminton`}
+        actions={
+          <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
+        }
+      />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Filter tabs */}
@@ -142,7 +147,7 @@ export default function BadmintonMatchesPage() {
           }}
         />
       )}
-    </div>
+    </HubPageShell>
   );
 }
 
@@ -325,95 +330,72 @@ function CreateMatchModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-[#0d1529] border-b border-white/8 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-black text-lg">Create Match</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">×</button>
-        </div>
-
-        <div className="p-6 space-y-5">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelClass}>Match Type</label>
-              <select
-                value={form.matchType}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    matchType: e.target.value,
-                    leftPlayer2: emptySidePlayer(),
-                    rightPlayer2: emptySidePlayer(),
-                  }))
-                }
-                className={inputClass}
-              >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-                <option value="mixed_doubles">Mixed</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Match #</label>
-              <input {...f("matchNumber")} placeholder="M01" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Court</label>
-              <input {...f("courtNumber")} placeholder="Court 1" className={inputClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <PairSidePicker
-              tournamentId={tournamentId}
-              sideLabel="Left"
-              isPair={isPair}
-              player1={form.leftPlayer1}
-              player2={form.leftPlayer2}
-              onPlayer1Change={(leftPlayer1) => setForm((p) => ({ ...p, leftPlayer1 }))}
-              onPlayer2Change={(leftPlayer2) => setForm((p) => ({ ...p, leftPlayer2 }))}
-            />
-            <PairSidePicker
-              tournamentId={tournamentId}
-              sideLabel="Right"
-              isPair={isPair}
-              player1={form.rightPlayer1}
-              player2={form.rightPlayer2}
-              onPlayer1Change={(rightPlayer1) => setForm((p) => ({ ...p, rightPlayer1 }))}
-              onPlayer2Change={(rightPlayer2) => setForm((p) => ({ ...p, rightPlayer2 }))}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Referee</label>
-              <input {...f("refereeName")} placeholder="Optional" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Scorer PIN</label>
-              <input {...f("scorerPin")} placeholder="Optional" type="tel" className={inputClass} />
-            </div>
-          </div>
-
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 h-12 rounded-xl bg-white/8 border border-white/10 text-white/60 font-semibold hover:bg-white/12">
-              Cancel
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-[#0070f3] hover:bg-[#0060d3] disabled:opacity-60 text-white font-bold"
-            >
-              {saving ? "Creating…" : "Create Match"}
-            </button>
-          </div>
-        </div>
+    <FormModal title="Create Match" subtitle="Schedule a new badminton match" onClose={onClose} size="lg">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <FormField label="Match Type">
+          <DarkSelect
+            value={form.matchType}
+            onValueChange={(matchType) =>
+              setForm((prev) => ({
+                ...prev,
+                matchType,
+                leftPlayer2: emptySidePlayer(),
+                rightPlayer2: emptySidePlayer(),
+              }))
+            }
+            options={[
+              { value: "singles", label: "Singles" },
+              { value: "doubles", label: "Doubles" },
+              { value: "mixed_doubles", label: "Mixed Doubles" },
+            ]}
+          />
+        </FormField>
+        <FormField label="Match #">
+          <input {...f("matchNumber")} placeholder="M01" className={inputClass} />
+        </FormField>
+        <FormField label="Court">
+          <input {...f("courtNumber")} placeholder="Court 1" className={inputClass} />
+        </FormField>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <PairSidePicker
+          tournamentId={tournamentId}
+          sideLabel="Left"
+          isPair={isPair}
+          player1={form.leftPlayer1}
+          player2={form.leftPlayer2}
+          onPlayer1Change={(leftPlayer1) => setForm((p) => ({ ...p, leftPlayer1 }))}
+          onPlayer2Change={(leftPlayer2) => setForm((p) => ({ ...p, leftPlayer2 }))}
+        />
+        <PairSidePicker
+          tournamentId={tournamentId}
+          sideLabel="Right"
+          isPair={isPair}
+          player1={form.rightPlayer1}
+          player2={form.rightPlayer2}
+          onPlayer1Change={(rightPlayer1) => setForm((p) => ({ ...p, rightPlayer1 }))}
+          onPlayer2Change={(rightPlayer2) => setForm((p) => ({ ...p, rightPlayer2 }))}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField label="Referee">
+          <input {...f("refereeName")} placeholder="Optional" className={inputClass} />
+        </FormField>
+        <FormField label="Scorer PIN">
+          <input {...f("scorerPin")} placeholder="Optional" type="tel" className={inputClass} />
+        </FormField>
+      </div>
+
+      <FormError message={error} />
+
+      <FormActions
+        onCancel={onClose}
+        onSubmit={handleCreate}
+        submitLabel="Create Match"
+        saving={saving}
+      />
+    </FormModal>
   );
 }
-
-const inputClass = "w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#4fc3f7]/40";
-const labelClass = "block text-white/40 text-xs font-semibold mb-1.5 uppercase tracking-wide";

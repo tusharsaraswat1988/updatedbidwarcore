@@ -81,22 +81,41 @@ function poweredByFooter(params: PlayerRegisteredTemplateParams): string {
   const home = escapeHtml(BIDWAR_WEBSITE_URL);
 
   return `<tr>
-    <td style="background:${C.surface};border-top:1px solid ${C.border};padding:24px 32px 28px;text-align:center;">
-      <a href="${home}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block;">
-        <img
-          src="${safeLogo}"
-          width="36"
-          height="36"
-          alt="${brand}"
-          style="display:block;width:36px;height:36px;margin:0 auto 10px;border:0;border-radius:8px;"
-        />
-      </a>
-      <p style="margin:0 0 16px;font-family:${BIDWAR_BODY_FONT};font-size:12px;line-height:1.5;color:${C.muted};">
-        ${poweredBy.replace(/BidWar|BIDWAR/gi, () => bidwarAnchor("BidWar"))}
-      </p>
-      <p style="margin:0;font-family:${BIDWAR_BODY_FONT};font-size:11px;line-height:1.55;color:${C.mutedDark};">
-        This mail is powered by ${bidwarAnchor("BIDWAR")}
-      </p>
+    <td style="background:${C.surface};border-top:1px solid ${C.border};padding:0;text-align:center;">
+      <!-- Logo layer — separate band above powered-by text -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.surfaceElevated};border-bottom:1px solid ${C.border};">
+        <tr>
+          <td align="center" style="padding:20px 32px 22px;">
+            <a href="${home}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block;">
+              <img
+                src="${safeLogo}"
+                width="48"
+                height="48"
+                alt="${brand}"
+                style="display:block;width:48px;height:48px;margin:0 auto;border:0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.35);"
+              />
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Text layer — below logo -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding:18px 32px 12px;">
+            <p style="margin:0;font-family:${BIDWAR_BODY_FONT};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.18em;line-height:1.5;color:${C.muted};">
+              ${poweredBy.replace(/BidWar|BIDWAR/gi, () => bidwarAnchor("BIDWAR"))}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:0 32px 24px;">
+            <p style="margin:0;font-family:${BIDWAR_BODY_FONT};font-size:11px;line-height:1.55;color:${C.mutedDark};">
+              This mail is powered by ${bidwarAnchor("BIDWAR")}
+            </p>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>`;
 }

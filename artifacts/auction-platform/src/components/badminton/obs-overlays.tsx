@@ -15,8 +15,19 @@
  */
 
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { resolveFranchiseLogoUrl, resolveFranchiseName } from "@workspace/badminton-core";
+import {
+  resolveFranchiseLogoUrl,
+  resolveFranchiseName,
+  isPairMatchKind,
+  currentReceiverLabel,
+  currentServerLabel,
+} from "@workspace/badminton-core";
 import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
+import {
+  hasScoreBoardSponsor,
+  ScoreBoardSponsorPanel,
+  type ScoreBoardSponsor,
+} from "@/components/badminton/score-board-sponsor-panel";
 import { cn } from "@/lib/utils";
 
 type OverlayType = "compact" | "full" | "intro" | "winner" | "sponsor";
@@ -30,6 +41,7 @@ interface OverlayProps {
   matchLabel?: string;
   roundName?: string;
   sponsorLogos?: string[];
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
 }
 
 export function BadmintonOverlay({
@@ -41,6 +53,7 @@ export function BadmintonOverlay({
   matchLabel,
   roundName,
   sponsorLogos = [],
+  scoreBoardSponsor = null,
 }: OverlayProps) {
   switch (type) {
     case "compact":
@@ -49,6 +62,7 @@ export function BadmintonOverlay({
           state={state}
           courtNumber={courtNumber}
           matchLabel={matchLabel}
+          scoreBoardSponsor={scoreBoardSponsor}
         />
       );
     case "full":
@@ -59,6 +73,7 @@ export function BadmintonOverlay({
           logoUrl={tournamentLogoUrl}
           courtNumber={courtNumber}
           roundName={roundName}
+          scoreBoardSponsor={scoreBoardSponsor}
         />
       );
     case "intro":
@@ -73,7 +88,14 @@ export function BadmintonOverlay({
     case "sponsor":
       return <SponsorOverlay sponsorLogos={sponsorLogos} tournamentName={tournamentName} />;
     default:
-      return <CompactOverlay state={state} courtNumber={courtNumber} matchLabel={matchLabel} />;
+      return (
+        <CompactOverlay
+          state={state}
+          courtNumber={courtNumber}
+          matchLabel={matchLabel}
+          scoreBoardSponsor={scoreBoardSponsor}
+        />
+      );
   }
 }
 
@@ -83,20 +105,27 @@ function CompactOverlay({
   state,
   courtNumber,
   matchLabel,
+  scoreBoardSponsor,
 }: {
   state: BadmintonMatchState;
   courtNumber?: string;
   matchLabel?: string;
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
 }) {
   const isLive = state.matchStatus === "live";
+  const isDoubles = isPairMatchKind(state.matchKind);
+  const serverLabel = isDoubles ? currentServerLabel(state) : null;
+  const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
 
   return (
-    <div className="inline-flex items-stretch rounded-xl overflow-hidden shadow-2xl"
+    <div
+      className="inline-flex items-stretch gap-2"
       style={{ fontFamily: "'Inter', 'system-ui', sans-serif" }}
     >
+    <div className="inline-flex items-stretch rounded-xl overflow-hidden shadow-2xl">
       {/* Left side */}
       <div className="flex items-center gap-3 bg-[#0a1628]/95 px-4 py-3 min-w-[200px]">
-        {state.servingSide === "left" && (
+        {(!isDoubles && state.servingSide === "left") && (
           <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse" />
         )}
         <div className="flex-1 min-w-0">
@@ -136,6 +165,12 @@ function CompactOverlay({
             </div>
           )}
           <span className="text-white/30 text-xs font-light">G{state.currentGame}</span>
+          {isDoubles && serverLabel && (
+            <span className="text-[#ffd700] text-[8px] font-bold truncate max-w-[80px]">🟡 {serverLabel}</span>
+          )}
+          {isDoubles && receiverLabel && (
+            <span className="text-[#4fc3f7] text-[8px] font-bold truncate max-w-[80px]">👁 {receiverLabel}</span>
+          )}
           {courtNumber && (
             <span className="text-white/20 text-[9px] font-medium">C{courtNumber}</span>
           )}
@@ -144,7 +179,7 @@ function CompactOverlay({
 
       {/* Right side */}
       <div className="flex items-center gap-3 bg-[#1a0828]/95 px-4 py-3 min-w-[200px] flex-row-reverse">
-        {state.servingSide === "right" && (
+        {(!isDoubles && state.servingSide === "right") && (
           <div className="w-2 h-2 rounded-full bg-[#ffd700] flex-none animate-pulse" />
         )}
         <div className="flex-1 min-w-0 text-right">
@@ -174,6 +209,11 @@ function CompactOverlay({
         </div>
       </div>
     </div>
+
+      {hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor && (
+        <ScoreBoardSponsorPanel sponsor={scoreBoardSponsor} variant="compact" />
+      )}
+    </div>
   );
 }
 
@@ -185,12 +225,14 @@ function FullOverlay({
   logoUrl,
   courtNumber,
   roundName,
+  scoreBoardSponsor,
 }: {
   state: BadmintonMatchState;
   tournamentName?: string;
   logoUrl?: string;
   courtNumber?: string;
   roundName?: string;
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
 }) {
   const completedGames = state.games.filter((g) => g.phase === "completed");
 
@@ -263,6 +305,12 @@ function FullOverlay({
           completedGames={completedGames.map((g) => ({ score: g.rightScore, won: g.winner === "right" }))}
         />
       </div>
+
+      {hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor && (
+        <div className="bg-[#0d1529]/95 px-4 py-3 flex justify-center border-t border-[#ffd700]/20">
+          <ScoreBoardSponsorPanel sponsor={scoreBoardSponsor} variant="display" className="max-w-[240px]" />
+        </div>
+      )}
     </div>
   );
 }

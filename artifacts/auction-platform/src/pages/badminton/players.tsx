@@ -4,9 +4,24 @@
  */
 
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import {
+  BtnPrimary,
+  BtnSecondary,
+  DarkSelect,
+  EmptyState,
+  FormActions,
+  FormError,
+  FormField,
+  FormModal,
+  HubPageShell,
+  inputClass,
+  PageHeader,
+  SearchInput,
+  CheckboxRow,
+} from "@/components/badminton/page-chrome";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -78,24 +93,20 @@ export default function BadmintonPlayersPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#060c1a] text-white">
+    <HubPageShell>
       <PageHeader
         title="Players"
         subtitle={`${players.length} registered`}
+        backHref={`/tournament/${tournamentId}/badminton`}
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 bg-white/8 hover:bg-white/12 border border-white/10 rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
-            >
-              Import From Auction
-            </button>
-            <button
-              onClick={() => { setEditPlayer(null); setShowForm(true); }}
-              className="flex items-center gap-2 bg-[#0070f3] hover:bg-[#0060d3] rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
-            >
-              <span>+</span> Add Player
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href={`/tournament/${tournamentId}/badminton/branding`}>
+              <BtnSecondary>Branding & Import</BtnSecondary>
+            </Link>
+            <BtnSecondary onClick={() => setShowImport(true)}>Import From Auction</BtnSecondary>
+            <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
+              + Add Player
+            </BtnPrimary>
           </div>
         }
       />
@@ -103,19 +114,12 @@ export default function BadmintonPlayersPage() {
       <div className="max-w-7xl mx-auto px-6 py-6">
         <AutoSyncSettings tournamentId={tournamentId} />
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search players by name, academy, country…"
-            className="w-full h-12 pl-11 pr-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-[#4fc3f7]/40"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search players by name, academy, country…"
+          className="mb-6"
+        />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -172,7 +176,7 @@ export default function BadmintonPlayersPage() {
           }}
         />
       )}
-    </div>
+    </HubPageShell>
   );
 }
 
@@ -226,24 +230,20 @@ function AutoSyncSettings({ tournamentId }: { tournamentId: number }) {
   }
 
   return (
-    <div className="mb-6 p-4 rounded-2xl bg-white/3 border border-white/8">
+    <div className="mb-6 p-4 rounded-2xl bg-[#0d1529] border border-white/8">
       <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={settings?.autoSyncAuctionPlayers ?? false}
-            disabled={saving}
-            onChange={(e) => save(e.target.checked)}
-            className="w-4 h-4 accent-[#0070f3]"
-          />
-          <span className="text-white/80 text-sm font-medium">Auto Sync Auction Players</span>
-        </label>
+        <CheckboxRow
+          checked={settings?.autoSyncAuctionPlayers ?? false}
+          onChange={(checked) => save(checked)}
+          label="Auto Sync Auction Players"
+          disabled={saving}
+        />
         <input
           type="number"
           placeholder="Linked auction tournament ID"
           value={auctionId || (settings?.linkedAuctionTournamentId?.toString() ?? "")}
           onChange={(e) => setAuctionId(e.target.value)}
-          className="h-9 w-48 px-3 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
+          className={cn(inputClass, "h-10 w-52")}
         />
         <button
           type="button"
@@ -321,79 +321,68 @@ function ImportMasterPlayersModal({
   const available = masterPlayers.filter((p) => !p.alreadyImported);
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-        <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
-          <div>
-            <h2 className="text-white font-black text-lg">Import From Auction</h2>
-            <p className="text-white/40 text-sm">Select master players to add to this tournament</p>
-          </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">×</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {isLoading ? (
-            <p className="text-white/40 text-center py-8">Loading players…</p>
-          ) : available.length === 0 ? (
-            <p className="text-white/40 text-center py-8">No players available to import</p>
-          ) : (
-            available.map((p) => (
-              <label
-                key={p.id}
-                className="flex items-center gap-4 p-3 rounded-xl border border-white/8 hover:border-white/15 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(p.id)}
-                  onChange={() => toggle(p.id)}
-                  className="w-4 h-4 accent-[#0070f3]"
-                />
-                {p.photoUrl ? (
-                  <img src={p.photoUrl} alt="" className="w-12 h-12 rounded-xl object-cover" loading="lazy" />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/30">
-                    {p.displayName.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold">{p.displayName}</p>
-                  <p className="text-white/40 text-xs">
-                    {(() => {
-                      const franchise = p.franchiseName ?? p.teamName;
-                      if (franchise) return `Franchise: ${franchise}`;
-                      return "—";
-                    })()}
-                  </p>
-                </div>
-                {(p.franchiseLogoUrl ?? p.teamLogoUrl) && (
-                  <img
-                    src={p.franchiseLogoUrl ?? p.teamLogoUrl ?? ""}
-                    alt=""
-                    className="w-8 h-8 object-contain"
-                    loading="lazy"
-                  />
-                )}
-                {p.sponsorLogoUrl && (
-                  <img src={p.sponsorLogoUrl} alt="" className="w-8 h-8 object-contain opacity-70" loading="lazy" />
-                )}
-              </label>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t border-white/8 flex gap-3">
-          {error && <p className="text-red-400 text-sm flex-1">{error}</p>}
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-white/8 text-white/60">Cancel</button>
-          <button
-            onClick={handleImport}
-            disabled={importing || selected.size === 0}
-            className="px-6 py-2 rounded-xl bg-[#0070f3] text-white font-bold disabled:opacity-50"
-          >
+    <FormModal
+      title="Import From Auction"
+      subtitle="Select master players to add to this tournament"
+      onClose={onClose}
+      size="xl"
+      footer={
+        <div className="flex items-center gap-3">
+          {error && <p className="text-red-300 text-sm flex-1">{error}</p>}
+          <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
+          <BtnPrimary onClick={handleImport} disabled={importing || selected.size === 0}>
             {importing ? "Importing…" : `Import Selected (${selected.size})`}
-          </button>
+          </BtnPrimary>
         </div>
+      }
+    >
+      <div className="space-y-2 -mt-2">
+        {isLoading ? (
+          <p className="text-white/40 text-center py-8">Loading players…</p>
+        ) : available.length === 0 ? (
+          <p className="text-white/40 text-center py-8">No players available to import</p>
+        ) : (
+          available.map((p) => (
+            <label
+              key={p.id}
+              className="flex items-center gap-4 p-3 rounded-xl border border-white/10 bg-[#121c34]/50 hover:border-[#4fc3f7]/25 cursor-pointer transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(p.id)}
+                onChange={() => toggle(p.id)}
+                className="w-4 h-4 accent-[#0070f3] shrink-0"
+              />
+              {p.photoUrl ? (
+                <img src={p.photoUrl} alt="" className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/10" loading="lazy" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-[#1a2847] flex items-center justify-center font-bold text-white/40 ring-1 ring-white/10">
+                  {p.displayName.charAt(0)}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold">{p.displayName}</p>
+                <p className="text-white/40 text-xs">
+                  {(() => {
+                    const franchise = p.franchiseName ?? p.teamName;
+                    if (franchise) return franchise;
+                    return "—";
+                  })()}
+                </p>
+              </div>
+              {(p.franchiseLogoUrl ?? p.teamLogoUrl) && (
+                <img
+                  src={p.franchiseLogoUrl ?? p.teamLogoUrl ?? ""}
+                  alt=""
+                  className="w-8 h-8 object-contain opacity-80"
+                  loading="lazy"
+                />
+              )}
+            </label>
+          ))
+        )}
       </div>
-    </div>
+    </FormModal>
   );
 }
 
@@ -544,167 +533,96 @@ function PlayerFormModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-[#0d1529] border-b border-white/8 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-black text-lg">
-            {player ? "Edit Player" : "Add Player"}
-          </h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl leading-none">×</button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="First Name *">
-              <input {...f("firstName")} placeholder="e.g. Viktor" className={inputClass} />
-            </FormField>
-            <FormField label="Last Name *">
-              <input {...f("lastName")} placeholder="e.g. Axelsen" className={inputClass} />
-            </FormField>
-          </div>
-
-          <FormField label="Display Name">
-            <input {...f("displayName")} placeholder="e.g. V. AXELSEN" className={inputClass} />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Country Code">
-              <input {...f("countryCode")} placeholder="DEN" maxLength={3} className={inputClass} />
-            </FormField>
-            <FormField label="Country Name">
-              <input {...f("countryName")} placeholder="Denmark" className={inputClass} />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="State">
-              <input {...f("stateName")} placeholder="State/Province" className={inputClass} />
-            </FormField>
-            <FormField label="Academy / Club">
-              <input {...f("academyName")} placeholder="Club name" className={inputClass} />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <FormField label="Age Group">
-              <input {...f("ageGroup")} placeholder="U19, Senior…" className={inputClass} />
-            </FormField>
-            <FormField label="Gender">
-              <select {...f("gender")} className={inputClass}>
-                <option value="">Select</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-              </select>
-            </FormField>
-            <FormField label="Handedness">
-              <select {...f("handedness")} className={inputClass}>
-                <option value="R">Right</option>
-                <option value="L">Left</option>
-              </select>
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="World Ranking">
-              <input {...f("worldRanking")} type="number" placeholder="#" className={inputClass} />
-            </FormField>
-            <FormField label="National Ranking">
-              <input {...f("nationalRanking")} type="number" placeholder="#" className={inputClass} />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Mobile">
-              <input {...f("mobile")} placeholder="+91 98765..." className={inputClass} />
-            </FormField>
-            <FormField label="Email">
-              <input {...f("email")} type="email" placeholder="email@example.com" className={inputClass} />
-            </FormField>
-          </div>
-
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="flex-1 h-12 rounded-xl bg-white/8 border border-white/10 text-white/60 font-semibold hover:bg-white/12 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-[#0070f3] hover:bg-[#0060d3] disabled:opacity-60 text-white font-bold transition-colors"
-            >
-              {saving ? "Saving…" : player ? "Save Changes" : "Add Player"}
-            </button>
-          </div>
-        </div>
+    <FormModal
+      title={player ? "Edit Player" : "Add Player"}
+      subtitle="Player profile for draws and scoring"
+      onClose={onClose}
+      size="lg"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="First Name *">
+          <input {...f("firstName")} placeholder="e.g. Viktor" className={inputClass} />
+        </FormField>
+        <FormField label="Last Name *">
+          <input {...f("lastName")} placeholder="e.g. Axelsen" className={inputClass} />
+        </FormField>
       </div>
-    </div>
-  );
-}
 
-function PageHeader({
-  title,
-  subtitle,
-  actions,
-}: {
-  title: string;
-  subtitle?: string;
-  actions?: React.ReactNode;
-}) {
-  return (
-    <div className="bg-gradient-to-b from-[#0d1529] to-transparent border-b border-white/5 px-6 py-5">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-white">{title}</h1>
-          {subtitle && <p className="text-white/40 text-sm mt-0.5">{subtitle}</p>}
-        </div>
-        {actions}
+      <FormField label="Display Name">
+        <input {...f("displayName")} placeholder="e.g. V. AXELSEN" className={inputClass} />
+      </FormField>
+
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Country Code">
+          <input {...f("countryCode")} placeholder="DEN" maxLength={3} className={inputClass} />
+        </FormField>
+        <FormField label="Country Name">
+          <input {...f("countryName")} placeholder="Denmark" className={inputClass} />
+        </FormField>
       </div>
-    </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="State">
+          <input {...f("stateName")} placeholder="State/Province" className={inputClass} />
+        </FormField>
+        <FormField label="Academy / Club">
+          <input {...f("academyName")} placeholder="Club name" className={inputClass} />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <FormField label="Age Group">
+          <input {...f("ageGroup")} placeholder="U19, Senior…" className={inputClass} />
+        </FormField>
+        <FormField label="Gender">
+          <DarkSelect
+            value={form.gender || "none"}
+            onValueChange={(gender) => setForm((prev) => ({ ...prev, gender: gender === "none" ? "" : gender }))}
+            options={[
+              { value: "none", label: "Select" },
+              { value: "M", label: "Male" },
+              { value: "F", label: "Female" },
+            ]}
+          />
+        </FormField>
+        <FormField label="Handedness">
+          <DarkSelect
+            value={form.handedness}
+            onValueChange={(handedness) => setForm((prev) => ({ ...prev, handedness }))}
+            options={[
+              { value: "R", label: "Right" },
+              { value: "L", label: "Left" },
+            ]}
+          />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="World Ranking">
+          <input {...f("worldRanking")} type="number" placeholder="#" className={inputClass} />
+        </FormField>
+        <FormField label="National Ranking">
+          <input {...f("nationalRanking")} type="number" placeholder="#" className={inputClass} />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Mobile">
+          <input {...f("mobile")} placeholder="+91 98765..." className={inputClass} />
+        </FormField>
+        <FormField label="Email">
+          <input {...f("email")} type="email" placeholder="email@example.com" className={inputClass} />
+        </FormField>
+      </div>
+
+      <FormError message={error} />
+
+      <FormActions
+        onCancel={onClose}
+        onSubmit={handleSave}
+        submitLabel={player ? "Save Changes" : "Add Player"}
+        saving={saving}
+      />
+    </FormModal>
   );
 }
-
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-white/40 text-xs font-semibold mb-1.5 uppercase tracking-wide">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  desc,
-  action,
-}: {
-  icon: string;
-  title: string;
-  desc: string;
-  action?: { label: string; onClick: () => void };
-}) {
-  return (
-    <div className="text-center py-16">
-      <div className="text-5xl mb-4">{icon}</div>
-      <h3 className="text-white font-bold text-lg">{title}</h3>
-      <p className="text-white/40 text-sm mt-1">{desc}</p>
-      {action && (
-        <button
-          onClick={action.onClick}
-          className="mt-6 px-6 py-3 rounded-xl bg-[#0070f3] hover:bg-[#0060d3] text-white font-semibold text-sm transition-colors"
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
-const inputClass =
-  "w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#4fc3f7]/40";

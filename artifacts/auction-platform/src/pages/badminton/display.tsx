@@ -1,14 +1,12 @@
 /**
  * Badminton Broadcast Display Page
  * Route: /badminton/:matchId/display?tid=YYY
- *
- * Stadium screen / projector display. Full screen.
- * Designed for LED walls, dual monitors, and broadcast capture.
  */
 
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
+import { useBadmintonBranding, sponsorUrlsFromBranding } from "@/hooks/use-badminton-branding";
 import { FullscreenLayout } from "@/components/layout";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 
@@ -19,10 +17,13 @@ export default function BadmintonDisplayPage() {
 
   const matchId = parseInt(params?.matchId ?? "0");
   const tournamentId = parseInt(searchParams.get("tid") ?? "0");
-  const tournamentName = searchParams.get("name") ?? "Badminton Tournament";
   const courtNumber = searchParams.get("court") ?? undefined;
 
   const { data, isLoading } = useBadmintonMatch(tournamentId, matchId);
+  const { data: branding } = useBadmintonBranding(tournamentId);
+
+  const tournamentName =
+    searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
 
   if (isLoading) {
     return (
@@ -56,9 +57,12 @@ export default function BadmintonDisplayPage() {
         <BroadcastDisplay
           state={state}
           tournamentName={tournamentName}
+          tournamentLogoUrl={branding?.logoUrl ?? undefined}
           courtNumber={courtNumber ?? (detail?.courtNumber as string | undefined)}
           matchNumber={detail?.matchNumber as string | undefined}
           roundName={detail?.roundName as string | undefined}
+          sponsorLogos={sponsorUrlsFromBranding(branding)}
+          scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
         />
       </div>
     </FullscreenLayout>

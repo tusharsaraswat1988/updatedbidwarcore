@@ -28,6 +28,7 @@ import {
   isInDeuce,
   sideChangeScore,
 } from "./state";
+import { getScoringEngine } from "../scoring";
 
 class InvalidEventPayloadError extends Error {
   constructor(eventType: string, detail: string) {
@@ -50,6 +51,9 @@ function applyMatchStarted(
     startedAt: new Date().toISOString(),
   };
 
+  const engine = getScoringEngine(payload.matchKind);
+  const enginePatch = engine.applyMatchStarted(state, payload);
+
   return {
     ...state,
     matchStatus: "live",
@@ -61,7 +65,8 @@ function applyMatchStarted(
     leftScore: 0,
     rightScore: 0,
     games: [firstGame],
-    servingSide: payload.firstServer,
+    servingSide: enginePatch.servingSide ?? payload.firstServer,
+    doublesServe: enginePatch.doublesServe,
     gamesLeft: 0,
     gamesRight: 0,
     inInterval: false,
@@ -78,6 +83,7 @@ function applyPointWon(
 
   const newLeftScore = payload.winningSide === "left" ? payload.winnerScore : payload.loserScore;
   const newRightScore = payload.winningSide === "right" ? payload.winnerScore : payload.loserScore;
+  const nextServingSide = payload.servingSide ?? payload.winningSide;
 
   const updatedGames = state.games.map((g) => {
     if (g.gameNumber !== payload.gameNumber) return g;
@@ -85,7 +91,7 @@ function applyPointWon(
       ...g,
       leftScore: newLeftScore,
       rightScore: newRightScore,
-      servingSide: payload.winningSide,
+      servingSide: nextServingSide,
       // Detect interval in deciding game at sideChangeScore
       intervalReached:
         g.intervalReached ||
@@ -95,11 +101,15 @@ function applyPointWon(
     };
   });
 
+  const engine = getScoringEngine(state.matchKind);
+  const enginePatch = engine.applyPointWon(state, payload);
+
   return {
     ...state,
     leftScore: newLeftScore,
     rightScore: newRightScore,
-    servingSide: payload.winningSide,
+    servingSide: enginePatch.servingSide ?? nextServingSide,
+    doublesServe: enginePatch.doublesServe ?? state.doublesServe,
     games: updatedGames,
     totalRallies: state.totalRallies + 1,
   };
@@ -142,11 +152,14 @@ function applyGameEnded(
   const nextGameNumber = payload.gameNumber + 1;
   const nextServingSide = payload.nextServingSide ?? payload.winningSide;
 
+  const engine = getScoringEngine(state.matchKind);
+  const enginePatch = engine.applyGameEnded(state, payload);
+
   const nextGame: BadmintonGameState = {
     gameNumber: nextGameNumber,
     leftScore: 0,
     rightScore: 0,
-    servingSide: nextServingSide,
+    servingSide: enginePatch.servingSide ?? nextServingSide,
     intervalReached: false,
     phase: "in_progress",
     startedAt: new Date().toISOString(),
@@ -160,7 +173,8 @@ function applyGameEnded(
     leftScore: 0,
     rightScore: 0,
     games: [...updatedGames, nextGame],
-    servingSide: nextServingSide,
+    servingSide: enginePatch.servingSide ?? nextServingSide,
+    doublesServe: enginePatch.doublesServe ?? state.doublesServe,
     inInterval: false,
   };
 }

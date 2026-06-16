@@ -9,6 +9,10 @@ import {
   importMasterPlayersToBadminton,
   buildSideJsonFromMasterPlayer,
   getBadmintonSettings,
+  loadBadmintonBranding,
+  updateBadmintonBranding,
+  importBrandingFromTournament,
+  importPlayersFromTournament,
 } from "../lib/master-sports/badminton";
 import {
   migrateBadmintonPlayersToMaster,
@@ -159,6 +163,162 @@ router.get("/settings", async (req, res) => {
   }
 
   res.json(getBadmintonSettings(tournament.scoringSettingsJson as Record<string, unknown>));
+});
+
+/** GET tournament branding for scoreboard / display surfaces */
+router.get("/branding", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const branding = await loadBadmintonBranding(tournamentId);
+  if (!branding) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  res.json(branding);
+});
+
+/** PATCH tournament branding (scorer-only tournaments without auction) */
+router.patch("/branding", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, tournamentId)) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const schema = z.object({
+    displayName: z.string().min(1).max(200).optional(),
+    logoUrl: z
+      .string()
+      .nullable()
+      .optional()
+      .refine(
+        (v) => v == null || v === "" || v.startsWith("https://res.cloudinary.com/"),
+        "Logo URL must be a Cloudinary HTTPS URL",
+      ),
+    sponsorLogos: z.string().nullable().optional(),
+    venue: z.string().max(200).nullable().optional(),
+    organizerName: z.string().max(200).nullable().optional(),
+    primaryColor: z.string().max(20).optional(),
+    accentColor: z.string().max(20).optional(),
+    scoreBoardSponsor: z
+      .object({
+        logoUrl: z
+          .string()
+          .nullable()
+          .optional()
+          .refine(
+            (v) => v == null || v === "" || v.startsWith("https://res.cloudinary.com/"),
+            "Logo URL must be a Cloudinary HTTPS URL",
+          ),
+        name: z.string().max(200).nullable().optional(),
+        title: z.string().max(200).nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  try {
+    const branding = await updateBadmintonBranding(tournamentId, parsed.data);
+    res.json(branding);
+  } catch (e) {
+    res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
+  }
+});
+
+/** POST import branding from another tournament */
+router.post("/import-branding", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, tournamentId)) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const schema = z.object({
+    sourceTournamentId: z.number().int(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  if (parsed.data.sourceTournamentId === tournamentId) {
+    res.status(400).json({ error: "Cannot import from the same tournament" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, parsed.data.sourceTournamentId)) {
+    res.status(403).json({ error: "No access to source tournament" });
+    return;
+  }
+
+  try {
+    const branding = await importBrandingFromTournament(
+      tournamentId,
+      parsed.data.sourceTournamentId,
+    );
+    res.json(branding);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });
+  }
+});
+
+/** POST import players from another tournament (badminton or auction roster) */
+router.post("/import-from-tournament", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, tournamentId)) {
+    res.status(403).json({ error: "forbidden" });
+    return;
+  }
+
+  const schema = z.object({
+    sourceTournamentId: z.number().int(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  if (parsed.data.sourceTournamentId === tournamentId) {
+    res.status(400).json({ error: "Cannot import from the same tournament" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, parsed.data.sourceTournamentId)) {
+    res.status(403).json({ error: "No access to source tournament" });
+    return;
+  }
+
+  try {
+    const result = await importPlayersFromTournament(
+      tournamentId,
+      parsed.data.sourceTournamentId,
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });
+  }
 });
 
 /** POST run badminton → master migration (admin/organizer) */

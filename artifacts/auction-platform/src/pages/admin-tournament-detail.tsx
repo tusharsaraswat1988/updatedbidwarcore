@@ -205,7 +205,8 @@ export default function AdminTournamentDetailPage() {
                   </StatusPill>
                   {detail.tournament.adminLocked && <StatusPill tone="red">Locked</StatusPill>}
                   {detail.tournament.localModeEnabled && <StatusPill tone="amber">Local Mode</StatusPill>}
-                  {detail.tournament.sport === "cricket" && detail.tournament.scoringEnabled && (
+                  {(detail.tournament.sport === "cricket" || detail.tournament.sport === "badminton") &&
+                    detail.tournament.scoringEnabled && (
                     <StatusPill tone="green">Match Scoring</StatusPill>
                   )}
                 </div>
@@ -276,10 +277,10 @@ export default function AdminTournamentDetailPage() {
                     <div className="flex items-center gap-2"><BadgeCheck className="h-4 w-4" /> License: {detail.tournament.licenseStatus}</div>
                     <div className="flex items-center gap-2"><Lock className="h-4 w-4" /> Lock: {detail.tournament.adminLocked ? "Locked" : "Unlocked"}</div>
                     <div className="flex items-center gap-2"><Activity className="h-4 w-4" /> Reset count: {detail.tournament.resetCount}</div>
-                    {detail.tournament.sport === "cricket" && (
+                    {(detail.tournament.sport === "cricket" || detail.tournament.sport === "badminton") && (
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <span>
-                          Match scoring: {detail.tournament.scoringEnabled ? "Enabled (testing)" : "Disabled (default)"}
+                          Match scoring: {detail.tournament.scoringEnabled ? "Enabled" : "Disabled (default)"}
                         </span>
                         <Button
                           size="sm"

@@ -67,13 +67,44 @@ const formatSchema = z.object({
 
 // ── Payload types ────────────────────────────────────────────────────────────
 
+const doublesSetupSchema = z.object({
+  tossWinnerSide: z.enum(["left", "right"]),
+  tossDecision: z.enum(["serve", "receive"]),
+  firstServingSide: z.enum(["left", "right"]),
+  firstServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  firstReceivingSide: z.enum(["left", "right"]),
+  firstReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+});
+
+const courtPositionsSchema = z.object({
+  left: z.object({ rightCourtPlayerIndex: z.union([z.literal(0), z.literal(1)]) }),
+  right: z.object({ rightCourtPlayerIndex: z.union([z.literal(0), z.literal(1)]) }),
+});
+
+const doublesServeSnapshotSchema = z.object({
+  servingSide: z.enum(["left", "right"]),
+  servingPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  receivingSide: z.enum(["left", "right"]),
+  receivingPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  courtPositions: courtPositionsSchema,
+});
+
 export type BadmintonMatchStartedPayload = {
   matchKind: BadmintonMatchKind;
   format: BadmintonMatchFormat;
   leftSide: BadmintonSideInfo;
   rightSide: BadmintonSideInfo;
-  /** Which side serves first. */
+  /** Which side serves first (singles) or initial serving pair side (doubles). */
   firstServer: BadmintonSide;
+  /** Doubles / mixed doubles — toss + first server/receiver selection. */
+  doublesSetup?: {
+    tossWinnerSide: BadmintonSide;
+    tossDecision: "serve" | "receive";
+    firstServingSide: BadmintonSide;
+    firstServerPlayerIndex: 0 | 1;
+    firstReceivingSide: BadmintonSide;
+    firstReceiverPlayerIndex: 0 | 1;
+  };
   courtNumber?: string;
   matchLabel?: string;
 };
@@ -93,6 +124,19 @@ export type BadmintonPointWonPayload = {
   isGamePoint: boolean;
   /** Is this point the match winner? */
   isMatchPoint: boolean;
+  /** Side serving after this point (singles: rally winner). */
+  servingSide?: BadmintonSide;
+  /** Doubles — full post-rally serve/receive/court state. */
+  doublesServe?: {
+    servingSide: BadmintonSide;
+    servingPlayerIndex: 0 | 1;
+    receivingSide: BadmintonSide;
+    receivingPlayerIndex: 0 | 1;
+    courtPositions: {
+      left: { rightCourtPlayerIndex: 0 | 1 };
+      right: { rightCourtPlayerIndex: 0 | 1 };
+    };
+  };
 };
 
 export type BadmintonPointUndonePayload = {
@@ -107,6 +151,19 @@ export type BadmintonGameEndedPayload = {
   rightScore: number;
   /** Next game's initial serving side. */
   nextServingSide?: BadmintonSide;
+  /** Doubles — next game server/receiver and court layout. */
+  doublesServe?: {
+    nextServingSide: BadmintonSide;
+    nextServerPlayerIndex: 0 | 1;
+    nextReceiverPlayerIndex: 0 | 1;
+    courtPositions: {
+      left: { rightCourtPlayerIndex: 0 | 1 };
+      right: { rightCourtPlayerIndex: 0 | 1 };
+    };
+    lastServingSide: BadmintonSide;
+    lastServerPlayerIndex: 0 | 1;
+    lastRallyWinningSide: BadmintonSide;
+  };
 };
 
 export type BadmintonMatchEndedPayload = {
@@ -171,6 +228,7 @@ const matchStartedSchema = z.object({
   leftSide: sideInfoSchema,
   rightSide: sideInfoSchema,
   firstServer: z.enum(["left", "right"]),
+  doublesSetup: doublesSetupSchema.optional(),
   courtNumber: z.string().optional(),
   matchLabel: z.string().optional(),
 });
@@ -183,6 +241,8 @@ const pointWonSchema = z.object({
   rallyLength: z.number().optional(),
   isGamePoint: z.boolean(),
   isMatchPoint: z.boolean(),
+  servingSide: z.enum(["left", "right"]).optional(),
+  doublesServe: doublesServeSnapshotSchema.optional(),
 });
 
 const pointUndoneSchema = z.object({
@@ -195,6 +255,16 @@ const gameEndedSchema = z.object({
   leftScore: z.number(),
   rightScore: z.number(),
   nextServingSide: z.enum(["left", "right"]).optional(),
+  doublesServe: doublesServeSnapshotSchema
+    .extend({
+      nextServingSide: z.enum(["left", "right"]),
+      nextServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      nextReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      lastServingSide: z.enum(["left", "right"]),
+      lastServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      lastRallyWinningSide: z.enum(["left", "right"]),
+    })
+    .optional(),
 });
 
 const matchEndedSchema = z.object({

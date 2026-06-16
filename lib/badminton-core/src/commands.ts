@@ -32,6 +32,7 @@ import {
   isGameOver,
   sideChangeScore,
 } from "./reducer/state";
+import { getScoringEngine } from "./scoring";
 
 export type CommandEvent = {
   eventType: string;
@@ -56,10 +57,12 @@ export function cmdStartMatch(
   state: BadmintonMatchState,
   input: BadmintonMatchStartedPayload,
 ): CommandResult {
-  if (state.matchStatus !== "scheduled") {
-    return err("Match is not in scheduled status");
+  const engine = getScoringEngine(input.matchKind ?? state.matchKind);
+  const validation = engine.validateStart(state, input);
+  if (!validation.ok) {
+    return err(validation.error);
   }
-  return ok([{ eventType: BadmintonEventType.MATCH_STARTED, payload: input as unknown as Record<string, unknown> }]);
+  return ok(engine.buildMatchStartedEvents(state, input));
 }
 
 export function cmdAwardPoint(
@@ -96,27 +99,33 @@ export function cmdAwardPoint(
   const matchOver =
     gameOver && (newGamesLeft >= gamesNeeded || newGamesRight >= gamesNeeded);
 
-  const pointPayload: BadmintonPointWonPayload = {
-    winningSide,
-    gameNumber: state.currentGame,
+  const engine = getScoringEngine(state.matchKind);
+  const pointPayload = engine.buildPointWonPayload(state, winningSide, {
+    newLeftScore,
+    newRightScore,
     winnerScore: newWinnerScore,
     loserScore,
-    rallyLength: opts?.rallyLength,
-    isGamePoint: gameOver,
-    isMatchPoint: matchOver,
-  };
+    gameOver,
+    matchOver,
+  }, opts);
 
   const events: CommandEvent[] = [
     { eventType: BadmintonEventType.POINT_WON, payload: pointPayload as unknown as Record<string, unknown> },
   ];
 
   if (gameOver) {
+    const gameExtras = engine.buildGameEndedExtras(
+      state,
+      winningSide,
+      newLeftScore,
+      newRightScore,
+    );
     const gameEndedPayload: BadmintonGameEndedPayload = {
       gameNumber: state.currentGame,
       winningSide,
       leftScore: newLeftScore,
       rightScore: newRightScore,
-      nextServingSide: winningSide,
+      ...gameExtras,
     };
     events.push({
       eventType: BadmintonEventType.GAME_ENDED,

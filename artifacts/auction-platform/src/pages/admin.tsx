@@ -794,7 +794,7 @@ function DetailPanel({
             Local Mode: {t.localModeEnabled ? "ON" : "OFF"}
           </Button>
         )}
-        {t.sport === "cricket" && (
+        {(t.sport === "cricket" || t.sport === "badminton") && (
           <Button
             size="sm"
             variant="outline"
@@ -807,7 +807,7 @@ function DetailPanel({
                 updateAdminTournament(tournamentId, { scoringEnabled: !t.scoringEnabled }),
               )
             }
-            title={t.scoringEnabled ? "Disable match scoring for this tournament" : "Enable match scoring for internal testing"}
+            title={t.scoringEnabled ? "Disable match scoring for this tournament" : "Enable match scoring for this tournament"}
           >
             {actionLoading === "Toggle Match Scoring"
               ? <RefreshCw className="w-3 h-3 animate-spin" />

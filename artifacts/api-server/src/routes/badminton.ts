@@ -905,12 +905,30 @@ router.post("/matches/:matchId/start", async (req, res) => {
       })).optional(),
     }),
     firstServer: z.enum(["left", "right"]),
+    doublesSetup: z
+      .object({
+        tossWinnerSide: z.enum(["left", "right"]),
+        tossDecision: z.enum(["serve", "receive"]),
+        firstServingSide: z.enum(["left", "right"]),
+        firstServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+        firstReceivingSide: z.enum(["left", "right"]),
+        firstReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+      })
+      .optional(),
     courtNumber: z.string().optional(),
     matchLabel: z.string().optional(),
   });
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const isPairKind =
+    parsed.data.matchKind === "doubles" || parsed.data.matchKind === "mixed_doubles";
+  if (isPairKind && !parsed.data.doublesSetup) {
+    return void res.status(400).json({
+      error: "Doubles matches require doublesSetup (toss, server, receiver)",
+    });
+  }
 
   try {
     const state = await startBadmintonMatch(

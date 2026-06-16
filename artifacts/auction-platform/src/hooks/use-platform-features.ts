@@ -44,6 +44,26 @@ export function useScoringPlatformEnabled(): boolean {
   return usePlatformFeatures().scoring;
 }
 
+/** Sports that support per-tournament match scoring (admin toggle + organizer nav). */
+export const TOURNAMENT_SCORING_SPORTS = ["cricket", "badminton"] as const;
+
+export type TournamentScoringSport = (typeof TOURNAMENT_SCORING_SPORTS)[number];
+
+export function isTournamentScoringSport(
+  sport: string | undefined,
+): sport is TournamentScoringSport {
+  return TOURNAMENT_SCORING_SPORTS.includes(sport as TournamentScoringSport);
+}
+
+/** Platform SCORING=true plus per-tournament admin toggle. */
+export function useTournamentScoringActive(
+  sport: string | undefined,
+  scoringEnabled: boolean | undefined,
+): boolean {
+  const scoringPlatform = useScoringPlatformEnabled();
+  return scoringPlatform && isTournamentScoringSport(sport) && scoringEnabled === true;
+}
+
 /** Platform SCORING=true plus per-tournament admin toggle for cricket. */
 export function useCricketScoringActive(
   sport: string | undefined,
@@ -51,4 +71,13 @@ export function useCricketScoringActive(
 ): boolean {
   const scoringPlatform = useScoringPlatformEnabled();
   return scoringPlatform && sport === "cricket" && scoringEnabled === true;
+}
+
+/** Platform SCORING=true plus per-tournament admin toggle for badminton. */
+export function useBadmintonScoringActive(
+  sport: string | undefined,
+  scoringEnabled: boolean | undefined,
+): boolean {
+  const scoringPlatform = useScoringPlatformEnabled();
+  return scoringPlatform && sport === "badminton" && scoringEnabled === true;
 }

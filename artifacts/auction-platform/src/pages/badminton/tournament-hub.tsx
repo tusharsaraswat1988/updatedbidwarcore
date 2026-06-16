@@ -52,6 +52,9 @@ export default function BadmintonTournamentHub() {
               <Link href={`/tournament/${tournamentId}/badminton/matches`}>
                 <NavButton icon="📋" label="Matches" />
               </Link>
+              <Link href={`/tournament/${tournamentId}/badminton/branding`}>
+                <NavButton icon="🎨" label="Branding" />
+              </Link>
             </div>
           </div>
         </div>
@@ -124,7 +127,7 @@ export default function BadmintonTournamentHub() {
         <section>
           <SectionHeader title="Quick Actions" subtitle="Common tournament operations" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            <Link href={`/tournament/${tournamentId}/badminton/players/add`}>
+            <Link href={`/tournament/${tournamentId}/badminton/players`}>
               <QuickAction
                 icon="➕"
                 title="Add Player"
@@ -132,7 +135,7 @@ export default function BadmintonTournamentHub() {
                 color="blue"
               />
             </Link>
-            <Link href={`/tournament/${tournamentId}/badminton/matches/create`}>
+            <Link href={`/tournament/${tournamentId}/badminton/matches`}>
               <QuickAction
                 icon="🎯"
                 title="Create Match"
@@ -148,12 +151,20 @@ export default function BadmintonTournamentHub() {
                 color="purple"
               />
             </Link>
+            <Link href={`/tournament/${tournamentId}/badminton/branding`}>
+              <QuickAction
+                icon="🎨"
+                title="Branding & Import"
+                desc="Logo, sponsors, import data"
+                color="amber"
+              />
+            </Link>
             <Link href={`/tournament/${tournamentId}/badminton/analytics`}>
               <QuickAction
                 icon="📊"
                 title="Analytics"
                 desc="Tournament statistics"
-                color="amber"
+                color="cyan"
               />
             </Link>
           </div>
