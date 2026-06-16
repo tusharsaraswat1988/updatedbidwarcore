@@ -24,6 +24,7 @@ import {
   tournamentPaymentSettingsFromRow,
   validatePlayerPaymentProof,
 } from "../lib/registration-payment";
+import { notifyAsync } from "../lib/notifications";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -600,6 +601,28 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   }
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
+
+  if (emailParsed.email) {
+    const [tournamentInfo] = await db
+      .select({
+        name: tournamentsTable.name,
+        logoUrl: tournamentsTable.logoUrl,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+
+    notifyAsync("PLAYER_REGISTERED", {
+      playerId: player.id,
+      playerName: player.name,
+      email: emailParsed.email,
+      photoUrl: player.photoUrl,
+      tournamentId: tid,
+      tournamentName: tournamentInfo?.name ?? "Tournament",
+      tournamentLogoUrl: tournamentInfo?.logoUrl ?? null,
+      paymentPending: paymentConfig?.enableRegistrationPayment === true,
+    });
+  }
 
   res.status(201).json({ ...playerToPublicJson(player), updated: false });
 });

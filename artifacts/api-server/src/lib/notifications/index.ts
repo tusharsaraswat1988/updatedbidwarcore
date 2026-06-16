@@ -6,4 +6,5 @@ export type {
   NotificationStatus,
   OrganiserRegisteredPayload,
   TournamentCreatedPayload,
+  PlayerRegisteredPayload,
 } from "./types";

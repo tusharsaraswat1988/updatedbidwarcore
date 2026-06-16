@@ -29,6 +29,10 @@ export type BidWarEmailShellParams = {
   brandName?: string;
   bodyHtml: string;
   footerNote?: string;
+  /** When false, omit the default BidWar wordmark header (body supplies its own). */
+  includeDefaultHeader?: boolean;
+  /** When false, omit the default support footer (body supplies its own). */
+  includeDefaultFooter?: boolean;
 };
 
 function preheaderBlock(preheader: string | undefined): string {
@@ -137,6 +141,16 @@ export function wrapBidWarEmailShell(params: BidWarEmailShellParams): string {
   const logoUrl = resolveEmailLogoUrl(appUrl, params.logoUrl);
   const title = escapeHtml(params.title);
 
+  const headerRow =
+    params.includeDefaultHeader === false
+      ? ""
+      : bidwarEmailHeader({ appUrl, logoUrl, brandName: params.brandName });
+
+  const footerRow =
+    params.includeDefaultFooter === false
+      ? ""
+      : bidwarEmailFooter({ appUrl, footerNote: params.footerNote, brandName: params.brandName });
+
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -162,9 +176,9 @@ export function wrapBidWarEmailShell(params: BidWarEmailShellParams): string {
     <tr>
       <td align="center" style="padding:24px 12px;">
         <table role="presentation" class="email-container" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:${C.surfaceElevated};border:1px solid ${C.border};border-radius:16px;overflow:hidden;">
-          ${bidwarEmailHeader({ appUrl, logoUrl, brandName: params.brandName })}
+          ${headerRow}
           ${params.bodyHtml}
-          ${bidwarEmailFooter({ appUrl, footerNote: params.footerNote, brandName: params.brandName })}
+          ${footerRow}
         </table>
       </td>
     </tr>

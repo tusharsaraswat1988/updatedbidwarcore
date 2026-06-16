@@ -26,6 +26,15 @@ export const BIDWAR_EMAIL_COLORS = {
 
 export const BIDWAR_SUPPORT_EMAIL = "bidwarsupport@gmail.com";
 
+export const BIDWAR_WEBSITE_URL = "https://bidwar.in/";
+
+/** Clickable BidWar link — opens bidwar.in in a new tab (email-safe inline styles). */
+export function bidwarAnchor(displayText?: string): string {
+  const text = escapeHtml(displayText ?? "BidWar");
+  const url = escapeHtml(BIDWAR_WEBSITE_URL);
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${BIDWAR_EMAIL_COLORS.primary};text-decoration:none;font-weight:700;">${text}</a>`;
+}
+
 export const BIDWAR_FONT_STACK =
   "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 

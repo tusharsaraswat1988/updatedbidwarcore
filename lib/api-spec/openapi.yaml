@@ -993,7 +993,7 @@ paths:
     post:
       operationId: resetTrialAuction
       tags: [auction]
-      summary: Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+      summary: Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
       parameters:
         - name: tournamentId
           in: path
@@ -2818,13 +2818,18 @@ components:
 
     ResetTrialAuctionBody:
       type: object
-      required: [password, reason]
+      required: [reason]
       properties:
         password:
           type: string
+          description: Tournament organizer password. Optional when the caller already has an organizer session for this tournament.
         reason:
           type: string
           description: Mandatory audit reason for clearing practice auction data (min 10 characters)
+        resetContext:
+          type: string
+          enum: [organizer, admin]
+          description: organizer for operator panel; admin for super admin panel
 
     Bid:
       type: object

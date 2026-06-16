@@ -11,7 +11,7 @@ import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
 import { resolveSportIdBySlug } from "./sports";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
@@ -336,6 +336,26 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const nextMinimumSquadSize = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : beforeTournament.minimumSquadSize;
+  const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
+  if (nextMinimumSquadSize > 0 && nextMaximumSquadSize > 0 && nextMaximumSquadSize < nextMinimumSquadSize) {
+    res.status(400).json({ error: "Maximum players cannot be less than minimum players." });
+    return;
+  }
+
+  if (d.sport !== undefined && d.sport !== beforeTournament.sport) {
+    const [playerCountRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, id));
+    if ((playerCountRow?.count ?? 0) > 0) {
+      res.status(400).json({ error: "Sport cannot be changed while players exist in the pool." });
+      return;
+    }
+  }
+
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) {

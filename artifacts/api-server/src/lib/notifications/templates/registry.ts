@@ -1,5 +1,6 @@
 import type { NotificationEventType } from "../types";
 import { organiserWelcomeEmail } from "./organiser-welcome";
+import { playerRegisteredEmail } from "./player-registered";
 import { tournamentCreatedEmail } from "./tournament-created";
 
 export type EmailTemplateResult = {
@@ -32,6 +33,18 @@ const EMAIL_TEMPLATE_REGISTRY: Partial<Record<NotificationEventType, EmailTempla
       tournamentId: params.tournamentId as number | null | undefined,
       logoUrl: params.logoUrl as string | null | undefined,
       brandName: params.brandName as string | undefined,
+    }),
+  PLAYER_REGISTERED: (params) =>
+    playerRegisteredEmail({
+      playerName: String(params.playerName),
+      photoUrl: params.photoUrl as string | null,
+      tournamentName: String(params.tournamentName),
+      tournamentLogoUrl: params.tournamentLogoUrl as string | null,
+      paymentPending: Boolean(params.paymentPending),
+      appUrl: String(params.appUrl),
+      bidwarLogoUrl: params.bidwarLogoUrl as string | null | undefined,
+      brandName: params.brandName as string | undefined,
+      poweredByText: params.poweredByText as string | undefined,
     }),
 };
 

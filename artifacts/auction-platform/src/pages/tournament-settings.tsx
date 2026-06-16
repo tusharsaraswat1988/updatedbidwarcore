@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
   useUpdateTournament,
+  useListPlayers,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
@@ -31,7 +32,7 @@ import {
   Building2, Timer, Trash2,
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
-  Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
+  Volume2, VolumeX, Play, Coffee,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +42,7 @@ import { SettingsCard } from "@/components/settings/settings-card";
 import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 
@@ -64,7 +65,6 @@ export default function TournamentSettings() {
     { increment: 0 },
   ]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
-  const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
   const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
   const [bannerEditorInitial, setBannerEditorInitial] = useState<string | undefined>();
@@ -81,7 +81,26 @@ export default function TournamentSettings() {
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: players = [] } = useListPlayers(tournamentId, {
+    query: { enabled: !!tournamentId, staleTime: 30_000 },
+  });
   const updateTournament = useUpdateTournament();
+  const sportLocked = players.length > 0;
+
+  const notifySportLocked = useCallback(() => {
+    toast({
+      title: "Sport is locked",
+      description: "Players already exist in this tournament. Remove all players from the pool before changing the sport.",
+    });
+  }, [toast]);
+
+  const handleSportChange = useCallback((value: string) => {
+    if (sportLocked) {
+      notifySportLocked();
+      return;
+    }
+    setEditForm((f) => ({ ...f, sport: value }));
+  }, [notifySportLocked, sportLocked]);
 
   const buildSnapshot = useCallback((
     form: Record<string, string | number | boolean>,
@@ -97,8 +116,8 @@ export default function TournamentSettings() {
       auctionDate: t.auctionDate || "",
       auctionTime: t.auctionTime || "",
       logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
-      basePurse: String(t.basePurse ?? ""),
-      minBid: String(t.minBid ?? ""),
+      basePurse: t.basePurse ? String(t.basePurse) : "",
+      minBid: t.minBid ? String(t.minBid) : "",
       timerSeconds: String(t.timerSeconds ?? "30"),
       bidTimerSeconds: String(t.bidTimerSeconds ?? "15"),
       bidExtensionEnabled: t.bidExtensionEnabled ?? false,
@@ -182,7 +201,6 @@ export default function TournamentSettings() {
     const focus = params.get("focus") as SettingsFocusField | null;
     if (!focus) return;
     if (focus === "registration") setActiveSection("playerRegistration");
-    if (focus === "bidTiers") setShowAdvancedAuction(true);
     setHighlightField(focus);
     const scrollTimer = window.setTimeout(() => {
       document.getElementById(`settings-field-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -202,7 +220,6 @@ export default function TournamentSettings() {
 
   function applyCricketPreset() {
     setActiveSection("auction");
-    setShowAdvancedAuction(true);
     const increment = Number(editForm.minBid) > 0 ? Math.max(5000, Math.round(Number(editForm.minBid) / 2)) : 5000;
     setEditForm(f => ({
       ...f,
@@ -349,9 +366,33 @@ export default function TournamentSettings() {
     [buildSnapshot, editForm, bidTiers, sponsorLogos],
   );
 
+  const squadSizeError = useMemo(() => {
+    const min = Number(editForm.minimumSquadSize) || 0;
+    const max = Number(editForm.maximumSquadSize) || 0;
+    if (min > 0 && max > 0 && max < min) {
+      return "Maximum players cannot be less than minimum players.";
+    }
+    return null;
+  }, [editForm.minimumSquadSize, editForm.maximumSquadSize]);
+
   const getSaveBlockReason = useCallback((): string | null => {
     if (!(editForm.name as string)?.trim()) {
       return "Tournament name is required";
+    }
+    if (!Number(editForm.basePurse) || Number(editForm.basePurse) <= 0) {
+      return "Team budget is required";
+    }
+    if (!Number(editForm.minBid) || Number(editForm.minBid) <= 0) {
+      return "Minimum player value is required";
+    }
+    if (!bidTiers.some(t => t.increment > 0)) {
+      return "Bid increase amount is required";
+    }
+    if (squadSizeError) {
+      return squadSizeError;
+    }
+    if (sportLocked && tournament && (editForm.sport as string) !== tournament.sport) {
+      return "Sport cannot be changed while players exist in the pool.";
     }
     if (editForm.enableRegistrationPayment === true) {
       const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
@@ -373,7 +414,7 @@ export default function TournamentSettings() {
       }
     }
     return null;
-  }, [editForm]);
+  }, [editForm, bidTiers, squadSizeError, sportLocked, tournament]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -626,11 +667,27 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Sport</Label>
-                  <SportSelect
-                    value={(editForm.sport as string) || "cricket"}
-                    currentSlug={tournament?.sport}
-                    onValueChange={(v) => setEditForm((f) => ({ ...f, sport: v }))}
-                  />
+                  <div className="relative">
+                    {sportLocked ? (
+                      <button
+                        type="button"
+                        className="absolute inset-0 z-10 cursor-not-allowed rounded-md"
+                        aria-label="Sport locked while players exist in the pool"
+                        onClick={notifySportLocked}
+                      />
+                    ) : null}
+                    <SportSelect
+                      value={(editForm.sport as string) || "cricket"}
+                      currentSlug={tournament?.sport}
+                      disabled={sportLocked}
+                      onValueChange={handleSportChange}
+                    />
+                  </div>
+                  {sportLocked ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      Locked while players exist in the pool.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </SettingsCard>
@@ -903,38 +960,73 @@ export default function TournamentSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
                 title="Budget & Pricing"
-                description="Team purse, minimum player value, and bid increment."
+                description="Team purse, minimum player value, bid increment, and optional tiered raise rules."
                 icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1">
-                      Team Budget (₹)
+                      Team Budget (₹) *
                       <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
                     </Label>
-                    <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
+                    <Input type="number" value={editForm.basePurse as string || ""} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} placeholder="e.g. 10000000" />
                   </div>
                   <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
                     <Label className="flex items-center gap-1">
-                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹)</HintLabel>
+                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹) *</HintLabel>
                       <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
                     </Label>
-                    <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
+                    <Input type="number" value={editForm.minBid as string || ""} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} placeholder="e.g. 10000" />
                   </div>
                 </div>
-                <div id="settings-field-bidTiers" className={`space-y-1.5 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
-                  <Label className="flex items-center gap-1">
-                    Bid Increase Amount (₹)
-                    <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
-                  </Label>
+                <div id="settings-field-bidTiers" className={`space-y-2 pt-1 border-t border-border/50 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="flex items-center gap-1">
+                      Bid Increase Amount (₹) *
+                      <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use + Add Tier for different increments at higher price points." />
+                    </Label>
+                    <Button type="button" size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
+                      + Add Tier
+                    </Button>
+                  </div>
                   {bidTiers.length === 1 ? (
                     <div className="flex items-center gap-3">
                       <Input type="number" className="max-w-[200px]" value={bidTiers[0]?.increment || ""} onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])} placeholder="e.g. 10000" />
                       <span className="text-xs text-muted-foreground">per raise</span>
                     </div>
                   ) : (
-                    <div className="px-3 py-2 rounded-lg bg-muted/20 border border-border/50 text-xs text-muted-foreground">
-                      Tiered increments enabled — adjust in Advanced Settings below.
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Tiered bid increase rules — set different raise amounts at different price points.
+                      </p>
+                      {bidTiers.map((tier, i) => {
+                        const isLast = i === bidTiers.length - 1;
+                        return (
+                          <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">{isLast ? "Any amount above — Raise by (₹)" : `Up to (₹) — Tier ${i + 1}`}</Label>
+                              {isLast ? (
+                                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
+                              ) : (
+                                <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
+                              <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
+                            </div>
+                            <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
+                              const next = t.filter((_, j) => j !== i);
+                              if (next.length === 0) return t;
+                              const last = { ...next[next.length - 1] };
+                              delete last.upTo;
+                              return [...next.slice(0, -1), last];
+                            })}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1020,71 +1112,25 @@ export default function TournamentSettings() {
                     </Label>
                     <Input type="number" min={0} max={100} value={editForm.minimumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))} />
                   </div>
-                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad")}`}>
+                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", !!squadSizeError)}`}>
                     <Label className="text-xs flex items-center gap-1">
                       Maximum Players
                       <FieldTooltip text="Teams cannot bid once they reach this count." />
                     </Label>
-                    <Input type="number" min={0} max={100} value={editForm.maximumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))} />
+                    <Input
+                      type="number"
+                      min={Number(editForm.minimumSquadSize) > 0 ? Number(editForm.minimumSquadSize) : 0}
+                      max={100}
+                      value={editForm.maximumSquadSize as string ?? "0"}
+                      onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
+                    />
+                    {squadSizeError ? (
+                      <p className="text-[11px] text-destructive">{squadSizeError}</p>
+                    ) : null}
                   </div>
                 </div>
               </SettingsCard>
             </div>
-
-            <Collapsible open={showAdvancedAuction} onOpenChange={setShowAdvancedAuction}>
-              <SettingsCard className="border-dashed" contentClassName="p-0">
-                <CollapsibleTrigger asChild>
-                  <button type="button" className="flex items-center gap-2 w-full text-left px-4 sm:px-5 py-4 hover:bg-muted/30 transition-colors rounded-xl">
-                    {showAdvancedAuction ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">Advanced Settings</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Contains tiered bid increments and advanced auction controls.</p>
-                    </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 border-t border-border/50 pt-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold flex items-center gap-1">
-                        Tiered Bid Increase Rules
-                        <FieldTooltip text="For advanced leagues: set different bid increments at different price points. For example, bids under ₹1L go up by ₹10K, bids over ₹1L go up by ₹25K. Most organisers don't need this — leave it as one tier." />
-                      </Label>
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
-                        + Add Tier
-                      </Button>
-                    </div>
-                    {bidTiers.map((tier, i) => {
-                      const isLast = i === bidTiers.length - 1;
-                      return (
-                        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">{isLast ? "Any amount above — Raise by (₹)" : `Up to (₹) — Tier ${i + 1}`}</Label>
-                            {isLast ? (
-                              <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
-                            ) : (
-                              <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
-                            <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
-                          </div>
-                          <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
-                            const next = t.filter((_, j) => j !== i);
-                            if (next.length === 0) return t;
-                            const last = { ...next[next.length - 1] };
-                            delete last.upTo;
-                            return [...next.slice(0, -1), last];
-                          })}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </SettingsCard>
-            </Collapsible>
           </div>
         )}
 
@@ -1441,7 +1487,7 @@ export default function TournamentSettings() {
                     <span className="text-[11px] text-muted-foreground font-normal">
                       {tournament?.status === "completed"
                         ? "Unavailable after the tournament is marked completed."
-                        : "Password-protected — requires organizer password only."}
+                        : "Requires an active organizer session."}
                     </span>
                   </div>
                 </Button>

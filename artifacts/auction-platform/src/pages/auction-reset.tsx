@@ -4,10 +4,8 @@ import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft, Lock } from "lucide-react";
+import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft } from "lucide-react";
 import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 
 export default function AuctionReset() {
@@ -26,7 +24,6 @@ export default function AuctionReset() {
   });
 
   const resetMut = useResetTrialAuction();
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -43,18 +40,13 @@ export default function AuctionReset() {
       setError("This tournament is completed. Auction reset is no longer available from the organizer panel.");
       return;
     }
-    if (!password.trim()) {
-      setError("Please enter your organizer password.");
-      return;
-    }
     setError(null);
     try {
       await resetMut.mutateAsync({
         tournamentId,
-        data: { password, reason: "", resetContext: "organizer" },
+        data: { password: "", reason: "", resetContext: "organizer" },
       });
       setSuccess(true);
-      setPassword("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       await refetchTournament();
     } catch (e: unknown) {
@@ -87,7 +79,7 @@ export default function AuctionReset() {
             <ShieldCheck className="w-7 h-7 text-red-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-1 flex-1">
               <h2 className="font-bold text-lg text-red-300">
-                {isCompleted ? "Reset unavailable" : "Organizer password required"}
+                {isCompleted ? "Reset unavailable" : "Organizer session verified"}
               </h2>
               {isCompleted ? (
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -96,8 +88,8 @@ export default function AuctionReset() {
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Enter the organizer password for this tournament to clear practice auction data.
-                    {resetCount > 0 && ` This tournament has been reset ${resetCount} time${resetCount === 1 ? "" : "s"} before — you can reset again with the same organizer password.`}
+                    You are signed in as the organizer for this tournament. Confirm below to clear practice auction data.
+                    {resetCount > 0 && ` This tournament has been reset ${resetCount} time${resetCount === 1 ? "" : "s"} before.`}
                     {" "}Once the tournament is marked completed, reset will no longer be available from the organizer panel.
                   </p>
                   {lastResetAt && (
@@ -136,24 +128,9 @@ export default function AuctionReset() {
 
         <Card className="border border-border">
           <CardContent className="p-5 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reset-password" className="text-sm font-semibold flex items-center gap-2">
-                <Lock className="w-4 h-4 text-muted-foreground" />
-                Organizer password
-              </Label>
-              <Input
-                id="reset-password"
-                type="password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(null); setSuccess(false); }}
-                placeholder="Enter the organizer password for this tournament"
-                className="bg-card border-border"
-                autoComplete="current-password"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Only the tournament organizer password is accepted here. Reset is blocked once the tournament is completed. Each reset is logged automatically with date and time.
-              </p>
-            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Reset is blocked once the tournament is completed. Each reset is logged automatically with date and time.
+            </p>
 
             {error && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-300">
@@ -171,7 +148,7 @@ export default function AuctionReset() {
             <div className="flex gap-3 pt-1">
               <Button
                 className="flex-1 bg-red-700 hover:bg-red-600 text-white border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] gap-2"
-                disabled={resetMut.isPending || !password.trim()}
+                disabled={resetMut.isPending}
                 onClick={handleReset}
               >
                 <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />

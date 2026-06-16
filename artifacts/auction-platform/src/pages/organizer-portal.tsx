@@ -37,8 +37,8 @@ import {
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail,
 } from "lucide-react";
-import { HintLabel } from "@/components/ui/hint-label";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { HintLabel } from "@/components/ui/hint-label";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 
 type OrganizerInfo = {
@@ -72,7 +72,7 @@ function TournamentLicenseBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Indian number words helper ───────────────────────────────────────────────
+type TimePeriod = "AM" | "PM";
 
 function toIndianWords(raw: string): string {
   const n = parseInt(raw, 10);
@@ -88,8 +88,6 @@ function toIndianWords(raw: string): string {
   if (rest) parts.push(String(rest));
   return parts.join(" ");
 }
-
-type TimePeriod = "AM" | "PM";
 
 function to24HourTime(hour12: number, minute: number, period: TimePeriod): string {
   let h = hour12 % 12;
@@ -141,7 +139,6 @@ function CreateTournamentModal({
     timeMinute: "00",
     timePeriod: "PM" as TimePeriod,
     basePurse: "",
-    minimumSquadSize: "",
     minBid: "",
     bidIncrement: "",
   });
@@ -151,13 +148,6 @@ function CreateTournamentModal({
   const [createdTournamentId, setCreatedTournamentId] = useState<number | null>(null);
   const [wizardStep, setWizardStep] = useState<1 | 2>(1);
 
-  const CRICKET_DEFAULTS = {
-    basePurse: "10000000",
-    minimumSquadSize: "11",
-    minBid: "10000",
-    bidIncrement: "5000",
-  };
-
   function handleClose() {
     setCreatedCode(null);
     setCreatedTournamentId(null);
@@ -165,7 +155,7 @@ function CreateTournamentModal({
     setForm({
       name: "", sport: "cricket", venue: "", auctionDate: "",
       timeHour: "", timeMinute: "00", timePeriod: "PM",
-      basePurse: "", minimumSquadSize: "", minBid: "", bidIncrement: "",
+      basePurse: "", minBid: "", bidIncrement: "",
     });
     setError("");
     onClose();
@@ -188,13 +178,8 @@ function CreateTournamentModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
-    if (!form.basePurse || parseInt(form.basePurse) <= 0) {
+    if (!form.basePurse || parseInt(form.basePurse, 10) <= 0) {
       setError("Team budget (purse) is required.");
-      return;
-    }
-    const minSquad = parseInt(form.minimumSquadSize, 10);
-    if (!form.minimumSquadSize || Number.isNaN(minSquad) || minSquad < 1) {
-      setError("Minimum players per team is required (at least 1).");
       return;
     }
     const minBid = parseInt(form.minBid, 10);
@@ -215,8 +200,7 @@ function CreateTournamentModal({
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
       auctionTime: auctionTime || undefined,
-      basePurse: parseInt(form.basePurse),
-      minimumSquadSize: minSquad,
+      basePurse: parseInt(form.basePurse, 10),
       minBid,
       bidIncrement,
     });
@@ -270,7 +254,7 @@ function CreateTournamentModal({
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <AuthStepIndicator step={wizardStep} total={2} />
             <p className="text-xs text-center text-muted-foreground -mt-2">
-              {wizardStep === 1 ? "Basic details" : "Budget & auction rules"}
+              {wizardStep === 1 ? "Basic details" : "Budget & pricing (required)"}
             </p>
 
             {wizardStep === 1 ? (
@@ -355,9 +339,9 @@ function CreateTournamentModal({
             ) : (
               <>
                 <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
-                  Standard cricket values are pre-filled. You can change them later in Settings.
+                  Enter your auction budget and bid rules below. These fields are required — nothing is pre-filled.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>
                       <HintLabel hint="Har team ke paas kitna paisa kharch karne ko milega — jaise 1 crore">
@@ -372,20 +356,9 @@ function CreateTournamentModal({
                       min={1}
                       required
                     />
-                    {purseWords && (
+                    {purseWords ? (
                       <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Minimum Players per Team *</Label>
-                    <Input
-                      type="number"
-                      value={form.minimumSquadSize}
-                      onChange={e => setForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                      placeholder="e.g. 11"
-                      min={1}
-                      required
-                    />
+                    ) : null}
                   </div>
                   <div className="space-y-2">
                     <Label>
@@ -435,13 +408,6 @@ function CreateTournamentModal({
                     onClick={() => {
                       if (!form.name.trim()) { setError("Tournament name is required."); return; }
                       setError("");
-                      setForm(f => ({
-                        ...f,
-                        basePurse: f.basePurse || CRICKET_DEFAULTS.basePurse,
-                        minimumSquadSize: f.minimumSquadSize || CRICKET_DEFAULTS.minimumSquadSize,
-                        minBid: f.minBid || CRICKET_DEFAULTS.minBid,
-                        bidIncrement: f.bidIncrement || CRICKET_DEFAULTS.bidIncrement,
-                      }));
                       setWizardStep(2);
                     }}
                   >

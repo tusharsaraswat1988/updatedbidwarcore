@@ -1249,18 +1249,16 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
-    basePurse: z.number().int().optional(),
-    minBid: z.number().int().min(1).optional(),
-    bidIncrement: z.number().int().min(1).optional(),
+    basePurse: z.number().int().min(1),
+    minBid: z.number().int().min(1),
+    bidIncrement: z.number().int().min(1),
     minimumSquadSize: z.number().int().min(1).max(100).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
-  const bidTiersJson = d.bidIncrement != null
-    ? JSON.stringify([{ increment: d.bidIncrement }])
-    : DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON;
+  const bidTiersJson = JSON.stringify([{ increment: d.bidIncrement }]);
 
   // Generate unique auction code (TT+NN+DDMM format)
   function buildOrgCode(name: string, auctionDate?: string | null): string {
@@ -1290,8 +1288,8 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerName: organizer.name,
     organizerMobile: organizer.mobile,
     organizerEmail: organizer.email ?? null,
-    basePurse: d.basePurse ?? 10000000,
-    minBid: d.minBid ?? 100000,
+    basePurse: d.basePurse,
+    minBid: d.minBid,
     bidTiers: bidTiersJson,
     timerSeconds: DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
     bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,

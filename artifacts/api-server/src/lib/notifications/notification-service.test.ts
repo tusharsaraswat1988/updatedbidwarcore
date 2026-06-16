@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { organiserWelcomeEmail } from "./templates/organiser-welcome";
+import { playerRegisteredEmail } from "./templates/player-registered";
 import { tournamentCreatedEmail } from "./templates/tournament-created";
 import { hasEmailTemplate, renderEmailTemplate } from "./templates/registry";
 
@@ -35,9 +36,31 @@ describe("email templates", () => {
     expect(result.html).toContain("#FBBF24");
   });
 
+  it("renders player registered email", () => {
+    const result = playerRegisteredEmail({
+      playerName: "Virat Kohli",
+      photoUrl: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+      tournamentName: "Corporate Premier League",
+      tournamentLogoUrl: "https://res.cloudinary.com/demo/image/upload/logo.png",
+      paymentPending: false,
+      appUrl: "https://bidwar.in",
+      bidwarLogoUrl: "https://res.cloudinary.com/demo/image/upload/bidwar.png",
+      poweredByText: "Powered by BidWar",
+    });
+    expect(result.subject).toContain("Corporate Premier League");
+    expect(result.html).toContain("Virat");
+    expect(result.html).toContain("Corporate Premier League");
+    expect(result.html).toContain("https://bidwar.in/");
+    expect(result.html).toContain('target="_blank"');
+    expect(result.html).toContain("This mail is powered by");
+    expect(result.html).toContain("sample.jpg");
+    expect(result.html).toContain("logo.png");
+  });
+
   it("registry resolves known event types", () => {
     expect(hasEmailTemplate("ORGANISER_REGISTERED")).toBe(true);
     expect(hasEmailTemplate("TOURNAMENT_CREATED")).toBe(true);
+    expect(hasEmailTemplate("PLAYER_REGISTERED")).toBe(true);
     expect(hasEmailTemplate("AUCTION_STARTED")).toBe(false);
 
     const rendered = renderEmailTemplate("ORGANISER_REGISTERED", {

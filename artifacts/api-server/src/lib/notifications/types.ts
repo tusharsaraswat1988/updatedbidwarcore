@@ -11,6 +11,7 @@ export type NotificationStatus = "pending" | "sent" | "failed" | "skipped";
 export const NOTIFICATION_EVENT_TYPES = [
   "ORGANISER_REGISTERED",
   "TOURNAMENT_CREATED",
+  "PLAYER_REGISTERED",
   "TOURNAMENT_APPROVED",
   "TEAM_OWNER_REGISTERED",
   "OWNER_CREDENTIALS_SENT",
@@ -51,9 +52,24 @@ export type TournamentCreatedPayload = {
   organizerId: number | null;
 };
 
+export type PlayerRegisteredPayload = {
+  playerId: number;
+  playerName: string;
+  email: string;
+  photoUrl: string | null;
+  tournamentId: number;
+  tournamentName: string;
+  tournamentLogoUrl: string | null;
+  paymentPending: boolean;
+  bidwarLogoUrl?: string | null;
+  brandName?: string;
+  poweredByText?: string;
+};
+
 export type NotificationPayloadMap = {
   ORGANISER_REGISTERED: OrganiserRegisteredPayload;
   TOURNAMENT_CREATED: TournamentCreatedPayload;
+  PLAYER_REGISTERED: PlayerRegisteredPayload;
   TOURNAMENT_APPROVED: Record<string, unknown>;
   TEAM_OWNER_REGISTERED: Record<string, unknown>;
   OWNER_CREDENTIALS_SENT: Record<string, unknown>;

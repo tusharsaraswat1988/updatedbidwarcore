@@ -1841,12 +1841,12 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const body = z.object({
-    password: z.string().min(1),
+    password: z.string().optional(),
     reason: z.string().optional(),
     resetContext: z.enum(["organizer", "admin"]).optional(),
   }).safeParse(req.body);
-  if (!body.success) { res.status(400).json({ error: "Password is required" }); return; }
-  const submittedPw = body.data.password;
+  if (!body.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const submittedPw = (body.data.password ?? "").trim();
   const resetContext = body.data.resetContext ?? (req.jwtUser?.isAdmin ? "admin" : "organizer");
   const reasonResult = parseAuditReason(req.body, resetContext === "admin");
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
@@ -1880,17 +1880,21 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   const isOperatorMatch = !!tournament.organizerPassword && safeCompare(submittedPw, tournament.organizerPassword);
   const previousResetCount = tournament.resetCount ?? 0;
 
+  const authenticatedOrganizer = isOrganizerOrAdmin(req, tid);
+
   let resetActor: "operator" | "super_admin";
   if (resetContext === "organizer") {
-    if (!tournament.organizerPassword) {
+    if (authenticatedOrganizer) {
+      resetActor = "operator";
+    } else if (!tournament.organizerPassword) {
       res.status(400).json({ error: "No organizer password is set for this tournament. Contact platform support." });
       return;
-    }
-    if (!isOperatorMatch) {
+    } else if (!submittedPw || !isOperatorMatch) {
       res.status(401).json({ error: "Incorrect organizer password" });
       return;
+    } else {
+      resetActor = "operator";
     }
-    resetActor = "operator";
   } else if (isMasterMatch) {
     resetActor = "super_admin";
   } else {
