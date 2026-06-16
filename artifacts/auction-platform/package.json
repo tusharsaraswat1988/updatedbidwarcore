@@ -89,6 +89,8 @@
     "@dnd-kit/utilities": "^3.2.2",
     "express": "^5.2.1",
     "express-static-gzip": "^3.0.1",
+    "html2canvas-pro": "^2.0.4",
+    "jspdf": "^4.2.1",
     "qrcode.react": "^4.2.0"
   }
 }

@@ -16,8 +16,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
+import { exportElementToPdf } from "@/lib/export-element-pdf";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
+import { toast } from "@/hooks/use-toast";
 import {
   FileText, Printer, Download, Lock, Users, ChevronRight,
   User, AlertTriangle, Loader2,
@@ -43,6 +45,9 @@ const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
   auction:  ["photo", "categoryName", "remainingBalance"],
   detailed: ["photo", "mobileNumber", "email", "age", "city", "categoryName", "role", "jerseyNumber", "jerseySize", "status", "remainingBalance"],
 };
+
+const REPORT_TH =
+  "border border-gray-400 px-2 py-1.5 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
 
 function loadCols(tid: number): Set<ColKey> {
   try {
@@ -119,20 +124,20 @@ function PlayerTable({
       <table className="w-full table-fixed border-collapse border border-gray-400 text-sm">
         <thead>
           <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className="w-12 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">S.No</th>
-            {showPhoto && <th className="w-14 border border-gray-400 px-2 py-2" />}
-            <th className="border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Player Name</th>
-            {cols.has("age") && <th className="w-14 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Age</th>}
-            {cols.has("city") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">City</th>}
-            {cols.has("mobileNumber") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Mobile</th>}
-            {cols.has("email") && <th className="w-36 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Email</th>}
-            {cols.has("categoryName") && <th className="w-28 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Category</th>}
-            {cols.has("role") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Role</th>}
-            {cols.has("jerseyNumber") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Jersey</th>}
-            {cols.has("jerseySize") && <th className="w-16 border border-gray-400 px-3 py-2 text-center text-xs font-bold uppercase tracking-wider">Size</th>}
-            {cols.has("status") && <th className="w-24 border border-gray-400 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider">Type</th>}
-            <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Amount</th>
-            {cols.has("remainingBalance") && <th className="w-24 border border-gray-400 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider">Balance</th>}
+            <th className={`w-12 ${REPORT_TH} text-left`}>S.No</th>
+            {showPhoto && <th className="w-14 border border-gray-400 px-2 py-1.5" />}
+            <th className={`${REPORT_TH} text-left`}>Player Name</th>
+            {cols.has("age") && <th className={`w-14 ${REPORT_TH} text-center`}>Age</th>}
+            {cols.has("city") && <th className={`w-24 ${REPORT_TH} text-left`}>City</th>}
+            {cols.has("mobileNumber") && <th className={`w-28 ${REPORT_TH} text-left`}>Mobile</th>}
+            {cols.has("email") && <th className={`w-36 ${REPORT_TH} text-left`}>Email</th>}
+            {cols.has("categoryName") && <th className={`w-28 ${REPORT_TH} text-left`}>Category</th>}
+            {cols.has("role") && <th className={`w-24 ${REPORT_TH} text-left`}>Role</th>}
+            {cols.has("jerseyNumber") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey No.</th>}
+            {cols.has("jerseySize") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey Size</th>}
+            {cols.has("status") && <th className={`w-24 ${REPORT_TH} text-left`}>Type</th>}
+            <th className={`w-24 ${REPORT_TH} text-right`}>Amount</th>
+            {cols.has("remainingBalance") && <th className={`w-24 ${REPORT_TH} text-right`}>Balance</th>}
           </tr>
         </thead>
         <tbody>
@@ -189,13 +194,17 @@ function PlayerTable({
 function AuctionPlanningTable({
   planningRows,
   startSno,
+  cols,
+  showPhoto,
   className,
 }: {
   planningRows: number;
   startSno: number;
+  cols: Set<ColKey>;
+  showPhoto: boolean;
   className?: string;
 }) {
-  const headCell = "border border-gray-400 px-3 py-2 text-xs font-bold uppercase tracking-wider";
+  const headCell = REPORT_TH;
   const bodyCell = "border border-gray-400 px-3 py-2 align-top";
 
   return (
@@ -205,20 +214,22 @@ function AuctionPlanningTable({
       </h3>
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-sm">
-          <colgroup>
-            <col style={{ width: "48px" }} />
-            <col />
-            <col style={{ width: "28%" }} />
-            <col style={{ width: "18%" }} />
-            <col style={{ width: "18%" }} />
-          </colgroup>
           <thead>
             <tr className="bg-slate-800 text-yellow-400 print-table-header">
-              <th className={`${headCell} text-left`}>S.No</th>
+              <th className={`w-12 ${headCell} text-left`}>S.No</th>
+              {showPhoto && <th className="w-14 border border-gray-400 px-2 py-1.5" />}
               <th className={`${headCell} text-left`}>Player Name</th>
-              <th className={`${headCell} text-left`}>Category</th>
-              <th className={`${headCell} text-right`}>Amount</th>
-              <th className={`${headCell} text-right`}>Balance</th>
+              {cols.has("age") && <th className={`w-14 ${headCell} text-center`}>Age</th>}
+              {cols.has("city") && <th className={`w-24 ${headCell} text-left`}>City</th>}
+              {cols.has("mobileNumber") && <th className={`w-28 ${headCell} text-left`}>Mobile</th>}
+              {cols.has("email") && <th className={`w-36 ${headCell} text-left`}>Email</th>}
+              {cols.has("categoryName") && <th className={`w-28 ${headCell} text-left`}>Category</th>}
+              {cols.has("role") && <th className={`w-24 ${headCell} text-left`}>Role</th>}
+              {cols.has("jerseyNumber") && <th className={`w-16 ${headCell} text-center`}>Jersey No.</th>}
+              {cols.has("jerseySize") && <th className={`w-16 ${headCell} text-center`}>Jersey Size</th>}
+              {cols.has("status") && <th className={`w-24 ${headCell} text-left`}>Type</th>}
+              <th className={`w-24 ${headCell} text-right`}>Amount</th>
+              {cols.has("remainingBalance") && <th className={`w-24 ${headCell} text-right`}>Balance</th>}
             </tr>
           </thead>
           <tbody className="h-full">
@@ -229,10 +240,19 @@ function AuctionPlanningTable({
                 style={{ height: `${100 / planningRows}%` }}
               >
                 <td className={`${bodyCell} text-xs text-gray-500`}>{startSno + i}</td>
+                {showPhoto && <td className={`${bodyCell} py-1`}>&nbsp;</td>}
                 <td className={bodyCell}>&nbsp;</td>
+                {cols.has("age") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("city") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("mobileNumber") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("email") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("categoryName") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("role") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("jerseyNumber") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("jerseySize") && <td className={bodyCell}>&nbsp;</td>}
+                {cols.has("status") && <td className={bodyCell}>&nbsp;</td>}
                 <td className={bodyCell}>&nbsp;</td>
-                <td className={bodyCell}>&nbsp;</td>
-                <td className={bodyCell}>&nbsp;</td>
+                {cols.has("remainingBalance") && <td className={bodyCell}>&nbsp;</td>}
               </tr>
             ))}
           </tbody>
@@ -389,6 +409,8 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
         <AuctionPlanningTable
           planningRows={squadInfo.planningRows}
           startSno={allAcquired + 1}
+          cols={cols}
+          showPhoto={showPhoto}
           className="min-h-0 flex-1"
         />
       </div>
@@ -461,26 +483,24 @@ export default function TeamReportsPage() {
   }
 
   async function handleExportPdf() {
-    if (!selectedTeamId) return;
+    if (!selectedTeamId || !report) return;
+    const element = document.getElementById("print-report");
+    if (!element) {
+      toast({ title: "Export failed", description: "Report preview not found.", variant: "destructive" });
+      return;
+    }
+
     setExporting(true);
     try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/team-reports/${selectedTeamId}/pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ columns: [...cols] }),
-      });
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const teamName = report?.team.name || "team";
-      a.download = `${teamName.replace(/[^a-zA-Z0-9]/g, "_")}_PreAuction_Report.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      /* empty */
+      const teamName = report.team.name || "team";
+      await exportElementToPdf(
+        element,
+        `${teamName.replace(/[^a-zA-Z0-9]/g, "_")}_PreAuction_Report.pdf`,
+      );
+      toast({ title: "PDF exported", description: "Your pre-auction report has been downloaded." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong while creating the PDF.";
+      toast({ title: "Export failed", description: message, variant: "destructive" });
     } finally {
       setExporting(false);
     }
@@ -562,7 +582,7 @@ export default function TeamReportsPage() {
             <div className="p-4 border-b border-border">
               <h1 className="font-bold text-base flex items-center gap-2">
                 <FileText className="w-4 h-4 text-primary" />
-                Team Reports
+                Pre-Auction Reports
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">Pre-Auction Planning Sheets</p>
             </div>

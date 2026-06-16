@@ -634,9 +634,9 @@ export default function PlayerRegister() {
                         />
                       </div>
 
-                      {/* Dynamic role dropdown */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
+                      {/* Role + role-specific specifications */}
+                      <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
+                        <div className="space-y-2">
                           <Label>Role *</Label>
                           <Select value={form.role} onValueChange={v => f("role", v)}>
                             <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select role" /></SelectTrigger>
@@ -646,7 +646,6 @@ export default function PlayerRegister() {
                                     <SelectItem key={r.id} value={r.roleName}>{r.roleName}</SelectItem>
                                   ))
                                 : (
-                                  // Fallback while loading
                                   ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => (
                                     <SelectItem key={r} value={r}>{r}</SelectItem>
                                   ))
@@ -655,24 +654,9 @@ export default function PlayerRegister() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Jersey Number</Label>
-                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
-                        </div>
-                        <JerseySizeSelect
-                          value={form.jerseySize}
-                          onChange={v => f("jerseySize", v)}
-                          triggerClassName="h-11 sm:h-9"
-                        />
-                      </div>
 
-                      {/* Dynamic spec groups — same logic as admin form */}
-                      {specs.length > 0 ? (
-                        <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            {form.role} Specifications
-                          </p>
-                          {specs.map(group => (
+                        {specs.length > 0 ? (
+                          specs.map(group => (
                             <div key={group.id} className="space-y-1.5">
                               <Label className="text-sm">
                                 {group.groupName}
@@ -694,25 +678,36 @@ export default function PlayerRegister() {
                                 </SelectContent>
                               </Select>
                             </div>
-                          ))}
+                          ))
+                        ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Batting Style</Label>
+                              <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" className="h-11 sm:h-9" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Bowling Style</Label>
+                              <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" className="h-11 sm:h-9" />
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
+                              <Label>Specialization</Label>
+                              <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." className="h-11 sm:h-9" />
+                            </div>
+                          </div>
+                        ) : null)}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Jersey Number</Label>
+                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
                         </div>
-                      ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
-                        /* Fallback free-text fields for cricket / other / unknown sports */
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Batting Style</Label>
-                            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" className="h-11 sm:h-9" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Bowling Style</Label>
-                            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" className="h-11 sm:h-9" />
-                          </div>
-                          <div className="space-y-2 sm:col-span-2">
-                            <Label>Specialization</Label>
-                            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." className="h-11 sm:h-9" />
-                          </div>
-                        </div>
-                      ) : null)}
+                        <JerseySizeSelect
+                          value={form.jerseySize}
+                          onChange={v => f("jerseySize", v)}
+                          triggerClassName="h-11 sm:h-9"
+                        />
+                      </div>
 
                       {(() => {
                         const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);

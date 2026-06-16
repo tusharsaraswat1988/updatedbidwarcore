@@ -205,28 +205,33 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   </Link>
                 ) : (
                   <div
-                    title="Available after auction is marked completed"
+                    title="Opens after auction is marked completed"
                     className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
                     }`}
                   >
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && (
-                      <>
-                        <span className="font-medium">Reports & Analytics</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Locked</span>
-                      </>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Reports & Analytics</span>
+                          <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto shrink-0">Locked</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                          Opens after auction is marked completed
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
                 {tournament?.licenseStatus === "active" ? (
-                  <Link href={`/tournament/${tournamentId}/team-reports`} title="Team Reports" className={navCls(`/tournament/${tournamentId}/team-reports`)}>
+                  <Link href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={navCls(`/tournament/${tournamentId}/team-reports`)}>
                     <FileText className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="font-medium">Team Reports</span>}
+                    {!collapsed && <span className="font-medium">Pre-Auction Reports</span>}
                   </Link>
                 ) : (
                   <div
-                    title="Team Reports available only for licensed tournaments"
+                    title="Pre-Auction Reports available only for licensed tournaments"
                     className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
                     }`}
@@ -234,7 +239,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <FileText className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && (
                       <>
-                        <span className="font-medium">Team Reports</span>
+                        <span className="font-medium">Pre-Auction Reports</span>
                         <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Practice</span>
                       </>
                     )}

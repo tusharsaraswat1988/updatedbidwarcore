@@ -76,8 +76,12 @@ export default defineConfig({
       },
     },
   ],
+  optimizeDeps: {
+    include: ["html2canvas-pro", "jspdf"],
+  },
   resolve: {
     alias: {
+      html2canvas: "html2canvas-pro",
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
       ...apiBaseAliases(import.meta.dirname),
