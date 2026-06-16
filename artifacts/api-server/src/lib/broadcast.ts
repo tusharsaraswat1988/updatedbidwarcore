@@ -1,4 +1,6 @@
 import type { Response } from "express";
+import type { AuctionEventEnvelope } from "./auction-events";
+import { formatSseFrame } from "./auction-events";
 
 interface SseClient {
   tournamentId: number;
@@ -17,17 +19,27 @@ export function removeSseClient(client: SseClient) {
   clients.delete(client);
 }
 
-export function broadcastToTournament(tournamentId: number, payload: object) {
-  const data = JSON.stringify(payload);
+/** Write a versioned SSE frame to all local clients for a tournament. */
+export function writeSseToLocalClients(
+  tournamentId: number,
+  version: number,
+  payload: AuctionEventEnvelope | Record<string, unknown>,
+) {
+  const frame = formatSseFrame(version, payload as AuctionEventEnvelope);
   for (const client of clients) {
     if (client.tournamentId === tournamentId) {
       try {
-        client.res.write(`data: ${data}\n\n`);
+        client.res.write(frame);
       } catch {
         clients.delete(client);
       }
     }
   }
+}
+
+/** Legacy helper for non-versioned messages (cheer, settings). Uses version 0. */
+export function broadcastToTournament(tournamentId: number, payload: object) {
+  writeSseToLocalClients(tournamentId, 0, payload as AuctionEventEnvelope);
 }
 
 export function getSseClientCount(tournamentId: number): number {

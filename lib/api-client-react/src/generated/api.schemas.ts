@@ -1023,6 +1023,8 @@ export interface AuctionState {
   displayCountdown?: DisplayCountdown | null;
   lastPurseBooster?: LastPurseBooster | null;
   ledPurseToast?: LedPurseToast | null;
+  /** Embedded live purse snapshot — synced via SSE to avoid separate refetch on sold/undo */
+  teamPurses?: TeamPurse[];
 }
 
 export type ApplyPurseBoosterRequestTarget =

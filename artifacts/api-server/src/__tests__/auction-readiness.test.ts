@@ -97,6 +97,6 @@ describe("getReadinessChecklistItems", () => {
     );
     const minSquad = items.find((i) => i.id === "minSquad");
     expect(minSquad?.done).toBe(false);
-    expect(items.some((i) => i.id === "maxSquad")).toBe(false);
+    expect(items.some((i) => String(i.id) === "maxSquad")).toBe(false);
   });
 });

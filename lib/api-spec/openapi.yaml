@@ -2895,6 +2895,11 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/LedPurseToast"
+        teamPurses:
+          type: array
+          description: Live team purse snapshot embedded for realtime sync without separate HTTP refetch
+          items:
+            $ref: "#/components/schemas/TeamPurse"
 
     LastPurseBooster:
       type: object

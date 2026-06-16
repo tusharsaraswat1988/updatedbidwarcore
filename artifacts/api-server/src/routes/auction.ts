@@ -16,8 +16,22 @@ import {
 } from "@workspace/db";
 import { eq, and, asc, desc, inArray, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { addSseClient, removeSseClient, broadcastToTournament, getSseClientCount } from "../lib/broadcast";
+import { addSseClient, removeSseClient, getSseClientCount } from "../lib/broadcast";
 import { logger } from "../lib/logger";
+import {
+  emitAuctionStateEvent,
+  emitBidEvent,
+  emitSoldEvent,
+  type BidDeltaFields,
+  type SoldDeltaFields,
+} from "../lib/auction-broadcast";
+import {
+  EVENT_BUFFER_MAX,
+  formatSseFrame,
+  getCurrentEventVersion,
+  getEventsAfter,
+  publishAuctionEvent,
+} from "../lib/auction-events";
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
 import { isNameClean } from "../lib/name-filter";
@@ -43,8 +57,27 @@ import {
   syncAllAuctionPlayersAsync,
 } from "../lib/master-sports/sync";
 import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
+import {
+  acquireOperatorLock,
+  heartbeatOperatorLock,
+  releaseOperatorLock,
+} from "../lib/operator-lock";
+import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
+import { compactAuctionStateForSse } from "../lib/auction-sse-payload";
 
 const router = Router();
+
+const operatorLockBodySchema = z.object({
+  tabId: z.string().min(8).max(128),
+});
+
+function operatorOwnerId(req: import("express").Request): string {
+  const u = req.jwtUser;
+  if (!u) return "anonymous";
+  if (u.isAdmin) return "admin";
+  if (u.organizerAccountId) return `org:${u.organizerAccountId}`;
+  return "organizer";
+}
 
 const WHEEL_SPIN_DURATION_MS = 5000;
 const wheelSpinStopTimers = new Map<number, ReturnType<typeof setTimeout>>();
@@ -370,6 +403,27 @@ async function resolveActiveBidIncrement(
   return computeTieredIncrement(session.currentBid ?? 0, activeTiers);
 }
 
+async function countPlayerStatuses(tournamentId: number) {
+  const rows = await db
+    .select({
+      status: playersTable.status,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tournamentId))
+    .groupBy(playersTable.status);
+
+  let soldCount = 0;
+  let unsoldCount = 0;
+  let availableCount = 0;
+  for (const row of rows) {
+    if (row.status === "sold") soldCount = row.count;
+    else if (row.status === "unsold") unsoldCount = row.count;
+    else if (row.status === "available") availableCount = row.count;
+  }
+  return { soldCount, unsoldCount, availableCount };
+}
+
 async function buildAuctionState(tournamentId: number) {
   const session = await getOrCreateSession(tournamentId);
 
@@ -464,14 +518,10 @@ async function buildAuctionState(tournamentId: number) {
     }
   }
 
-  const allPlayers = await db
-    .select()
-    .from(playersTable)
-    .where(eq(playersTable.tournamentId, tournamentId));
-
-  const soldCount = allPlayers.filter((p) => p.status === "sold").length;
-  const unsoldCount = allPlayers.filter((p) => p.status === "unsold").length;
-  const availableCount = allPlayers.filter((p) => p.status === "available").length;
+  const [{ soldCount, unsoldCount, availableCount }, teamPurses] = await Promise.all([
+    countPlayerStatuses(tournamentId),
+    buildTeamPurseSnapshot(tournamentId),
+  ]);
 
   let wheelItems: { label: string; color: string }[] = [];
   try {
@@ -663,6 +713,7 @@ async function buildAuctionState(tournamentId: number) {
     lastPurseBooster,
     ledPurseToast,
     pausedTimeRemaining: session.pausedTimeRemaining ?? null,
+    teamPurses,
   };
 }
 
@@ -717,7 +768,44 @@ setInterval(() => {
 async function broadcastState(tournamentId: number, invalidate: string[] = []) {
   invalidateStateCache(tournamentId);
   const state = await getCachedOrBuildState(tournamentId);
-  broadcastToTournament(tournamentId, { type: "auction_state", state, invalidate });
+  await emitAuctionStateEvent(tournamentId, state, invalidate);
+  return state;
+}
+
+async function broadcastBidDelta(tournamentId: number, delta: BidDeltaFields) {
+  invalidateStateCache(tournamentId);
+  await emitBidEvent(tournamentId, delta);
+  return getCachedOrBuildState(tournamentId);
+}
+
+async function broadcastSoldDelta(
+  tournamentId: number,
+  sold: Pick<SoldDeltaFields, "playerId" | "teamId" | "amount">,
+  invalidate: string[] = ["bids", "players"],
+) {
+  invalidateStateCache(tournamentId);
+  const state = await getCachedOrBuildState(tournamentId);
+  await emitSoldEvent(
+    tournamentId,
+    {
+      playerId: sold.playerId,
+      teamId: sold.teamId,
+      amount: sold.amount,
+      lastOutcome: state.outcome,
+      lastAction: state.lastAction ?? "",
+      teamPurses: state.teamPurses,
+      soldPlayersCount: state.soldPlayersCount as number,
+      unsoldPlayersCount: state.unsoldPlayersCount as number,
+      remainingPlayersCount: state.remainingPlayersCount as number,
+      currentPlayerId: (state.currentPlayer as { id?: number } | null)?.id ?? null,
+      currentBid: state.currentBid as number | null,
+      currentBidTeamId: state.currentBidTeamId as number | null,
+      timerEndsAt: state.timerEndsAt as string | null,
+      timerType: state.timerType as string | null,
+      lastSoldPlayer: state.lastSoldPlayer as SoldDeltaFields["lastSoldPlayer"],
+    },
+    invalidate,
+  );
   return state;
 }
 
@@ -734,8 +822,43 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
 
   const client = addSseClient(tid, res);
   logger.info({ tournamentId: tid, clientCount: getSseClientCount(tid) }, "SSE client connected");
-  const state = await getCachedOrBuildState(tid);
-  res.write(`data: ${JSON.stringify({ type: "auction_state", state, invalidate: [] })}\n\n`);
+
+  const lastEventHeader = req.headers["last-event-id"];
+  const afterVersion = lastEventHeader ? parseInt(String(lastEventHeader), 10) : 0;
+
+  if (afterVersion > 0) {
+    const missed = await getEventsAfter(tid, afterVersion);
+    const latestVersion = await getCurrentEventVersion(tid);
+    const gap = latestVersion - afterVersion;
+
+    if (gap > 0 && (gap > EVENT_BUFFER_MAX || missed.length < gap)) {
+      const state = await getCachedOrBuildState(tid);
+      const version = latestVersion || (await getCurrentEventVersion(tid));
+      const envelope = {
+        type: "auction_state",
+        version,
+        tournamentId: tid,
+        state: compactAuctionStateForSse(state),
+        invalidate: [] as string[],
+      };
+      res.write(formatSseFrame(version, envelope));
+    } else {
+      for (const event of missed) {
+        res.write(formatSseFrame(event.version, event));
+      }
+    }
+  } else {
+    const state = await getCachedOrBuildState(tid);
+    const version = await getCurrentEventVersion(tid);
+    const envelope = {
+      type: "auction_state",
+      version,
+      tournamentId: tid,
+      state: compactAuctionStateForSse(state),
+      invalidate: [] as string[],
+    };
+    res.write(formatSseFrame(version || 1, envelope));
+  }
 
   const heartbeat = setInterval(() => {
     try { res.write(": heartbeat\n\n"); } catch { clearInterval(heartbeat); }
@@ -753,6 +876,38 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   res.json(await getCachedOrBuildState(tid));
+});
+
+// ── Operator session lock (one controlling tab per tournament) ───────────────
+
+router.post("/tournaments/:tournamentId/auction/operator-lock/acquire", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const parsed = operatorLockBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  const result = await acquireOperatorLock(tid, parsed.data.tabId, operatorOwnerId(req));
+  res.json(result);
+});
+
+router.post("/tournaments/:tournamentId/auction/operator-lock/heartbeat", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const parsed = operatorLockBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  const result = await heartbeatOperatorLock(tid, parsed.data.tabId, operatorOwnerId(req));
+  res.json(result);
+});
+
+router.post("/tournaments/:tournamentId/auction/operator-lock/release", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  const parsed = operatorLockBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  await releaseOperatorLock(tid, parsed.data.tabId);
+  res.json({ ok: true });
 });
 
 // POST start / resume auction
@@ -1172,7 +1327,17 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     isManualBid: false,
   });
 
-  res.json(await broadcastState(tid));
+  res.json(await broadcastBidDelta(tid, {
+    currentBid: amount,
+    currentBidTeamId: teamId,
+    currentBidTeamName: team.name,
+    currentBidTeamColor: team.color ?? null,
+    currentBidTeamLogoUrl: team.logoUrl ?? null,
+    timerEndsAt: newTimerEndsAt,
+    timerType: "bid",
+    lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
+    bidIncrement,
+  }));
 });
 
 // POST sell player (to highest bidder)
@@ -1316,10 +1481,8 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     onAuctionPlayerSoldAsync(soldPlayer, team, tid);
   }
 
-  res.json(await broadcastState(tid, ["bids", "purses", "players"]));
+  res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount: soldAmount }, ["bids", "players"]));
 });
-
-// POST manual sell (organiser sets team + amount)
 router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -1457,7 +1620,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     onAuctionPlayerSoldAsync(soldPlayer, team, tid);
   }
 
-  res.json(await broadcastState(tid, ["bids", "purses", "players"]));
+  res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount }, ["bids", "players"]));
 });
 
 // POST mark unsold
@@ -2156,7 +2319,7 @@ router.post("/tournaments/:tournamentId/auction/fortune-wheel", async (req, res)
   if (body.data.spinning === true) scheduleWheelSpinStop(tid);
   invalidateStateCache(tid);
   const state = await getCachedOrBuildState(tid);
-  broadcastToTournament(tid, { type: "auction_state", state, invalidate: [] });
+  await emitAuctionStateEvent(tid, state, []);
   // Operator HTTP response may include the picked winner while spin is in progress.
   if (body.data.spinning === true && patch.wheelWinner) {
     res.json({ ...state, wheelWinner: patch.wheelWinner as string });
@@ -2545,7 +2708,7 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
   recentCheerTimestamps.set(tid, tsArr.filter((t) => t > now - 300_000));
   const heatLevel = getHeatLevel(tid);
 
-  broadcastToTournament(tid, {
+  await publishAuctionEvent(tid, {
     type: "cheer_message",
     supporterLabel,
     message,
@@ -2622,8 +2785,9 @@ router.post("/tournaments/:id/auction/mirror", async (req, res) => {
     .where(eq(tournamentsTable.id, tid));
 
   // Broadcast to cloud display and Broadcast Overlay screens so they update live
-  const fullState = await buildAuctionState(tid);
-  broadcastToTournament(tid, { type: "auction_state", state: fullState });
+  invalidateStateCache(tid);
+  const fullState = await getCachedOrBuildState(tid);
+  await emitAuctionStateEvent(tid, fullState, []);
 
   res.json({ ok: true });
 });

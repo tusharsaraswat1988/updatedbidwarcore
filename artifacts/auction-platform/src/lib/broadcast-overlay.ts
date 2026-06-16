@@ -54,6 +54,15 @@ export function broadcastOverlayPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs`;
 }
 
+/** Browser preview — camera feed + live overlay (no OBS required). */
+export function broadcastOverlayPreviewPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/obs/preview`;
+}
+
 export function broadcastOverlayUrl(origin: string, tournamentId: number): string {
   return `${origin}${broadcastOverlayPath(tournamentId)}`;
+}
+
+export function broadcastOverlayPreviewUrl(origin: string, tournamentId: number): string {
+  return `${origin}${broadcastOverlayPreviewPath(tournamentId)}`;
 }

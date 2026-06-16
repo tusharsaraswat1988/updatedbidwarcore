@@ -24,6 +24,8 @@ import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useMutationSync } from "@/hooks/use-mutation-sync";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -96,10 +98,11 @@ export function OwnerRoute() {
     },
   });
 
-  // Live SSE push + polling fallback for owner panels
-  useAuctionSocket(tournamentId);
+  // Live SSE push + polling fallback only when disconnected
+  const { connectionStatus } = useAuctionSocket(tournamentId);
+  const { applyMutationResult, invalidateFallback } = useMutationSync(tournamentId, connectionStatus);
 
-  const pollInterval = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
+  const pollFallbackMs = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching, isError: stateIsError } = useGetAuctionState(tournamentId, {
     query: {
       queryKey:       getGetAuctionStateQueryKey(tournamentId),
@@ -107,7 +110,7 @@ export function OwnerRoute() {
       refetchInterval: (query) => {
         const d = query.state.data;
         if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
-        return pollInterval;
+        return sseAwareRefetchInterval(connectionStatus, pollFallbackMs);
       },
     },
   });
@@ -197,14 +200,18 @@ export function OwnerRoute() {
   }
 
   const isCompleted = state?.licenseStatus === "completed" || state?.status === "completed";
+  const embeddedPurses = state?.teamPurses;
 
-  const { data: allPurses } = useGetTeamPurses(tournamentId, {
+  const { data: allPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey:       getGetTeamPursesQueryKey(tournamentId),
-      enabled:        !!tournamentId && (screen === "live" || screen === "completed"),
-      refetchInterval: isCompleted ? false : 10000,
+      enabled:        !!tournamentId && (screen === "live" || screen === "completed") && !embeddedPurses?.length,
+      refetchInterval: isCompleted
+        ? false
+        : sseAwareRefetchInterval(connectionStatus, 10000),
     },
   });
+  const allPurses = embeddedPurses ?? allPursesFromQuery;
 
   const placeBid = usePlaceBid();
   const [lastBidError, setLastBidError] = useState("");
@@ -226,11 +233,11 @@ export function OwnerRoute() {
   async function handleBid(amount: number): Promise<"success" | "leading" | "error"> {
     try {
       const storedCode = getStoredOwnerAccessCode(teamId);
-      await placeBid.mutateAsync({
+      const result = await placeBid.mutateAsync({
         tournamentId,
         data: { teamId, amount, ...(storedCode ? { accessCode: storedCode } : {}) },
       });
-      qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      applyMutationResult(result);
       setLastBidError("");
       return "success";
     } catch (err: unknown) {
@@ -238,7 +245,7 @@ export function OwnerRoute() {
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
       if (msg.includes("already the highest bidder")) {
-        qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+        invalidateFallback();
         return "leading";
       }
       return "error";

@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
-import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
+import { broadcastOverlayUrl, broadcastOverlayPreviewUrl } from "@/lib/broadcast-overlay";
 import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useToast } from "@/hooks/use-toast";
@@ -155,6 +155,7 @@ export default function LinksPage() {
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
+  const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -231,6 +232,12 @@ export default function LinksPage() {
               url={broadcastOverlayUrlValue}
               description="Real-time player card, live bid, team ticker, and sponsor branding over your stream. Set browser source to 1920×1080 with a transparent background."
               shareText={`Broadcast Overlay for ${tournament?.name ?? "our auction"}: ${broadcastOverlayUrlValue}`}
+            />
+            <LinkRow
+              label="Camera preview (test without OBS)"
+              url={broadcastPreviewUrlValue}
+              description="See the live overlay on your laptop or phone camera — same layout as OBS, no streaming software needed."
+              shareText={`Overlay camera preview: ${broadcastPreviewUrlValue}`}
             />
             <div className="mt-6 pt-6 border-t border-border/50">
               <BroadcastOverlayInfo />

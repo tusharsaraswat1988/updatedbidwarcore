@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   useGetAuctionState,
   useGetTeamPurses,
@@ -16,8 +16,11 @@ import {
   type TeamPurse,
 } from "@workspace/api-client-react";
 import { useBranding } from "@/hooks/use-branding";
+import type { ConnectionStatus } from "@/hooks/use-auction-socket";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { parseSponsorLogos } from "@/lib/sponsor-logo";
 import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
+import { useCountdownSeconds } from "./use-countdown-seconds";
 import {
   mapApiPlayerFilter,
   type DerivedState,
@@ -175,10 +178,77 @@ const EMPTY_VIEW: LedView = {
   connectionStatus: "connecting",
 };
 
+type BreakMeta = {
+  endsAt: string | null;
+  type: "break" | "pre-auction";
+  message: string | null;
+  isBreakFlag: boolean;
+};
+
+function resolveBreakMeta(
+  state: LedAuctionStateSlice | undefined,
+  displayCountdown: { type?: string; endsAt?: string; message?: string | null } | null | undefined,
+): BreakMeta {
+  const isBreakFlag = !!state?.isBreak;
+  if (displayCountdown?.endsAt) {
+    return {
+      endsAt: displayCountdown.endsAt,
+      type: displayCountdown.type === "pre-auction" ? "pre-auction" : "break",
+      message: displayCountdown.message ?? null,
+      isBreakFlag,
+    };
+  }
+  if (isBreakFlag && state?.breakEndsAt) {
+    return {
+      endsAt: state.breakEndsAt,
+      type: "break",
+      message: null,
+      isBreakFlag,
+    };
+  }
+  return { endsAt: null, type: "break", message: null, isBreakFlag };
+}
+
+function applyLiveTiming(
+  base: LedView,
+  bidCountdown: number,
+  breakCountdown: number,
+  breakMeta: BreakMeta,
+): LedView {
+  let derivedState = base.derivedState;
+
+  if (breakCountdown > 0 && breakMeta.type === "pre-auction") {
+    derivedState = "preAuction";
+  } else if (breakCountdown > 0 && (breakMeta.type === "break" || breakMeta.isBreakFlag)) {
+    derivedState = "break";
+  }
+
+  const breakActive =
+    derivedState === "break" || derivedState === "preAuction";
+
+  return {
+    ...base,
+    derivedState,
+    state: {
+      ...base.state,
+      countdown: bidCountdown,
+    },
+    breakInfo: {
+      active: breakActive,
+      endsAt: breakMeta.endsAt,
+      secondsLeft: breakCountdown,
+      type: breakMeta.type,
+      message: breakMeta.message,
+    },
+  };
+}
+
 export function useLedView(
   tournamentId: number,
   connectionStatus: LedView["connectionStatus"] = "connected",
 ): LedView {
+  const sseStatus = connectionStatus as ConnectionStatus;
+
   const { data: tournament, isLoading: tournamentLoading, error: tournamentError } = useGetTournament(
     tournamentId,
     {
@@ -195,17 +265,18 @@ export function useLedView(
       query: {
         queryKey: getGetAuctionStateQueryKey(tournamentId),
         enabled: !!tournamentId,
-        refetchInterval: 10000,
+        refetchInterval: sseAwareRefetchInterval(sseStatus, 10000),
       },
     },
   );
 
-  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
+  const { data: teamPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId,
+      enabled: !!tournamentId && !(state?.teamPurses?.length),
     },
   });
+  const teamPurses = state?.teamPurses ?? teamPursesFromQuery;
 
   const { data: allPlayers } = useListPlayers(tournamentId, {
     query: {
@@ -232,13 +303,16 @@ export function useLedView(
 
   const brandingHook = useBranding();
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, []);
+  const stateExt = state as (typeof state & LedAuctionStateSlice) | undefined;
+  const breakMeta = useMemo(
+    () => resolveBreakMeta(stateExt, state?.displayCountdown),
+    [stateExt, state?.displayCountdown],
+  );
 
-  return useMemo<LedView>(() => {
+  const bidCountdown = useCountdownSeconds(state?.timerEndsAt ?? null);
+  const breakCountdown = useCountdownSeconds(breakMeta.endsAt);
+
+  const staticView = useMemo<LedView>(() => {
     const loading = tournamentLoading || stateLoading;
     const error = tournamentError || stateError;
 
@@ -260,7 +334,6 @@ export function useLedView(
       };
     }
 
-    const stateExt = state as (typeof state & LedAuctionStateSlice) | undefined;
     const outcome = stateExt?.outcome;
     const minBid = tournament.minBid ?? 0;
     const minSquadSize = tournament.minimumSquadSize ?? 0;
@@ -307,16 +380,6 @@ export function useLedView(
       isBidding && state?.timerType === "bid" ? bidTimerSecs : startTimerSecs,
     );
 
-    let countdown = 0;
-    if (state?.timerEndsAt) {
-      const endMs = Date.parse(state.timerEndsAt);
-      if (!Number.isNaN(endMs)) {
-        countdown = Math.max(0, Math.ceil((endMs - now) / 1000));
-      }
-    } else if (isBidding && state?.timerSeconds) {
-      countdown = state.timerSeconds;
-    }
-
     const currentBid = state?.currentBid ?? 0;
     const leadingTeam =
       state?.currentBidTeamId != null
@@ -341,13 +404,8 @@ export function useLedView(
     });
     const uniqueBidders = new Set(log.map((l) => l.teamId)).size;
 
-    const dc = state?.displayCountdown ?? null;
-    const countdownActive = !!(dc?.endsAt && Date.parse(dc.endsAt) > now);
-
     let derivedState: DerivedState = "idle";
     if (fortuneWheelActive) derivedState = "fortuneWheel";
-    else if (countdownActive && dc?.type === "pre-auction") derivedState = "preAuction";
-    else if (countdownActive && dc?.type === "break") derivedState = "break";
     else if (isBreakFlag) derivedState = "break";
     else if (
       state?.status === "paused" ||
@@ -437,23 +495,6 @@ export function useLedView(
       observedStep || (state?.bidIncrement ?? 0),
     );
     const nextMin = currentBid > 0 ? currentBid + inc : basePrice;
-
-    let breakSecondsLeft = 0;
-    let breakEndsAt: string | null = null;
-    let breakType: "break" | "pre-auction" = "break";
-    let breakMessage: string | null = null;
-    if (dc?.endsAt && Date.parse(dc.endsAt) > 0) {
-      breakEndsAt = dc.endsAt;
-      breakType = dc.type === "pre-auction" ? "pre-auction" : "break";
-      breakMessage = dc.message ?? null;
-      breakSecondsLeft = Math.max(0, Math.ceil((Date.parse(dc.endsAt) - now) / 1000));
-    } else if (isBreakFlag && stateExt?.breakEndsAt) {
-      breakEndsAt = stateExt.breakEndsAt ?? null;
-      if (breakEndsAt) {
-        const endMs = Date.parse(breakEndsAt);
-        if (!Number.isNaN(endMs)) breakSecondsLeft = Math.max(0, Math.ceil((endMs - now) / 1000));
-      }
-    }
 
     const soldOrRetained = players.filter(
       (p) => (p.status === "sold" || p.status === "retained") && p.soldToTeamId,
@@ -545,7 +586,7 @@ export function useLedView(
       state: {
         currentBid,
         isBidding,
-        countdown,
+        countdown: 0,
         teams,
         players,
         log,
@@ -583,11 +624,11 @@ export function useLedView(
         winner: state?.wheelWinner ?? null,
       },
       breakInfo: {
-        active: derivedState === "break" || derivedState === "preAuction",
-        endsAt: breakEndsAt,
-        secondsLeft: breakSecondsLeft,
-        type: breakType,
-        message: breakMessage,
+        active: false,
+        endsAt: breakMeta.endsAt,
+        secondsLeft: 0,
+        type: breakMeta.type,
+        message: breakMeta.message,
       },
       pausedSeconds: stateExt?.pausedTimeRemaining ?? null,
       auctionStatus: state?.status ?? "idle",
@@ -609,6 +650,7 @@ export function useLedView(
     state,
     stateLoading,
     stateError,
+    stateExt,
     teamPurses,
     allPlayers,
     categories,
@@ -620,8 +662,16 @@ export function useLedView(
     brandingHook.logos.mini,
     brandingHook.colors.primary,
     brandingHook.colors.accent,
-    now,
+    breakMeta.endsAt,
+    breakMeta.type,
+    breakMeta.message,
+    breakMeta.isBreakFlag,
     connectionStatus,
     currentPlayerId,
   ]);
+
+  return useMemo(
+    () => applyLiveTiming(staticView, bidCountdown, breakCountdown, breakMeta),
+    [staticView, bidCountdown, breakCountdown, breakMeta],
+  );
 }

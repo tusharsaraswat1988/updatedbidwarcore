@@ -135,6 +135,9 @@ importers:
       express-static-gzip:
         specifier: ^3.0.1
         version: 3.0.1
+      ioredis:
+        specifier: ^5.6.1
+        version: 5.11.1
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -232,6 +235,15 @@ importers:
 
   artifacts/auction-platform:
     dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.1.0)
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -1426,6 +1438,28 @@ packages:
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
     engines: {node: '>= 8.9.0'}
 
+  '@dnd-kit/accessibility@3.1.1':
+    resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
+    peerDependencies:
+      react: '>=16.8.0'
+
+  '@dnd-kit/core@6.3.1':
+    resolution: {integrity: sha512-xkGBRQQab4RLwgXxoqETICr6S5JlogafbhNsidmrkVv2YRs5MLwpjoF2qpiGjQt8S9AoxtIV603s0GIUpY5eYQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@dnd-kit/sortable@10.0.0':
+    resolution: {integrity: sha512-+xqhmIIzvAYMGfBYYnbKuNicfSsk4RksY2XdmJhT+HAC01nix6fHCztU68jooFiMUB01Ky3F0FyOvhG/BZrWkg==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.3.0
+      react: '>=16.8.0'
+
+  '@dnd-kit/utilities@3.2.2':
+    resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
+    peerDependencies:
+      react: '>=16.8.0'
+
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
 
@@ -1944,6 +1978,9 @@ packages:
     resolution: {integrity: sha512-/1ZryrMYg2ckIvJKoTu5Np50JfYMVffDMlVmppw/BdbN3pBTN7e6stI5/7E/LVh9DDzz6J588s7sWqul3fy5wA==}
     peerDependencies:
       onnxruntime-web: 1.21.0
+
+  '@ioredis/commands@1.10.0':
+    resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -3786,6 +3823,10 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  cluster-key-slot@1.1.1:
+    resolution: {integrity: sha512-rwHwUfXL40Chm1r08yrhU3qpUvdVlgkKNeyeGPOxnW8/SyVDvgRaed/Uz54AqWNaTCAThlj6QAs3TZcKI0xDEw==}
+    engines: {node: '>=0.10.0'}
+
   cmdk@1.1.1:
     resolution: {integrity: sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==}
     peerDependencies:
@@ -4056,6 +4097,10 @@ packages:
 
   delegates@1.0.0:
     resolution: {integrity: sha512-bd2L678uiWATM6m5Z1VzNCErI3jiGzt6HGY8OVICs40JQq/HALfbyNJmp0UDakEY4pMMaN0Ly5om/B1VI/+xfQ==}
+
+  denque@2.1.0:
+    resolution: {integrity: sha512-HVQE3AAb/pxF8fQAoiqpvg9i3evqug3hoiwakOyZAwJm+6vZehbkYXZ0l4JxS+I3QxM97v5aaRNhj8v5oBhekw==}
+    engines: {node: '>=0.10'}
 
   depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
@@ -4823,6 +4868,10 @@ packages:
   internmap@2.0.3:
     resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
     engines: {node: '>=12'}
+
+  ioredis@5.11.1:
+    resolution: {integrity: sha512-ehuGcf94bQXhfagULNXrJdfnWO38v070jxSx/qE87Kjzmu2fU7ro5EFAb+OPituLqgfyuQaym5DlrNydW2sJ9A==}
+    engines: {node: '>=12.22.0'}
 
   iota-array@1.0.0:
     resolution: {integrity: sha512-pZ2xT+LOHckCatGQ3DcG/a+QuEqvoxqkiL7tvE8nn3uuu+f6i1TtpB5/FtWFbxUuVr5PZCx8KskuGatbJDXOWA==}
@@ -6046,6 +6095,14 @@ packages:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  redis-errors@1.2.0:
+    resolution: {integrity: sha512-1qny3OExCf0UvUV/5wpYKf2YwPcOqXzkwKKSmKHiE6ZMQs5heeE/c8eXK+PNllPvmjgAbfnsbpkGZWy8cBpn9w==}
+    engines: {node: '>=4'}
+
+  redis-parser@3.0.0:
+    resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
+    engines: {node: '>=4'}
+
   reflect.getprototypeof@1.0.10:
     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
     engines: {node: '>= 0.4'}
@@ -6345,6 +6402,9 @@ packages:
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
+  standard-as-callback@2.1.0:
+    resolution: {integrity: sha512-qoRRSyROncaz1z0mvYqIE4lCd9p2R90i6GxW3uZv5ucSu8tU7B5HXUP1gG8pVZsYNVaXjk8ClXHPttLyxAL48A==}
+
   stat-mode@1.0.0:
     resolution: {integrity: sha512-jH9EhtKIjuXZ2cWxmXS8ZP80XyC3iasQxMDV8jzhNJpfDb7VbQLVW4Wvsxz9QZvzV+G4YoSfBUVKDOyxLzi/sg==}
     engines: {node: '>= 6'}
@@ -6536,6 +6596,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
@@ -7753,6 +7814,31 @@ snapshots:
       ajv: 6.15.0
       ajv-keywords: 3.5.2(ajv@6.15.0)
 
+  '@dnd-kit/accessibility@3.1.1(react@19.1.0)':
+    dependencies:
+      react: 19.1.0
+      tslib: 2.8.1
+
+  '@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@dnd-kit/accessibility': 3.1.1(react@19.1.0)
+      '@dnd-kit/utilities': 3.2.2(react@19.1.0)
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
+      tslib: 2.8.1
+
+  '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@dnd-kit/core': 6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@dnd-kit/utilities': 3.2.2(react@19.1.0)
+      react: 19.1.0
+      tslib: 2.8.1
+
+  '@dnd-kit/utilities@3.2.2(react@19.1.0)':
+    dependencies:
+      react: 19.1.0
+      tslib: 2.8.1
+
   '@drizzle-team/brocli@0.10.2': {}
 
   '@electron/asar@3.4.1':
@@ -8114,6 +8200,8 @@ snapshots:
       ndarray: 1.0.19
       onnxruntime-web: 1.21.0
       zod: 3.25.76
+
+  '@ioredis/commands@1.10.0': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -10159,6 +10247,8 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  cluster-key-slot@1.1.1: {}
+
   cmdk@1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.2.14)(react@19.1.0)
@@ -10401,6 +10491,8 @@ snapshots:
   delayed-stream@1.0.0: {}
 
   delegates@1.0.0: {}
+
+  denque@2.1.0: {}
 
   depd@2.0.0: {}
 
@@ -11331,6 +11423,18 @@ snapshots:
       side-channel: 1.1.0
 
   internmap@2.0.3: {}
+
+  ioredis@5.11.1:
+    dependencies:
+      '@ioredis/commands': 1.10.0
+      cluster-key-slot: 1.1.1
+      debug: 4.4.3
+      denque: 2.1.0
+      redis-errors: 1.2.0
+      redis-parser: 3.0.0
+      standard-as-callback: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   iota-array@1.0.0: {}
 
@@ -12530,6 +12634,12 @@ snapshots:
       tiny-invariant: 1.3.3
       victory-vendor: 36.9.2
 
+  redis-errors@1.2.0: {}
+
+  redis-parser@3.0.0:
+    dependencies:
+      redis-errors: 1.2.0
+
   reflect.getprototypeof@1.0.10:
     dependencies:
       call-bind: 1.0.9
@@ -12886,6 +12996,8 @@ snapshots:
       minipass: 3.3.6
 
   stackback@0.0.2: {}
+
+  standard-as-callback@2.1.0: {}
 
   stat-mode@1.0.0: {}
 

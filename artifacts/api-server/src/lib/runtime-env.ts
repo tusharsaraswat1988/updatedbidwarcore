@@ -19,6 +19,7 @@ export type RuntimeConfig = {
   publicOrigin: string;
   corsOrigins: string[];
   serveStatic: boolean;
+  redisUrl: string | undefined;
 };
 
 let cached: RuntimeConfig | null = null;
@@ -96,6 +97,7 @@ function buildCachedConfig(): RuntimeConfig {
     publicOrigin,
     corsOrigins: buildCorsOrigins(appHosts, publicScheme, isProduction),
     serveStatic,
+    redisUrl: process.env.REDIS_URL?.trim() || undefined,
   };
 }
 

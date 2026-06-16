@@ -392,7 +392,7 @@ export default function PlayerRegister() {
                         setSubmitted(false); setWaConsent(false); setErrorMsg(null); setEmailError("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
-                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "",
+                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
                           cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
                         });

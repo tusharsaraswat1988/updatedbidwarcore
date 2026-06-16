@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useRoute, useLocation } from "wouter";
 
 const FortuneWheelModal = lazy(() =>
@@ -40,6 +40,9 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useMutationSync } from "@/hooks/use-mutation-sync";
+import { useOperatorSessionLock } from "@/hooks/use-operator-session-lock";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
 import { OperatorLayout } from "@/components/operator-layout";
@@ -257,6 +260,8 @@ export default function AuctionOperator() {
   }, []);
 
   const { connectionStatus } = useAuctionSocket(tournamentId);
+  const { applyMutationResult, invalidateFallback } = useMutationSync(tournamentId, connectionStatus);
+  const { readOnly: operatorReadOnly, lockReady: operatorLockReady } = useOperatorSessionLock(tournamentId);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -279,7 +284,11 @@ export default function AuctionOperator() {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: bids } = useListBids(tournamentId, {
-    query: { queryKey: getListBidsQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
+    query: {
+      queryKey: getListBidsQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: sseAwareRefetchInterval(connectionStatus, 5000),
+    },
   });
   const lastSaleBid = useMemo(() => {
     if (!bids?.length) return null;
@@ -291,7 +300,11 @@ export default function AuctionOperator() {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teamPurses } = useGetTeamPurses(tournamentId, {
-    query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 5000 },
+    query: {
+      queryKey: getGetTeamPursesQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: sseAwareRefetchInterval(connectionStatus, 5000),
+    },
   });
 
   const startAuction       = useStartAuction();
@@ -314,23 +327,30 @@ export default function AuctionOperator() {
 
   const currentPlayerSpecGroups = useRoleSpecGroups(tournament?.sport, state?.currentPlayer?.role);
 
-  const invalidate = useCallback(() => {
-    qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
-    qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
-    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
-    qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
-  }, [qc, tournamentId]);
+  const auctionMutationPending =
+    placeBid.isPending ||
+    sellPlayer.isPending ||
+    markUnsold.isPending ||
+    nextPlayer.isPending ||
+    startAuction.isPending ||
+    pauseAuction.isPending ||
+    deferPlayerMut.isPending ||
+    reAuction.isPending;
+
+  const controlsLocked = operatorReadOnly || auctionMutationPending;
 
   async function handleNextPlayer(mode: "sequential" | "random", playerId?: number) {
-    await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
+    if (controlsLocked) return;
+    const result = await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
     setCurrentBidPaused(false);
     if (state?.displayOverlay) {
       await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
     }
-    invalidate();
+    applyMutationResult(result);
   }
 
   function handleBid(teamId: number) {
+    if (controlsLocked || placeBid.isPending) return;
     const now = Date.now();
     if ((bidDebounce.current.get(teamId) ?? 0) + 150 > now) return;
     bidDebounce.current.set(teamId, now);
@@ -346,16 +366,24 @@ export default function AuctionOperator() {
     });
     placeBid
       .mutateAsync({ tournamentId, data: { teamId, amount: nextBid } })
-      .then(result => { qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result); invalidate(); })
-      .catch(() => { invalidate(); });
+      .then((result) => { applyMutationResult(result); })
+      .catch(() => { invalidateFallback(); });
   }
 
-  async function handleSell() { await sellPlayer.mutateAsync({ tournamentId }); invalidate(); }
-  async function handleUnsold() { await markUnsold.mutateAsync({ tournamentId }); invalidate(); }
+  async function handleSell() {
+    if (controlsLocked || sellPlayer.isPending) return;
+    const result = await sellPlayer.mutateAsync({ tournamentId });
+    applyMutationResult(result);
+  }
+  async function handleUnsold() {
+    if (controlsLocked || markUnsold.isPending) return;
+    const result = await markUnsold.mutateAsync({ tournamentId });
+    applyMutationResult(result);
+  }
   async function handleManualSell() {
-    if (!manualTeamId || !manualAmount) return;
+    if (!manualTeamId || !manualAmount || controlsLocked) return;
     try {
-      await manualSellMut.mutateAsync({
+      const result = await manualSellMut.mutateAsync({
         tournamentId,
         data: {
           teamId: parseInt(manualTeamId),
@@ -367,12 +395,13 @@ export default function AuctionOperator() {
       setManualTeamId("");
       setManualAmount("");
       setManualSellReason("");
-      invalidate();
+      applyMutationResult(result);
     } catch { /* error shown in dialog */ }
   }
 
   async function handleReAuction(playerId: number, startFromBase: boolean, reason?: string) {
-    await reAuction.mutateAsync({
+    if (controlsLocked || reAuction.isPending) return;
+    const result = await reAuction.mutateAsync({
       tournamentId,
       data: {
         playerId,
@@ -381,7 +410,7 @@ export default function AuctionOperator() {
       },
     });
     setCurrentBidPaused(false);
-    invalidate();
+    applyMutationResult(result);
   }
 
   function resolveTimerSecondsForPhase(): number {
@@ -392,24 +421,24 @@ export default function AuctionOperator() {
   }
 
   async function handleStartTimer() {
+    if (controlsLocked) return;
     const secs = resolveTimerSecondsForPhase();
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
-    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    invalidate();
+    applyMutationResult(result);
   }
 
   async function handleExtendTimer() {
+    if (controlsLocked) return;
     const secs = (parseInt(timerSecs) || 30) + 30;
     const result = await startTimerMut.mutateAsync({ tournamentId, data: { seconds: secs } });
-    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-    invalidate();
+    applyMutationResult(result);
   }
 
   async function handleStopTimer() {
+    if (controlsLocked) return;
     const result = await stopTimerMut.mutateAsync({ tournamentId });
-    qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+    applyMutationResult(result);
     setCurrentBidPaused(true);
-    invalidate();
   }
 
   function handleStartBiddingClick() {
@@ -436,11 +465,15 @@ export default function AuctionOperator() {
 
   async function handleInstantReauction(playerId?: number) {
     const targetId = playerId ?? lastSaleBid?.playerId;
-    if (!targetId || reAuction.isPending || isPaused) return;
+    if (!targetId || controlsLocked || reAuction.isPending || isPaused) return;
     await handleReAuction(targetId, true);
   }
 
-  async function handleDeferPlayer() { await deferPlayerMut.mutateAsync({ tournamentId }); invalidate(); }
+  async function handleDeferPlayer() {
+    if (controlsLocked || deferPlayerMut.isPending) return;
+    const result = await deferPlayerMut.mutateAsync({ tournamentId });
+    applyMutationResult(result);
+  }
 
   function openCountdownDialog() {
     setCountdownMinutes("5");
@@ -470,9 +503,8 @@ export default function AuctionOperator() {
     }
     try {
       const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "start", durationSeconds, message } });
-      qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
+      applyMutationResult(result);
       setCountdownDialogOpen(false);
-      invalidate();
       toast({
         title: "Countdown started",
         description: isActive ? "Auction paused — countdown is live on all displays." : "Countdown is live on all displays.",
@@ -486,8 +518,7 @@ export default function AuctionOperator() {
   async function handleCancelCountdown() {
     try {
       const result = await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
-      qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), result);
-      invalidate();
+      applyMutationResult(result);
       toast({
         title: "Break timer cancelled",
         description:
@@ -502,8 +533,8 @@ export default function AuctionOperator() {
   }
 
   async function handleBringUnsoldPlayers() {
-    await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: {} });
-    invalidate();
+    const result = await reAuctionAllUnsoldMut.mutateAsync({ tournamentId, data: {} });
+    applyMutationResult(result);
   }
 
   async function handleBatchReAuction() {
@@ -513,9 +544,9 @@ export default function AuctionOperator() {
 
   async function handleConcludeAuction(force = false) {
     try {
-      await concludeAuctionMut.mutateAsync({ tournamentId, data: { force } });
+      const result = await concludeAuctionMut.mutateAsync({ tournamentId, data: { force } });
       setConcludeDialogOpen(false);
-      invalidate();
+      applyMutationResult(result);
     } catch (err: unknown) {
       const data = (err as { data?: { requiresConfirmation?: boolean } })?.data;
       if (data?.requiresConfirmation) {
@@ -525,9 +556,10 @@ export default function AuctionOperator() {
   }
 
   async function handleStartAuction() {
+    if (controlsLocked) return;
     if (isPaused) {
-      await startAuction.mutateAsync({ tournamentId });
-      invalidate();
+      const result = await startAuction.mutateAsync({ tournamentId });
+      applyMutationResult(result);
       return;
     }
 
@@ -546,8 +578,8 @@ export default function AuctionOperator() {
     }
 
     try {
-      await startAuction.mutateAsync({ tournamentId });
-      invalidate();
+      const result = await startAuction.mutateAsync({ tournamentId });
+      applyMutationResult(result);
     } catch (err: unknown) {
       const issues = (err as { data?: { issues?: string[] } })?.data?.issues;
       if (issues?.length) {
@@ -564,14 +596,14 @@ export default function AuctionOperator() {
   }
 
   async function applyCategoryFilter() {
-    await setCategoryFilter.mutateAsync({ tournamentId, data: { categoryIds: pendingCategoryIds.length > 0 ? pendingCategoryIds : null } as any });
+    const result = await setCategoryFilter.mutateAsync({ tournamentId, data: { categoryIds: pendingCategoryIds.length > 0 ? pendingCategoryIds : null } as any });
     setCategoryFilterOpen(false);
-    invalidate();
+    applyMutationResult(result);
   }
 
   async function clearCategoryFilter() {
-    await setCategoryFilter.mutateAsync({ tournamentId, data: { categoryIds: null } as any });
-    invalidate();
+    const result = await setCategoryFilter.mutateAsync({ tournamentId, data: { categoryIds: null } as any });
+    applyMutationResult(result);
   }
 
   const timerSecsUserEdited = useRef(false);
@@ -616,22 +648,23 @@ export default function AuctionOperator() {
   // Keyboard shortcuts — declared here so derived vars are in scope
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (controlsLocked) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       switch (e.key.toLowerCase()) {
-        case "s": if (!timerActive && hasBid && isActive) handleSell(); break;
-        case "u": if (!timerActive && hasPlayer && isActive) handleUnsold(); break;
-        case "d": if (!timerActive && hasPlayer && isActive) handleDeferPlayer(); break;
+        case "s": if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell(); break;
+        case "u": if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold(); break;
+        case "d": if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer(); break;
         case "m": if (!timerActive && hasPlayer) { setManualAmount(String(state?.currentBid || state?.currentPlayer?.basePrice || 0)); setManualTeamId(""); setManualSellOpen(true); } break;
-        case "n": if (!timerActive && isActive) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
-        case "z": if (isActive && lastSaleBid) void handleInstantReauction(); break;
+        case "n": if (!timerActive && isActive && !nextPlayer.isPending) handleNextPlayer(selectionMode === "random" ? "random" : "sequential"); break;
+        case "z": if (isActive && lastSaleBid && !reAuction.isPending) void handleInstantReauction(); break;
         case " ": e.preventDefault(); if (isActive && hasPlayer) { timerActive ? handleStopTimer() : handleStartBiddingClick(); } break;
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, hasPlayer, timerActive, hasBid]);
+  }, [isActive, hasPlayer, timerActive, hasBid, controlsLocked]);
 
   // Category-filtered available queue (used for category filter context)
   const filteredQueue = activeCategoryIds && activeCategoryIds.length > 0
@@ -689,6 +722,13 @@ export default function AuctionOperator() {
             {connectionStatus === "disconnected"
               ? "Feed disconnected — updates may be delayed. Attempting to reconnect…"
               : "Reconnecting to live feed — bid updates may be delayed…"}
+          </div>
+        )}
+
+        {operatorLockReady && operatorReadOnly && (
+          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Read-only — another operator tab is controlling this auction. Close the other tab or wait for it to disconnect.
           </div>
         )}
 
@@ -780,7 +820,7 @@ export default function AuctionOperator() {
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-green-600 hover:bg-green-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
               onClick={handleStartAuction}
-              disabled={startAuction.isPending}
+              disabled={controlsLocked || startAuction.isPending}
             >
               <Play className="w-3 h-3" />
               {isPaused ? "Resume Auction" : isTrialMode ? "Start Practice" : "Start Auction"}
@@ -788,7 +828,12 @@ export default function AuctionOperator() {
           ) : isActive ? (
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 transition-all flex-shrink-0"
-              onClick={async () => { await pauseAuction.mutateAsync({ tournamentId }); invalidate(); }}
+              onClick={async () => {
+                if (controlsLocked || pauseAuction.isPending) return;
+                const result = await pauseAuction.mutateAsync({ tournamentId });
+                applyMutationResult(result);
+              }}
+              disabled={controlsLocked || pauseAuction.isPending}
               title="Pause the entire auction for a break — shown on LED, owner panels, and displays"
             >
               <Pause className="w-3 h-3" /> Pause Auction
@@ -808,7 +853,11 @@ export default function AuctionOperator() {
           <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-white/10 bg-white/4 flex-shrink-0">
             <span className="text-[9px] font-bold uppercase tracking-wider text-white/30 pr-1.5 border-r border-white/10 mr-0.5 leading-tight">LED<br/>SCREEN</span>
             <button
-              onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } }); invalidate(); }}
+              onClick={async () => {
+                if (controlsLocked) return;
+                const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+                applyMutationResult(result);
+              }}
               disabled={timerActive || setDisplayOverlay.isPending}
               className={`flex items-center gap-1.5 h-7 px-3 rounded text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 !state?.displayOverlay
@@ -827,9 +876,10 @@ export default function AuctionOperator() {
                     <button
                       title={active ? "Player view active — click to filter" : "Show Player list on LED screen"}
                       onClick={async () => {
+                        if (controlsLocked) return;
                         if (!active) {
-                          await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "player" } });
-                          invalidate();
+                          const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "player" } });
+                          applyMutationResult(result);
                         }
                         setPlayerFilterOpen(v => !v);
                       }}
@@ -851,11 +901,11 @@ export default function AuctionOperator() {
                                 key={opt}
                                 onClick={async () => {
                                   setPlayerFilterStatus(opt);
-                                  await setDisplayPlayerFilterMut.mutateAsync({
+                                  const result = await setDisplayPlayerFilterMut.mutateAsync({
                                     tournamentId,
                                     data: { status: opt, teamId: playerFilterTeamId },
                                   });
-                                  invalidate();
+                                  applyMutationResult(result);
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize transition-all ${
                                   playerFilterStatus === opt
@@ -875,8 +925,8 @@ export default function AuctionOperator() {
                               <button
                                 onClick={async () => {
                                   setPlayerFilterTeamId(null);
-                                  await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: playerFilterStatus, teamId: null } });
-                                  invalidate();
+                                  const result = await setDisplayPlayerFilterMut.mutateAsync({ tournamentId, data: { status: playerFilterStatus, teamId: null } });
+                                  applyMutationResult(result);
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                   playerFilterTeamId === null ? "bg-blue-600 text-white" : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
@@ -889,11 +939,11 @@ export default function AuctionOperator() {
                                   key={team.id}
                                   onClick={async () => {
                                     setPlayerFilterTeamId(team.id);
-                                    await setDisplayPlayerFilterMut.mutateAsync({
+                                    const result = await setDisplayPlayerFilterMut.mutateAsync({
                                       tournamentId,
                                       data: { status: playerFilterStatus, teamId: team.id },
                                     });
-                                    invalidate();
+                                    applyMutationResult(result);
                                   }}
                                   className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all ${
                                     playerFilterTeamId === team.id ? "bg-blue-600 text-white" : "bg-white/8 text-white/50 hover:text-white hover:bg-white/14"
@@ -914,7 +964,11 @@ export default function AuctionOperator() {
               return (
                 <button key={mode}
                   title={active ? `Showing ${label} on LED — click to return to live` : `Show ${label} on LED screen`}
-                  onClick={async () => { await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } }); invalidate(); }}
+                  onClick={async () => {
+                    if (controlsLocked) return;
+                    const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: active ? "off" : mode } });
+                    applyMutationResult(result);
+                  }}
                   disabled={timerActive || setDisplayOverlay.isPending}
                   className={`flex items-center gap-1 h-7 px-2.5 rounded text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                     active ? `${bg} shadow-md ring-1 ring-white/20` : "text-white/35 hover:text-white hover:bg-white/8"
@@ -1154,7 +1208,7 @@ export default function AuctionOperator() {
 
                           {isAvail && !isNowOn && (
                             <button
-                              disabled={!isActive || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
+                              disabled={controlsLocked || !isActive || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
                               title={timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
                               onClick={() => handleNextPlayer("sequential", player.id)}
                               className="text-[9px] px-2 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-semibold transition-all"
@@ -1164,7 +1218,7 @@ export default function AuctionOperator() {
                           )}
                           {(isSold || isUnsold) && (
                             <button
-                              disabled={reAuction.isPending || isPaused}
+                              disabled={controlsLocked || reAuction.isPending || isPaused}
                               title={isPaused ? "Resume auction before re-auctioning" : "Re-auction this player"}
                               onClick={() => void handleInstantReauction(player.id)}
                               className="text-[9px] px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-30 font-semibold inline-flex items-center gap-0.5 transition-all whitespace-nowrap"
@@ -1284,7 +1338,7 @@ export default function AuctionOperator() {
                             <div className="min-w-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
                                 {state?.currentPlayer?.role?.toUpperCase() || "PLAYER"}
-                                <span className="ml-2 font-mono text-white/25">#{state.currentPlayer.id}</span>
+                                <span className="ml-2 font-mono text-white/25">#{state?.currentPlayer?.id}</span>
                                 {state?.currentPlayer?.categoryId && categoryMap[state.currentPlayer.categoryId] && (
                                   <span className="ml-2" style={{ color: categoryMap[state.currentPlayer.categoryId].colorCode || undefined }}>
                                     · {categoryMap[state.currentPlayer.categoryId].name}
@@ -1365,7 +1419,7 @@ export default function AuctionOperator() {
                       icon: CheckCircle,
                       sub: isPaused ? "Resume first [S]" : timerActive ? "Pause bid first [S]" : !hasBid ? "Bid first [S]" : `${state?.currentBidTeamName ?? ""} [S]`.trim(),
                       title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first, then click SOLD" : !hasBid ? "Place a bid first — use Start Bidding, then a team bid button" : undefined,
-                      disabled: isPaused || !hasBid || timerActive || sellPlayer.isPending,
+                      disabled: controlsLocked || isPaused || !hasBid || timerActive || sellPlayer.isPending,
                       onClick: handleSell,
                       bg: "bg-green-600/15", border: "border-green-600/60", text: "text-green-400", glow: "0 0 16px rgba(34,197,94,0.25)",
                     },
@@ -1374,7 +1428,7 @@ export default function AuctionOperator() {
                       icon: XCircle,
                       sub: isPaused ? "Resume first [U]" : timerActive ? "Pause bid first [U]" : "No bid [U]",
                       title: isPaused ? "Resume auction before concluding a player" : timerActive ? "Pause current bid first" : undefined,
-                      disabled: isPaused || !hasPlayer || timerActive || markUnsold.isPending,
+                      disabled: controlsLocked || isPaused || !hasPlayer || timerActive || markUnsold.isPending,
                       onClick: handleUnsold,
                       bg: "bg-red-600/10", border: "border-red-600/50", text: "text-red-400", glow: "",
                     },
@@ -1383,7 +1437,7 @@ export default function AuctionOperator() {
                       icon: Hourglass,
                       sub: isPaused ? "Resume first [D]" : timerActive ? "Pause bid first [D]" : "Back queue [D]",
                       title: isPaused ? "Resume auction before deferring a player" : timerActive ? "Pause current bid first" : undefined,
-                      disabled: isPaused || !hasPlayer || timerActive || deferPlayerMut.isPending,
+                      disabled: controlsLocked || isPaused || !hasPlayer || timerActive || deferPlayerMut.isPending,
                       onClick: handleDeferPlayer,
                       bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-400", glow: "",
                     },
@@ -1415,7 +1469,7 @@ export default function AuctionOperator() {
                 {/* Reauction last player */}
                 <button
                   onClick={() => void handleInstantReauction()}
-                  disabled={!lastSaleBid || reAuction.isPending || isPaused}
+                  disabled={controlsLocked || !lastSaleBid || reAuction.isPending || isPaused}
                   title={isPaused ? "Resume auction before re-auctioning" : "Reverse the last sale and start a reauction [Z]"}
                   className="w-full flex flex-col items-center justify-center gap-1 py-3 rounded-xl border-2 border-orange-500/40 bg-orange-500/10 text-orange-300 font-bold text-sm transition-all disabled:opacity-35 disabled:cursor-not-allowed hover:bg-orange-500/20 enabled:hover:scale-[1.01]"
                 >
@@ -1429,7 +1483,7 @@ export default function AuctionOperator() {
                 {/* NEXT PLAYER + START/STOP BIDDING */}
                 <div className="grid grid-cols-5 gap-2">
                   <button
-                    disabled={!isActive || timerActive || nextPlayer.isPending}
+                    disabled={controlsLocked || !isActive || timerActive || nextPlayer.isPending}
                     onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
                     title={timerActive ? "Stop bidding first" : undefined}
                     className="col-span-3 flex items-center justify-center gap-3 py-4 rounded-xl font-display font-black text-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-yellow-500/90 to-yellow-400 text-black hover:from-yellow-400 hover:to-yellow-300 enabled:shadow-[0_0_28px_rgba(234,179,8,0.4)] enabled:hover:scale-[1.01]"
@@ -1485,7 +1539,7 @@ export default function AuctionOperator() {
                         const isLeading = state?.currentBidTeamId === team.id;
                         const nextBid   = nextBidAmount;
                         const isTrialRestricted = isTrialMode && trialTeamIds !== null && !trialTeamIds.includes(team.id);
-                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached;
+                        const canBid = isActive && hasPlayer && timerActive && spendable >= nextBid && !!team.isBiddingEnabled && !isLeading && !isTrialRestricted && !maxReached && !controlsLocked && !placeBid.isPending;
                         return (
                           <button key={team.id} disabled={!canBid} onClick={() => handleBid(team.id)}
                             className={`relative p-3 rounded-xl border-2 text-left transition-all ${isLeading ? "scale-[1.01]" : "border-white/10"} ${!canBid ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]"}`}

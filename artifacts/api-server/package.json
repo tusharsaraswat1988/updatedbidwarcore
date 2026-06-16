@@ -38,6 +38,7 @@
     "twilio": "^6.0.2",
     "web-push": "^3.6.7",
     "ws": "^8.20.0",
+    "ioredis": "^5.6.1",
     "zod": "catalog:"
   },
   "devDependencies": {

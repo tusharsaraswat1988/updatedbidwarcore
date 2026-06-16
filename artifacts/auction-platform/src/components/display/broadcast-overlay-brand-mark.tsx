@@ -8,7 +8,7 @@ import {
 } from "@/lib/broadcast-overlay";
 
 /**
- * Permanent top-left brand mark for the Broadcast Overlay.
+ * Permanent top-center brand mark for the Broadcast Overlay.
  * Sized below sponsor carousel logos; stays inside the action-safe inset.
  */
 export const BroadcastOverlayBrandMark = memo(function BroadcastOverlayBrandMark() {

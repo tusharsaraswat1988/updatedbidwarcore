@@ -263,7 +263,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
-  await broadcastState(tid, ["purses", "auction_state"]);
+  await broadcastState(tid);
 
   res.status(201).json({ applied, totalTeamsAffected: applied.length });
 });
@@ -344,7 +344,7 @@ router.post("/tournaments/:tournamentId/purse-boosters/:boosterId/cancel", async
     alertKey: "purse_booster",
   });
 
-  await broadcastState(tid, ["purses"]);
+  await broadcastState(tid);
 
   res.json(boosterToOrganizerJson(updated));
 });

@@ -8,7 +8,7 @@ export default function AdminSportsPage() {
 
   return (
     <AdminShell title="Sports & Specs" eyebrow="Tournament & Organisers">
-      <div className="overflow-hidden rounded-xl border border-border bg-card/70">
+      <div className="overflow-hidden rounded-xl border border-border bg-card/70 min-h-[calc(100vh-10rem)] flex flex-col">
         <SportsPanel />
       </div>
     </AdminShell>

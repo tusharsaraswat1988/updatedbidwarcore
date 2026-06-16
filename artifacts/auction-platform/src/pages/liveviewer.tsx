@@ -10,11 +10,10 @@ import {
   getGetTeamPursesQueryKey,
   useListPlayers,
   getListPlayersQueryKey,
-  useListCategories,
-  getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
 import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
@@ -957,6 +956,7 @@ export default function LiveViewerPage() {
   const [cheerOpen, setCheerOpen] = useState(false);
   const [heatLevel, setHeatLevel] = useState<string | null>(null);
   const [fanBattle, setFanBattle] = useState<Record<string, number>>({});
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   const handleCheerMessage = useCallback((msg: CheerMessage) => {
     setCheerMessages((prev) => {
@@ -991,7 +991,7 @@ export default function LiveViewerPage() {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
       enabled: !!tournamentId,
-      refetchInterval: isCompleted ? false : 30000,
+      refetchInterval: isCompleted ? false : sseAwareRefetchInterval(connectionStatus, 30000),
       staleTime: 15000,
     },
   });
@@ -1005,26 +1005,23 @@ export default function LiveViewerPage() {
     [state?.status, state?.lastAction, state?.outcome, state?.displayCountdown],
   );
 
-  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
+  const embeddedPurses = state?.teamPurses;
+  const needsPlayerList = isCompleted || selectedTeamId !== null;
+
+  const { data: queriedTeamPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: isCompleted ? false : 30000,
+      enabled: !!tournamentId && !embeddedPurses?.length,
+      refetchInterval: isCompleted ? false : sseAwareRefetchInterval(connectionStatus, 30000),
       staleTime: 15000,
     },
   });
+  const teamPurses = embeddedPurses ?? queriedTeamPurses;
+
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      staleTime: 15000,
-    },
-  });
-  // Prefetch categories into cache for squad detail enrichment
-  useListCategories(tournamentId, {
-    query: {
-      queryKey: getListCategoriesQueryKey(tournamentId),
-      enabled: !!tournamentId,
+      enabled: !!tournamentId && needsPlayerList,
       staleTime: 15000,
     },
   });
@@ -1123,7 +1120,6 @@ export default function LiveViewerPage() {
   }
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [allTeamsOpen, setAllTeamsOpen] = useState(false);
   const [soundSettingsOpen, setSoundSettingsOpen] = useState(false);
 

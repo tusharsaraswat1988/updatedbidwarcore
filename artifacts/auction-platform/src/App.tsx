@@ -38,6 +38,7 @@ const AdminTournamentDetail = lazy(() => import("@/pages/admin-tournament-detail
 const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
+const ObsOverlayPreview = lazy(() => import("@/pages/obs-overlay-preview"));
 const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
@@ -131,6 +132,7 @@ function Router() {
         </Route>
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
         <Route path="/tournament/:id/register" component={PlayerRegister} />
+        <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 
         {/* Badminton — public scoreboard / display / overlay pages (feature-flagged) */}

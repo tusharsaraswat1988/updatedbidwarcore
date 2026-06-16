@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getGetAuctionStateQueryKey } from "@workspace/api-client-react";
 import {
-  getGetAuctionStateQueryKey,
-  getGetTeamPursesQueryKey,
-} from "@workspace/api-client-react";
+  applyAuctionSseMessage,
+  resetAuctionEventVersion,
+  type SseAuctionMessage,
+} from "@/lib/sync-auction-sse";
+import { nextSseReconnectDelayMs } from "@/lib/sse-reconnect";
 
 export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
 
-/** SSE push for auction state — keeps owner panels in sync with operator pause/resume. */
+/** SSE push for auction state — same transport and merge path as auction-platform screens. */
 export function useAuctionSocket(tournamentId: number): { connectionStatus: ConnectionStatus } {
   const qc = useQueryClient();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("reconnecting");
@@ -21,8 +24,10 @@ export function useAuctionSocket(tournamentId: number): { connectionStatus: Conn
     let retryTimer: ReturnType<typeof setTimeout>;
     let disconnectedTimer: ReturnType<typeof setTimeout>;
     let destroyed = false;
+    let reconnectAttempt = 0;
 
     function markConnected() {
+      reconnectAttempt = 0;
       clearTimeout(disconnectedTimer);
       setStatusRef.current("connected");
     }
@@ -52,13 +57,14 @@ export function useAuctionSocket(tournamentId: number): { connectionStatus: Conn
         if (es !== current) return;
         markConnected();
         try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "auction_state" && msg.state) {
-            qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), msg.state);
-            const invalidate: string[] = msg.invalidate ?? [];
-            if (invalidate.includes("purses")) {
-              qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
-            }
+          const msg = JSON.parse(event.data) as SseAuctionMessage;
+          if (
+            msg.type === "auction_state" ||
+            msg.type === "bid" ||
+            msg.type === "sold" ||
+            msg.type === "unsold"
+          ) {
+            applyAuctionSseMessage(qc, tournamentId, msg);
           }
         } catch {
           // ignore malformed messages
@@ -70,14 +76,18 @@ export function useAuctionSocket(tournamentId: number): { connectionStatus: Conn
         es.close();
         markReconnecting();
         if (!destroyed) {
-          retryTimer = setTimeout(connect, 3000);
+          const delay = nextSseReconnectDelayMs(reconnectAttempt);
+          reconnectAttempt += 1;
+          retryTimer = setTimeout(connect, delay);
         }
       };
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
+        resetAuctionEventVersion(tournamentId);
         qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+        reconnectAttempt = 0;
         connect();
       }
     }
