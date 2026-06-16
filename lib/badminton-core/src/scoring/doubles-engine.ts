@@ -19,6 +19,10 @@ import type {
   DoublesMatchStartedPayload,
   DoublesServeState,
 } from "./types";
+import {
+  deriveDoublesServeAfterPointWon,
+  validateDoublesServeAgainstPayload,
+} from "./doubles-replay-derive";
 
 function isDoublesPayload(
   input: BadmintonMatchStartedPayload,
@@ -209,23 +213,16 @@ export class DoublesScoringEngine implements BadmintonScoringEngine {
     state: BadmintonMatchState,
     payload: BadmintonPointWonPayload,
   ): Partial<BadmintonMatchState> {
-    if (!payload.doublesServe) {
-      return { servingSide: payload.winningSide };
+    const derived = deriveDoublesServeAfterPointWon(state, payload);
+    if (!derived) {
+      return { servingSide: payload.servingSide ?? payload.winningSide };
     }
 
-    const doublesServe: DoublesServeState = {
-      setup: state.doublesServe!.setup,
-      lastGameEnd: state.doublesServe?.lastGameEnd,
-      servingSide: payload.doublesServe.servingSide,
-      servingPlayerIndex: payload.doublesServe.servingPlayerIndex,
-      receivingSide: payload.doublesServe.receivingSide,
-      receivingPlayerIndex: payload.doublesServe.receivingPlayerIndex,
-      courtPositions: payload.doublesServe.courtPositions,
-    };
+    validateDoublesServeAgainstPayload(derived, payload.doublesServe);
 
     return {
-      servingSide: payload.doublesServe.servingSide,
-      doublesServe,
+      servingSide: derived.servingSide,
+      doublesServe: derived,
     };
   }
 

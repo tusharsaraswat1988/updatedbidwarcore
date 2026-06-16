@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useSearch, useRoute } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
+import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
 import {
   DoublesPreMatchSetup,
   SinglesPreMatchSetup,
@@ -151,17 +152,28 @@ export default function BadmintonScorerPage() {
   return (
     <FullscreenLayout>
       <div className="relative h-screen overflow-hidden">
-        <ScorerPanel
-          tournamentId={tournamentId}
-          matchId={matchId}
+        <UmpireAssistanceShell
           state={state}
           onAwardPoint={scorer.awardPoint}
-          onUndo={scorer.undo}
-          onStartTimeout={scorer.startTimeout}
-          onEndTimeout={scorer.endTimeout}
-          onRetirement={scorer.retirement}
-          onWalkover={scorer.walkover}
-        />
+          onStartInterval={scorer.startInterval}
+          onEndInterval={scorer.endInterval}
+          onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
+        >
+          {({ scoringBlocked, onAwardPoint }) => (
+            <ScorerPanel
+              tournamentId={tournamentId}
+              matchId={matchId}
+              state={state}
+              onAwardPoint={onAwardPoint}
+              onUndo={scorer.undo}
+              onStartTimeout={scorer.startTimeout}
+              onEndTimeout={scorer.endTimeout}
+              onRetirement={scorer.retirement}
+              onWalkover={scorer.walkover}
+              scoringBlocked={scoringBlocked}
+            />
+          )}
+        </UmpireAssistanceShell>
       </div>
     </FullscreenLayout>
   );

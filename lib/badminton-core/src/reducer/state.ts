@@ -34,6 +34,8 @@ export function createInitialBadmintonState(meta: BadmintonMatchMeta): Badminton
     activeTimeout: null,
     lastSequence: 0,
     totalRallies: 0,
+    isPaused: false,
+    matchNotes: [],
   };
 }
 

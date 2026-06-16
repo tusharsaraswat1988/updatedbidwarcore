@@ -74,6 +74,7 @@ const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
 const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
 const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
 const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
+const BadmintonMatchControlPage = lazy(() => import("@/pages/badminton/match-control"));
 const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
 const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
 const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
@@ -379,6 +380,16 @@ function Router() {
             return (
               <ScoringFeatureGuard>
                 <OrganizerGuard tournamentId={tid}><BadmintonMatchesPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/matches/:matchId/control">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonMatchControlPage /></OrganizerGuard>
               </ScoringFeatureGuard>
             );
           }}

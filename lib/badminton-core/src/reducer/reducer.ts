@@ -13,6 +13,9 @@ import {
   type BadmintonWalkoverPayload,
   type BadmintonTimeoutStartedPayload,
   type BadmintonTimeoutEndedPayload,
+  type BadmintonMatchPausedPayload,
+  type BadmintonMatchResumedPayload,
+  type BadmintonMatchNoteAddedPayload,
 } from "../events/badminton";
 import type {
   BadmintonEventEnvelope,
@@ -29,6 +32,10 @@ import {
   sideChangeScore,
 } from "./state";
 import { getScoringEngine } from "../scoring";
+import {
+  deriveSinglesScoresAfterPointWon,
+  validateSinglesScoresAgainstPayload,
+} from "../scoring/singles-replay-derive";
 
 class InvalidEventPayloadError extends Error {
   constructor(eventType: string, detail: string) {
@@ -71,6 +78,9 @@ function applyMatchStarted(
     gamesRight: 0,
     inInterval: false,
     activeTimeout: null,
+    isPaused: false,
+    matchNotes: [],
+    startedAt: new Date().toISOString(),
   };
 }
 
@@ -81,9 +91,24 @@ function applyPointWon(
   if (state.matchStatus !== "live") return state;
   if (payload.gameNumber !== state.currentGame) return state;
 
-  const newLeftScore = payload.winningSide === "left" ? payload.winnerScore : payload.loserScore;
-  const newRightScore = payload.winningSide === "right" ? payload.winnerScore : payload.loserScore;
-  const nextServingSide = payload.servingSide ?? payload.winningSide;
+  const { newLeftScore, newRightScore } =
+    state.matchKind === "singles"
+      ? (() => {
+          const derived = deriveSinglesScoresAfterPointWon(state, payload);
+          validateSinglesScoresAgainstPayload(derived, payload);
+          return derived;
+        })()
+      : {
+          newLeftScore:
+            payload.winningSide === "left" ? payload.winnerScore : payload.loserScore,
+          newRightScore:
+            payload.winningSide === "right" ? payload.winnerScore : payload.loserScore,
+        };
+
+  const nextServingSide =
+    state.matchKind === "singles"
+      ? payload.winningSide
+      : payload.servingSide ?? payload.winningSide;
 
   const updatedGames = state.games.map((g) => {
     if (g.gameNumber !== payload.gameNumber) return g;
@@ -201,6 +226,8 @@ function applyMatchEnded(
     resultReason: payload.reason,
     inInterval: false,
     activeTimeout: null,
+    isPaused: false,
+    endedAt: new Date().toISOString(),
   };
 }
 
@@ -268,6 +295,52 @@ function applyDisqualification(
     matchStatus: "disqualified",
     winnerSide: payload.winningSide,
     resultReason: "disqualification",
+    isPaused: false,
+  };
+}
+
+function applyMatchPaused(
+  state: BadmintonMatchState,
+  payload: BadmintonMatchPausedPayload,
+): BadmintonMatchState {
+  return {
+    ...state,
+    matchStatus: "paused",
+    isPaused: true,
+    pauseReason: payload.reason,
+    pauseDetail: payload.detail,
+  };
+}
+
+function applyMatchResumed(
+  state: BadmintonMatchState,
+  _payload: BadmintonMatchResumedPayload,
+): BadmintonMatchState {
+  return {
+    ...state,
+    matchStatus: "live",
+    isPaused: false,
+    pauseReason: undefined,
+    pauseDetail: undefined,
+  };
+}
+
+function applyMatchNoteAdded(
+  state: BadmintonMatchState,
+  payload: BadmintonMatchNoteAddedPayload,
+  sequence: number,
+  occurredAt?: string | Date,
+): BadmintonMatchState {
+  const ts =
+    occurredAt instanceof Date
+      ? occurredAt.toISOString()
+      : occurredAt ?? new Date().toISOString();
+  return {
+    ...state,
+    matchNotes: [
+      ...state.matchNotes,
+      { text: payload.text, addedAt: ts, sequence },
+    ],
   };
 }
 
@@ -325,6 +398,20 @@ export function reduceBadminton(
     case BadmintonEventType.DISQUALIFICATION_DECLARED:
       next = applyDisqualification(state, parsed.payload as BadmintonDisqualificationPayload);
       break;
+    case BadmintonEventType.MATCH_PAUSED:
+      next = applyMatchPaused(state, parsed.payload as BadmintonMatchPausedPayload);
+      break;
+    case BadmintonEventType.MATCH_RESUMED:
+      next = applyMatchResumed(state, parsed.payload as BadmintonMatchResumedPayload);
+      break;
+    case BadmintonEventType.MATCH_NOTE_ADDED:
+      next = applyMatchNoteAdded(
+        state,
+        parsed.payload as BadmintonMatchNoteAddedPayload,
+        event.sequence,
+        event.occurredAt,
+      );
+      break;
     default:
       throw new InvalidEventPayloadError(event.eventType, "unsupported event type");
   }
@@ -341,7 +428,10 @@ export function resolveUndoEvents(
   for (const ev of events) {
     if (ev.eventType === BadmintonEventType.POINT_UNDONE) {
       const payload = ev.payload as BadmintonPointUndonePayload;
-      undoneSequences.add(payload.undoneSequence);
+      const targets = payload.undoneSequences ?? [payload.undoneSequence];
+      for (const seq of targets) {
+        undoneSequences.add(seq);
+      }
       undoneSequences.add(ev.sequence);
     }
   }

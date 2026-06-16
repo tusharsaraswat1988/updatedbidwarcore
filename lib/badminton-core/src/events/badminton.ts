@@ -15,6 +15,9 @@ export const BadmintonEventType = {
   RETIREMENT_DECLARED: "badminton.retirement.declared",
   WALKOVER_DECLARED: "badminton.walkover.declared",
   DISQUALIFICATION_DECLARED: "badminton.disqualification.declared",
+  MATCH_PAUSED: "badminton.match.paused",
+  MATCH_RESUMED: "badminton.match.resumed",
+  MATCH_NOTE_ADDED: "badminton.match.note.added",
 } as const;
 
 export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof BadmintonEventType];
@@ -140,8 +143,10 @@ export type BadmintonPointWonPayload = {
 };
 
 export type BadmintonPointUndonePayload = {
-  /** Sequence of the event being undone. */
+  /** Primary sequence undone (last POINT_WON) — kept for backward compatibility. */
   undoneSequence: number;
+  /** All sequences removed by this undo (point + game/match boundary events). */
+  undoneSequences?: number[];
 };
 
 export type BadmintonGameEndedPayload = {
@@ -217,7 +222,20 @@ export type BadmintonWalkoverPayload = {
 export type BadmintonDisqualificationPayload = {
   disqualifiedSide: BadmintonSide;
   winningSide: BadmintonSide;
+  reason: string;
+};
+
+export type BadmintonMatchPausedPayload = {
+  reason: "medical" | "technical_issue" | "weather" | "court_issue" | "other";
+  detail?: string;
+};
+
+export type BadmintonMatchResumedPayload = {
   reason?: string;
+};
+
+export type BadmintonMatchNoteAddedPayload = {
+  text: string;
 };
 
 // ── Payload parse helpers ────────────────────────────────────────────────────
@@ -247,6 +265,17 @@ const pointWonSchema = z.object({
 
 const pointUndoneSchema = z.object({
   undoneSequence: z.number(),
+  undoneSequences: z.array(z.number()).optional(),
+});
+
+const gameEndedDoublesServeSchema = z.object({
+  nextServingSide: z.enum(["left", "right"]),
+  nextServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  nextReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  courtPositions: courtPositionsSchema,
+  lastServingSide: z.enum(["left", "right"]),
+  lastServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  lastRallyWinningSide: z.enum(["left", "right"]),
 });
 
 const gameEndedSchema = z.object({
@@ -255,16 +284,7 @@ const gameEndedSchema = z.object({
   leftScore: z.number(),
   rightScore: z.number(),
   nextServingSide: z.enum(["left", "right"]).optional(),
-  doublesServe: doublesServeSnapshotSchema
-    .extend({
-      nextServingSide: z.enum(["left", "right"]),
-      nextServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
-      nextReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
-      lastServingSide: z.enum(["left", "right"]),
-      lastServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
-      lastRallyWinningSide: z.enum(["left", "right"]),
-    })
-    .optional(),
+  doublesServe: gameEndedDoublesServeSchema.optional(),
 });
 
 const matchEndedSchema = z.object({
@@ -308,7 +328,20 @@ const walkoverSchema = z.object({
 const disqualificationSchema = z.object({
   disqualifiedSide: z.enum(["left", "right"]),
   winningSide: z.enum(["left", "right"]),
+  reason: z.string().min(1),
+});
+
+const matchPausedSchema = z.object({
+  reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "other"]),
+  detail: z.string().optional(),
+});
+
+const matchResumedSchema = z.object({
   reason: z.string().optional(),
+});
+
+const matchNoteAddedSchema = z.object({
+  text: z.string().min(1),
 });
 
 const sideChangedSchema = z.object({
@@ -364,6 +397,12 @@ export function parseBadmintonEventPayload(
       return parseWith(walkoverSchema, eventType, data);
     case BadmintonEventType.DISQUALIFICATION_DECLARED:
       return parseWith(disqualificationSchema, eventType, data);
+    case BadmintonEventType.MATCH_PAUSED:
+      return parseWith(matchPausedSchema, eventType, data);
+    case BadmintonEventType.MATCH_RESUMED:
+      return parseWith(matchResumedSchema, eventType, data);
+    case BadmintonEventType.MATCH_NOTE_ADDED:
+      return parseWith(matchNoteAddedSchema, eventType, data);
     default:
       return { ok: false, error: `Unknown event type: ${eventType}` };
   }

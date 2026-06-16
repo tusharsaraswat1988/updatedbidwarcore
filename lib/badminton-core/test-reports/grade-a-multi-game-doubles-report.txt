@@ -1,0 +1,88 @@
+Grade A Phase C — Best-of-3 Doubles Multi-Game Report
+============================================================
+
+Checkpoints: 79
+Passed: 79
+Failed: 0
+
+[PASS] Match start: Initial doubles serve state
+[PASS] Game 1 rally 1: Oracle match
+[PASS] Game 1 rally 2: Oracle match
+[PASS] Game 1 rally 3: Oracle match
+[PASS] Game 1 rally 4: Oracle match
+[PASS] Game 1 rally 5: Oracle match
+[PASS] Game 1 rally 6: Oracle match
+[PASS] Game 1 rally 7: Oracle match
+[PASS] Game 1 rally 8: Oracle match
+[PASS] Game 1 rally 9: Oracle match
+[PASS] Game 1 rally 10: Oracle match
+[PASS] Game 1 rally 11: Oracle match
+[PASS] Game 1 rally 12: Oracle match
+[PASS] Game 1 rally 13: Oracle match
+[PASS] Game 1 rally 14: Oracle match
+[PASS] Game 1 rally 15: Oracle match
+[PASS] Game 1 rally 16: Oracle match
+[PASS] Game 1 rally 17: Oracle match
+[PASS] Game 1 rally 18: Oracle match
+[PASS] Game 1 rally 19: Oracle match
+[PASS] Game 1 rally 20: Oracle match
+[PASS] Game 1 rally 21: Oracle match
+[PASS] Game 1 end: gamesLeft=1 gamesRight=0
+[PASS] Game 2 start: server P1, receiver P0
+[PASS] Game 2 rally 1: Oracle match
+[PASS] Game 2 rally 2: Oracle match
+[PASS] Game 2 rally 3: Oracle match
+[PASS] Game 2 rally 4: Oracle match
+[PASS] Game 2 rally 5: Oracle match
+[PASS] Game 2 rally 6: Oracle match
+[PASS] Game 2 rally 7: Oracle match
+[PASS] Game 2 rally 8: Oracle match
+[PASS] Game 2 rally 9: Oracle match
+[PASS] Game 2 rally 10: Oracle match
+[PASS] Game 2 rally 11: Oracle match
+[PASS] Game 2 rally 12: Oracle match
+[PASS] Game 2 rally 13: Oracle match
+[PASS] Game 2 rally 14: Oracle match
+[PASS] Game 2 rally 15: Oracle match
+[PASS] Game 2 rally 16: Oracle match
+[PASS] Game 2 rally 17: Oracle match
+[PASS] Game 2 rally 18: Oracle match
+[PASS] Game 2 rally 19: Oracle match
+[PASS] Game 2 rally 20: Oracle match
+[PASS] Game 2 rally 21: Oracle match
+[PASS] Game 2 end: gamesLeft=1 gamesRight=1
+[PASS] Game 3 start: server P0, receiver P0
+[PASS] Game 3 rally 1: Oracle match
+[PASS] Game 3 rally 2: Oracle match
+[PASS] Game 3 rally 3: Oracle match
+[PASS] Game 3 rally 4: Oracle match
+[PASS] Game 3 rally 5: Oracle match
+[PASS] Game 3 rally 6: Oracle match
+[PASS] Game 3 rally 7: Oracle match
+[PASS] Game 3 rally 8: Oracle match
+[PASS] Game 3 rally 9: Oracle match
+[PASS] Game 3 rally 10: Oracle match
+[PASS] Game 3 rally 11: Oracle match
+[PASS] Game 3 rally 12: Oracle match
+[PASS] Game 3 rally 13: Oracle match
+[PASS] Game 3 rally 14: Oracle match
+[PASS] Game 3 rally 15: Oracle match
+[PASS] Game 3 rally 16: Oracle match
+[PASS] Game 3 rally 17: Oracle match
+[PASS] Game 3 rally 18: Oracle match
+[PASS] Game 3 rally 19: Oracle match
+[PASS] Game 3 rally 20: Oracle match
+[PASS] Game 3 rally 21: Oracle match
+[PASS] Game 3 rally 22: Oracle match
+[PASS] Game 3 rally 23: Oracle match
+[PASS] Game 3 rally 24: Oracle match
+[PASS] Game 3 rally 25: Oracle match
+[PASS] Game 3 rally 26: Oracle match
+[PASS] Game 3 rally 27: Oracle match
+[PASS] Game 3 rally 28: Oracle match
+[PASS] Game 3 rally 29: Oracle match
+[PASS] Game 3 rally 30: Oracle match
+[PASS] Game 3 end: gamesLeft=2 gamesRight=1
+[PASS] Match completion: winner=left score 2-1
+
+Final: completed 2-1

@@ -3,6 +3,10 @@ import type { BadmintonMatchKind, BadmintonMatchState, BadmintonSide } from "../
 import type { CommandEvent } from "../commands";
 import { BadmintonEventType } from "../events/badminton";
 import type { BadmintonScoringEngine } from "./types";
+import {
+  deriveSinglesServingSideAfterPointWon,
+  validateSinglesServingSideAgainstPayload,
+} from "./singles-replay-derive";
 
 export class SinglesScoringEngine implements BadmintonScoringEngine {
   readonly kind: BadmintonMatchKind = "singles";
@@ -78,9 +82,10 @@ export class SinglesScoringEngine implements BadmintonScoringEngine {
     _state: BadmintonMatchState,
     payload: BadmintonPointWonPayload,
   ): Partial<BadmintonMatchState> {
-    return {
-      servingSide: payload.servingSide ?? payload.winningSide,
-    };
+    const servingSide = deriveSinglesServingSideAfterPointWon(payload);
+    validateSinglesServingSideAgainstPayload(servingSide, payload);
+
+    return { servingSide };
   }
 
   applyGameEnded(

@@ -19,6 +19,7 @@ import {
   hasScoreBoardSponsor,
 } from "@/components/badminton/score-board-sponsor-panel";
 import { cn } from "@/lib/utils";
+import { DirectorStatusBanner } from "@/components/badminton/director-status-banner";
 
 interface BroadcastDisplayProps {
   state: BadmintonMatchState;
@@ -90,6 +91,7 @@ export function BroadcastDisplay({
   const isDoubles = isPairMatchKind(state.matchKind);
   const serverLabel = isDoubles ? currentServerLabel(state) : null;
   const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
+  const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
 
   return (
     <div className="relative w-full h-full bg-[#050a17] overflow-hidden font-sans">
@@ -108,7 +110,7 @@ export function BroadcastDisplay({
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0070f3]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-[#7c3aed]/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* TOP BAR — Tournament info */}
+      {/* TOP BAR — Tournament info + scoreboard sponsor (top-right) */}
       <TopBar
         tournamentName={tournamentName}
         logoUrl={tournamentLogoUrl}
@@ -120,10 +122,21 @@ export function BroadcastDisplay({
         timeoutSide={state.activeTimeout?.side}
         leftSide={state.leftSide}
         rightSide={state.rightSide}
+        scoreBoardSponsor={scoreBoardSponsor}
       />
 
+      {/* Director status banner (paused, retired, etc.) */}
+      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
+        <DirectorStatusBanner state={state} />
+      </div>
+
       {/* MAIN SCORE AREA */}
-      <div className="absolute inset-0 flex items-center justify-between px-[5%] pt-[80px] pb-[100px]">
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-between px-[5%] pb-[100px]",
+          showScoreBoardSponsor ? "pt-[132px]" : "pt-[80px]",
+        )}
+      >
         {/* Left player block */}
         <PlayerBlock
           side="left"
@@ -169,14 +182,7 @@ export function BroadcastDisplay({
         />
       </div>
 
-      {/* Scoreboard sponsor — prominent side panel */}
-      {hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor && (
-        <div className="absolute right-[3%] top-1/2 -translate-y-1/2 z-20 pointer-events-none">
-          <ScoreBoardSponsorPanel sponsor={scoreBoardSponsor} variant="display" />
-        </div>
-      )}
-
-      {/* BOTTOM BAR — Sponsor logos + game history */}
+      {/* BOTTOM BAR — sponsor logos + game history */}
       <BottomBar
         games={state.games}
         sponsorLogos={sponsorLogos}
@@ -222,6 +228,7 @@ function TopBar({
   timeoutSide,
   leftSide,
   rightSide,
+  scoreBoardSponsor,
 }: {
   tournamentName: string;
   logoUrl?: string;
@@ -233,9 +240,28 @@ function TopBar({
   timeoutSide?: string;
   leftSide: { shortLabel: string };
   rightSide: { shortLabel: string };
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
 }) {
+  const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
+
   return (
-    <div className="absolute top-0 left-0 right-0 h-[72px] flex items-center justify-between px-6 z-10">
+    <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+      {showScoreBoardSponsor && (
+        <div className="px-6 pt-3 flex justify-end">
+          <ScoreBoardSponsorPanel
+            sponsor={scoreBoardSponsor}
+            variant="bar"
+            className="max-w-[360px]"
+          />
+        </div>
+      )}
+
+      <div
+        className={cn(
+          "flex items-center justify-between px-6",
+          showScoreBoardSponsor ? "h-[56px]" : "h-[72px]",
+        )}
+      >
       {/* Left — tournament branding */}
       <div className="flex items-center gap-3">
         {logoUrl ? (
@@ -292,6 +318,7 @@ function TopBar({
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }
@@ -556,10 +583,10 @@ function BottomBar({
   const completed = games.filter((g) => g.phase === "completed");
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gradient-to-t from-black/60 to-transparent flex items-end pb-4 px-6">
-      <div className="flex items-center justify-between w-full">
+    <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gradient-to-t from-black/70 to-transparent flex items-end pb-4 px-6 z-20">
+      <div className="relative flex items-end justify-between w-full gap-4">
         {/* Game scores history */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-none max-w-[32%]">
           {completed.map((g) => (
             <div
               key={g.gameNumber}
@@ -573,21 +600,21 @@ function BottomBar({
           ))}
         </div>
 
-        {/* Sponsor logos */}
-        <div className="flex items-center gap-4">
-          {sponsorLogos.map((logo, i) => (
-            <img
-              key={i}
-              src={logo}
-              alt="sponsor"
-              className="h-8 w-auto object-contain opacity-70"
-            />
-          ))}
-        </div>
-
-        {/* Powered by */}
-        <div className="text-white/20 text-[10px] font-medium uppercase tracking-widest">
-          {tournamentName}
+        {/* Rotating sponsor logos + tournament label */}
+        <div className="flex items-center gap-4 flex-none ml-auto">
+          <div className="flex items-center gap-4">
+            {sponsorLogos.map((logo, i) => (
+              <img
+                key={i}
+                src={logo}
+                alt="sponsor"
+                className="h-8 w-auto object-contain opacity-70"
+              />
+            ))}
+          </div>
+          <div className="text-white/20 text-[10px] font-medium uppercase tracking-widest">
+            {tournamentName}
+          </div>
         </div>
       </div>
     </div>

@@ -316,7 +316,7 @@ describe("Badminton command layer — tenant integrity", () => {
     ];
 
     const state = replayBadmintonEvents(meta, events);
-    const result = cmdUndoLastPoint(state, 1);
+    const result = cmdUndoLastPoint(state, [1]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

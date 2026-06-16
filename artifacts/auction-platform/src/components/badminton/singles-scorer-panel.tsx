@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 
 interface SinglesScorerPanelProps {
   state: BadmintonMatchState;
-  onAwardPoint: (side: "left" | "right") => Promise<unknown>;
+  onAwardPoint: (side: "left" | "right") => void | Promise<unknown>;
   onUndo: () => Promise<unknown>;
   onStartTimeout?: (side: "left" | "right") => Promise<unknown>;
   onEndTimeout?: () => Promise<unknown>;
+  scoringBlocked?: boolean;
 }
 
 export function SinglesScorerPanel({
@@ -17,17 +18,24 @@ export function SinglesScorerPanel({
   onUndo,
   onStartTimeout,
   onEndTimeout,
+  scoringBlocked = false,
 }: SinglesScorerPanelProps) {
-  const [busy, setBusy] = useState(false);
+  const [undoBusy, setUndoBusy] = useState(false);
   const isTimeout = !!state.activeTimeout;
+  const cannotScore = isTimeout || scoringBlocked || state.matchStatus !== "live";
 
-  async function award(side: "left" | "right") {
-    if (busy || state.matchStatus !== "live" || isTimeout) return;
-    setBusy(true);
+  function award(side: "left" | "right") {
+    if (cannotScore) return;
+    void onAwardPoint(side);
+  }
+
+  async function undo() {
+    if (undoBusy || state.totalRallies === 0) return;
+    setUndoBusy(true);
     try {
-      await onAwardPoint(side);
+      await onUndo();
     } finally {
-      setBusy(false);
+      setUndoBusy(false);
     }
   }
 
@@ -63,22 +71,22 @@ export function SinglesScorerPanel({
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => award("left")}
-            disabled={busy || isTimeout}
+            disabled={cannotScore}
             className="h-20 rounded-2xl bg-[#0070f3]/80 font-black text-lg disabled:opacity-40"
           >
             + {state.leftSide.shortLabel}
           </button>
           <button
             onClick={() => award("right")}
-            disabled={busy || isTimeout}
+            disabled={cannotScore}
             className="h-20 rounded-2xl bg-[#7c3aed]/80 font-black text-lg disabled:opacity-40"
           >
             + {state.rightSide.shortLabel}
           </button>
         </div>
         <button
-          onClick={() => onUndo()}
-          disabled={busy || state.totalRallies === 0}
+          onClick={undo}
+          disabled={undoBusy || state.totalRallies === 0}
           className="w-full h-12 rounded-xl bg-white/5 text-white/60 text-sm disabled:opacity-30"
         >
           Undo

@@ -69,6 +69,23 @@ export default function BadmintonMatchesPage() {
     completed: matches.filter((m) => m.status === "completed").length,
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }));
+        throw new Error(typeof err.error === "string" ? err.error : "Delete failed");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+    },
+  });
+
   return (
     <HubPageShell>
       <PageHeader
@@ -131,6 +148,32 @@ export default function BadmintonMatchesPage() {
                 key={match.id}
                 match={match}
                 tournamentId={tournamentId}
+                onDelete={() => {
+                  const state = match.state;
+                  const detail = match.detail ?? {};
+                  const label = state
+                    ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`
+                    : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
+
+                  if (match.status === "live") {
+                    window.alert(
+                      "Live matches cannot be deleted. Complete, retire, or walk over the match first.",
+                    );
+                    return;
+                  }
+
+                  const message =
+                    match.status === "completed"
+                      ? `Delete ${label}? All scores and history will be permanently removed.`
+                      : `Delete ${label}? This cannot be undone.`;
+
+                  if (window.confirm(message)) {
+                    deleteMutation.mutate(match.id, {
+                      onError: (e) => window.alert(e.message),
+                    });
+                  }
+                }}
+                deleting={deleteMutation.isPending && deleteMutation.variables === match.id}
               />
             ))}
           </div>
@@ -154,9 +197,13 @@ export default function BadmintonMatchesPage() {
 function MatchRow({
   match,
   tournamentId,
+  onDelete,
+  deleting,
 }: {
   match: MatchRow;
   tournamentId: number;
+  onDelete: () => void;
+  deleting?: boolean;
 }) {
   const state = match.state;
   const detail = match.detail ?? {};
@@ -232,6 +279,12 @@ function MatchRow({
         {/* Quick actions */}
         <div className="flex items-center gap-2 flex-none">
           <Link
+            href={`/tournament/${tournamentId}/badminton/matches/${match.id}/control`}
+            className="h-9 px-3 rounded-xl bg-[#0070f3]/15 hover:bg-[#0070f3]/25 border border-[#0070f3]/30 text-[#4fc3f7] text-xs font-semibold flex items-center transition-all"
+          >
+            Control
+          </Link>
+          <Link
             href={`/badminton/${match.id}/score?tid=${tournamentId}`}
             className="h-9 px-3 rounded-xl bg-white/8 hover:bg-[#0070f3]/20 border border-white/10 hover:border-[#0070f3]/30 text-white/60 hover:text-[#4fc3f7] text-xs font-semibold flex items-center transition-all"
           >
@@ -243,6 +296,19 @@ function MatchRow({
           >
             Display
           </Link>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleting || match.status === "live"}
+            title={
+              match.status === "live"
+                ? "End the match before deleting"
+                : "Delete match"
+            }
+            className="h-9 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300/80 hover:text-red-300 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {deleting ? "…" : "Delete"}
+          </button>
         </div>
       </div>
     </div>

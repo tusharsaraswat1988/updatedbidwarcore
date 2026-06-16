@@ -7,17 +7,18 @@ interface ScorerPanelProps {
   tournamentId: number;
   matchId: number;
   state: BadmintonMatchState;
-  onAwardPoint: (side: "left" | "right") => Promise<unknown>;
+  onAwardPoint: (side: "left" | "right") => void | Promise<unknown>;
   onUndo: () => Promise<unknown>;
   onStartTimeout: (side: "left" | "right") => Promise<unknown>;
   onEndTimeout: () => Promise<unknown>;
   onRetirement?: (side: "left" | "right") => Promise<unknown>;
   onWalkover?: (side: "left" | "right") => Promise<unknown>;
+  scoringBlocked?: boolean;
 }
 
 /**
  * Routes to dedicated singles or doubles scorer UI.
- * Doubles uses player-level service ? never team-level serving controls.
+ * Doubles uses player-level service — never team-level serving controls.
  */
 export function ScorerPanel({
   state,
@@ -25,6 +26,7 @@ export function ScorerPanel({
   onUndo,
   onStartTimeout,
   onEndTimeout,
+  scoringBlocked = false,
 }: ScorerPanelProps) {
   const isDoubles = isPairMatchKind(state.matchKind);
 
@@ -36,6 +38,7 @@ export function ScorerPanel({
         onUndo={onUndo}
         onStartTimeout={onStartTimeout}
         onEndTimeout={onEndTimeout}
+        scoringBlocked={scoringBlocked}
       />
     );
   }
@@ -47,6 +50,7 @@ export function ScorerPanel({
       onUndo={onUndo}
       onStartTimeout={onStartTimeout}
       onEndTimeout={onEndTimeout}
+      scoringBlocked={scoringBlocked}
     />
   );
 }

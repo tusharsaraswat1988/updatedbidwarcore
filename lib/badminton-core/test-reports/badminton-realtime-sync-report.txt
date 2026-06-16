@@ -1,0 +1,11 @@
+BADMINTON REALTIME SYNC — SEQUENCE GUARD ENABLED
+
+Rallies: 100 / 100
+Duplicate SSE injections: 30 (10 rallies × 3 screens)
+Out-of-order SSE injections: 30 (10 rallies × 3 screens)
+Rejected duplicates: 30
+Rejected stale/OOO: 33
+State regressions: 0
+Cross-screen mismatches: 0
+
+PASS — score, server, receiver, court positions identical on operator, OBS, display after every rally.

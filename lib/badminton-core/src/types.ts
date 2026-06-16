@@ -120,11 +120,29 @@ export type BadmintonTimeoutInfo = {
 export type BadmintonMatchStatus =
   | "scheduled"
   | "live"
+  | "paused"
   | "completed"
   | "walkover"
   | "retired"
   | "disqualified"
   | "abandoned";
+
+export type MatchPauseReason =
+  | "medical"
+  | "technical_issue"
+  | "weather"
+  | "court_issue"
+  | "other";
+
+export type RetirementReason = "injury" | "illness" | "other";
+
+export type WalkoverReason = "opponent_absent" | "forfeit" | "administrative_decision";
+
+export type MatchNote = {
+  text: string;
+  addedAt: string;
+  sequence: number;
+};
 
 export type BadmintonResultReason =
   | "normal"
@@ -183,7 +201,7 @@ export type BadmintonMatchState = {
   /** How match ended. */
   resultReason?: BadmintonResultReason;
 
-  /** Last processed event sequence number. */
+  /** Last processed event sequence number — authoritative version for realtime sync. */
   lastSequence: number;
 
   /** Milliseconds since match started (set by summary layer). */
@@ -191,6 +209,24 @@ export type BadmintonMatchState = {
 
   /** Running total of rallies. */
   totalRallies: number;
+
+  /** Tournament director pause — blocks scoring until resumed. */
+  isPaused: boolean;
+
+  /** Reason for current or most recent pause. */
+  pauseReason?: MatchPauseReason;
+
+  /** Free-text pause detail when reason is "other". */
+  pauseDetail?: string;
+
+  /** Director notes appended during the match. */
+  matchNotes: MatchNote[];
+
+  /** ISO timestamp when match started (from MATCH_STARTED). */
+  startedAt?: string;
+
+  /** ISO timestamp when match ended (from MATCH_ENDED). */
+  endedAt?: string;
 };
 
 /** Minimal input to create initial state. */
@@ -201,7 +237,12 @@ export type BadmintonMatchMeta = {
   format?: BadmintonMatchFormat;
 };
 
-export type ScoringActorType = "organizer" | "admin" | "scorer_pin" | "system";
+export type ScoringActorType =
+  | "organizer"
+  | "admin"
+  | "scorer_pin"
+  | "system"
+  | "tournament_director";
 
 /** Generic event envelope used by the reducer. */
 export type BadmintonEventEnvelope<TPayload = Record<string, unknown>> = {

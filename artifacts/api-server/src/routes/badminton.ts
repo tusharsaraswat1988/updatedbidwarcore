@@ -45,11 +45,21 @@ import {
   BadmintonServiceError,
   awardPoint,
   createBadmintonMatch,
+  deleteBadmintonMatch,
   ensureBadmintonTournament,
   getLiveBadmintonMatches,
   handleRetirement,
   handleTimeout,
+  handleInterval,
+  handleCourtChangeAck,
   handleWalkover,
+  handleDisqualification,
+  handlePauseMatch,
+  handleResumeMatch,
+  handleAddMatchNote,
+  handleForceEndMatch,
+  getMatchIncidentLog,
+  getMatchReportData,
   replayMatch,
   startBadmintonMatch,
   undoLastPoint,
@@ -63,6 +73,7 @@ import {
 import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { STANDARD_FORMAT } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
+import { generateMatchReportPdf } from "../lib/badminton-match-report";
 
 const router = Router({ mergeParams: true });
 
@@ -85,6 +96,16 @@ function tid(req: Request): number | null {
 function actorFrom(req: Request, usedPin: boolean) {
   if (req.jwtUser?.isAdmin) return { type: "admin", id: "admin" };
   if (usedPin) return { type: "scorer_pin", id: "pin" };
+  const tournamentId = tid(req);
+  if (
+    tournamentId &&
+    req.jwtUser?.tournamentDirector?.[String(tournamentId)]
+  ) {
+    return {
+      type: "tournament_director",
+      id: req.jwtUser?.organizerAccountId?.toString() ?? "director",
+    };
+  }
   return {
     type: "organizer",
     id: req.jwtUser?.organizerAccountId?.toString() ?? "organizer",
@@ -116,6 +137,38 @@ function isTournamentOwner(req: Request, tournamentId: number): boolean {
   // This prevents an organizer-account holder from writing to tournaments they
   // do not explicitly own.
   return !!(u.organizer?.[String(tournamentId)]);
+}
+
+/**
+ * Tournament Director / Admin match administration.
+ * Scorer PIN is explicitly excluded — director actions are not umpire actions.
+ */
+function isTournamentDirector(req: Request, tournamentId: number): boolean {
+  const u = req.jwtUser;
+  if (!u) return false;
+  if (u.isAdmin) return true;
+  const status = req.organizerAccountLicenseStatus;
+  if (status === "suspended") return false;
+  if (u.organizer?.[String(tournamentId)]) return true;
+  return !!(u.tournamentDirector?.[String(tournamentId)]);
+}
+
+async function guardBadmintonDirector(
+  req: Request,
+  res: import("express").Response,
+  matchId: number,
+): Promise<{ tournamentId: number } | null> {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "bad id" });
+    return null;
+  }
+  if (!(await guardBadmintonTournament(tournamentId, res))) return null;
+  if (!isTournamentDirector(req, tournamentId)) {
+    res.status(403).json({ error: "forbidden — tournament director access required" });
+    return null;
+  }
+  return { tournamentId };
 }
 
 function respondBadmintonServiceError(
@@ -825,6 +878,25 @@ router.get("/matches/:matchId", async (req, res) => {
   res.json({ state, detail: detail ?? null });
 });
 
+router.delete("/matches/:matchId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    await deleteBadmintonMatch(matchId, tournamentId);
+    broadcastTournamentUpdate(tournamentId, { type: "match_deleted", matchId });
+    res.status(204).send();
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
 // ─── Scoring actions ──────────────────────────────────────────────────────────
 
 router.post("/matches/:matchId/start", async (req, res) => {
@@ -1042,7 +1114,7 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
   }
 });
 
-router.post("/matches/:matchId/retirement", async (req, res) => {
+router.post("/matches/:matchId/interval", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!matchId) return void res.status(400).json({ error: "bad id" });
 
@@ -1051,8 +1123,60 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
   const { tournamentId, usedPin } = auth;
 
   const schema = z.object({
+    action: z.enum(["start", "end"]),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleInterval(
+      matchId,
+      tournamentId,
+      parsed.data.action,
+      actorFrom(req, usedPin),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/court-change", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonScoring(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId, usedPin } = auth;
+
+  try {
+    const state = await handleCourtChangeAck(matchId, tournamentId, actorFrom(req, usedPin));
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/retirement", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
     retiringSide: z.enum(["left", "right"]),
-    reason: z.string().optional(),
+    reason: z.enum(["injury", "illness", "other"]).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -1063,7 +1187,7 @@ router.post("/matches/:matchId/retirement", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.retiringSide,
-      actorFrom(req, usedPin),
+      actorFrom(req, false),
       parsed.data.reason,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
@@ -1080,13 +1204,13 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!matchId) return void res.status(400).json({ error: "bad id" });
 
-  const auth = await guardBadmintonScoring(req, res, matchId);
+  const auth = await guardBadmintonDirector(req, res, matchId);
   if (!auth) return;
-  const { tournamentId, usedPin } = auth;
+  const { tournamentId } = auth;
 
   const schema = z.object({
     winningSide: z.enum(["left", "right"]),
-    reason: z.string().optional(),
+    reason: z.enum(["opponent_absent", "forfeit", "administrative_decision"]).optional(),
   });
 
   const parsed = schema.safeParse(req.body);
@@ -1097,11 +1221,208 @@ router.post("/matches/:matchId/walkover", async (req, res) => {
       matchId,
       tournamentId,
       parsed.data.winningSide,
-      actorFrom(req, usedPin),
+      actorFrom(req, false),
       parsed.data.reason,
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/disqualification", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    disqualifiedSide: z.enum(["left", "right"]),
+    reason: z.string().min(1),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleDisqualification(
+      matchId,
+      tournamentId,
+      parsed.data.disqualifiedSide,
+      parsed.data.reason,
+      actorFrom(req, false),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/pause", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({
+    reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "other"]),
+    detail: z.string().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handlePauseMatch(
+      matchId,
+      tournamentId,
+      parsed.data.reason,
+      actorFrom(req, false),
+      parsed.data.detail,
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/resume", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  try {
+    const state = await handleResumeMatch(matchId, tournamentId, actorFrom(req, false));
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/note", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({ text: z.string().min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleAddMatchNote(
+      matchId,
+      tournamentId,
+      parsed.data.text,
+      actorFrom(req, false),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.post("/matches/:matchId/force-end", async (req, res) => {
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const auth = await guardBadmintonDirector(req, res, matchId);
+  if (!auth) return;
+  const { tournamentId } = auth;
+
+  const schema = z.object({ reason: z.string().min(1) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const state = await handleForceEndMatch(
+      matchId,
+      tournamentId,
+      parsed.data.reason,
+      actorFrom(req, false),
+    );
+    broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
+    res.json({ state });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.get("/matches/:matchId/incidents", async (req, res) => {
+  const tournamentId = tid(req);
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
+
+  if (!isTournamentDirector(req, tournamentId)) {
+    return void res.status(403).json({ error: "forbidden" });
+  }
+
+  try {
+    const incidents = await getMatchIncidentLog(matchId, tournamentId);
+    res.json({ incidents });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
+});
+
+router.get("/matches/:matchId/report", async (req, res) => {
+  const tournamentId = tid(req);
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
+
+  if (!isTournamentDirector(req, tournamentId)) {
+    return void res.status(403).json({ error: "forbidden" });
+  }
+
+  const format = req.query.format === "pdf" ? "pdf" : "json";
+
+  try {
+    const report = await getMatchReportData(matchId, tournamentId);
+    if (format === "pdf") {
+      const pdf = await generateMatchReportPdf(report);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="match-${matchId}-report.pdf"`,
+      );
+      return void res.send(pdf);
+    }
+    res.json(report);
   } catch (e) {
     if (e instanceof BadmintonServiceError) {
       return void res.status(e.status).json({ error: e.message, code: e.code });

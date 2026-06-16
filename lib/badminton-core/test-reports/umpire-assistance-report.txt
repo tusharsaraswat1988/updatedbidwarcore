@@ -1,0 +1,57 @@
+UMPIRE ASSISTANCE TEST REPORT
+Generated: 2026-06-16T21:45:53.318Z
+
+1. [PASS] Singles server label
+   Expected Abhinav Keshri, got Abhinav Keshri
+2. [PASS] Singles receiver label
+   Expected Priyank Singh, got Priyank Singh
+3. [PASS] Singles panel score
+   Panel score 2-0
+4. [PASS] Singles panel games won
+   Games 0-0
+5. [PASS] Singles game point side
+   Game point side left
+6. [PASS] Singles game point banner
+   Banners: game_point
+7. [PASS] Singles match point side
+   Match point at 20-18, games 1-1
+8. [PASS] Singles match point banner
+   Banners: match_point, interval_due, court_change_required
+9. [PASS] Singles interval due at 11 in deciding game
+   intervalDue=true score=11-0 game=3
+10. [PASS] Singles court change required
+   courtChange=true
+11. [PASS] Singles interval banner
+   Banners: INTERVAL DUE (10 POINTS) | COURT CHANGE REQUIRED
+12. [PASS] Singles court change banner
+   Banners: INTERVAL DUE (10 POINTS) | COURT CHANGE REQUIRED
+13. [PASS] Singles court change ack command
+   ok
+14. [PASS] Singles voice prompts include interval and court change
+   Interval, Court Change
+15. [PASS] Doubles server label at toss
+   Abhinav Keshri
+16. [PASS] Doubles receiver label at toss
+   Priyank Singh
+17. [PASS] Doubles game point banner
+   GAME POINT — A
+18. [PASS] Doubles scoring blocked in interval
+   scoringBlocked=true
+19. [PASS] Doubles scoring blocked during timeout
+   blockReason=court_change
+20. [PASS] Doubles needs ready confirm after timeout
+   readyToScore=false blocks scoring
+21. [PASS] Mixed doubles server label present
+   Player B2
+22. [PASS] Mixed doubles receiver label present
+   Player A2
+23. [PASS] Mixed doubles interval due
+   intervalDue=true
+24. [PASS] Mixed doubles interval start command
+   ok
+25. [PASS] Mixed doubles interval end command
+   ok
+26. [PASS] Mixed doubles voice assist prompts
+   Interval, Court Change
+
+Total: 26 | Passed: 26 | Failed: 0

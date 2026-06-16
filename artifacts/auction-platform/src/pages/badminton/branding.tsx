@@ -208,6 +208,15 @@ export default function BadmintonBrandingPage() {
           <>
             {/* Preview */}
             <section className="rounded-2xl border border-white/8 overflow-hidden">
+              {hasScoreBoardSponsor(scoreBoardSponsorPayload(scoreBoardSponsor)) && (
+                <div className="px-6 pt-4 pb-2 border-b border-white/5 flex justify-end">
+                  <ScoreBoardSponsorPanel
+                    sponsor={scoreBoardSponsorPayload(scoreBoardSponsor)!}
+                    variant="bar"
+                    className="max-w-[360px]"
+                  />
+                </div>
+              )}
               <div
                 className="px-6 py-4 flex items-center justify-between gap-4"
                 style={{
@@ -238,16 +247,8 @@ export default function BadmintonBrandingPage() {
                   </div>
                 )}
               </div>
-              {hasScoreBoardSponsor(scoreBoardSponsorPayload(scoreBoardSponsor)) && (
-                <div className="px-6 pb-4 flex justify-end">
-                  <ScoreBoardSponsorPanel
-                    sponsor={scoreBoardSponsorPayload(scoreBoardSponsor)!}
-                    variant="preview"
-                  />
-                </div>
-              )}
               <p className="px-6 py-3 text-white/30 text-xs border-t border-white/5">
-                Live preview — used on score display and OBS overlays
+                Live preview — scoreboard sponsor appears top-right on display and OBS
               </p>
             </section>
 
@@ -352,7 +353,7 @@ export default function BadmintonBrandingPage() {
               <div>
                 <h2 className="text-white font-bold text-lg">Scoreboard Sponsor</h2>
                 <p className="text-white/40 text-sm mt-1">
-                  Optional — shown prominently on the live scoreboard, separate from bottom sponsor logos.
+                  Optional — shown at the top-right on the live scoreboard and OBS overlays, separate from bottom sponsor logos.
                 </p>
               </div>
 

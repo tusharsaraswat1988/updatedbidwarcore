@@ -25,6 +25,7 @@ export function useBadmintonBranding(tournamentId: number) {
     queryFn: () => badmintonFetch<BadmintonBranding>(tournamentId, `/branding`),
     enabled: !!tournamentId,
     staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }
 

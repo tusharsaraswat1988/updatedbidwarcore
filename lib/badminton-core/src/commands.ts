@@ -19,15 +19,20 @@ import {
   type BadmintonPointUndonePayload,
   type BadmintonIntervalStartedPayload,
   type BadmintonIntervalEndedPayload,
+  type BadmintonSideChangedPayload,
   type BadmintonRetirementPayload,
   type BadmintonWalkoverPayload,
   type BadmintonDisqualificationPayload,
   type BadmintonTimeoutStartedPayload,
   type BadmintonTimeoutEndedPayload,
+  type BadmintonMatchPausedPayload,
+  type BadmintonMatchResumedPayload,
+  type BadmintonMatchNoteAddedPayload,
 } from "./events/badminton";
-import type { BadmintonMatchState, BadmintonSide } from "./types";
+import type { BadmintonMatchState, BadmintonSide, MatchPauseReason } from "./types";
 import {
   gamesNeededToWin,
+  getCurrentGame,
   isDecidingGame,
   isGameOver,
   sideChangeScore,
@@ -72,6 +77,9 @@ export function cmdAwardPoint(
 ): CommandResult {
   if (state.matchStatus !== "live") {
     return err("Match is not live");
+  }
+  if (state.isPaused) {
+    return err("Match is paused");
   }
   if (state.currentGame === 0) {
     return err("No active game");
@@ -161,17 +169,24 @@ export function cmdAwardPoint(
 
 export function cmdUndoLastPoint(
   state: BadmintonMatchState,
-  lastPointSequence: number,
+  undoTargetSequences: number[],
 ): CommandResult {
   if (state.matchStatus !== "live") {
     return err("Cannot undo — match is not live");
   }
+  if (state.isPaused) {
+    return err("Cannot undo — match is paused");
+  }
   if (state.totalRallies === 0) {
+    return err("No points to undo");
+  }
+  if (undoTargetSequences.length === 0) {
     return err("No points to undo");
   }
 
   const undoPayload: BadmintonPointUndonePayload = {
-    undoneSequence: lastPointSequence,
+    undoneSequence: undoTargetSequences[0]!,
+    undoneSequences: undoTargetSequences,
   };
 
   return ok([
@@ -217,6 +232,32 @@ export function cmdEndInterval(state: BadmintonMatchState): CommandResult {
 
   return ok([
     { eventType: BadmintonEventType.INTERVAL_ENDED, payload: payload as unknown as Record<string, unknown> },
+  ]);
+}
+
+/** Record umpire acknowledgement of court change at deciding-game interval. */
+export function cmdAcknowledgeCourtChange(state: BadmintonMatchState): CommandResult {
+  if (state.matchStatus !== "live") return err("Match not live");
+  if (!isDecidingGame(state.currentGame, state.format.totalGames)) {
+    return err("Court change only applies in the deciding game");
+  }
+
+  const game = getCurrentGame(state);
+  if (!game?.intervalReached) {
+    return err("Court change not required yet");
+  }
+
+  const payload: BadmintonSideChangedPayload = {
+    gameNumber: state.currentGame,
+    leftSide: "original_right",
+    rightSide: "original_left",
+  };
+
+  return ok([
+    {
+      eventType: BadmintonEventType.SIDE_CHANGED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
   ]);
 }
 
@@ -295,8 +336,17 @@ export function cmdDeclareWalkover(
 export function cmdDeclareDisqualification(
   state: BadmintonMatchState,
   disqualifiedSide: BadmintonSide,
-  reason?: string,
+  reason: string,
 ): CommandResult {
+  if (!reason.trim()) return err("Disqualification reason is required");
+  if (
+    state.matchStatus !== "live" &&
+    state.matchStatus !== "scheduled" &&
+    state.matchStatus !== "paused"
+  ) {
+    return err("Match cannot be disqualified in current state");
+  }
+
   const winningSide: BadmintonSide = disqualifiedSide === "left" ? "right" : "left";
   const payload: BadmintonDisqualificationPayload = { disqualifiedSide, winningSide, reason };
 
@@ -312,6 +362,86 @@ export function cmdDeclareDisqualification(
         gamesLeft: state.gamesLeft,
         gamesRight: state.gamesRight,
         reason: "disqualification",
+        resultSummary: `Disqualified — ${reason}`,
+      } as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+export function cmdPauseMatch(
+  state: BadmintonMatchState,
+  reason: MatchPauseReason,
+  detail?: string,
+): CommandResult {
+  if (state.matchStatus !== "live") return err("Only live matches can be paused");
+  if (state.isPaused) return err("Match is already paused");
+
+  const payload: BadmintonMatchPausedPayload = { reason, detail };
+  return ok([
+    {
+      eventType: BadmintonEventType.MATCH_PAUSED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+export function cmdResumeMatch(state: BadmintonMatchState): CommandResult {
+  if (state.matchStatus !== "paused" && !state.isPaused) {
+    return err("Match is not paused");
+  }
+
+  const payload: BadmintonMatchResumedPayload = {};
+  return ok([
+    {
+      eventType: BadmintonEventType.MATCH_RESUMED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+export function cmdAddMatchNote(state: BadmintonMatchState, text: string): CommandResult {
+  const trimmed = text.trim();
+  if (!trimmed) return err("Note text is required");
+  if (state.matchStatus === "scheduled") {
+    return err("Cannot add notes before match starts");
+  }
+
+  const payload: BadmintonMatchNoteAddedPayload = { text: trimmed };
+  return ok([
+    {
+      eventType: BadmintonEventType.MATCH_NOTE_ADDED,
+      payload: payload as unknown as Record<string, unknown>,
+    },
+  ]);
+}
+
+export function cmdForceEndMatch(
+  state: BadmintonMatchState,
+  reason: string,
+): CommandResult {
+  if (state.matchStatus !== "live" && state.matchStatus !== "paused") {
+    return err("Match cannot be force-ended in current state");
+  }
+  if (!reason.trim()) return err("Force end reason is required");
+
+  const winningSide: BadmintonSide =
+    state.gamesLeft >= state.gamesRight
+      ? state.gamesLeft > state.gamesRight
+        ? "left"
+        : state.gamesRight > state.gamesLeft
+          ? "right"
+          : "left"
+      : "right";
+
+  return ok([
+    {
+      eventType: BadmintonEventType.MATCH_ENDED,
+      payload: {
+        winningSide,
+        gamesLeft: state.gamesLeft,
+        gamesRight: state.gamesRight,
+        reason: "abandoned",
+        resultSummary: `Force ended — ${reason}`,
       } as unknown as Record<string, unknown>,
     },
   ]);

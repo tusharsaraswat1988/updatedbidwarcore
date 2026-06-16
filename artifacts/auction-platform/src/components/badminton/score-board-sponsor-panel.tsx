@@ -11,6 +11,29 @@ export function hasScoreBoardSponsor(sponsor: ScoreBoardSponsor | null | undefin
   return !!(sponsor.logoUrl || sponsor.name || sponsor.title);
 }
 
+/** Fixed top-right placement — used on LED scoreboard and OBS browser sources. */
+export function ScoreBoardSponsorTopRight({
+  sponsor,
+  className,
+  panelClassName,
+}: {
+  sponsor: ScoreBoardSponsor | null | undefined;
+  className?: string;
+  panelClassName?: string;
+}) {
+  if (!hasScoreBoardSponsor(sponsor) || !sponsor) return null;
+
+  return (
+    <div className={cn("absolute top-3 right-6 z-30 pointer-events-none", className)}>
+      <ScoreBoardSponsorPanel
+        sponsor={sponsor}
+        variant="bar"
+        className={cn("max-w-[360px]", panelClassName)}
+      />
+    </div>
+  );
+}
+
 /** Prominent scoreboard sponsor block — separate from rotating sponsor logos. */
 export function ScoreBoardSponsorPanel({
   sponsor,
@@ -18,10 +41,43 @@ export function ScoreBoardSponsorPanel({
   className,
 }: {
   sponsor: ScoreBoardSponsor;
-  variant?: "display" | "compact" | "preview";
+  variant?: "display" | "compact" | "preview" | "bar";
   className?: string;
 }) {
   if (!hasScoreBoardSponsor(sponsor)) return null;
+
+  if (variant === "bar") {
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-4 rounded-xl border-2 border-[#ffd700]/45",
+          "bg-gradient-to-r from-[#1a1400]/95 via-[#0d1529]/95 to-[#0a1628]/95",
+          "px-5 py-2.5 shadow-[0_0_24px_rgba(255,215,0,0.12)]",
+          className,
+        )}
+      >
+        {sponsor.logoUrl ? (
+          <div className="rounded-lg bg-white/95 p-1.5 flex-none shadow-md">
+            <img
+              src={sponsor.logoUrl}
+              alt={sponsor.name ?? "Scoreboard sponsor"}
+              className="h-10 w-16 object-contain"
+            />
+          </div>
+        ) : null}
+        <div className="min-w-0 text-left">
+          {sponsor.title && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ffd700] truncate">
+              {sponsor.title}
+            </p>
+          )}
+          {sponsor.name && (
+            <p className="text-base font-black text-white truncate">{sponsor.name}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "compact") {
     return (

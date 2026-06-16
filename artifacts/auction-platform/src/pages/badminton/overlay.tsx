@@ -5,6 +5,7 @@
 
 import { useRoute, useSearch } from "wouter";
 import { BadmintonOverlay } from "@/components/badminton/obs-overlays";
+import { ScoreBoardSponsorTopRight } from "@/components/badminton/score-board-sponsor-panel";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding, sponsorUrlsFromBranding } from "@/hooks/use-badminton-branding";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -42,21 +43,20 @@ export default function BadmintonOverlayPage() {
   const detail = data.detail as Record<string, unknown> | null;
 
   return (
-    <div
-      className="min-h-screen flex items-end justify-center pb-8"
-      style={{ background: "transparent" }}
-    >
-      <BadmintonOverlay
-        type={type}
-        state={state}
-        tournamentName={tournamentName}
-        tournamentLogoUrl={branding?.logoUrl ?? undefined}
-        courtNumber={courtNumber ?? (detail?.courtNumber as string | undefined)}
-        matchLabel={detail?.matchLabel as string | undefined}
-        roundName={detail?.roundName as string | undefined}
-        sponsorLogos={sponsorLogos}
-        scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-      />
+    <div className="relative min-h-screen w-screen" style={{ background: "transparent" }}>
+      <ScoreBoardSponsorTopRight sponsor={branding?.scoreBoardSponsor ?? null} />
+      <div className="min-h-screen flex items-end justify-center pb-8">
+        <BadmintonOverlay
+          type={type}
+          state={state}
+          tournamentName={tournamentName}
+          tournamentLogoUrl={branding?.logoUrl ?? undefined}
+          courtNumber={courtNumber ?? (detail?.courtNumber as string | undefined)}
+          matchLabel={detail?.matchLabel as string | undefined}
+          roundName={detail?.roundName as string | undefined}
+          sponsorLogos={sponsorLogos}
+        />
+      </div>
     </div>
   );
 }
