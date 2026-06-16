@@ -4,6 +4,7 @@ import {
   useGetTournament,
   useUpdateTournament,
   getGetTournamentQueryKey,
+  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -30,15 +31,17 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
 import { SettingsCard } from "@/components/settings/settings-card";
-import { DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SportSelect } from "@/components/sport-select";
 
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
@@ -65,7 +68,6 @@ export default function TournamentSettings() {
   const [bannerEditorInitial, setBannerEditorInitial] = useState<string | undefined>();
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
-  const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
@@ -73,10 +75,6 @@ export default function TournamentSettings() {
     try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
     catch { return "default"; }
   });
-
-  useEffect(() => {
-    fetch("/api/sports").then(r => r.json()).then((d: { id: number; name: string; slug: string }[]) => setHubSports(d)).catch(() => {});
-  }, []);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -107,6 +105,10 @@ export default function TournamentSettings() {
       playerSelectionMode: t.playerSelectionMode || "sequential",
       registrationDeadline: t.registrationDeadline || "",
       registrationLimit: t.registrationLimit != null ? String(t.registrationLimit) : "",
+      enableRegistrationPayment: t.enableRegistrationPayment ?? false,
+      registrationFee: t.registrationFee != null ? String(t.registrationFee) : "",
+      upiId: t.upiId || "",
+      paymentVerificationMethod: t.paymentVerificationMethod || "utr",
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
       audioEnabled: t.audioEnabled ?? true,
@@ -208,7 +210,7 @@ export default function TournamentSettings() {
       minBid: Number(f.minBid) > 0 ? f.minBid : "10000",
     }));
     setBidTiers([{ increment }]);
-    toast({ title: "Cricket preset applied", description: "Review values and click Save Changes." });
+    toast({ title: "Cricket preset applied", description: "Changes will save automatically." });
   }
 
   function handleDisplayThemeChange(t: DisplayThemeName) {
@@ -338,60 +340,151 @@ export default function TournamentSettings() {
     [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos],
   );
 
+  const saveKey = useMemo(
+    () => buildSnapshot(editForm, bidTiers, sponsorLogos),
+    [buildSnapshot, editForm, bidTiers, sponsorLogos],
+  );
+
+  const getSaveBlockReason = useCallback((): string | null => {
+    if (!(editForm.name as string)?.trim()) {
+      return "Tournament name is required";
+    }
+    if (editForm.enableRegistrationPayment === true) {
+      const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
+      const upi = (editForm.upiId as string).trim();
+      if (!Number.isFinite(fee) || fee <= 0) {
+        return "Complete registration fee to save";
+      }
+      if (!upi) {
+        return "Enter UPI ID to save payment settings";
+      }
+      if (!editForm.paymentVerificationMethod) {
+        return "Choose a verification method to save";
+      }
+    }
+    return null;
+  }, [editForm]);
+
+  const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
+    const blockReason = getSaveBlockReason();
+    if (blockReason) {
+      if (options?.notify) {
+        toast({ title: "Cannot save yet", description: blockReason, variant: "destructive" });
+      }
+      return false;
+    }
+
+    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
+    try {
+      await updateTournament.mutateAsync({
+        tournamentId,
+        data: {
+          reason: DEFAULT_SETTINGS_AUDIT_REASON,
+          name: editForm.name as string,
+          sport: editForm.sport as string,
+          venue: editForm.venue as string || undefined,
+          auctionDate: editForm.auctionDate as string || undefined,
+          auctionTime: editForm.auctionTime as string || undefined,
+          logoUrl: editForm.logoUrl as string || undefined,
+          sponsorLogos: JSON.stringify(filteredLogos),
+          basePurse: Number(editForm.basePurse) || undefined,
+          minBid: Number(editForm.minBid) || undefined,
+          bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
+          timerSeconds: Number(editForm.timerSeconds) || undefined,
+          bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+          bidExtensionEnabled: editForm.bidExtensionEnabled === true,
+          bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
+          bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
+          playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
+          minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
+          maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
+          registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
+          registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
+            ? Number(editForm.registrationLimit) || null
+            : null,
+          enableRegistrationPayment: editForm.enableRegistrationPayment === true,
+          registrationFee:
+            editForm.enableRegistrationPayment === true && editForm.registrationFee !== ""
+              ? Number(editForm.registrationFee)
+              : null,
+          upiId: editForm.enableRegistrationPayment === true ? ((editForm.upiId as string).trim() || null) : null,
+          paymentVerificationMethod: editForm.enableRegistrationPayment === true
+            ? (editForm.paymentVerificationMethod as import("@workspace/api-client-react").TournamentUpdatePaymentVerificationMethod)
+            : null,
+          paymentCollectionMode: "manual_verification",
+          audioEnabled: editForm.audioEnabled === true,
+          masterVolume: Number(editForm.masterVolume) || 80,
+          countdownSoundEnabled: editForm.countdownSoundEnabled === true,
+          countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+          countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
+          soldSoundEnabled: editForm.soldSoundEnabled === true,
+          soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+          soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
+          breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
+          breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+          breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
+          mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
+          mainBannerEnabled: editForm.mainBannerEnabled === true,
+          mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
+          matchDates: (editForm.matchDates as string).trim() || null,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos));
+      if (options?.notify) {
+        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+      }
+      return true;
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not save settings. Please try again.";
+      if (options?.notify) {
+        toast({ title: "Save failed", description: msg, variant: "destructive" });
+      }
+      return false;
+    }
+  }, [
+    bidTiers,
+    buildSnapshot,
+    editForm,
+    getSaveBlockReason,
+    qc,
+    sponsorLogos,
+    toast,
+    tournamentId,
+    updateTournament,
+  ]);
+
+  const saveBlockReason = getSaveBlockReason();
+
+  const { phase: autoSavePhase, saveNow } = useDebouncedAutoSave({
+    isDirty,
+    saveKey,
+    enabled: initialized,
+    canSave: getSaveBlockReason,
+    onSave: () => performSave(),
+    onSaved: () => {
+      toast({ title: "Saved", description: "Settings updated automatically." });
+    },
+    onError: (message) => {
+      toast({ title: "Save failed", description: message, variant: "destructive" });
+    },
+  });
+
   function handleDiscard() {
     if (!tournament) return;
     hydrateFromTournament(tournament);
     toast({ title: "Changes discarded", description: "Settings restored to last saved state." });
   }
 
-  async function handleSave() {
-    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
-    await updateTournament.mutateAsync({
-      tournamentId,
-      data: {
-        reason: DEFAULT_SETTINGS_AUDIT_REASON,
-        name: editForm.name as string,
-        sport: editForm.sport as string,
-        venue: editForm.venue as string || undefined,
-        auctionDate: editForm.auctionDate as string || undefined,
-        auctionTime: editForm.auctionTime as string || undefined,
-        logoUrl: editForm.logoUrl as string || undefined,
-        sponsorLogos: JSON.stringify(filteredLogos),
-        basePurse: Number(editForm.basePurse) || undefined,
-        minBid: Number(editForm.minBid) || undefined,
-        bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
-        timerSeconds: Number(editForm.timerSeconds) || undefined,
-        bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
-        bidExtensionEnabled: editForm.bidExtensionEnabled === true,
-        bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
-        bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
-        playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
-        minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
-        maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
-        registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
-        registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
-          ? Number(editForm.registrationLimit) || null
-          : null,
-        audioEnabled: editForm.audioEnabled === true,
-        masterVolume: Number(editForm.masterVolume) || 80,
-        countdownSoundEnabled: editForm.countdownSoundEnabled === true,
-        countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
-        countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
-        soldSoundEnabled: editForm.soldSoundEnabled === true,
-        soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
-        soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-        breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
-        breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
-        breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
-        mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
-        mainBannerEnabled: editForm.mainBannerEnabled === true,
-        mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
-        matchDates: (editForm.matchDates as string).trim() || null,
-      },
+  function handleSave() {
+    void saveNow().then((ok) => {
+      if (!ok && saveBlockReason) {
+        toast({ title: "Cannot save yet", description: saveBlockReason, variant: "destructive" });
+      } else if (ok) {
+        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+      }
     });
-    qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-    setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos));
-    toast({ title: "Settings saved", description: "Your auction rules have been updated." });
   }
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
@@ -433,7 +526,7 @@ export default function TournamentSettings() {
               Tournament Settings
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {tournament?.name} — changes apply when you save.
+              {tournament?.name} — changes save automatically.
             </p>
           </div>
         </div>
@@ -442,15 +535,18 @@ export default function TournamentSettings() {
           isSaving={updateTournament.isPending}
           onSave={handleSave}
           onDiscard={handleDiscard}
+          autoSave
+          autoSavePhase={autoSavePhase}
+          blockReason={saveBlockReason}
         />
       </div>
 
-      {isDirty ? (
-        <p className="sm:hidden text-xs text-amber-500 mb-3 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
-          Unsaved changes
-        </p>
-      ) : null}
+      <AutoSaveStatusPill
+        phase={autoSavePhase}
+        isDirty={isDirty}
+        isSaving={updateTournament.isPending}
+        blockReason={saveBlockReason}
+      />
 
       {/* Sticky tab strip */}
       <div className="flex border-b border-border mb-5 overflow-x-auto sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-1 -mx-1 px-1">
@@ -517,19 +613,11 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Sport</Label>
-                  <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="dark">
-                      {(hubSports.length > 0 ? hubSports : [
-                        { slug: "cricket", name: "Cricket" }, { slug: "football", name: "Football" },
-                        { slug: "kabaddi", name: "Kabaddi" }, { slug: "badminton", name: "Badminton" },
-                        { slug: "volleyball", name: "Volleyball" }, { slug: "esports", name: "E-Sports" },
-                        { slug: "other", name: "Other" },
-                      ]).map(s => (
-                        <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SportSelect
+                    value={(editForm.sport as string) || "cricket"}
+                    currentSlug={tournament?.sport}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, sport: v }))}
+                  />
                 </div>
               </div>
             </SettingsCard>
@@ -580,6 +668,68 @@ export default function TournamentSettings() {
                   <Input type="number" min={1} value={editForm.registrationLimit as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))} placeholder="e.g. 100" />
                   <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
                 </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title="Registration Payments"
+              description="Optional registration fee collection with manual payment verification."
+              icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
+              className={fieldWrapClass("registration")}
+            >
+              <div id="settings-field-registration-payments" className="space-y-3">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium">Collect Registration Fee</p>
+                    <p className="text-[10px] text-muted-foreground">Players pay via UPI and submit proof during registration.</p>
+                  </div>
+                  <Switch
+                    checked={editForm.enableRegistrationPayment === true}
+                    onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
+                  />
+                </div>
+
+                <Collapsible open={editForm.enableRegistrationPayment === true}>
+                  <CollapsibleContent className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Registration Fee (₹) <span className="text-destructive">*</span></Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editForm.registrationFee as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
+                          placeholder="e.g. 500"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs">UPI ID <span className="text-destructive">*</span></Label>
+                        <Input
+                          value={editForm.upiId as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
+                          placeholder="yourname@upi"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs">Verification Method <span className="text-destructive">*</span></Label>
+                        <Select
+                          value={(editForm.paymentVerificationMethod as string) || "utr"}
+                          onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent className="dark">
+                            <SelectItem value="utr">UTR Number only</SelectItem>
+                            <SelectItem value="screenshot">Payment screenshot only</SelectItem>
+                            <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Payment gateway integration (Cashfree, Razorpay) coming soon. Manual verification is active.
+                    </p>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             </SettingsCard>
 
@@ -1200,7 +1350,7 @@ export default function TournamentSettings() {
               </div>
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-3">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">Coming soon:</span> Auto-save snapshots, crash recovery, lock team bidding, and re-auction queue management.
+                  <span className="font-medium text-foreground/80">Coming soon:</span> Crash recovery snapshots, lock team bidding, and re-auction queue management.
                 </p>
               </div>
             </SettingsCard>

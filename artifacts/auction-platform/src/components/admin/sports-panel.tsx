@@ -28,6 +28,8 @@ import {
   Users,
   ClipboardList,
   Eye,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,6 +295,10 @@ export function SportsPanel() {
   const [savingOption, setSavingOption] = useState<number | null>(null);
   const [previewSelections, setPreviewSelections] = useState<Record<number, string>>({});
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [newSportName, setNewSportName] = useState("");
+  const [addingSport, setAddingSport] = useState(false);
+  const [editingSportName, setEditingSportName] = useState("");
+  const [savingSport, setSavingSport] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -320,6 +326,12 @@ export function SportsPanel() {
 
   const selectedSport = sports.find((s) => s.id === selectedSportId) ?? null;
   const selectedRole = selectedSport?.roles.find((r) => r.id === selectedRoleId) ?? null;
+
+  useEffect(() => {
+    setEditingSportName(selectedSport?.name ?? "");
+  }, [selectedSport?.id, selectedSport?.name]);
+
+  const activeSports = useMemo(() => sports.filter((s) => s.active), [sports]);
 
   const activeRoles = useMemo(
     () => (selectedSport ? [...selectedSport.roles.filter((r) => r.active)].sort(byDisplayOrder) : []),
@@ -584,6 +596,68 @@ export function SportsPanel() {
     } else flash("Failed", false);
   }
 
+  async function addSport() {
+    if (!newSportName.trim()) return;
+    setAddingSport(true);
+    try {
+      const r = await fetch("/api/auth/admin/sports", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSportName.trim() }),
+      });
+      if (r.ok) {
+        const created = (await r.json()) as AdminSport;
+        setNewSportName("");
+        flash("Sport added");
+        await load();
+        setSelectedSportId(created.id);
+        setSelectedRoleId(null);
+      } else {
+        const err = await r.json().catch(() => ({}));
+        flash((err as { error?: string }).error ?? "Failed to add sport", false);
+      }
+    } finally {
+      setAddingSport(false);
+    }
+  }
+
+  async function saveSportName() {
+    if (!selectedSportId || !editingSportName.trim()) return;
+    setSavingSport(true);
+    try {
+      const r = await fetch(`/api/auth/admin/sports/${selectedSportId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingSportName.trim() }),
+      });
+      if (r.ok) {
+        flash("Sport updated");
+        await load();
+      } else flash("Failed to update sport", false);
+    } finally {
+      setSavingSport(false);
+    }
+  }
+
+  async function deactivateSport() {
+    if (!selectedSportId || !selectedSport) return;
+    if (!window.confirm(`Deactivate "${selectedSport.name}"? Existing tournaments keep their sport; it won't appear in new dropdowns.`)) {
+      return;
+    }
+    const r = await fetch(`/api/auth/admin/sports/${selectedSportId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (r.ok) {
+      flash("Sport deactivated");
+      setSelectedSportId(null);
+      setSelectedRoleId(null);
+      await load();
+    } else flash("Failed to deactivate sport", false);
+  }
+
   return (
     <div className="flex-1 flex min-h-0 flex-col lg:flex-row">
       {/* Flash toast */}
@@ -608,7 +682,7 @@ export function SportsPanel() {
       <div className="w-full lg:w-52 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/40 flex flex-col min-h-0 max-h-[180px] lg:max-h-none">
         <div className="px-3 py-2.5 border-b border-border/40 flex-shrink-0 flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sports</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-1">Sports</p>
         </div>
         <ScrollArea className="flex-1">
           {loading ? (
@@ -619,7 +693,7 @@ export function SportsPanel() {
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {sports.map((sport) => {
+              {activeSports.map((sport) => {
                 const roleCount = sport.roles.filter((r) => r.active).length;
                 return (
                   <button
@@ -635,7 +709,7 @@ export function SportsPanel() {
                         : "hover:bg-muted/40 border border-transparent"
                     }`}
                   >
-                    <span className="capitalize font-medium">{sport.name}</span>
+                    <span className="font-medium">{sport.name}</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-muted-foreground">
                         {roleCount} {roleCount === 1 ? "role" : "roles"}
@@ -645,9 +719,65 @@ export function SportsPanel() {
                   </button>
                 );
               })}
+              {activeSports.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4 px-2">No sports yet — add one below</p>
+              )}
             </div>
           )}
         </ScrollArea>
+        <div className="p-2 border-t border-border/30 space-y-2 flex-shrink-0">
+          {selectedSport && (
+            <div className="rounded-lg border border-border/40 bg-muted/10 p-2 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Pencil className="w-3 h-3" /> Edit sport
+              </p>
+              <div className="flex items-center gap-1">
+                <Input
+                  value={editingSportName}
+                  onChange={(e) => setEditingSportName(e.target.value)}
+                  className="h-7 text-xs flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2"
+                  onClick={saveSportName}
+                  disabled={savingSport || !editingSportName.trim() || editingSportName.trim() === selectedSport.name}
+                  title="Save name"
+                >
+                  {savingSport ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-destructive hover:text-destructive"
+                  onClick={deactivateSport}
+                  title="Deactivate sport"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <Input
+              value={newSportName}
+              onChange={(e) => setNewSportName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSport()}
+              placeholder="New sport name..."
+              className="h-8 text-xs flex-1"
+            />
+            <Button
+              size="sm"
+              className="h-8 text-xs gap-1 shrink-0"
+              onClick={addSport}
+              disabled={addingSport || !newSportName.trim()}
+            >
+              {addingSport ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              Add
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Col 2: Roles */}

@@ -9,6 +9,7 @@ import { randomBytes } from "crypto";
 import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
+import { resolveSportIdBySlug } from "./sports";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -20,6 +21,11 @@ import { notifyAsync } from "../lib/notifications";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament } from "../lib/audit-snapshots";
+import {
+  PAYMENT_COLLECTION_MODES,
+  PAYMENT_VERIFICATION_METHODS,
+} from "@workspace/api-base/registration-payment";
+import { validateTournamentPaymentSettings } from "../lib/registration-payment";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -97,6 +103,11 @@ const tournamentToJson = (
   status: t.status,
   registrationDeadline: t.registrationDeadline ?? null,
   registrationLimit: t.registrationLimit ?? null,
+  enableRegistrationPayment: t.enableRegistrationPayment ?? false,
+  registrationFee: t.registrationFee ?? null,
+  upiId: t.upiId ?? null,
+  paymentVerificationMethod: t.paymentVerificationMethod ?? null,
+  paymentCollectionMode: t.paymentCollectionMode ?? "manual_verification",
   resetCount: t.resetCount ?? 0,
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
@@ -202,6 +213,7 @@ router.post("/tournaments", async (req, res) => {
     .values({
       name: d.name,
       sport: d.sport,
+      sportId: await resolveSportIdBySlug(d.sport),
       auctionCode,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
@@ -284,6 +296,11 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     status: z.string().optional(),
     registrationDeadline: z.string().nullable().optional(),
     registrationLimit: z.number().int().nullable().optional(),
+    enableRegistrationPayment: z.boolean().optional(),
+    registrationFee: z.number().int().min(1).nullable().optional(),
+    upiId: z.string().nullable().optional(),
+    paymentVerificationMethod: z.enum(PAYMENT_VERIFICATION_METHODS).nullable().optional(),
+    paymentCollectionMode: z.enum(PAYMENT_COLLECTION_MODES).optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
     audioEnabled: z.boolean().optional(),
@@ -317,7 +334,10 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
-  if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.sport !== undefined) {
+    updates.sport = d.sport;
+    updates.sportId = await resolveSportIdBySlug(d.sport);
+  }
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
@@ -345,6 +365,11 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.registrationDeadline !== undefined)
     updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
+  if (d.enableRegistrationPayment !== undefined) updates.enableRegistrationPayment = d.enableRegistrationPayment;
+  if (d.registrationFee !== undefined) updates.registrationFee = d.registrationFee;
+  if (d.upiId !== undefined) updates.upiId = d.upiId === "" ? null : d.upiId;
+  if (d.paymentVerificationMethod !== undefined) updates.paymentVerificationMethod = d.paymentVerificationMethod;
+  if (d.paymentCollectionMode !== undefined) updates.paymentCollectionMode = d.paymentCollectionMode;
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
   if (d.audioEnabled !== undefined) updates.audioEnabled = d.audioEnabled;
@@ -375,6 +400,22 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     }
     if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
     if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
+  }
+  const mergedPaymentSettings = {
+    enableRegistrationPayment:
+      d.enableRegistrationPayment ?? beforeTournament?.enableRegistrationPayment ?? false,
+    registrationFee:
+      d.registrationFee !== undefined ? d.registrationFee : (beforeTournament?.registrationFee ?? null),
+    upiId: d.upiId !== undefined ? d.upiId : (beforeTournament?.upiId ?? null),
+    paymentVerificationMethod:
+      d.paymentVerificationMethod !== undefined
+        ? d.paymentVerificationMethod
+        : (beforeTournament?.paymentVerificationMethod ?? null),
+  };
+  const paymentSettingsValidation = validateTournamentPaymentSettings(mergedPaymentSettings);
+  if (!paymentSettingsValidation.ok) {
+    res.status(400).json({ error: paymentSettingsValidation.error, field: paymentSettingsValidation.field });
+    return;
   }
   const [tournament] = await db
     .update(tournamentsTable)

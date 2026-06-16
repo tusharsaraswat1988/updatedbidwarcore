@@ -33,6 +33,22 @@ void pool
     console.error("[db] failed to ensure teams.owner_email column:", err);
   });
 
+void pool
+  .query(`
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_payment boolean NOT NULL DEFAULT false;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee integer;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS upi_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_verification_method text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_collection_mode text NOT NULL DEFAULT 'manual_verification';
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS registration_payment_status text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS utr_number text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_screenshot_url text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure registration payment columns:", err);
+  });
+
 /** Ensure platform audit table exists (append-only investigation trail). */
 void pool
   .query(`
@@ -368,8 +384,7 @@ void pool
     CREATE INDEX IF NOT EXISTS ix_pta_player_id ON player_team_assignments (player_id);
     CREATE INDEX IF NOT EXISTS ix_pta_team_id ON player_team_assignments (team_id);
     CREATE INDEX IF NOT EXISTS ix_pta_tournament_id ON player_team_assignments (tournament_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_player_team_tournament
-      ON player_team_assignments (player_id, team_id, tournament_id);
+    DROP INDEX IF EXISTS uq_pta_player_team_tournament;
 
     CREATE TABLE IF NOT EXISTS player_statistics (
       id SERIAL PRIMARY KEY,
@@ -417,7 +432,28 @@ void pool
     ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS ix_pta_active ON player_team_assignments (tournament_id, is_active);
-    DROP INDEX IF EXISTS uq_pta_player_team_tournament;
+
+    DELETE FROM player_team_assignments a
+    USING player_team_assignments b
+    WHERE a.id > b.id
+      AND a.player_id = b.player_id
+      AND a.team_id = b.team_id
+      AND COALESCE(a.tournament_id, -1) = COALESCE(b.tournament_id, -1);
+
+    UPDATE player_team_assignments SET is_active = false, ended_at = NOW()
+    WHERE id IN (
+      SELECT id FROM (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY player_id, tournament_id
+            ORDER BY assigned_at DESC, id DESC
+          ) AS rn
+        FROM player_team_assignments
+        WHERE is_active = true AND sport = 'cricket' AND tournament_id IS NOT NULL
+      ) ranked
+      WHERE rn > 1
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_active_roster
       ON player_team_assignments (player_id, tournament_id)
       WHERE is_active = true AND sport = 'cricket';

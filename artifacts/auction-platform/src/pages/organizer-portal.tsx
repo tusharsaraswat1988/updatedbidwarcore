@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import { usePlatformFeatures } from "@/hooks/use-platform-features";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
+import { SportSelect } from "@/components/sport-select";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
@@ -114,16 +114,6 @@ function formatAuctionSchedulePreview(date: string, hour12: number, minute: numb
 const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const TIME_MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
-const FALLBACK_SPORTS: { slug: string; name: string }[] = [
-  { slug: "cricket", name: "Cricket" },
-  { slug: "football", name: "Football" },
-  { slug: "kabaddi", name: "Kabaddi" },
-  { slug: "badminton", name: "Badminton" },
-  { slug: "volleyball", name: "Volleyball" },
-  { slug: "esports", name: "E-Sports" },
-  { slug: "other", name: "Other" },
-];
-
 // ─── Create Tournament Modal ──────────────────────────────────────────────────
 
 function AuthStepIndicator({ step, total }: { step: number; total: number }) {
@@ -167,21 +157,6 @@ function CreateTournamentModal({
     minBid: "10000",
     bidIncrement: "5000",
   };
-
-  const { scoring: scoringPlatform } = usePlatformFeatures();
-
-  // Load sports from master table
-  const [sports, setSports] = useState<{ slug: string; name: string }[]>([]);
-  useEffect(() => {
-    fetch("/api/sports")
-      .then(r => r.json())
-      .then((d: { slug: string; name: string }[]) => setSports(Array.isArray(d) ? d : []))
-      .catch(() => {});
-  }, []);
-
-  const sportOptions = (sports.length > 0 ? sports : FALLBACK_SPORTS).filter(
-    s => s.slug !== "badminton" || scoringPlatform,
-  );
 
   function handleClose() {
     setCreatedCode(null);
@@ -312,14 +287,10 @@ function CreateTournamentModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Sport</Label>
-                    <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {sportOptions.map(s => (
-                          <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SportSelect
+                      value={form.sport}
+                      onValueChange={(v) => setForm((f) => ({ ...f, sport: v }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Venue</Label>

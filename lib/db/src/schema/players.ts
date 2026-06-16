@@ -43,6 +43,11 @@ export const playersTable = pgTable(
     whatsappConsentMethod: text("whatsapp_consent_method"), // "whatsapp_otp_verified"|"web_checkbox"|"organizer_declaration"|"web_fallback"
     whatsappConsentIp: text("whatsapp_consent_ip"),
     whatsappConsentOrgId: integer("whatsapp_consent_org_id"),
+    // Registration payment verification (isolated from auction status / purse / bidding)
+    registrationPaymentStatus: text("registration_payment_status"), // pending | approved | rejected
+    utrNumber: text("utr_number"),
+    paymentScreenshotUrl: text("payment_screenshot_url"),
+    paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },

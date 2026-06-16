@@ -89,6 +89,15 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
       changeOrigin: true,
       secure: false,
       ws: true,
+      configure: (proxy) => {
+        proxy.on("error", (err, _req, res) => {
+          // SSE / long-poll connections reset when the API restarts — avoid crashing Vite.
+          if (res && !res.headersSent && typeof res.writeHead === "function") {
+            res.writeHead(502, { "Content-Type": "text/plain" });
+            res.end("API unavailable — retry after dev server restarts.");
+          }
+        });
+      },
     },
   };
 }

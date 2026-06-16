@@ -64,8 +64,7 @@ CREATE TABLE IF NOT EXISTS player_team_assignments (
 CREATE INDEX IF NOT EXISTS ix_pta_player_id ON player_team_assignments (player_id);
 CREATE INDEX IF NOT EXISTS ix_pta_team_id ON player_team_assignments (team_id);
 CREATE INDEX IF NOT EXISTS ix_pta_tournament_id ON player_team_assignments (tournament_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_player_team_tournament
-  ON player_team_assignments (player_id, team_id, tournament_id);
+DROP INDEX IF EXISTS uq_pta_player_team_tournament;
 
 CREATE TABLE IF NOT EXISTS player_statistics (
   id SERIAL PRIMARY KEY,

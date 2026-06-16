@@ -48,6 +48,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaymentStatusBadge } from "@/components/registration-payment/payment-status-badge";
+import { RegistrationPaymentReview } from "@/components/registration-payment/registration-payment-review";
+import type { RegistrationPaymentStatus } from "@workspace/api-base/registration-payment";
 import {
   Table,
   TableBody,
@@ -62,7 +65,7 @@ import { cldUrl } from "@/lib/cloudinary";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
-import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { useToast } from "@/hooks/use-toast";
@@ -400,9 +403,10 @@ const PLAYER_TAGS = PLAYER_TAG_OPTIONS;
 
 export { playerTagLabel };
 
-function PlayerForm({ tournamentId, player, categories, teams, tournament, onClose }: {
+function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams, tournament, onClose }: {
   tournamentId: number;
   player?: any;
+  tournamentPlayers?: any[];
   categories: any[];
   teams: any[];
   tournament?: any;
@@ -419,6 +423,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const [mobileLookupLoading, setMobileLookupLoading] = useState(false);
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
   const [pendingMobileProfile, setPendingMobileProfile] = useState<SuggestionProfile | null>(null);
+  const [matchedTournamentPlayer, setMatchedTournamentPlayer] = useState<any | null>(null);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
   const isEdit = !!player;
@@ -473,6 +478,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     playerTag: player?.playerTag || "",
     playerTagTeamId: player?.playerTagTeamId ? String(player.playerTagTeamId) : "",
     isNonPlayingMember: player?.isNonPlayingMember ?? false,
+    markPaymentCompleted: false,
   });
 
   const [submitError, setSubmitError] = useState("");
@@ -495,13 +501,30 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
 
   const sortedSpecGroups = [...specGroups].sort((a, b) => a.displayOrder - b.displayOrder);
 
+  function findTournamentPlayerByMobile(mobile: string) {
+    const parsed = parseIndianMobile(mobile);
+    if (!parsed.ok || !tournamentPlayers?.length) return null;
+    return tournamentPlayers.find(
+      (p) => p.mobileNumber && mobilesMatch(p.mobileNumber, parsed.normalized),
+    ) ?? null;
+  }
+
   function handleMobileChange(val: string) {
     const sanitized = sanitizeMobileInput(val);
     f("mobileNumber", sanitized);
     if (mobileError) setMobileError("");
     setMobileLookedUp(false);
     setPendingMobileProfile(null);
+    setMatchedTournamentPlayer(null);
     if (player) return;
+    if (sanitized.length >= 10) {
+      const tournamentMatch = findTournamentPlayerByMobile(sanitized);
+      if (tournamentMatch) {
+        setMatchedTournamentPlayer(tournamentMatch);
+        setMobileLookedUp(true);
+        return;
+      }
+    }
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
     const digits = sanitized;
     if (digits.length >= 10) {
@@ -511,7 +534,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`);
           const data: SuggestionProfile[] = await res.json();
           const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === digits)
+            ? data.find(p => p.mobileNumber && mobilesMatch(p.mobileNumber, digits))
             : undefined;
           if (match) setPendingMobileProfile(match);
         } catch {
@@ -574,12 +597,14 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       playerTag: (form.playerTag || undefined) as any,
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
+      markPaymentCompleted: !player && tournament?.enableRegistrationPayment ? form.markPaymentCompleted : undefined,
     };
     try {
-      if (player) {
+      const saveTarget = player ?? matchedTournamentPlayer;
+      if (saveTarget) {
         await updatePlayer.mutateAsync({
           tournamentId,
-          playerId: player.id,
+          playerId: saveTarget.id,
           data,
         });
       } else {
@@ -653,6 +678,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             </>
           )}
         </div>
+        {categories.length > 0 && (
         <div className="space-y-2">
           <Label>Category</Label>
           <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
@@ -662,6 +688,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             </SelectContent>
           </Select>
         </div>
+        )}
       </div>
       {/* Row 2: Mobile (required) | Role */}
       <div className="grid grid-cols-2 gap-4">
@@ -686,7 +713,13 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             )}
           </div>
           {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
-          {!player && pendingMobileProfile && (
+          {!player && matchedTournamentPlayer && (
+            <p className="text-xs text-amber-400 mt-1">
+              This mobile is already registered as <span className="font-semibold">{matchedTournamentPlayer.name}</span>.
+              Saving will update that player — no duplicate will be created.
+            </p>
+          )}
+          {!player && pendingMobileProfile && !matchedTournamentPlayer && (
             <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 space-y-3">
               <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Existing profile found</p>
               <div className="flex items-center gap-3">
@@ -990,6 +1023,26 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           )}
         </div>
       </div>
+
+      {!player && tournament?.enableRegistrationPayment && (
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Payment Completed</p>
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={form.markPaymentCompleted}
+              onChange={e => f("markPaymentCompleted", e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
+            />
+            <div>
+              <p className="text-sm font-semibold group-hover:text-foreground transition-colors">Mark as Paid</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Check if payment was collected offline. Skips UTR and screenshot requirements.
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
 
       {/* Non-playing member toggle */}
       <div className="pt-2 border-t border-border">
@@ -1420,6 +1473,15 @@ function MultiFilterPopover({
   );
 }
 
+type PaymentFilterValue = "all" | RegistrationPaymentStatus;
+
+const PAYMENT_FILTER_CHIPS: { value: PaymentFilterValue; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "approved", label: "Approved" },
+  { value: "pending", label: "Pending" },
+  { value: "rejected", label: "Rejected" },
+];
+
 type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold";
 
 const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass: string; activeClass: string }[] = [
@@ -1545,6 +1607,8 @@ function PlayerDetailPanel({
   tagTeam,
   roleSpecGroups,
   tournamentId,
+  tournament,
+  categories,
   onEdit,
   onDelete,
 }: {
@@ -1554,6 +1618,8 @@ function PlayerDetailPanel({
   tagTeam: { name: string; color?: string | null } | null;
   roleSpecGroups: { groupName: string }[];
   tournamentId: number;
+  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null };
+  categories?: CategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -1596,7 +1662,14 @@ function PlayerDetailPanel({
             <Badge variant="outline" className={`text-[10px] font-semibold capitalize ${statusColors[player.status] || ""}`}>
               {statusLabels[player.status] || player.status}
             </Badge>
-            {cat && (
+            {categories && categories.length > 0 ? (
+              <PlayerCategorySelect
+                tournamentId={tournamentId}
+                playerId={player.id}
+                categoryId={player.categoryId}
+                categories={categories}
+              />
+            ) : cat ? (
               <Badge
                 variant="outline"
                 className="text-[10px] font-medium"
@@ -1604,7 +1677,7 @@ function PlayerDetailPanel({
               >
                 {cat.name}
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -1724,6 +1797,18 @@ function PlayerDetailPanel({
         )}
       </div>
 
+      {tournament?.enableRegistrationPayment && (
+        <RegistrationPaymentReview
+          tournamentId={tournamentId}
+          playerId={player.id}
+          playerName={player.name}
+          registrationFee={tournament.registrationFee}
+          utrNumber={player.utrNumber}
+          paymentScreenshotUrl={player.paymentScreenshotUrl}
+          registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+        />
+      )}
+
       <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
           <Pencil className="w-3.5 h-3.5" /> Edit
@@ -1741,6 +1826,80 @@ function PlayerDetailPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+// ─── Inline category assign (organizer list) ───────────────────────────────────
+
+type CategoryOption = { id: number; name: string; colorCode?: string | null };
+
+function PlayerCategorySelect({
+  tournamentId,
+  playerId,
+  categoryId,
+  categories,
+}: {
+  tournamentId: number;
+  playerId: number;
+  categoryId: number | null | undefined;
+  categories: CategoryOption[];
+}) {
+  const updatePlayer = useUpdatePlayer();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  async function handleChange(value: string) {
+    const nextId = value === "none" ? null : parseInt(value, 10);
+    if (nextId === (categoryId ?? null)) return;
+    setSaving(true);
+    try {
+      await updatePlayer.mutateAsync({
+        tournamentId,
+        playerId,
+        data: { categoryId: nextId } as Parameters<typeof updatePlayer.mutateAsync>[0]["data"],
+      });
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error
+        || (err as { message?: string })?.message
+        || "Please try again";
+      toast({ title: "Could not save category", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectedCat = categoryId ? categories.find(c => c.id === categoryId) : null;
+
+  return (
+    <Select
+      value={categoryId ? String(categoryId) : "none"}
+      onValueChange={handleChange}
+      disabled={saving}
+    >
+      <SelectTrigger
+        className="h-8 min-w-[120px] max-w-[168px] text-xs border-border/60"
+        style={selectedCat?.colorCode ? { borderColor: `${selectedCat.colorCode}66` } : undefined}
+        onClick={e => e.stopPropagation()}
+      >
+        {saving ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          <SelectValue placeholder="Select…" />
+        )}
+      </SelectTrigger>
+      <SelectContent className="dark" onClick={e => e.stopPropagation()}>
+        <SelectItem value="none">—</SelectItem>
+        {categories.map(c => (
+          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -1781,6 +1940,7 @@ export default function Players() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [tab, setTab] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilterValue>("all");
   const [search, setSearch] = useState("");
   const [categoryIds, setCategoryIds] = useState<Set<number>>(new Set());
   const [teamIds, setTeamIds] = useState<Set<number>>(new Set());
@@ -1912,10 +2072,15 @@ export default function Players() {
   const hasAdvancedFilters =
     categoryIds.size > 0 || (teamFilterEnabled && teamIds.size > 0) || tagFilters.size > 0 || genderFilters.size > 0 || missingMobileOnly;
 
+  const paymentEnabled = tournament?.enableRegistrationPayment === true;
+
   const filtered = useMemo(() => {
     const list = (players || []).filter(p => {
       const matchesTab = tab === "all" || p.status === tab;
       if (!matchesTab || !playerMatchesSearch(p, search)) return false;
+      if (paymentEnabled && paymentFilter !== "all") {
+        if ((p.registrationPaymentStatus ?? null) !== paymentFilter) return false;
+      }
       return playerPassesAdvancedFilters(p, {
         categoryIds,
         teamIds,
@@ -1926,7 +2091,7 @@ export default function Players() {
       });
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
-  }, [players, tab, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
+  }, [players, tab, paymentFilter, paymentEnabled, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
@@ -1936,6 +2101,7 @@ export default function Players() {
     label: c.name,
     color: c.colorCode,
   }));
+  const hasCategories = categoryOptions.length > 0;
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -2141,6 +2307,7 @@ export default function Players() {
               key={editing?.id ?? "new"}
               tournamentId={tournamentId}
               player={editing}
+              tournamentPlayers={players || []}
               categories={categories || []}
               teams={teams || []}
               tournament={tournament}
@@ -2175,6 +2342,28 @@ export default function Players() {
               </span>
             )}
           </div>
+
+          {paymentEnabled && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">
+                Payment
+              </span>
+              {PAYMENT_FILTER_CHIPS.map(chip => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  onClick={() => setPaymentFilter(chip.value)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    paymentFilter === chip.value
+                      ? "bg-primary/15 text-primary border-primary/40"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <MultiFilterPopover
@@ -2302,14 +2491,16 @@ export default function Players() {
                       className="min-w-[160px]"
                     />
                     <TableHead className="min-w-[120px]">Mobile</TableHead>
+                    {hasCategories && (
                     <SortableTableHead
                       label="Category"
                       sortKey="category"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px]"
+                      className="min-w-[140px]"
                     />
+                    )}
                     <SortableTableHead
                       label="Status"
                       sortKey="status"
@@ -2360,39 +2551,44 @@ export default function Players() {
                             <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold truncate">{player.name}</span>
-                              {tagTheme && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] font-bold tracking-wider shrink-0"
-                                  style={{
-                                    color: tagTheme.color,
-                                    borderColor: tagTheme.border,
-                                    background: tagTheme.bg,
-                                  }}
-                                >
-                                  {tagTheme.label}
-                                </Badge>
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-semibold truncate">{player.name}</span>
+                                {tagTheme && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] font-bold tracking-wider shrink-0"
+                                    style={{
+                                      color: tagTheme.color,
+                                      borderColor: tagTheme.border,
+                                      background: tagTheme.bg,
+                                    }}
+                                  >
+                                    {tagTheme.label}
+                                  </Badge>
+                                )}
+                              </div>
+                              {paymentEnabled && player.registrationPaymentStatus && (
+                                <PaymentStatusBadge
+                                  status={player.registrationPaymentStatus as RegistrationPaymentStatus}
+                                  compact
+                                />
                               )}
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {player.mobileNumber || "—"}
                           </TableCell>
-                          <TableCell>
-                            {cat ? (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] font-medium"
-                                style={{ color: cat.colorCode || "#F59E0B", borderColor: `${cat.colorCode || "#F59E0B"}44` }}
-                              >
-                                {cat.name}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
+                          {hasCategories && (
+                          <TableCell onClick={e => e.stopPropagation()}>
+                            <PlayerCategorySelect
+                              tournamentId={tournamentId}
+                              playerId={player.id}
+                              categoryId={player.categoryId}
+                              categories={categories || []}
+                            />
                           </TableCell>
+                          )}
                           <TableCell>
                             <Badge
                               variant="outline"
@@ -2447,7 +2643,7 @@ export default function Players() {
                         </TableRow>
                         {isExpanded && (
                           <TableRow key={`${player.id}-detail`} className="border-border/40 bg-muted/10 hover:bg-muted/10">
-                            <TableCell colSpan={9} className="py-3 px-4">
+                            <TableCell colSpan={hasCategories ? 9 : 8} className="py-3 px-4">
                               <PlayerDetailPanel
                                 player={player}
                                 cat={cat}
@@ -2455,6 +2651,8 @@ export default function Players() {
                                 tagTeam={tagTeam}
                                 roleSpecGroups={roleSpecGroups}
                                 tournamentId={tournamentId}
+                                tournament={tournament}
+                                categories={hasCategories ? categories || [] : undefined}
                                 onEdit={() => openEdit(player)}
                                 onDelete={() => openDelete({ id: player.id, name: player.name })}
                               />
@@ -2506,6 +2704,13 @@ export default function Players() {
                             .join(" · ")}
                           {showTeam && team ? ` · ${team.name}` : ""}
                         </p>
+                        {paymentEnabled && player.registrationPaymentStatus && (
+                          <PaymentStatusBadge
+                            status={player.registrationPaymentStatus as RegistrationPaymentStatus}
+                            compact
+                            className="mt-0.5"
+                          />
+                        )}
                         {(player.status === "sold" || player.status === "retained") && amount.text !== "—" && (
                           <p className={`text-xs font-mono mt-0.5 ${amount.className}`}>{amount.text}</p>
                         )}
@@ -2570,6 +2775,8 @@ export default function Players() {
                   tagTeam={tagTeam}
                   roleSpecGroups={roleSpecGroups}
                   tournamentId={tournamentId}
+                  tournament={tournament}
+                  categories={hasCategories ? categories || [] : undefined}
                   onEdit={() => openEdit(drawerPlayer)}
                   onDelete={() => openDelete({ id: drawerPlayer.id, name: drawerPlayer.name })}
                 />

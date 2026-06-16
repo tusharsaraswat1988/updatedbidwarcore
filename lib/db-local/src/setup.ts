@@ -180,6 +180,15 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE players ADD COLUMN gender TEXT",
     "ALTER TABLE tournaments ADD COLUMN minimum_squad_size INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tournaments ADD COLUMN maximum_squad_size INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN enable_registration_payment INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN registration_fee INTEGER",
+    "ALTER TABLE tournaments ADD COLUMN upi_id TEXT",
+    "ALTER TABLE tournaments ADD COLUMN payment_verification_method TEXT",
+    "ALTER TABLE tournaments ADD COLUMN payment_collection_mode TEXT NOT NULL DEFAULT 'manual_verification'",
+    "ALTER TABLE players ADD COLUMN registration_payment_status TEXT",
+    "ALTER TABLE players ADD COLUMN utr_number TEXT",
+    "ALTER TABLE players ADD COLUMN payment_screenshot_url TEXT",
+    "ALTER TABLE players ADD COLUMN payment_submitted_at TEXT",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
   ];
   for (const sql of migrations) {

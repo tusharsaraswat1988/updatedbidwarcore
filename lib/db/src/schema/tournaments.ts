@@ -40,6 +40,12 @@ export const tournamentsTable = pgTable("tournaments", {
   // Player registration link controls
   registrationDeadline: text("registration_deadline"),
   registrationLimit: integer("registration_limit"),
+  // Registration payment verification (isolated from auction workflows)
+  enableRegistrationPayment: boolean("enable_registration_payment").notNull().default(false),
+  registrationFee: integer("registration_fee"),
+  upiId: text("upi_id"),
+  paymentVerificationMethod: text("payment_verification_method"), // utr | screenshot | utr_and_screenshot
+  paymentCollectionMode: text("payment_collection_mode").notNull().default("manual_verification"),
   // Super admin controls
   licenseStatus: text("license_status").notNull().default("trial"),
   licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),

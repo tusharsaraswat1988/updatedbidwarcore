@@ -28,6 +28,7 @@ import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account"
 import { notifyAsync } from "../lib/notifications";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
+import { resolveSportIdBySlug } from "./sports";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
 
@@ -423,6 +424,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const [t] = await db.insert(tournamentsTable).values({
     name: d.name,
     sport: d.sport,
+    sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
     venue: d.venue,
     auctionDate: d.auctionDate,
@@ -735,7 +737,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
-  if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.sport !== undefined) {
+    updates.sport = d.sport;
+    updates.sportId = await resolveSportIdBySlug(d.sport);
+  }
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) {

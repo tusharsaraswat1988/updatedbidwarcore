@@ -111,6 +111,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SportSelect } from "@/components/sport-select";
 import { Switch } from "@/components/ui/switch";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
@@ -258,28 +259,10 @@ export function CreateTournamentModal({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Sport</Label>
-                <Select
+                <SportSelect
                   value={form.sport}
                   onValueChange={(v) => setForm((p) => ({ ...p, sport: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "cricket",
-                      "football",
-                      "kabaddi",
-                      "basketball",
-                      "hockey",
-                      "other",
-                    ].map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Venue</Label>
@@ -923,30 +906,14 @@ function DetailPanel({
                     <Label className="text-xs text-muted-foreground">
                       Sport
                     </Label>
-                    <Select
+                    <SportSelect
                       value={(editForm.sport as string) || "cricket"}
+                      currentSlug={data?.tournament.sport}
                       onValueChange={(v) =>
                         setEditForm((f) => ({ ...f, sport: v }))
                       }
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          "cricket",
-                          "football",
-                          "kabaddi",
-                          "basketball",
-                          "hockey",
-                          "other",
-                        ].map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      triggerClassName="h-8 text-sm"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
@@ -2971,17 +2938,12 @@ function DisplayAuctionForm({
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Sport</Label>
-                <Select value={form.sport} onValueChange={v => f("sport", v)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cricket">Cricket</SelectItem>
-                    <SelectItem value="football">Football</SelectItem>
-                    <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                    <SelectItem value="basketball">Basketball</SelectItem>
-                    <SelectItem value="volleyball">Volleyball</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SportSelect
+                  value={form.sport}
+                  currentSlug={initial?.sport}
+                  onValueChange={(v) => f("sport", v)}
+                  triggerClassName="h-8 text-xs"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">City</Label>

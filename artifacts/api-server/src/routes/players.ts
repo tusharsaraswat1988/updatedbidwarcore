@@ -12,12 +12,26 @@ import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWith
 import { snapshotPlayer } from "../lib/audit-snapshots";
 import { syncAuctionPlayerToMasterAsync } from "../lib/master-sports/sync";
 import { onAuctionPlayerRosterChangedAsync } from "../lib/master-sports/cricket-roster";
+import {
+  PAYMENT_COLLECTION_MODES,
+  PAYMENT_VERIFICATION_METHODS,
+} from "@workspace/api-base/registration-payment";
+import {
+  resolveOrganizerPaymentStatus,
+  resolvePublicPaymentStatus,
+  tournamentPaymentSettingsFromRow,
+  validatePlayerPaymentProof,
+} from "../lib/registration-payment";
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
     .select({
       deadline: tournamentsTable.registrationDeadline,
       limit: tournamentsTable.registrationLimit,
+      enableRegistrationPayment: tournamentsTable.enableRegistrationPayment,
+      registrationFee: tournamentsTable.registrationFee,
+      upiId: tournamentsTable.upiId,
+      paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -41,7 +55,17 @@ async function computeRegistrationStatus(tid: number) {
     open = false;
     reason = "limit_reached";
   }
-  return { open, reason, currentCount: count, limit, deadline };
+  return {
+    open,
+    reason,
+    currentCount: count,
+    limit,
+    deadline,
+    enableRegistrationPayment: tournament.enableRegistrationPayment ?? false,
+    registrationFee: tournament.registrationFee ?? null,
+    upiId: tournament.upiId ?? null,
+    paymentVerificationMethod: tournament.paymentVerificationMethod ?? null,
+  };
 }
 
 const router = Router();
@@ -65,6 +89,47 @@ async function findDuplicatePlayerMobile(
   return null;
 }
 
+/** Profile-only fields players may update via public self-registration when mobile already exists. */
+function buildPublicRegistrationProfileUpdates(
+  d: z.infer<typeof playerInputSchema>,
+  email: string | null,
+  paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
+  paymentFields: ReturnType<typeof buildPaymentInsertFields>,
+  existing: typeof playersTable.$inferSelect,
+) {
+  const updates: Record<string, unknown> = {
+    name: d.name,
+    city: d.city ?? null,
+    role: d.role ?? null,
+    battingStyle: d.battingStyle ?? null,
+    bowlingStyle: d.bowlingStyle ?? null,
+    specialization: d.specialization ?? null,
+    age: d.age ?? null,
+    gender: d.gender ?? null,
+    photoUrl: d.photoUrl ?? null,
+    jerseyNumber: d.jerseyNumber ?? null,
+    achievements: d.achievements ?? null,
+    email,
+    cricheroUrl: d.cricheroUrl ?? null,
+    availabilityDates: d.availabilityDates ?? null,
+  };
+
+  if (d.whatsappConsent && !existing.whatsappConsent) {
+    updates.whatsappConsent = true;
+    updates.whatsappConsentAt = new Date();
+    updates.whatsappConsentMethod = "web_checkbox";
+  }
+
+  if (
+    paymentConfig?.enableRegistrationPayment &&
+    existing.registrationPaymentStatus !== "approved"
+  ) {
+    Object.assign(updates, paymentFields);
+  }
+
+  return updates;
+}
+
 /**
  * Recalculate and persist team.purseUsed from the current player records.
  * Called whenever a player's retained status or teamId changes so that the
@@ -83,6 +148,47 @@ async function recalcTeamPurseUsed(tournamentId: number, teamId: number): Promis
   }, 0);
 
   await db.update(teamsTable).set({ purseUsed }).where(eq(teamsTable.id, teamId));
+}
+
+async function fetchTournamentPaymentConfig(tid: number) {
+  const [row] = await db
+    .select({
+      enableRegistrationPayment: tournamentsTable.enableRegistrationPayment,
+      registrationFee: tournamentsTable.registrationFee,
+      upiId: tournamentsTable.upiId,
+      paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  return row ? tournamentPaymentSettingsFromRow(row) : null;
+}
+
+function buildPaymentInsertFields(
+  paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
+  input: { utrNumber?: string; paymentScreenshotUrl?: string; markPaymentCompleted?: boolean },
+  mode: "organizer" | "public",
+) {
+  const enabled = paymentConfig?.enableRegistrationPayment ?? false;
+  if (!enabled) {
+    return {
+      registrationPaymentStatus: null as string | null,
+      utrNumber: null as string | null,
+      paymentScreenshotUrl: null as string | null,
+      paymentSubmittedAt: null as Date | null,
+    };
+  }
+
+  const status =
+    mode === "organizer"
+      ? resolveOrganizerPaymentStatus(true, input.markPaymentCompleted)
+      : resolvePublicPaymentStatus(true);
+
+  return {
+    registrationPaymentStatus: status,
+    utrNumber: input.utrNumber?.trim() || null,
+    paymentScreenshotUrl: input.paymentScreenshotUrl?.trim() || null,
+    paymentSubmittedAt: new Date(),
+  };
 }
 
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
@@ -112,6 +218,10 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   playerTag: p.playerTag ?? null,
   playerTagTeamId: p.playerTagTeamId ?? null,
   isNonPlayingMember: p.isNonPlayingMember ?? false,
+  registrationPaymentStatus: p.registrationPaymentStatus ?? null,
+  utrNumber: p.utrNumber ?? null,
+  paymentScreenshotUrl: p.paymentScreenshotUrl ?? null,
+  paymentSubmittedAt: p.paymentSubmittedAt ? p.paymentSubmittedAt.toISOString() : null,
   createdAt: p.createdAt.toISOString(),
 });
 
@@ -179,6 +289,9 @@ const playerInputSchema = z.object({
   playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
   playerTagTeamId: z.number().int().nullable().optional(),
   isNonPlayingMember: z.boolean().optional(),
+  utrNumber: z.string().optional(),
+  paymentScreenshotUrl: cloudinaryImageUrl,
+  markPaymentCompleted: z.boolean().optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -241,6 +354,9 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     }
   }
 
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  const paymentFields = buildPaymentInsertFields(paymentConfig, d, "organizer");
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -268,6 +384,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       playerTag: (d.playerTag ?? null) as string | null,
       playerTagTeamId: d.playerTagTeamId ?? null,
       isNonPlayingMember: d.isNonPlayingMember ?? false,
+      ...paymentFields,
     })
     .returning();
 
@@ -299,12 +416,41 @@ router.get("/tournaments/:tournamentId/registration-status", async (req, res) =>
   res.json(status);
 });
 
+router.get("/tournaments/:tournamentId/register/lookup", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const mobileRaw = String(req.query.mobile || "").trim();
+  const mobileParsed = parseIndianMobile(mobileRaw);
+  if (!mobileParsed.ok) {
+    res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
+    return;
+  }
+
+  const dup = await findDuplicatePlayerMobile(tid, mobileParsed.normalized);
+  if (!dup) {
+    res.json({ registered: false });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, dup.id), eq(playersTable.tournamentId, tid)));
+  if (!player) {
+    res.json({ registered: false });
+    return;
+  }
+
+  res.json({ registered: true, player: playerToPublicJson(player) });
+});
+
 router.post("/tournaments/:tournamentId/register", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const status = await computeRegistrationStatus(tid);
   if (!status) { res.status(404).json({ error: "Not found" }); return; }
-  if (!status.open) { res.status(403).json(status); return; }
+
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
@@ -321,6 +467,68 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
     res.status(400).json({ error: emailParsed.error, field: "email" });
     return;
   }
+
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  if (paymentConfig?.enableRegistrationPayment) {
+    const method = paymentConfig.paymentVerificationMethod;
+    if (!method) {
+      res.status(400).json({ error: "Tournament payment settings are incomplete. Contact the organizer." });
+      return;
+    }
+    const proofResult = validatePlayerPaymentProof(method as typeof PAYMENT_VERIFICATION_METHODS[number], {
+      utrNumber: d.utrNumber,
+      paymentScreenshotUrl: d.paymentScreenshotUrl,
+    });
+    if (!proofResult.ok) {
+      res.status(400).json({ error: proofResult.error, field: proofResult.field });
+      return;
+    }
+  }
+
+  const paymentFields = buildPaymentInsertFields(paymentConfig, d, "public");
+
+  const existingDup = await findDuplicatePlayerMobile(tid, mobileNumber);
+  if (existingDup) {
+    const [existing] = await db
+      .select()
+      .from(playersTable)
+      .where(and(eq(playersTable.id, existingDup.id), eq(playersTable.tournamentId, tid)));
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const updates = buildPublicRegistrationProfileUpdates(
+      d,
+      emailParsed.email,
+      paymentConfig,
+      paymentFields,
+      existing,
+    );
+
+    const [player] = await db
+      .update(playersTable)
+      .set(updates)
+      .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
+      .returning();
+
+    if (d.whatsappConsent && mobileNumber && !existing.whatsappConsent) {
+      await db.insert(waConsentEventsTable).values({
+        mobile: mobileNumber,
+        recipientType: "player",
+        recipientId: player.id,
+        tournamentId: tid,
+        eventType: "web_checkbox",
+      });
+    }
+
+    syncAuctionPlayerToMasterAsync(player.id, tid);
+
+    res.status(200).json({ ...playerToPublicJson(player), updated: true });
+    return;
+  }
+
+  if (!status.open) { res.status(403).json(status); return; }
 
   const [player] = await db
     .insert(playersTable)
@@ -345,15 +553,13 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
       status: "available" as const,
-      // Persist web-checkbox consent so the audit trail records method + timestamp
       whatsappConsent: d.whatsappConsent ?? false,
       whatsappConsentAt: d.whatsappConsent ? new Date() : null,
       whatsappConsentMethod: d.whatsappConsent ? "web_checkbox" : null,
+      ...paymentFields,
     })
     .returning();
 
-  // Record an explicit consent event for the web checkbox so audit queries
-  // can distinguish web-form consent from WhatsApp-OTP consent.
   if (d.whatsappConsent && mobileNumber) {
     await db.insert(waConsentEventsTable).values({
       mobile: mobileNumber,
@@ -366,7 +572,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
 
-  res.status(201).json(playerToPublicJson(player));
+  res.status(201).json({ ...playerToPublicJson(player), updated: false });
 });
 
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
@@ -464,7 +670,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
   const schema = z.object({
-    categoryId: z.number().int().optional(),
+    categoryId: z.number().int().nullable().optional(),
     name: z.string().optional(),
     city: z.string().optional(),
     role: z.string().optional(),
@@ -701,9 +907,12 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid));
 
-  const mobileSet = new Set(
-    existingInTarget.map((p) => p.mobile).filter((m): m is string => !!m),
-  );
+  const mobileSet = new Set<string>();
+  for (const p of existingInTarget) {
+    if (!p.mobile) continue;
+    const parsed = parseIndianMobile(p.mobile);
+    if (parsed.ok) mobileSet.add(parsed.normalized);
+  }
   const nameSet = new Set(
     existingInTarget.map((p) => p.name.toLowerCase().trim()),
   );
@@ -728,12 +937,19 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
   const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
 
-  const result = sourcePlayers.map((p) => ({
-    ...serializer(p),
-    isDuplicate:
-      (!!p.mobileNumber && mobileSet.has(p.mobileNumber)) ||
-      nameSet.has(p.name.toLowerCase().trim()),
-  }));
+  const result = sourcePlayers.map((p) => {
+    let mobileDuplicate = false;
+    if (p.mobileNumber) {
+      const parsed = parseIndianMobile(p.mobileNumber);
+      mobileDuplicate = parsed.ok && mobileSet.has(parsed.normalized);
+    }
+    return {
+      ...serializer(p),
+      isDuplicate:
+        mobileDuplicate ||
+        nameSet.has(p.name.toLowerCase().trim()),
+    };
+  });
 
   res.json(result);
 });
@@ -758,14 +974,6 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
     .where(eq(tournamentsTable.id, tid));
   const defaultBasePrice = tournament?.minBid ?? 100000;
 
-  const existingMobiles = await db
-    .select({ mobile: playersTable.mobileNumber })
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.mobileNumber} IS NOT NULL`));
-  const mobileSet = new Set(
-    existingMobiles.map((m) => m.mobile).filter((m): m is string => !!m),
-  );
-
   const sourcePlayers = await db
     .select()
     .from(playersTable)
@@ -780,9 +988,17 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   let skipped = 0;
 
   for (const p of sourcePlayers) {
-    if (p.mobileNumber && mobileSet.has(p.mobileNumber)) {
-      skipped++;
-      continue;
+    let normalizedMobile: string | null = p.mobileNumber;
+    if (p.mobileNumber) {
+      const parsed = parseIndianMobile(p.mobileNumber);
+      if (parsed.ok) {
+        const dup = await findDuplicatePlayerMobile(tid, parsed.normalized);
+        if (dup) {
+          skipped++;
+          continue;
+        }
+        normalizedMobile = parsed.normalized;
+      }
     }
 
     await db.insert(playersTable).values({
@@ -800,7 +1016,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       basePrice: defaultBasePrice,
       jerseyNumber: p.jerseyNumber,
       achievements: p.achievements,
-      mobileNumber: p.mobileNumber,
+      mobileNumber: normalizedMobile,
       cricheroUrl: p.cricheroUrl,
       availabilityDates: p.availabilityDates,
       globalPlayerId: p.globalPlayerId,
@@ -808,7 +1024,6 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       teamId: null,
     });
 
-    if (p.mobileNumber) mobileSet.add(p.mobileNumber);
     imported++;
   }
 
@@ -834,6 +1049,73 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   });
 
   res.json({ imported, skipped, total: sourcePlayers.length });
+});
+
+async function updateRegistrationPaymentStatus(
+  req: Parameters<typeof isOrganizerOrAdmin>[0],
+  res: import("express").Response,
+  tid: number,
+  playerId: number,
+  status: "approved" | "rejected",
+) {
+  if (!isOrganizerOrAdmin(req, tid)) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+
+  if (!player) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  if (!paymentConfig?.enableRegistrationPayment) {
+    res.status(400).json({ error: "Registration payment is not enabled for this tournament." });
+    return;
+  }
+
+  const [updated] = await db
+    .update(playersTable)
+    .set({ registrationPaymentStatus: status })
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
+    .returning();
+
+  auditLog(req, {
+    category: "player",
+    action: status === "approved" ? "registration_payment.approved" : "registration_payment.rejected",
+    summary: `Registration payment ${status} for "${player.name}"`,
+    tournamentId: tid,
+    playerId,
+    resource: { type: "player", id: playerId },
+    metadata: { registrationPaymentStatus: status },
+  });
+
+  res.json(playerToJson(updated));
+}
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/approve", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "approved");
+});
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/reject", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "rejected");
 });
 
 export default router;

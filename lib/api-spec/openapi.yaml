@@ -672,6 +672,54 @@ paths:
         "204":
           description: Deleted
 
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/approve:
+    post:
+      operationId: approveRegistrationPayment
+      tags: [players]
+      summary: Approve a player's registration payment (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/reject:
+    post:
+      operationId: rejectRegistrationPayment
+      tags: [players]
+      summary: Reject a player's registration payment (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
   # ─── AUCTION SESSION ─────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/auction:
     get:
@@ -1912,6 +1960,22 @@ components:
           type: ["string", "null"]
         registrationLimit:
           type: ["integer", "null"]
+        enableRegistrationPayment:
+          type: boolean
+          description: When true, public registration requires payment proof
+        registrationFee:
+          type: ["integer", "null"]
+          description: Registration fee in INR (whole rupees)
+        upiId:
+          type: ["string", "null"]
+          description: UPI VPA for manual payment collection
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
+        paymentCollectionMode:
+          type: string
+          enum: [manual_verification, cashfree, razorpay]
+          default: manual_verification
         resetCount:
           type: integer
         lastResetAt:
@@ -2150,6 +2214,18 @@ components:
           type: ["string", "null"]
         registrationLimit:
           type: ["integer", "null"]
+        enableRegistrationPayment:
+          type: boolean
+        registrationFee:
+          type: ["integer", "null"]
+        upiId:
+          type: ["string", "null"]
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
+        paymentCollectionMode:
+          type: string
+          enum: [manual_verification, cashfree, razorpay]
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2510,6 +2586,15 @@ components:
         isNonPlayingMember:
           type: boolean
           description: Excluded from squad-slot counts but visible in team roster
+        registrationPaymentStatus:
+          type: ["string", "null"]
+          enum: [pending, approved, rejected, null]
+        utrNumber:
+          type: ["string", "null"]
+        paymentScreenshotUrl:
+          type: ["string", "null"]
+        paymentSubmittedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -2568,6 +2653,15 @@ components:
           type: integer
         isNonPlayingMember:
           type: boolean
+        utrNumber:
+          type: string
+          description: UPI transaction reference (public registration when payment enabled)
+        paymentScreenshotUrl:
+          type: string
+          description: HTTPS URL of uploaded payment screenshot
+        markPaymentCompleted:
+          type: boolean
+          description: Organizer manual entry — mark offline payment as completed
 
     PlayerUpdate:
       type: object
@@ -3072,6 +3166,18 @@ components:
           type: ["integer", "null"]
         deadline:
           type: ["string", "null"]
+        enableRegistrationPayment:
+          type: boolean
+          description: Whether registration fee collection is enabled
+        registrationFee:
+          type: ["integer", "null"]
+          description: Registration fee in INR when payment collection is enabled
+        upiId:
+          type: ["string", "null"]
+          description: UPI VPA for player registration payments
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
 
     TournamentSummary:
       type: object

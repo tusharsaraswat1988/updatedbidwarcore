@@ -3,7 +3,6 @@ import { db } from "@workspace/db";
 import { sportsTable, sportRolesTable, roleSpecGroupsTable, roleSpecOptionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { isScoringFeatureEnabled } from "../lib/scoring-feature";
 
 const router = Router();
 
@@ -17,9 +16,23 @@ const DEFAULT_SPORTS = [
   { name: "Other", slug: "other" },
 ] as const;
 
-function visibleSports<T extends { slug: string }>(sports: T[]): T[] {
-  if (isScoringFeatureEnabled()) return sports;
-  return sports.filter((s) => s.slug !== "badminton");
+export function slugifySportName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "other";
+}
+
+/** Resolve active sport id from slug — used when linking tournaments to master sports. */
+export async function resolveSportIdBySlug(slug: string): Promise<number | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const [sport] = await db
+    .select({ id: sportsTable.id })
+    .from(sportsTable)
+    .where(and(eq(sportsTable.slug, normalized), eq(sportsTable.active, true)));
+  return sport?.id ?? null;
 }
 
 // ─── GET /sports ─────────────────────────────────────────────────────────────
@@ -32,11 +45,11 @@ router.get("/sports", async (_req, res) => {
     .orderBy(sportsTable.name);
 
   if (sports.length === 0) {
-    res.json(visibleSports([...DEFAULT_SPORTS]));
+    res.json([...DEFAULT_SPORTS]);
     return;
   }
 
-  res.json(visibleSports(sports));
+  res.json(sports);
 });
 
 // ─── GET /sports/:sportId/roles ───────────────────────────────────────────────
@@ -99,6 +112,31 @@ router.get("/sports/roles/:roleId/specs", async (req, res) => {
   res.json(groupsWithOptions);
 });
 
+// ─── Admin: POST /auth/admin/sports ───────────────────────────────────────────
+router.post("/auth/admin/sports", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const schema = z.object({
+    name: z.string().min(1).max(80),
+    slug: z.string().min(1).max(40).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const slug = (parsed.data.slug ?? slugifySportName(parsed.data.name)).toLowerCase();
+  const existing = await db
+    .select({ id: sportsTable.id })
+    .from(sportsTable)
+    .where(eq(sportsTable.slug, slug));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "A sport with this slug already exists" });
+    return;
+  }
+  const [sport] = await db
+    .insert(sportsTable)
+    .values({ name: parsed.data.name.trim(), slug })
+    .returning();
+  res.status(201).json(sport);
+});
+
 // ─── Admin: PATCH /auth/admin/sports/:sportId ─────────────────────────────────
 router.patch("/auth/admin/sports/:sportId", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
@@ -114,6 +152,20 @@ router.patch("/auth/admin/sports/:sportId", async (req, res) => {
     .returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
+});
+
+// ─── Admin: DELETE /auth/admin/sports/:sportId ────────────────────────────────
+router.delete("/auth/admin/sports/:sportId", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const sportId = parseInt(req.params.sportId);
+  if (isNaN(sportId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [updated] = await db
+    .update(sportsTable)
+    .set({ active: false })
+    .where(eq(sportsTable.id, sportId))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ ok: true });
 });
 
 // ─── Admin: POST /auth/admin/sports/:sportId/roles ────────────────────────────

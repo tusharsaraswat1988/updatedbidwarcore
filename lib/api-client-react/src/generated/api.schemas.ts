@@ -29,6 +29,28 @@ export const TournamentStatus = {
 } as const;
 
 /**
+ * @nullable
+ */
+export type TournamentPaymentVerificationMethod =
+  | (typeof TournamentPaymentVerificationMethod)[keyof typeof TournamentPaymentVerificationMethod]
+  | null;
+
+export const TournamentPaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
+export type TournamentPaymentCollectionMode =
+  (typeof TournamentPaymentCollectionMode)[keyof typeof TournamentPaymentCollectionMode];
+
+export const TournamentPaymentCollectionMode = {
+  manual_verification: "manual_verification",
+  cashfree: "cashfree",
+  razorpay: "razorpay",
+} as const;
+
+/**
  * Image fit mode for the banner on the LED screen
  */
 export type TournamentMainBannerFit =
@@ -108,6 +130,21 @@ export interface Tournament {
   registrationDeadline?: string | null;
   /** @nullable */
   registrationLimit?: number | null;
+  /** When true, public registration requires payment proof */
+  enableRegistrationPayment?: boolean;
+  /**
+   * Registration fee in INR (whole rupees)
+   * @nullable
+   */
+  registrationFee?: number | null;
+  /**
+   * UPI VPA for manual payment collection
+   * @nullable
+   */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: TournamentPaymentVerificationMethod;
+  paymentCollectionMode?: TournamentPaymentCollectionMode;
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -250,6 +287,28 @@ export const TournamentUpdatePlayerSelectionMode = {
   manual: "manual",
 } as const;
 
+/**
+ * @nullable
+ */
+export type TournamentUpdatePaymentVerificationMethod =
+  | (typeof TournamentUpdatePaymentVerificationMethod)[keyof typeof TournamentUpdatePaymentVerificationMethod]
+  | null;
+
+export const TournamentUpdatePaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
+export type TournamentUpdatePaymentCollectionMode =
+  (typeof TournamentUpdatePaymentCollectionMode)[keyof typeof TournamentUpdatePaymentCollectionMode];
+
+export const TournamentUpdatePaymentCollectionMode = {
+  manual_verification: "manual_verification",
+  cashfree: "cashfree",
+  razorpay: "razorpay",
+} as const;
+
 export type TournamentUpdateMainBannerFit =
   (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
 
@@ -297,6 +356,14 @@ export interface TournamentUpdate {
   registrationDeadline?: string | null;
   /** @nullable */
   registrationLimit?: number | null;
+  enableRegistrationPayment?: boolean;
+  /** @nullable */
+  registrationFee?: number | null;
+  /** @nullable */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: TournamentUpdatePaymentVerificationMethod;
+  paymentCollectionMode?: TournamentUpdatePaymentCollectionMode;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -557,6 +624,19 @@ export const PlayerPlayerTag = {
   star_player: "star_player",
 } as const;
 
+/**
+ * @nullable
+ */
+export type PlayerRegistrationPaymentStatus =
+  | (typeof PlayerRegistrationPaymentStatus)[keyof typeof PlayerRegistrationPaymentStatus]
+  | null;
+
+export const PlayerRegistrationPaymentStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
 export interface Player {
   id: number;
   tournamentId: number;
@@ -614,6 +694,14 @@ export interface Player {
   playerTagTeamId?: number | null;
   /** Excluded from squad-slot counts but visible in team roster */
   isNonPlayingMember?: boolean;
+  /** @nullable */
+  registrationPaymentStatus?: PlayerRegistrationPaymentStatus;
+  /** @nullable */
+  utrNumber?: string | null;
+  /** @nullable */
+  paymentScreenshotUrl?: string | null;
+  /** @nullable */
+  paymentSubmittedAt?: string | null;
   createdAt: string;
 }
 
@@ -665,10 +753,17 @@ export interface PlayerInput {
   playerTag?: PlayerInputPlayerTag;
   playerTagTeamId?: number;
   isNonPlayingMember?: boolean;
+  /** UPI transaction reference (public registration when payment enabled) */
+  utrNumber?: string;
+  /** HTTPS URL of uploaded payment screenshot */
+  paymentScreenshotUrl?: string;
+  /** Organizer manual entry — mark offline payment as completed */
+  markPaymentCompleted?: boolean;
 }
 
 export type PlayerUpdateGender =
-  (typeof PlayerUpdateGender)[keyof typeof PlayerUpdateGender];
+  | (typeof PlayerUpdateGender)[keyof typeof PlayerUpdateGender]
+  | null;
 
 export const PlayerUpdateGender = {
   M: "M",
@@ -697,8 +792,7 @@ export interface PlayerUpdate {
   bowlingStyle?: string;
   specialization?: string;
   age?: number;
-  /** @nullable */
-  gender?: PlayerUpdateGender | null;
+  gender?: PlayerUpdateGender;
   photoUrl?: string;
   basePrice?: number;
   jerseyNumber?: string;
@@ -952,6 +1046,39 @@ export interface LedPurseToast {
   teamName: string;
 }
 
+export interface TeamPurse {
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+  ownerName: string;
+  /** @nullable */
+  color: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** Immutable baseline purse from team setup */
+  originalPurse: number;
+  /** Sum of active purse boosters */
+  boosterTotal: number;
+  /** originalPurse + boosterTotal */
+  effectiveCapacity: number;
+  /** Alias for effectiveCapacity (backward compatible) */
+  purse: number;
+  purseUsed: number;
+  purseRemaining: number;
+  playersBought: number;
+  reservePurse: number;
+  spendablePurse: number;
+  slotsRequired: number;
+  lowestBasePrice: number;
+  minimumSquadSize: number;
+  maximumSquadSize: number;
+  retainedCount: number;
+  /** @nullable */
+  topPlayerName?: string | null;
+  /** @nullable */
+  topPlayerAmount?: number | null;
+}
+
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
@@ -1023,7 +1150,7 @@ export interface AuctionState {
   displayCountdown?: DisplayCountdown | null;
   lastPurseBooster?: LastPurseBooster | null;
   ledPurseToast?: LedPurseToast | null;
-  /** Embedded live purse snapshot — synced via SSE to avoid separate refetch on sold/undo */
+  /** Live team purse snapshot embedded for realtime sync without separate HTTP refetch */
   teamPurses?: TeamPurse[];
 }
 
@@ -1092,6 +1219,19 @@ export interface CancelPurseBoosterRequest {
   reason: string;
 }
 
+/**
+ * @nullable
+ */
+export type RegistrationStatusPaymentVerificationMethod =
+  | (typeof RegistrationStatusPaymentVerificationMethod)[keyof typeof RegistrationStatusPaymentVerificationMethod]
+  | null;
+
+export const RegistrationStatusPaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
 export interface RegistrationStatus {
   open: boolean;
   /**
@@ -1104,6 +1244,20 @@ export interface RegistrationStatus {
   limit?: number | null;
   /** @nullable */
   deadline?: string | null;
+  /** Whether registration fee collection is enabled */
+  enableRegistrationPayment?: boolean;
+  /**
+   * Registration fee in INR when payment collection is enabled
+   * @nullable
+   */
+  registrationFee?: number | null;
+  /**
+   * UPI VPA for player registration payments
+   * @nullable
+   */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: RegistrationStatusPaymentVerificationMethod;
 }
 
 export interface TournamentSummary {
@@ -1118,39 +1272,6 @@ export interface TournamentSummary {
   highestBid?: number;
   /** @nullable */
   mostActiveTeam?: string | null;
-}
-
-export interface TeamPurse {
-  teamId: number;
-  teamName: string;
-  shortCode: string;
-  ownerName: string;
-  /** @nullable */
-  color: string | null;
-  /** @nullable */
-  logoUrl?: string | null;
-  /** Immutable baseline purse from team setup */
-  originalPurse: number;
-  /** Sum of active purse boosters */
-  boosterTotal: number;
-  /** originalPurse + boosterTotal */
-  effectiveCapacity: number;
-  /** Alias for effectiveCapacity (backward compatible) */
-  purse: number;
-  purseUsed: number;
-  purseRemaining: number;
-  playersBought: number;
-  reservePurse: number;
-  spendablePurse: number;
-  slotsRequired: number;
-  lowestBasePrice: number;
-  minimumSquadSize: number;
-  maximumSquadSize: number;
-  retainedCount: number;
-  /** @nullable */
-  topPlayerName?: string | null;
-  /** @nullable */
-  topPlayerAmount?: number | null;
 }
 
 export interface TopBidEntry {

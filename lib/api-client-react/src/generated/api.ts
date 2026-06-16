@@ -2541,6 +2541,188 @@ export const useDeletePlayer = <
 };
 
 /**
+ * @summary Approve a player's registration payment (organizer only)
+ */
+export const getApproveRegistrationPaymentUrl = (
+  tournamentId: number,
+  playerId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/players/${playerId}/registration-payment/approve`;
+};
+
+export const approveRegistrationPayment = async (
+  tournamentId: number,
+  playerId: number,
+  options?: RequestInit,
+): Promise<Player> => {
+  return customFetch<Player>(
+    getApproveRegistrationPaymentUrl(tournamentId, playerId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getApproveRegistrationPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveRegistrationPayment>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveRegistrationPayment>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  const mutationKey = ["approveRegistrationPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveRegistrationPayment>>,
+    { tournamentId: number; playerId: number }
+  > = (props) => {
+    const { tournamentId, playerId } = props ?? {};
+
+    return approveRegistrationPayment(tournamentId, playerId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveRegistrationPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveRegistrationPayment>>
+>;
+
+export type ApproveRegistrationPaymentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve a player's registration payment (organizer only)
+ */
+export const useApproveRegistrationPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveRegistrationPayment>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveRegistrationPayment>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  return useMutation(getApproveRegistrationPaymentMutationOptions(options));
+};
+
+/**
+ * @summary Reject a player's registration payment (organizer only)
+ */
+export const getRejectRegistrationPaymentUrl = (
+  tournamentId: number,
+  playerId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/players/${playerId}/registration-payment/reject`;
+};
+
+export const rejectRegistrationPayment = async (
+  tournamentId: number,
+  playerId: number,
+  options?: RequestInit,
+): Promise<Player> => {
+  return customFetch<Player>(
+    getRejectRegistrationPaymentUrl(tournamentId, playerId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRejectRegistrationPaymentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectRegistrationPayment>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectRegistrationPayment>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  const mutationKey = ["rejectRegistrationPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectRegistrationPayment>>,
+    { tournamentId: number; playerId: number }
+  > = (props) => {
+    const { tournamentId, playerId } = props ?? {};
+
+    return rejectRegistrationPayment(tournamentId, playerId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectRegistrationPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectRegistrationPayment>>
+>;
+
+export type RejectRegistrationPaymentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reject a player's registration payment (organizer only)
+ */
+export const useRejectRegistrationPayment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectRegistrationPayment>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectRegistrationPayment>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  return useMutation(getRejectRegistrationPaymentMutationOptions(options));
+};
+
+/**
  * @summary Get current auction state
  */
 export const getGetAuctionStateUrl = (tournamentId: number) => {

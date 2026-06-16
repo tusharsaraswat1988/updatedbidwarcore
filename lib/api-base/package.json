@@ -18,7 +18,8 @@
     "./email": "./src/email.ts",
     "./player-gender": "./src/player-gender.ts",
     "./organizer-account": "./src/organizer-account.ts",
-    "./auction-date": "./src/auction-date.ts"
+    "./auction-date": "./src/auction-date.ts",
+    "./registration-payment": "./src/registration-payment.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

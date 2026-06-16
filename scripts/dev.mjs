@@ -39,6 +39,7 @@ function devEnv(overrides) {
 }
 
 const isWin = process.platform === "win32";
+const forceStart = process.argv.includes("--force");
 /** @type {import("node:child_process").ChildProcess[]} */
 const children = [];
 let shuttingDown = false;
@@ -85,9 +86,32 @@ if (loaded) {
   );
 }
 
+/** True when our API already responds — avoids killing a live dev stack on duplicate `pnpm dev`. */
+async function isDevAlreadyRunning() {
+  try {
+    const res = await fetch(`http://127.0.0.1:${API_PORT}/api/healthz`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+if (!forceStart && (await isDevAlreadyRunning())) {
+  console.error(
+    "\n  Dev servers are already running.\n" +
+      `  API:      http://127.0.0.1:${API_PORT}/api/healthz\n` +
+      `  Frontend: http://127.0.0.1:${FRONTEND_PORT}/admin/login\n\n` +
+      "  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
+      "  To force-kill existing processes: `pnpm dev -- --force`\n",
+  );
+  process.exit(1);
+}
+
 console.log("Checking dev ports…");
 const { freed } = freePorts(devPorts);
-if (freed.length > 0) {
+  if (freed.length > 0) {
   console.log("  Waiting for ports to release…");
   const ready = await waitForPortsFree(devPorts, 12000);
   if (!ready) {
@@ -95,6 +119,9 @@ if (freed.length > 0) {
       "\n  Could not free dev ports. Run `pnpm dev:stop` and try again.\n",
     );
     process.exit(1);
+  }
+  if (forceStart) {
+    console.log("  (--force) Replaced processes that were using dev ports.");
   }
 } else {
   console.log("  All dev ports are free.");
