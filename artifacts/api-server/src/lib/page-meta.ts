@@ -32,7 +32,7 @@ const ORGANIZATION_SCHEMA = {
   "@type": "Organization",
   "name": "BidWar",
   "url": BASE_URL,
-  "logo": `${BASE_URL}/bidwar-logo-transparent.png`,
+  "logo": `${BASE_URL}/favicon.svg`,
   "description": "India's live sports auction platform for cricket, football, kabaddi and franchise leagues.",
   "foundingLocation": {
     "@type": "Place",
@@ -225,11 +225,26 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     })],
   },
 
+  "/legal": {
+    title: "Legal Policies | BidWar Sports Auction Platform",
+    description: "Read BidWar legal documents including Terms & Conditions, Privacy Policy, Acceptable Use, Disclaimer, and Refund Policy.",
+    canonical: `${BASE_URL}/legal`,
+    robots: "index, follow",
+    schemas: [graph({
+      "@type": "CollectionPage",
+      "name": "BidWar Legal Policies",
+      "url": `${BASE_URL}/legal`,
+      "description": "Central legal hub for BidWar policies and platform compliance documents.",
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("Legal Policies", `${BASE_URL}/legal`),
+    })],
+  },
+
   "/legal/terms": {
     title: "Terms of Service | BidWar Sports Auction Platform",
     description: "BidWar Terms of Service — the legal agreement governing your use of BidWar auction software and platform services.",
     canonical: `${BASE_URL}/legal/terms`,
-    robots: "noindex, follow",
+    robots: "index, follow",
     schemas: [],
   },
 
@@ -237,7 +252,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     title: "Privacy Policy | BidWar Sports Auction Platform",
     description: "BidWar Privacy Policy — how we collect, use, and protect your personal data when you use BidWar auction software.",
     canonical: `${BASE_URL}/legal/privacy`,
-    robots: "noindex, follow",
+    robots: "index, follow",
     schemas: [],
   },
 
@@ -245,7 +260,23 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     title: "Acceptable Use Policy | BidWar Sports Auction Platform",
     description: "BidWar Acceptable Use Policy — guidelines for appropriate use of BidWar's auction platform and related services.",
     canonical: `${BASE_URL}/legal/acceptable-use`,
-    robots: "noindex, follow",
+    robots: "index, follow",
+    schemas: [],
+  },
+
+  "/legal/disclaimer": {
+    title: "Disclaimer | BidWar Sports Auction Platform",
+    description: "BidWar Disclaimer covering platform limitations, third-party dependencies, and liability boundaries.",
+    canonical: `${BASE_URL}/legal/disclaimer`,
+    robots: "index, follow",
+    schemas: [],
+  },
+
+  "/legal/refund": {
+    title: "Refund Policy | BidWar Sports Auction Platform",
+    description: "BidWar Refund & Cancellation Policy for subscriptions, onboarding fees, and payment transactions.",
+    canonical: `${BASE_URL}/legal/refund`,
+    robots: "index, follow",
     schemas: [],
   },
 };

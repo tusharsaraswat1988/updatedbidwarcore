@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
 
 interface AdminLockScreenProps {
   lockMinutes?: number;
@@ -19,6 +20,7 @@ interface AdminLockScreenProps {
  */
 export function AdminLockScreen({ lockMinutes = 2, onUnlock }: AdminLockScreenProps) {
   const { logos, brandName } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,7 @@ export function AdminLockScreen({ lockMinutes = 2, onUnlock }: AdminLockScreenPr
           <div>
             <div className="flex items-center justify-center gap-2 mb-1">
               {logos.mini ? (
-                <img src={logos.mini} alt={brandName} className="h-8 w-auto opacity-80" />
+                <img src={logos.mini} alt={logoAlt} className="h-8 w-auto opacity-80" />
               ) : (
                 <ShieldCheck className="w-6 h-6 text-amber-400" />
               )}

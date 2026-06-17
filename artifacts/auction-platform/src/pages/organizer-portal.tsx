@@ -40,6 +40,7 @@ import {
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { HintLabel } from "@/components/ui/hint-label";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
@@ -725,6 +726,8 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
+  const logoSrc = getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [signupForm, setSignupForm] = useState({ name: "", email: "", mobile: "", password: "", confirmPassword: "" });
@@ -904,8 +907,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
         </button>
 
         <div className="text-center space-y-3">
-          <img src={logos.main || "/bidwar-logo-transparent.png"} alt={brandName} className="h-20 w-auto mx-auto" />
-          <h1 className="font-display font-black text-3xl text-white">{brandName.toUpperCase()}</h1>
+          <img src={logos.mainReverse || logoSrc} alt={logoAlt} className="h-26 w-auto mx-auto" />
           <p className="text-muted-foreground text-sm">My Tournaments</p>
         </div>
 
@@ -1361,6 +1363,7 @@ function OrganizerDashboard({
 }) {
   const [, navigate] = useLocation();
   const { logos, brandName, miniBrandText, poweredByText } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -1438,9 +1441,9 @@ function OrganizerDashboard({
           <div className="flex items-center gap-3">
             {/* BidWar brand logo */}
             {logos.mini ? (
-              <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+              <img src={logos.mini} alt={logoAlt} className="h-8 w-auto" />
             ) : logos.main ? (
-              <img src={logos.main} alt={brandName} className="h-8 w-auto" />
+              <img src={logos.main} alt={logoAlt} className="h-8 w-auto" />
             ) : (
               <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
                 {miniBrandText}

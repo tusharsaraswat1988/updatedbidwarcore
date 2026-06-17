@@ -8,6 +8,7 @@ import { ShieldCheck, Eye, EyeOff, LogIn, ShieldAlert, Trophy } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 export default function AdminLogin() {
   const [, navigate] = useLocation();
@@ -17,6 +18,8 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { logos, brandName } = useBranding();
+  const logoSrc = getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +51,7 @@ export default function AdminLogin() {
             </div>
             <div>
               <div className="flex items-center justify-center gap-2 mb-1">
-                <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-10 w-auto" />
+                <img src={logos.mini || logoSrc} alt={logoAlt} className="h-10 w-auto" />
                 <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
               </div>
               <p className="text-muted-foreground text-sm">Super Admin Login</p>

@@ -1,3 +1,5 @@
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoSrc } from "@/lib/brand-assets";
 const SOFTWARE_APPLICATION_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -181,12 +183,11 @@ const FAQ_SCHEMA = {
   ],
 };
 
-const ORGANIZATION_SCHEMA = {
+const ORGANIZATION_SCHEMA_BASE = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "BidWar",
   "url": "https://bidwar.in",
-  "logo": "https://bidwar.in/bidwar-logo-transparent.png",
   "description": "India's live sports auction platform for cricket, football, kabaddi and franchise leagues.",
   "foundingLocation": {
     "@type": "Place",
@@ -234,11 +235,18 @@ function JsonLd({ data }: { data: object }) {
 }
 
 export function HomeSchemaMarkup() {
+  const { logos } = useBranding();
+  const logoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
+  const organizationSchema = {
+    ...ORGANIZATION_SCHEMA_BASE,
+    logo: logoUrl,
+  };
+
   const graph = {
     "@context": "https://schema.org",
     "@graph": [
       SOFTWARE_APPLICATION_SCHEMA,
-      ORGANIZATION_SCHEMA,
+      organizationSchema,
       WEBSITE_SCHEMA,
     ],
   };
@@ -256,6 +264,13 @@ export function SportLandingSchemaMarkup({
   description: string;
   faqs: Array<{ q: string; a: string }>;
 }) {
+  const { logos } = useBranding();
+  const logoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
+  const organizationSchema = {
+    ...ORGANIZATION_SCHEMA_BASE,
+    logo: logoUrl,
+  };
+
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -296,7 +311,7 @@ export function SportLandingSchemaMarkup({
     "@graph": [
       faqSchema,
       softwareSchema,
-      ORGANIZATION_SCHEMA,
+      organizationSchema,
     ],
   };
 

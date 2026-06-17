@@ -12,6 +12,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBadmintonScoringActive, useCricketScoringActive } from "@/hooks/use-platform-features";
 import { cldUrl } from "@/lib/cloudinary";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 interface LayoutProps {
   children: ReactNode;
@@ -56,6 +57,8 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
+  const sidebarLogoSrc = getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const logoAlt = getBrandLogoAlt(brandName);
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
@@ -126,7 +129,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             <>
               {brandingLoading
                 ? <div className="h-9 w-9 flex-shrink-0" />
-                : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-9 object-contain flex-shrink-0" />}
+                : <img src={cldUrl(logos.mini, "headerLogo") || sidebarLogoSrc} alt={logoAlt} className="h-9 w-9 object-contain flex-shrink-0" />}
               <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">{brandName.toUpperCase()}</span>
               <button
                 onClick={toggleCollapsed}

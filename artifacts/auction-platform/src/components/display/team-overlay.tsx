@@ -5,6 +5,7 @@ import { formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import type { PurseRow } from "./types";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 /**
  * Overlay 1 — IPL-style TEAM PURSE STATUS table.
@@ -23,6 +24,8 @@ export const TeamOverlay = memo(function TeamOverlay({
   tournamentName?: string;
 }) {
   const { logos, brandName } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
+  const brandLogoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
@@ -65,8 +68,8 @@ export const TeamOverlay = memo(function TeamOverlay({
         {/* BidWar brand mark — top right */}
         <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-2">
           <img
-            src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"}
-            alt={brandName}
+            src={brandLogoSrc}
+            alt={logoAlt}
             className="h-10 md:h-14 w-auto flex-shrink-0"
             loading="eager"
             decoding="async"

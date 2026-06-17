@@ -1,4 +1,6 @@
 import { type BlogPost, getAuthorBySlug, getCategoryBySlug } from "../../data/blog-content.ts";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoSrc } from "@/lib/brand-assets";
 
 interface ArticleSchemaProps {
   post: BlogPost;
@@ -6,6 +8,8 @@ interface ArticleSchemaProps {
 
 /** Injects JSON-LD BlogPosting + BreadcrumbList schemas for article pages. */
 export function ArticleSchema({ post }: ArticleSchemaProps) {
+  const { logos } = useBranding();
+  const brandLogoUrl = getBrandLogoSrc(logos, ["main", "mini", "appIcon"]);
   const author   = getAuthorBySlug(post.author);
   const category = getCategoryBySlug(post.category);
 
@@ -32,7 +36,7 @@ export function ArticleSchema({ post }: ArticleSchemaProps) {
       url: "https://bidwar.in",
       logo: {
         "@type": "ImageObject",
-        url: "https://bidwar.in/bidwar-logo.png",
+        url: brandLogoUrl,
       },
     },
     mainEntityOfPage: {

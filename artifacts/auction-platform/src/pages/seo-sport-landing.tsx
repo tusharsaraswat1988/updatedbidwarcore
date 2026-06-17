@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { SeoHead } from "@/components/seo-head";
 import { SportLandingSchemaMarkup } from "@/components/schema-markup";
+import { PublicNavbar } from "@/components/public-navbar";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -945,7 +948,10 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function SeoSportLanding({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
+  const { logos, brandName } = useBranding();
   const config = SPORT_CONFIGS[slug];
+  const footerLogoSrc = getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   if (!config) {
     navigate("/");
@@ -970,25 +976,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
       <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
 
         {/* ── Nav ─────────────────────────────────────────── */}
-        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-          <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-              <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-8 w-auto" />
-              <span className="font-black text-lg tracking-tight text-white">BIDWAR</span>
-            </a>
-            <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="/#features" className="hover:text-white transition-colors">Features</a>
-              <a href="/#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <a href="/#faq" className="hover:text-white transition-colors">FAQ</a>
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => navigate("/organizer")} className="text-sm text-muted-foreground hover:text-white transition-colors hidden sm:block">Sign In</button>
-              <button onClick={() => navigate("/organizer")} className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-colors">
-                Get Started Free
-              </button>
-            </div>
-          </div>
-        </nav>
+        <PublicNavbar />
 
         {/* ── Breadcrumb ───────────────────────────────────── */}
         <div className="pt-20 pb-0 px-6">
@@ -1385,8 +1373,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
               <div className="col-span-2 md:col-span-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto" />
-                  <span className="font-black text-base">BIDWAR</span>
+                  <img src={footerLogoSrc} alt={logoAlt} className="h-28 w-auto" loading="lazy" decoding="async" />
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">India's live sports auction platform for franchise tournaments.</p>
                 <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
@@ -1419,9 +1406,12 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
               <div className="space-y-2">
                 <p className="text-xs font-bold text-white uppercase tracking-wide mb-3">Legal</p>
                 {[
+                  ["Legal Hub", "/legal"],
                   ["Terms of Service", "/legal/terms"],
                   ["Privacy Policy", "/legal/privacy"],
                   ["Acceptable Use", "/legal/acceptable-use"],
+                  ["Disclaimer", "/legal/disclaimer"],
+                  ["Refund Policy", "/legal/refund"],
                 ].map(([label, href]) => (
                   <a key={href} href={href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{label}</a>
                 ))}

@@ -1,8 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { ChyronStrip } from "./ChyronStrip";
-
-const BIDWAR_LOGO = "/bidwar-logo-transparent.webp";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 /**
  * EFFECTS LAYER — full-stage overlays driven by derivedState from production DB.
@@ -185,6 +184,14 @@ export const EffectsLayer = memo(function EffectsLayer({
     const mm = Math.floor(breakInfo.secondsLeft / 60).toString().padStart(2, "0");
     const ss = (breakInfo.secondsLeft % 60).toString().padStart(2, "0");
     const poweredBy = branding?.poweredByText ?? "Powered by BidWar";
+    const brandLogoSrc = getBrandLogoSrc(
+      {
+        mini: branding?.miniLogoUrl,
+        main: branding?.mainLogoUrl,
+      },
+      ["mini", "main"],
+    );
+    const logoAlt = getBrandLogoAlt(branding?.brandName ?? "BidWar");
     return (
       <div className="absolute inset-0 z-30 grid grid-rows-[auto_1fr_auto] pointer-events-none overflow-hidden font-['Barlow_Condensed']">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-950 via-black to-orange-950" />
@@ -199,8 +206,8 @@ export const EffectsLayer = memo(function EffectsLayer({
         {/* Top bar — logo + tournament name */}
         <div className="relative flex items-center justify-between px-[2.5%] py-[1%] border-b border-white/10 bg-black/40 backdrop-blur-sm">
           <img
-            src={BIDWAR_LOGO}
-            alt="BidWar"
+            src={brandLogoSrc}
+            alt={logoAlt}
             className="h-[3.5vh] min-h-[28px] w-auto object-contain"
           />
           <p

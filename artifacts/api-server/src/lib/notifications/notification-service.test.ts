@@ -30,7 +30,7 @@ describe("email templates", () => {
     expect(result.html).toContain("Your Tournament Is Now Live on BidWar");
     expect(result.html).toContain("Open Tournament Dashboard");
     expect(result.html).toContain("https://bidwar.in/tournament/42");
-    expect(result.html).toContain("bidwar-icon.png");
+    expect(result.html).toContain("favicon-32.png");
     expect(result.html).toContain("bidwarsupport@gmail.com");
     expect(result.html).toContain("Add Teams");
     expect(result.html).toContain("#FBBF24");

@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { useBranding } from "@/hooks/use-branding";
 
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
@@ -944,6 +945,8 @@ export default function LiveViewerPage() {
   const [, liveParams] = useRoute("/live/:id");
   const tournamentId = parseInt(legacyParams?.id || liveParams?.id || "0");
   const { logos, brandName } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
+  const miniLogoSrc = getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
 
   // ── Cheer state (declared early so the socket callback is stable) ─────────
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
@@ -1336,7 +1339,7 @@ export default function LiveViewerPage() {
         <div className="px-3 sm:px-4 py-2 sm:py-2.5">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-6 sm:h-7 w-auto" />
+              <img src={logos.mini || miniLogoSrc} alt={logoAlt} className="h-6 sm:h-7 w-auto" />
               <span className="hidden sm:inline font-display font-black text-amber-400 text-sm tracking-widest">{brandName.toUpperCase()}</span>
             </div>
             {sponsorLogos.length > 0 && (

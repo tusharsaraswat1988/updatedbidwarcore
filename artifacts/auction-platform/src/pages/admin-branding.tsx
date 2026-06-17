@@ -26,6 +26,7 @@ interface BrandingForm {
   poweredByText: string;
   miniBrandText: string;
   mainLogoUrl: string;
+  mainLogoReverseUrl: string;
   miniLogoUrl: string;
   appIconUrl: string;
   splashScreenUrl: string;
@@ -55,6 +56,7 @@ const DEFAULTS: BrandingForm = {
   poweredByText: "Powered by BidWar",
   miniBrandText: "BW",
   mainLogoUrl: "",
+  mainLogoReverseUrl: "",
   miniLogoUrl: "",
   appIconUrl: "",
   splashScreenUrl: "",
@@ -417,6 +419,7 @@ export default function AdminBranding() {
         body: JSON.stringify({
           ...form,
           mainLogoUrl: form.mainLogoUrl || null,
+          mainLogoReverseUrl: form.mainLogoReverseUrl || null,
           miniLogoUrl: form.miniLogoUrl || null,
           appIconUrl: form.appIconUrl || null,
           splashScreenUrl: form.splashScreenUrl || null,
@@ -544,7 +547,7 @@ export default function AdminBranding() {
                   title="Visual Assets"
                   description="Upload logos and icons used across the platform. Transparent backgrounds (PNG/SVG/WebP) are preferred."
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 max-w-6xl">
                   <AssetUpload
                     label="Main Brand Logo"
                     value={form.mainLogoUrl}
@@ -552,6 +555,14 @@ export default function AdminBranding() {
                     accept="image/png,image/svg+xml,image/webp,image/jpeg"
                     aspectHint="Any ratio"
                     hint="Used on viewer screens, login page, and PDFs. Transparent background preferred."
+                  />
+                  <AssetUpload
+                    label="Main Brand Logo (Reverse)"
+                    value={form.mainLogoReverseUrl}
+                    onChange={v => set("mainLogoReverseUrl", v)}
+                    accept="image/png,image/svg+xml,image/webp,image/jpeg"
+                    aspectHint="Any ratio"
+                    hint="Used on dark sections (home footer / dark nav). Prefer light logo variant."
                   />
                   <AssetUpload
                     label="Mini Logo"
@@ -562,12 +573,12 @@ export default function AdminBranding() {
                     hint="Used in sidebar, mobile topbar, and compact areas."
                   />
                   <AssetUpload
-                    label="App Icon"
+                    label="App Icon / Favicon"
                     value={form.appIconUrl}
                     onChange={v => set("appIconUrl", v)}
                     accept="image/png,image/webp"
                     aspectHint="512×512 px"
-                    hint="For PWA, browser icon, and future mobile app."
+                    hint="Primary favicon source. Used for browser tab icon, PWA icon, and Apple touch icon."
                   />
                   <AssetUpload
                     label="Splash Screen"

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Users as UsersIcon } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
 import { cldUrl } from "@/lib/cloudinary";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import type { CategoryLite, DisplayPlayerFilter, PlayerLite, PurseRow } from "./types";
@@ -22,6 +23,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
   filter?: DisplayPlayerFilter;
 }) {
   const { logos, brandName, miniBrandText, poweredByText, visibility } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const teamMap = useMemo(() => new Map(purses.map(t => [t.teamId, t])), [purses]);
   const catMap = useMemo(() => new Map(categories.map(c => [c.id, c.name])), [categories]);
 
@@ -88,7 +90,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
             {/* Brand watermark below title */}
             <div className="flex items-center gap-1.5 mt-1">
               {logos.mini ? (
-                <img src={logos.mini} alt={brandName} className="h-4 w-auto opacity-50" />
+                <img src={logos.mini} alt={logoAlt} className="h-4 w-auto opacity-50" />
               ) : (
                 <span className="text-[9px] font-black tracking-widest uppercase text-blue-300/40">{miniBrandText}</span>
               )}

@@ -8,6 +8,7 @@ import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { PageTracking } from "@/components/page-tracking";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
+import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
 
 import Landing from "@/pages/landing";
 
@@ -61,6 +62,7 @@ const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
+const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Blog
@@ -94,18 +96,41 @@ const queryClient = new QueryClient({
 
 function BrandingEffects() {
   const { logos, brandName } = useBranding();
+  const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
 
   useEffect(() => {
-    if (logos.appIcon) {
-      const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-      if (icon) icon.href = logos.appIcon;
-      if (apple) apple.href = logos.appIcon;
-    }
+    const iconSrc = getBrandLogoSrc(logos, ["appIcon", "mini", "main"]) || BRAND_ICON_PLACEHOLDER;
+    const iconLinks = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]'),
+    );
+    iconLinks.forEach((link) => {
+      link.href = iconSrc;
+    });
+
+    const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    if (apple) apple.href = iconSrc;
+
     if (brandName && brandName !== "BidWar") {
       document.title = document.title.replace(/BidWar/g, brandName);
     }
-  }, [logos.appIcon, brandName]);
+  }, [logos.appIcon, logos.mini, logos.main, brandName]);
+
+  useEffect(() => {
+    const selector = 'meta[name="google-site-verification"]';
+    let tag = document.querySelector<HTMLMetaElement>(selector);
+
+    if (!googleSiteVerification) {
+      if (tag) tag.remove();
+      return;
+    }
+
+    if (!tag) {
+      tag = document.createElement("meta");
+      tag.setAttribute("name", "google-site-verification");
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute("content", googleSiteVerification);
+  }, [googleSiteVerification]);
 
   return null;
 }
@@ -118,6 +143,7 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
+        <Route path="/auction-tips" component={AuctionTipsPage} />
         <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
@@ -213,6 +239,7 @@ function Router() {
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/organizer" component={OrganizerPortal} />
         <Route path="/organizer/profile" component={OrganizerProfile} />
+        <Route path="/legal">{() => <Redirect to="/legal/terms" />}</Route>
         <Route path="/legal/:slug" component={LegalPage} />
 
         {/* Blog */}

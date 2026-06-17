@@ -1,7 +1,12 @@
 import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/auction-demo/use-auction-state";
 import { ChyronStrip } from "./ChyronStrip";
-import bidwarLogo from "@/assets/bidwar-logo.png";
+
+const BRAND_LOGO_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="72" viewBox="0 0 240 72"><rect width="240" height="72" rx="12" fill="#111827"/><text x="120" y="46" fill="#f3f4f6" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700" text-anchor="middle">LOGO</text></svg>`,
+  );
 
 /**
  * EFFECTS LAYER — full-stage overlays driven by derivedState from production DB.
@@ -198,8 +203,8 @@ export const EffectsLayer = memo(function EffectsLayer({
         {/* Top bar — logo + tournament name */}
         <div className="relative flex items-center justify-between px-[2.5%] py-[1%] border-b border-white/10 bg-black/40 backdrop-blur-sm">
           <img
-            src={bidwarLogo}
-            alt="BidWar"
+            src={BRAND_LOGO_PLACEHOLDER}
+            alt="Brand logo - live sports auction software"
             className="h-[3.5vh] min-h-[28px] w-auto object-contain"
           />
           <p

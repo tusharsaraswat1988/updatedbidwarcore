@@ -3,6 +3,7 @@ import { useAdminAuth } from "@/hooks/use-auth";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
 import {
   listAdminTournaments,
   lockTournament,
@@ -3712,6 +3713,7 @@ export default function AdminDashboard() {
     warningMs: warningSeconds * 1000,
   });
   const { logos, brandName, miniBrandText } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -3802,9 +3804,9 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3">
             {/* BidWar brand logo */}
             {logos.mini ? (
-              <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
+              <img src={logos.mini} alt={logoAlt} className="h-9 w-auto" />
             ) : logos.main ? (
-              <img src={logos.main} alt={brandName} className="h-9 w-auto" />
+              <img src={logos.main} alt={logoAlt} className="h-9 w-auto" />
             ) : (
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-sm text-primary">
                 {miniBrandText}

@@ -19,6 +19,7 @@ import { cldUrl } from "@/lib/cloudinary";
 import { exportElementToPdf } from "@/lib/export-element-pdf";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
 import { toast } from "@/hooks/use-toast";
 import {
   FileText, Printer, Download, Lock, Users, ChevronRight,
@@ -265,6 +266,7 @@ function AuctionPlanningTable({
 function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey> }) {
   const { tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, squadInfo } = report;
   const { logos, brandName, poweredByText, miniBrandText, loading: brandingLoading, visibility } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const showPhoto = cols.has("photo");
   const allAcquired = retainedPlayers.length + preSoldPlayers.length;
   const isLicensed = report.isLicensed;
@@ -422,7 +424,7 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
             {!brandingLoading && brandLogoUrl ? (
               <img
                 src={brandLogoUrl}
-                alt={brandName}
+                alt={logoAlt}
                 className="h-5 w-5 flex-shrink-0 rounded object-contain"
               />
             ) : (

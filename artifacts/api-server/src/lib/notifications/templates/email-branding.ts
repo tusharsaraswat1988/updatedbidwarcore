@@ -55,7 +55,7 @@ export function normalizeAppUrl(appUrl: string): string {
  */
 export function resolveEmailLogoUrl(appUrl: string, miniLogoUrl?: string | null): string {
   if (miniLogoUrl?.startsWith("https://")) return miniLogoUrl;
-  return `${normalizeAppUrl(appUrl)}/bidwar-icon.png`;
+  return `${normalizeAppUrl(appUrl)}/favicon-32.png`;
 }
 
 export function resolveTournamentDashboardUrl(appUrl: string, tournamentId?: number | null): string {

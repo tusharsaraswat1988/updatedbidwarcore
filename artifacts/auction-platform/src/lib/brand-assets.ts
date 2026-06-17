@@ -1,0 +1,39 @@
+import { cldUrl } from "@/lib/cloudinary";
+
+type BrandLogos = {
+  main?: string | null;
+  mainReverse?: string | null;
+  mini?: string | null;
+  appIcon?: string | null;
+};
+
+const BRAND_FALLBACK_LOGO_SVG =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120" role="img" aria-label="Brand logo placeholder"><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#1f2937"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="320" height="120" rx="16" fill="url(#g)"/><rect x="10" y="10" width="300" height="100" rx="12" fill="none" stroke="#374151"/><text x="160" y="68" fill="#e5e7eb" font-family="Inter,Arial,sans-serif" font-size="26" text-anchor="middle" font-weight="700">LOGO</text></svg>`,
+  );
+
+export const BRAND_ICON_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Brand icon placeholder"><rect width="180" height="180" rx="40" fill="#111827"/><circle cx="90" cy="90" r="56" fill="#f59e0b" opacity="0.95"/><text x="90" y="102" fill="#111827" font-family="Inter,Arial,sans-serif" font-size="54" text-anchor="middle" font-weight="800">B</text></svg>`,
+  );
+
+export function getBrandLogoAlt(brandName?: string) {
+  const name = brandName?.trim() || "Brand";
+  return `${name} logo - live sports auction software`;
+}
+
+export function getBrandLogoSrc(
+  logos: BrandLogos | undefined,
+  order: Array<keyof BrandLogos> = ["main", "mainReverse", "mini", "appIcon"],
+) {
+  for (const key of order) {
+    const raw = logos?.[key];
+    if (!raw) continue;
+    const transformed = key === "appIcon" ? cldUrl(raw, "appIcon") : cldUrl(raw, "headerLogo");
+    if (transformed) return transformed;
+    if (raw) return raw;
+  }
+  return BRAND_FALLBACK_LOGO_SVG;
+}

@@ -11,6 +11,7 @@ import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 import { openSetupArea } from "@/lib/tournament-navigation";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 type OperatorLayoutProps = {
   tournamentId: number;
@@ -49,7 +50,8 @@ function OperatorAppIcon() {
   const iconSrc =
     cldUrl(logos.appIcon, "headerLogo") ||
     cldUrl(logos.mini, "headerLogo") ||
-    "/bidwar-logo-transparent.png";
+    getBrandLogoSrc(logos, ["appIcon", "mini", "main"]);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   if (loading) {
     return <div className="h-8 w-8 flex-shrink-0" aria-hidden />;
@@ -58,7 +60,7 @@ function OperatorAppIcon() {
   return (
     <img
       src={iconSrc}
-      alt={brandName}
+      alt={logoAlt}
       className="h-8 w-8 object-contain flex-shrink-0 rounded-md"
       loading="eager"
       decoding="async"
@@ -69,6 +71,7 @@ function OperatorAppIcon() {
 function OperatorCenterBrand() {
   const { logos, brandName, poweredByText, loading } = useBranding();
   const mainLogoSrc = cldUrl(logos.main, "headerLogo");
+  const logoAlt = getBrandLogoAlt(brandName);
 
   if (loading) {
     return <div className="h-11 w-32" aria-hidden />;
@@ -79,7 +82,7 @@ function OperatorCenterBrand() {
       {mainLogoSrc ? (
         <img
           src={mainLogoSrc}
-          alt={brandName}
+          alt={logoAlt}
           className="h-7 sm:h-8 max-w-[160px] sm:max-w-[200px] object-contain"
           loading="eager"
           decoding="async"

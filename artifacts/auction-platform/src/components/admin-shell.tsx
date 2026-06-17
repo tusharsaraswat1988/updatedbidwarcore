@@ -11,6 +11,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { cldUrl } from "@/lib/cloudinary";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
@@ -33,12 +34,14 @@ type AdminShellProps = {
 };
 
 function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { mini?: string | null }; brandName: string }) {
+  const shellLogoSrc = getBrandLogoSrc(logos, ["mini"]);
+  const logoAlt = getBrandLogoAlt(brandName);
   return (
     <div className="flex h-16 items-center gap-3 border-b border-border px-4">
       {!loading && (
         <img
-          src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"}
-          alt={brandName}
+          src={cldUrl(logos.mini, "headerLogo") || shellLogoSrc}
+          alt={logoAlt}
           className="h-9 w-9 object-contain"
         />
       )}

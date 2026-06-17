@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import {
   BROADCAST_OVERLAY_BRAND_LOGO_HEIGHT,
   BROADCAST_OVERLAY_BRAND_Z_INDEX,
@@ -14,6 +15,8 @@ import {
 export const BroadcastOverlayBrandMark = memo(function BroadcastOverlayBrandMark() {
   const { logos, brandName, poweredByText } = useBranding();
   const credit = poweredByText?.trim() || BIDWAR_TICKER_CREDIT;
+  const logoAlt = getBrandLogoAlt(brandName);
+  const logoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
 
   return (
     <div
@@ -33,8 +36,8 @@ export const BroadcastOverlayBrandMark = memo(function BroadcastOverlayBrandMark
       aria-label={credit}
     >
       <img
-        src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"}
-        alt={brandName}
+        src={logoSrc}
+        alt={logoAlt}
         style={{
           height: BROADCAST_OVERLAY_BRAND_LOGO_HEIGHT,
           width: "auto",

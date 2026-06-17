@@ -1,6 +1,7 @@
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 import { ExternalLink } from "lucide-react";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
@@ -11,7 +12,8 @@ type PoweredByBidWarLinkProps = {
 
 export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
   const { logos, brandName, poweredByText } = useBranding();
-  const logoSrc = cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp";
+  const logoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const logoAlt = getBrandLogoAlt(brandName);
   const label = poweredByText?.trim() || "Powered by BidWar";
 
   if (variant === "header") {
@@ -32,7 +34,7 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
       >
         <img
           src={logoSrc}
-          alt={brandName}
+          alt={logoAlt}
           className="h-5 sm:h-6 w-auto opacity-60 transition-all duration-300 group-hover:opacity-95 group-hover:scale-105"
           loading="lazy"
           decoding="async"
@@ -62,7 +64,7 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
     >
       <img
         src={logoSrc}
-        alt={brandName}
+        alt={logoAlt}
         className="h-6 w-auto opacity-40 transition-all duration-300 group-hover:opacity-90 group-hover:scale-105"
         loading="lazy"
         decoding="async"

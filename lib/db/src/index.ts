@@ -16,6 +16,12 @@ void pool
   });
 
 void pool
+  .query(`ALTER TABLE branding_settings ADD COLUMN IF NOT EXISTS main_logo_reverse_url text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure branding_settings.main_logo_reverse_url column:", err);
+  });
+
+void pool
   .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`)
   .catch((err) => {
     console.error("[db] failed to ensure players.email column:", err);
@@ -596,6 +602,30 @@ void pool
   `)
   .catch((err) => {
     console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);
+  });
+
+/** Website contact form submissions (public lead inbox). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS contact_inquiries (
+      id SERIAL PRIMARY KEY,
+      full_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      inquiry_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      consent TEXT NOT NULL DEFAULT 'granted',
+      status TEXT NOT NULL DEFAULT 'new',
+      source TEXT NOT NULL DEFAULT 'website_contact_page',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_created_at ON contact_inquiries (created_at DESC);
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_status ON contact_inquiries (status);
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_email ON contact_inquiries (email);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure contact_inquiries table:", err);
   });
 
 export * from "./schema";

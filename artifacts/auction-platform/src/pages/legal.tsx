@@ -1,6 +1,6 @@
 import { useRoute, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, Gavel, ExternalLink } from "lucide-react";
+import { PublicNavbar } from "@/components/public-navbar";
 
 type PolicySlug = "terms" | "privacy" | "acceptable-use" | "disclaimer" | "refund";
 
@@ -266,31 +266,9 @@ export default function LegalPage() {
   const policy = POLICIES[slug] ?? POLICIES["terms"];
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white">
+    <div className="min-h-screen bg-[#09090b] text-white pt-16">
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-white/8 bg-[#09090b]/90 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#FF3C00] flex items-center justify-center">
-              <Gavel className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="font-display font-black text-base tracking-tight">BidWar</span>
-          </div>
-          <a
-            href="mailto:bidwarsupport@gmail.com"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-white transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" /> Contact
-          </a>
-        </div>
-      </header>
+      <PublicNavbar />
 
       <div className="max-w-6xl mx-auto px-6 py-10 flex gap-10">
         {/* Sidebar nav */}

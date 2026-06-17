@@ -6,10 +6,16 @@ import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Building2, GraduationCap, ChevronDown,
-  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
+  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle, Instagram, Facebook, Youtube,
   MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen,
 } from "lucide-react";
 import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
+import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
+import type { DisplayAuction } from "@/lib/auth";
+import { HomeSchemaMarkup } from "@/components/schema-markup";
+import type { PaymentPlan } from "@/components/payment-modal";
+import { PublicNavbar } from "@/components/public-navbar";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
 
 // ─── Solutions Hub Data ───────────────────────────────────────────────────────
 
@@ -90,10 +96,6 @@ const RESOURCE_SLUGS = [
   "sports-league-management-software-buyers-guide",
   "cloud-vs-local-auction-software-sports-events",
 ];
-import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
-import type { DisplayAuction } from "@/lib/auth";
-import { HomeSchemaMarkup } from "@/components/schema-markup";
-import type { PaymentPlan } from "@/components/payment-modal";
 
 const ProductShowcase = lazy(() => import("@/components/product-showcase").then(m => ({ default: m.ProductShowcase })));
 const Testimonials = lazy(() => import("@/components/testimonials").then(m => ({ default: m.Testimonials })));
@@ -481,6 +483,7 @@ interface ShowcaseItem {
 export default function Landing() {
   const [, navigate] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
   const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[] | null>(null);
@@ -556,49 +559,7 @@ export default function Landing() {
       <HomeSchemaMarkup />
 
       {/* ── Nav ─────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center">
-            {brandingLoading ? (
-              <div className="h-10 w-40" aria-hidden />
-            ) : logos.main ? (
-              <img
-                src={logos.main}
-                alt={brandName}
-                className="h-10 sm:h-11 w-auto max-w-[240px] sm:max-w-[280px] object-contain object-left"
-                loading="eager"
-                decoding="async"
-              />
-            ) : null}
-          </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#use-cases" className="hover:text-white transition-colors">Use Cases</a>
-            <a href="#solutions" className="hover:text-white transition-colors">Solutions</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-            <button onClick={() => navigate("/blog")} className="hover:text-white transition-colors flex items-center gap-1">
-              <BookOpen className="w-3.5 h-3.5" /> Blog
-            </button>
-            <button onClick={() => navigate("/upcoming-auctions")} className="hover:text-white transition-colors text-primary font-semibold">Upcoming Auctions</button>
-            <button onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-white transition-colors font-semibold text-primary">Pay</button>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/organizer")}
-              className="text-sm text-muted-foreground hover:text-white transition-colors hidden sm:block"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => navigate("/organizer")}
-              className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-24 px-6 overflow-hidden">
@@ -1599,31 +1560,31 @@ export default function Landing() {
 
             {/* Brand */}
             <div className="space-y-4 md:col-span-1">
-              <div className="flex items-center">
+              <a href="/" aria-label={`${brandName} Home`} className="inline-flex items-center hover:opacity-90 transition-opacity">
                 {brandingLoading ? (
                   <div className="h-10 w-40" aria-hidden />
-                ) : logos.main ? (
+                ) : (logos.mainReverse || logos.main) ? (
                   <img
-                    src={logos.main}
-                    alt={brandName}
-                    className="h-10 w-auto max-w-[240px] object-contain object-left"
+                    src={logos.mainReverse || logos.main || ""}
+                    alt={logoAlt}
+                    className="h-24 w-auto max-w-[560px] object-contain object-left"
                     loading="lazy"
                     decoding="async"
                   />
                 ) : null}
-              </div>
+              </a>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 India's live sports auction platform. IPL-grade infrastructure for cricket, football, kabaddi and franchise leagues.
               </p>
               <div className="flex items-center gap-3">
                 <a href="https://www.instagram.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  IG
+                  <Instagram className="w-4 h-4" />
                 </a>
                 <a href="https://www.facebook.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  FB
+                  <Facebook className="w-4 h-4" />
                 </a>
                 <a href="https://www.youtube.com/@bidwarofficial" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  YT
+                  <Youtube className="w-4 h-4" />
                 </a>
               </div>
             </div>
@@ -1651,6 +1612,7 @@ export default function Landing() {
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Legal</p>
               <div className="space-y-2">
                 {[
+                  { label: "Legal Hub", href: "/legal" },
                   { label: "Terms & Conditions", href: "/legal/terms" },
                   { label: "Privacy Policy", href: "/legal/privacy" },
                   { label: "Acceptable Use", href: "/legal/acceptable-use" },
