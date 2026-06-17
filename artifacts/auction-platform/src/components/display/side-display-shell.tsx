@@ -56,13 +56,13 @@ export function SideDisplayShell({
       audioEnabled: tournament.audioEnabled ?? true,
       masterVolume: tournament.masterVolume ?? 80,
       countdownSoundEnabled: tournament.countdownSoundEnabled ?? true,
-      countdownSoundUrl: tournament.countdownSoundUrl ?? null,
+      countdownSoundUrl: tournament.resolvedCountdownSoundUrl ?? tournament.countdownSoundUrl ?? null,
       countdownSoundVolume: tournament.countdownSoundVolume ?? 70,
       soldSoundEnabled: tournament.soldSoundEnabled ?? true,
-      soldSoundUrl: tournament.soldSoundUrl ?? null,
+      soldSoundUrl: tournament.resolvedSoldSoundUrl ?? tournament.soldSoundUrl ?? null,
       soldSoundVolume: tournament.soldSoundVolume ?? 80,
       breakEndMusicEnabled: tournament.breakEndMusicEnabled ?? false,
-      breakEndMusicUrl: tournament.breakEndMusicUrl ?? null,
+      breakEndMusicUrl: tournament.resolvedBreakEndMusicUrl ?? tournament.breakEndMusicUrl ?? null,
       breakEndMusicVolume: tournament.breakEndMusicVolume ?? 80,
     };
   }, [
@@ -70,12 +70,15 @@ export function SideDisplayShell({
     tournament?.masterVolume,
     tournament?.countdownSoundEnabled,
     tournament?.countdownSoundUrl,
+    tournament?.resolvedCountdownSoundUrl,
     tournament?.countdownSoundVolume,
     tournament?.soldSoundEnabled,
     tournament?.soldSoundUrl,
+    tournament?.resolvedSoldSoundUrl,
     tournament?.soldSoundVolume,
     tournament?.breakEndMusicEnabled,
     tournament?.breakEndMusicUrl,
+    tournament?.resolvedBreakEndMusicUrl,
     tournament?.breakEndMusicVolume,
   ]);
 

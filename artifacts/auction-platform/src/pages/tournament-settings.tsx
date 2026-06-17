@@ -45,6 +45,7 @@ import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
@@ -152,9 +153,27 @@ export default function TournamentSettings() {
     };
     setEditForm(initialForm);
 
-    setCountdownFileName(t.countdownSoundUrl ? "Custom file uploaded" : "");
-    setSoldFileName(t.soldSoundUrl ? "Custom file uploaded" : "");
-    setBreakEndFileName(t.breakEndMusicUrl ? "Custom file uploaded" : "");
+    setCountdownFileName(
+      t.countdownSoundUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { countdownSoundUrl?: string | null } }).platformAudioDefaults?.countdownSoundUrl
+          ? "Platform default"
+          : "",
+    );
+    setSoldFileName(
+      t.soldSoundUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { soldSoundUrl?: string | null } }).platformAudioDefaults?.soldSoundUrl
+          ? "Platform default"
+          : "",
+    );
+    setBreakEndFileName(
+      t.breakEndMusicUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } }).platformAudioDefaults?.breakEndMusicUrl
+          ? "Platform default"
+          : "",
+    );
 
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
@@ -311,14 +330,27 @@ export default function TournamentSettings() {
     e.target.value = "";
   }
 
+  function clearAudioField(
+    field: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
+    setFileName: (n: string) => void,
+    platformKey: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
+  ) {
+    setEditForm((f) => ({ ...f, [field]: "" }));
+    const platform = (tournament as { platformAudioDefaults?: Record<string, string | null> } | undefined)
+      ?.platformAudioDefaults?.[platformKey];
+    setFileName(platform ? "Platform default" : "");
+  }
+
   async function previewCountdownSound() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { countdownSoundUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.countdownSoundUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: true,
-      countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+      countdownSoundUrl: resolveBroadcastAudioUrl((editForm.countdownSoundUrl as string).trim() || null, platform),
       countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
       soldSoundEnabled: false, soldSoundUrl: null, soldSoundVolume: 0,
       breakEndMusicEnabled: false, breakEndMusicUrl: null, breakEndMusicVolume: 80,
@@ -330,11 +362,13 @@ export default function TournamentSettings() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { soldSoundUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.soldSoundUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: true,
-      soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+      soldSoundUrl: resolveBroadcastAudioUrl((editForm.soldSoundUrl as string).trim() || null, platform),
       soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
       breakEndMusicEnabled: false, breakEndMusicUrl: null, breakEndMusicVolume: 80,
     });
@@ -345,12 +379,14 @@ export default function TournamentSettings() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.breakEndMusicUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: false, soldSoundUrl: null, soldSoundVolume: 0,
       breakEndMusicEnabled: true,
-      breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+      breakEndMusicUrl: resolveBroadcastAudioUrl((editForm.breakEndMusicUrl as string).trim() || null, platform),
       breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
     });
     mgr.previewBreakEnd();
@@ -1314,13 +1350,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.countdownSoundUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, countdownSoundUrl: "" })); setCountdownFileName(""); }}>
+                                onClick={() => clearAudioField("countdownSoundUrl", setCountdownFileName, "countdownSoundUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.countdownSoundUrl ? "Custom file loaded — will replace built-in tick" : "No file selected — built-in digital tick will play"}
+                            {editForm.countdownSoundUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : countdownFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in digital tick will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1369,13 +1409,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.soldSoundUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, soldSoundUrl: "" })); setSoldFileName(""); }}>
+                                onClick={() => clearAudioField("soldSoundUrl", setSoldFileName, "soldSoundUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.soldSoundUrl ? "Custom file loaded — will replace built-in fanfare" : "No file selected — built-in fanfare will play"}
+                            {editForm.soldSoundUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : soldFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in fanfare will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1424,13 +1468,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.breakEndMusicUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, breakEndMusicUrl: "" })); setBreakEndFileName(""); }}>
+                                onClick={() => clearAudioField("breakEndMusicUrl", setBreakEndFileName, "breakEndMusicUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.breakEndMusicUrl ? "Custom file loaded — will replace built-in chime" : "No file selected — built-in chime will play"}
+                            {editForm.breakEndMusicUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : breakEndFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in chime will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">

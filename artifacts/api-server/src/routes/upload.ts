@@ -33,6 +33,22 @@ const mediaUpload = multer({
   },
 });
 
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const allowed = new Set([
+      "audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav",
+      "audio/aac", "audio/mp4", "audio/webm",
+    ]);
+    if (!allowed.has(file.mimetype) && !file.originalname.match(/\.(mp3|ogg|wav|aac|m4a|webm)$/i)) {
+      cb(new Error("Unsupported audio type. Upload MP3, OGG, WAV, or AAC."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 async function getCloudinary() {
   if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
     return null;
@@ -125,6 +141,42 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
     res.json({ url });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary media upload error");
+    res.status(500).json({ error: "Upload failed. Please try again." });
+  }
+});
+
+/**
+ * POST /api/upload/audio
+ * Accepts audio files up to 8 MB for platform/tournament broadcast sounds.
+ */
+router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
+  const cloudinary = await getCloudinary();
+  if (!cloudinary) {
+    res.status(503).json({
+      error: "Audio upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
+    });
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({ error: "No file provided." });
+    return;
+  }
+
+  try {
+    const url = await new Promise<string>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "bidwar/audio", resource_type: "video" },
+        (error, result) => {
+          if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
+          else resolve(result.secure_url);
+        },
+      );
+      stream.end(req.file!.buffer);
+    });
+    res.json({ url });
+  } catch (err) {
+    req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
   }
 });

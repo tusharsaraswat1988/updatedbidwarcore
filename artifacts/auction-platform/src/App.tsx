@@ -200,6 +200,7 @@ function Router() {
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
         <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
         <Route path="/admin/settings/system/builds" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/default-audio" component={AdminSystemPage} />
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>

@@ -21,7 +21,8 @@
     "./organizer-account": "./src/organizer-account.ts",
     "./auction-date": "./src/auction-date.ts",
     "./registration-payment": "./src/registration-payment.ts",
-    "./registration-declaration": "./src/registration-declaration.ts"
+    "./registration-declaration": "./src/registration-declaration.ts",
+    "./platform-audio": "./src/platform-audio.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

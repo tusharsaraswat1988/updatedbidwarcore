@@ -4,6 +4,11 @@ import { settingsTable } from "@workspace/db";
 import { inArray, eq } from "drizzle-orm";
 import { z } from "zod";
 import { isScoringFeatureEnabled } from "../lib/scoring-feature";
+import {
+  getPlatformDefaultAudioCached,
+  readPlatformDefaultAudio,
+  writePlatformDefaultAudio,
+} from "../lib/platform-audio-defaults";
 
 const router = Router();
 
@@ -310,6 +315,44 @@ router.patch("/auth/admin/settings/session-lock", async (req, res) => {
 
   await upsertKey(SESSION_LOCK_KEY, String(parsed.data.lockMinutes));
   res.json(await readSessionLockSettings());
+});
+
+// ─── Platform default broadcast audio ────────────────────────────────────────
+
+const audioUrlField = z.string().nullable().optional();
+
+const updatePlatformAudioSchema = z.object({
+  countdownSoundUrl: audioUrlField,
+  soldSoundUrl: audioUrlField,
+  breakEndMusicUrl: audioUrlField,
+});
+
+router.get("/settings/default-audio", async (_req, res) => {
+  res.json(await getPlatformDefaultAudioCached());
+});
+
+router.get("/auth/admin/settings/default-audio", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  res.json(await readPlatformDefaultAudio());
+});
+
+router.patch("/auth/admin/settings/default-audio", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updatePlatformAudioSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = await writePlatformDefaultAudio(parsed.data);
+  res.json(data);
 });
 
 export default router;

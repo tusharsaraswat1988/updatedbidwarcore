@@ -26,6 +26,11 @@ import {
   PAYMENT_VERIFICATION_METHODS,
 } from "@workspace/api-base/registration-payment";
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
+import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import {
+  resolveBroadcastAudioUrl,
+  type PlatformAudioDefaults,
+} from "@workspace/api-base/platform-audio";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -70,8 +75,10 @@ const router = Router();
 
 const tournamentToJson = (
   t: typeof tournamentsTable.$inferSelect,
-  options?: { includeScoringPin?: boolean },
-) => ({
+  options?: { includeScoringPin?: boolean; platformDefaults?: PlatformAudioDefaults },
+) => {
+  const platform = options?.platformDefaults;
+  return {
   id: t.id,
   name: t.name,
   sport: t.sport,
@@ -140,7 +147,16 @@ const tournamentToJson = (
   hasScoringPin: !!t.scoringPin,
   scoringPin: options?.includeScoringPin ? (t.scoringPin ?? null) : undefined,
   createdAt: t.createdAt.toISOString(),
-});
+  ...(platform
+    ? {
+        platformAudioDefaults: platform,
+        resolvedCountdownSoundUrl: resolveBroadcastAudioUrl(t.countdownSoundUrl, platform.countdownSoundUrl),
+        resolvedSoldSoundUrl: resolveBroadcastAudioUrl(t.soldSoundUrl, platform.soldSoundUrl),
+        resolvedBreakEndMusicUrl: resolveBroadcastAudioUrl(t.breakEndMusicUrl, platform.breakEndMusicUrl),
+      }
+    : {}),
+  };
+};
 
 const tournamentInputSchema = z.object({
   name: z.string().min(1),
@@ -262,7 +278,11 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(tournamentToJson(tournament, { includeScoringPin: isOrganizerOrAdmin(req, id) }));
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  res.json(tournamentToJson(tournament, {
+    includeScoringPin: isOrganizerOrAdmin(req, id),
+    platformDefaults,
+  }));
 });
 
 router.patch("/tournaments/:tournamentId", async (req, res) => {
@@ -403,13 +423,13 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.audioEnabled !== undefined) updates.audioEnabled = d.audioEnabled;
   if (d.masterVolume !== undefined) updates.masterVolume = d.masterVolume;
   if (d.countdownSoundEnabled !== undefined) updates.countdownSoundEnabled = d.countdownSoundEnabled;
-  if (d.countdownSoundUrl !== undefined) updates.countdownSoundUrl = d.countdownSoundUrl;
+  if (d.countdownSoundUrl !== undefined) updates.countdownSoundUrl = d.countdownSoundUrl === "" ? null : d.countdownSoundUrl;
   if (d.countdownSoundVolume !== undefined) updates.countdownSoundVolume = d.countdownSoundVolume;
   if (d.soldSoundEnabled !== undefined) updates.soldSoundEnabled = d.soldSoundEnabled;
-  if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl;
+  if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl === "" ? null : d.soldSoundUrl;
   if (d.soldSoundVolume !== undefined) updates.soldSoundVolume = d.soldSoundVolume;
   if (d.breakEndMusicEnabled !== undefined) updates.breakEndMusicEnabled = d.breakEndMusicEnabled;
-  if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl;
+  if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl === "" ? null : d.breakEndMusicUrl;
   if (d.breakEndMusicVolume !== undefined) updates.breakEndMusicVolume = d.breakEndMusicVolume;
   if (d.mainBannerUrl !== undefined) updates.mainBannerUrl = d.mainBannerUrl;
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
@@ -467,7 +487,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
-  res.json(tournamentToJson(tournament, { includeScoringPin: true }));
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  res.json(tournamentToJson(tournament, { includeScoringPin: true, platformDefaults }));
 });
 
 router.delete("/tournaments/:tournamentId", async (req, res) => {
