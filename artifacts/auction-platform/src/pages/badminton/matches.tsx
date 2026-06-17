@@ -3,8 +3,8 @@
  * Route: /tournament/:id/badminton/matches
  */
 
-import { useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useRoute, Link, useSearch } from "wouter";
 import { Target, X, Pencil } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import {
   emptySidePlayer,
   sidePlayerFormToJson,
   sideJsonToPlayerForm,
+  type SidePlayerForm,
 } from "@/components/badminton/pair-side-picker";
 import { CourtAutocomplete } from "@/components/badminton/court-autocomplete";
 import {
@@ -34,6 +35,7 @@ import {
 import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
 import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
 import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
+import { badmintonFetch } from "@/lib/badminton-api";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -57,11 +59,84 @@ interface MatchRow {
   state: BadmintonMatchState | null;
 }
 
+interface FixtureOption {
+  id: number;
+  categoryId: number;
+  slotNumber?: number | null;
+  registrationAId?: number | null;
+  registrationBId?: number | null;
+  scoringMatchId?: number | null;
+  status: string;
+}
+
+interface CategoryOption {
+  id: number;
+  name: string;
+  matchType: string;
+}
+
+interface BadmintonPlayerRecord {
+  id: number;
+  masterPlayerId?: string | null;
+  firstName: string;
+  lastName: string;
+  displayName?: string | null;
+  shortName?: string | null;
+  photoUrl?: string | null;
+  flagUrl?: string | null;
+}
+
+interface RegistrationRecord {
+  registration: {
+    id: number;
+    player1Id: number;
+    player2Id?: number | null;
+    status: string;
+  };
+  player1: BadmintonPlayerRecord | null;
+}
+
+function formatPlayerName(p: BadmintonPlayerRecord) {
+  return p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
+}
+
+function playerToSideForm(p: BadmintonPlayerRecord): SidePlayerForm {
+  const name = formatPlayerName(p);
+  return {
+    masterId: p.masterPlayerId ?? null,
+    name,
+    short: p.shortName?.trim() || name.slice(0, 2).toUpperCase(),
+    photoUrl: p.photoUrl ?? "",
+    franchiseLogo: p.flagUrl ?? "",
+    playerIds: [p.id],
+  };
+}
+
+function registrationSidePlayers(
+  reg: RegistrationRecord["registration"],
+  playersById: Map<number, BadmintonPlayerRecord>,
+  isPair: boolean,
+): { player1: SidePlayerForm; player2: SidePlayerForm } {
+  const p1 = playersById.get(reg.player1Id);
+  const p2 = reg.player2Id ? playersById.get(reg.player2Id) : undefined;
+  return {
+    player1: p1 ? playerToSideForm(p1) : emptySidePlayer(),
+    player2: isPair && p2 ? playerToSideForm(p2) : emptySidePlayer(),
+  };
+}
+
 export default function BadmintonMatchesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/matches");
+  const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
+  const initialFixtureId = useMemo(() => {
+    const raw = new URLSearchParams(search).get("fixture");
+    if (!raw) return undefined;
+    const id = parseInt(raw, 10);
+    return Number.isFinite(id) ? id : undefined;
+  }, [search]);
+  const [showCreate, setShowCreate] = useState(!!initialFixtureId);
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
@@ -160,9 +235,11 @@ export default function BadmintonMatchesPage() {
       {showCreate && (
         <MatchFormModal
           tournamentId={tournamentId}
+          initialFixtureId={initialFixtureId}
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
             setShowCreate(false);
           }}
         />
@@ -372,11 +449,13 @@ function MatchRow({
   );
 }
 
-function buildMatchFormState(match?: MatchRow) {
+function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
   const detail = match?.detail ?? {};
   const left = (detail.leftSideJson as Record<string, unknown> | undefined) ?? {};
   const right = (detail.rightSideJson as Record<string, unknown> | undefined) ?? {};
   return {
+    fixtureId: initialFixtureId ? String(initialFixtureId) : "",
+    categoryId: null as number | null,
     matchType: (detail.matchType as string | undefined) ?? "singles",
     courtNumber: (detail.courtNumber as string | undefined) ?? "",
     courtId: (detail.courtId as number | null | undefined) ?? null,
@@ -393,21 +472,120 @@ function buildMatchFormState(match?: MatchRow) {
 function MatchFormModal({
   tournamentId,
   match,
+  initialFixtureId,
   onClose,
   onSaved,
 }: {
   tournamentId: number;
   match?: MatchRow;
+  initialFixtureId?: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { toast } = useToast();
   const isEdit = !!match;
   const rosterLocked = isEdit && match.status !== "scheduled";
-  const [form, setForm] = useState(() => buildMatchFormState(match));
+  const [form, setForm] = useState(() => buildMatchFormState(match, initialFixtureId));
   const isPair = isPairMatchKind(form.matchType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fixturePrefillId, setFixturePrefillId] = useState<number | null>(null);
+
+  const { data: fixtures = [] } = useQuery<FixtureOption[]>({
+    queryKey: ["badminton-fixtures-all", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/fixtures"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const { data: categories = [] } = useQuery<CategoryOption[]>({
+    queryKey: ["badminton-categories", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/categories"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const { data: players = [] } = useQuery<BadmintonPlayerRecord[]>({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/players"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const selectedFixture = form.fixtureId
+    ? fixtures.find((f) => String(f.id) === form.fixtureId)
+    : undefined;
+
+  const { data: registrations = [] } = useQuery<RegistrationRecord[]>({
+    queryKey: ["badminton-registrations", tournamentId, selectedFixture?.categoryId],
+    queryFn: () =>
+      badmintonFetch(tournamentId, `/categories/${selectedFixture!.categoryId}/registrations`),
+    enabled: !isEdit && !!selectedFixture?.categoryId,
+  });
+
+  const availableFixtures = fixtures.filter((f) => !f.scoringMatchId);
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  );
+  const playersById = useMemo(
+    () => new Map(players.map((p) => [p.id, p])),
+    [players],
+  );
+  const registrationById = useMemo(
+    () => new Map(registrations.map((r) => [r.registration.id, r.registration])),
+    [registrations],
+  );
+
+  useEffect(() => {
+    if (isEdit || !form.fixtureId) return;
+    const fixtureId = parseInt(form.fixtureId, 10);
+    if (!Number.isFinite(fixtureId) || fixturePrefillId === fixtureId) return;
+
+    const fixture = fixtures.find((f) => f.id === fixtureId);
+    if (!fixture) return;
+
+    const category = categoryById.get(fixture.categoryId);
+    if (!category) return;
+
+    const needsRegs = !!(fixture.registrationAId || fixture.registrationBId);
+    if (needsRegs && registrations.length === 0) return;
+
+    const matchType = category.matchType;
+    const pair = isPairMatchKind(matchType);
+    const regA = fixture.registrationAId
+      ? registrationById.get(fixture.registrationAId)
+      : undefined;
+    const regB = fixture.registrationBId
+      ? registrationById.get(fixture.registrationBId)
+      : undefined;
+    const left = regA
+      ? registrationSidePlayers(regA, playersById, pair)
+      : { player1: emptySidePlayer(), player2: emptySidePlayer() };
+    const right = regB
+      ? registrationSidePlayers(regB, playersById, pair)
+      : { player1: emptySidePlayer(), player2: emptySidePlayer() };
+
+    setForm((prev) => ({
+      ...prev,
+      categoryId: fixture.categoryId,
+      matchType,
+      matchLabel:
+        prev.matchLabel.trim() ||
+        `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
+      leftPlayer1: left.player1,
+      leftPlayer2: left.player2,
+      rightPlayer1: right.player1,
+      rightPlayer2: right.player2,
+    }));
+    setFixturePrefillId(fixtureId);
+  }, [
+    isEdit,
+    form.fixtureId,
+    fixtures,
+    categoryById,
+    playersById,
+    registrationById,
+    registrations.length,
+    fixturePrefillId,
+  ]);
 
   type StringFormField = Exclude<
     keyof typeof form,
@@ -454,6 +632,8 @@ function MatchFormModal({
         ...(rosterLocked
           ? {}
           : {
+              fixtureId: form.fixtureId ? parseInt(form.fixtureId, 10) : undefined,
+              categoryId: form.categoryId ?? undefined,
               matchType: form.matchType,
               leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
               rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
@@ -497,11 +677,41 @@ function MatchFormModal({
           ? rosterLocked
             ? "Update match name, court, umpire, or scorer PIN"
             : "Update match setup before it goes live"
-          : "Schedule a new badminton match"
+          : "Create a match yourself, or optionally link one to a generated draw slot"
       }
       onClose={onClose}
       size="lg"
     >
+      {!isEdit ? (
+        <FormField label="Draw fixture">
+          <DarkSelect
+            value={form.fixtureId || "none"}
+            onValueChange={(fixtureId) => {
+              setFixturePrefillId(null);
+              setForm((prev) => ({
+                ...prev,
+                fixtureId: fixtureId === "none" ? "" : fixtureId,
+                categoryId: null,
+              }));
+            }}
+            placeholder="Link to a draw slot (optional)"
+            options={[
+              { value: "none", label: "None — manual match" },
+              ...availableFixtures.map((fix) => {
+                const category = categoryById.get(fix.categoryId);
+                return {
+                  value: String(fix.id),
+                  label: `${category?.name ?? "Category"} · Match ${fix.slotNumber ?? fix.id}`,
+                };
+              }),
+            ]}
+          />
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Optional. Leave on <span className="text-foreground/80">None — manual match</span> to pick your own players and skip the draw entirely.
+          </p>
+        </FormField>
+      ) : null}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FormField label="Match Type">
           <DarkSelect

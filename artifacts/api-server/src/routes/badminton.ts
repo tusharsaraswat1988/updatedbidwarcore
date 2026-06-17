@@ -29,7 +29,7 @@
 
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { eq, and, asc, count } from "drizzle-orm";
+import { eq, and, asc, count, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   badmintonPlayersTable,
@@ -674,6 +674,83 @@ router.patch("/categories/:catId", async (req, res) => {
   res.json(cat);
 });
 
+router.delete("/categories/:catId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+
+  const [category] = await db
+    .select({ id: badmintonCategoriesTable.id })
+    .from(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!category) return void res.status(404).json({ error: "category not found" });
+
+  const linkedFixtures = await db
+    .select({ scoringMatchId: badmintonFixturesTable.scoringMatchId })
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.categoryId, catId),
+        eq(badmintonFixturesTable.tournamentId, tournamentId),
+        isNotNull(badmintonFixturesTable.scoringMatchId),
+      ),
+    );
+
+  if (linkedFixtures.length > 0) {
+    return void res.status(409).json({
+      error:
+        "This category has matches linked to its draw. Delete those matches from the Matches page first.",
+    });
+  }
+
+  await db
+    .delete(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+      ),
+    );
+
+  await db
+    .delete(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.categoryId, catId),
+        eq(badmintonFixturesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  await db
+    .delete(badmintonDrawsTable)
+    .where(
+      and(
+        eq(badmintonDrawsTable.categoryId, catId),
+        eq(badmintonDrawsTable.tournamentId, tournamentId),
+      ),
+    );
+
+  await db
+    .delete(badmintonCategoriesTable)
+    .where(
+      and(
+        eq(badmintonCategoriesTable.id, catId),
+        eq(badmintonCategoriesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  broadcastTournamentUpdate(tournamentId, { type: "category_deleted", categoryId: catId });
+  res.json({ deleted: true });
+});
+
 // ─── Registrations ────────────────────────────────────────────────────────────
 
 /**
@@ -686,18 +763,8 @@ router.get("/categories/:catId/registrations", async (req, res) => {
   if (!tournamentId || !catId) return void res.status(400).json({ error: "bad id" });
 
   const regs = await db
-    .select({
-      registration: badmintonRegistrationsTable,
-      player1: badmintonPlayersTable,
-    })
+    .select()
     .from(badmintonRegistrationsTable)
-    .leftJoin(
-      badmintonPlayersTable,
-      and(
-        eq(badmintonPlayersTable.id, badmintonRegistrationsTable.player1Id),
-        eq(badmintonPlayersTable.tournamentId, tournamentId), // player must belong to same tenant
-      ),
-    )
     .where(
       and(
         eq(badmintonRegistrationsTable.categoryId, catId),
@@ -706,7 +773,36 @@ router.get("/categories/:catId/registrations", async (req, res) => {
     )
     .orderBy(asc(badmintonRegistrationsTable.seedNumber));
 
-  res.json(regs);
+  const playerIds = new Set<number>();
+  for (const reg of regs) {
+    playerIds.add(reg.player1Id);
+    if (reg.player2Id) playerIds.add(reg.player2Id);
+  }
+
+  const players =
+    playerIds.size > 0
+      ? await db
+          .select()
+          .from(badmintonPlayersTable)
+          .where(
+            and(
+              eq(badmintonPlayersTable.tournamentId, tournamentId),
+              inArray(badmintonPlayersTable.id, [...playerIds]),
+            ),
+          )
+      : [];
+
+  const playerById = new Map(players.map((p) => [p.id, p]));
+
+  res.json(
+    regs.map((registration) => ({
+      registration,
+      player1: playerById.get(registration.player1Id) ?? null,
+      player2: registration.player2Id
+        ? playerById.get(registration.player2Id) ?? null
+        : null,
+    })),
+  );
 });
 
 /**

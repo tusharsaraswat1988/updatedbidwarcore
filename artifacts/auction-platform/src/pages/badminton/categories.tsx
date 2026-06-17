@@ -4,11 +4,21 @@
  */
 
 import { useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { Trophy } from "lucide-react";
+import { Trophy, Pencil, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 
 interface BadmintonCategory {
@@ -44,6 +54,7 @@ interface RegistrationRow {
     status: string;
   };
   player1: BadmintonPlayer | null;
+  player2?: BadmintonPlayer | null;
 }
 
 interface BadmintonFixture {
@@ -109,6 +120,12 @@ export default function BadmintonCategoriesPage() {
               expanded={expandedId === cat.id}
               onToggle={() => setExpandedId(expandedId === cat.id ? null : cat.id)}
               onEdit={() => { setEditCategory(cat); setShowForm(true); }}
+              onDeleted={() => {
+                if (expandedId === cat.id) setExpandedId(null);
+                qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
+                qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
+                qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+              }}
               onRefresh={() => {
                 qc.invalidateQueries({ queryKey: ["badminton-categories", tournamentId] });
                 qc.invalidateQueries({ queryKey: ["badminton-fixtures", tournamentId, cat.id] });
@@ -143,6 +160,7 @@ function CategoryPanel({
   expanded,
   onToggle,
   onEdit,
+  onDeleted,
   onRefresh,
 }: {
   category: BadmintonCategory;
@@ -150,6 +168,7 @@ function CategoryPanel({
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onDeleted: () => void;
   onRefresh: () => void;
 }) {
   const { data: registrations = [], isLoading: regsLoading } = useQuery<RegistrationRow[]>({
@@ -161,12 +180,15 @@ function CategoryPanel({
   const { data: fixtures = [] } = useQuery<BadmintonFixture[]>({
     queryKey: ["badminton-fixtures", tournamentId, category.id],
     queryFn: () => badmintonFetch(tournamentId, `/fixtures?categoryId=${category.id}`),
-    enabled: expanded && !!tournamentId,
+    enabled: !!tournamentId,
   });
 
   const [generating, setGenerating] = useState(false);
   const [drawError, setDrawError] = useState("");
   const [showAddReg, setShowAddReg] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const acceptedCount = registrations.filter((r) => r.registration.status === "accepted").length;
   const hasDraw = fixtures.length > 0;
@@ -192,57 +214,145 @@ function CategoryPanel({
     }
   }
 
+  async function handleConfirmDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await badmintonFetch(tournamentId, `/categories/${category.id}`, { method: "DELETE" });
+      setConfirmDeleteOpen(false);
+      onDeleted();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const isDoublesEntry = category.matchType !== "singles";
   const regNameMap = new Map<number, string>();
   for (const row of registrations) {
-    const p1 = row.player1;
-    if (p1) {
-      regNameMap.set(row.registration.id, formatPlayerName(p1));
-    }
+    regNameMap.set(
+      row.registration.id,
+      formatRegistrationEntryName(row, isDoublesEntry),
+    );
   }
 
   return (
     <div className={cn(hubCardClass, "overflow-hidden")}>
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-white/3 transition-colors"
-      >
-        <div className="flex items-center gap-4 min-w-0">
-          {category.colorCode && (
-            <div
-              className="w-3 h-10 rounded-full flex-none"
-              style={{ backgroundColor: category.colorCode }}
-            />
-          )}
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-white font-bold text-lg truncate">{category.name}</h3>
-              {category.code && (
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/50 px-2 py-0.5 rounded-full">
-                  {category.code}
-                </span>
-              )}
-              <PhaseBadge phase={category.phase} />
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center justify-between gap-4 p-5 text-left hover:bg-white/3 transition-colors min-w-0"
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            {category.colorCode && (
+              <div
+                className="w-3 h-10 rounded-full flex-none"
+                style={{ backgroundColor: category.colorCode }}
+              />
+            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-white font-bold text-lg truncate">{category.name}</h3>
+                {category.code && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/50 px-2 py-0.5 rounded-full">
+                    {category.code}
+                  </span>
+                )}
+                <PhaseBadge phase={category.phase} />
+              </div>
+              <p className="text-white/40 text-sm mt-0.5">
+                {formatMatchType(category.matchType)}
+                {category.ageGroup ? ` · ${category.ageGroup}` : ""}
+                {category.gender ? ` · ${category.gender}` : ""}
+                {" · "}{category.drawType.replace("_", " ")}
+              </p>
             </div>
-            <p className="text-white/40 text-sm mt-0.5">
-              {formatMatchType(category.matchType)}
-              {category.ageGroup ? ` · ${category.ageGroup}` : ""}
-              {category.gender ? ` · ${category.gender}` : ""}
-              {" · "}{category.drawType.replace("_", " ")}
-            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3 flex-none">
-          <span className="text-white/30 text-sm">{acceptedCount} entries</span>
-          <svg
-            className={cn("w-5 h-5 text-white/40 transition-transform", expanded && "rotate-180")}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
+          <div className="flex items-center gap-3 flex-none">
+            <span className="text-white/30 text-sm">{acceptedCount} entries</span>
+            <svg
+              className={cn("w-5 h-5 text-white/40 transition-transform", expanded && "rotate-180")}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          title="Edit category"
+          aria-label={`Edit ${category.name}`}
+          className="flex-none w-14 border-l border-white/8 hover:bg-white/6 text-white/50 hover:text-white transition-colors flex items-center justify-center"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteError("");
+            setConfirmDeleteOpen(true);
+          }}
+          title="Delete category"
+          aria-label={`Delete ${category.name}`}
+          className="flex-none w-14 border-l border-white/8 hover:bg-red-500/10 text-white/50 hover:text-red-400 transition-colors flex items-center justify-center"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <AlertDialog
+        open={confirmDeleteOpen}
+        onOpenChange={(open) => {
+          setConfirmDeleteOpen(open);
+          if (!open) setDeleteError("");
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Delete category?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  Delete <span className="text-foreground font-medium">{category.name}</span>?
+                  All entries, draw fixtures, and bracket data for this category will be permanently
+                  removed.
+                </p>
+                {hasDraw ? (
+                  <p>
+                    This category has a generated draw. Linked matches must be deleted from the
+                    Matches page before this category can be removed.
+                  </p>
+                ) : null}
+                <p>This cannot be undone.</p>
+                {deleteError ? <p className="text-red-400">{deleteError}</p> : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete category"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {expanded && (
         <div className="border-t border-white/8 p-5 space-y-6">
@@ -295,9 +405,13 @@ function CategoryPanel({
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-white text-sm font-medium truncate">
-                        {row.player1 ? formatPlayerName(row.player1) : `Player #${row.registration.player1Id}`}
+                        {formatRegistrationEntryName(row, isDoublesEntry)}
                       </p>
-                      <p className="text-white/30 text-xs capitalize">{row.registration.status}</p>
+                      <p className="text-white/30 text-xs capitalize">
+                        {row.registration.seedNumber
+                          ? `Seed ${row.registration.seedNumber} · ${row.registration.status}`
+                          : row.registration.status}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -377,7 +491,7 @@ function FixtureCard({
         <p className="text-white/30 text-xs text-center">vs</p>
         <p className="text-white text-sm font-medium truncate">{sideB}</p>
       </div>
-      {fixture.scoringMatchId && (
+      {fixture.scoringMatchId ? (
         <a
           href={`/badminton/${fixture.scoringMatchId}/score?tid=${tournamentId}`}
           target="_blank"
@@ -386,6 +500,13 @@ function FixtureCard({
         >
           Open Scorer →
         </a>
+      ) : (
+        <Link
+          href={`/tournament/${tournamentId}/badminton/matches?fixture=${fixture.id}`}
+          className="mt-3 block text-center text-[#4fc3f7] text-xs font-semibold hover:underline"
+        >
+          Schedule Match →
+        </Link>
       )}
     </div>
   );
@@ -667,7 +788,21 @@ function PhaseBadge({ phase }: { phase: string }) {
 }
 
 function formatPlayerName(p: BadmintonPlayer): string {
-  return p.displayName || `${p.firstName} ${p.lastName}`.trim();
+  return p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
+}
+
+function formatRegistrationEntryName(row: RegistrationRow, isDoubles: boolean): string {
+  const name1 = row.player1?.id ? formatPlayerName(row.player1) : null;
+  const name2 = row.player2?.id ? formatPlayerName(row.player2) : null;
+
+  if (isDoubles) {
+    if (name1 && name2) return `${name1} / ${name2}`;
+    if (name1) return `${name1} / Partner not set`;
+    if (name2) return `Player not set / ${name2}`;
+    return "Doubles entry (players missing)";
+  }
+
+  return name1 ?? "Player name unavailable";
 }
 
 function formatMatchType(type: string): string {
