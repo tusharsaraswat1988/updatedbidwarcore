@@ -43,6 +43,12 @@ const PRESETS = {
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
 
   /**
+   * 512×512 px — app icon / favicon source.
+   * Uses PNG explicitly for broad favicon compatibility.
+   */
+  appIcon: "w_512,h_512,c_pad,b_transparent,f_png,q_auto",
+
+  /**
    * Full-screen broadcast banner — scale to max width, never crop server-side.
    * Browser object-fit (cover/contain) matches the settings preview and LED display.
    */
