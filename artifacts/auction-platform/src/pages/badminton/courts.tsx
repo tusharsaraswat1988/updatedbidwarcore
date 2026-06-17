@@ -8,7 +8,8 @@ import { useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, CheckboxRow } from "@/components/badminton/page-chrome";
+import { MapPin } from "lucide-react";
+import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, CheckboxRow, hubCardClass } from "@/components/badminton/page-chrome";
 
 interface BadmintonCourt {
   id: number;
@@ -26,7 +27,6 @@ export default function BadmintonCourtsPage() {
   const [, params] = useRoute("/tournament/:id/badminton/courts");
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
-  const hubHref = `/tournament/${tournamentId}/badminton`;
 
   const [showForm, setShowForm] = useState(false);
   const [editCourt, setEditCourt] = useState<BadmintonCourt | null>(null);
@@ -46,11 +46,10 @@ export default function BadmintonCourtsPage() {
   const sorted = [...courts].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
   return (
-    <HubPageShell>
+    <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Courts"
         subtitle={`${courts.length} court${courts.length !== 1 ? "s" : ""} configured`}
-        backHref={hubHref}
         actions={
           <BtnPrimary onClick={() => { setEditCourt(null); setShowForm(true); }}>
             + Add Court
@@ -62,12 +61,12 @@ export default function BadmintonCourtsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-36 rounded-2xl bg-white/4 animate-pulse" />
+              <div key={i} className="h-36 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : sorted.length === 0 ? (
           <EmptyState
-            icon="🏟"
+            icon={MapPin}
             title="No courts yet"
             desc="Add courts so you can assign matches and stream URLs"
             action={{ label: "Add Court", onClick: () => setShowForm(true) }}
@@ -117,32 +116,32 @@ function CourtCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-2xl bg-[#0d1529] border border-white/8 p-5 flex flex-col gap-3">
+    <div className={cn(hubCardClass, "p-5 flex flex-col gap-3")}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-black text-white">{court.shortName || court.name}</span>
+            <span className="text-2xl font-display font-bold text-foreground">{court.shortName || court.name}</span>
             <StatusBadge status={court.status} />
           </div>
           {court.shortName && court.shortName !== court.name && (
-            <p className="text-white/50 text-sm mt-0.5">{court.name}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">{court.name}</p>
           )}
         </div>
         {court.hasDisplay && (
-          <span className="text-[10px] font-bold uppercase tracking-wider bg-[#4fc3f7]/15 text-[#4fc3f7] px-2 py-1 rounded-full">
+          <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-1 rounded-full border border-primary/25">
             Display
           </span>
         )}
       </div>
 
       {court.location && (
-        <p className="text-white/40 text-sm flex items-center gap-1.5">
-          <span>📍</span> {court.location}
+        <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+          <MapPin className="w-3.5 h-3.5 text-primary" /> {court.location}
         </p>
       )}
 
       {court.streamUrl && (
-        <p className="text-white/30 text-xs truncate" title={court.streamUrl}>
+        <p className="text-muted-foreground text-xs truncate font-mono" title={court.streamUrl}>
           Stream: {court.streamUrl}
         </p>
       )}
@@ -150,13 +149,13 @@ function CourtCard({
       <div className="flex gap-2 pt-1 mt-auto">
         <button
           onClick={onEdit}
-          className="flex-1 h-9 rounded-lg bg-white/8 hover:bg-white/12 text-white/70 text-xs font-semibold transition-colors"
+          className="flex-1 h-9 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors border border-border"
         >
           Edit
         </button>
         <button
           onClick={onDelete}
-          className="h-9 px-4 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-semibold transition-colors"
+          className="h-9 px-4 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
         >
           Delete
         </button>

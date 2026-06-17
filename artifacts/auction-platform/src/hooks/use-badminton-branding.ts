@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 export interface ScoreBoardSponsor {
   logoUrl: string | null;
@@ -29,7 +30,13 @@ export function useBadmintonBranding(tournamentId: number) {
   });
 }
 
-export function sponsorUrlsFromBranding(branding: BadmintonBranding | undefined): string[] {
+export function sponsorLogosFromBranding(
+  branding: BadmintonBranding | undefined,
+): SponsorLogo[] {
   if (!branding?.sponsorLogos) return [];
-  return parseSponsorLogos(branding.sponsorLogos).map((l) => l.url).filter(Boolean);
+  return parseSponsorLogos(branding.sponsorLogos);
+}
+
+export function sponsorUrlsFromBranding(branding: BadmintonBranding | undefined): string[] {
+  return sponsorLogosFromBranding(branding).map((l) => l.url).filter(Boolean);
 }

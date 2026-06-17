@@ -21,3 +21,20 @@ export async function badmintonFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+export async function verifyBadmintonScorerPin(
+  tournamentId: number,
+  matchId: number,
+  pin: string,
+): Promise<boolean> {
+  try {
+    const result = await badmintonFetch<{ ok: boolean }>(
+      tournamentId,
+      `/matches/${matchId}/verify-pin`,
+      { method: "POST", body: JSON.stringify({ pin }) },
+    );
+    return result.ok === true;
+  } catch {
+    return false;
+  }
+}

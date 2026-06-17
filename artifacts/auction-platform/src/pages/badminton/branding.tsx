@@ -1,21 +1,20 @@
 /**
- * Badminton Branding & Import
+ * Badminton Branding
  * Route: /tournament/:id/badminton/branding
  *
- * Scorer-only tournaments can set logos, sponsors, and colors without running an auction.
- * Import branding and players from another tournament when available.
+ * Scoreboard look: logos, sponsors, colors. Player import lives on the Players page.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
-import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect } from "@/components/badminton/page-chrome";
+import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
 import { parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
+import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { cn } from "@/lib/utils";
-import { apiFetch } from "@workspace/api-base";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
 
 const EMPTY_SCOREBOARD_SPONSOR: ScoreBoardSponsor = {
@@ -32,17 +31,83 @@ function scoreBoardSponsorPayload(sponsor: ScoreBoardSponsor): ScoreBoardSponsor
   return { logoUrl, name, title };
 }
 
-interface ImportSource {
-  id: number;
-  name: string;
-  sport: string;
+type BrandingFormState = {
+  displayName: string;
+  logoUrl: string;
+  venue: string;
+  organizerName: string;
+  primaryColor: string;
+  accentColor: string;
+};
+
+function brandingFromApi(branding: BadmintonBranding): {
+  form: BrandingFormState;
+  sponsorLogos: SponsorLogo[];
+  scoreBoardSponsor: ScoreBoardSponsor;
+} {
+  return {
+    form: {
+      displayName: branding.displayName,
+      logoUrl: branding.logoUrl ?? "",
+      venue: branding.venue ?? "",
+      organizerName: branding.organizerName ?? "",
+      primaryColor: branding.primaryColor,
+      accentColor: branding.accentColor,
+    },
+    sponsorLogos: parseSponsorLogos(branding.sponsorLogos),
+    scoreBoardSponsor: branding.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR,
+  };
+}
+
+function buildBrandingPatchPayload(
+  form: BrandingFormState,
+  sponsorLogos: SponsorLogo[],
+  scoreBoardSponsor: ScoreBoardSponsor,
+) {
+  return {
+    displayName: form.displayName.trim(),
+    logoUrl: form.logoUrl.trim() || null,
+    sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
+    venue: form.venue.trim() || null,
+    organizerName: form.organizerName.trim() || null,
+    primaryColor: form.primaryColor,
+    accentColor: form.accentColor,
+    scoreBoardSponsor: scoreBoardSponsorPayload(scoreBoardSponsor),
+  };
+}
+
+function brandingPayloadSignature(
+  form: BrandingFormState,
+  sponsorLogos: SponsorLogo[],
+  scoreBoardSponsor: ScoreBoardSponsor,
+): string {
+  return JSON.stringify(buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor));
+}
+
+function applyBrandingState(
+  branding: BadmintonBranding,
+  setters: {
+    setForm: (form: BrandingFormState) => void;
+    setSponsorLogos: (logos: SponsorLogo[]) => void;
+    setScoreBoardSponsor: (sponsor: ScoreBoardSponsor) => void;
+    lastSavedPayloadRef: MutableRefObject<string>;
+  },
+) {
+  const next = brandingFromApi(branding);
+  setters.setForm(next.form);
+  setters.setSponsorLogos(next.sponsorLogos);
+  setters.setScoreBoardSponsor(next.scoreBoardSponsor);
+  setters.lastSavedPayloadRef.current = brandingPayloadSignature(
+    next.form,
+    next.sponsorLogos,
+    next.scoreBoardSponsor,
+  );
 }
 
 export default function BadmintonBrandingPage() {
   const [, params] = useRoute("/tournament/:id/badminton/branding");
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
-  const hubHref = `/tournament/${tournamentId}/badminton`;
 
   const { data: branding, isLoading } = useQuery<BadmintonBranding>({
     queryKey: ["badminton-branding", tournamentId],
@@ -50,30 +115,13 @@ export default function BadmintonBrandingPage() {
     enabled: !!tournamentId,
   });
 
-  const { data: settings } = useQuery<{ linkedAuctionTournamentId?: number }>({
-    queryKey: ["badminton-settings", tournamentId],
-    queryFn: () => badmintonFetch(tournamentId, `/settings`),
-    enabled: !!tournamentId,
-  });
-
-  const { data: account } = useQuery<{ loggedIn?: boolean; tournaments?: ImportSource[] }>({
-    queryKey: ["organizer-account-me"],
-    queryFn: async () => {
-      const res = await apiFetch("/auth/organizer-account/me");
-      if (!res.ok) return { loggedIn: false, tournaments: [] };
-      return res.json();
-    },
-  });
-
-  const importSources = (account?.tournaments ?? []).filter((t) => t.id !== tournamentId);
-
   const [form, setForm] = useState({
     displayName: "",
     logoUrl: "",
     venue: "",
     organizerName: "",
-    primaryColor: "#0070f3",
-    accentColor: "#4fc3f7",
+    primaryColor: "#F59E0B",
+    accentColor: "#3B82F6",
   });
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [scoreBoardSponsor, setScoreBoardSponsor] = useState<ScoreBoardSponsor>(EMPTY_SCOREBOARD_SPONSOR);
@@ -81,51 +129,112 @@ export default function BadmintonBrandingPage() {
   const [scoreBoardLogoEditorOpen, setScoreBoardLogoEditorOpen] = useState(false);
   const [sponsorUploadIdx, setSponsorUploadIdx] = useState<number | "new" | null>(null);
   const [saveError, setSaveError] = useState("");
-  const [importSourceId, setImportSourceId] = useState("");
   const [importMessage, setImportMessage] = useState("");
 
-  useEffect(() => {
-    if (!branding) return;
-    setForm({
-      displayName: branding.displayName,
-      logoUrl: branding.logoUrl ?? "",
-      venue: branding.venue ?? "",
-      organizerName: branding.organizerName ?? "",
-      primaryColor: branding.primaryColor,
-      accentColor: branding.accentColor,
-    });
-    setSponsorLogos(parseSponsorLogos(branding.sponsorLogos));
-    setScoreBoardSponsor(branding.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR);
-  }, [branding]);
+  const hydratedTournamentRef = useRef(0);
+  const autoSaveReadyRef = useRef(false);
+  const lastSavedPayloadRef = useRef("");
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const importAuctionMutation = useMutation({
+    mutationFn: () =>
+      badmintonFetch<BadmintonBranding>(tournamentId, `/import-auction-branding`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (data) => {
+      applyBrandingState(data, {
+        setForm,
+        setSponsorLogos,
+        setScoreBoardSponsor,
+        lastSavedPayloadRef,
+      });
+      hydratedTournamentRef.current = tournamentId;
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+      setImportMessage("Auction branding imported. Edit badminton sponsors below without changing auction settings.");
+      setSaveError("");
+    },
+    onError: (e: Error) => setImportMessage(e.message),
+  });
 
   useEffect(() => {
-    if (settings?.linkedAuctionTournamentId && !importSourceId) {
-      setImportSourceId(String(settings.linkedAuctionTournamentId));
-    }
-  }, [settings?.linkedAuctionTournamentId, importSourceId]);
+    hydratedTournamentRef.current = 0;
+    autoSaveReadyRef.current = false;
+  }, [tournamentId]);
+
+  useEffect(() => {
+    if (!branding || !tournamentId) return;
+    if (hydratedTournamentRef.current === tournamentId) return;
+
+    const next = brandingFromApi(branding);
+    setForm(next.form);
+    setSponsorLogos(next.sponsorLogos);
+    setScoreBoardSponsor(next.scoreBoardSponsor);
+    lastSavedPayloadRef.current = brandingPayloadSignature(
+      next.form,
+      next.sponsorLogos,
+      next.scoreBoardSponsor,
+    );
+    hydratedTournamentRef.current = tournamentId;
+    autoSaveReadyRef.current = false;
+    const timer = window.setTimeout(() => {
+      autoSaveReadyRef.current = true;
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [branding, tournamentId]);
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: ReturnType<typeof buildBrandingPatchPayload>) => {
       return badmintonFetch<BadmintonBranding>(tournamentId, `/branding`, {
         method: "PATCH",
-        body: JSON.stringify({
-          displayName: form.displayName.trim(),
-          logoUrl: form.logoUrl.trim() || null,
-          sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
-          venue: form.venue.trim() || null,
-          organizerName: form.organizerName.trim() || null,
-          primaryColor: form.primaryColor,
-          accentColor: form.accentColor,
-          scoreBoardSponsor: scoreBoardSponsorPayload(scoreBoardSponsor),
-        }),
+        body: JSON.stringify(payload),
       });
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
+    onSuccess: (data) => {
+      qc.setQueryData(["badminton-branding", tournamentId], data);
+      const synced = brandingFromApi(data);
+      lastSavedPayloadRef.current = brandingPayloadSignature(
+        synced.form,
+        synced.sponsorLogos,
+        synced.scoreBoardSponsor,
+      );
       setSaveError("");
     },
     onError: (e: Error) => setSaveError(e.message),
   });
+
+  const persistBranding = useCallback(
+    (immediate = false) => {
+      if (!tournamentId) return;
+      const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
+      const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
+      if (signature === lastSavedPayloadRef.current) return;
+
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+
+      const run = () => saveMutation.mutate(payload);
+      if (immediate) {
+        run();
+        return;
+      }
+      autoSaveTimerRef.current = setTimeout(run, 600);
+    },
+    [form, sponsorLogos, scoreBoardSponsor, saveMutation, tournamentId],
+  );
+
+  useEffect(() => {
+    if (!autoSaveReadyRef.current || !tournamentId) return;
+    persistBranding();
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, persistBranding]);
 
   async function handleSponsorUpload(file: File, idx: number | "new") {
     if (file.size > 5 * 1024 * 1024) {
@@ -153,63 +262,42 @@ export default function BadmintonBrandingPage() {
     }
   }
 
-  async function runImport(type: "branding" | "players") {
-    const sourceId = parseInt(importSourceId, 10);
-    if (!sourceId) {
-      setImportMessage("Select a source tournament first");
-      return;
-    }
-    setImportMessage("");
-    try {
-      if (type === "branding") {
-        await badmintonFetch(tournamentId, `/import-branding`, {
-          method: "POST",
-          body: JSON.stringify({ sourceTournamentId: sourceId }),
-        });
-        qc.invalidateQueries({ queryKey: ["badminton-branding", tournamentId] });
-        setImportMessage("Branding imported successfully");
-      } else {
-        const result = await badmintonFetch<{ imported: number; skipped: number; mode: string }>(
-          tournamentId,
-          `/import-from-tournament`,
-          {
-            method: "POST",
-            body: JSON.stringify({ sourceTournamentId: sourceId }),
-          },
-        );
-        qc.invalidateQueries({ queryKey: ["badminton-players", tournamentId] });
-        qc.invalidateQueries({ queryKey: ["badminton-settings", tournamentId] });
-        setImportMessage(
-          `Imported ${result.imported} player${result.imported !== 1 ? "s" : ""} (${result.mode} roster)${result.skipped ? `, ${result.skipped} skipped` : ""}`,
-        );
-      }
-    } catch (e) {
-      setImportMessage(e instanceof Error ? e.message : "Import failed");
-    }
-  }
-
   return (
-    <HubPageShell>
+    <HubPageShell tournamentId={tournamentId}>
       <PageHeader
-        title="Branding & Import"
-        subtitle="Scoreboard look and data from other tournaments"
-        backHref={hubHref}
+        title="Branding"
+        subtitle="Logo, colors, and scoreboard sponsors"
         actions={
-          <BtnPrimary onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || isLoading}>
-            {saveMutation.isPending ? "Saving…" : "Save Branding"}
-          </BtnPrimary>
+          <div className="flex flex-col items-end gap-1">
+            <BtnPrimary
+              onClick={() => persistBranding(true)}
+              disabled={saveMutation.isPending || isLoading}
+            >
+              {saveMutation.isPending ? "Saving…" : "Save Branding"}
+            </BtnPrimary>
+            <p className="text-muted-foreground text-xs">
+              {saveError
+                ? saveError
+                : saveMutation.isPending
+                  ? "Saving changes…"
+                  : "Changes save automatically"}
+            </p>
+          </div>
         }
       />
 
-      <div className="max-w-4xl mx-auto px-6 py-6 space-y-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
         {isLoading ? (
-          <div className="h-64 rounded-2xl bg-white/4 animate-pulse" />
+          <div className="h-80 rounded-xl bg-muted animate-pulse" />
         ) : (
           <>
-            {/* Preview */}
-            <section className="rounded-2xl border border-white/8 overflow-hidden">
+            {/* Visual-first live preview */}
+            <section className={cn(hubCardClass, "overflow-hidden")}>
+              <div className="px-6 py-3 border-b border-border bg-primary/5">
+                <p className="text-xs font-bold uppercase tracking-widest text-primary">Live Scoreboard Preview</p>
+              </div>
               {hasScoreBoardSponsor(scoreBoardSponsorPayload(scoreBoardSponsor)) && (
-                <div className="px-6 pt-4 pb-2 border-b border-white/5 flex justify-end">
+                <div className="px-6 pt-4 pb-2 border-b border-border flex justify-end bg-background/50">
                   <ScoreBoardSponsorPanel
                     sponsor={scoreBoardSponsorPayload(scoreBoardSponsor)!}
                     variant="bar"
@@ -218,46 +306,82 @@ export default function BadmintonBrandingPage() {
                 </div>
               )}
               <div
-                className="px-6 py-4 flex items-center justify-between gap-4"
+                className="px-8 py-10 flex items-center justify-between gap-6 min-h-[180px]"
                 style={{
-                  background: `linear-gradient(90deg, ${form.primaryColor}22, ${form.accentColor}11)`,
-                  borderBottom: `1px solid ${form.accentColor}33`,
+                  background: `linear-gradient(135deg, ${form.primaryColor}18 0%, hsl(var(--background)) 50%, ${form.accentColor}10 100%)`,
+                  borderBottom: `1px solid ${form.primaryColor}33`,
                 }}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-5 min-w-0">
                   {form.logoUrl ? (
-                    <img src={form.logoUrl} alt="" className="w-10 h-10 rounded-lg object-contain bg-white/10" />
+                    <img
+                      src={form.logoUrl}
+                      alt=""
+                      className="w-20 h-20 rounded-xl object-contain bg-card border border-border p-1"
+                      style={{ boxShadow: `0 0 32px ${form.primaryColor}33` }}
+                    />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white/30 text-xs">
+                    <div className="w-20 h-20 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground text-xs">
                       Logo
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="font-black text-lg truncate">{form.displayName || "Tournament Name"}</p>
-                    <p className="text-white/40 text-xs truncate">
+                    <p className="font-display font-bold text-3xl truncate text-foreground">
+                      {form.displayName || "Tournament Name"}
+                    </p>
+                    <p className="text-muted-foreground text-sm mt-1 truncate font-mono">
                       {[form.venue, form.organizerName].filter(Boolean).join(" · ") || "Venue · Organizer"}
                     </p>
                   </div>
                 </div>
                 {sponsorLogos.length > 0 && (
-                  <div className="flex items-center gap-2 flex-none">
-                    {sponsorLogos.slice(0, 3).map((l, i) => (
-                      <img key={i} src={l.url} alt="" className="h-8 w-12 object-contain opacity-80" />
+                  <div className="flex items-center gap-4 flex-none">
+                    {sponsorLogos.slice(0, 2).map((l, i) => (
+                      <div key={i} className="text-right">
+                        {l.type?.trim() ? (
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            {l.type}
+                          </p>
+                        ) : null}
+                        <img src={l.url} alt="" className="h-8 max-w-[72px] object-contain opacity-90 ml-auto" />
+                        {l.name?.trim() ? (
+                          <p className="text-[10px] font-semibold text-foreground truncate max-w-[96px]">
+                            {l.name}
+                          </p>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
-              <p className="px-6 py-3 text-white/30 text-xs border-t border-white/5">
-                Live preview — scoreboard sponsor appears top-right on display and OBS
+              <div className="px-6 py-4 bg-card/50 grid grid-cols-3 gap-4 border-t border-border">
+                <div className="text-center">
+                  <p className="text-primary font-display font-bold text-4xl tabular-nums">21</p>
+                  <p className="text-muted-foreground text-xs mt-1 uppercase tracking-wider">Player A</p>
+                </div>
+                <div className="text-center flex flex-col justify-center">
+                  <p className="text-muted-foreground text-xs font-mono">Game 1</p>
+                  <p className="text-foreground font-display font-bold text-lg">0 – 0</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-red-400 font-display font-bold text-4xl tabular-nums">18</p>
+                  <p className="text-muted-foreground text-xs mt-1 uppercase tracking-wider">Player B</p>
+                </div>
+              </div>
+              <p className="px-6 py-3 text-muted-foreground text-xs border-t border-border bg-background/30">
+                Preview updates as you edit — sponsor appears top-right on display and OBS overlays
               </p>
             </section>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Branding form */}
-            <section className="rounded-2xl bg-[#0d1529] border border-white/8 p-6 space-y-5">
-              <h2 className="text-white font-bold text-lg">Tournament Branding</h2>
-              <p className="text-white/40 text-sm -mt-2">
-                No auction needed — set how your tournament appears on court-side displays.
-              </p>
+            <section className={cn(hubPanelClass, "space-y-5")}>
+              <div>
+                <h2 className="text-foreground font-display font-bold text-lg">Tournament Branding</h2>
+                <p className="text-muted-foreground text-sm mt-0.5">
+                  Set how your tournament appears on court-side displays.
+                </p>
+              </div>
 
               <FormField label="Display Name">
                 <input
@@ -297,21 +421,13 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLogoEditorOpen(true)}
-                      className="h-10 px-4 rounded-xl bg-white/8 hover:bg-white/12 text-white/80 text-sm font-semibold"
-                    >
+                    <BtnPrimary type="button" onClick={() => setLogoEditorOpen(true)}>
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </button>
+                    </BtnPrimary>
                     {form.logoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, logoUrl: "" }))}
-                        className="h-10 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 text-sm font-semibold"
-                      >
+                      <BtnSecondary type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "" }))}>
                         Remove
-                      </button>
+                      </BtnSecondary>
                     )}
                   </div>
                 </div>
@@ -337,22 +453,25 @@ export default function BadmintonBrandingPage() {
               </div>
 
               <FormField label="Sponsor Logos">
-                <SponsorList
+                <SponsorLogosEditor
                   logos={sponsorLogos}
                   onChange={setSponsorLogos}
-                  onUpload={handleSponsorUpload}
+                  onUploadFile={handleSponsorUpload}
                   uploadingIdx={sponsorUploadIdx}
                 />
+                <p className="text-muted-foreground text-xs mt-2">
+                  Used on badminton LED and OBS only — changes here do not affect auction panel sponsors.
+                </p>
               </FormField>
 
               {saveError && <p className="text-red-400 text-sm">{saveError}</p>}
             </section>
 
             {/* Scoreboard sponsor — optional, separate from rotating sponsors */}
-            <section className="rounded-2xl bg-[#0d1529] border border-[#ffd700]/20 p-6 space-y-5">
+            <section className={cn(hubPanelClass, "space-y-5 border-primary/20")}>
               <div>
-                <h2 className="text-white font-bold text-lg">Scoreboard Sponsor</h2>
-                <p className="text-white/40 text-sm mt-1">
+                <h2 className="text-foreground font-display font-bold text-lg">Scoreboard Sponsor</h2>
+                <p className="text-muted-foreground text-sm mt-1">
                   Optional — shown at the top-right on the live scoreboard and OBS overlays, separate from bottom sponsor logos.
                 </p>
               </div>
@@ -393,21 +512,13 @@ export default function BadmintonBrandingPage() {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setScoreBoardLogoEditorOpen(true)}
-                      className="h-10 px-4 rounded-xl bg-[#ffd700]/15 hover:bg-[#ffd700]/25 border border-[#ffd700]/30 text-[#ffd700] text-sm font-semibold"
-                    >
+                    <BtnPrimary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
                       {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
-                    </button>
+                    </BtnPrimary>
                     {scoreBoardSponsor.logoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null }))}
-                        className="h-10 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 text-sm font-semibold"
-                      >
+                      <BtnSecondary type="button" onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null }))}>
                         Remove
-                      </button>
+                      </BtnSecondary>
                     )}
                   </div>
                 </div>
@@ -422,74 +533,46 @@ export default function BadmintonBrandingPage() {
               </button>
             </section>
 
-            {/* Import */}
-            <section className="rounded-2xl bg-[#0d1529] border border-white/8 p-6 space-y-5">
-              <h2 className="text-white font-bold text-lg">Import From Another Tournament</h2>
-              <p className="text-white/40 text-sm -mt-2">
-                Copy players or branding from an auction or badminton tournament you already run.
-              </p>
-
-              <FormField label="Source Tournament">
-                {importSources.length > 0 ? (
-                  <DarkSelect
-                    value={importSourceId || "none"}
-                    onValueChange={(v) => setImportSourceId(v === "none" ? "" : v)}
-                    placeholder="Select tournament…"
-                    options={[
-                      { value: "none", label: "Select tournament…" },
-                      ...importSources.map((t) => ({
-                        value: String(t.id),
-                        label: `#${t.id} — ${t.name} (${t.sport})`,
-                      })),
-                    ]}
-                  />
-                ) : (
-                  <input
-                    type="number"
-                    value={importSourceId}
-                    onChange={(e) => setImportSourceId(e.target.value)}
-                    placeholder="Enter tournament ID"
-                    className={inputClass}
-                  />
-                )}
-              </FormField>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => runImport("branding")}
-                  className="h-11 px-5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 text-sm font-semibold transition-colors"
-                >
-                  Import Branding
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runImport("players")}
-                  className="h-11 px-5 rounded-xl bg-[#0070f3]/20 hover:bg-[#0070f3]/30 text-[#4fc3f7] text-sm font-semibold transition-colors"
-                >
-                  Import Players
-                </button>
+            {/* Import auction branding into badminton display */}
+            <section className={cn(hubPanelClass, "space-y-5 lg:col-span-2")}>
+              <div>
+                <h2 className="text-foreground font-display font-bold text-lg">Import from Auction Settings</h2>
+                <p className="text-muted-foreground text-sm mt-0.5">
+                  Pull this tournament&apos;s Auction Hub logo, venue, organizer, and sponsor logos into badminton LED/OBS branding.
+                </p>
               </div>
 
-              <p className="text-white/30 text-xs leading-relaxed">
-                <strong className="text-white/50">Import Players</strong> copies badminton entries if the source
-                is a badminton tournament, or syncs auction roster players otherwise.
-                <br />
-                <strong className="text-white/50">Import Branding</strong> copies logo, sponsors, venue, organizer,
-                and display colors.
+              <div className="flex flex-wrap items-center gap-3">
+                <BtnPrimary
+                  type="button"
+                  onClick={() => {
+                    setImportMessage("");
+                    importAuctionMutation.mutate();
+                  }}
+                  disabled={importAuctionMutation.isPending || isLoading}
+                >
+                  {importAuctionMutation.isPending ? "Importing…" : "Import Auction Branding"}
+                </BtnPrimary>
+              </div>
+
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Uses this tournament only — not another event. Sponsor logos copy into badminton storage; auction panel sponsors stay unchanged.
               </p>
 
               {importMessage && (
                 <p className={cn(
                   "text-sm",
-                  importMessage.includes("failed") || importMessage.includes("Select")
-                    ? "text-amber-300"
+                  importMessage.toLowerCase().includes("fail") ||
+                    importMessage.toLowerCase().includes("error") ||
+                    importMessage.toLowerCase().includes("invalid")
+                    ? "text-amber-400"
                     : "text-green-400",
                 )}>
                   {importMessage}
                 </p>
               )}
             </section>
+            </div>
           </>
         )}
       </div>
@@ -517,88 +600,5 @@ export default function BadmintonBrandingPage() {
         }}
       />
     </HubPageShell>
-  );
-}
-
-function SponsorList({
-  logos,
-  onChange,
-  onUpload,
-  uploadingIdx,
-}: {
-  logos: SponsorLogo[];
-  onChange: (logos: SponsorLogo[]) => void;
-  onUpload: (file: File, idx: number | "new") => void;
-  uploadingIdx: number | "new" | null;
-}) {
-  return (
-    <div className="space-y-2">
-      {logos.map((logo, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/8"
-        >
-          <label className="cursor-pointer flex-none">
-            <div className="w-14 h-10 rounded-lg bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
-              {uploadingIdx === i ? (
-                <span className="text-white/30 text-xs">…</span>
-              ) : logo.url ? (
-                <img src={logo.url} alt="" className="w-full h-full object-contain" />
-              ) : (
-                <span className="text-white/30 text-xs">+</span>
-              )}
-            </div>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onUpload(f, i);
-                e.target.value = "";
-              }}
-              disabled={uploadingIdx !== null}
-            />
-          </label>
-          <input
-            value={logo.name ?? ""}
-            onChange={(e) => {
-              const next = [...logos];
-              next[i] = { ...next[i], name: e.target.value };
-              onChange(next);
-            }}
-            placeholder="Sponsor name"
-            className="flex-1 h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => onChange(logos.filter((_, j) => j !== i))}
-            className="text-red-300/70 hover:text-red-300 text-sm px-2"
-          >
-            Remove
-          </button>
-        </div>
-      ))}
-
-      <label className="block cursor-pointer">
-        <div className={cn(
-          "h-10 rounded-xl border border-dashed border-white/15 flex items-center justify-center text-white/40 text-sm hover:bg-white/5 transition-colors",
-          uploadingIdx === "new" && "opacity-50",
-        )}>
-          {uploadingIdx === "new" ? "Uploading…" : "+ Add Sponsor Logo"}
-        </div>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(f, "new");
-            e.target.value = "";
-          }}
-          disabled={uploadingIdx !== null}
-        />
-      </label>
-    </div>
   );
 }

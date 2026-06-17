@@ -8,6 +8,11 @@ export type PlatformFeatures = {
   cricket: boolean;
 };
 
+export type PlatformFeaturesState = PlatformFeatures & {
+  /** True until the first /api/settings/features response settles. */
+  loading: boolean;
+};
+
 const DEFAULT_FEATURES: PlatformFeatures = {
   scoring: false,
   badminton: false,
@@ -19,8 +24,9 @@ function normalizeFeatures(data: Partial<PlatformFeatures>): PlatformFeatures {
   return { scoring, badminton: scoring, cricket: scoring };
 }
 
-export function usePlatformFeatures(): PlatformFeatures {
+export function usePlatformFeatures(): PlatformFeaturesState {
   const [features, setFeatures] = useState<PlatformFeatures>(DEFAULT_FEATURES);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,13 +37,16 @@ export function usePlatformFeatures(): PlatformFeatures {
       })
       .catch(() => {
         if (!cancelled) setFeatures(DEFAULT_FEATURES);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return features;
+  return { ...features, loading };
 }
 
 export function useScoringPlatformEnabled(): boolean {

@@ -7,12 +7,14 @@ import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, MonitorDown } from "lucide-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
+import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 
 export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
   const { isLoggedIn, isLoading } = useOrganizerAuth(tournamentId);
   const [, navigate] = useLocation();
 
   const [location] = useLocation();
+  const badmintonRoute = isBadmintonOrganizerPath(location);
 
   const {
     warningVisible,
@@ -31,6 +33,15 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   }, [isLoggedIn, isLoading, tournamentId, navigate, location]);
 
   if (isLoading) {
+    if (badmintonRoute) {
+      return (
+        <div
+          className={BADMINTON_ROUTE_LOADING_CLASS}
+          aria-busy="true"
+          aria-label="Checking organizer access"
+        />
+      );
+    }
     return (
       <AppLayout tournamentId={tournamentId}>
         <div className="space-y-4 max-w-2xl">

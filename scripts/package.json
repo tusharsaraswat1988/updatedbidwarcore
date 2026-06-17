@@ -8,6 +8,7 @@
     "seed:demo": "tsx --env-file=../.env src/seed-demo.ts",
     "seed:scoring-local": "tsx --env-file=../.env src/seed-scoring-local.ts",
     "seed:sports": "tsx src/seed-sports.ts",
+    "purge:badminton-matches": "tsx --env-file=../.env src/purge-badminton-matches.ts",
     "migrate": "tsx src/migrate.ts",
     "dev": "node ./dev.mjs",
     "dev:stop": "node ./dev-stop.mjs",

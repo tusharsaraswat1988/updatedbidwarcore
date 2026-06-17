@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { STANDARD_FORMAT, getSidePlayerSlots, isPairMatchKind } from "@workspace/badminton-core";
+import { cn } from "@/lib/utils";
+import { hubCardClass, BtnPrimary } from "@/components/badminton/form-ui";
 import { sideJsonToStartSide } from "@/components/badminton/pair-side-picker";
 
 type SetupStep = "toss_winner" | "toss_decision" | "first_server" | "first_receiver" | "confirm";
@@ -99,29 +102,29 @@ export function DoublesPreMatchSetup({
           : 4;
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/25 rounded-full px-4 py-1.5 mb-4">
+    <PreMatchSetupFrame>
+      <div className="space-y-6">
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/25 rounded-full px-4 py-1.5">
             <div className="w-2 h-2 rounded-full bg-amber-400" />
             <span className="text-amber-300 text-xs font-bold uppercase tracking-widest">
               Doubles Setup — Step {stepNumber}/4
             </span>
           </div>
-          <h1 className="text-white text-2xl font-black">Match Toss</h1>
-          <p className="text-white/40 text-sm mt-1">
+          <h1 className="text-foreground font-display font-bold text-xl">Match Toss</h1>
+          <p className="text-base font-semibold text-foreground">
             {step === "toss_winner" && "Who won the toss?"}
             {step === "toss_decision" && "What did the toss winner choose?"}
-            {step === "first_server" && "Choose the first server"}
-            {step === "first_receiver" && "Choose the first receiver"}
+            {step === "first_server" && "Who serves first?"}
+            {step === "first_receiver" && "Who receives first?"}
             {step === "confirm" && "Confirm and start match"}
           </p>
         </div>
 
         {step === "toss_winner" && (
           <SideChoiceGrid
-            leftLabel={leftSide.shortLabel}
-            rightLabel={rightSide.shortLabel}
+            leftLabel={leftSide.label}
+            rightLabel={rightSide.label}
             selected={tossWinner}
             onSelect={(side) => {
               setTossWinner(side);
@@ -134,7 +137,7 @@ export function DoublesPreMatchSetup({
           <div className="grid grid-cols-2 gap-3">
             <ChoiceButton
               label="Serve"
-              sublabel={`${tossWinner === "left" ? leftSide.shortLabel : rightSide.shortLabel} serves first`}
+              sublabel={`${tossWinner === "left" ? leftSide.label : rightSide.label} serves first`}
               selected={tossDecision === "serve"}
               onClick={() => {
                 setTossDecision("serve");
@@ -143,7 +146,7 @@ export function DoublesPreMatchSetup({
             />
             <ChoiceButton
               label="Receive"
-              sublabel={`${tossWinner === "left" ? rightSide.shortLabel : leftSide.shortLabel} serves first`}
+              sublabel={`${tossWinner === "left" ? rightSide.label : leftSide.label} serves first`}
               selected={tossDecision === "receive"}
               onClick={() => {
                 setTossDecision("receive");
@@ -155,7 +158,7 @@ export function DoublesPreMatchSetup({
 
         {step === "first_server" && servingSide && (
           <PlayerChoiceGrid
-            teamLabel={servingSideInfo.shortLabel}
+            teamLabel={servingSideInfo.label}
             players={servingPlayers.slice(0, 2)}
             selectedIndex={firstServerIndex}
             onSelect={(index) => {
@@ -167,7 +170,7 @@ export function DoublesPreMatchSetup({
 
         {step === "first_receiver" && receivingSide && (
           <PlayerChoiceGrid
-            teamLabel={receivingSideInfo.shortLabel}
+            teamLabel={receivingSideInfo.label}
             players={receivingPlayers.slice(0, 2)}
             selectedIndex={firstReceiverIndex}
             onSelect={(index) => {
@@ -179,7 +182,7 @@ export function DoublesPreMatchSetup({
 
         {step === "confirm" && servingSide && receivingSide && (
           <div className="space-y-4">
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/8 space-y-3 text-sm">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3 text-sm">
               <SummaryRow label="Toss winner" value={tossWinner === "left" ? leftSide.label : rightSide.label} />
               <SummaryRow label="Decision" value={tossDecision === "serve" ? "Serve" : "Receive"} />
               <SummaryRow
@@ -192,19 +195,21 @@ export function DoublesPreMatchSetup({
               />
             </div>
 
-            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+            {error ? <p className="text-destructive text-sm text-center">{error}</p> : null}
 
-            <button
+            <BtnPrimary
+              type="button"
               onClick={handleStart}
               disabled={starting}
-              className="w-full h-16 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-black text-lg transition-colors"
+              className="w-full h-12 text-base"
             >
               {starting ? "Starting…" : "Start Doubles Match"}
-            </button>
+            </BtnPrimary>
 
             <button
+              type="button"
               onClick={() => setStep("toss_winner")}
-              className="w-full text-white/40 text-sm hover:text-white/60"
+              className="w-full text-muted-foreground text-sm hover:text-foreground transition-colors"
             >
               ← Restart setup
             </button>
@@ -213,6 +218,7 @@ export function DoublesPreMatchSetup({
 
         {step !== "toss_winner" && step !== "confirm" && (
           <button
+            type="button"
             onClick={() =>
               setStep(
                 step === "toss_decision"
@@ -222,13 +228,13 @@ export function DoublesPreMatchSetup({
                     : "first_server",
               )
             }
-            className="w-full text-white/40 text-sm hover:text-white/60"
+            className="w-full text-muted-foreground text-sm hover:text-foreground transition-colors"
           >
             ← Back
           </button>
         )}
       </div>
-    </div>
+    </PreMatchSetupFrame>
   );
 }
 
@@ -276,7 +282,9 @@ function PlayerChoiceGrid({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-white/50 text-xs text-center uppercase tracking-widest">{teamLabel}</p>
+      <p className="text-muted-foreground text-xs text-center uppercase tracking-wider font-semibold">
+        {teamLabel}
+      </p>
       <div className="grid grid-cols-2 gap-3">
         {players.map((player, index) => (
           <ChoiceButton
@@ -298,26 +306,41 @@ function ChoiceButton({
   selected,
   onClick,
   accent = "blue",
+  prominent = false,
 }: {
   label: string;
   sublabel?: string;
   selected?: boolean;
   onClick: () => void;
   accent?: "blue" | "purple";
+  prominent?: boolean;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`h-20 rounded-2xl font-bold text-sm flex flex-col items-center justify-center gap-1 transition-all border ${
+      className={cn(
+        "min-h-[5.5rem] rounded-xl border px-3 py-4 flex flex-col items-center justify-center gap-1.5 transition-all text-center",
         selected
-          ? accent === "blue"
-            ? "bg-[#0070f3]/20 border-[#0070f3]/50 text-white"
-            : "bg-[#7c3aed]/20 border-[#7c3aed]/50 text-white"
-          : "bg-white/5 border-white/10 text-white/50 hover:bg-white/8"
-      }`}
+          ? accent === "purple"
+            ? "border-primary/45 bg-primary/10 text-foreground ring-2 ring-primary/20"
+            : "border-primary/45 bg-primary/10 text-foreground ring-2 ring-primary/20"
+          : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-accent/40",
+      )}
     >
-      <span>{label}</span>
-      {sublabel && <span className="text-xs font-normal opacity-70 truncate max-w-[120px]">{sublabel}</span>}
+      <span className={cn("font-semibold leading-snug", prominent ? "text-base sm:text-lg" : "text-sm")}>
+        {label}
+      </span>
+      {sublabel ? (
+        <span
+          className={cn(
+            "font-normal leading-snug",
+            prominent ? "text-sm text-muted-foreground" : "text-xs opacity-80 line-clamp-2",
+          )}
+        >
+          {sublabel}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -325,8 +348,16 @@ function ChoiceButton({
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
-      <span className="text-white/40">{label}</span>
-      <span className="text-white font-semibold text-right">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground font-semibold text-right">{value}</span>
+    </div>
+  );
+}
+
+function PreMatchSetupFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex-1 flex items-center justify-center p-4 sm:p-6 bg-background">
+      <div className={cn(hubCardClass, "w-full max-w-md p-5 sm:p-6")}>{children}</div>
     </div>
   );
 }
@@ -370,40 +401,48 @@ export function SinglesPreMatchSetup({
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <h1 className="text-white text-2xl font-black">Ready to Start</h1>
-          <p className="text-white/40 text-sm mt-1">Select who serves first</p>
+    <PreMatchSetupFrame>
+      <div className="space-y-6">
+        <div className="text-center space-y-3">
+          <h1 className="text-foreground font-display font-bold text-xl tracking-tight">Ready to Start</h1>
+          <p className="text-lg sm:text-xl font-display font-bold text-foreground">
+            Who serves first?
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Tap the player who will open the rally with the first serve.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <ChoiceButton
-            label="Serve"
-            sublabel={leftSide.shortLabel}
+            label={leftSide.label}
+            sublabel="Serves first"
             selected={firstServer === "left"}
             onClick={() => setFirstServer("left")}
+            prominent
           />
           <ChoiceButton
-            label="Serve"
-            sublabel={rightSide.shortLabel}
+            label={rightSide.label}
+            sublabel="Serves first"
             selected={firstServer === "right"}
             onClick={() => setFirstServer("right")}
             accent="purple"
+            prominent
           />
         </div>
 
-        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+        {error ? <p className="text-destructive text-sm text-center">{error}</p> : null}
 
-        <button
+        <BtnPrimary
+          type="button"
           onClick={handleStart}
           disabled={starting}
-          className="w-full h-16 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-black text-lg"
+          className="w-full h-12 text-base"
         >
           {starting ? "Starting…" : "Start Match"}
-        </button>
+        </BtnPrimary>
       </div>
-    </div>
+    </PreMatchSetupFrame>
   );
 }
 

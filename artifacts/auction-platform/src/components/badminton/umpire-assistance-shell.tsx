@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
 import { UmpireMatchBanners } from "@/components/badminton/umpire-match-banners";
-import { UmpireServeReceiveBar } from "@/components/badminton/umpire-serve-receive-bar";
-import { UmpireConfidencePanel } from "@/components/badminton/umpire-confidence-panel";
+import { UmpireStatusStrip } from "@/components/badminton/umpire-status-strip";
 import { UmpireIntervalModal } from "@/components/badminton/umpire-interval-modal";
 import { UmpireCourtChangeModal } from "@/components/badminton/umpire-court-change-modal";
 import { UmpireReadyDialog } from "@/components/badminton/umpire-ready-dialog";
@@ -14,6 +14,8 @@ import {
 
 interface UmpireAssistanceShellProps {
   state: BadmintonMatchState;
+  tournamentName: string;
+  courtNumber?: string;
   onStartInterval: () => Promise<unknown>;
   onEndInterval: () => Promise<unknown>;
   onAcknowledgeCourtChange: () => Promise<unknown>;
@@ -26,6 +28,8 @@ interface UmpireAssistanceShellProps {
 
 export function UmpireAssistanceShell({
   state,
+  tournamentName,
+  courtNumber,
   onStartInterval,
   onEndInterval,
   onAcknowledgeCourtChange,
@@ -65,47 +69,32 @@ export function UmpireAssistanceShell({
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row bg-[#0a0f1e]">
-      <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        <div className="shrink-0 flex items-center justify-between px-3 pt-2">
-          <p className="text-white/30 text-[10px] uppercase tracking-widest font-semibold">
-            Umpire Assist
-          </p>
+    <div className="h-full flex flex-col bg-[#0a0f1e]">
+      <ScorerConsoleHeader
+        tournamentName={tournamentName}
+        courtNumber={courtNumber}
+        voiceEnabled={voiceEnabled}
+        onToggleVoice={toggleVoice}
+      />
+
+      <UmpireMatchBanners banners={snapshot.banners} />
+      <UmpireStatusStrip panel={snapshot.panel} />
+
+      {showIntervalPrompt && (
+        <div className="shrink-0 px-3 pb-2">
           <button
             type="button"
-            onClick={toggleVoice}
-            className="text-[10px] uppercase tracking-wide px-2 py-1 rounded-lg border border-white/10 text-white/50 hover:text-white/80"
+            onClick={() => void onStartInterval()}
+            className="w-full h-11 rounded-lg bg-purple-700/80 border border-purple-400/40 text-white font-bold text-sm"
           >
-            Voice {voiceEnabled ? "On" : "Off"}
+            Start interval
           </button>
         </div>
+      )}
 
-        <UmpireMatchBanners banners={snapshot.banners} />
-        <UmpireServeReceiveBar
-          serverLabel={snapshot.serverLabel}
-          receiverLabel={snapshot.receiverLabel}
-        />
-
-        {showIntervalPrompt && (
-          <div className="shrink-0 px-3 py-2">
-            <button
-              type="button"
-              onClick={() => void onStartInterval()}
-              className="w-full h-12 rounded-xl bg-purple-700/80 border border-purple-400/40 text-white font-bold text-sm"
-            >
-              Start Interval ({Math.ceil(state.format.pointsPerGame / 2)} points reached)
-            </button>
-          </div>
-        )}
-
-        <UmpireConfidencePanel panel={snapshot.panel} variant="mobile" />
-
-        <div className="flex-1 min-h-0">
-          {children({ scoringBlocked: snapshot.scoringBlocked, onAwardPoint: guardedAward })}
-        </div>
+      <div className="flex-1 min-h-0 flex flex-col">
+        {children({ scoringBlocked: snapshot.scoringBlocked, onAwardPoint: guardedAward })}
       </div>
-
-      <UmpireConfidencePanel panel={snapshot.panel} />
 
       <UmpireCourtChangeModal open={showCourtChangeModal} onAcknowledge={handleCourtChangeAck} />
 

@@ -119,7 +119,7 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
     return () => clearTimeout(t);
   }, [value]);
 
-  const { data: suggestions } = useSearchGlobalPlayers(
+  const { data: suggestions, isLoading, isFetching } = useSearchGlobalPlayers(
     { q: debouncedQ, limit: 8 },
     { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ }), enabled: debouncedQ.length >= 2 } },
   );
@@ -134,7 +134,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  const showDropdown = open && debouncedQ.length >= 2 && (suggestions?.length ?? 0) > 0;
+  const searching = open && debouncedQ.length >= 2 && (isLoading || isFetching);
+  const showDropdown = open && debouncedQ.length >= 2 && (searching || (suggestions?.length ?? 0) > 0);
 
   return (
     <div ref={containerRef} className="relative">
@@ -148,7 +149,15 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
       />
       {showDropdown && (
         <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
-          {suggestions!.map(p => (
+          {searching ? (
+            <div className="flex items-center gap-2.5 px-3 py-3 text-sm text-muted-foreground" role="status" aria-live="polite">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-primary" />
+              Searching player database…
+            </div>
+          ) : (suggestions?.length ?? 0) === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">No matching players found</p>
+          ) : (
+          suggestions!.map(p => (
             <button
               key={p.id}
               type="button"
@@ -178,7 +187,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
                 </div>
               </div>
             </button>
-          ))}
+          ))
+          )}
         </div>
       )}
     </div>
@@ -740,6 +750,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${pendingMobileProfile ? "text-green-500" : "text-muted-foreground"}`} />
             )}
           </div>
+          {!player && mobileLookupLoading && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              Looking up mobile number in player database…
+            </p>
+          )}
           {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
           {!player && matchedTournamentPlayer && (
             <p className="text-xs text-amber-400 mt-1">

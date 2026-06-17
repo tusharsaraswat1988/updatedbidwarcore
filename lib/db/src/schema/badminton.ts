@@ -364,9 +364,7 @@ export const badmintonMatchDetailsTable = pgTable(
     scorerPin: text("scorer_pin"),
     /** Assigned scorer name. */
     scorerName: text("scorer_name"),
-    /** Referee name. */
-    refereeName: text("referee_name"),
-    /** Umpire name. */
+    /** Umpire name (court official). */
     umpireName: text("umpire_name"),
     /** Service judge. */
     serviceJudgeName: text("service_judge_name"),

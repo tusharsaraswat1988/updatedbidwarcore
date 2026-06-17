@@ -602,6 +602,11 @@ export default function PlayerRegister() {
                             <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile ? "text-green-500" : "text-primary/60"}`} />
                           )}
                         </div>
+                        {lookupLoading && (
+                          <p className="text-xs text-primary/70 flex items-center gap-1.5">
+                            Checking your mobile number in our player database…
+                          </p>
+                        )}
                         {existingRegistration ? (
                           <p className="text-xs text-amber-300">
                             You&apos;re already registered in this tournament. Update your profile below — auction status and team assignment won&apos;t change.

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +8,7 @@ import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { PageTracking } from "@/components/page-tracking";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
+import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
 
 import Landing from "@/pages/landing";
@@ -81,6 +82,7 @@ const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
 const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
 const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
 const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
+const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
 const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
@@ -135,9 +137,17 @@ function BrandingEffects() {
   return null;
 }
 
+function RouteSuspenseFallback() {
+  const [location] = useLocation();
+  const className = isBadmintonOrganizerPath(location)
+    ? BADMINTON_ROUTE_LOADING_CLASS
+    : "min-h-screen bg-background";
+  return <div className={className} aria-busy="true" />;
+}
+
 function Router() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
         {/* Public routes */}
         <Route path="/" component={Landing} />
@@ -458,6 +468,16 @@ function Router() {
             return (
               <ScoringFeatureGuard>
                 <OrganizerGuard tournamentId={tid}><BadmintonBrandingPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/broadcast">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonBroadcastPage /></OrganizerGuard>
               </ScoringFeatureGuard>
             );
           }}

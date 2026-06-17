@@ -8,6 +8,7 @@
  *   they know which tournament the match belongs to.
  */
 
+import { randomInt } from "node:crypto";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -871,6 +872,43 @@ export async function getMatchReportData(matchId: number, tournamentId: number) 
 
 // ── Query helpers ─────────────────────────────────────────────────────────────
 
+export function generateMatchScorerPin(): string {
+  return String(randomInt(1000, 10_000));
+}
+
+type BadmintonDetailRow = typeof badmintonMatchDetailsTable.$inferSelect;
+
+export function serializeBadmintonMatchDetail(
+  detail: BadmintonDetailRow | null,
+  opts: { includeScorerPin: boolean },
+): Record<string, unknown> | null {
+  if (!detail) return null;
+  if (opts.includeScorerPin) {
+    return detail as unknown as Record<string, unknown>;
+  }
+  const { scorerPin: _pin, ...rest } = detail;
+  return { ...rest, hasScorerPin: !!_pin };
+}
+
+export async function verifyMatchScorerPin(
+  tournamentId: number,
+  matchId: number,
+  pin: string,
+): Promise<boolean> {
+  const [detail] = await db
+    .select({ scorerPin: badmintonMatchDetailsTable.scorerPin })
+    .from(badmintonMatchDetailsTable)
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  return !!detail?.scorerPin && detail.scorerPin === pin;
+}
+
 export async function getLiveBadmintonMatches(tournamentId: number) {
   const rows = await db
     .select({
@@ -919,11 +957,12 @@ export async function createBadmintonMatch(input: {
   rightSideJson: Record<string, unknown>;
   scorerPin?: string;
   scorerName?: string;
-  refereeName?: string;
   umpireName?: string;
   scheduledAt?: Date;
 }) {
   await ensureBadmintonTournament(input.tournamentId);
+
+  const scorerPin = input.scorerPin?.trim() || generateMatchScorerPin();
 
   const homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
   const awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
@@ -947,7 +986,7 @@ export async function createBadmintonMatch(input: {
     })
     .returning();
 
-  await db.insert(badmintonMatchDetailsTable).values({
+  const [detail] = await db.insert(badmintonMatchDetailsTable).values({
     scoringMatchId: match.id,
     tournamentId: input.tournamentId,
     categoryId: input.categoryId ?? null,
@@ -961,11 +1000,10 @@ export async function createBadmintonMatch(input: {
     matchFormatJson: input.matchFormatJson ?? null,
     leftSideJson: input.leftSideJson,
     rightSideJson: input.rightSideJson,
-    scorerPin: input.scorerPin ?? null,
+    scorerPin,
     scorerName: input.scorerName ?? null,
-    refereeName: input.refereeName ?? null,
     umpireName: input.umpireName ?? null,
-  });
+  }).returning();
 
   // Fix: include tournamentId in fixture update to prevent cross-tenant fixture linkage
   if (input.fixtureId) {
@@ -980,7 +1018,142 @@ export async function createBadmintonMatch(input: {
       );
   }
 
-  return match;
+  return { match, detail };
+}
+
+export async function updateBadmintonMatch(
+  matchId: number,
+  tournamentId: number,
+  input: {
+    matchType?: string;
+    courtId?: number | null;
+    courtNumber?: string | null;
+    matchLabel?: string | null;
+    roundName?: string | null;
+    leftSideJson?: Record<string, unknown>;
+    rightSideJson?: Record<string, unknown>;
+    scorerPin?: string;
+    umpireName?: string | null;
+  },
+) {
+  await ensureBadmintonTournament(tournamentId);
+
+  const meta = await getMatchMeta(matchId, tournamentId);
+  if (!meta) {
+    throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
+  }
+
+  const [match] = await db
+    .select({ status: scoringMatchesTable.status })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  const rosterLocked = match?.status !== "scheduled";
+  if (
+    rosterLocked &&
+    (input.matchType !== undefined ||
+      input.leftSideJson !== undefined ||
+      input.rightSideJson !== undefined)
+  ) {
+    throw new BadmintonServiceError(
+      "MATCH_STARTED",
+      "Cannot change players or match type after the match has started.",
+      409,
+    );
+  }
+
+  if (input.scorerPin !== undefined && input.scorerPin.trim().length < 4) {
+    throw new BadmintonServiceError("INVALID_PIN", "Scorer PIN must be at least 4 digits", 400);
+  }
+
+  const detailPatch: Partial<typeof badmintonMatchDetailsTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+  const matchPatch: Partial<typeof scoringMatchesTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.courtId !== undefined) detailPatch.courtId = input.courtId;
+  if (input.courtNumber !== undefined) detailPatch.courtNumber = input.courtNumber;
+  if (input.matchLabel !== undefined) {
+    detailPatch.matchLabel = input.matchLabel;
+    matchPatch.matchLabel = input.matchLabel;
+  }
+  if (input.roundName !== undefined) {
+    detailPatch.roundName = input.roundName;
+    matchPatch.roundName = input.roundName;
+  }
+  if (input.matchType !== undefined) detailPatch.matchType = input.matchType;
+  if (input.umpireName !== undefined) detailPatch.umpireName = input.umpireName;
+  if (input.scorerPin !== undefined) detailPatch.scorerPin = input.scorerPin.trim();
+
+  if (input.leftSideJson !== undefined) {
+    detailPatch.leftSideJson = input.leftSideJson;
+    matchPatch.homeSideJson = buildScoringSideFromBadmintonSide(input.leftSideJson);
+  }
+  if (input.rightSideJson !== undefined) {
+    detailPatch.rightSideJson = input.rightSideJson;
+    matchPatch.awaySideJson = buildScoringSideFromBadmintonSide(input.rightSideJson);
+  }
+
+  await db
+    .update(badmintonMatchDetailsTable)
+    .set(detailPatch)
+    .where(
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, matchId),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    );
+
+  if (Object.keys(matchPatch).length > 1) {
+    await db
+      .update(scoringMatchesTable)
+      .set(matchPatch)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      );
+  }
+
+  const [row] = await db
+    .select({
+      match: scoringMatchesTable,
+      detail: badmintonMatchDetailsTable,
+    })
+    .from(scoringMatchesTable)
+    .leftJoin(
+      badmintonMatchDetailsTable,
+      and(
+        eq(badmintonMatchDetailsTable.scoringMatchId, scoringMatchesTable.id),
+        eq(badmintonMatchDetailsTable.tournamentId, tournamentId),
+      ),
+    )
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
+  }
+
+  return {
+    ...row.match,
+    detail: row.detail ?? null,
+    state: row.detail?.stateSnapshotJson ?? null,
+  };
 }
 
 export async function deleteBadmintonMatch(

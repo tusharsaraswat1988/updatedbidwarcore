@@ -85,8 +85,8 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#0070f3]/30 bg-[#0a1020]/80 overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/8 bg-[#0070f3]/10">
+    <div className="rounded-xl border border-primary/30 bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border bg-primary/10">
         <h2 className="text-white font-black text-lg tracking-wide uppercase">
           Match Control Center
         </h2>
@@ -116,16 +116,15 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
               <FormField label="Pause reason">
                 <DarkSelect
                   value={pauseReason}
-                  onChange={(e) =>
-                    setPauseReason(e.target.value as typeof pauseReason)
-                  }
-                >
-                  <option value="medical">Medical</option>
-                  <option value="technical_issue">Technical Issue</option>
-                  <option value="weather">Weather</option>
-                  <option value="court_issue">Court Issue</option>
-                  <option value="other">Other</option>
-                </DarkSelect>
+                  onValueChange={(v) => setPauseReason(v as typeof pauseReason)}
+                  options={[
+                    { value: "medical", label: "Medical" },
+                    { value: "technical_issue", label: "Technical Issue" },
+                    { value: "weather", label: "Weather" },
+                    { value: "court_issue", label: "Court Issue" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
               </FormField>
               {pauseReason === "other" ? (
                 <FormField label="Detail">
@@ -227,15 +226,23 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Retirement</p>
-                <DarkSelect value={retireSide} onChange={(e) => setRetireSide(e.target.value as "left" | "right")}>
-                  <option value="left">Left retires</option>
-                  <option value="right">Right retires</option>
-                </DarkSelect>
-                <DarkSelect value={retireReason} onChange={(e) => setRetireReason(e.target.value as typeof retireReason)}>
-                  <option value="injury">Injury</option>
-                  <option value="illness">Illness</option>
-                  <option value="other">Other</option>
-                </DarkSelect>
+                <DarkSelect
+                  value={retireSide}
+                  onValueChange={(v) => setRetireSide(v as "left" | "right")}
+                  options={[
+                    { value: "left", label: "Left retires" },
+                    { value: "right", label: "Right retires" },
+                  ]}
+                />
+                <DarkSelect
+                  value={retireReason}
+                  onValueChange={(v) => setRetireReason(v as typeof retireReason)}
+                  options={[
+                    { value: "injury", label: "Injury" },
+                    { value: "illness", label: "Illness" },
+                    { value: "other", label: "Other" },
+                  ]}
+                />
                 <button
                   type="button"
                   disabled={busy || !isLive}
@@ -248,15 +255,23 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Walkover</p>
-                <DarkSelect value={walkoverSide} onChange={(e) => setWalkoverSide(e.target.value as "left" | "right")}>
-                  <option value="left">Left wins</option>
-                  <option value="right">Right wins</option>
-                </DarkSelect>
-                <DarkSelect value={walkoverReason} onChange={(e) => setWalkoverReason(e.target.value as typeof walkoverReason)}>
-                  <option value="opponent_absent">Opponent Absent</option>
-                  <option value="forfeit">Forfeit</option>
-                  <option value="administrative_decision">Administrative Decision</option>
-                </DarkSelect>
+                <DarkSelect
+                  value={walkoverSide}
+                  onValueChange={(v) => setWalkoverSide(v as "left" | "right")}
+                  options={[
+                    { value: "left", label: "Left wins" },
+                    { value: "right", label: "Right wins" },
+                  ]}
+                />
+                <DarkSelect
+                  value={walkoverReason}
+                  onValueChange={(v) => setWalkoverReason(v as typeof walkoverReason)}
+                  options={[
+                    { value: "opponent_absent", label: "Opponent Absent" },
+                    { value: "forfeit", label: "Forfeit" },
+                    { value: "administrative_decision", label: "Administrative Decision" },
+                  ]}
+                />
                 <button
                   type="button"
                   disabled={busy}
@@ -269,10 +284,14 @@ export function MatchControlCenter({ tournamentId, matchId, state }: Props) {
 
               <div className="rounded-xl border border-white/8 p-3 space-y-2">
                 <p className="text-white/50 text-xs font-semibold">Disqualification</p>
-                <DarkSelect value={dqSide} onChange={(e) => setDqSide(e.target.value as "left" | "right")}>
-                  <option value="left">Left disqualified</option>
-                  <option value="right">Right disqualified</option>
-                </DarkSelect>
+                <DarkSelect
+                  value={dqSide}
+                  onValueChange={(v) => setDqSide(v as "left" | "right")}
+                  options={[
+                    { value: "left", label: "Left disqualified" },
+                    { value: "right", label: "Right disqualified" },
+                  ]}
+                />
                 <input
                   className={inputClass}
                   value={dqReason}

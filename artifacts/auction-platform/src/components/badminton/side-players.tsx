@@ -1,13 +1,22 @@
 import type { BadmintonPlayerSlot, BadmintonSideInfo } from "@workspace/badminton-core";
 import { getSidePlayerSlots, isPairSide } from "@workspace/badminton-core";
 import { cn } from "@/lib/utils";
+import { ledAccentBgStyle } from "@/components/badminton/badminton-led-theme";
 
-type PhotoSize = "sm" | "md" | "lg";
+type PhotoSize = "sm" | "md" | "lg" | "broadcast";
 
 const photoSizeClass: Record<PhotoSize, string> = {
   sm: "w-12 h-12 rounded-lg",
   md: "w-20 h-20 rounded-xl",
   lg: "w-28 h-28 rounded-2xl",
+  broadcast: "badminton-score-player-photo rounded-2xl",
+};
+
+const photoSizePairClass: Record<PhotoSize, string> = {
+  sm: "w-12 h-12 rounded-lg",
+  md: "w-20 h-20 rounded-xl",
+  lg: "w-28 h-28 rounded-2xl",
+  broadcast: "badminton-score-player-photo-pair rounded-xl",
 };
 
 export function SidePlayerPhotos({
@@ -17,6 +26,7 @@ export function SidePlayerPhotos({
   size = "lg",
   flash = false,
   gameWinFlash = false,
+  ledTheme = false,
 }: {
   info: BadmintonSideInfo;
   matchKind?: string;
@@ -24,6 +34,8 @@ export function SidePlayerPhotos({
   size?: PhotoSize;
   flash?: boolean;
   gameWinFlash?: boolean;
+  /** LED broadcast — borders/glow follow stage `--accent` tokens. */
+  ledTheme?: boolean;
 }) {
   const players = getSidePlayerSlots(info);
   const isPair = isPairSide(info, matchKind);
@@ -38,20 +50,22 @@ export function SidePlayerPhotos({
         size={size}
         flash={flash}
         gameWinFlash={gameWinFlash}
+        ledTheme={ledTheme}
       />
     );
   }
 
   return (
-    <div className={cn("flex gap-2", size === "lg" ? "flex-row" : "flex-col")}>
+    <div className={cn("flex gap-2", size === "lg" || size === "broadcast" ? "flex-row" : "flex-col")}>
       {players.slice(0, 2).map((player, index) => (
         <PlayerPhoto
           key={`${player.label}-${index}`}
           player={player}
           side={side}
-          size={size === "lg" ? "md" : "sm"}
+          size={size === "lg" || size === "broadcast" ? (size === "broadcast" ? "broadcast-pair" : "md") : "sm"}
           flash={flash}
           gameWinFlash={gameWinFlash}
+          ledTheme={ledTheme}
         />
       ))}
     </div>
@@ -64,15 +78,32 @@ function PlayerPhoto({
   size,
   flash,
   gameWinFlash,
+  ledTheme = false,
 }: {
   player: BadmintonPlayerSlot;
   side: "left" | "right";
-  size: PhotoSize;
+  size: PhotoSize | "broadcast-pair";
   flash?: boolean;
   gameWinFlash?: boolean;
+  ledTheme?: boolean;
 }) {
   const isLeft = side === "left";
-  const sizeClass = photoSizeClass[size];
+  const sizeClass =
+    size === "broadcast-pair"
+      ? photoSizePairClass.broadcast
+      : photoSizeClass[size as PhotoSize];
+  const ledBorder = ledTheme
+    ? {
+        borderColor: flash
+          ? "rgba(255,255,255,0.85)"
+          : gameWinFlash
+            ? "var(--accent)"
+            : isLeft
+              ? "color-mix(in srgb, var(--accent) 35%, transparent)"
+              : "color-mix(in srgb, var(--stage-opponent) 35%, transparent)",
+        boxShadow: gameWinFlash ? "0 0 24px var(--accent-glow)" : undefined,
+      }
+    : undefined;
 
   if (player.photoUrl) {
     return (
@@ -84,10 +115,12 @@ function PlayerPhoto({
         className={cn(
           sizeClass,
           "object-cover border-2 transition-all duration-300",
-          flash ? "border-white scale-105 shadow-2xl shadow-white/30" :
-          isLeft ? "border-[#00e5ff]/30" : "border-[#ff6b6b]/30",
-          gameWinFlash && "border-[#ffd700] shadow-2xl shadow-[#ffd700]/40",
+          flash && "scale-105 shadow-2xl shadow-white/30",
+          !ledTheme && (flash ? "border-white" :
+          isLeft ? "border-[#00e5ff]/30" : "border-[#ff6b6b]/30"),
+          !ledTheme && gameWinFlash && "border-[#ffd700] shadow-2xl shadow-[#ffd700]/40",
         )}
+        style={ledTheme ? ledBorder : undefined}
       />
     );
   }
@@ -97,13 +130,21 @@ function PlayerPhoto({
       className={cn(
         sizeClass,
         "flex items-center justify-center border-2 transition-all",
-        isLeft ? "bg-[#0d2560]/80 border-[#00e5ff]/20" : "bg-[#2d0a3a]/80 border-[#ff6b6b]/20",
+        !ledTheme && (isLeft ? "bg-[#0d2560]/80 border-[#00e5ff]/20" : "bg-[#2d0a3a]/80 border-[#ff6b6b]/20"),
+        ledTheme && (isLeft ? ledAccentBgStyle(0.12) : { backgroundColor: "rgba(45,10,58,0.8)" }),
         flash && "scale-105 border-white/60",
       )}
+      style={ledTheme ? ledBorder : undefined}
     >
       <span className={cn(
         "font-black text-white/30",
-        size === "lg" ? "text-4xl" : size === "md" ? "text-2xl" : "text-lg",
+        size === "broadcast" || size === "broadcast-pair"
+          ? "badminton-score-photo-initial"
+          : size === "lg"
+            ? "text-4xl"
+            : size === "md"
+              ? "text-2xl"
+              : "text-lg",
       )}>
         {(player.shortLabel?.charAt(0) || player.label?.charAt(0) || "?").toUpperCase()}
       </span>
@@ -130,7 +171,12 @@ export function SidePlayerNames({
 
   if (!isPair) {
     return (
-      <h2 className={cn("text-3xl font-black text-white leading-tight tracking-tight", className)}>
+      <h2 className={cn(
+        "font-black text-white leading-tight tracking-tight",
+        className?.includes("badminton-score-player-name")
+          ? className
+          : cn("text-3xl", className),
+      )}>
         {info.label}
       </h2>
     );
@@ -144,7 +190,11 @@ export function SidePlayerNames({
             key={`${player.label}-${index}`}
             className={cn(
               "font-bold text-white leading-tight",
-              isPair && index === 1 ? "text-white/80" : "",
+              className?.includes("badminton-score-player-name")
+                ? "badminton-score-player-name"
+                : isPair && index === 1
+                  ? "text-white/80"
+                  : "",
             )}
           >
             {player.label}

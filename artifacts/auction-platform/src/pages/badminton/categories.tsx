@@ -8,7 +8,8 @@ import { useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal } from "@/components/badminton/page-chrome";
+import { Trophy } from "lucide-react";
+import { EmptyState, FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, DarkSelect, FormActions, FormError, FormModal, hubCardClass, AsyncLoadingPanel } from "@/components/badminton/page-chrome";
 
 interface BadmintonCategory {
   id: number;
@@ -60,7 +61,6 @@ export default function BadmintonCategoriesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/categories");
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
-  const hubHref = `/tournament/${tournamentId}/badminton`;
 
   const [showForm, setShowForm] = useState(false);
   const [editCategory, setEditCategory] = useState<BadmintonCategory | null>(null);
@@ -75,11 +75,10 @@ export default function BadmintonCategoriesPage() {
   const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <HubPageShell>
+    <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Categories & Draws"
         subtitle={`${categories.length} categor${categories.length !== 1 ? "ies" : "y"}`}
-        backHref={hubHref}
         actions={
           <BtnPrimary onClick={() => { setEditCategory(null); setShowForm(true); }}>
             + Add Category
@@ -91,12 +90,12 @@ export default function BadmintonCategoriesPage() {
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-white/4 animate-pulse" />
+              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : sorted.length === 0 ? (
           <EmptyState
-            icon="🏆"
+            icon={Trophy}
             title="No categories yet"
             desc="Create draw categories like Men's Singles U-19, Women's Doubles, etc."
             action={{ label: "Add Category", onClick: () => setShowForm(true) }}
@@ -202,7 +201,7 @@ function CategoryPanel({
   }
 
   return (
-    <div className="rounded-2xl bg-[#0d1529] border border-white/8 overflow-hidden">
+    <div className={cn(hubCardClass, "overflow-hidden")}>
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-white/3 transition-colors"
@@ -256,7 +255,7 @@ function CategoryPanel({
             </button>
             <button
               onClick={() => setShowAddReg(true)}
-              className="h-9 px-4 rounded-lg bg-[#0070f3]/20 hover:bg-[#0070f3]/30 text-[#4fc3f7] text-xs font-semibold transition-colors"
+              className="h-9 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors border border-primary/25"
             >
               + Add Entry
             </button>
@@ -412,7 +411,7 @@ function CategoryFormModal({
     drawType: category?.drawType ?? "knockout",
     numSeeds: category?.numSeeds ?? 0,
     maxPlayers: category?.maxPlayers ?? "",
-    colorCode: category?.colorCode ?? "#0070f3",
+    colorCode: category?.colorCode ?? "#F59E0B",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -556,7 +555,7 @@ function AddRegistrationModal({
 }) {
   const isDoubles = category.matchType !== "singles";
 
-  const { data: players = [] } = useQuery<BadmintonPlayer[]>({
+  const { data: players = [], isLoading: playersLoading } = useQuery<BadmintonPlayer[]>({
     queryKey: ["badminton-players", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/players`),
     enabled: !!tournamentId,
@@ -599,6 +598,10 @@ function AddRegistrationModal({
 
   return (
     <FormModal title="Add Entry" subtitle={category.name} onClose={onClose} size="md">
+      {playersLoading ? (
+        <AsyncLoadingPanel tone="inverse" compact message="Loading registered players…" />
+      ) : (
+        <>
       <FormField label={isDoubles ? "Player 1 *" : "Player *"}>
         <DarkSelect
           value={player1Id || "none"}
@@ -643,6 +646,8 @@ function AddRegistrationModal({
       <FormError message={error} />
 
       <FormActions onCancel={onClose} onSubmit={handleSave} submitLabel="Add Entry" saving={saving} />
+        </>
+      )}
     </FormModal>
   );
 }

@@ -41,38 +41,51 @@ export function ScoreBoardSponsorPanel({
   className,
 }: {
   sponsor: ScoreBoardSponsor;
-  variant?: "display" | "compact" | "preview" | "bar";
+  variant?: "display" | "compact" | "preview" | "bar" | "strip";
   className?: string;
 }) {
   if (!hasScoreBoardSponsor(sponsor)) return null;
 
-  if (variant === "bar") {
+  if (variant === "bar" || variant === "strip") {
+    const compact = variant === "strip";
     return (
       <div
         className={cn(
-          "flex items-center gap-4 rounded-xl border-2 border-[#ffd700]/45",
+          "flex items-center gap-4 rounded-xl border-2",
           "bg-gradient-to-r from-[#1a1400]/95 via-[#0d1529]/95 to-[#0a1628]/95",
-          "px-5 py-2.5 shadow-[0_0_24px_rgba(255,215,0,0.12)]",
+          compact ? "gap-2.5 px-3 py-1.5" : "px-5 py-2.5",
           className,
         )}
+        style={{
+          borderColor: "color-mix(in srgb, var(--accent) 45%, transparent)",
+          boxShadow: "0 0 24px color-mix(in srgb, var(--accent) 12%, transparent)",
+        }}
       >
         {sponsor.logoUrl ? (
-          <div className="rounded-lg bg-white/95 p-1.5 flex-none shadow-md">
+          <div className={cn("rounded-lg bg-white/95 flex-none shadow-md", compact ? "p-1" : "p-1.5")}>
             <img
               src={sponsor.logoUrl}
               alt={sponsor.name ?? "Scoreboard sponsor"}
-              className="h-10 w-16 object-contain"
+              className={compact ? "h-8 w-12 object-contain" : "h-10 w-16 object-contain"}
             />
           </div>
         ) : null}
         <div className="min-w-0 text-left">
           {sponsor.title && (
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ffd700] truncate">
+            <p
+              className={cn(
+                "font-black uppercase tracking-[0.2em] truncate",
+                compact ? "text-[9px]" : "text-[10px]",
+              )}
+              style={{ color: "var(--accent)" }}
+            >
               {sponsor.title}
             </p>
           )}
           {sponsor.name && (
-            <p className="text-base font-black text-white truncate">{sponsor.name}</p>
+            <p className={cn("font-black text-white truncate", compact ? "text-sm leading-tight" : "text-base")}>
+              {sponsor.name}
+            </p>
           )}
         </div>
       </div>

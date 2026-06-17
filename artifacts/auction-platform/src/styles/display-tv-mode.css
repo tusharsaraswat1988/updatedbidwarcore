@@ -79,6 +79,56 @@
   }
 }
 
+/* ── Badminton LED scoreboard — inherits --accent from StageFrame; never reset here ── */
+.badminton-led-surface {
+  --stage-opponent: #ff6b6b;
+  --stage-opponent-glow: rgba(255, 107, 107, 0.45);
+  --stage-opponent-muted: #ce93d8;
+  /* Responsive score zone — scales with 16:9 stage width */
+  --score-digit-size: clamp(5.5rem, 16vw, 13rem);
+  --score-colon-size: clamp(2.25rem, 6.5vw, 5rem);
+  --score-player-photo: clamp(6.5rem, 14vw, 11rem);
+  --score-player-photo-pair: clamp(5rem, 10vw, 8rem);
+  --score-player-name: clamp(1.4rem, 3.2vw, 3rem);
+  --score-player-meta: clamp(0.75rem, 1.35vw, 1.1rem);
+  --score-game-dot: clamp(1rem, 1.9vw, 1.5rem);
+  --score-game-count: clamp(1.25rem, 2.4vw, 2rem);
+  --score-panel-gap: clamp(0.65rem, 1.6vh, 1.35rem);
+  --score-serve-diamond: clamp(0.65rem, 1.2vw, 1rem);
+  --score-game-pill: clamp(0.7rem, 1.25vw, 1rem);
+  --score-zone-px: clamp(3%, 5vw, 6%);
+}
+
+@media (min-width: 2560px) {
+  .badminton-led-surface {
+    --score-digit-size: clamp(8rem, 12vw, 15rem);
+    --score-player-photo: clamp(9rem, 11vw, 13rem);
+    --score-player-name: clamp(2rem, 2.8vw, 3.5rem);
+  }
+}
+
+.badminton-score-digit {
+  font-size: var(--score-digit-size);
+}
+
+.badminton-score-player-photo {
+  width: var(--score-player-photo);
+  height: var(--score-player-photo);
+}
+
+.badminton-score-player-photo-pair {
+  width: var(--score-player-photo-pair);
+  height: var(--score-player-photo-pair);
+}
+
+.badminton-score-player-name {
+  font-size: var(--score-player-name);
+}
+
+.badminton-score-photo-initial {
+  font-size: calc(var(--score-player-photo) * 0.35);
+}
+
 /* ── V1 LED stage — theme tokens + broadcast animations ───────────── */
 .auction-stage {
   --accent: #ffc400;
@@ -193,4 +243,37 @@
 @keyframes auction-standby-loading {
   0% { transform: translateX(-120%); }
   100% { transform: translateX(320%); }
+}
+
+/* Badminton overlay — serving side highlight */
+@keyframes badmintonServeGlow {
+  0%, 100% {
+    background-color: rgba(255, 215, 0, 0.07);
+    box-shadow: inset 0 0 22px rgba(255, 215, 0, 0.1);
+  }
+  50% {
+    background-color: rgba(255, 215, 0, 0.13);
+    box-shadow: inset 0 0 34px rgba(255, 215, 0, 0.18);
+  }
+}
+
+@keyframes badmintonServeSwitch {
+  0% {
+    background-color: rgba(255, 215, 0, 0.34);
+    box-shadow:
+      inset 0 0 52px rgba(255, 215, 0, 0.28),
+      0 0 28px rgba(255, 215, 0, 0.22);
+  }
+  100% {
+    background-color: rgba(255, 215, 0, 0.1);
+    box-shadow: inset 0 0 26px rgba(255, 215, 0, 0.14);
+  }
+}
+
+.badminton-serve-side--active {
+  animation: badmintonServeGlow 2.6s ease-in-out infinite;
+}
+
+.badminton-serve-side--flash {
+  animation: badmintonServeSwitch 0.65s ease-out forwards;
 }

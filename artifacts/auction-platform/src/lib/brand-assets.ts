@@ -24,6 +24,27 @@ export function getBrandLogoAlt(brandName?: string) {
   return `${name} logo - live sports auction software`;
 }
 
+const WORDMARK_LOGO_KEYS = new Set<keyof BrandLogos>(["main", "mainReverse"]);
+
+function brandLogoPreset(key: keyof BrandLogos): Parameters<typeof cldUrl>[1] {
+  if (key === "appIcon") return "appIcon";
+  if (WORDMARK_LOGO_KEYS.has(key)) return "brandWordmark";
+  return "headerLogo";
+}
+
+/** Horizontal main / reverse logo — never forced into a square box. */
+export function getBrandWordmarkSrc(
+  logos: BrandLogos | undefined,
+  order: Array<keyof BrandLogos> = ["mainReverse", "main"],
+) {
+  for (const key of order) {
+    const raw = logos?.[key];
+    if (!raw) continue;
+    return cldUrl(raw, "brandWordmark") || raw;
+  }
+  return "";
+}
+
 export function getBrandLogoSrc(
   logos: BrandLogos | undefined,
   order: Array<keyof BrandLogos> = ["main", "mainReverse", "mini", "appIcon"],
@@ -31,7 +52,7 @@ export function getBrandLogoSrc(
   for (const key of order) {
     const raw = logos?.[key];
     if (!raw) continue;
-    const transformed = key === "appIcon" ? cldUrl(raw, "appIcon") : cldUrl(raw, "headerLogo");
+    const transformed = cldUrl(raw, brandLogoPreset(key));
     if (transformed) return transformed;
     if (raw) return raw;
   }

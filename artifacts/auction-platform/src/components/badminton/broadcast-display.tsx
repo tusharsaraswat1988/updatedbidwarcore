@@ -13,13 +13,17 @@ import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { resolveFranchiseLogoUrl, resolveFranchiseName, isPairMatchKind, currentReceiverLabel, currentServerLabel } from "@workspace/badminton-core";
 import { SidePlayerNames, SidePlayerPhotos } from "@/components/badminton/side-players";
 import { DoublesCourtDisplay } from "@/components/badminton/doubles-court-display";
-import {
-  ScoreBoardSponsorPanel,
-  type ScoreBoardSponsor,
-  hasScoreBoardSponsor,
-} from "@/components/badminton/score-board-sponsor-panel";
+import { type ScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { cn } from "@/lib/utils";
 import { DirectorStatusBanner } from "@/components/badminton/director-status-banner";
+import { BadmintonLedChyron, BadmintonLedTopStrip } from "@/components/badminton/badminton-led-chrome";
+import {
+  badmintonLedSurfaceStyle,
+  fixedGameDotStyle,
+  fixedScoreStyle,
+  fixedServeStyle,
+} from "@/components/badminton/badminton-led-theme";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 interface BroadcastDisplayProps {
   state: BadmintonMatchState;
@@ -28,7 +32,8 @@ interface BroadcastDisplayProps {
   courtNumber?: string;
   matchNumber?: string;
   roundName?: string;
-  sponsorLogos?: string[];
+  matchLabel?: string;
+  sponsorLogos?: SponsorLogo[];
   scoreBoardSponsor?: ScoreBoardSponsor | null;
 }
 
@@ -39,6 +44,7 @@ export function BroadcastDisplay({
   courtNumber,
   matchNumber,
   roundName,
+  matchLabel,
   sponsorLogos = [],
   scoreBoardSponsor = null,
 }: BroadcastDisplayProps) {
@@ -86,17 +92,22 @@ export function BroadcastDisplay({
     prevScoreRef.current = { left: state.leftScore, right: state.rightScore };
   }, [state]);
 
-  const isLive = state.matchStatus === "live";
   const isTimeout = !!state.activeTimeout;
   const isDoubles = isPairMatchKind(state.matchKind);
   const serverLabel = isDoubles ? currentServerLabel(state) : null;
   const receiverLabel = isDoubles ? currentReceiverLabel(state) : null;
-  const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
+  const displayMatchName =
+    matchLabel?.trim() ||
+    `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`;
 
   return (
-    <div className="relative w-full h-full bg-[#050a17] overflow-hidden font-sans">
+    <div
+      className="badminton-led-surface absolute inset-0 overflow-hidden font-['Barlow_Condensed'] led-display-tv grid grid-rows-[auto_1fr_auto]"
+      style={badmintonLedSurfaceStyle}
+    >
       {/* Animated background grid */}
-      <div className="absolute inset-0 opacity-[0.03]"
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
           backgroundImage: `
             linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
@@ -106,37 +117,28 @@ export function BroadcastDisplay({
         }}
       />
 
-      {/* Glow orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0070f3]/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-[#7c3aed]/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* TOP BAR — Tournament info + scoreboard sponsor (top-right) */}
-      <TopBar
+      <BadmintonLedTopStrip
         tournamentName={tournamentName}
-        logoUrl={tournamentLogoUrl}
+        tournamentLogoUrl={tournamentLogoUrl}
         courtNumber={courtNumber}
         matchNumber={matchNumber}
         roundName={roundName}
         matchStatus={state.matchStatus}
         isTimeout={isTimeout}
         timeoutSide={state.activeTimeout?.side}
-        leftSide={state.leftSide}
-        rightSide={state.rightSide}
+        leftLabel={state.leftSide.shortLabel}
+        rightLabel={state.rightSide.shortLabel}
         scoreBoardSponsor={scoreBoardSponsor}
       />
 
-      {/* Director status banner (paused, retired, etc.) */}
-      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
-        <DirectorStatusBanner state={state} />
-      </div>
-
-      {/* MAIN SCORE AREA */}
+      {/* MAIN SCORE AREA — fixed palette; theme picker does not affect readability */}
       <div
-        className={cn(
-          "absolute inset-0 flex items-center justify-between px-[5%] pb-[100px]",
-          showScoreBoardSponsor ? "pt-[132px]" : "pt-[80px]",
-        )}
+        className="relative z-10 min-h-0 flex items-center justify-between py-2 bg-[#070708]"
+        style={{ paddingLeft: "var(--score-zone-px)", paddingRight: "var(--score-zone-px)" }}
       >
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full max-w-xl px-4">
+          <DirectorStatusBanner state={state} />
+        </div>
         {/* Left player block */}
         <PlayerBlock
           side="left"
@@ -157,6 +159,7 @@ export function BroadcastDisplay({
         {/* Centre panel */}
         <CentrePanel
           state={state}
+          matchName={displayMatchName}
           isTimeout={isTimeout}
           timeoutSide={state.activeTimeout?.side}
           isDoubles={isDoubles}
@@ -182,12 +185,10 @@ export function BroadcastDisplay({
         />
       </div>
 
-      {/* BOTTOM BAR — sponsor logos + game history */}
-      <BottomBar
-        games={state.games}
-        sponsorLogos={sponsorLogos}
-        tournamentName={tournamentName}
-      />
+      <footer className="relative z-20 flex flex-col shrink-0">
+        <GameHistoryRow games={state.games} />
+        <BadmintonLedChyron sponsors={sponsorLogos} tournamentName={tournamentName} />
+      </footer>
 
       {/* Game win overlay */}
       {gameWinFlash && (
@@ -217,108 +218,36 @@ export function BroadcastDisplay({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function TopBar({
-  tournamentName,
-  logoUrl,
-  courtNumber,
-  matchNumber,
-  roundName,
-  matchStatus,
-  isTimeout,
-  timeoutSide,
-  leftSide,
-  rightSide,
-  scoreBoardSponsor,
-}: {
-  tournamentName: string;
-  logoUrl?: string;
-  courtNumber?: string;
-  matchNumber?: string;
-  roundName?: string;
-  matchStatus: string;
-  isTimeout: boolean;
-  timeoutSide?: string;
-  leftSide: { shortLabel: string };
-  rightSide: { shortLabel: string };
-  scoreBoardSponsor?: ScoreBoardSponsor | null;
-}) {
-  const showScoreBoardSponsor = hasScoreBoardSponsor(scoreBoardSponsor) && scoreBoardSponsor;
+function GameHistoryRow({ games }: { games: BadmintonMatchState["games"] }) {
+  const completed = games.filter((g) => g.phase === "completed");
+  if (completed.length === 0) return null;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
-      {showScoreBoardSponsor && (
-        <div className="px-6 pt-3 flex justify-end">
-          <ScoreBoardSponsorPanel
-            sponsor={scoreBoardSponsor}
-            variant="bar"
-            className="max-w-[360px]"
-          />
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "flex items-center justify-between px-6",
-          showScoreBoardSponsor ? "h-[56px]" : "h-[72px]",
-        )}
+    <div className="px-[3%] py-2 flex items-center justify-center gap-3 border-t border-white/5 bg-black/30">
+      <span
+        className="shrink-0 font-semibold uppercase tracking-[0.18em] text-white/45"
+        style={{ fontSize: "var(--score-player-meta)" }}
       >
-      {/* Left — tournament branding */}
-      <div className="flex items-center gap-3">
-        {logoUrl ? (
-          <img src={logoUrl} alt="logo" className="h-10 w-auto object-contain" />
-        ) : (
-          <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white/60">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2a10 10 0 110 20A10 10 0 0112 2z" fillRule="evenodd" clipRule="evenodd" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            </svg>
-          </div>
-        )}
-        <div>
-          <p className="text-white font-bold text-sm leading-tight">{tournamentName}</p>
-          <p className="text-white/40 text-[11px]">{roundName ?? "Badminton"}</p>
-        </div>
-      </div>
-
-      {/* Centre — status */}
-      <div className="flex items-center gap-4">
-        {courtNumber && (
-          <div className="bg-white/8 rounded-lg px-3 py-1.5">
-            <p className="text-white/40 text-[10px] uppercase tracking-widest text-center">Court</p>
-            <p className="text-white font-black text-lg leading-none text-center">{courtNumber}</p>
-          </div>
-        )}
-        {matchNumber && (
-          <div className="bg-white/8 rounded-lg px-3 py-1.5">
-            <p className="text-white/40 text-[10px] uppercase tracking-widest text-center">Match</p>
-            <p className="text-white font-black text-lg leading-none text-center">{matchNumber}</p>
-          </div>
-        )}
-        {isTimeout && (
-          <div className="bg-amber-500/20 border border-amber-500/40 rounded-full px-4 py-1.5 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-amber-300 text-sm font-bold">
-              TIMEOUT — {timeoutSide === "left" ? leftSide.shortLabel : rightSide.shortLabel}
+        Completed Games
+      </span>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {completed.map((g) => (
+          <div
+            key={g.gameNumber}
+            className="flex items-center gap-1.5 bg-white/8 border border-white/10 rounded px-3 py-1.5"
+          >
+            <span
+              className="text-white/40 font-mono uppercase tracking-wider"
+              style={{ fontSize: "var(--score-player-meta)" }}
+            >
+              G{g.gameNumber}
             </span>
+            <span className="font-['Bebas_Neue'] text-[length:var(--score-game-count)] tabular-nums" style={fixedScoreStyle()}>{g.leftScore}</span>
+            <span className="text-white/30 text-[length:var(--score-player-meta)]">–</span>
+            <span className="font-['Bebas_Neue'] text-[length:var(--score-game-count)] tabular-nums" style={fixedScoreStyle()}>{g.rightScore}</span>
           </div>
-        )}
+        ))}
       </div>
-
-      {/* Right — live indicator */}
-      <div className="flex items-center gap-2">
-        {matchStatus === "live" && !isTimeout && (
-          <div className="bg-red-600 rounded-full px-3 py-1 flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span className="text-white text-xs font-black tracking-wider">LIVE</span>
-          </div>
-        )}
-        {matchStatus === "completed" && (
-          <div className="bg-green-600/30 border border-green-500/40 rounded-full px-3 py-1">
-            <span className="text-green-300 text-xs font-black">FINAL</span>
-          </div>
-        )}
-      </div>
-    </div>
     </div>
   );
 }
@@ -358,16 +287,17 @@ function PlayerBlock({
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-4 w-[35%]",
+        "flex flex-col w-[35%]",
         isLeft ? "items-start" : "items-end",
       )}
+      style={{ gap: "var(--score-panel-gap)" }}
     >
       <div className="relative">
         <SidePlayerPhotos
           info={info}
           matchKind={matchKind}
           side={side}
-          size="lg"
+          size="broadcast"
           flash={flash}
           gameWinFlash={gameWinFlash}
         />
@@ -392,7 +322,8 @@ function PlayerBlock({
               alt={franchiseName ?? "Franchise"}
               loading="lazy"
               decoding="async"
-              className="h-6 w-6 object-contain"
+              className="object-contain"
+              style={{ height: "calc(var(--score-player-meta) * 1.4)", width: "calc(var(--score-player-meta) * 1.4)" }}
             />
           )}
           {!franchiseLogoUrl && info.flagUrl && (
@@ -401,7 +332,8 @@ function PlayerBlock({
               alt={info.countryCode}
               loading="lazy"
               decoding="async"
-              className="h-5 w-auto rounded-sm"
+              className="w-auto rounded-sm"
+              style={{ height: "var(--score-player-meta)" }}
             />
           )}
           {info.sponsorLogoUrl && (
@@ -410,7 +342,8 @@ function PlayerBlock({
               alt={info.sponsorName ?? "Sponsor"}
               loading="lazy"
               decoding="async"
-              className="h-5 w-auto object-contain opacity-80"
+              className="w-auto object-contain opacity-80"
+              style={{ height: "var(--score-player-meta)" }}
             />
           )}
         </div>
@@ -419,41 +352,51 @@ function PlayerBlock({
           matchKind={matchKind}
           side={side}
           stacked
+          className="badminton-score-player-name"
         />
         {franchiseName && (
           <p className={cn(
-            "text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40",
-          )}>
+            "font-semibold uppercase tracking-[0.1em] text-white/40",
+          )}
+          style={{ fontSize: "var(--score-player-meta)" }}
+          >
             Franchise: {franchiseName}
           </p>
         )}
         {info.countryName && (
           <p className={cn(
-            "text-sm font-bold uppercase tracking-[0.15em]",
-            isLeft ? "text-[#4fc3f7]" : "text-[#ce93d8]",
-          )}>
+            "font-bold uppercase tracking-[0.15em]",
+            isLeft ? "text-[#ffc400]" : "text-[#ce93d8]",
+          )}
+          style={{ fontSize: "var(--score-player-meta)" }}
+          >
             {info.countryName}
           </p>
         )}
       </div>
 
       {/* Games won indicator */}
-      <div className={cn("flex items-center gap-2", !isLeft && "flex-row-reverse")}>
+      <div className={cn("flex items-center", !isLeft && "flex-row-reverse")} style={{ gap: "calc(var(--score-panel-gap) * 0.65)" }}>
         {Array.from({ length: format.totalGames }).map((_, i) => (
           <div
             key={i}
             className={cn(
-              "w-4 h-4 rounded-full border-2 transition-all duration-500",
-              i < gamesWon
-                ? isLeft
-                  ? "bg-[#00e5ff] border-[#00e5ff] shadow-md shadow-[#00e5ff]/40"
-                  : "bg-[#ff6b6b] border-[#ff6b6b] shadow-md shadow-[#ff6b6b]/40"
-                : "bg-transparent border-white/20",
+              "rounded-full border-2 transition-all duration-500",
               gameWinFlash && i === gamesWon - 1 && "scale-150 animate-pulse",
             )}
+            style={{
+              width: "var(--score-game-dot)",
+              height: "var(--score-game-dot)",
+              ...fixedGameDotStyle(i < gamesWon),
+            }}
           />
         ))}
-        <span className="text-lg font-black text-white/60 ml-1">{gamesWon}</span>
+        <span
+          className="font-black text-white/60 ml-1"
+          style={{ fontSize: "var(--score-game-count)" }}
+        >
+          {gamesWon}
+        </span>
       </div>
     </div>
   );
@@ -461,6 +404,7 @@ function PlayerBlock({
 
 function CentrePanel({
   state,
+  matchName,
   isTimeout,
   timeoutSide,
   isDoubles,
@@ -468,6 +412,7 @@ function CentrePanel({
   receiverLabel,
 }: {
   state: BadmintonMatchState;
+  matchName: string;
   isTimeout: boolean;
   timeoutSide?: string;
   isDoubles?: boolean;
@@ -475,27 +420,49 @@ function CentrePanel({
   receiverLabel?: string | null;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 min-w-[200px]">
+    <div
+      className="flex flex-col items-center justify-center"
+      style={{ gap: "var(--score-panel-gap)", minWidth: "min(28vw, 320px)" }}
+    >
+      <p
+        className="text-white font-bold uppercase tracking-[0.12em] text-center leading-tight max-w-[min(32vw,420px)]"
+        style={{ fontSize: "calc(var(--score-player-meta) * 1.35)" }}
+      >
+        {matchName}
+      </p>
+
       {!isDoubles && (
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "w-3 h-3 rotate-45",
-            state.servingSide === "left"
-              ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
-              : "bg-white/10",
-          )} />
-          <span className="text-white/30 text-xs uppercase tracking-widest font-semibold">vs</span>
-          <div className={cn(
-            "w-3 h-3 rotate-45",
-            state.servingSide === "right"
-              ? "bg-[#ffd700] shadow-md shadow-[#ffd700]/60"
-              : "bg-white/10",
-          )} />
+        <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 0.85)" }}>
+          <div
+            className="rotate-45"
+            style={{
+              width: "var(--score-serve-diamond)",
+              height: "var(--score-serve-diamond)",
+              ...fixedServeStyle(state.servingSide === "left"),
+            }}
+          />
+          <span
+            className="text-white/30 uppercase tracking-widest font-semibold"
+            style={{ fontSize: "var(--score-player-meta)" }}
+          >
+            vs
+          </span>
+          <div
+            className="rotate-45"
+            style={{
+              width: "var(--score-serve-diamond)",
+              height: "var(--score-serve-diamond)",
+              ...fixedServeStyle(state.servingSide === "right"),
+            }}
+          />
         </div>
       )}
 
       {isDoubles && serverLabel && (
-        <div className="flex flex-col items-center gap-1 text-sm">
+        <div
+          className="flex flex-col items-center gap-1"
+          style={{ fontSize: "var(--score-player-meta)" }}
+        >
           <div className="flex items-center gap-2">
             <span className="text-[#ffd700]">🟡</span>
             <span className="text-white/50">Serving:</span>
@@ -503,36 +470,45 @@ function CentrePanel({
           </div>
           {receiverLabel && (
             <div className="flex items-center gap-2">
-              <span className="text-[#4fc3f7]">👁</span>
+              <span className="text-[#ffc400]">👁</span>
               <span className="text-white/50">Receiving:</span>
-              <span className="font-bold text-[#4fc3f7]">{receiverLabel}</span>
+              <span className="font-bold text-[#ffc400]">{receiverLabel}</span>
             </div>
           )}
         </div>
       )}
 
       {isDoubles && state.doublesServe && (
-        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[180px]" />
+        <DoublesCourtDisplay state={state} variant="mini" className="max-w-[min(220px,22vw)]" />
       )}
 
       {/* Main scores — large */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center" style={{ gap: "calc(var(--score-panel-gap) * 1.1)" }}>
         <ScoreDigit
           score={state.leftScore}
-          side="left"
           active={state.matchStatus === "live"}
         />
-        <div className="text-white/20 text-4xl font-thin">:</div>
+        <div
+          className="text-white/20 font-thin leading-none"
+          style={{ fontSize: "var(--score-colon-size)" }}
+        >
+          :
+        </div>
         <ScoreDigit
           score={state.rightScore}
-          side="right"
           active={state.matchStatus === "live"}
         />
       </div>
 
       {/* Game indicator */}
-      <div className="bg-white/5 border border-white/10 rounded-full px-4 py-1.5">
-        <span className="text-white/60 text-xs font-semibold">
+      <div
+        className="bg-white/5 border border-white/10 rounded-full"
+        style={{ padding: "calc(var(--score-game-pill) * 0.45) calc(var(--score-game-pill) * 1.6)" }}
+      >
+        <span
+          className="text-white/60 font-semibold"
+          style={{ fontSize: "var(--score-game-pill)" }}
+        >
           Game {state.currentGame}
         </span>
       </div>
@@ -554,69 +530,13 @@ function CentrePanel({
   );
 }
 
-function ScoreDigit({ score, side, active }: { score: number; side: "left" | "right"; active: boolean }) {
+function ScoreDigit({ score, active }: { score: number; active: boolean }) {
   return (
     <div
-      className={cn(
-        "text-[100px] font-black leading-none tabular-nums tracking-tighter",
-        "transition-all duration-200",
-        side === "left"
-          ? "text-[#00e5ff] drop-shadow-[0_0_30px_rgba(0,229,255,0.5)]"
-          : "text-[#ff6b6b] drop-shadow-[0_0_30px_rgba(255,107,107,0.5)]",
-        !active && "opacity-40",
-      )}
+      className="badminton-score-digit font-black leading-none tabular-nums tracking-tighter transition-all duration-200"
+      style={fixedScoreStyle(active)}
     >
       {score}
-    </div>
-  );
-}
-
-function BottomBar({
-  games,
-  sponsorLogos,
-  tournamentName,
-}: {
-  games: BadmintonMatchState["games"];
-  sponsorLogos: string[];
-  tournamentName: string;
-}) {
-  const completed = games.filter((g) => g.phase === "completed");
-
-  return (
-    <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gradient-to-t from-black/70 to-transparent flex items-end pb-4 px-6 z-20">
-      <div className="relative flex items-end justify-between w-full gap-4">
-        {/* Game scores history */}
-        <div className="flex items-center gap-3 flex-none max-w-[32%]">
-          {completed.map((g) => (
-            <div
-              key={g.gameNumber}
-              className="flex items-center gap-1.5 bg-white/8 border border-white/10 rounded-lg px-3 py-1.5"
-            >
-              <span className="text-xs text-white/40 font-medium">G{g.gameNumber}</span>
-              <span className="font-black text-[#00e5ff] text-sm">{g.leftScore}</span>
-              <span className="text-white/30 text-xs">–</span>
-              <span className="font-black text-[#ff6b6b] text-sm">{g.rightScore}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Rotating sponsor logos + tournament label */}
-        <div className="flex items-center gap-4 flex-none ml-auto">
-          <div className="flex items-center gap-4">
-            {sponsorLogos.map((logo, i) => (
-              <img
-                key={i}
-                src={logo}
-                alt="sponsor"
-                className="h-8 w-auto object-contain opacity-70"
-              />
-            ))}
-          </div>
-          <div className="text-white/20 text-[10px] font-medium uppercase tracking-widest">
-            {tournamentName}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -637,17 +557,14 @@ function GameWinOverlay({
           "relative overflow-hidden rounded-3xl px-16 py-8 text-center",
           "animate-[fadeInScale_0.4s_ease-out_forwards]",
           side === "left"
-            ? "bg-gradient-to-br from-[#0070f3]/80 to-[#00e5ff]/40 border border-[#00e5ff]/40"
+            ? "bg-gradient-to-br from-[#ffc400]/80 to-[#ffc400]/40 border border-[#ffc400]/40"
             : "bg-gradient-to-br from-[#7c3aed]/80 to-[#ff6b6b]/40 border border-[#ff6b6b]/40",
           "shadow-2xl backdrop-blur-xl",
         )}
       >
         <p className="text-white/60 text-sm font-bold uppercase tracking-[0.3em] mb-2">Game Won</p>
         <h2 className="text-4xl font-black text-white mb-3">{player.label}</h2>
-        <div className={cn(
-          "text-5xl font-black",
-          side === "left" ? "text-[#00e5ff]" : "text-[#ff6b6b]",
-        )}>
+        <div className="text-5xl font-black" style={fixedScoreStyle()}>
           {score.winner} – {score.loser}
         </div>
         {player.countryName && (
@@ -677,13 +594,10 @@ function MatchWinOverlay({
     <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/70 backdrop-blur-sm">
       <div
         className={cn(
-          "relative overflow-hidden rounded-3xl px-20 py-12 text-center max-w-2xl w-full",
+          "relative overflow-hidden rounded-3xl px-20 py-12 text-center max-w-2xl w-full border shadow-2xl",
           side === "left"
-            ? "bg-gradient-to-br from-[#051533] to-[#0a2060]"
-            : "bg-gradient-to-br from-[#180523] to-[#330a4a]",
-          "border",
-          side === "left" ? "border-[#00e5ff]/30" : "border-[#ff6b6b]/30",
-          "shadow-2xl",
+            ? "bg-gradient-to-br from-[#051533] to-[#0a2060] border-[#ffc400]/30"
+            : "bg-gradient-to-br from-[#180523] to-[#330a4a] border-[#ff6b6b]/30",
         )}
       >
         {/* Trophy animation */}
@@ -704,7 +618,7 @@ function MatchWinOverlay({
         {player.countryName && (
           <p className={cn(
             "text-lg font-bold uppercase tracking-[0.2em] mb-6",
-            side === "left" ? "text-[#4fc3f7]" : "text-[#ce93d8]",
+            side === "left" ? "text-[#ffc400]" : "text-[#ce93d8]",
           )}>
             {player.countryName}
           </p>
@@ -712,17 +626,14 @@ function MatchWinOverlay({
 
         {/* Games score */}
         <div className="bg-white/5 rounded-2xl px-8 py-4 mb-6 inline-block">
-          <span className={cn(
-            "text-5xl font-black",
-            side === "left" ? "text-[#00e5ff]" : "text-[#ff6b6b]",
-          )}>
+          <span className="text-5xl font-black" style={fixedScoreStyle(side === "left")}>
             {gamesLeft}
           </span>
           <span className="text-white/30 text-3xl mx-3">–</span>
-          <span className={cn(
-            "text-5xl font-black",
-            side === "right" ? "text-[#ff6b6b]" : "text-[#00e5ff] opacity-40",
-          )}>
+          <span
+            className="text-5xl font-black"
+            style={fixedScoreStyle(side === "right")}
+          >
             {gamesRight}
           </span>
         </div>

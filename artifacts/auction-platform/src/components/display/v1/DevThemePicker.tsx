@@ -1,25 +1,41 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useStageTheme } from "./StageThemeProvider";
 
 /**
  * Live LED theme picker — bottom-left floating chip + preset grid.
  * Stadium Gold / Sapphire / Emerald / Crimson + custom accent color.
+ *
+ * Use `anchor="stage"` when rendered inside `.auction-stage` (16:9 canvas).
  */
-export function DevThemePicker() {
+export function DevThemePicker({
+  anchor = "viewport",
+}: {
+  /** viewport = fixed to browser window; stage = absolute on LED canvas */
+  anchor?: "viewport" | "stage";
+}) {
   const { presets, themeId, setThemeId, customAccent, setCustomAccent, theme } = useStageTheme();
   const [open, setOpen] = useState(false);
+
+  const positionClass =
+    anchor === "stage"
+      ? "absolute bottom-[calc(8vh+0.75rem)] left-3 z-[200]"
+      : "fixed bottom-3 left-3 z-[100]";
 
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-3 left-3 z-[100] w-9 h-9 rounded-full bg-black/70 border border-white/15 backdrop-blur-md hover:bg-black shadow-lg flex items-center justify-center pointer-events-auto"
+        className={cn(
+          positionClass,
+          "w-10 h-10 rounded-full bg-black/80 border border-white/20 backdrop-blur-md hover:bg-black hover:border-white/35 shadow-lg flex items-center justify-center pointer-events-auto",
+        )}
         title="Stage theme"
         aria-label="Open theme picker"
       >
         <span
-          className="w-4 h-4 rounded-full border border-white/30"
+          className="w-5 h-5 rounded-full border-2 border-white/40 shadow-inner"
           style={{ background: theme.vars["--accent"] }}
         />
       </button>
@@ -27,7 +43,12 @@ export function DevThemePicker() {
   }
 
   return (
-    <div className="fixed bottom-3 left-3 z-[100] flex flex-col gap-2 p-3 rounded-xl border border-white/10 bg-black/85 backdrop-blur-md shadow-2xl w-64 pointer-events-auto">
+    <div
+      className={cn(
+        positionClass,
+        "flex flex-col gap-2 p-3 rounded-xl border border-white/10 bg-black/90 backdrop-blur-md shadow-2xl w-64 pointer-events-auto",
+      )}
+    >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-mono uppercase tracking-[0.25em] text-white/55">
           Stage Theme

@@ -12,6 +12,7 @@ import {
   loadBadmintonBranding,
   updateBadmintonBranding,
   importBrandingFromTournament,
+  importAuctionBrandingToBadminton,
   importPlayersFromTournament,
 } from "../lib/master-sports/badminton";
 import {
@@ -57,11 +58,15 @@ router.post("/import-master-players", async (req, res) => {
     return;
   }
 
-  const result = await importMasterPlayersToBadminton(
-    tournamentId,
-    parsed.data.masterPlayerIds,
-  );
-  res.json(result);
+  try {
+    const result = await importMasterPlayersToBadminton(
+      tournamentId,
+      parsed.data.masterPlayerIds,
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });
+  }
 });
 
 /** GET side JSON preview from master player (match creation helper) */
@@ -116,6 +121,22 @@ router.patch("/settings", async (req, res) => {
   if (!tournament) {
     res.status(404).json({ error: "Not found" });
     return;
+  }
+
+  if (parsed.data.linkedAuctionTournamentId !== undefined && parsed.data.linkedAuctionTournamentId !== null) {
+    const [linked] = await db
+      .select({ sport: tournamentsTable.sport })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, parsed.data.linkedAuctionTournamentId))
+      .limit(1);
+    if (!linked) {
+      res.status(400).json({ error: "Linked tournament not found" });
+      return;
+    }
+    if (linked.sport !== "badminton") {
+      res.status(400).json({ error: "Linked auction source must be a badminton tournament" });
+      return;
+    }
   }
 
   const current = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
@@ -227,6 +248,23 @@ router.patch("/branding", async (req, res) => {
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
+  }
+});
+
+/** POST import Auction Hub branding into badminton display settings (same tournament) */
+router.post("/import-auction-branding", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const branding = await importAuctionBrandingToBadminton(tournamentId);
+    res.json(branding);
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });
   }
 });
 

@@ -3,12 +3,47 @@
  * Route: /badminton/:matchId/display?tid=YYY
  */
 
+import { useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
-import { useBadmintonBranding, sponsorUrlsFromBranding } from "@/hooks/use-badminton-branding";
+import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { FullscreenLayout } from "@/components/layout";
+import { StageFrame } from "@/components/display/v1/StageFrame";
+import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
+import { DevThemePicker } from "@/components/display/v1/DevThemePicker";
+import { DISPLAY_THEMES, type DisplayTheme } from "@/lib/display-theme";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
+
+function LedStandby({ message }: { message: string }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#050505] font-['Barlow_Condensed']">
+      <div className="absolute top-0 left-0 right-0 flex items-start justify-between p-[2.5%]">
+        <div
+          className="flex items-center gap-2 px-3 py-1.5"
+          style={{ backgroundColor: "var(--accent)" }}
+        >
+          <span
+            className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
+            style={{ color: "var(--accent-on)" }}
+          >
+            BIDWAR
+          </span>
+          <span
+            className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
+            style={{ color: "var(--accent-on)" }}
+          >
+            LIVE
+          </span>
+        </div>
+      </div>
+      <div className="relative z-10 text-center">
+        <div className="w-12 h-12 border-2 border-[var(--accent)]/20 border-t-[var(--accent)] rounded-full animate-spin mx-auto mb-6" />
+        <p className="text-white/40 text-sm font-mono uppercase tracking-[0.3em]">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function BadmintonDisplayPage() {
   const [, params] = useRoute("/badminton/:matchId/display");
@@ -25,46 +60,48 @@ export default function BadmintonDisplayPage() {
   const tournamentName =
     searchParams.get("name") ?? branding?.displayName ?? "Badminton Tournament";
 
-  if (isLoading) {
-    return (
-      <FullscreenLayout>
-        <div className="min-h-screen bg-[#050a17] flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-2 border-[#4fc3f7]/20 border-t-[#4fc3f7] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white/30 text-sm">Connecting to match…</p>
-          </div>
-        </div>
-      </FullscreenLayout>
-    );
-  }
+  const initialTheme = useMemo((): DisplayTheme => {
+    const accent =
+      branding?.accentColor?.trim() || branding?.primaryColor?.trim();
+    if (!accent) return DISPLAY_THEMES["stadium-gold"];
 
-  if (!data?.state) {
-    return (
-      <FullscreenLayout>
-        <div className="min-h-screen bg-[#050a17] flex items-center justify-center">
-          <p className="text-white/20 text-lg">Match not available</p>
-        </div>
-      </FullscreenLayout>
+    const knownPreset = Object.values(DISPLAY_THEMES).find(
+      (t) => t.accentColor.toLowerCase() === accent.toLowerCase(),
     );
-  }
+    if (knownPreset) return knownPreset;
 
-  const state = data.state as BadmintonMatchState;
-  const detail = data.detail as Record<string, unknown> | null;
+    return {
+      ...DISPLAY_THEMES.default,
+      accentColor: accent,
+      dot: accent,
+      stagePreset: "custom",
+    };
+  }, [branding?.accentColor, branding?.primaryColor]);
 
   return (
     <FullscreenLayout>
-      <div className="w-screen h-screen overflow-hidden">
-        <BroadcastDisplay
-          state={state}
-          tournamentName={tournamentName}
-          tournamentLogoUrl={branding?.logoUrl ?? undefined}
-          courtNumber={courtNumber ?? (detail?.courtNumber as string | undefined)}
-          matchNumber={detail?.matchNumber as string | undefined}
-          roundName={detail?.roundName as string | undefined}
-          sponsorLogos={sponsorUrlsFromBranding(branding)}
-          scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-        />
-      </div>
+      <StageThemeProvider initialTheme={initialTheme}>
+        <StageFrame>
+          {isLoading ? (
+            <LedStandby message="Connecting to match…" />
+          ) : !data?.state ? (
+            <LedStandby message="Match not available" />
+          ) : (
+            <BroadcastDisplay
+              state={data.state as BadmintonMatchState}
+              tournamentName={tournamentName}
+              tournamentLogoUrl={branding?.logoUrl ?? undefined}
+              courtNumber={courtNumber ?? (data.detail?.courtNumber as string | undefined)}
+              matchNumber={data.detail?.matchNumber as string | undefined}
+              roundName={data.detail?.roundName as string | undefined}
+              matchLabel={data.detail?.matchLabel as string | undefined}
+              sponsorLogos={sponsorLogosFromBranding(branding)}
+              scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+            />
+          )}
+          <DevThemePicker anchor="stage" />
+        </StageFrame>
+      </StageThemeProvider>
     </FullscreenLayout>
   );
 }

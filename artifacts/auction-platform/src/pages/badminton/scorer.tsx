@@ -6,7 +6,7 @@
  * Optimized for mobile phones and tablets.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch, useRoute } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
 import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
@@ -16,8 +16,12 @@ import {
   isDoublesMatchType,
 } from "@/components/badminton/doubles-pre-match-setup";
 import { useBadmintonMatch, useBadmintonScorer } from "@/hooks/use-badminton-match";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
 import { FullscreenLayout } from "@/components/layout";
+import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
+import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
 
 export default function BadmintonScorerPage() {
   const [, params] = useRoute("/badminton/:matchId/score");
@@ -29,8 +33,40 @@ export default function BadmintonScorerPage() {
   const pin = searchParams.get("pin") ?? undefined;
 
   const [pinInput, setPinInput] = useState(pin ?? "");
-  const [pinAccepted, setPinAccepted] = useState(!!pin);
+  const [pinAccepted, setPinAccepted] = useState(false);
   const [pinError, setPinError] = useState("");
+  const [verifyingPin, setVerifyingPin] = useState(false);
+
+  async function submitPin(candidate: string) {
+    if (candidate.length < 4) {
+      setPinError("PIN must be at least 4 digits");
+      return;
+    }
+    if (!tournamentId || !matchId) {
+      setPinError("Invalid match link");
+      return;
+    }
+    setVerifyingPin(true);
+    setPinError("");
+    try {
+      const ok = await verifyBadmintonScorerPin(tournamentId, matchId, candidate);
+      if (!ok) {
+        setPinError("Incorrect PIN for this match");
+        return;
+      }
+      setPinInput(candidate);
+      setPinAccepted(true);
+    } finally {
+      setVerifyingPin(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!pin || !tournamentId || !matchId || pinAccepted || verifyingPin) return;
+    void submitPin(pin);
+    // Only attempt URL pin once on initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data, isLoading, error } = useBadmintonMatch(
     pinAccepted ? tournamentId : 0,
@@ -38,17 +74,21 @@ export default function BadmintonScorerPage() {
   );
 
   const scorer = useBadmintonScorer(tournamentId, matchId, pinInput);
+  const { data: branding } = useBadmintonBranding(tournamentId);
+
+  const tournamentName =
+    branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
+  const matchDetail = data?.detail as Record<string, unknown> | null | undefined;
+  const courtNumber = matchDetail?.courtNumber ? String(matchDetail.courtNumber) : undefined;
 
   if (!pinAccepted) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-[#4fc3f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
+              <div className="flex justify-center mb-6">
+                <BadmintonPublicBrandMark variant="scorer-bar" />
               </div>
               <h1 className="text-white text-2xl font-black">Scorer Access</h1>
               <p className="text-white/40 text-sm mt-2">Enter your scorer PIN to continue</p>
@@ -61,11 +101,7 @@ export default function BadmintonScorerPage() {
                 onChange={(e) => setPinInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    if (pinInput.length >= 4) {
-                      setPinAccepted(true);
-                    } else {
-                      setPinError("PIN must be at least 4 digits");
-                    }
+                    void submitPin(pinInput);
                   }
                 }}
                 placeholder="Enter PIN"
@@ -76,17 +112,12 @@ export default function BadmintonScorerPage() {
                 <p className="text-red-400 text-sm text-center">{pinError}</p>
               )}
               <button
-                onClick={() => {
-                  if (pinInput.length >= 4) {
-                    setPinAccepted(true);
-                    setPinError("");
-                  } else {
-                    setPinError("PIN must be at least 4 digits");
-                  }
-                }}
-                className="w-full h-16 rounded-2xl bg-[#0070f3] hover:bg-[#0060d3] text-white font-black text-lg transition-colors"
+                type="button"
+                disabled={verifyingPin}
+                onClick={() => void submitPin(pinInput)}
+                className="w-full h-16 rounded-lg bg-primary text-primary-foreground font-display font-bold text-lg shadow-[var(--shadow-glow)] hover-elevate transition-colors disabled:opacity-50"
               >
-                Access Scorer
+                {verifyingPin ? "Checking PIN…" : "Access Scorer"}
               </button>
             </div>
           </div>
@@ -98,7 +129,7 @@ export default function BadmintonScorerPage() {
   if (isLoading) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" />
             <p className="text-white/40 text-sm">Loading match…</p>
@@ -111,7 +142,7 @@ export default function BadmintonScorerPage() {
   if (error || !data?.state) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="text-center">
             <p className="text-white/60 text-lg font-semibold">Match not found</p>
             <p className="text-white/30 text-sm mt-2">Check the match ID and tournament ID</p>
@@ -136,24 +167,42 @@ export default function BadmintonScorerPage() {
 
     return (
       <FullscreenLayout>
-        {isDoubles ? (
-          <DoublesPreMatchSetup
-            state={state}
-            detail={data.detail}
-            onStart={scorer.startMatch}
+        <div className="relative flex flex-col min-h-[100dvh] bg-background">
+          <ScorerConsoleHeader
+            tournamentName={tournamentName}
+            courtNumber={courtNumber}
+            voiceEnabled={false}
+            onToggleVoice={() => {}}
+            showVoiceToggle={false}
+            showBrandMark={false}
+            className="relative z-10"
           />
-        ) : (
-          <SinglesPreMatchSetup detail={data.detail} onStart={scorer.startMatch} />
-        )}
+          <div className="flex-1 flex flex-col min-h-0">
+            {isDoubles ? (
+              <DoublesPreMatchSetup
+                state={state}
+                detail={data.detail}
+                onStart={scorer.startMatch}
+              />
+            ) : (
+              <SinglesPreMatchSetup detail={data.detail} onStart={scorer.startMatch} />
+            )}
+          </div>
+          <footer className="shrink-0 border-t border-border bg-card/90 px-4 py-3 flex justify-center">
+            <BadmintonPublicBrandMark variant="footer" />
+          </footer>
+        </div>
       </FullscreenLayout>
     );
   }
 
   return (
     <FullscreenLayout>
-      <div className="relative h-screen overflow-hidden">
+      <div className="h-[100dvh] overflow-hidden">
         <UmpireAssistanceShell
           state={state}
+          tournamentName={tournamentName}
+          courtNumber={courtNumber}
           onAwardPoint={scorer.awardPoint}
           onStartInterval={scorer.startInterval}
           onEndInterval={scorer.endInterval}

@@ -306,7 +306,6 @@ void pool
       right_side_json JSONB,
       scorer_pin TEXT,
       scorer_name TEXT,
-      referee_name TEXT,
       umpire_name TEXT,
       service_judge_name TEXT,
       state_snapshot_json JSONB,
@@ -336,6 +335,29 @@ void pool
   `)
   .catch((err) => {
     console.error("[db] failed to ensure badminton tables:", err);
+  });
+
+/** Migrate legacy referee_name → umpire_name, then drop referee_name. */
+void pool
+  .query(`
+    UPDATE badminton_match_details
+    SET umpire_name = referee_name
+    WHERE umpire_name IS NULL AND referee_name IS NOT NULL;
+    ALTER TABLE badminton_match_details DROP COLUMN IF EXISTS referee_name;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to migrate badminton_match_details referee_name:", err);
+  });
+
+/** Backfill missing per-match scorer PINs (legacy rows). */
+void pool
+  .query(`
+    UPDATE badminton_match_details
+    SET scorer_pin = LPAD((1000 + floor(random() * 9000))::int::text, 4, '0')
+    WHERE scorer_pin IS NULL OR btrim(scorer_pin) = '';
+  `)
+  .catch((err) => {
+    console.error("[db] failed to backfill badminton_match_details scorer_pin:", err);
   });
 
 /** Master Sports Core — shared player/team/sponsor identity */

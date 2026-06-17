@@ -45,9 +45,12 @@ import {
   BadmintonServiceError,
   awardPoint,
   createBadmintonMatch,
+  updateBadmintonMatch,
   deleteBadmintonMatch,
   ensureBadmintonTournament,
   getLiveBadmintonMatches,
+  serializeBadmintonMatchDetail,
+  verifyMatchScorerPin,
   handleRetirement,
   handleTimeout,
   handleInterval,
@@ -65,6 +68,11 @@ import {
   undoLastPoint,
 } from "../lib/badminton-service";
 import { allocateTournamentInitials } from "../lib/master-sports/tournament-initials";
+import {
+  buildSideJsonFromBadmintonPlayer,
+  listBadmintonPlayersForMatchRoster,
+  listBadmintonPlayersForOrganizer,
+} from "../lib/master-sports/badminton";
 import {
   addBadmintonSseClient,
   broadcastBadmintonMatchUpdate,
@@ -311,57 +319,127 @@ router.get("/players", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
-  const players = await db
-    .select()
-    .from(badmintonPlayersTable)
-    .where(eq(badmintonPlayersTable.tournamentId, tournamentId))
-    .orderBy(asc(badmintonPlayersTable.lastName), asc(badmintonPlayersTable.firstName));
+  const players = await listBadmintonPlayersForOrganizer(tournamentId);
 
   res.json(players);
 });
+
+/** Registered roster for match creation — tournament players only, not global catalog. */
+router.get("/match-roster", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+
+  const roster = await listBadmintonPlayersForMatchRoster(tournamentId);
+  res.json(roster);
+});
+
+router.get("/players/:playerId/side-json", async (req, res) => {
+  const tournamentId = tid(req);
+  const playerId = parseId((req.params as MergedParams).playerId);
+  if (!tournamentId || !playerId) return void res.status(400).json({ error: "bad id" });
+
+  try {
+    const sideJson = await buildSideJsonFromBadmintonPlayer(playerId, tournamentId);
+    res.json(sideJson);
+  } catch {
+    res.status(404).json({ error: "Player not found" });
+  }
+});
+
+const walkInPlayerBodySchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    firstName: z.string().min(1).max(100).optional(),
+    lastName: z.string().min(1).max(100).optional(),
+    shortName: z.string().max(50).optional(),
+    photoUrl: z.string().max(500).optional(),
+    mobile: z.string().max(20).optional(),
+    email: z.string().max(200).optional(),
+    gender: z.enum(["M", "F"]).or(z.literal("")).optional(),
+    handedness: z.enum(["R", "L"]).optional(),
+    city: z.string().max(100).optional(),
+    age: z.number().int().min(1).max(120).optional(),
+    role: z.string().max(100).optional(),
+    jerseyNumber: z.string().max(20).optional(),
+    jerseySize: z.string().max(10).optional(),
+    achievements: z.string().max(2000).optional(),
+  })
+  .refine(
+    (data) => Boolean(data.name?.trim() || (data.firstName?.trim() && data.lastName?.trim())),
+    { message: "Full name is required" },
+  );
+
+function splitWalkInName(name: string): { firstName: string; lastName: string } {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  const spaceIdx = trimmed.lastIndexOf(" ");
+  if (spaceIdx <= 0) {
+    return { firstName: trimmed, lastName: trimmed };
+  }
+  return {
+    firstName: trimmed.slice(0, spaceIdx),
+    lastName: trimmed.slice(spaceIdx + 1),
+  };
+}
+
+function buildWalkInMetaJson(
+  input: z.infer<typeof walkInPlayerBodySchema>,
+  existing?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const meta = { ...(existing ?? {}) };
+  if (input.city !== undefined) meta.city = input.city || null;
+  if (input.age !== undefined) meta.age = input.age ?? null;
+  if (input.role !== undefined) meta.role = input.role || null;
+  if (input.jerseyNumber !== undefined) meta.jerseyNumber = input.jerseyNumber || null;
+  if (input.jerseySize !== undefined) meta.jerseySize = input.jerseySize || null;
+  if (input.achievements !== undefined) meta.achievements = input.achievements || null;
+  return meta;
+}
+
+async function normalizeWalkInPlayerInput(
+  tournamentId: number,
+  input: z.infer<typeof walkInPlayerBodySchema>,
+  existing?: typeof badmintonPlayersTable.$inferSelect,
+) {
+  const names = input.name?.trim()
+    ? splitWalkInName(input.name)
+    : { firstName: input.firstName!.trim(), lastName: input.lastName!.trim() };
+
+  const shortName =
+    input.shortName?.trim() ||
+    (await allocateTournamentInitials(tournamentId, {
+      firstName: names.firstName,
+      lastName: names.lastName,
+    }));
+
+  const metaJson = buildWalkInMetaJson(input, existing?.metaJson as Record<string, unknown> | null);
+
+  return {
+    firstName: names.firstName,
+    lastName: names.lastName,
+    shortName,
+    photoUrl: input.photoUrl,
+    mobile: input.mobile,
+    email: input.email,
+    gender: input.gender === "M" || input.gender === "F" ? input.gender : null,
+    handedness: input.handedness,
+    academyName: input.city || null,
+    metaJson,
+  };
+}
 
 /** Write — requires tournament owner. */
 router.post("/players", async (req, res) => {
   const tournamentId = await guardBadmintonWrite(req, res);
   if (!tournamentId) return;
 
-  const schema = z.object({
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
-    displayName: z.string().max(200).optional(),
-    shortName: z.string().max(50).optional(),
-    countryCode: z.string().max(3).optional(),
-    countryName: z.string().max(100).optional(),
-    stateName: z.string().max(100).optional(),
-    academyName: z.string().max(200).optional(),
-    dateOfBirth: z.string().optional(),
-    ageGroup: z.string().max(20).optional(),
-    gender: z.string().max(10).optional(),
-    handedness: z.string().max(1).optional(),
-    mobile: z.string().max(20).optional(),
-    email: z.string().max(200).optional(),
-    photoUrl: z.string().max(500).optional(),
-    flagUrl: z.string().max(500).optional(),
-    teamColor: z.string().max(10).optional(),
-    worldRanking: z.number().int().optional(),
-    nationalRanking: z.number().int().optional(),
-    bwfCode: z.string().max(20).optional(),
-  });
-
-  const parsed = schema.safeParse(req.body);
+  const parsed = walkInPlayerBodySchema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  const shortName =
-    parsed.data.shortName?.trim() ||
-    (await allocateTournamentInitials(tournamentId, {
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      displayName: parsed.data.displayName,
-    }));
+  const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data);
 
   const [player] = await db
     .insert(badmintonPlayersTable)
-    .values({ tournamentId, ...parsed.data, shortName })
+    .values({ tournamentId, ...values, status: "active" })
     .returning();
 
   broadcastTournamentUpdate(tournamentId, { type: "player_created", player });
@@ -394,9 +472,27 @@ router.patch("/players/:playerId", async (req, res) => {
   const playerId = parseId((req.params as MergedParams).playerId);
   if (!playerId) return void res.status(400).json({ error: "bad id" });
 
+  const parsed = walkInPlayerBodySchema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const [existing] = await db
+    .select()
+    .from(badmintonPlayersTable)
+    .where(
+      and(
+        eq(badmintonPlayersTable.id, playerId),
+        eq(badmintonPlayersTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) return void res.status(404).json({ error: "player not found" });
+
+  const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data, existing);
+
   const [player] = await db
     .update(badmintonPlayersTable)
-    .set({ ...req.body, updatedAt: new Date() })
+    .set({ ...values, updatedAt: new Date() })
     .where(
       and(
         eq(badmintonPlayersTable.id, playerId),
@@ -405,7 +501,6 @@ router.patch("/players/:playerId", async (req, res) => {
     )
     .returning();
 
-  if (!player) return void res.status(404).json({ error: "player not found" });
   res.json(player);
 });
 
@@ -785,8 +880,14 @@ router.get("/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
+  const includeScorerPin = isTournamentOwner(req, tournamentId);
   const matches = await getLiveBadmintonMatches(tournamentId);
-  res.json(matches);
+  res.json(
+    matches.map(({ detail, ...rest }) => ({
+      ...rest,
+      detail: serializeBadmintonMatchDetail(detail, { includeScorerPin }),
+    })),
+  );
 });
 
 router.post("/matches", async (req, res) => {
@@ -815,7 +916,6 @@ router.post("/matches", async (req, res) => {
     rightSideJson: z.record(z.unknown()),
     scorerPin: z.string().max(20).optional(),
     scorerName: z.string().max(100).optional(),
-    refereeName: z.string().max(100).optional(),
     umpireName: z.string().max(100).optional(),
     scheduledAt: z.string().optional(),
   });
@@ -839,14 +939,17 @@ router.post("/matches", async (req, res) => {
     if (!fix) return void res.status(400).json({ error: "fixtureId not found in this tournament" });
   }
 
-  const match = await createBadmintonMatch({
+  const created = await createBadmintonMatch({
     tournamentId,
     ...parsed.data,
     scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : undefined,
   });
 
-  broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: match.id });
-  res.status(201).json(match);
+  broadcastTournamentUpdate(tournamentId, { type: "match_created", matchId: created.match.id });
+  res.status(201).json({
+    ...created.match,
+    detail: serializeBadmintonMatchDetail(created.detail, { includeScorerPin: true }),
+  });
 });
 
 /**
@@ -875,7 +978,62 @@ router.get("/matches/:matchId", async (req, res) => {
     )
     .limit(1);
 
-  res.json({ state, detail: detail ?? null });
+  res.json({
+    state,
+    detail: serializeBadmintonMatchDetail(detail ?? null, {
+      includeScorerPin: isTournamentOwner(req, tournamentId),
+    }),
+  });
+});
+
+router.post("/matches/:matchId/verify-pin", async (req, res) => {
+  const tournamentId = tid(req);
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({ pin: z.string().min(4).max(20) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const ok = await verifyMatchScorerPin(tournamentId, matchId, parsed.data.pin);
+  res.json({ ok });
+});
+
+router.patch("/matches/:matchId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+
+  const matchId = parseId((req.params as MergedParams).matchId);
+  if (!matchId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    matchType: z.enum(["singles", "doubles", "mixed_doubles"]).optional(),
+    courtId: z.number().int().nullable().optional(),
+    courtNumber: z.string().max(20).nullable().optional(),
+    matchLabel: z.string().max(200).nullable().optional(),
+    roundName: z.string().max(100).nullable().optional(),
+    leftSideJson: z.record(z.unknown()).optional(),
+    rightSideJson: z.record(z.unknown()).optional(),
+    scorerPin: z.string().max(20).optional(),
+    umpireName: z.string().max(100).nullable().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  try {
+    const updated = await updateBadmintonMatch(matchId, tournamentId, parsed.data);
+    broadcastTournamentUpdate(tournamentId, { type: "match_updated", matchId });
+    res.json({
+      ...updated,
+      detail: serializeBadmintonMatchDetail(updated.detail, { includeScorerPin: true }),
+    });
+  } catch (e) {
+    if (e instanceof BadmintonServiceError) {
+      return void res.status(e.status).json({ error: e.message, code: e.code });
+    }
+    throw e;
+  }
 });
 
 router.delete("/matches/:matchId", async (req, res) => {

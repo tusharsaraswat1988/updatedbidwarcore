@@ -4,7 +4,9 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import {
+  AsyncLoadingPanel,
   FormModal,
   SearchInput,
   PickerTrigger,
@@ -14,15 +16,14 @@ import {
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export type MasterPlayerOption = {
-  id: string;
+  badmintonPlayerId: number;
+  masterPlayerId: string | null;
   displayName: string;
   photoUrl: string | null;
   franchiseName: string | null;
   franchiseLogoUrl: string | null;
   /** @deprecated use franchiseLogoUrl */
   teamLogoUrl?: string | null;
-  alreadyImported: boolean;
-  badmintonPlayerId: number | null;
 };
 
 export type SidePreview = {
@@ -131,29 +132,31 @@ export function MasterPlayerPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [pickingId, setPickingId] = useState<string | null>(null);
 
-  const { data: players = [] } = useQuery<MasterPlayerOption[]>({
-    queryKey: ["master-players", tournamentId],
+  const { data: players = [], isLoading, isFetching } = useQuery<MasterPlayerOption[]>({
+    queryKey: ["badminton-match-roster", tournamentId],
     queryFn: async () => {
       const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players`,
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/match-roster`,
         { credentials: "include" },
       );
       if (!res.ok) return [];
       const rows = (await res.json()) as Array<Record<string, unknown>>;
       return rows.map((p) => ({
-        id: String(p.id),
+        badmintonPlayerId: Number(p.badmintonPlayerId),
+        masterPlayerId: (p.masterPlayerId as string | null) ?? null,
         displayName: String(p.displayName ?? ""),
         photoUrl: (p.photoUrl as string | null) ?? null,
         franchiseName: (p.franchiseName ?? p.teamName ?? null) as string | null,
         franchiseLogoUrl: (p.franchiseLogoUrl ?? p.teamLogoUrl ?? null) as string | null,
         teamLogoUrl: (p.teamLogoUrl as string | null) ?? null,
-        alreadyImported: Boolean(p.alreadyImported),
-        badmintonPlayerId: (p.badmintonPlayerId as number | null) ?? null,
       }));
     },
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && open,
   });
+
+  const listLoading = isLoading || (isFetching && players.length === 0);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -162,42 +165,69 @@ export function MasterPlayerPicker({
   }, [players, query]);
 
   async function pick(player: MasterPlayerOption) {
-    const res = await fetch(
-      `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players/${player.id}/side-json${
-        player.badmintonPlayerId ? `?badmintonPlayerId=${player.badmintonPlayerId}` : ""
-      }`,
-      { credentials: "include" },
-    );
-    const sideJson = res.ok ? ((await res.json()) as SidePreview) : null;
-    if (sideJson) {
-      onSelect(player, sideJson);
+    const pickKey = String(player.badmintonPlayerId);
+    setPickingId(pickKey);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${player.badmintonPlayerId}/side-json`,
+        { credentials: "include" },
+      );
+      const sideJson = res.ok ? ((await res.json()) as SidePreview) : null;
+      if (sideJson) {
+        onSelect(player, sideJson);
+      }
+      setOpen(false);
+      setQuery("");
+    } finally {
+      setPickingId(null);
     }
-    setOpen(false);
-    setQuery("");
   }
 
   function closeModal() {
+    if (pickingId) return;
     setOpen(false);
     setQuery("");
   }
 
   const pickerModal = open ? (
-    <FormModal title={label} subtitle="Search and select a player" onClose={closeModal} size="md">
+    <FormModal title={label} subtitle="Choose from players registered in this tournament" onClose={closeModal} size="md">
       <SearchInput
         value={query}
         onChange={setQuery}
         placeholder="Search by name…"
       />
       <div className="max-h-[45vh] overflow-y-auto space-y-1 -mx-1 px-1">
-        {filtered.length === 0 ? (
-          <p className="text-white/35 text-sm text-center py-10">No players found</p>
+        {pickingId ? (
+          <AsyncLoadingPanel
+            tone="inverse"
+            compact
+            message="Loading player details for this side…"
+          />
+        ) : listLoading ? (
+          <AsyncLoadingPanel
+            tone="inverse"
+            compact
+            message="Loading players from your tournament roster…"
+          />
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-10 px-4 space-y-2">
+            <p className="text-white/35 text-sm">
+              {query.trim() ? "No players match your search" : "No players registered in this tournament yet"}
+            </p>
+            {!query.trim() ? (
+              <p className="text-white/25 text-xs">
+                Add players under Badminton → Players, or import from your auction roster first.
+              </p>
+            ) : null}
+          </div>
         ) : (
           filtered.map((p) => (
             <button
-              key={p.id}
+              key={p.badmintonPlayerId}
               type="button"
               onClick={() => pick(p)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/[0.04] text-left transition-colors"
+              disabled={!!pickingId}
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/[0.04] text-left transition-colors disabled:opacity-50"
             >
               <PlayerAvatar
                 photoUrl={p.photoUrl}
@@ -213,6 +243,9 @@ export function MasterPlayerPicker({
                   </span>
                 ) : null}
               </div>
+              {pickingId === String(p.badmintonPlayerId) ? (
+                <Loader2 className="w-4 h-4 text-[#4fc3f7] animate-spin shrink-0" />
+              ) : null}
             </button>
           ))
         )}

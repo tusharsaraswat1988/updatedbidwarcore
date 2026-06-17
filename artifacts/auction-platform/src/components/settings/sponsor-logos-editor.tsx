@@ -21,7 +21,7 @@ export function SponsorLogosEditor({
           {logos.map((logo, i) => (
             <div
               key={i}
-              className="grid grid-cols-[3.5rem_1fr_auto] sm:grid-cols-[3.5rem_1fr_1fr_2rem] gap-2 items-center rounded-lg border border-border/50 bg-muted/5 p-2"
+              className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 items-center rounded-lg border border-border/50 bg-muted/5 p-2"
             >
               <label className="cursor-pointer" title="Click to replace logo image">
                 <div className="w-14 h-10 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
@@ -45,13 +45,13 @@ export function SponsorLogosEditor({
                 className="h-8 text-sm"
                 value={logo.name ?? ""}
                 onChange={e => { const next = [...logos]; next[i] = { ...next[i], name: e.target.value }; onChange(next); }}
-                placeholder="Name (optional)"
+                placeholder="Sponsor name"
               />
               <Input
-                className="h-8 text-sm hidden sm:block"
+                className="h-8 text-sm"
                 value={logo.type ?? ""}
                 onChange={e => { const next = [...logos]; next[i] = { ...next[i], type: e.target.value }; onChange(next); }}
-                placeholder="Type (optional)"
+                placeholder="Sponsor Type (e.g. Title Sponsor)"
               />
               <Button
                 size="icon"

@@ -37,10 +37,15 @@ const PRESETS = {
   teamLogo: "w_200,h_200,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * 112×112 px — tournament header / identity logo (40-56 px rendered size
-   * with retina headroom).
+   * 112×112 px — compact square slots (sidebar icon, mini avatar contexts).
+   * Do not use for horizontal main/reverse wordmarks — use brandWordmark instead.
    */
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
+
+  /**
+   * Full wordmark — trim empty margins, preserve aspect ratio (no square letterbox).
+   */
+  brandWordmark: "e_trim/w_960,c_limit,f_auto,q_auto",
 
   /**
    * 512×512 px — app icon / favicon source.

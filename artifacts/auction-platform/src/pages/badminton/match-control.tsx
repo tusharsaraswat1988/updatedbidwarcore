@@ -18,11 +18,14 @@ export default function BadmintonMatchControlPage() {
   const state = data?.state;
 
   return (
-    <HubPageShell>
+    <HubPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Match Control Center"
-        subtitle={state ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}` : "Loading…"}
-        backHref={`/tournament/${tournamentId}/badminton/matches`}
+        subtitle={
+          state
+            ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel} — tournament director (not umpire scoring)`
+            : "Loading…"
+        }
       />
 
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
