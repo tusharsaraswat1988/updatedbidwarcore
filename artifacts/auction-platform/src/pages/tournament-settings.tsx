@@ -29,7 +29,7 @@ import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Settings, UserPlus,
-  Building2, Timer, Trash2,
+  Building2, Timer, Trash2, ArrowUp, ArrowDown,
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee,
@@ -45,6 +45,7 @@ import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
 export default function TournamentSettings() {
@@ -65,6 +66,7 @@ export default function TournamentSettings() {
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
     { increment: 0 },
   ]);
+  const [bidValueOptions, setBidValueOptions] = useState<number[]>([]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
   const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
@@ -107,7 +109,8 @@ export default function TournamentSettings() {
     form: Record<string, string | number | boolean>,
     tiers: Array<{ upTo?: number; increment: number }>,
     logos: SponsorLogo[],
-  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()) }), []);
+    bidOptions: number[],
+  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions }), []);
 
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
@@ -133,6 +136,7 @@ export default function TournamentSettings() {
       paymentVerificationMethod: t.paymentVerificationMethod || "utr",
       enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
       registrationDeclarationText: t.registrationDeclarationText || "",
+      bidValueMode: (t as { bidValueMode?: string }).bidValueMode || "system",
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
       audioEnabled: t.audioEnabled ?? true,
@@ -195,13 +199,19 @@ export default function TournamentSettings() {
     }
     setBidTiers(initialTiers);
 
+    const rawBidOptions = (t as { bidValueOptions?: number[] | string | null }).bidValueOptions;
+    const initialBidOptions = Array.isArray(rawBidOptions)
+      ? [...new Set(rawBidOptions.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b)
+      : parseBidValueOptions(rawBidOptions as string | null);
+    setBidValueOptions(initialBidOptions);
+
     let initialSponsors: SponsorLogo[];
     try {
       const parsed = t.sponsorLogos ? JSON.parse(t.sponsorLogos) : [];
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
-    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors));
+    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions));
   }, [buildSnapshot]);
 
   useEffect(() => {
@@ -393,13 +403,13 @@ export default function TournamentSettings() {
   }
 
   const isDirty = useMemo(
-    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos) !== baselineSnapshot,
-    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos],
+    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions) !== baselineSnapshot,
+    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
   );
 
   const saveKey = useMemo(
-    () => buildSnapshot(editForm, bidTiers, sponsorLogos),
-    [buildSnapshot, editForm, bidTiers, sponsorLogos],
+    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions),
+    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
   );
 
   const squadSizeError = useMemo(() => {
@@ -449,8 +459,11 @@ export default function TournamentSettings() {
         return "Add at least one declaration point or turn off the declaration";
       }
     }
+    if (editForm.bidValueMode === "player" && bidValueOptions.filter((n) => n > 0).length === 0) {
+      return "Add at least one allowed bid value for Player Selected mode";
+    }
     return null;
-  }, [editForm, bidTiers, squadSizeError, sportLocked, tournament]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -501,6 +514,8 @@ export default function TournamentSettings() {
           paymentCollectionMode: "manual_verification",
           enableRegistrationDeclaration: editForm.enableRegistrationDeclaration === true,
           registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
+          bidValueMode: (editForm.bidValueMode as "system" | "player") || "system",
+          bidValueOptions: bidValueOptions.filter((n) => n > 0),
           audioEnabled: editForm.audioEnabled === true,
           masterVolume: Number(editForm.masterVolume) || 80,
           countdownSoundEnabled: editForm.countdownSoundEnabled === true,
@@ -520,7 +535,7 @@ export default function TournamentSettings() {
       });
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos));
+      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0)));
       if (options?.notify) {
         toast({ title: "Settings saved", description: "Your auction rules have been updated." });
       }
@@ -534,6 +549,7 @@ export default function TournamentSettings() {
     }
   }, [
     bidTiers,
+    bidValueOptions,
     buildSnapshot,
     editForm,
     getSaveBlockReason,
@@ -858,6 +874,111 @@ export default function TournamentSettings() {
                     />
                     <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
                   </div>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Bid Value Mode"
+                description="Choose whether base values are set by the organizer or selected by players during registration."
+                icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
+                className="lg:col-span-2"
+              >
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Assignment mode</Label>
+                    <Select
+                      value={(editForm.bidValueMode as string) || "system"}
+                      onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="system">System Assigned (default)</SelectItem>
+                        <SelectItem value="player">Player Selected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      System Assigned uses your tournament minimum player value. Player Selected shows a dropdown of allowed values on the registration form.
+                    </p>
+                  </div>
+
+                  {editForm.bidValueMode === "player" && (
+                    <div className="space-y-2 pt-1 border-t border-border/50">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs">Allowed bid values (₹)</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setBidValueOptions((opts) => [...opts, 0])}
+                        >
+                          + Add value
+                        </Button>
+                      </div>
+                      {bidValueOptions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Add at least one value players can choose from.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {bidValueOptions.map((value, i) => (
+                            <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-muted-foreground">Value {i + 1}</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={value || ""}
+                                  onChange={(e) => {
+                                    const next = Number(e.target.value) || 0;
+                                    setBidValueOptions((opts) => opts.map((v, j) => (j === i ? next : v)));
+                                  }}
+                                  placeholder="e.g. 1500"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9"
+                                disabled={i === 0}
+                                onClick={() => setBidValueOptions((opts) => {
+                                  if (i === 0) return opts;
+                                  const next = [...opts];
+                                  [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                  return next;
+                                })}
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9"
+                                disabled={i === bidValueOptions.length - 1}
+                                onClick={() => setBidValueOptions((opts) => {
+                                  if (i >= opts.length - 1) return opts;
+                                  const next = [...opts];
+                                  [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                  return next;
+                                })}
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </SettingsCard>
 

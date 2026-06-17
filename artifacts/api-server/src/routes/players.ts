@@ -25,6 +25,25 @@ import {
   validatePlayerPaymentProof,
 } from "../lib/registration-payment";
 import { notifyAsync } from "../lib/notifications";
+import {
+  canEditPlayerBidValue,
+  parseBidValueOptions,
+  resolvePlayerBidFields,
+  serializeBidValueOptions,
+} from "@workspace/api-base/bid-value";
+
+async function fetchTournamentBidConfig(tid: number) {
+  const [tournament] = await db
+    .select({
+      bidValueMode: tournamentsTable.bidValueMode,
+      minBid: tournamentsTable.minBid,
+      bidValueOptions: tournamentsTable.bidValueOptions,
+      status: tournamentsTable.status,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  return tournament ?? null;
+}
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
@@ -37,6 +56,8 @@ async function computeRegistrationStatus(tid: number) {
       paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
       enableRegistrationDeclaration: tournamentsTable.enableRegistrationDeclaration,
       registrationDeclarationText: tournamentsTable.registrationDeclarationText,
+      bidValueMode: tournamentsTable.bidValueMode,
+      bidValueOptions: tournamentsTable.bidValueOptions,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -76,6 +97,8 @@ async function computeRegistrationStatus(tid: number) {
       tournament.enableRegistrationDeclaration && tournament.registrationDeclarationText
         ? parseRegistrationDeclarationPoints(tournament.registrationDeclarationText)
         : [],
+    bidValueMode: tournament.bidValueMode ?? "system",
+    bidValueOptions: parseBidValueOptions(tournament.bidValueOptions),
   };
 }
 
@@ -218,6 +241,8 @@ const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   gender: p.gender ?? null,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
+  selectedBidValue: p.selectedBidValue ?? null,
+  bidValueSource: p.bidValueSource ?? null,
   soldPrice: p.soldPrice,
   retainedPrice: p.retainedPrice,
   status: p.status,
@@ -254,6 +279,8 @@ const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
   gender: p.gender ?? null,
   photoUrl: p.photoUrl,
   basePrice: p.basePrice,
+  selectedBidValue: p.selectedBidValue ?? null,
+  bidValueSource: p.bidValueSource ?? null,
   soldPrice: p.soldPrice,
   retainedPrice: p.retainedPrice,
   status: p.status,
@@ -291,7 +318,8 @@ const playerInputSchema = z.object({
   age: z.number().int().optional(),
   gender: playerGenderSchema.nullable().optional(),
   photoUrl: cloudinaryImageUrl,
-  basePrice: z.number().int(),
+  basePrice: z.number().int().optional(),
+  selectedBidValue: z.number().int().optional(),
   jerseyNumber: z.string().optional(),
   jerseySize: jerseySizeSchema.optional(),
   achievements: z.string().optional(),
@@ -374,6 +402,14 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const paymentConfig = await fetchTournamentPaymentConfig(tid);
   const paymentFields = buildPaymentInsertFields(paymentConfig, d, "organizer");
 
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  if (!bidResolved.ok) {
+    res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+    return;
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -388,7 +424,9 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
-      basePrice: d.basePrice,
+      basePrice: bidResolved.fields.basePrice,
+      selectedBidValue: bidResolved.fields.selectedBidValue,
+      bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
       jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
@@ -559,6 +597,14 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
 
   if (!status.open) { res.status(403).json(status); return; }
 
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  if (!bidResolved.ok) {
+    res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+    return;
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -573,7 +619,9 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
-      basePrice: d.basePrice,
+      basePrice: bidResolved.fields.basePrice,
+      selectedBidValue: bidResolved.fields.selectedBidValue,
+      bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
       jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
@@ -638,6 +686,9 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+
   let created = 0;
   let failed = 0;
   const errors: string[] = [];
@@ -669,6 +720,12 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         errors.push(`${pd.name}: Mobile number ${bulkMobile} is already registered for player "${dupMobile.name}".`);
         continue;
       }
+      const bidResolved = resolvePlayerBidFields(bidConfig, pd);
+      if (!bidResolved.ok) {
+        failed++;
+        errors.push(`${pd.name}: ${bidResolved.error}`);
+        continue;
+      }
       await db.insert(playersTable).values({
         tournamentId: tid,
         categoryId: pd.categoryId ?? null,
@@ -681,7 +738,9 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         age: pd.age ?? null,
         gender: pd.gender ?? null,
         photoUrl: pd.photoUrl ?? null,
-        basePrice: pd.basePrice,
+        basePrice: bidResolved.fields.basePrice,
+        selectedBidValue: bidResolved.fields.selectedBidValue,
+        bidValueSource: bidResolved.fields.bidValueSource,
         jerseyNumber: pd.jerseyNumber ?? null,
         jerseySize: pd.jerseySize ?? null,
         achievements: pd.achievements ?? null,
@@ -734,6 +793,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     gender: playerGenderSchema.nullable().optional(),
     photoUrl: cloudinaryImageUrl,
     basePrice: z.number().int().optional(),
+    selectedBidValue: z.number().int().nullable().optional(),
     jerseyNumber: z.string().optional(),
     jerseySize: jerseySizeSchema.nullable().optional(),
     achievements: z.string().optional(),
@@ -761,6 +821,17 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (
+    (d.basePrice !== undefined || d.selectedBidValue !== undefined)
+    && !canEditPlayerBidValue(bidConfig.status)
+  ) {
+    res.status(409).json({ error: "Bid value cannot be changed after the auction has started." });
+    return;
+  }
 
   let normalizedMobile: string | undefined;
   if (d.mobileNumber !== undefined) {
@@ -808,7 +879,21 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.age !== undefined) updates.age = d.age;
   if (d.gender !== undefined) updates.gender = d.gender;
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
-  if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
+
+  if (d.selectedBidValue !== undefined || d.basePrice !== undefined) {
+    const bidResolved = resolvePlayerBidFields(bidConfig, {
+      basePrice: d.basePrice ?? existing.basePrice,
+      selectedBidValue: d.selectedBidValue ?? undefined,
+    });
+    if (!bidResolved.ok) {
+      res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+      return;
+    }
+    updates.basePrice = bidResolved.fields.basePrice;
+    updates.selectedBidValue = bidResolved.fields.selectedBidValue;
+    updates.bidValueSource = bidResolved.fields.bidValueSource;
+  }
+
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
   if (d.jerseySize !== undefined) updates.jerseySize = d.jerseySize;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
@@ -1024,7 +1109,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const { sourceTournamentId, playerIds } = parsed.data;
 
   const [tournament] = await db
-    .select({ minBid: tournamentsTable.minBid })
+    .select({ minBid: tournamentsTable.minBid, bidValueMode: tournamentsTable.bidValueMode })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   const defaultBasePrice = tournament?.minBid ?? 100000;
@@ -1069,6 +1154,8 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       gender: p.gender,
       photoUrl: p.photoUrl,
       basePrice: defaultBasePrice,
+      selectedBidValue: null,
+      bidValueSource: "system",
       jerseyNumber: p.jerseyNumber,
       jerseySize: p.jerseySize,
       achievements: p.achievements,

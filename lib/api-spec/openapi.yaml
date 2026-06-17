@@ -1982,6 +1982,16 @@ components:
         registrationDeclarationText:
           type: ["string", "null"]
           description: Newline-separated declaration/consent points for player registration
+        bidValueMode:
+          type: string
+          enum: [system, player]
+          default: system
+          description: Whether base bid values are system-assigned or player-selected at registration
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
+          description: Allowed bid values when bidValueMode is player
         resetCount:
           type: integer
         lastResetAt:
@@ -2236,6 +2246,13 @@ components:
           type: boolean
         registrationDeclarationText:
           type: ["string", "null"]
+        bidValueMode:
+          type: string
+          enum: [system, player]
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2571,6 +2588,13 @@ components:
           type: ["string", "null"]
         basePrice:
           type: integer
+        selectedBidValue:
+          type: ["integer", "null"]
+          description: Player-selected base bid value when bidValueSource is player
+        bidValueSource:
+          type: ["string", "null"]
+          enum: [system, player, null]
+          description: Whether base price was system-assigned or player-selected
         soldPrice:
           type: ["integer", "null"]
         retainedPrice:
@@ -2617,7 +2641,7 @@ components:
 
     PlayerInput:
       type: object
-      required: [name, basePrice]
+      required: [name]
       properties:
         categoryId:
           type: integer
@@ -2642,6 +2666,9 @@ components:
           type: string
         basePrice:
           type: integer
+        selectedBidValue:
+          type: integer
+          description: Required when tournament bidValueMode is player
         jerseyNumber:
           type: string
         jerseySize:
@@ -2712,6 +2739,9 @@ components:
           type: string
         basePrice:
           type: integer
+        selectedBidValue:
+          type: ["integer", "null"]
+          description: Player-selected bid value when tournament uses player mode
         jerseyNumber:
           type: string
         jerseySize:
@@ -3218,6 +3248,14 @@ components:
           items:
             type: string
           description: Parsed declaration points shown on the registration form
+        bidValueMode:
+          type: string
+          enum: [system, player]
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
+          description: Allowed bid values when bidValueMode is player
 
     TournamentSummary:
       type: object

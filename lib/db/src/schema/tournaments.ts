@@ -50,6 +50,10 @@ export const tournamentsTable = pgTable("tournaments", {
   enableRegistrationDeclaration: boolean("enable_registration_declaration").notNull().default(false),
   /** Newline-separated declaration/consent points shown on player registration form */
   registrationDeclarationText: text("registration_declaration_text"),
+  /** Bid value assignment mode: system (default) or player self-selection at registration */
+  bidValueMode: text("bid_value_mode").notNull().default("system"),
+  /** JSON array of allowed bid values when bid_value_mode = player, e.g. [500,1000,1500] */
+  bidValueOptions: text("bid_value_options"),
   // Super admin controls
   licenseStatus: text("license_status").notNull().default("trial"),
   licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),

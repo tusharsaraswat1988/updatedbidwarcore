@@ -20,6 +20,17 @@ export {
 export { parseOptionalEmail } from "./email.ts";
 
 export {
+  type BidValueMode,
+  type BidValueSource,
+  parseBidValueOptions,
+  serializeBidValueOptions,
+  isPlayerBidValueMode,
+  bidValueSourceLabel,
+  resolvePlayerBidFields,
+  canEditPlayerBidValue,
+} from "./bid-value.ts";
+
+export {
   getIstTodayDateString,
   validateAuctionDate,
   parseAuctionDateString,

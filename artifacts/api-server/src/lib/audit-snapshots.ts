@@ -54,6 +54,8 @@ export function snapshotPlayer(p: Player): Record<string, unknown> {
     categoryId: p.categoryId,
     gender: p.gender,
     basePrice: p.basePrice,
+    selectedBidValue: p.selectedBidValue ?? null,
+    bidValueSource: p.bidValueSource ?? null,
     soldPrice: p.soldPrice,
     retainedPrice: p.retainedPrice,
     mobileNumber: p.mobileNumber,

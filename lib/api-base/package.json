@@ -22,6 +22,7 @@
     "./auction-date": "./src/auction-date.ts",
     "./registration-payment": "./src/registration-payment.ts",
     "./registration-declaration": "./src/registration-declaration.ts",
+    "./bid-value": "./src/bid-value.ts",
     "./platform-audio": "./src/platform-audio.ts"
   },
   "devDependencies": {

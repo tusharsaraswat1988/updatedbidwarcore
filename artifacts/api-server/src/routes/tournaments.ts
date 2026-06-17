@@ -5,6 +5,7 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
+import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { randomBytes } from "crypto";
 import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
@@ -117,6 +118,8 @@ const tournamentToJson = (
   paymentCollectionMode: t.paymentCollectionMode ?? "manual_verification",
   enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
   registrationDeclarationText: t.registrationDeclarationText ?? null,
+  bidValueMode: t.bidValueMode ?? "system",
+  bidValueOptions: parseBidValueOptions(t.bidValueOptions),
   resetCount: t.resetCount ?? 0,
   lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
   lastResetBy: t.lastResetBy ?? null,
@@ -325,6 +328,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     paymentCollectionMode: z.enum(PAYMENT_COLLECTION_MODES).optional(),
     enableRegistrationDeclaration: z.boolean().optional(),
     registrationDeclarationText: z.string().nullable().optional(),
+    bidValueMode: z.enum(["system", "player"]).optional(),
+    bidValueOptions: z.array(z.number().int().positive()).optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
     audioEnabled: z.boolean().optional(),
@@ -362,6 +367,15 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
   if (nextMinimumSquadSize > 0 && nextMaximumSquadSize > 0 && nextMaximumSquadSize < nextMinimumSquadSize) {
     res.status(400).json({ error: "Maximum players cannot be less than minimum players." });
+    return;
+  }
+
+  const nextBidValueMode = d.bidValueMode ?? beforeTournament.bidValueMode ?? "system";
+  const nextBidValueOptionsRaw = d.bidValueOptions !== undefined
+    ? serializeBidValueOptions(d.bidValueOptions)
+    : beforeTournament.bidValueOptions;
+  if (nextBidValueMode === "player" && parseBidValueOptions(nextBidValueOptionsRaw).length === 0) {
+    res.status(400).json({ error: "Add at least one allowed bid value when using Player Selected mode." });
     return;
   }
 
@@ -417,6 +431,10 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.enableRegistrationDeclaration !== undefined) updates.enableRegistrationDeclaration = d.enableRegistrationDeclaration;
   if (d.registrationDeclarationText !== undefined) {
     updates.registrationDeclarationText = d.registrationDeclarationText === "" ? null : d.registrationDeclarationText;
+  }
+  if (d.bidValueMode !== undefined) updates.bidValueMode = d.bidValueMode;
+  if (d.bidValueOptions !== undefined) {
+    updates.bidValueOptions = serializeBidValueOptions(d.bidValueOptions);
   }
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;

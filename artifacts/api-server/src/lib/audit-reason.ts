@@ -48,6 +48,8 @@ export const TOURNAMENT_CONFIG_FIELDS = new Set([
   "maximumSquadSize",
   "registrationDeadline",
   "registrationLimit",
+  "bidValueMode",
+  "bidValueOptions",
   "status",
 ]);
 
@@ -76,6 +78,7 @@ export function isCriticalPlayerPatch(data: {
   teamId?: number | null;
   retainedPrice?: number | null;
   basePrice?: number;
+  selectedBidValue?: number | null;
   mobileNumber?: string;
 }): boolean {
   return (
@@ -83,6 +86,7 @@ export function isCriticalPlayerPatch(data: {
     data.teamId !== undefined ||
     data.retainedPrice !== undefined ||
     data.basePrice !== undefined ||
+    data.selectedBidValue !== undefined ||
     data.mobileNumber !== undefined
   );
 }
@@ -102,6 +106,9 @@ export function defaultPlayerPatchReason(
   if (data.retainedPrice !== undefined) parts.push("retained price");
   if (data.basePrice !== undefined && data.basePrice !== existing?.basePrice) {
     parts.push("base price");
+  }
+  if (data.selectedBidValue !== undefined) {
+    parts.push("selected bid value");
   }
   if (data.mobileNumber !== undefined) parts.push("mobile number");
   if (parts.length > 0) {

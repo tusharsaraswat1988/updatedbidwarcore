@@ -1,5 +1,6 @@
 import { formatPlayerGender } from "@/components/player-gender-select";
 import { playerTagLabel } from "@/lib/tag-theme";
+import { bidValueSourceLabel } from "@workspace/api-base/bid-value";
 
 type CategoryMap = Record<number, { name: string; colorCode?: string | null }>;
 type TeamMap = Record<number, { name: string; color?: string | null }>;
@@ -54,6 +55,8 @@ function buildRow(
     Mobile: player.mobileNumber ?? "",
     Email: player.email ?? "",
     "Base Price": player.basePrice ?? "",
+    "Bid Value Source": bidValueSourceLabel(player.bidValueSource as "system" | "player" | null | undefined),
+    "Selected Bid Value": player.selectedBidValue ?? "",
     "Sold Price": player.soldPrice ?? "",
     "Retained Price": player.retainedPrice ?? "",
     "Jersey Number": player.jerseyNumber ?? "",

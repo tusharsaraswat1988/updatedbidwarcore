@@ -29,6 +29,7 @@ import { RegistrationPaymentFormSection } from "@/components/registration-paymen
 import { RegistrationPageHeader } from "@/components/registration-page-header";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { formatIndianRupee } from "@/lib/format";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -121,6 +122,7 @@ export default function PlayerRegister() {
   const [specSelections, setSpecSelections] = useState<Record<number, string>>({});
   const [utrNumber, setUtrNumber] = useState("");
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
+  const [selectedBidValue, setSelectedBidValue] = useState("");
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
@@ -213,6 +215,15 @@ export default function PlayerRegister() {
     status?.paymentVerificationMethod ?? tournament?.paymentVerificationMethod ?? "utr"
   ) as PaymentVerificationMethod;
   const paymentConfigured = paymentEnabled && registrationFee > 0 && !!upiId.trim() && !!verificationMethod;
+
+  const playerBidValueMode =
+    (status as { bidValueMode?: string } | undefined)?.bidValueMode === "player"
+    || (tournament as { bidValueMode?: string } | undefined)?.bidValueMode === "player";
+  const bidValueOptions = (
+    (status as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
+    ?? (tournament as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
+    ?? []
+  ).filter((n) => Number.isFinite(n) && n > 0);
 
   const declarationPoints = useMemo(() => {
     const fromStatus = status?.registrationDeclarationPoints;
@@ -356,6 +367,14 @@ export default function PlayerRegister() {
       return;
     }
 
+    if (playerBidValueMode && !existingRegistration) {
+      const parsedBid = parseInt(selectedBidValue, 10);
+      if (!Number.isFinite(parsedBid) || !bidValueOptions.includes(parsedBid)) {
+        setErrorMsg("Please select your bid value.");
+        return;
+      }
+    }
+
     try {
       const result = await registerPlayer.mutateAsync({
         tournamentId,
@@ -376,7 +395,10 @@ export default function PlayerRegister() {
           availabilityDates: form.availabilityDates || undefined,
           cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
           photoUrl: form.photoUrl || undefined,
-          basePrice: 100000,
+          basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
+          selectedBidValue: playerBidValueMode && !existingRegistration
+            ? parseInt(selectedBidValue, 10)
+            : undefined,
           whatsappConsent: waConsent,
           registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
           utrNumber: utrNumber.trim() || undefined,
@@ -686,6 +708,27 @@ export default function PlayerRegister() {
                           </div>
                         ) : null)}
                       </div>
+
+                      {playerBidValueMode && !existingRegistration && bidValueOptions.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Select Your Bid Value *</Label>
+                          <Select value={selectedBidValue} onValueChange={setSelectedBidValue} required>
+                            <SelectTrigger className="h-11 sm:h-9">
+                              <SelectValue placeholder="Choose your bid value" />
+                            </SelectTrigger>
+                            <SelectContent className="dark">
+                              {bidValueOptions.map((amount) => (
+                                <SelectItem key={amount} value={String(amount)}>
+                                  {formatIndianRupee(amount)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Choose one of the organizer-approved base values for this auction.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">

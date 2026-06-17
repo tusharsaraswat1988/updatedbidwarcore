@@ -75,6 +75,12 @@ import { useToast } from "@/hooks/use-toast";
 import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
 import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
 import { settingsPath } from "@/lib/settings-navigation";
+import {
+  bidValueSourceLabel,
+  canEditPlayerBidValue,
+  isPlayerBidValueMode,
+  parseBidValueOptions,
+} from "@workspace/api-base/bid-value";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -432,6 +438,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
   const isEdit = !!player;
+  const playerBidMode = isPlayerBidValueMode(tournament ?? {});
+  const organizerBidOptions = Array.isArray(tournament?.bidValueOptions)
+    ? [...new Set((tournament.bidValueOptions as number[]).filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b)
+    : parseBidValueOptions(typeof tournament?.bidValueOptions === "string" ? tournament.bidValueOptions : null);
+  const bidValueEditable = canEditPlayerBidValue(tournament?.status);
 
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
@@ -468,6 +479,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     gender: player?.gender ?? "",
     photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
+    selectedBidValue: player?.selectedBidValue ? String(player.selectedBidValue) : "",
     jerseyNumber: player?.jerseyNumber || "",
     jerseySize: (player?.jerseySize as JerseySize | null) || "",
     achievements: player?.achievements || "",
@@ -589,7 +601,13 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             ? null
             : undefined,
       photoUrl: form.photoUrl || undefined,
-      basePrice: parseInt(String(form.basePrice)) || 0,
+      ...(playerBidMode
+        ? {
+            selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined,
+          }
+        : {
+            basePrice: parseInt(String(form.basePrice)) || 0,
+          }),
       jerseyNumber: form.jerseyNumber || undefined,
       jerseySize: form.jerseySize || undefined,
       achievements: form.achievements || undefined,
@@ -807,12 +825,49 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
       </div>
-      {/* Row 5: Base Price */}
+      {/* Row 5: Base Price / Selected Bid Value */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
-          <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
-        </div>
+        {playerBidMode ? (
+          <div className="space-y-2 col-span-2">
+            <Label>Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
+            <Select
+              value={form.selectedBidValue}
+              onValueChange={(v) => {
+                setBasePriceTouched(true);
+                f("selectedBidValue", v);
+                f("basePrice", v);
+              }}
+              disabled={!bidValueEditable}
+              required
+            >
+              <SelectTrigger><SelectValue placeholder="Select bid value" /></SelectTrigger>
+              <SelectContent className="dark">
+                {organizerBidOptions.map((amount) => (
+                  <SelectItem key={amount} value={String(amount)}>
+                    {formatIndianRupee(amount)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!bidValueEditable && (
+              <p className="text-[10px] text-muted-foreground">Bid value is locked after the auction starts.</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
+            <Input
+              type="number"
+              value={form.basePrice}
+              onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
+              required
+              disabled={!bidValueEditable}
+            />
+            {!bidValueEditable && (
+              <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
+            )}
+          </div>
+        )}
       </div>
       {/* Dynamic spec groups: loaded from sport master per selected role */}
       {sortedSpecGroups.length > 0 ? (
@@ -1263,6 +1318,7 @@ const statusLabels: Record<string, string> = {
 
 function formatPlayerAmount(player: {
   status?: string | null;
+  basePrice?: number | null;
   soldPrice?: number | null;
   retainedPrice?: number | null;
 }): { text: string; className: string } {
@@ -1272,7 +1328,21 @@ function formatPlayerAmount(player: {
   if (player.status === "retained" && player.retainedPrice) {
     return { text: formatIndianRupee(player.retainedPrice), className: "text-purple-400 font-mono font-semibold" };
   }
+  if (player.basePrice != null && player.basePrice > 0) {
+    return { text: formatIndianRupee(player.basePrice), className: "text-primary font-mono font-semibold" };
+  }
   return { text: "—", className: "text-muted-foreground" };
+}
+
+function playerAmountForSort(player: {
+  status?: string | null;
+  basePrice?: number | null;
+  soldPrice?: number | null;
+  retainedPrice?: number | null;
+}) {
+  if (player.status === "sold") return player.soldPrice ?? 0;
+  if (player.status === "retained") return player.retainedPrice ?? 0;
+  return player.basePrice ?? 0;
 }
 
 function playerMatchesSearch(
@@ -1338,12 +1408,6 @@ const STATUS_SORT_ORDER: Record<string, number> = {
   sold: 2,
   unsold: 3,
 };
-
-function playerAmountForSort(player: { status?: string | null; soldPrice?: number | null; retainedPrice?: number | null }) {
-  if (player.status === "sold") return player.soldPrice ?? 0;
-  if (player.status === "retained") return player.retainedPrice ?? 0;
-  return 0;
-}
 
 function sortPlayers(
   list: any[],
@@ -1754,6 +1818,16 @@ function PlayerDetailPanel({
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Base Price</p>
             <p className="font-mono text-primary">{formatIndianRupee(player.basePrice)}</p>
+          </div>
+        )}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Bid Value Source</p>
+          <p>{bidValueSourceLabel(player.bidValueSource)}</p>
+        </div>
+        {player.bidValueSource === "player" && player.selectedBidValue != null && player.selectedBidValue > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Selected Bid Value</p>
+            <p className="font-mono text-primary">{formatIndianRupee(player.selectedBidValue)}</p>
           </div>
         )}
         {specValues.map((val, i) => {
@@ -2522,7 +2596,7 @@ export default function Players() {
                       className="min-w-[120px]"
                     />
                     <SortableTableHead
-                      label="Amount"
+                      label="Base Value"
                       sortKey="amount"
                       activeKey={sortKey}
                       sortDir={sortDir}
@@ -2715,10 +2789,10 @@ export default function Players() {
                             className="mt-0.5"
                           />
                         )}
-                        {(player.status === "sold" || player.status === "retained") && amount.text !== "—" && (
-                          <p className={`text-xs font-mono mt-0.5 ${amount.className}`}>{amount.text}</p>
-                        )}
                       </div>
+                      {amount.text !== "—" && (
+                        <p className={`text-sm font-mono shrink-0 ${amount.className}`}>{amount.text}</p>
+                      )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                     </div>
                   </button>

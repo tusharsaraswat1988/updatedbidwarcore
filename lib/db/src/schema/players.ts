@@ -18,6 +18,10 @@ export const playersTable = pgTable(
     gender: text("gender"),
     photoUrl: text("photo_url"),
     basePrice: integer("base_price").notNull().default(100000),
+    /** Player-selected bid value when bid_value_mode = player; mirrors base_price at registration time */
+    selectedBidValue: integer("selected_bid_value"),
+    /** 'system' | 'player' — null treated as system for backward compatibility */
+    bidValueSource: text("bid_value_source"),
     soldPrice: integer("sold_price"),
     retainedPrice: integer("retained_price"),
     status: text("status").notNull().default("available"), // available | sold | unsold | retained

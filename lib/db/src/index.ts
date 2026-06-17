@@ -58,6 +58,10 @@ void pool
     ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_declaration boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_declaration_text text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_mode text NOT NULL DEFAULT 'system';
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_options text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS selected_bid_value integer;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS bid_value_source text;
   `)
   .catch((err) => {
     console.error("[db] failed to ensure registration payment columns:", err);
