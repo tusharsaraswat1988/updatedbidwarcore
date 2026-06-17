@@ -7,7 +7,8 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { randomBytes } from "crypto";
-import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
+import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
 import { resolveSportIdBySlug } from "./sports";
@@ -74,92 +75,14 @@ const cloudinaryLogoUrl = z
 
 const router = Router();
 
-const tournamentToJson = (
-  t: typeof tournamentsTable.$inferSelect,
-  options?: { includeScoringPin?: boolean; platformDefaults?: PlatformAudioDefaults },
-) => {
-  const platform = options?.platformDefaults;
-  return {
-  id: t.id,
-  name: t.name,
-  sport: t.sport,
-  sportId: t.sportId ?? null,
-  auctionCode: t.auctionCode ?? null,
-  venue: t.venue,
-  auctionDate: t.auctionDate,
-  auctionTime: t.auctionTime ?? null,
-  organizerName: t.organizerName,
-  organizerMobile: t.organizerMobile,
-  organizerEmail: t.organizerEmail,
-  logoUrl: t.logoUrl,
-  sponsorLogos: t.sponsorLogos,
-  basePurse: t.basePurse,
-  minBid: t.minBid,
-  bidIncrement: t.bidIncrement,
-  bidTier1UpTo: t.bidTier1UpTo,
-  bidTier1Increment: t.bidTier1Increment,
-  bidTier2UpTo: t.bidTier2UpTo,
-  bidTier2Increment: t.bidTier2Increment,
-  bidTier3Increment: t.bidTier3Increment,
-  bidTiers: t.bidTiers,
-  timerSeconds: t.timerSeconds,
-  bidTimerSeconds: t.bidTimerSeconds,
-  bidExtensionEnabled: t.bidExtensionEnabled ?? false,
-  bidExtensionThresholdSeconds: t.bidExtensionThresholdSeconds ?? 3,
-  bidExtensionSeconds: t.bidExtensionSeconds ?? 5,
-  playerSelectionMode: t.playerSelectionMode,
-  status: t.status,
-  registrationDeadline: t.registrationDeadline ?? null,
-  registrationLimit: t.registrationLimit ?? null,
-  enableRegistrationPayment: t.enableRegistrationPayment ?? false,
-  registrationFee: t.registrationFee ?? null,
-  upiId: t.upiId ?? null,
-  paymentVerificationMethod: t.paymentVerificationMethod ?? null,
-  paymentCollectionMode: t.paymentCollectionMode ?? "manual_verification",
-  enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
-  registrationDeclarationText: t.registrationDeclarationText ?? null,
-  bidValueMode: t.bidValueMode ?? "system",
-  bidValueOptions: parseBidValueOptions(t.bidValueOptions),
-  resetCount: t.resetCount ?? 0,
-  lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
-  lastResetBy: t.lastResetBy ?? null,
-  minimumSquadSize: t.minimumSquadSize ?? 0,
-  maximumSquadSize: t.maximumSquadSize ?? 0,
-  audioEnabled: t.audioEnabled ?? true,
-  masterVolume: t.masterVolume ?? 80,
-  countdownSoundEnabled: t.countdownSoundEnabled ?? true,
-  countdownSoundUrl: t.countdownSoundUrl ?? null,
-  countdownSoundVolume: t.countdownSoundVolume ?? 70,
-  soldSoundEnabled: t.soldSoundEnabled ?? true,
-  soldSoundUrl: t.soldSoundUrl ?? null,
-  soldSoundVolume: t.soldSoundVolume ?? 80,
-  cheerMessagesEnabled: t.cheerMessagesEnabled ?? true,
-  cheerMessagePresets: t.cheerMessagePresets ?? null,
-  breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
-  breakEndMusicUrl: t.breakEndMusicUrl ?? null,
-  breakEndMusicVolume: t.breakEndMusicVolume ?? 80,
-  mainBannerUrl: t.mainBannerUrl ?? null,
-  mainBannerEnabled: t.mainBannerEnabled ?? false,
-  mainBannerFit: t.mainBannerFit ?? "cover",
-  localModeEnabled: t.localModeEnabled ?? false,
-  licenseStatus: t.licenseStatus ?? "trial",
-  adminLocked: t.adminLocked ?? false,
-  matchDates: t.matchDates ?? null,
-  scoringEnabled: t.scoringEnabled ?? false,
-  scoringPhase: t.scoringPhase ?? "disabled",
-  hasScoringPin: !!t.scoringPin,
-  scoringPin: options?.includeScoringPin ? (t.scoringPin ?? null) : undefined,
-  createdAt: t.createdAt.toISOString(),
-  ...(platform
-    ? {
-        platformAudioDefaults: platform,
-        resolvedCountdownSoundUrl: resolveBroadcastAudioUrl(t.countdownSoundUrl, platform.countdownSoundUrl),
-        resolvedSoldSoundUrl: resolveBroadcastAudioUrl(t.soldSoundUrl, platform.soldSoundUrl),
-        resolvedBreakEndMusicUrl: resolveBroadcastAudioUrl(t.breakEndMusicUrl, platform.breakEndMusicUrl),
-      }
-    : {}),
-  };
-};
+const tournamentToJson = privateTournamentSerializer;
+const tournamentToPublicJson = publicTournamentSerializer;
+
+router.get("/tournaments", async (req, res) => {
+  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
+  const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
+  res.json(tournaments.map((t) => (isPrivate ? tournamentToJson(t) : tournamentToPublicJson(t))));
+});
 
 const tournamentInputSchema = z.object({
   name: z.string().min(1),
@@ -193,11 +116,6 @@ const tournamentInputSchema = z.object({
   breakEndMusicUrl: z.string().optional(),
   breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
   matchDates: z.string().nullable().optional(),
-});
-
-router.get("/tournaments", async (_req, res) => {
-  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
-  res.json(tournaments.map((t) => tournamentToJson(t)));
 });
 
 router.post("/tournaments", async (req, res) => {
@@ -282,8 +200,10 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
   const platformDefaults = await getPlatformDefaultAudioCached();
-  res.json(tournamentToJson(tournament, {
-    includeScoringPin: isOrganizerOrAdmin(req, id),
+  const isOrganizer = await canAccessPrivateTournamentData(req, id);
+  const serializer = isOrganizer ? tournamentToJson : tournamentToPublicJson;
+  res.json(serializer(tournament, {
+    includeScoringPin: isOrganizer,
     platformDefaults,
   }));
 });
@@ -291,7 +211,7 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
 router.patch("/tournaments/:tournamentId", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, id)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, id))) return;
   const schema = z.object({
     name: z.string().optional(),
     sport: z.string().optional(),
@@ -512,7 +432,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
 router.delete("/tournaments/:tournamentId", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, id)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, id))) return;
   const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   await db.delete(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (before) {

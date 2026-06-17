@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff } from "lucide-react";
 import {
+  fetchOwnerAccessLockoutStatus,
   persistOwnerSession,
   verifyOwnerAccessCode,
 } from "@workspace/api-base/owner-auth";
@@ -32,18 +33,57 @@ export function AccessCode({
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lockoutRemainingSec, setLockoutRemainingSec] = useState(0);
   const { brandName, logos, poweredByText, miniBrandText } = useBranding();
+
+  const lockedOut = lockoutRemainingSec > 0;
+
+  useEffect(() => {
+    if (lockoutRemainingSec <= 0) return;
+    const timer = window.setInterval(() => {
+      setLockoutRemainingSec((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockoutRemainingSec > 0]);
+
+  // Re-check server when organiser clears lockout (don't wait for local countdown).
+  useEffect(() => {
+    if (!lockedOut) return;
+    let cancelled = false;
+    const poll = async () => {
+      const status = await fetchOwnerAccessLockoutStatus(tournamentId, teamId);
+      if (cancelled) return;
+      if (!status.locked) {
+        setLockoutRemainingSec(0);
+        setError("");
+      } else if (status.lockoutRemainingSec > 0) {
+        setLockoutRemainingSec(status.lockoutRemainingSec);
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [lockedOut, tournamentId, teamId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!code.trim() || loading) return;
+    if (!code.trim() || loading || lockedOut) return;
     setLoading(true);
     setError("");
 
-    const ok = await verifyOwnerAccessCode(tournamentId, teamId, code);
-    if (ok) {
+    const result = await verifyOwnerAccessCode(tournamentId, teamId, code);
+    if (result.ok) {
       persistOwnerSession(teamId, code);
       onVerified();
+    } else if (result.reason === "lockout") {
+      setLockoutRemainingSec(result.lockoutRemainingSec);
+      setError(
+        "Too many incorrect attempts. Please try again later or contact the tournament organiser.",
+      );
+      setCode("");
     } else {
       setError("Incorrect code. Please try again.");
       setCode("");
@@ -105,6 +145,7 @@ export function AccessCode({
               autoCapitalize="characters"
               spellCheck={false}
               autoFocus
+              disabled={lockedOut}
               className="w-full px-6 py-6 rounded-2xl border border-[#3f3f46] text-center font-display font-bold text-3xl tracking-[0.35em] bg-[#18181b] text-white placeholder:text-[#52525b] outline-none transition-colors"
               style={{ borderColor: code ? teamColor : undefined }}
             />
@@ -127,13 +168,18 @@ export function AccessCode({
                 className="text-red-400 text-base text-center font-semibold"
               >
                 {error}
+                {lockedOut && lockoutRemainingSec > 0 && (
+                  <span className="block mt-1 text-sm text-red-300/80 tabular-nums">
+                    Try again in {Math.floor(lockoutRemainingSec / 60)}:{String(lockoutRemainingSec % 60).padStart(2, "0")}
+                  </span>
+                )}
               </motion.p>
             )}
           </AnimatePresence>
 
           <motion.button
             type="submit"
-            disabled={!code.trim() || loading}
+            disabled={!code.trim() || loading || lockedOut}
             whileTap={{ scale: 0.97 }}
             className="w-full py-6 rounded-2xl font-display font-black text-2xl text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             style={{ backgroundColor: teamColor, boxShadow: `0 0 40px ${teamColor}44` }}

@@ -21,7 +21,6 @@ const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   tournamentId: t.tournamentId,
   name: t.name,
   shortCode: t.shortCode,
-  ownerName: t.ownerName,
   color: t.color,
   logoUrl: t.logoUrl,
   purse: t.purse,

@@ -6,6 +6,7 @@ import {
   useGetTeamPurses, getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee } from "@/lib/format";
@@ -306,7 +307,6 @@ export default function ObsOverlay() {
   }, []);
 
   const { connectionStatus } = useAuctionSocket(tournamentId);
-  const isStaleFeed = connectionStatus !== "connected";
 
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
@@ -315,6 +315,10 @@ export default function ObsOverlay() {
       refetchInterval: sseAwareRefetchInterval(connectionStatus, 10000),
     },
   });
+  const lastActivityAt =
+    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
+  const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
+  const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
   const embeddedPurses = state?.teamPurses;
   const { data: teamPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
@@ -451,9 +455,13 @@ export default function ObsOverlay() {
     }}>
 
       {/* ── Connection status — top center ── */}
-      {connectionStatus !== "connected" && (
+      {feed.state !== "live" && (
         <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}>
-          <DisplayConnectionBanner status={connectionStatus} variant="pill" />
+          <DisplayConnectionBanner
+            feedState={feed.state}
+            secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            variant="pill"
+          />
         </div>
       )}
 

@@ -5,19 +5,45 @@ import { logger } from "./logger";
 export const EVENT_BUFFER_MAX = 500;
 const VERSION_KEY = (tid: number) => `auction:version:${tid}`;
 const EVENTS_KEY = (tid: number) => `auction:events:${tid}`;
+const LAST_ACTIVITY_KEY = (tid: number) => `auction:lastActivity:${tid}`;
 export const PUBSUB_CHANNEL = (tid: number) => `auction:event:${tid}`;
+
+const ACTIVITY_EVENT_TYPES = new Set(["auction_state", "bid", "sold", "unsold"]);
 
 /** Outbound auction SSE / pub-sub envelope. */
 export type AuctionEventEnvelope = {
   version: number;
   tournamentId: number;
   type: string;
+  lastAuctionActivityAt?: string | null;
   [key: string]: unknown;
 };
 
 /** In-memory fallbacks when Redis is unavailable (single-node dev). */
 const localVersions = new Map<number, number>();
 const localBuffers = new Map<number, string[]>();
+const localLastActivity = new Map<number, string>();
+
+export function isAuctionActivityEventType(type: string): boolean {
+  return ACTIVITY_EVENT_TYPES.has(type);
+}
+
+export async function getLastAuctionActivityAt(tournamentId: number): Promise<string | null> {
+  const redis = getRedisCommandClient();
+  if (redis) {
+    const v = await redis.get(LAST_ACTIVITY_KEY(tournamentId));
+    if (v) return v;
+  }
+  return localLastActivity.get(tournamentId) ?? null;
+}
+
+async function setLastAuctionActivityAt(tournamentId: number, iso: string): Promise<void> {
+  localLastActivity.set(tournamentId, iso);
+  const redis = getRedisCommandClient();
+  if (redis) {
+    await redis.set(LAST_ACTIVITY_KEY(tournamentId), iso);
+  }
+}
 
 function bumpLocalVersion(tournamentId: number): number {
   const next = (localVersions.get(tournamentId) ?? 0) + 1;
@@ -71,10 +97,20 @@ async function bufferEvent(tournamentId: number, serialized: string): Promise<vo
  */
 export async function publishAuctionEvent(
   tournamentId: number,
-  event: Omit<AuctionEventEnvelope, "version" | "tournamentId"> & { type: string },
+  event: Omit<AuctionEventEnvelope, "version" | "tournamentId" | "lastAuctionActivityAt"> & { type: string },
 ): Promise<AuctionEventEnvelope> {
   const version = await nextEventVersion(tournamentId);
-  const envelope: AuctionEventEnvelope = { ...event, version, tournamentId };
+  let lastAuctionActivityAt = await getLastAuctionActivityAt(tournamentId);
+  if (isAuctionActivityEventType(event.type)) {
+    lastAuctionActivityAt = new Date().toISOString();
+    await setLastAuctionActivityAt(tournamentId, lastAuctionActivityAt);
+  }
+  const envelope: AuctionEventEnvelope = {
+    ...event,
+    version,
+    tournamentId,
+    lastAuctionActivityAt,
+  };
   const serialized = JSON.stringify(envelope);
 
   await bufferEvent(tournamentId, serialized);

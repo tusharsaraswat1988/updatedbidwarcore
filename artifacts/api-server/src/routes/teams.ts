@@ -1,5 +1,17 @@
 import { Router } from "express";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import {
+  canAccessPrivateTournamentData,
+  requireTournamentOrganizer,
+} from "../middleware/require-organizer";
+import {
+  checkVerifyAccessAllowed,
+  clearAllTeamAccessLockouts,
+  clearVerifyAccessFailures,
+  getTeamAccessLockoutStatus,
+  getVerifyAccessGuardStatus,
+  recordVerifyAccessFailure,
+} from "../lib/verify-access-guard";
+import { publicTeamSerializer, privateTeamSerializer } from "../lib/serializers/team";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable, auctionSessionsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -53,61 +65,32 @@ async function findDuplicateOwnerMobileTeam(
   return null;
 }
 
-const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
-  id: t.id,
-  tournamentId: t.tournamentId,
-  name: t.name,
-  shortCode: t.shortCode,
-  ownerName: t.ownerName,
-  ownerMobile: t.ownerMobile,
-  ownerEmail: t.ownerEmail ?? null,
-  ownerPhotoUrl: t.ownerPhotoUrl,
-  color: t.color,
-  logoUrl: t.logoUrl,
-  purse: t.purse,
-  purseUsed: t.purseUsed,
-  isBiddingEnabled: t.isBiddingEnabled,
-  accessCode: t.accessCode,
-  createdAt: t.createdAt.toISOString(),
-});
-
-// Public serializer: omits accessCode and ownerMobile entirely (not set to null).
-// Adds requiresAccessCode boolean so the owner-app access gate can work without
-// exposing the actual code value.
-const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
-  id: t.id,
-  tournamentId: t.tournamentId,
-  name: t.name,
-  shortCode: t.shortCode,
-  ownerName: t.ownerName,
-  color: t.color,
-  logoUrl: t.logoUrl,
-  purse: t.purse,
-  purseUsed: t.purseUsed,
-  isBiddingEnabled: t.isBiddingEnabled,
-  requiresAccessCode: !!t.accessCode,
-  createdAt: t.createdAt.toISOString(),
-});
+const teamToJson = privateTeamSerializer;
+const teamToPublicJson = publicTeamSerializer;
 
 router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-  const serializer: (t: typeof teamsTable.$inferSelect) => Record<string, unknown> =
-    isOrganizer ? teamToJson : teamToPublicJson;
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  const serializer = isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tid))
     .orderBy(teamsTable.createdAt);
-  res.json(teams.map(serializer));
+  res.json(
+    teams.map((t) => {
+      const base = serializer(t);
+      if (!isOrganizer) return base;
+      return { ...base, ...getTeamAccessLockoutStatus(tid, t.id) };
+    }),
+  );
 });
 
 router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
     name: z.string().min(1),
     shortCode: z.string().min(1).max(5),
@@ -301,16 +284,16 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-  res.json(isOrganizer ? teamToJson(team) : teamToPublicJson(team));
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  const base = isOrganizer ? teamToJson(team) : teamToPublicJson(team);
+  res.json(isOrganizer ? { ...base, ...getTeamAccessLockoutStatus(tid, team.id) } : base);
 });
 
 router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
     name: z.string().optional(),
     shortCode: z.string().optional(),
@@ -461,10 +444,36 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   res.json(teamToJson(team));
 });
 
+/** IP-scoped lockout status for owner-app polling after organiser unlock. */
+router.get("/tournaments/:tournamentId/teams/:teamId/owner-access-lockout", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [team] = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!team) { res.status(404).json({ error: "Not found" }); return; }
+
+  const status = getVerifyAccessGuardStatus(req, tid, teamId);
+  res.json({
+    locked: status.locked,
+    lockoutRemainingSec: status.lockoutRemainingSec,
+  });
+});
+
 router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const guard = checkVerifyAccessAllowed(req, tid, teamId);
+  if (!guard.allowed) {
+    res.status(guard.status).json({ error: guard.error, lockoutRemainingSec: guard.lockoutRemainingSec });
+    return;
+  }
+
   const body = z.object({ code: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const [team] = await db
@@ -473,6 +482,11 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   const valid = !team.accessCode || team.accessCode.toUpperCase() === body.data.code.toUpperCase();
+  if (!valid) {
+    recordVerifyAccessFailure(req, tid, teamId);
+  } else {
+    clearVerifyAccessFailures(req, tid, teamId);
+  }
   auditLog(req, {
     category: "auth",
     action: valid ? "team.access_code_verified" : "team.access_code_denied",
@@ -489,11 +503,47 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
   res.json({ valid });
 });
 
+router.post("/tournaments/:tournamentId/teams/:teamId/reset-access-lockout", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!team) { res.status(404).json({ error: "Not found" }); return; }
+
+  const cleared = clearAllTeamAccessLockouts(tid, teamId);
+  const organizerId = req.jwtUser?.organizerAccountId ?? null;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+
+  auditLog(req, {
+    category: "auth",
+    action: "OWNER_ACCESS_LOCKOUT_RESET",
+    summary: `Owner access lockout cleared for team "${team.name}"`,
+    outcome: "success",
+    severity: "info",
+    tournamentId: tid,
+    teamId: team.id,
+    resource: { type: "team", id: team.id },
+    metadata: { organizerId, teamId, tournamentId: tid, ip, clearedEntries: cleared },
+  });
+
+  logger.info(
+    { organizerId, teamId, tournamentId: tid, ip, cleared, timestamp: new Date().toISOString() },
+    "OWNER_ACCESS_LOCKOUT_RESET",
+  );
+
+  res.json({ success: true, message: "Owner access lockout cleared" });
+});
+
 router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const [beforeTeam] = await db
     .select()
     .from(teamsTable)

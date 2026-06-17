@@ -21,10 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { resetOwnerAccessLockout } from "@workspace/api-base/owner-auth";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
@@ -461,10 +462,24 @@ export default function Teams() {
   const [editing, setEditing] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [regenerateTarget, setRegenerateTarget] = useState<number | null>(null);
+  const [unlockTarget, setUnlockTarget] = useState<{ id: number; name: string } | null>(null);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
 
   const existingShortCodes = (teams || []).map(t => t.shortCode);
   const existingTeamColors = useMemo(() => (teams || []).map(t => t.color), [teams]);
   const basePurse = tournament?.basePurse ?? 10000000;
+  const hasLockedTeam = (teams ?? []).some(
+    (t) => (t as { ownerAccessLocked?: boolean }).ownerAccessLocked,
+  );
+
+  useEffect(() => {
+    if (!hasLockedTeam || !tournamentId) return;
+    const interval = window.setInterval(() => {
+      void qc.refetchQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+    }, 10_000);
+    return () => window.clearInterval(interval);
+  }, [hasLockedTeam, tournamentId, qc]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -486,6 +501,25 @@ export default function Teams() {
     });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
     setRegenerateTarget(null);
+  }
+
+  async function confirmUnlockAccess() {
+    if (!unlockTarget) return;
+    setUnlockLoading(true);
+    setUnlockError("");
+    try {
+      const result = await resetOwnerAccessLockout(tournamentId, unlockTarget.id);
+      if (result.success) {
+        await qc.refetchQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+        setUnlockTarget(null);
+      } else {
+        setUnlockError(result.message ?? "Could not unlock owner access.");
+      }
+    } catch {
+      setUnlockError("Could not unlock owner access. Please try again.");
+    } finally {
+      setUnlockLoading(false);
+    }
   }
 
   function getOwnerLink(teamId: number) {
@@ -764,23 +798,44 @@ export default function Teams() {
 
                     {/* Access Code */}
                     {team.accessCode && (
-                      <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                        <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Access Code</p>
-                          <p className="text-sm font-display font-black tracking-[0.2em] text-primary">{team.accessCode}</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                          <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Access Code</p>
+                            <p className="text-sm font-display font-black tracking-[0.2em] text-primary">{team.accessCode}</p>
+                          </div>
+                          <CopyButton text={team.accessCode} />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+                            title="Regenerate access code"
+                            disabled={updateTeam.isPending}
+                            onClick={() => handleRegenerateCode(team.id)}
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
                         </div>
-                        <CopyButton text={team.accessCode} />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
-                          title="Regenerate access code"
-                          disabled={updateTeam.isPending}
-                          onClick={() => handleRegenerateCode(team.id)}
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                        </Button>
+                        {(team as { ownerAccessLocked?: boolean }).ownerAccessLocked && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="destructive" className="text-[10px] uppercase tracking-wider">
+                              Owner Access Locked
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => {
+                                setUnlockError("");
+                                setUnlockTarget({ id: team.id, name: team.name });
+                              }}
+                            >
+                              <LockOpen className="w-3 h-3" />
+                              Unlock Owner Access
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -873,6 +928,37 @@ export default function Teams() {
                 </>
               ) : (
                 "Regenerate code"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unlockTarget !== null} onOpenChange={(open) => { if (!open) { setUnlockTarget(null); setUnlockError(""); } }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle>Unlock owner access?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Clear the access-code lockout for <strong className="text-foreground">{unlockTarget?.name}</strong>?
+            The team owner will be able to try their code again immediately.
+          </p>
+          {unlockError && (
+            <p className="text-sm text-red-400 font-medium">{unlockError}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnlockTarget(null)} disabled={unlockLoading}>
+              Cancel
+            </Button>
+            <Button disabled={unlockLoading} onClick={() => void confirmUnlockAccess()}>
+              {unlockLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Unlocking…
+                </>
+              ) : (
+                <>
+                  <LockOpen className="w-3.5 h-3.5 mr-1.5" /> Unlock access
+                </>
               )}
             </Button>
           </DialogFooter>

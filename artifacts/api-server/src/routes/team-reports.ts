@@ -5,6 +5,7 @@ import { brandingSettingsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
+import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 
 const router = Router();
 
@@ -50,14 +51,9 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   }
 }
 
-function isOrganizer(req: Request, tid: number): boolean {
-  const tidStr = String(tid);
-  return !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-}
-
 router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -93,7 +89,7 @@ router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: 
 router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
   const teamId = parseInt(String(req.params.teamId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -187,7 +183,7 @@ const pdfBodySchema = z.object({
 router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
   const teamId = parseInt(String(req.params.teamId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const body = pdfBodySchema.safeParse(req.body);
   const selectedCols: string[] = body.success ? body.data.columns : [];

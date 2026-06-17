@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   appendScoringEvent,
   createScoringMatch,
@@ -46,16 +46,16 @@ async function canWriteScoring(
   tournamentId: number,
   scorerPin?: string,
 ): Promise<{ ok: true; usedPin: boolean } | { ok: false }> {
-  if (isOrganizerOrAdmin(req, tournamentId)) {
-    return { ok: true, usedPin: false };
-  }
-  if (!scorerPin) return { ok: false };
-
   const [tournament] = await db
-    .select({ scoringPin: tournamentsTable.scoringPin })
+    .select({ organizerId: tournamentsTable.organizerId, scoringPin: tournamentsTable.scoringPin })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
+
+  if (tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId)) {
+    return { ok: true, usedPin: false };
+  }
+  if (!scorerPin) return { ok: false };
 
   if (tournament?.scoringPin && tournament.scoringPin === scorerPin) {
     return { ok: true, usedPin: true };
@@ -139,10 +139,7 @@ router.get("/tournaments/:tournamentId/scoring/squads", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   try {
     const squads = await getSquadReadiness(tournamentId);
@@ -237,10 +234,7 @@ router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   try {
     const matches = await listScoringMatches(tournamentId);
@@ -260,10 +254,7 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     homeTeamId: z.number().int().positive(),
@@ -303,10 +294,7 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
     res.status(400).json({ error: "Invalid ID" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   try {
     const result = await getScoringMatch(tournamentId, matchId);

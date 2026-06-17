@@ -7,6 +7,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { useSideLedView } from "@/lib/led-view/use-side-led-view";
 import type { DisplayTheme } from "@/lib/display-theme";
 import { DISPLAY_THEMES } from "@/lib/display-theme";
@@ -46,6 +47,10 @@ export function SideDisplayShell({
       enabled: !!tournamentId,
     },
   });
+
+  const lastActivityAt =
+    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
+  const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
 
   const resolvedTheme = theme ?? DISPLAY_THEMES["stadium-gold"];
   const displayMode = useMemo(() => deriveAuctionDisplayMode(state), [state]);
@@ -101,7 +106,7 @@ export function SideDisplayShell({
   });
 
   const showSoldOverlay = view.derivedState === "sold" || view.derivedState === "unsold";
-  const isStaleFeed = connectionStatus !== "connected";
+  const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
 
   return (
     <div
@@ -114,7 +119,10 @@ export function SideDisplayShell({
         <DevThemePicker />
       </StageThemeProvider>
 
-      <DisplayConnectionBanner status={connectionStatus} />
+      <DisplayConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+      />
 
       {audioSettings?.audioEnabled && !isUnlocked && !showSoldOverlay && panel === "player" ? (
         <div className="absolute right-5 bottom-5 z-50 flex items-center gap-1.5 bg-black/50 border border-white/10 rounded-full px-3 py-1.5 text-white/50 text-[11px] select-none pointer-events-none backdrop-blur-sm">

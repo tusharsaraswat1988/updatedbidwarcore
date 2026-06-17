@@ -40,6 +40,10 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import { AuctionFeedIndicator } from "@/components/auction/auction-connection-banner";
+import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
+import { AUCTION_FEED_UI, formatLastActivityDiagnostic } from "@workspace/api-base/auction-connection-state";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { useOperatorSessionLock } from "@/hooks/use-operator-session-lock";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
@@ -59,7 +63,7 @@ import {
   Settings2, Timer, LayoutGrid, Tag, X, Search,
   Hourglass, Monitor, Users, Crown, ExternalLink, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
-  Wifi, WifiOff, RefreshCw, Coffee, PlusCircle, ChevronDown,
+  Coffee, PlusCircle, ChevronDown,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -269,6 +273,12 @@ export default function AuctionOperator() {
   const { data: state } = useGetAuctionState(tournamentId, {
     query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const feed = useAuctionConnectionState(
+    connectionStatus,
+    tournamentId,
+    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
+  );
+  const feedDiagnostic = formatLastActivityDiagnostic(feed.secondsSinceLastActivity);
 
   useEffect(() => {
     const f = state?.displayPlayerFilter;
@@ -707,22 +717,17 @@ export default function AuctionOperator() {
     <OperatorLayout
       tournamentId={tournamentId}
       connectionStatus={connectionStatus}
+      feedState={feed.state}
+      secondsSinceLastActivity={feed.secondsSinceLastActivity}
       auctionStatus={state?.status || "idle"}
     >
       <div className="flex flex-col h-full overflow-hidden bg-[#0f1117] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-        {/* ── Connection warning banner ──────────────────────────────────── */}
-        {connectionStatus !== "connected" && (
-          <div className={`flex-shrink-0 flex items-center gap-2 px-3 py-1 text-xs border-b z-20 ${
-            connectionStatus === "disconnected"
-              ? "bg-red-500/10 border-red-500/20 text-red-400"
-              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
-          }`}>
-            {connectionStatus === "disconnected" ? <WifiOff className="w-3 h-3 flex-shrink-0" /> : <RefreshCw className="w-3 h-3 flex-shrink-0 animate-spin" />}
-            {connectionStatus === "disconnected"
-              ? "Feed disconnected — updates may be delayed. Attempting to reconnect…"
-              : "Reconnecting to live feed — bid updates may be delayed…"}
-          </div>
+        {feed.state !== "live" && (
+          <DisplayConnectionBanner
+            feedState={feed.state}
+            secondsSinceLastActivity={feed.secondsSinceLastActivity}
+          />
         )}
 
         {operatorLockReady && operatorReadOnly && (
@@ -989,18 +994,22 @@ export default function AuctionOperator() {
             💰 Booster
           </button>
 
-          {/* Connection status */}
           <div
-            title={connectionStatus === "connected" ? "Feed connected" : connectionStatus === "reconnecting" ? "Reconnecting…" : "Feed disconnected"}
+            title={feedDiagnostic ? `${AUCTION_FEED_UI[feed.state].title} · ${feedDiagnostic}` : AUCTION_FEED_UI[feed.state].subtitle}
             className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs font-semibold flex-shrink-0 transition-colors ${
-              connectionStatus === "connected" ? "border-green-500/40 bg-green-500/10 text-green-400"
-              : connectionStatus === "reconnecting" ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+              feed.state === "live" ? "border-green-500/40 bg-green-500/10 text-green-400"
+              : feed.state === "awaiting_operator_response" ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300"
+              : feed.state === "reconnecting" ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
               : "border-red-500/40 bg-red-500/10 text-red-400"
             }`}
           >
-            {connectionStatus === "connected" ? <Wifi className="w-3.5 h-3.5" /> : connectionStatus === "reconnecting" ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
+            <AuctionFeedIndicator
+              feedState={feed.state}
+              secondsSinceLastActivity={feed.secondsSinceLastActivity}
+              className="w-3.5 h-3.5"
+            />
             <span className="hidden sm:inline">
-              {connectionStatus === "connected" ? "Live" : connectionStatus === "reconnecting" ? "Reconnecting" : "Offline"}
+              {feed.state === "live" ? "Live" : feed.state === "awaiting_operator_response" ? "Waiting" : feed.state === "reconnecting" ? "Reconnecting" : "Offline"}
             </span>
           </div>
 

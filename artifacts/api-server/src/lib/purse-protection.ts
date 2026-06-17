@@ -81,7 +81,7 @@ export async function computeTeamPurseProtection(
     (await db
       .select({ purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
       .from(teamsTable)
-      .where(eq(teamsTable.id, teamId))
+      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tournamentId)))
       .then(([t]) => t));
 
   if (!teamRow) {

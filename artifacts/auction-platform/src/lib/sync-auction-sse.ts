@@ -1,5 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import {
+  isAuctionActivityEventType,
+  parseActivityTimestamp,
+  recordAuctionActivity,
+} from "@workspace/api-base/auction-connection-state";
+import {
   getGetAuctionStateQueryKey,
   getGetTeamPursesQueryKey,
   getListBidsQueryKey,
@@ -10,11 +15,13 @@ import {
 type AuctionStateCache = Record<string, unknown> & {
   teamPurses?: TeamPurse[];
   eventVersion?: number;
+  lastAuctionActivityAt?: string | null;
 };
 
 export type SseAuctionMessage = {
   type?: string;
   version?: number;
+  lastAuctionActivityAt?: string | null;
   state?: AuctionStateCache;
   invalidate?: string[];
   // bid delta
@@ -66,6 +73,26 @@ function isStale(tournamentId: number, version: number | undefined): boolean {
 function stampVersion(state: AuctionStateCache, version: number | undefined): AuctionStateCache {
   if (version == null) return state;
   return { ...state, eventVersion: version };
+}
+
+function touchAuctionActivity(
+  tournamentId: number,
+  msg: SseAuctionMessage,
+): string | undefined {
+  if (!isAuctionActivityEventType(msg.type)) return undefined;
+  const atMs = parseActivityTimestamp(msg.lastAuctionActivityAt) ?? Date.now();
+  recordAuctionActivity(tournamentId, atMs);
+  return typeof msg.lastAuctionActivityAt === "string"
+    ? msg.lastAuctionActivityAt
+    : new Date(atMs).toISOString();
+}
+
+function withActivityStamp(
+  state: AuctionStateCache,
+  activityIso: string | undefined,
+): AuctionStateCache {
+  if (!activityIso) return state;
+  return { ...state, lastAuctionActivityAt: activityIso };
 }
 
 function applyInvalidations(
@@ -156,10 +183,18 @@ export function applyAuctionSseMessage(
   }
 
   const key = getGetAuctionStateQueryKey(tournamentId);
+  const activityIso = touchAuctionActivity(tournamentId, msg);
 
   if (msg.type === "auction_state" && msg.state) {
     const teamPurses = msg.state.teamPurses;
-    qc.setQueryData(key, stampVersion(msg.state, msg.version));
+    const activityAt =
+      activityIso ??
+      (typeof msg.state.lastAuctionActivityAt === "string" ? msg.state.lastAuctionActivityAt : null) ??
+      (typeof msg.lastAuctionActivityAt === "string" ? msg.lastAuctionActivityAt : null);
+    qc.setQueryData(
+      key,
+      stampVersion({ ...msg.state, lastAuctionActivityAt: activityAt ?? null }, msg.version),
+    );
     syncTeamPurses(qc, tournamentId, teamPurses);
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], teamPurses);
     return;
@@ -167,13 +202,13 @@ export function applyAuctionSseMessage(
 
   if (msg.type === "bid") {
     const prev = qc.getQueryData<AuctionStateCache>(key);
-    qc.setQueryData(key, mergeBidDelta(prev, msg));
+    qc.setQueryData(key, withActivityStamp(mergeBidDelta(prev, msg), activityIso));
     return;
   }
 
   if (msg.type === "sold") {
     const prev = qc.getQueryData<AuctionStateCache>(key);
-    const merged = mergeSoldDelta(prev, msg);
+    const merged = withActivityStamp(mergeSoldDelta(prev, msg), activityIso);
     qc.setQueryData(key, merged);
     syncTeamPurses(qc, tournamentId, msg.teamPurses);
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], msg.teamPurses);
@@ -184,21 +219,24 @@ export function applyAuctionSseMessage(
     const prev = qc.getQueryData<AuctionStateCache>(key);
     qc.setQueryData(
       key,
-      stampVersion(
-        {
-          ...(prev ?? {}),
-          outcome: msg.lastOutcome ?? prev?.outcome,
-          lastAction: msg.lastAction ?? prev?.lastAction,
-          soldPlayersCount: msg.soldPlayersCount ?? prev?.soldPlayersCount,
-          unsoldPlayersCount: msg.unsoldPlayersCount ?? prev?.unsoldPlayersCount,
-          remainingPlayersCount: msg.remainingPlayersCount ?? prev?.remainingPlayersCount,
-          currentPlayer: msg.currentPlayerId == null ? null : prev?.currentPlayer,
-          currentBid: msg.currentBid ?? prev?.currentBid,
-          currentBidTeamId: msg.currentBidTeamId ?? prev?.currentBidTeamId,
-          timerEndsAt: msg.timerEndsAt ?? prev?.timerEndsAt,
-          timerType: msg.timerType ?? prev?.timerType,
-        },
-        msg.version,
+      withActivityStamp(
+        stampVersion(
+          {
+            ...(prev ?? {}),
+            outcome: msg.lastOutcome ?? prev?.outcome,
+            lastAction: msg.lastAction ?? prev?.lastAction,
+            soldPlayersCount: msg.soldPlayersCount ?? prev?.soldPlayersCount,
+            unsoldPlayersCount: msg.unsoldPlayersCount ?? prev?.unsoldPlayersCount,
+            remainingPlayersCount: msg.remainingPlayersCount ?? prev?.remainingPlayersCount,
+            currentPlayer: msg.currentPlayerId == null ? null : prev?.currentPlayer,
+            currentBid: msg.currentBid ?? prev?.currentBid,
+            currentBidTeamId: msg.currentBidTeamId ?? prev?.currentBidTeamId,
+            timerEndsAt: msg.timerEndsAt ?? prev?.timerEndsAt,
+            timerType: msg.timerType ?? prev?.timerType,
+          },
+          msg.version,
+        ),
+        activityIso,
       ),
     );
     applyInvalidations(qc, tournamentId, msg.invalidate ?? []);

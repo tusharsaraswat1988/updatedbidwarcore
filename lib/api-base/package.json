@@ -23,7 +23,8 @@
     "./registration-payment": "./src/registration-payment.ts",
     "./registration-declaration": "./src/registration-declaration.ts",
     "./bid-value": "./src/bid-value.ts",
-    "./platform-audio": "./src/platform-audio.ts"
+    "./platform-audio": "./src/platform-audio.ts",
+    "./auction-connection-state": "./src/auction-connection-state.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

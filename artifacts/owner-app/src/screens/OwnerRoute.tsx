@@ -332,7 +332,8 @@ export function OwnerRoute() {
       tournament={tournament ?? null}
       teamPurse={teamPurse ?? null}
       teamId={teamId}
-      isFetching={stateFetching}
+      tournamentId={tournamentId}
+      connectionStatus={connectionStatus}
       bidErrorMsg={lastBidError}
       onBid={handleBid}
       onViewSquad={handleViewSquad}

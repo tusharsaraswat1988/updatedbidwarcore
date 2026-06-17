@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
+import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
+import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
@@ -226,74 +228,8 @@ function buildPaymentInsertFields(
   };
 }
 
-const playerToJson = (p: typeof playersTable.$inferSelect) => ({
-  id: p.id,
-  tournamentId: p.tournamentId,
-  categoryId: p.categoryId,
-  teamId: p.teamId,
-  name: p.name,
-  city: p.city,
-  role: p.role,
-  battingStyle: p.battingStyle,
-  bowlingStyle: p.bowlingStyle,
-  specialization: p.specialization,
-  age: p.age,
-  gender: p.gender ?? null,
-  photoUrl: p.photoUrl,
-  basePrice: p.basePrice,
-  selectedBidValue: p.selectedBidValue ?? null,
-  bidValueSource: p.bidValueSource ?? null,
-  soldPrice: p.soldPrice,
-  retainedPrice: p.retainedPrice,
-  status: p.status,
-  jerseyNumber: p.jerseyNumber,
-  jerseySize: p.jerseySize ?? null,
-  achievements: p.achievements,
-  mobileNumber: p.mobileNumber,
-  email: p.email ?? null,
-  cricheroUrl: p.cricheroUrl,
-  availabilityDates: p.availabilityDates,
-  playerTag: p.playerTag ?? null,
-  playerTagTeamId: p.playerTagTeamId ?? null,
-  isNonPlayingMember: p.isNonPlayingMember ?? false,
-  registrationPaymentStatus: p.registrationPaymentStatus ?? null,
-  utrNumber: p.utrNumber ?? null,
-  paymentScreenshotUrl: p.paymentScreenshotUrl ?? null,
-  paymentSubmittedAt: p.paymentSubmittedAt ? p.paymentSubmittedAt.toISOString() : null,
-  createdAt: p.createdAt.toISOString(),
-});
-
-// Public serializer: omits mobileNumber entirely (not set to null)
-const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
-  id: p.id,
-  tournamentId: p.tournamentId,
-  categoryId: p.categoryId,
-  teamId: p.teamId,
-  name: p.name,
-  city: p.city,
-  role: p.role,
-  battingStyle: p.battingStyle,
-  bowlingStyle: p.bowlingStyle,
-  specialization: p.specialization,
-  age: p.age,
-  gender: p.gender ?? null,
-  photoUrl: p.photoUrl,
-  basePrice: p.basePrice,
-  selectedBidValue: p.selectedBidValue ?? null,
-  bidValueSource: p.bidValueSource ?? null,
-  soldPrice: p.soldPrice,
-  retainedPrice: p.retainedPrice,
-  status: p.status,
-  jerseyNumber: p.jerseyNumber,
-  jerseySize: p.jerseySize ?? null,
-  achievements: p.achievements,
-  cricheroUrl: p.cricheroUrl,
-  availabilityDates: p.availabilityDates,
-  playerTag: p.playerTag ?? null,
-  playerTagTeamId: p.playerTagTeamId ?? null,
-  isNonPlayingMember: p.isNonPlayingMember ?? false,
-  createdAt: p.createdAt.toISOString(),
-});
+const playerToJson = privatePlayerSerializer;
+const playerToPublicJson = publicPlayerSerializer;
 
 const cloudinaryImageUrl = z
   .string()
@@ -342,8 +278,7 @@ const playerInputSchema = z.object({
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
   const players = await db
     .select()
@@ -356,7 +291,7 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
@@ -396,6 +331,14 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     const [org] = await db.select({ mobile: organizersTable.mobile }).from(organizersTable).where(eq(organizersTable.id, orgAccountId));
     if (org?.mobile && mobilesMatch(org.mobile, mobileNumber)) {
       res.status(400).json({ error: "You cannot register the organizer's own mobile number as a player.", field: "mobileNumber" }); return;
+    }
+  }
+
+  if (d.teamId != null) {
+    const teamCheck = await validateTeamBelongsToTournament(tid, d.teamId);
+    if (!teamCheck.ok) {
+      res.status(teamCheck.status).json({ error: teamCheck.error });
+      return;
     }
   }
 
@@ -678,7 +621,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const schema = z.object({
     players: z.array(playerInputSchema).min(1).max(500),
@@ -766,8 +709,7 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const [player] = await db
     .select()
     .from(playersTable)
@@ -780,7 +722,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
     categoryId: z.number().int().nullable().optional(),
     name: z.string().optional(),
@@ -866,6 +808,13 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   const newTeamId = d.teamId !== undefined ? d.teamId : existing.teamId;
   if (newStatus === "retained") {
     if (!newTeamId) { res.status(400).json({ error: "A retained player must be assigned to a team" }); return; }
+  }
+  if (newTeamId != null) {
+    const teamCheck = await validateTeamBelongsToTournament(tid, newTeamId);
+    if (!teamCheck.ok) {
+      res.status(teamCheck.status).json({ error: teamCheck.error });
+      return;
+    }
   }
 
   const updates: Record<string, unknown> = {};
@@ -977,7 +926,7 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const [before] = await db
     .select()
     .from(playersTable)
@@ -1073,8 +1022,7 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .where(and(...conditions))
     .orderBy(playersTable.name);
 
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const serializer = isOrganizer ? playerToJson : playerToPublicJson;
 
   const result = sourcePlayers.map((p) => {
@@ -1097,7 +1045,7 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
 router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const schema = z.object({
     sourceTournamentId: z.number().int(),
@@ -1195,16 +1143,13 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 });
 
 async function updateRegistrationPaymentStatus(
-  req: Parameters<typeof isOrganizerOrAdmin>[0],
+  req: import("express").Request,
   res: import("express").Response,
   tid: number,
   playerId: number,
   status: "approved" | "rejected",
 ) {
-  if (!isOrganizerOrAdmin(req, tid)) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const [player] = await db
     .select()

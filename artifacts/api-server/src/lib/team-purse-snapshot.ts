@@ -7,7 +7,6 @@ export type TeamPurseSnapshot = {
   teamId: number;
   teamName: string;
   shortCode: string;
-  ownerName: string;
   color: string | null;
   logoUrl: string | null;
   originalPurse: number;
@@ -94,7 +93,6 @@ export async function buildTeamPurseSnapshot(tournamentId: number): Promise<Team
       teamId: team.id,
       teamName: team.name,
       shortCode: team.shortCode,
-      ownerName: team.ownerName,
       color: team.color,
       logoUrl: team.logoUrl,
       originalPurse,

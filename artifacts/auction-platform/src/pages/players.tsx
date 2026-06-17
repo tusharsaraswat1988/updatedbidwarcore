@@ -549,10 +549,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       mobileDebounceRef.current = setTimeout(async () => {
         setMobileLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`);
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`, {
+            credentials: "include",
+          });
           const data: SuggestionProfile[] = await res.json();
-          const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && mobilesMatch(p.mobileNumber, digits))
+          const match = Array.isArray(data) && data.length > 0
+            ? (digits.length >= 10 ? data[0] : data.find(p => p.name))
             : undefined;
           if (match) setPendingMobileProfile(match);
         } catch {

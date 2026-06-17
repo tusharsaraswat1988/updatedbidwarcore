@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { tournamentsTable } from "@workspace/db";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   listMasterPlayersForBadminton,
   importMasterPlayersToBadminton,
@@ -46,10 +46,7 @@ router.post("/import-master-players", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     masterPlayerIds: z.array(z.string().min(1)).min(1),
@@ -98,10 +95,7 @@ router.patch("/settings", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     autoSyncAuctionPlayers: z.boolean().optional(),
@@ -189,10 +183,7 @@ router.patch("/branding", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     displayName: z.string().min(1).max(200).optional(),
@@ -246,10 +237,7 @@ router.post("/import-branding", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     sourceTournamentId: z.number().int(),
@@ -264,10 +252,7 @@ router.post("/import-branding", async (req, res) => {
     res.status(400).json({ error: "Cannot import from the same tournament" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, parsed.data.sourceTournamentId)) {
-    res.status(403).json({ error: "No access to source tournament" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, parsed.data.sourceTournamentId))) return;
 
   try {
     const branding = await importBrandingFromTournament(
@@ -287,10 +272,7 @@ router.post("/import-from-tournament", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     sourceTournamentId: z.number().int(),
@@ -305,10 +287,7 @@ router.post("/import-from-tournament", async (req, res) => {
     res.status(400).json({ error: "Cannot import from the same tournament" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, parsed.data.sourceTournamentId)) {
-    res.status(403).json({ error: "No access to source tournament" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, parsed.data.sourceTournamentId))) return;
 
   try {
     const result = await importPlayersFromTournament(
@@ -328,10 +307,7 @@ router.post("/migrate-to-master", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const migration = await migrateBadmintonPlayersToMaster(tournamentId);
   const statsCreated = await ensureStatisticsForMigratedPlayers(tournamentId);
@@ -346,10 +322,7 @@ router.post("/sync-auction-players", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const [tournament] = await db
     .select({ scoringSettingsJson: tournamentsTable.scoringSettingsJson })

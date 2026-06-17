@@ -272,8 +272,8 @@ export default function PlayerRegister() {
             fetch(`/api/tournaments/${tournamentId}/register/lookup?mobile=${encodeURIComponent(sanitized)}`),
           ]);
           const data: GlobalPlayerLookup[] = await globalRes.json();
-          const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && mobilesMatch(p.mobileNumber, sanitized))
+          const match = Array.isArray(data) && data.length > 0
+            ? (sanitized.length >= 10 ? data[0] : data.find(p => p.name && sanitized.length >= 2))
             : undefined;
           if (match) setFoundProfile(match);
 

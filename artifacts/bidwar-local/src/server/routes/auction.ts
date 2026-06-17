@@ -231,6 +231,7 @@ export function createAuctionRouter(db: LocalDb) {
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
       lastPurseBooster,
       ledPurseToast,
+      lastAuctionActivityAt: session.updatedAt?.toISOString() ?? null,
     };
   }
 
@@ -454,8 +455,12 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     if (session.currentBidTeamId === teamId) { res.status(409).json({ error: "Your team is already the highest bidder" }); return; }
-    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-    if (!team) { res.status(404).json({ error: "Team not found" }); return; }
+    const [team] = await db.select().from(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+    if (!team) {
+      const [foreign] = await db.select({ id: teamsTable.id }).from(teamsTable).where(eq(teamsTable.id, teamId));
+      res.status(foreign ? 403 : 404).json({ error: foreign ? "Team does not belong to this tournament" : "Team not found" });
+      return;
+    }
     // Access code check — if the team has one set, the caller must supply it
     if (team.accessCode) {
       if (!accessCode || team.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
@@ -514,6 +519,12 @@ export function createAuctionRouter(db: LocalDb) {
     if (rejectIfAuctionPaused(session, res)) return;
     if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
     const playerId = session.currentPlayerId;
+    const [teamRow] = await db.select().from(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+    if (!teamRow) {
+      const [foreign] = await db.select({ id: teamsTable.id }).from(teamsTable).where(eq(teamsTable.id, teamId));
+      res.status(foreign ? 403 : 404).json({ error: foreign ? "Team does not belong to this tournament" : "Team not found" });
+      return;
+    }
     await db.update(playersTable).set({ status: "sold", teamId, soldPrice: amount }).where(eq(playersTable.id, playerId));
     const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     if (team && amount > 0) {

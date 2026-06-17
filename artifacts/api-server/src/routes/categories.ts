@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
 import { categoriesTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
@@ -41,7 +41,7 @@ router.get("/tournaments/:tournamentId/categories", async (req, res) => {
 router.post("/tournaments/:tournamentId/categories", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
     name: z.string().min(1),
     minBid: z.number().int().nullable().optional(),
@@ -82,7 +82,7 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
   const tid = parseInt(req.params.tournamentId);
   const catId = parseInt(req.params.categoryId);
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
     name: z.string().optional(),
     minBid: z.number().int().nullable().optional(),
@@ -138,7 +138,7 @@ router.delete("/tournaments/:tournamentId/categories/:categoryId", async (req, r
   const tid = parseInt(req.params.tournamentId);
   const catId = parseInt(req.params.categoryId);
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const [beforeCat] = await db
     .select()
     .from(categoriesTable)

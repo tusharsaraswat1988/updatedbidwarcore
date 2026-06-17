@@ -6,6 +6,7 @@ export interface BrandingSettings {
   poweredByText: string;
   miniBrandText: string;
   mainLogoUrl: string | null;
+  mainLogoReverseUrl: string | null;
   miniLogoUrl: string | null;
   appIconUrl: string | null;
   splashScreenUrl: string | null;
@@ -19,6 +20,7 @@ export const BRANDING_DEFAULTS: BrandingSettings = {
   poweredByText: "Powered by BidWar",
   miniBrandText: "BW",
   mainLogoUrl: null,
+  mainLogoReverseUrl: null,
   miniLogoUrl: null,
   appIconUrl: null,
   splashScreenUrl: null,
@@ -47,6 +49,7 @@ export function useBranding() {
     miniBrandText: settings.miniBrandText,
     logos: {
       main: settings.mainLogoUrl,
+      mainReverse: settings.mainLogoReverseUrl,
       mini: settings.miniLogoUrl,
       appIcon: settings.appIconUrl,
       splash: settings.splashScreenUrl,

@@ -1,10 +1,17 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { globalPlayersTable, playersTable } from "@workspace/db";
+import { globalPlayersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { heavyLimiter } from "../lib/rate-limiters";
+import { isAccountOrAdmin } from "../middleware/require-organizer";
+import {
+  privateGlobalPlayerSearchSerializer,
+  privateGlobalPlayerSerializer,
+  publicGlobalPlayerSearchSerializer,
+  publicGlobalPlayerSerializer,
+} from "../lib/serializers/global-player";
 
 const cloudinaryImageUrl = z
   .string()
@@ -91,7 +98,15 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
       LIMIT ${limit}
     `);
 
-    res.json(result.rows);
+    const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
+    const rows = result.rows as Array<Record<string, unknown>>;
+    res.json(
+      rows.map((row) =>
+        isPrivate
+          ? privateGlobalPlayerSearchSerializer(row as Parameters<typeof privateGlobalPlayerSearchSerializer>[0])
+          : publicGlobalPlayerSearchSerializer(row as Parameters<typeof publicGlobalPlayerSearchSerializer>[0]),
+      ),
+    );
   } catch (err) {
     req.log?.error({ err }, "global-players search error");
     res.status(500).json({ error: "Search failed" });
@@ -109,23 +124,16 @@ router.get("/global-players/:gpid", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  res.json({
-    id: gp.id,
-    canonicalName: gp.canonicalName,
-    mobileNumber: gp.mobileNumber,
-    sport: gp.sport,
-    defaultRole: gp.defaultRole,
-    city: gp.city,
-    age: gp.age,
-    gender: gp.gender,
-    photoUrl: gp.photoUrl,
-    notes: gp.notes,
-    createdAt: gp.createdAt.toISOString(),
-  });
+  const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
+  res.json(isPrivate ? privateGlobalPlayerSerializer(gp) : publicGlobalPlayerSerializer(gp));
 });
 
 // ─── Upsert global player (by mobile) ─────────────────────────────────────────
 router.post("/global-players", async (req, res) => {
+  if (!isAccountOrAdmin(req) && !req.jwtUser?.isAdmin) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
   const schema = z.object({
     canonicalName: z.string().min(1),
     mobileNumber: z.string().optional(),

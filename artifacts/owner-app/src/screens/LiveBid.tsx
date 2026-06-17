@@ -1,18 +1,21 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert,
+  Trophy, User, LogOut, ShieldAlert,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser,
 } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Toast } from "@/components/Toast";
+import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
 import { isPlayerOnAuctionStage } from "@/lib/auction-stage";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -73,6 +76,7 @@ interface AuctionState {
     newCapacity: number;
     appliedAt: string;
   } | null;
+  lastAuctionActivityAt?: string | null;
 }
 
 interface Team {
@@ -108,7 +112,8 @@ interface Props {
   tournament: Tournament | null;
   teamPurse: TeamPurse | null;
   teamId: number;
-  isFetching?: boolean;
+  tournamentId: number;
+  connectionStatus: ConnectionStatus;
   bidErrorMsg?: string;
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
@@ -118,29 +123,6 @@ interface Props {
   onSignOut: () => void;
   onSync: () => void;
   isSyncError?: boolean;
-}
-
-// ── Network quality ──────────────────────────────────────────────────────────
-type NetworkQuality = "good" | "weak" | "poor";
-
-function useNetworkQuality(state: AuctionState | null, isFetching?: boolean): NetworkQuality {
-  const lastUpdateRef = useRef<number>(Date.now());
-  const [quality, setQuality] = useState<NetworkQuality>("good");
-
-  useEffect(() => { if (state) lastUpdateRef.current = Date.now(); }, [state]);
-  useEffect(() => { lastUpdateRef.current = Date.now(); }, [isFetching]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const staleSec = (Date.now() - lastUpdateRef.current) / 1000;
-      if (staleSec > 12) setQuality("poor");
-      else if (staleSec > 5) setQuality("weak");
-      else setQuality("good");
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
-
-  return quality;
 }
 
 // ── Anti-double-tap ──────────────────────────────────────────────────────────
@@ -155,12 +137,6 @@ function useDebounce(ms = 600) {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
-
-function NetworkDot({ quality }: { quality: NetworkQuality }) {
-  if (quality === "good")  return <Wifi className="w-6 h-6 text-green-400" />;
-  if (quality === "weak")  return <WifiLow className="w-6 h-6 text-yellow-400" />;
-  return <WifiOff className="w-6 h-6 text-red-400 animate-pulse" />;
-}
 
 function TimerBar({
   timerEndsAt, teamColor, timerExpired,
@@ -473,13 +449,17 @@ function BrandMini({ logos, brandName, miniBrandText }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function LiveBid({
-  state, team, tournament, teamPurse, teamId,
-  isFetching, bidErrorMsg, onBid, onViewSquad, onViewScout,
+  state, team, tournament, teamPurse, teamId, tournamentId,
+  connectionStatus, bidErrorMsg, onBid, onViewSquad, onViewScout,
   navToast, onNavToastDismiss, onSignOut, onSync, isSyncError,
 }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
-  const networkQ    = useNetworkQuality(state, isFetching);
+  const feed        = useAuctionConnectionState(
+    connectionStatus,
+    tournamentId,
+    state?.lastAuctionActivityAt,
+  );
   const mayTap      = useDebounce(600);
   const { brandName, logos, poweredByText, miniBrandText, showPoweredBy } = useBranding();
 
@@ -738,7 +718,10 @@ export function LiveBid({
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            <NetworkDot quality={networkQ} />
+            <AuctionFeedIndicator
+              feedState={feed.state}
+              secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            />
             <span
               className={`text-xs font-black px-2.5 py-1.5 rounded-full ${
                 isActive
@@ -1017,25 +1000,11 @@ export function LiveBid({
           )}
         </AnimatePresence>
 
-        {/* ── Reconnect overlay ── */}
-        <AnimatePresence>
-          {networkQ === "poor" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-5 z-50"
-            >
-              <WifiOff className="w-16 h-16 text-red-400 animate-pulse" />
-              <div className="text-center">
-                <p className="font-display font-bold text-2xl text-white">Connection lost</p>
-                <p className="text-base text-[#71717a] mt-2">Reconnecting to auction room...</p>
-              </div>
-              <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-              <p className="text-sm text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <AuctionConnectionBanner
+          feedState={feed.state}
+          secondsSinceLastActivity={feed.secondsSinceLastActivity}
+          variant="compact"
+        />
 
         {/* ── Sign-out confirmation ── */}
         <AnimatePresence>
@@ -1104,7 +1073,10 @@ export function LiveBid({
             <p className="font-display font-bold text-base truncate" style={{ color: teamColor }}>{team.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <NetworkDot quality={networkQ} />
+            <AuctionFeedIndicator
+              feedState={feed.state}
+              secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            />
             <span className={`text-xs font-black px-2 py-1 rounded-full ${
               isActive ? "bg-green-500/20 text-green-400" : isPaused ? "bg-amber-500/20 text-amber-400" : "bg-[#27272a] text-[#71717a]"
             }`}>
@@ -1299,22 +1271,11 @@ export function LiveBid({
         )}
       </AnimatePresence>
 
-      {/* ── Reconnect overlay ── */}
-      <AnimatePresence>
-        {networkQ === "poor" && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-4 z-50"
-          >
-            <WifiOff className="w-14 h-14 text-red-400 animate-pulse" />
-            <div className="text-center">
-              <p className="font-display font-bold text-2xl text-white">Connection lost</p>
-              <p className="text-base text-[#71717a] mt-1">Reconnecting to auction room...</p>
-            </div>
-            <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AuctionConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+        variant="compact"
+      />
 
       {/* ── Sign-out confirmation ── */}
       <AnimatePresence>

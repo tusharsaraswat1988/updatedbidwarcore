@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   createScoringOfficial,
   createScoringVenue,
@@ -38,12 +38,8 @@ function handleError(res: import("express").Response, err: unknown) {
   throw err;
 }
 
-function requireOrganizer(req: import("express").Request, res: import("express").Response, tournamentId: number) {
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
-  return true;
+async function requireOrganizer(req: import("express").Request, res: import("express").Response, tournamentId: number) {
+  return requireTournamentOrganizer(req, res, tournamentId);
 }
 
 // ─── Public ───────────────────────────────────────────────────────────────────
@@ -67,7 +63,7 @@ router.get("/public/schedule", async (req, res) => {
 router.get("/venues", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await listScoringVenues(tournamentId));
   } catch (err) {
@@ -78,7 +74,7 @@ router.get("/venues", async (req, res) => {
 router.post("/venues", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     name: z.string().min(1),
@@ -104,7 +100,7 @@ router.patch("/venues/:venueId", async (req, res) => {
   if (!tournamentId || Number.isNaN(venueId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     name: z.string().min(1).optional(),
@@ -130,7 +126,7 @@ router.delete("/venues/:venueId", async (req, res) => {
   if (!tournamentId || Number.isNaN(venueId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await deleteScoringVenue(tournamentId, venueId));
   } catch (err) {
@@ -143,7 +139,7 @@ router.delete("/venues/:venueId", async (req, res) => {
 router.get("/officials", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await listScoringOfficials(tournamentId));
   } catch (err) {
@@ -154,7 +150,7 @@ router.get("/officials", async (req, res) => {
 router.post("/officials", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     name: z.string().min(1),
@@ -178,7 +174,7 @@ router.patch("/officials/:officialId", async (req, res) => {
   if (!tournamentId || Number.isNaN(officialId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     name: z.string().min(1).optional(),
@@ -202,7 +198,7 @@ router.delete("/officials/:officialId", async (req, res) => {
   if (!tournamentId || Number.isNaN(officialId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await deleteScoringOfficial(tournamentId, officialId));
   } catch (err) {
@@ -215,7 +211,7 @@ router.delete("/officials/:officialId", async (req, res) => {
 router.get("/draws", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await listScoringDraws(tournamentId));
   } catch (err) {
@@ -226,7 +222,7 @@ router.get("/draws", async (req, res) => {
 router.get("/fixtures", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const drawIdRaw = req.query.drawId;
   const drawId = drawIdRaw != null ? parseInt(String(drawIdRaw), 10) : undefined;
@@ -244,7 +240,7 @@ router.get("/draws/:drawId/groups", async (req, res) => {
   if (!tournamentId || Number.isNaN(drawId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await listScoringGroups(tournamentId, drawId));
   } catch (err) {
@@ -260,7 +256,7 @@ const groupSchema = z.object({
 router.post("/draws/generate", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "Invalid tournament ID" });
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     name: z.string().min(1),
@@ -304,7 +300,7 @@ router.get("/matches/:matchId/squads", async (req, res) => {
   if (!tournamentId || Number.isNaN(matchId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
   try {
     res.json(await getMatchSquads(tournamentId, matchId));
   } catch (err) {
@@ -319,7 +315,7 @@ router.put("/matches/:matchId/squads/:teamId", async (req, res) => {
   if (!tournamentId || Number.isNaN(matchId) || Number.isNaN(teamId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!requireOrganizer(req, res, tournamentId)) return;
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     playingXi: z.array(z.number().int().positive()).min(1).max(11),

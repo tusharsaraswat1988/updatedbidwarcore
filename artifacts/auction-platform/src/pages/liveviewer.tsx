@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import type { TeamPurse, Player, Tournament, AuctionState } from "@workspace/api-client-react";
 import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight } from "lucide-react";
@@ -982,7 +983,6 @@ export default function LiveViewerPage() {
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { connectionStatus } = useAuctionSocket(tournamentId, handleCheerMessage);
-  const isStaleFeed = connectionStatus !== "connected";
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 15000 },
@@ -998,6 +998,13 @@ export default function LiveViewerPage() {
       staleTime: 15000,
     },
   });
+
+  const lastActivityAt =
+    typeof (state as { lastAuctionActivityAt?: string | null } | undefined)?.lastAuctionActivityAt === "string"
+      ? (state as { lastAuctionActivityAt: string }).lastAuctionActivityAt
+      : null;
+  const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
+  const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
 
   // Sticky countdown: survives the server auto-clearing the countdown on read
   // so the post-expiry banner can complete fully.
@@ -1397,7 +1404,10 @@ export default function LiveViewerPage() {
             </span>
           </div>
         </div>
-        <DisplayConnectionBanner status={connectionStatus} />
+        <DisplayConnectionBanner
+          feedState={feed.state}
+          secondsSinceLastActivity={feed.secondsSinceLastActivity}
+        />
       </div>
 
       {/* ── Last result ticker ────────────────────────────────────────── */}

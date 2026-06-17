@@ -1,33 +1,56 @@
-import { Wifi, WifiOff, Loader2 } from "lucide-react";
-import { useAuctionSocket, type ConnectionStatus } from "@/hooks/use-auction-socket";
+import {
+  useGetAuctionState,
+  getGetAuctionStateQueryKey,
+} from "@workspace/api-client-react";
+import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import { AuctionFeedIndicator } from "@/components/auction/auction-connection-banner";
+import {
+  AUCTION_FEED_UI,
+  formatLastActivityDiagnostic,
+  type AuctionFeedState,
+} from "@workspace/api-base/auction-connection-state";
 
-const labels: Record<ConnectionStatus, string> = {
-  connected: "Connected",
+const FEED_BADGE_LABEL: Record<AuctionFeedState, string> = {
+  live: "Live",
+  awaiting_operator_response: "Waiting",
   reconnecting: "Reconnecting",
   disconnected: "Offline",
 };
 
-const styles: Record<ConnectionStatus, string> = {
-  connected: "bg-green-500/10 text-green-300",
-  reconnecting: "bg-amber-500/10 text-amber-300",
+const FEED_BADGE_STYLE: Record<AuctionFeedState, string> = {
+  live: "bg-green-500/10 text-green-300",
+  awaiting_operator_response: "bg-yellow-500/10 text-yellow-300",
+  reconnecting: "bg-orange-500/10 text-orange-300",
   disconnected: "bg-red-500/10 text-red-400",
 };
 
 export function LiveConnectionStatus({ tournamentId }: { tournamentId: number }) {
   const { connectionStatus } = useAuctionSocket(tournamentId);
-  const Icon =
-    connectionStatus === "connected"
-      ? Wifi
-      : connectionStatus === "reconnecting"
-        ? Loader2
-        : WifiOff;
+  const { data: state } = useGetAuctionState(tournamentId, {
+    query: {
+      queryKey: getGetAuctionStateQueryKey(tournamentId),
+      enabled: !!tournamentId,
+    },
+  });
+  const feed = useAuctionConnectionState(
+    connectionStatus,
+    tournamentId,
+    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
+  );
+  const diagnostic = formatLastActivityDiagnostic(feed.secondsSinceLastActivity);
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${styles[connectionStatus]}`}
+      title={diagnostic ? `${AUCTION_FEED_UI[feed.state].title} · ${diagnostic}` : AUCTION_FEED_UI[feed.state].subtitle}
+      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${FEED_BADGE_STYLE[feed.state]}`}
     >
-      <Icon className={`h-3.5 w-3.5 ${connectionStatus === "reconnecting" ? "animate-spin" : ""}`} />
-      {labels[connectionStatus]}
+      <AuctionFeedIndicator
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+        className="h-3.5 w-3.5"
+      />
+      {FEED_BADGE_LABEL[feed.state]}
     </span>
   );
 }
