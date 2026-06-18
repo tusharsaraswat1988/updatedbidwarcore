@@ -115,7 +115,7 @@ export function TopBuys(props: TopBuysListContract) {
   const gridCols = compactGridCols(restEntries.length);
 
   return (
-    <BidwarCanvas showWatermark showFooterBranding>
+    <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
 
         {/* ── Header: sport badge ← → entry count label ───────────────────── */}

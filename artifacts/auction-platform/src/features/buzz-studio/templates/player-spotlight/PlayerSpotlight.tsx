@@ -5,11 +5,11 @@ import { Gradients } from "../../design-system/gradients";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge } from "../../design-system/badges";
 import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
-import type { PlayerSpotlightData } from "./PlayerSpotlight.types";
+import type { PlayerSpotlightContract } from "../../contracts/PlayerSpotlight.contract";
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 
-export function PlayerSpotlight(props: PlayerSpotlightData) {
+export function PlayerSpotlight(props: PlayerSpotlightContract) {
   const {
     playerName,
     teamName,
@@ -21,7 +21,7 @@ export function PlayerSpotlight(props: PlayerSpotlightData) {
   } = props;
 
   return (
-    <BidwarCanvas showWatermark showFooterBranding>
+    <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
 
         {/* ── Top row: sport badge left-aligned ─────────────────────────── */}

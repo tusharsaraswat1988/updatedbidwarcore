@@ -1,41 +1,70 @@
 import React from "react";
 import { BIDWAR_WATERMARK } from "../assets/watermark";
+import type { BuzzBranding } from "../contracts/branding";
 
 type BidwarCanvasProps = {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
+  /** Tournament branding from contract — controls watermark, footer, logos. */
+  branding?: BuzzBranding;
+  /** Legacy override; when omitted, derived from branding.watermarkEnabled (default true). */
   showWatermark?: boolean;
   showFooterBranding?: boolean;
   showQrPlaceholder?: boolean;
 };
 
+function resolveBranding(branding?: BuzzBranding, showWatermark?: boolean) {
+  const watermarkEnabled = showWatermark ?? branding?.watermarkEnabled !== false;
+  return {
+    watermarkEnabled,
+    footerPrimary: branding?.poweredByText?.trim() || "POWERED BY BIDWAR",
+    footerSecondary: branding?.tagline?.trim()
+      ? `◆ ${branding.tagline.trim()} ◆`
+      : "◆ From Auction to Champion ◆",
+    tournamentLogoUrl: branding?.tournamentLogoUrl,
+    sponsorLogoUrl: branding?.sponsorLogoUrl,
+    sponsorName: branding?.sponsorName,
+  };
+}
+
 export function BidwarCanvas({
   children,
   title,
   subtitle,
-  showWatermark = false,
+  branding,
+  showWatermark,
   showFooterBranding = false,
   showQrPlaceholder = false,
 }: BidwarCanvasProps) {
+  const resolved = resolveBranding(branding, showWatermark);
+
   return (
     <div style={styles.root}>
       {/* Premium luminous gold glow ring — provides the border */}
       <div style={styles.glowRing} aria-hidden="true" />
 
       {/* Level 1: BIDWAR watermark — large, ultra-low opacity, diagonal */}
-      {showWatermark && (
+      {resolved.watermarkEnabled ? (
         <span style={styles.watermark} aria-hidden="true">
           {BIDWAR_WATERMARK}
         </span>
-      )}
+      ) : null}
 
       {/* Card surface with 5-layer background system */}
       <div style={styles.card}>
 
         {/* Level 2: Corner brand mark — top-right, non-intrusive */}
         <div style={styles.cornerBrand} aria-hidden="true">
-          <span style={styles.cornerBrandText}>BW</span>
+          {resolved.tournamentLogoUrl ? (
+            <img
+              src={resolved.tournamentLogoUrl}
+              alt=""
+              style={styles.cornerTournamentLogo}
+            />
+          ) : (
+            <span style={styles.cornerBrandText}>BW</span>
+          )}
         </div>
 
         {/* Optional title/subtitle header */}
@@ -54,8 +83,15 @@ export function BidwarCanvas({
           <div style={styles.footer}>
             {showFooterBranding && (
               <div style={styles.branding}>
-                <span style={styles.brandingPrimary}>POWERED BY BIDWAR</span>
-                <span style={styles.brandingSecondary}>◆ From Auction to Champion ◆</span>
+                {resolved.sponsorLogoUrl ? (
+                  <img
+                    src={resolved.sponsorLogoUrl}
+                    alt={resolved.sponsorName ?? "Sponsor"}
+                    style={styles.sponsorLogo}
+                  />
+                ) : null}
+                <span style={styles.brandingPrimary}>{resolved.footerPrimary}</span>
+                <span style={styles.brandingSecondary}>{resolved.footerSecondary}</span>
               </div>
             )}
 
@@ -168,6 +204,21 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.25em",
     userSelect: "none",
     textTransform: "uppercase" as const,
+  },
+
+  cornerTournamentLogo: {
+    maxWidth: "36px",
+    maxHeight: "36px",
+    objectFit: "contain" as const,
+    display: "block",
+  },
+
+  sponsorLogo: {
+    maxWidth: "72px",
+    maxHeight: "28px",
+    objectFit: "contain" as const,
+    marginBottom: "4px",
+    display: "block",
   },
 
   header: {

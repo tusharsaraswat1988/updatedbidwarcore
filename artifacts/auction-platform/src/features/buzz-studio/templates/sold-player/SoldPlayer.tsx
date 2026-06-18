@@ -50,7 +50,7 @@ export function SoldPlayer(props: SoldPlayerContract) {
   const hasBidCount = bidCount != null && bidCount > 0;
 
   return (
-    <BidwarCanvas showWatermark showFooterBranding>
+    <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
 
         {/* ── Top strip: sport left ← → SOLD badge right ─────────────────── */}

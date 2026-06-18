@@ -548,19 +548,36 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .select()
     .from(teamsTable)
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
-  await db.delete(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
-  if (beforeTeam) {
-    auditLog(req, {
-      category: "team",
-      action: "team.deleted",
-      summary: `Team "${beforeTeam.name}" deleted`,
-      severity: "warning",
-      tournamentId: tid,
-      teamId,
-      resource: { type: "team", id: teamId },
-      before: snapshotTeam(beforeTeam),
-    });
+  if (!beforeTeam) {
+    res.status(404).json({ error: "Not found" });
+    return;
   }
+
+  const [{ assignedCount }] = await db
+    .select({ assignedCount: sql<number>`cast(count(*) as int)` })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.teamId, teamId)));
+
+  if (assignedCount > 0) {
+    res.status(409).json({
+      error: "This team has players assigned and cannot be deleted. Reassign or remove those players first.",
+      code: "TEAM_HAS_PLAYERS",
+      playerCount: assignedCount,
+    });
+    return;
+  }
+
+  await db.delete(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  auditLog(req, {
+    category: "team",
+    action: "team.deleted",
+    summary: `Team "${beforeTeam.name}" deleted`,
+    severity: "warning",
+    tournamentId: tid,
+    teamId,
+    resource: { type: "team", id: teamId },
+    before: snapshotTeam(beforeTeam),
+  });
   res.status(204).send();
 });
 

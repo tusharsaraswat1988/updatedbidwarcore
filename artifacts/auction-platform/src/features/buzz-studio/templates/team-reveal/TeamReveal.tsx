@@ -27,7 +27,7 @@ export function TeamReveal(props: TeamRevealContract) {
   const displayTeamName = teamName ?? "FRANCHISE";
 
   return (
-    <BidwarCanvas showWatermark showFooterBranding>
+    <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
 
         {/* ── Top strip: sport badge left, announcement tag right ─────────── */}

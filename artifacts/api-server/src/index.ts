@@ -2,6 +2,7 @@ import "./lib/bootstrap.js";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startConsentBlastScheduler } from "./lib/scheduler";
+import { startCreativeRenderWorker } from "./lib/creative-render-worker";
 import { getRuntimeConfig } from "./lib/runtime-env";
 import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
@@ -21,6 +22,7 @@ async function start() {
     }
     logger.info({ port }, "Server listening");
     startConsentBlastScheduler();
+    startCreativeRenderWorker();
   });
 }
 

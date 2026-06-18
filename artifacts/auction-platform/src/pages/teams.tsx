@@ -461,6 +461,7 @@ export default function Teams() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [regenerateTarget, setRegenerateTarget] = useState<number | null>(null);
   const [unlockTarget, setUnlockTarget] = useState<{ id: number; name: string } | null>(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
@@ -483,9 +484,15 @@ export default function Teams() {
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    await deleteTeam.mutateAsync({ tournamentId, teamId: deleteTarget.id });
-    qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
-    setDeleteTarget(null);
+    setDeleteError("");
+    try {
+      await deleteTeam.mutateAsync({ tournamentId, teamId: deleteTarget.id });
+      qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete team.";
+      setDeleteError(message);
+    }
   }
 
   function handleRegenerateCode(teamId: number) {
@@ -648,7 +655,7 @@ export default function Teams() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
+                          onClick={() => { setDeleteError(""); setDeleteTarget({ id: team.id, name: team.name }); }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -882,7 +889,7 @@ export default function Teams() {
         )}
       </div>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+      <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) { setDeleteTarget(null); setDeleteError(""); } }}>
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
             <DialogTitle>Are you sure?</DialogTitle>
@@ -890,6 +897,9 @@ export default function Teams() {
           <p className="text-sm text-muted-foreground">
             Remove <strong className="text-foreground">{deleteTarget?.name}</strong> from this tournament? This cannot be undone.
           </p>
+          {deleteError ? (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteTeam.isPending}>
               Cancel
