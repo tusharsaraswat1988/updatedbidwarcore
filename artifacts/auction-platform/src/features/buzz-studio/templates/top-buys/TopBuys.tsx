@@ -2,24 +2,17 @@
  * Buzz Studio — Top Buys Template
  *
  * Showcases the highest-purchased players from an auction.
- * Viewer goal: WHO / WHICH TEAM / HOW MUCH within 2 seconds.
+ * Data-only — all background rendering is handled by BidwarCanvas.
  *
  * Layout:
  *   1. Header  — title, subtitle, sport badge
  *   2. Featured (#1) — large card: avatar, name, price, team
  *   3. Compact grid (#2–N) — 2 or 3 column leaderboard
- *
- * Supports: Top 3, Top 5, Top 10 (any entry count 1–10)
- *
- * Data contract : TopBuysListContract
- * Pure render   : no hooks, no state, no effects
- * Renderer-safe : inline styles + clamp units
  */
 
 import React from "react";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
 import { Typography } from "../../design-system/typography";
-import { Gradients } from "../../design-system/gradients";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge, RankingBadge } from "../../design-system/badges";
 import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
@@ -44,31 +37,21 @@ import {
   posterLandscapeRoot,
 } from "../../rendering/poster-shell";
 
-type TopBuysProps = TopBuysListContract & BuzzTemplateRenderProps;
+type TopBuysProps = TopBuysListContract &
+  BuzzTemplateRenderProps & {
+    backgroundImageUrl?: string;
+  };
 
 /* ─── CompactBuyCard ─────────────────────────────────────────────────────── */
-//
-// Defined at module level (not inside TopBuys) to prevent remount on every
-// parent render — see React rule 5.4 (Don't Define Components Inside Components).
 
 interface CompactBuyCardProps {
   entry: TopBuyContract;
-  /** Effective rank, 1-based. */
   rank: number;
 }
 
-/**
- * Compact leaderboard row for entries #2 and below.
- *
- * Layout: [rank + avatar column] → [name / team / price column]
- * Design weight: rank badge > avatar > name > price > team
- *
- * Left border is tinted by medal rank (silver #2, bronze #3, neutral 4+).
- */
 function CompactBuyCard({ entry, rank }: CompactBuyCardProps) {
   const priceDisplay = formatTopBuyPrice(entry);
 
-  // Rank-tinted left border — silver for #2, bronze for #3, subtle for rest
   const leftBorderColor =
     rank === 2 ? "rgba(148,163,184,0.55)" :
     rank === 3 ? "rgba(217,119,6,0.50)"   :
@@ -76,7 +59,6 @@ function CompactBuyCard({ entry, rank }: CompactBuyCardProps) {
 
   return (
     <div style={{ ...s.compactCard, borderLeft: `2.5px solid ${leftBorderColor}` }}>
-      {/* Left column — rank badge stacked above avatar */}
       <div style={s.compactLeft}>
         <RankingBadge rank={rank} style={s.compactRankBadge} />
         <PlayerSlot
@@ -85,8 +67,6 @@ function CompactBuyCard({ entry, rank }: CompactBuyCardProps) {
           size="sm"
         />
       </div>
-
-      {/* Right column — name / team / price */}
       <div style={s.compactRight}>
         <span style={s.compactName} title={entry.playerName}>
           {entry.playerName.toUpperCase()}
@@ -111,20 +91,9 @@ function CompactBuyCard({ entry, rank }: CompactBuyCardProps) {
 
 /* ─── TopBuys ────────────────────────────────────────────────────────────── */
 
-/**
- * Top Buys card template.
- *
- * Visual priority (left/top → right/bottom by perceptual weight):
- *   1. #1 Gold rank badge (instant "champion" signal)
- *   2. Featured player avatar (largest image on card)
- *   3. Featured player name (bold, white, prominent)
- *   4. PRICE HERO (gold, largest number on card)
- *   5. Team row for #1
- *   6. Compact grid — rank + avatar + name + price for #2–N
- */
 export function TopBuys(props: TopBuysProps) {
   const renderCtx = pickRenderContext(props);
-  const { entries, title, sport, renderMode, aspectRatio, renderWidth, renderHeight } = props;
+  const { entries, title, sport, backgroundImageUrl, renderMode, aspectRatio, renderWidth, renderHeight } = props;
 
   if (entries.length === 0) return null;
 
@@ -154,7 +123,6 @@ export function TopBuys(props: TopBuysProps) {
         <RankingBadge rank={featuredRank} />
       </div>
       <div style={s.featuredAvatarWrapper}>
-        <div style={s.featuredAvatarGlow} aria-hidden="true" />
         <PlayerSlot
           playerName={featuredEntry.playerName}
           imageUrl={featuredEntry.playerImageUrl}
@@ -232,7 +200,6 @@ export function TopBuys(props: TopBuysProps) {
           <RankingBadge rank={featuredRank} />
         </div>
         <div style={s.featuredAvatarWrapper}>
-          <div style={{ ...s.featuredAvatarGlow, inset: -avatarSize * 0.35 }} aria-hidden="true" />
           <PlayerSlot
             playerName={featuredEntry.playerName}
             imageUrl={featuredEntry.playerImageUrl}
@@ -297,6 +264,7 @@ export function TopBuys(props: TopBuysProps) {
     return (
       <BidwarCanvas
         branding={props.branding}
+        backgroundImageUrl={backgroundImageUrl}
         showFooterBranding
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
@@ -326,7 +294,7 @@ export function TopBuys(props: TopBuysProps) {
   }
 
   return (
-    <BidwarCanvas branding={props.branding} showFooterBranding>
+    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
       <div style={s.layout}>
         {headerBlock}
         {featuredBlock}
@@ -336,14 +304,10 @@ export function TopBuys(props: TopBuysProps) {
   );
 }
 
-/* ─── Template-local styles ──────────────────────────────────────────────── */
-//
-// Only layout / spacing / template-specific visual accents live here.
-// Typography, colors, gradients → design system.
+/* ─── Styles ─────────────────────────────────────────────────────────────── */
 
 const s: Record<string, React.CSSProperties> = {
 
-  // Root flex column
   layout: {
     display: "flex",
     flexDirection: "column",
@@ -351,8 +315,6 @@ const s: Record<string, React.CSSProperties> = {
     width: "100%",
     gap: 0,
   },
-
-  /* ── Header strip ───────────────────────────────────────────────────────── */
 
   headerStrip: {
     display: "flex",
@@ -373,8 +335,6 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "999px",
     padding: "2px 10px",
   },
-
-  /* ── Title block ────────────────────────────────────────────────────────── */
 
   titleBlock: {
     display: "flex",
@@ -404,19 +364,16 @@ const s: Record<string, React.CSSProperties> = {
     textTransform: "uppercase" as const,
   },
 
-  /* ── Gold accent line below title — thicker and wider ──────────────────── */
-
   accentDivider: {
     width: "55%",
     height: "2px",
-    background: Gradients.GoldDivider,
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.30), transparent)",
     alignSelf: "center",
     marginBottom: "12px",
     borderRadius: "1px",
-    boxShadow: "0 0 8px rgba(251,191,36,0.30)",
   },
 
-  /* ── Featured (#1) card — premium gold treatment ────────────────────────── */
+  /* ── Featured (#1) card ────────────────────────────────────────────────── */
 
   featuredCard: {
     display: "flex",
@@ -425,9 +382,8 @@ const s: Record<string, React.CSSProperties> = {
     gap: "10px",
     padding: "14px 16px 16px",
     borderRadius: "14px",
-    background: `linear-gradient(160deg, #2a1e00 0%, #1a1300 40%, #0c0c0c 100%)`,
-    border: `1.5px solid rgba(251,191,36,0.40)`,
-    boxShadow: `0 0 48px rgba(251,191,36,0.22), 0 8px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(251,191,36,0.22)`,
+    background: "rgba(0,0,0,0.40)",
+    border: "1px solid rgba(255,255,255,0.10)",
     position: "relative",
     marginBottom: "10px",
   },
@@ -436,23 +392,12 @@ const s: Record<string, React.CSSProperties> = {
     alignSelf: "flex-start",
   },
 
-  // Avatar wrapper — relative so the glow halo can be absolutely placed
   featuredAvatarWrapper: {
-    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     marginTop: "2px",
     marginBottom: "4px",
-  },
-
-  // Soft gold radial glow behind the featured avatar
-  featuredAvatarGlow: {
-    position: "absolute",
-    inset: "-32px",
-    borderRadius: "50%",
-    background: `radial-gradient(circle, rgba(251,191,36,0.20) 0%, transparent 65%)`,
-    pointerEvents: "none",
   },
 
   featuredNameArea: {
@@ -475,33 +420,27 @@ const s: Record<string, React.CSSProperties> = {
     padding: "3px 12px",
   },
 
-  // Thin inner gold divider between name and price
   featuredInnerDivider: {
     width: "55%",
     height: "1px",
-    background: Gradients.GoldDivider,
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
     borderRadius: "1px",
   },
 
-  // Price block — slightly tighter than standalone PriceDisplay
   featuredPriceBlock: {
     width: "100%",
     padding: "12px 18px",
   },
 
-  // Gold-tinted team row inside featured card
   featuredTeamRow: {
     display: "flex",
     alignItems: "center",
     gap: "8px",
     padding: "6px 14px",
     borderRadius: "8px",
-    background: `linear-gradient(90deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.04) 100%)`,
-    border: `1px solid rgba(251,191,36,0.20)`,
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+    background: "rgba(0,0,0,0.30)",
+    border: "1px solid rgba(255,255,255,0.10)",
   },
-
-  /* ── Section divider between featured and compact grid ─────────────────── */
 
   sectionDivider: {
     width: "100%",
@@ -511,15 +450,11 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: "1px",
   },
 
-  /* ── Compact grid ───────────────────────────────────────────────────────── */
-
   compactGrid: {
     display: "grid",
     gap: "7px",
     width: "100%",
   },
-
-  /* ── Compact card — left border added dynamically per rank ──────────────── */
 
   compactCard: {
     display: "flex",
@@ -531,7 +466,6 @@ const s: Record<string, React.CSSProperties> = {
     background: "rgba(255,255,255,0.028)",
     border: "1px solid rgba(255,255,255,0.060)",
     minWidth: 0,
-    // borderLeft is overridden inline per rank in CompactBuyCard
   },
 
   compactLeft: {

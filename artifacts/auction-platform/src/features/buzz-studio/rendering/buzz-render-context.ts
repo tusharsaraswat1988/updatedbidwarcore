@@ -7,11 +7,12 @@
 
 export type BuzzRenderMode = "preview" | "export";
 
-export type BuzzAspectRatio = "1:1" | "4:5" | "16:9";
+export type BuzzAspectRatio = "1:1" | "4:5" | "9:16" | "16:9";
 
 export const BUZZ_EXPORT_DIMENSIONS: Record<BuzzAspectRatio, { width: number; height: number }> = {
   "1:1": { width: 1080, height: 1080 },
   "4:5": { width: 1080, height: 1350 },
+  "9:16": { width: 1080, height: 1920 },
   "16:9": { width: 1920, height: 1080 },
 };
 
@@ -27,7 +28,7 @@ export interface BuzzRenderContext extends Required<BuzzTemplateRenderProps> {
 }
 
 export function isBuzzAspectRatio(value: string): value is BuzzAspectRatio {
-  return value === "1:1" || value === "4:5" || value === "16:9";
+  return value === "1:1" || value === "4:5" || value === "9:16" || value === "16:9";
 }
 
 export function resolveBuzzExportDimensions(aspectRatio: string): BuzzRenderContext {

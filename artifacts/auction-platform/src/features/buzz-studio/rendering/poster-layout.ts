@@ -24,6 +24,15 @@ export function posterSpacing(ctx: BuzzRenderContext): PosterSpacing {
     };
   }
 
+  if (aspectRatio === "9:16") {
+    return {
+      sectionGap: canvasH(renderHeight, 0.022, 24, 40),
+      contentPadX: canvasW(renderWidth, 0.065, 32, 64),
+      contentPadY: canvasH(renderHeight, 0.032, 28, 48),
+      footerPad: canvasH(renderHeight, 0.018, 14, 22),
+    };
+  }
+
   if (aspectRatio === "16:9") {
     return {
       sectionGap: canvasH(renderHeight, 0.035, 20, 36),
@@ -46,7 +55,7 @@ export function isLandscapePoster(ctx: BuzzRenderContext): boolean {
 }
 
 export function isTallPoster(ctx: BuzzRenderContext): boolean {
-  return ctx.aspectRatio === "4:5";
+  return ctx.aspectRatio === "4:5" || ctx.aspectRatio === "9:16";
 }
 
 export function heroTitleSize(ctx: BuzzRenderContext): number {

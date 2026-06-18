@@ -12,6 +12,12 @@ type BidwarCanvasProps = BuzzTemplateRenderProps & {
   subtitle?: string;
   /** Tournament branding from contract — controls watermark, footer, logos. */
   branding?: BuzzBranding;
+  /**
+   * Full-bleed background image URL.
+   * Injected at render time by the render pipeline from Creative Assets Manager.
+   * Never stored inside a creative job contract — resolved externally by aspectRatio.
+   */
+  backgroundImageUrl?: string;
   /** Legacy override; when omitted, derived from branding.watermarkEnabled (default true). */
   showWatermark?: boolean;
   showFooterBranding?: boolean;
@@ -37,6 +43,7 @@ export function BidwarCanvas({
   title,
   subtitle,
   branding,
+  backgroundImageUrl,
   showWatermark,
   showFooterBranding = false,
   showQrPlaceholder = false,
@@ -63,8 +70,6 @@ export function BidwarCanvas({
       }
     : styles.rootLegacy;
 
-  const cardStyle: React.CSSProperties = isPosterFrame ? styles.cardPoster : styles.cardLegacy;
-
   const contentStyle: React.CSSProperties = isPosterFrame
     ? {
         ...styles.contentPoster,
@@ -83,7 +88,15 @@ export function BidwarCanvas({
 
   return (
     <div style={rootStyle}>
-      <div style={styles.glowRing} aria-hidden="true" />
+      {/* Universal Background Image — full bleed, resolved at render time */}
+      {backgroundImageUrl ? (
+        <img
+          src={backgroundImageUrl}
+          alt=""
+          aria-hidden="true"
+          style={styles.backgroundImage}
+        />
+      ) : null}
 
       {resolved.watermarkEnabled ? (
         <span style={styles.watermark} aria-hidden="true">
@@ -91,58 +104,56 @@ export function BidwarCanvas({
         </span>
       ) : null}
 
-      <div style={cardStyle}>
-        <div style={styles.cornerBrand} aria-hidden="true">
-          {resolved.tournamentLogoUrl ? (
-            <img
-              src={resolved.tournamentLogoUrl}
-              alt=""
-              style={styles.cornerTournamentLogo}
-            />
-          ) : (
-            <span style={styles.cornerBrandText}>BW</span>
-          )}
-        </div>
-
-        {(title || subtitle) && (
-          <div style={styles.header}>
-            {title && <h2 style={styles.title}>{title}</h2>}
-            {subtitle && <p style={styles.subtitle}>{subtitle}</p>}
-          </div>
-        )}
-
-        <div style={contentStyle}>{children}</div>
-
-        {(showFooterBranding || showQrPlaceholder) && (
-          <div style={footerStyle}>
-            {showFooterBranding && (
-              <div style={styles.branding}>
-                {resolved.sponsorLogoUrl ? (
-                  <img
-                    src={resolved.sponsorLogoUrl}
-                    alt={resolved.sponsorName ?? "Sponsor"}
-                    style={styles.sponsorLogo}
-                  />
-                ) : null}
-                <span style={styles.brandingPrimary}>{resolved.footerPrimary}</span>
-                <span style={styles.brandingSecondary}>{resolved.footerSecondary}</span>
-              </div>
-            )}
-
-            {showQrPlaceholder && (
-              <div style={styles.qrBox} aria-label="QR code placeholder">
-                <span style={styles.qrLabel}>QR</span>
-              </div>
-            )}
-          </div>
+      {/* Branding: corner tournament logo */}
+      <div style={styles.cornerBrand} aria-hidden="true">
+        {resolved.tournamentLogoUrl ? (
+          <img
+            src={resolved.tournamentLogoUrl}
+            alt=""
+            style={styles.cornerTournamentLogo}
+          />
+        ) : (
+          <span style={styles.cornerBrandText}>BW</span>
         )}
       </div>
+
+      {(title || subtitle) && (
+        <div style={styles.header}>
+          {title && <h2 style={styles.title}>{title}</h2>}
+          {subtitle && <p style={styles.subtitle}>{subtitle}</p>}
+        </div>
+      )}
+
+      <div style={contentStyle}>{children}</div>
+
+      {(showFooterBranding || showQrPlaceholder) && (
+        <div style={footerStyle}>
+          {showFooterBranding && (
+            <div style={styles.branding}>
+              {resolved.sponsorLogoUrl ? (
+                <img
+                  src={resolved.sponsorLogoUrl}
+                  alt={resolved.sponsorName ?? "Sponsor"}
+                  style={styles.sponsorLogo}
+                />
+              ) : null}
+              <span style={styles.brandingPrimary}>{resolved.footerPrimary}</span>
+              <span style={styles.brandingSecondary}>{resolved.footerSecondary}</span>
+            </div>
+          )}
+
+          {showQrPlaceholder && (
+            <div style={styles.qrBox} aria-label="QR code placeholder">
+              <span style={styles.qrLabel}>QR</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 const G = "#FBBF24";
-const G2 = "#D97706";
 
 const styles: Record<string, React.CSSProperties> = {
   /** Full-bleed poster frame — fills export/preview canvas exactly. */
@@ -175,13 +186,17 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
 
-  glowRing: {
+  /** Full-bleed background image — sits below all content layers. */
+  backgroundImage: {
     position: "absolute",
     inset: 0,
-    borderRadius: "inherit",
-    background: `linear-gradient(135deg, ${G}48 0%, ${G2}20 35%, rgba(0,0,0,0) 50%, ${G2}20 65%, ${G}48 100%)`,
-    pointerEvents: "none",
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: "center",
+    display: "block",
     zIndex: 0,
+    pointerEvents: "none",
   },
 
   watermark: {
@@ -198,44 +213,6 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     zIndex: 1,
     fontFamily: "system-ui, sans-serif",
-  },
-
-  cardPoster: {
-    position: "relative",
-    zIndex: 2,
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
-    height: "100%",
-    flex: 1,
-    minHeight: 0,
-    background: [
-      "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.65) 100%)",
-      "radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)",
-      "repeating-linear-gradient(-55deg, transparent 0px, transparent 60px, rgba(255,255,255,0.009) 60px, rgba(255,255,255,0.009) 62px)",
-      "linear-gradient(180deg, #141414 0%, #0c0c0c 50%, #060606 100%)",
-    ].join(", "),
-    borderRadius: 0,
-    overflow: "hidden",
-    boxSizing: "border-box",
-  },
-
-  cardLegacy: {
-    position: "relative",
-    zIndex: 2,
-    width: "100%",
-    background: [
-      "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.65) 100%)",
-      "radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)",
-      "repeating-linear-gradient(-55deg, transparent 0px, transparent 60px, rgba(255,255,255,0.009) 60px, rgba(255,255,255,0.009) 62px)",
-      "linear-gradient(180deg, #141414 0%, #0c0c0c 50%, #060606 100%)",
-    ].join(", "),
-    borderRadius: "16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0",
-    overflow: "hidden",
-    boxSizing: "border-box",
   },
 
   cornerBrand: {
@@ -272,6 +249,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   header: {
+    position: "relative",
+    zIndex: 2,
     padding: "20px 22px 0",
     display: "flex",
     flexDirection: "column",
@@ -296,6 +275,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   contentPoster: {
+    position: "relative",
+    zIndex: 2,
     flex: 1,
     display: "flex",
     flexDirection: "column",
@@ -305,17 +286,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   contentLegacy: {
+    position: "relative",
+    zIndex: 2,
     padding: "18px 22px",
     flex: 1,
     color: "#FFFFFF",
   },
 
   footer: {
+    position: "relative",
+    zIndex: 2,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "10px 22px 14px",
-    borderTop: "1px solid rgba(251,191,36,0.20)",
+    borderTop: "1px solid rgba(255,255,255,0.12)",
     gap: "12px",
   },
 

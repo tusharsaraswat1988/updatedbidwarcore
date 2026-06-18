@@ -47,13 +47,17 @@ import {
   mediaCenterTournamentPath,
 } from "@/lib/tournament-navigation";
 
-const ASPECT_RATIO_OPTIONS = ["1:1", "4:5", "16:9"] as const;
+const ASPECT_RATIO_OPTIONS = ["1:1", "4:5", "9:16", "16:9"] as const;
 type AspectRatioOption = (typeof ASPECT_RATIO_OPTIONS)[number];
+
+/** Platform-level Buzz Studio background URLs, keyed by aspect ratio. */
+type BuzzStudioBackgrounds = Record<AspectRatioOption, string | null>;
 
 /** Scale export canvas to fit preview panel — WYSIWYG with PNG output. */
 const PREVIEW_MAX_WIDTH: Record<AspectRatioOption, number> = {
-  "1:1": 520,
-  "4:5": 420,
+  "1:1":  520,
+  "4:5":  420,
+  "9:16": 340,
   "16:9": 640,
 };
 
@@ -81,11 +85,13 @@ function TemplateLivePreview({
   contract,
   aspectRatio,
   previewTheme,
+  backgroundImageUrl,
 }: {
   entry: BuzzTemplateRegistryEntry;
   contract: Record<string, unknown> | undefined;
   aspectRatio: AspectRatioOption;
   previewTheme: "dark" | "light";
+  backgroundImageUrl: string | null;
 }) {
   if (!entry.component) {
     return (
@@ -125,12 +131,14 @@ function TemplateLivePreview({
             transformOrigin: "top left",
           }}
         >
+          {/* backgroundImageUrl is a render-time inject — never stored in the contract */}
           <Template
             {...(contract ?? {})}
             renderMode="preview"
             aspectRatio={aspectRatio}
             renderWidth={dims.width}
             renderHeight={dims.height}
+            backgroundImageUrl={backgroundImageUrl ?? undefined}
           />
         </div>
       </div>
@@ -248,6 +256,19 @@ export default function TemplateStudioPage() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>("1:1");
   const [previewTheme, setPreviewTheme] = useState<"dark" | "light">("dark");
 
+  // Fetch global Buzz Studio background URLs (admin-controlled)
+  const { data: buzzBackgrounds } = useQuery<BuzzStudioBackgrounds>({
+    queryKey: ["buzz-studio-backgrounds"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/buzz-studio-assets");
+      if (!res.ok) return { "1:1": null, "4:5": null, "9:16": null, "16:9": null };
+      return res.json() as Promise<BuzzStudioBackgrounds>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const activeBackgroundUrl = buzzBackgrounds?.[aspectRatio] ?? null;
+
   const filteredItems = useMemo(() => {
     if (!data?.items.length) return [];
     const query = searchQuery.trim().toLowerCase();
@@ -292,6 +313,8 @@ export default function TemplateStudioPage() {
       if (!templateId || !activeContract) {
         throw new Error("No contract data available for this template.");
       }
+      // Contracts are data-only. The background URL is resolved at render time
+      // by the server (creative-render-process) from Creative Assets Manager.
       return createCreativeJob({
         tournamentId,
         templateId,
@@ -484,6 +507,7 @@ export default function TemplateStudioPage() {
                     contract={activeContract}
                     aspectRatio={aspectRatio}
                     previewTheme={previewTheme}
+                    backgroundImageUrl={activeBackgroundUrl}
                   />
                 )}
               </main>

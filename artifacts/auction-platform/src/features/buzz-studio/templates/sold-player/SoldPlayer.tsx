@@ -1,14 +1,13 @@
 /**
  * Buzz Studio — Sold Player Template
  *
- * The flagship auction graphic. Communicates SOLD / PLAYER / PRICE / TEAM
- * within 1 second — suitable for Instagram, WhatsApp, and Facebook posts.
+ * Communicates SOLD / PLAYER / PRICE / TEAM within 1 second.
+ * Data-only — all background rendering is handled by BidwarCanvas.
  */
 
 import React from "react";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
 import { Typography } from "../../design-system/typography";
-import { Gradients } from "../../design-system/gradients";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge, SoldBadge } from "../../design-system/badges";
 import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
@@ -34,7 +33,10 @@ import {
   posterLandscapeSide,
 } from "../../rendering/poster-shell";
 
-type SoldPlayerProps = SoldPlayerContract & BuzzTemplateRenderProps;
+type SoldPlayerProps = SoldPlayerContract &
+  BuzzTemplateRenderProps & {
+    backgroundImageUrl?: string;
+  };
 
 export function SoldPlayer(props: SoldPlayerProps) {
   const renderCtx = pickRenderContext(props);
@@ -46,6 +48,7 @@ export function SoldPlayer(props: SoldPlayerProps) {
     sport,
     designation,
     bidCount,
+    backgroundImageUrl,
     renderMode,
     aspectRatio,
     renderWidth,
@@ -68,7 +71,6 @@ export function SoldPlayer(props: SoldPlayerProps) {
           <SportBadge sport={sport} />
           <SoldBadge />
         </div>
-        <div style={s.soldAccent} aria-hidden="true" />
         <div style={s.avatarWrapper}>
           <PlayerSlot
             playerName={playerName}
@@ -122,6 +124,7 @@ export function SoldPlayer(props: SoldPlayerProps) {
     return (
       <BidwarCanvas
         branding={props.branding}
+        backgroundImageUrl={backgroundImageUrl}
         showFooterBranding
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
@@ -151,13 +154,12 @@ export function SoldPlayer(props: SoldPlayerProps) {
   }
 
   return (
-    <BidwarCanvas branding={props.branding} showFooterBranding>
+    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
       <div style={s.layout}>
         <div style={s.topStrip}>
           <SportBadge sport={sport} />
           <SoldBadge />
         </div>
-        <div style={s.soldAccent} aria-hidden="true" />
         <div style={s.avatarWrapper}>
           <PlayerSlot playerName={playerName} imageUrl={playerImageUrl} size="lg" />
         </div>
@@ -204,14 +206,6 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     paddingBottom: 12,
   },
-  soldAccent: {
-    width: "100%",
-    height: 3,
-    background: `linear-gradient(90deg, transparent, ${t.danger}70, ${t.danger}90, ${t.danger}70, transparent)`,
-    marginBottom: 18,
-    borderRadius: 2,
-    boxShadow: "0 0 10px rgba(239,68,68,0.55), 0 2px 6px rgba(239,68,68,0.25)",
-  },
   avatarWrapper: {
     marginBottom: 16,
   },
@@ -236,7 +230,7 @@ const s: Record<string, React.CSSProperties> = {
   divider: {
     width: "55%",
     height: 1,
-    background: Gradients.GoldDivider,
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
     marginBottom: 16,
     alignSelf: "center",
   },
@@ -264,9 +258,8 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 10,
     borderRadius: 10,
-    background: "linear-gradient(90deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.04) 100%)",
-    border: "1px solid rgba(251,191,36,0.22)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+    background: "rgba(0,0,0,0.35)",
+    border: "1px solid rgba(255,255,255,0.10)",
   },
   bidCountRow: {
     display: "flex",

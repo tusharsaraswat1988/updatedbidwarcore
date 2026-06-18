@@ -1,6 +1,5 @@
 import React from "react";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
-import { Gradients } from "../../design-system/gradients";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge, CaptainBadge } from "../../design-system/badges";
 import { TeamSlot, AvatarSlot } from "../../design-system/logo-slots";
@@ -21,7 +20,10 @@ import {
 import { formatTeamSpend } from "./TeamReveal.utils";
 import type { TeamRevealContract } from "./TeamReveal.types";
 
-type TeamRevealProps = TeamRevealContract & BuzzTemplateRenderProps;
+type TeamRevealProps = TeamRevealContract &
+  BuzzTemplateRenderProps & {
+    backgroundImageUrl?: string;
+  };
 
 export function TeamReveal(props: TeamRevealProps) {
   const renderCtx = pickRenderContext(props);
@@ -32,6 +34,7 @@ export function TeamReveal(props: TeamRevealProps) {
     captainName,
     captainImageUrl,
     playerCount,
+    backgroundImageUrl,
     renderMode,
     aspectRatio,
     renderWidth,
@@ -47,6 +50,7 @@ export function TeamReveal(props: TeamRevealProps) {
     return (
       <BidwarCanvas
         branding={props.branding}
+        backgroundImageUrl={backgroundImageUrl}
         showFooterBranding
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
@@ -70,18 +74,14 @@ export function TeamReveal(props: TeamRevealProps) {
   }
 
   return (
-    <BidwarCanvas branding={props.branding} showFooterBranding>
+    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
       <div style={s.layoutLegacy}>
         <div style={s.topStrip}>
           <SportBadge sport={sport} />
           <span style={s.announceTag}>● TEAM REVEAL ●</span>
         </div>
-        <div style={s.announceAccent} aria-hidden="true" />
         <div style={s.teamLogoSection}>
-          <div style={s.teamLogoGlow} aria-hidden="true" />
-          <div style={s.teamLogoRing}>
-            <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl} size={96} />
-          </div>
+          <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl} size={96} />
         </div>
         <div style={s.teamNameArea}>
           <span style={s.franchiseLabel}>FRANCHISE</span>
@@ -181,12 +181,8 @@ function TeamRevealPoster({
         <SportBadge sport={sport} />
         <span style={tagStyle}>● TEAM REVEAL ●</span>
       </div>
-      <div style={p.announceAccent} aria-hidden="true" />
       <div style={{ ...p.logoSection, marginBottom: spacing.sectionGap }}>
-        <div style={p.logoGlow} aria-hidden="true" />
-        <div style={p.logoRing}>
-          <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl ?? undefined} size={logoSize} />
-        </div>
+        <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl ?? undefined} size={logoSize} />
       </div>
       <div style={{ ...p.nameArea, alignItems: landscape ? "flex-start" : "center" }}>
         <span style={{ ...p.microLabel, fontSize: labelSize }}>FRANCHISE</span>
@@ -323,34 +319,10 @@ const p: Record<string, React.CSSProperties> = {
     alignItems: "center",
     paddingBottom: 12,
   },
-  announceAccent: {
-    width: "100%",
-    height: 3,
-    background: `linear-gradient(90deg, transparent 0%, ${t.primaryGold}50 20%, ${t.primaryGold}75 50%, ${t.primaryGold}50 80%, transparent 100%)`,
-    marginBottom: 20,
-    borderRadius: 1,
-    boxShadow: "0 0 10px rgba(251,191,36,0.35), 0 0 24px rgba(251,191,36,0.12)",
-  },
   logoSection: {
-    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-  },
-  logoGlow: {
-    position: "absolute",
-    inset: -56,
-    borderRadius: "50%",
-    background: "radial-gradient(circle, rgba(251,191,36,0.24) 0%, rgba(251,191,36,0.08) 38%, transparent 65%)",
-    pointerEvents: "none",
-  },
-  logoRing: {
-    position: "relative",
-    zIndex: 1,
-    padding: 6,
-    borderRadius: "50%",
-    background: Gradients.AuctionGlow,
-    boxShadow: "0 0 24px rgba(251,191,36,0.40), 0 0 56px rgba(251,191,36,0.15)",
   },
   nameArea: {
     display: "flex",
@@ -388,8 +360,8 @@ const p: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 12,
     borderRadius: 12,
-    background: "linear-gradient(90deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.04) 100%)",
-    border: "1px solid rgba(251,191,36,0.22)",
+    background: "rgba(0,0,0,0.35)",
+    border: "1px solid rgba(255,255,255,0.10)",
   },
   captainName: {
     fontFamily: "system-ui, sans-serif",
@@ -431,35 +403,11 @@ const s: Record<string, React.CSSProperties> = {
     padding: "3px 10px",
     textTransform: "uppercase",
   },
-  announceAccent: {
-    width: "100%",
-    height: 2,
-    background: `linear-gradient(90deg, transparent 0%, ${t.primaryGold}50 20%, ${t.primaryGold}75 50%, ${t.primaryGold}50 80%, transparent 100%)`,
-    marginBottom: 20,
-    borderRadius: 1,
-    boxShadow: "0 0 10px rgba(251,191,36,0.35), 0 0 24px rgba(251,191,36,0.12)",
-  },
   teamLogoSection: {
-    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
-  },
-  teamLogoGlow: {
-    position: "absolute",
-    inset: "-42px",
-    borderRadius: "50%",
-    background: "radial-gradient(circle, rgba(251,191,36,0.24) 0%, rgba(251,191,36,0.08) 38%, transparent 65%)",
-    pointerEvents: "none",
-  },
-  teamLogoRing: {
-    position: "relative",
-    zIndex: 1,
-    padding: 4,
-    borderRadius: "50%",
-    background: Gradients.AuctionGlow,
-    boxShadow: "0 0 24px rgba(251,191,36,0.40), 0 0 56px rgba(251,191,36,0.15)",
   },
   teamNameArea: {
     display: "flex",
@@ -480,7 +428,7 @@ const s: Record<string, React.CSSProperties> = {
   divider: {
     width: "55%",
     height: 1,
-    background: Gradients.GoldDivider,
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
     marginBottom: 14,
   },
   statsRow: {
@@ -517,8 +465,8 @@ const s: Record<string, React.CSSProperties> = {
     gap: 10,
     padding: "8px 18px",
     borderRadius: 10,
-    background: "linear-gradient(90deg, rgba(251,191,36,0.10) 0%, rgba(251,191,36,0.04) 100%)",
-    border: "1px solid rgba(251,191,36,0.22)",
+    background: "rgba(0,0,0,0.35)",
+    border: "1px solid rgba(255,255,255,0.10)",
   },
   captainNameText: {
     fontFamily: "system-ui, sans-serif",

@@ -88,7 +88,6 @@ export function PlayerFrame({
 }: PlayerFrameProps) {
   const resolvedSize = resolveSize(size);
   const fontSize = resolveInitialsFontSize(size);
-  const showGlow = size === "lg" || size === "xl";
 
   return (
     <div
@@ -100,33 +99,15 @@ export function PlayerFrame({
         ...style,
       }}
     >
-      {/* Ambient gold glow — only for large frames, wider and more intense */}
-      {showGlow && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: "-26px",
-            borderRadius: "50%",
-            background: Gradients.PlayerHeroGlow,
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-      )}
-
-      {/* Gold gradient ring with luminous box-shadow */}
+      {/* Gold gradient ring */}
       <div
         style={{
-          position: "relative",
-          zIndex: 1,
           width: "100%",
           height: "100%",
           borderRadius: "50%",
           padding: "4px",
           background: Gradients.AuctionGlow,
           boxSizing: "border-box",
-          boxShadow: "0 0 22px rgba(251,191,36,0.35), 0 0 52px rgba(251,191,36,0.14)",
         }}
       >
         {imageUrl ? (

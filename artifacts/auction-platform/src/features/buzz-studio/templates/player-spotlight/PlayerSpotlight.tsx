@@ -1,7 +1,6 @@
 import React from "react";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
 import { Typography } from "../../design-system/typography";
-import { Gradients } from "../../design-system/gradients";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge } from "../../design-system/badges";
 import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
@@ -25,7 +24,11 @@ import {
   posterLandscapeSide,
 } from "../../rendering/poster-shell";
 
-type PlayerSpotlightProps = PlayerSpotlightContract & BuzzTemplateRenderProps;
+type PlayerSpotlightProps = PlayerSpotlightContract &
+  BuzzTemplateRenderProps & {
+    /** Injected at render time by the pipeline. Never stored in the contract. */
+    backgroundImageUrl?: string;
+  };
 
 export function PlayerSpotlight(props: PlayerSpotlightProps) {
   const renderCtx = pickRenderContext(props);
@@ -37,6 +40,7 @@ export function PlayerSpotlight(props: PlayerSpotlightProps) {
     sport,
     designation,
     city,
+    backgroundImageUrl,
     renderMode,
     aspectRatio,
     renderWidth,
@@ -56,7 +60,6 @@ export function PlayerSpotlight(props: PlayerSpotlightProps) {
           <SportBadge sport={sport} />
         </div>
         <div style={s.avatarSection}>
-          <div style={{ ...s.energyBurst, inset: -avatarSize * 0.55 }} aria-hidden="true" />
           <PlayerSlot
             playerName={playerName}
             imageUrl={playerImageUrl}
@@ -96,6 +99,7 @@ export function PlayerSpotlight(props: PlayerSpotlightProps) {
     return (
       <BidwarCanvas
         branding={props.branding}
+        backgroundImageUrl={backgroundImageUrl}
         showFooterBranding
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
@@ -124,13 +128,12 @@ export function PlayerSpotlight(props: PlayerSpotlightProps) {
   }
 
   return (
-    <BidwarCanvas branding={props.branding} showFooterBranding>
+    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
       <div style={s.layout}>
         <div style={s.topRow}>
           <SportBadge sport={sport} />
         </div>
         <div style={s.avatarSection}>
-          <div style={s.energyBurst} aria-hidden="true" />
           <PlayerSlot playerName={playerName} imageUrl={playerImageUrl} size="xl" />
         </div>
         <div style={s.nameArea}>
@@ -168,18 +171,10 @@ const s: Record<string, React.CSSProperties> = {
     paddingBottom: 12,
   },
   avatarSection: {
-    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
-  },
-  energyBurst: {
-    position: "absolute",
-    inset: "-50px",
-    borderRadius: "50%",
-    background: Gradients.EnergyBurst,
-    pointerEvents: "none",
   },
   nameArea: {
     display: "flex",
@@ -207,7 +202,7 @@ const s: Record<string, React.CSSProperties> = {
   divider: {
     width: "50%",
     height: 1,
-    background: Gradients.GoldDivider,
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
     marginBottom: 12,
     alignSelf: "center",
   },
@@ -229,8 +224,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 10,
     borderRadius: 10,
-    background: "linear-gradient(90deg, rgba(251,191,36,0.09) 0%, rgba(251,191,36,0.04) 100%)",
-    border: "1px solid rgba(251,191,36,0.20)",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+    background: "rgba(0,0,0,0.35)",
+    border: "1px solid rgba(255,255,255,0.10)",
   },
 };

@@ -11,8 +11,6 @@ import React from "react";
 import type { CSSProperties } from "react";
 import { defaultBuzzTheme } from "../theme/buzz-theme";
 import { Typography } from "./typography";
-import { Gradients } from "./gradients";
-
 const t = defaultBuzzTheme;
 
 /* ─── StatCard ───────────────────────────────────────────────────────────── */
@@ -153,10 +151,9 @@ export function PriceDisplay({ price, label, style }: PriceDisplayProps) {
         gap: "6px",
         padding: "16px 28px",
         borderRadius: "14px",
-        background: Gradients.DarkGoldPremium,
-        border: `1.5px solid rgba(251,191,36,0.50)`,
+        background: "rgba(0,0,0,0.45)",
+        border: `1.5px solid rgba(251,191,36,0.40)`,
         textAlign: "center",
-        boxShadow: `0 0 36px rgba(251,191,36,0.20), 0 6px 28px rgba(0,0,0,0.55)`,
         ...style,
       }}
     >

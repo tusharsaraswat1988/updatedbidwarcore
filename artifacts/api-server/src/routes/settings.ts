@@ -355,4 +355,81 @@ router.patch("/auth/admin/settings/default-audio", async (req, res) => {
   res.json(data);
 });
 
+// ─── Buzz Studio Creative Assets ──────────────────────────────────────────────
+//
+// Global poster background images, keyed by aspect ratio.
+// Stored in settingsTable as: buzz_studio_bg_1:1, buzz_studio_bg_4:5, etc.
+// Admin-only write. Public read (backgrounds are embedded in poster exports).
+
+const BUZZ_BG_KEYS = {
+  "1:1":  "buzz_studio_bg_1:1",
+  "4:5":  "buzz_studio_bg_4:5",
+  "9:16": "buzz_studio_bg_9:16",
+  "16:9": "buzz_studio_bg_16:9",
+} as const;
+
+type BuzzAspectRatioKey = keyof typeof BUZZ_BG_KEYS;
+
+/** Returns a flat map of aspect ratio → background URL (or null). */
+async function readBuzzStudioAssets(): Promise<Record<BuzzAspectRatioKey, string | null>> {
+  const keys = Object.values(BUZZ_BG_KEYS);
+  const rows = await db
+    .select()
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, keys));
+
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value ?? null]));
+  return {
+    "1:1":  map[BUZZ_BG_KEYS["1:1"]]  ?? null,
+    "4:5":  map[BUZZ_BG_KEYS["4:5"]]  ?? null,
+    "9:16": map[BUZZ_BG_KEYS["9:16"]] ?? null,
+    "16:9": map[BUZZ_BG_KEYS["16:9"]] ?? null,
+  };
+}
+
+// GET /settings/buzz-studio-assets — public read (needed by preview & export)
+router.get("/settings/buzz-studio-assets", async (_req, res) => {
+  res.json(await readBuzzStudioAssets());
+});
+
+// GET /auth/admin/settings/buzz-studio-assets — admin read
+router.get("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  res.json(await readBuzzStudioAssets());
+});
+
+const updateBuzzStudioAssetsSchema = z.object({
+  "1:1":  z.string().url().nullable().optional(),
+  "4:5":  z.string().url().nullable().optional(),
+  "9:16": z.string().url().nullable().optional(),
+  "16:9": z.string().url().nullable().optional(),
+});
+
+// PATCH /auth/admin/settings/buzz-studio-assets — admin write
+router.patch("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updateBuzzStudioAssetsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = parsed.data;
+  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
+  for (const ratio of ratios) {
+    if (data[ratio] !== undefined) {
+      await upsertKey(BUZZ_BG_KEYS[ratio], data[ratio] ?? null);
+    }
+  }
+
+  res.json(await readBuzzStudioAssets());
+});
+
 export default router;
