@@ -175,11 +175,7 @@ export interface UpdateCreativeJobStatusInput {
   completedAt?: Date | null;
 }
 
-export async function updateCreativeJobStatus(
-  tournamentId: number,
-  jobId: string,
-  update: UpdateCreativeJobStatusInput,
-): Promise<CreativeJob | null> {
+function buildStatusPatch(update: UpdateCreativeJobStatusInput): Partial<typeof creativeJobsTable.$inferInsert> {
   const now = new Date();
   const patch: Partial<typeof creativeJobsTable.$inferInsert> = {
     status: update.status,
@@ -197,9 +193,41 @@ export async function updateCreativeJobStatus(
     patch.completedAt = now;
   }
 
+  return patch;
+}
+
+export async function updateCreativeJobStatusById(
+  jobId: string,
+  update: UpdateCreativeJobStatusInput,
+): Promise<CreativeJob | null> {
+  const [existing] = await db
+    .select({ tournamentId: creativeJobsTable.tournamentId })
+    .from(creativeJobsTable)
+    .where(eq(creativeJobsTable.id, jobId));
+
+  if (!existing) return null;
+
   const [row] = await db
     .update(creativeJobsTable)
-    .set(patch)
+    .set(buildStatusPatch(update))
+    .where(eq(creativeJobsTable.id, jobId))
+    .returning();
+
+  if (!row) return null;
+
+  const features = await loadTournamentFeatures(existing.tournamentId);
+  const metadata = buildJobMetadata(features);
+  return rowToCreativeJob(row, metadata);
+}
+
+export async function updateCreativeJobStatus(
+  tournamentId: number,
+  jobId: string,
+  update: UpdateCreativeJobStatusInput,
+): Promise<CreativeJob | null> {
+  const [row] = await db
+    .update(creativeJobsTable)
+    .set(buildStatusPatch(update))
     .where(
       and(eq(creativeJobsTable.id, jobId), eq(creativeJobsTable.tournamentId, tournamentId)),
     )

@@ -30,8 +30,8 @@ export async function screenshotHtmlToPng(
   });
 
   try {
-    await page.setContent(html, { waitUntil: "networkidle", timeout: 30_000 });
-    await page.waitForTimeout(300);
+    await page.setContent(html, { waitUntil: "load", timeout: 30_000 });
+    await page.waitForTimeout(500);
     const buffer = await page.screenshot({
       type: "png",
       fullPage: false,
