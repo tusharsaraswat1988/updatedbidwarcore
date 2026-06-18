@@ -51,6 +51,17 @@ export const TournamentPaymentCollectionMode = {
 } as const;
 
 /**
+ * Whether base bid values are system-assigned or player-selected at registration
+ */
+export type TournamentBidValueMode =
+  (typeof TournamentBidValueMode)[keyof typeof TournamentBidValueMode];
+
+export const TournamentBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
+/**
  * Image fit mode for the banner on the LED screen
  */
 export type TournamentMainBannerFit =
@@ -152,6 +163,10 @@ export interface Tournament {
    * @nullable
    */
   registrationDeclarationText?: string | null;
+  /** Whether base bid values are system-assigned or player-selected at registration */
+  bidValueMode?: TournamentBidValueMode;
+  /** Allowed bid values when bidValueMode is player */
+  bidValueOptions?: number[];
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -316,6 +331,14 @@ export const TournamentUpdatePaymentCollectionMode = {
   razorpay: "razorpay",
 } as const;
 
+export type TournamentUpdateBidValueMode =
+  (typeof TournamentUpdateBidValueMode)[keyof typeof TournamentUpdateBidValueMode];
+
+export const TournamentUpdateBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
 export type TournamentUpdateMainBannerFit =
   (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
 
@@ -374,6 +397,8 @@ export interface TournamentUpdate {
   enableRegistrationDeclaration?: boolean;
   /** @nullable */
   registrationDeclarationText?: string | null;
+  bidValueMode?: TournamentUpdateBidValueMode;
+  bidValueOptions?: number[];
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -620,6 +645,19 @@ export const PlayerGender = {
   F: "F",
 } as const;
 
+/**
+ * Whether base price was system-assigned or player-selected
+ * @nullable
+ */
+export type PlayerBidValueSource =
+  | (typeof PlayerBidValueSource)[keyof typeof PlayerBidValueSource]
+  | null;
+
+export const PlayerBidValueSource = {
+  system: "system",
+  player: "player",
+} as const;
+
 export type PlayerStatus = (typeof PlayerStatus)[keyof typeof PlayerStatus];
 
 export const PlayerStatus = {
@@ -706,6 +744,16 @@ export interface Player {
   /** @nullable */
   photoUrl?: string | null;
   basePrice: number;
+  /**
+   * Player-selected base bid value when bidValueSource is player
+   * @nullable
+   */
+  selectedBidValue?: number | null;
+  /**
+   * Whether base price was system-assigned or player-selected
+   * @nullable
+   */
+  bidValueSource?: PlayerBidValueSource;
   /** @nullable */
   soldPrice?: number | null;
   /** @nullable */
@@ -780,7 +828,9 @@ export interface PlayerInput {
   age?: number;
   gender?: PlayerInputGender;
   photoUrl?: string;
-  basePrice: number;
+  basePrice?: number;
+  /** Required when tournament bidValueMode is player */
+  selectedBidValue?: number;
   jerseyNumber?: string;
   jerseySize?: JerseySize;
   achievements?: string;
@@ -829,6 +879,18 @@ export const PlayerUpdatePlayerTag = {
   star_player: "star_player",
 } as const;
 
+/**
+ * Organizer updates registration payment verification status
+ */
+export type PlayerUpdateRegistrationPaymentStatus =
+  (typeof PlayerUpdateRegistrationPaymentStatus)[keyof typeof PlayerUpdateRegistrationPaymentStatus];
+
+export const PlayerUpdateRegistrationPaymentStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
 export interface PlayerUpdate {
   categoryId?: number;
   name?: string;
@@ -841,6 +903,11 @@ export interface PlayerUpdate {
   gender?: PlayerUpdateGender;
   photoUrl?: string;
   basePrice?: number;
+  /**
+   * Player-selected bid value when tournament uses player mode
+   * @nullable
+   */
+  selectedBidValue?: number | null;
   jerseyNumber?: string;
   jerseySize?: JerseySize;
   achievements?: string;
@@ -857,6 +924,8 @@ export interface PlayerUpdate {
   isNonPlayingMember?: boolean;
   /** Mandatory audit reason for critical player changes (min 10 characters) */
   reason?: string;
+  /** Organizer updates registration payment verification status */
+  registrationPaymentStatus?: PlayerUpdateRegistrationPaymentStatus;
 }
 
 export interface BulkPlayerInput {
@@ -900,10 +969,24 @@ export interface ConcludeAuctionInput {
   force?: boolean;
 }
 
+/**
+ * organizer for operator panel; admin for super admin panel
+ */
+export type ResetTrialAuctionBodyResetContext =
+  (typeof ResetTrialAuctionBodyResetContext)[keyof typeof ResetTrialAuctionBodyResetContext];
+
+export const ResetTrialAuctionBodyResetContext = {
+  organizer: "organizer",
+  admin: "admin",
+} as const;
+
 export interface ResetTrialAuctionBody {
-  password: string;
+  /** Tournament organizer password. Optional when the caller already has an organizer session for this tournament. */
+  password?: string;
   /** Mandatory audit reason for clearing practice auction data (min 10 characters) */
   reason: string;
+  /** organizer for operator panel; admin for super admin panel */
+  resetContext?: ResetTrialAuctionBodyResetContext;
 }
 
 export interface Bid {
@@ -1279,6 +1362,14 @@ export const RegistrationStatusPaymentVerificationMethod = {
   utr_and_screenshot: "utr_and_screenshot",
 } as const;
 
+export type RegistrationStatusBidValueMode =
+  (typeof RegistrationStatusBidValueMode)[keyof typeof RegistrationStatusBidValueMode];
+
+export const RegistrationStatusBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
 export interface RegistrationStatus {
   open: boolean;
   /**
@@ -1314,6 +1405,9 @@ export interface RegistrationStatus {
   registrationDeclarationText?: string | null;
   /** Parsed declaration points shown on the registration form */
   registrationDeclarationPoints?: string[];
+  bidValueMode?: RegistrationStatusBidValueMode;
+  /** Allowed bid values when bidValueMode is player */
+  bidValueOptions?: number[];
 }
 
 export interface TournamentSummary {

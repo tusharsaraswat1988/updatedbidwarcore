@@ -7,30 +7,31 @@ import { BidLadder } from "./BidLadder";
 import { ChyronStrip } from "./ChyronStrip";
 import { SponsorSpotlight } from "./SponsorSpotlight";
 import { EffectsLayer } from "./EffectsLayer";
+import { resolveReconnectStandby } from "../display-reconnect-standby";
+import type { AuctionFeedState } from "@workspace/api-base/auction-connection-state";
 import type { LedView } from "@/lib/led-view/types";
+
+const STAGE_GRID_ROWS = "grid-rows-[minmax(3.5rem,8%)_1fr_minmax(3rem,8%)]";
+const STAGE_GRID_ROWS_LIVE = "grid-rows-[minmax(3.5rem,8%)_1fr_minmax(4.5rem,12%)_minmax(3rem,8%)]";
 
 /**
  * V1 LED stage layout — pure presentation over a LedView snapshot.
  */
-export function LedStageContent({ view }: { view: LedView }) {
-  if (view.loading) {
+export function LedStageContent({
+  view,
+  feedState,
+}: {
+  view: LedView;
+  feedState?: AuctionFeedState;
+}) {
+  const standby = resolveReconnectStandby(view, feedState);
+  if (standby) {
     return (
       <StageFrame>
         <StandbyScreen
-          tone="info"
-          tournamentName={view.tournament?.name}
-          message="Connecting to live auction"
-        />
-      </StageFrame>
-    );
-  }
-  if (view.error) {
-    return (
-      <StageFrame>
-        <StandbyScreen
-          tone="error"
-          tournamentName={view.tournament?.name}
-          message={view.error}
+          tone={standby.tone}
+          tournamentName={standby.tournamentName}
+          message={standby.message}
         />
       </StageFrame>
     );
@@ -50,7 +51,7 @@ export function LedStageContent({ view }: { view: LedView }) {
   if (!view.currentPlayer && !overlayActive) {
     return (
       <StageFrame>
-        <div className="absolute inset-0 grid grid-rows-[8%_1fr_8%] font-['Barlow_Condensed']">
+        <div className={`absolute inset-0 grid ${STAGE_GRID_ROWS} font-['Barlow_Condensed']`}>
           <TopStrip view={view} />
           <div className="relative min-h-0 h-full w-full">
             <SponsorSpotlight
@@ -68,7 +69,7 @@ export function LedStageContent({ view }: { view: LedView }) {
   return (
     <StageFrame>
       {view.currentPlayer ? (
-        <div className="absolute inset-0 grid grid-rows-[8%_1fr_12%_8%] font-['Barlow_Condensed']">
+        <div className={`absolute inset-0 grid ${STAGE_GRID_ROWS_LIVE} font-['Barlow_Condensed']`}>
           <TopStrip view={view} />
           <div className="grid grid-cols-[28%_1fr_24%] gap-[1.2%] p-[1.5%]">
             <PlayerPortrait view={view} />
@@ -79,7 +80,7 @@ export function LedStageContent({ view }: { view: LedView }) {
           <ChyronStrip view={view} />
         </div>
       ) : (
-        <div className="absolute inset-0 grid grid-rows-[8%_1fr_8%] font-['Barlow_Condensed']">
+        <div className={`absolute inset-0 grid ${STAGE_GRID_ROWS} font-['Barlow_Condensed']`}>
           <TopStrip view={view} />
           <div />
           <ChyronStrip view={view} />

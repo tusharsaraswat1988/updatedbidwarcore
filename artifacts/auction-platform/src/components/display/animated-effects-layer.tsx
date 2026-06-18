@@ -1,8 +1,7 @@
 import { memo } from "react";
 import { AnimatePresence } from "framer-motion";
 import { SoldStamp, SoldCard, UnsoldStamp, UnsoldCard } from "./sold-animation";
-import type { SoldRecord } from "./types";
-import type { SoldPhase, UnsoldRecord } from "./use-sold-animation";
+import type { SoldPhase, SoldRecord, UnsoldRecord } from "./types";
 
 /**
  * Stacks the cinematic SOLD effects (stamp + full-screen sold card)

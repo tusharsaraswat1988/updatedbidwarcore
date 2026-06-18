@@ -4,7 +4,7 @@
  * React hook that drives all broadcast audio for the LED display screen.
  * Connects auction state changes to the AuctionAudioManager:
  *  - Countdown ticks at 5, 4, 3, 2, 1 seconds remaining (deduped per second)
- *  - Sold fanfare on status → "sold" transition (deduped per event)
+ *  - Sold fanfare on new soldKey after auction state hydrates (deduped per event)
  *  - Resets countdown state when a new player / timer starts
  *
  * Exposes `isUnlocked` so the shell can show a subtle "click to enable audio"
@@ -16,6 +16,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AuctionAudioManager, type AudioSettings } from "@/lib/audio-manager";
 
+/** Display shells pass deriveAuctionDisplayMode().phase ("live"); raw API status is "active". */
+function isLiveBiddingStatus(status: string | undefined): boolean {
+  return status === "live" || status === "active";
+}
+
 export function useBroadcastAudio({
   status,
   timerEndsAt,
@@ -23,8 +28,10 @@ export function useBroadcastAudio({
   settings,
   hasDisplayCountdown,
   displayCountdownEndsAt,
+  auctionStateReady,
+  isAudioLeader,
 }: {
-  /** Current auction status: "idle" | "active" | "paused" | "sold" | "unsold" */
+  /** Display phase from deriveAuctionDisplayMode(): "live" | "paused" | "break" | "idle" | "sold" | "unsold" (or raw "active") */
   status: string | undefined;
   /** ISO timestamp when current timer expires; null/undefined when no timer */
   timerEndsAt: string | null | undefined;
@@ -36,11 +43,15 @@ export function useBroadcastAudio({
   hasDisplayCountdown: boolean;
   /** ISO timestamp when the active display countdown ends, or null */
   displayCountdownEndsAt: string | null;
+  /** True once auction state has loaded — prevents sold replay on page refresh */
+  auctionStateReady: boolean;
+  /** Only the elected display tab should emit broadcast audio */
+  isAudioLeader: boolean;
 }) {
   const managerRef = useRef<AuctionAudioManager | null>(null);
-  const prevStatusRef = useRef<string | undefined>(undefined);
   const prevTimerEndsAtRef = useRef<string | null | undefined>(undefined);
-  const initialStatusSeenRef = useRef(false);
+  const soldSoundArmedRef = useRef(false);
+  const lastSoldKeyRef = useRef("");
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   // ── Create manager once ────────────────────────────────────────────────
@@ -76,18 +87,28 @@ export function useBroadcastAudio({
     mgr.unlock().then(() => setIsUnlocked(mgr.isUnlocked)).catch(() => {});
   }, [settings]);
 
-  // ── Sold sound — fires once per unique soldKey ────────────────────────
+  // ── Sold sound — fires once per new soldKey after state hydrates ───────
   useEffect(() => {
-    if (!initialStatusSeenRef.current) {
-      initialStatusSeenRef.current = true;
-      prevStatusRef.current = status;
+    if (!auctionStateReady) return;
+
+    if (!soldSoundArmedRef.current) {
+      soldSoundArmedRef.current = true;
+      if (status === "sold" && soldKey) {
+        lastSoldKeyRef.current = soldKey;
+        if (isAudioLeader) {
+          managerRef.current?.ackSoldKey(soldKey);
+        }
+      }
       return;
     }
-    if (status === "sold" && prevStatusRef.current !== "sold") {
-      managerRef.current?.playSold(soldKey);
+
+    if (status === "sold" && soldKey && soldKey !== lastSoldKeyRef.current) {
+      lastSoldKeyRef.current = soldKey;
+      if (isAudioLeader) {
+        managerRef.current?.playSold(soldKey);
+      }
     }
-    prevStatusRef.current = status;
-  }, [status, soldKey]);
+  }, [auctionStateReady, isAudioLeader, status, soldKey]);
 
   // ── Reset countdown dedup when a new timer starts ─────────────────────
   useEffect(() => {
@@ -99,7 +120,7 @@ export function useBroadcastAudio({
 
   // ── Countdown tick poll (100 ms — accurate to well within 1 second) ───
   useEffect(() => {
-    if (status !== "active" || !timerEndsAt) return;
+    if (!isAudioLeader || !isLiveBiddingStatus(status) || !timerEndsAt) return;
 
     const id = setInterval(() => {
       const msLeft = new Date(timerEndsAt).getTime() - Date.now();
@@ -110,21 +131,27 @@ export function useBroadcastAudio({
     }, 100);
 
     return () => clearInterval(id);
-  }, [status, timerEndsAt]);
+  }, [isAudioLeader, status, timerEndsAt]);
 
   // ── Break-end sound — fires once when a break countdown expires ───────
   useEffect(() => {
-    if (!hasDisplayCountdown || !displayCountdownEndsAt) return;
+    if (!isAudioLeader || !hasDisplayCountdown || !displayCountdownEndsAt) return;
     const msUntilExpiry = new Date(displayCountdownEndsAt).getTime() - Date.now();
     if (msUntilExpiry <= 0) return; // already expired — don't fire retroactively
     const id = setTimeout(() => {
       managerRef.current?.playBreakEnd(displayCountdownEndsAt);
     }, msUntilExpiry);
     return () => clearTimeout(id);
-  }, [hasDisplayCountdown, displayCountdownEndsAt]);
+  }, [isAudioLeader, hasDisplayCountdown, displayCountdownEndsAt]);
+
+  const unlockAudio = useCallback(() => {
+    const mgr = managerRef.current;
+    if (!mgr) return;
+    void mgr.unlock().then(() => setIsUnlocked(mgr.isUnlocked));
+  }, []);
 
   // ── Expose manager for preview (tournament settings UI) ───────────────
   const getManager = useCallback(() => managerRef.current, []);
 
-  return { isUnlocked, getManager };
+  return { isUnlocked, unlockAudio, getManager };
 }

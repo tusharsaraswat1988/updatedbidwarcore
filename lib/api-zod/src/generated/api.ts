@@ -33,6 +33,7 @@ export const UploadImageResponse = zod.object({
  * @summary List all tournaments
  */
 export const listTournamentsResponsePaymentCollectionModeDefault = `manual_verification`;
+export const listTournamentsResponseBidValueModeDefault = `system`;
 
 export const ListTournamentsResponseItem = zod.object({
   id: zod.number(),
@@ -91,6 +92,28 @@ export const ListTournamentsResponseItem = zod.object({
   paymentCollectionMode: zod
     .enum(["manual_verification", "cashfree", "razorpay"])
     .default(listTournamentsResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(listTournamentsResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -231,6 +254,7 @@ export const GetTournamentParams = zod.object({
 });
 
 export const getTournamentResponsePaymentCollectionModeDefault = `manual_verification`;
+export const getTournamentResponseBidValueModeDefault = `system`;
 
 export const GetTournamentResponse = zod.object({
   id: zod.number(),
@@ -289,6 +313,28 @@ export const GetTournamentResponse = zod.object({
   paymentCollectionMode: zod
     .enum(["manual_verification", "cashfree", "razorpay"])
     .default(getTournamentResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(getTournamentResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -423,6 +469,8 @@ export const UpdateTournamentBody = zod.object({
     .optional(),
   enableRegistrationDeclaration: zod.boolean().optional(),
   registrationDeclarationText: zod.string().nullish(),
+  bidValueMode: zod.enum(["system", "player"]).optional(),
+  bidValueOptions: zod.array(zod.number()).optional(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
   audioEnabled: zod.boolean().optional(),
@@ -462,6 +510,7 @@ export const UpdateTournamentBody = zod.object({
 });
 
 export const updateTournamentResponsePaymentCollectionModeDefault = `manual_verification`;
+export const updateTournamentResponseBidValueModeDefault = `system`;
 
 export const UpdateTournamentResponse = zod.object({
   id: zod.number(),
@@ -520,6 +569,28 @@ export const UpdateTournamentResponse = zod.object({
   paymentCollectionMode: zod
     .enum(["manual_verification", "cashfree", "razorpay"])
     .default(updateTournamentResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(updateTournamentResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -618,6 +689,7 @@ export const ExportTournamentForLocalParams = zod.object({
 });
 
 export const exportTournamentForLocalResponseTournamentPaymentCollectionModeDefault = `manual_verification`;
+export const exportTournamentForLocalResponseTournamentBidValueModeDefault = `system`;
 
 export const ExportTournamentForLocalResponse = zod.object({
   version: zod.number(),
@@ -691,6 +763,28 @@ export const ExportTournamentForLocalResponse = zod.object({
       .default(
         exportTournamentForLocalResponseTournamentPaymentCollectionModeDefault,
       ),
+    enableRegistrationDeclaration: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When true, players must accept organizer declaration points during registration",
+      ),
+    registrationDeclarationText: zod
+      .string()
+      .nullish()
+      .describe(
+        "Newline-separated declaration\/consent points for player registration",
+      ),
+    bidValueMode: zod
+      .enum(["system", "player"])
+      .default(exportTournamentForLocalResponseTournamentBidValueModeDefault)
+      .describe(
+        "Whether base bid values are system-assigned or player-selected at registration",
+      ),
+    bidValueOptions: zod
+      .array(zod.number())
+      .optional()
+      .describe("Allowed bid values when bidValueMode is player"),
     resetCount: zod.number().optional(),
     lastResetAt: zod.string().nullish(),
     lastResetBy: zod.string().nullish(),
@@ -813,6 +907,20 @@ export const ExportTournamentForLocalResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -1342,6 +1450,14 @@ export const ListPlayersResponseItem = zod.object({
     .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -1415,7 +1531,11 @@ export const CreatePlayerBody = zod.object({
   age: zod.number().optional(),
   gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
-  basePrice: zod.number(),
+  basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .optional()
+    .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
     .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
@@ -1461,6 +1581,12 @@ export const CreatePlayerBody = zod.object({
     .boolean()
     .optional()
     .describe("Organizer manual entry — mark offline payment as completed"),
+  registrationDeclarationAccepted: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Player accepts organizer registration declaration (required when enabled)",
+    ),
 });
 
 /**
@@ -1513,6 +1639,11 @@ export const GetRegistrationStatusResponse = zod.object({
     .array(zod.string())
     .optional()
     .describe("Parsed declaration points shown on the registration form"),
+  bidValueMode: zod.enum(["system", "player"]).optional(),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
 });
 
 /**
@@ -1533,7 +1664,11 @@ export const RegisterPlayerBody = zod.object({
   age: zod.number().optional(),
   gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
-  basePrice: zod.number(),
+  basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .optional()
+    .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
     .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
@@ -1582,7 +1717,9 @@ export const RegisterPlayerBody = zod.object({
   registrationDeclarationAccepted: zod
     .boolean()
     .optional()
-    .describe("Player accepts organizer registration declaration (required when enabled)"),
+    .describe(
+      "Player accepts organizer registration declaration (required when enabled)",
+    ),
 });
 
 /**
@@ -1605,7 +1742,11 @@ export const BulkCreatePlayersBody = zod.object({
       age: zod.number().optional(),
       gender: zod.enum(["M", "F"]).optional(),
       photoUrl: zod.string().optional(),
-      basePrice: zod.number(),
+      basePrice: zod.number().optional(),
+      selectedBidValue: zod
+        .number()
+        .optional()
+        .describe("Required when tournament bidValueMode is player"),
       jerseyNumber: zod.string().optional(),
       jerseySize: zod
         .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
@@ -1651,6 +1792,12 @@ export const BulkCreatePlayersBody = zod.object({
         .boolean()
         .optional()
         .describe("Organizer manual entry — mark offline payment as completed"),
+      registrationDeclarationAccepted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Player accepts organizer registration declaration (required when enabled)",
+        ),
     }),
   ),
 });
@@ -1687,6 +1834,14 @@ export const GetPlayerResponse = zod.object({
     .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -1761,6 +1916,10 @@ export const UpdatePlayerBody = zod.object({
   gender: zod.enum(["M", "F"]).nullish(),
   photoUrl: zod.string().optional(),
   basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected bid value when tournament uses player mode"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
     .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
@@ -1792,6 +1951,10 @@ export const UpdatePlayerBody = zod.object({
     .describe(
       "Mandatory audit reason for critical player changes (min 10 characters)",
     ),
+  registrationPaymentStatus: zod
+    .enum(["pending", "approved", "rejected"])
+    .optional()
+    .describe("Organizer updates registration payment verification status"),
 });
 
 export const UpdatePlayerResponse = zod.object({
@@ -1812,6 +1975,14 @@ export const UpdatePlayerResponse = zod.object({
     .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -1900,6 +2071,14 @@ export const ApproveRegistrationPaymentResponse = zod.object({
     .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -1980,6 +2159,102 @@ export const RejectRegistrationPaymentResponse = zod.object({
     .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
+  soldPrice: zod.number().nullish(),
+  retainedPrice: zod.number().nullish(),
+  status: zod.enum(["available", "sold", "unsold", "retained"]),
+  jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  achievements: zod.string().nullish(),
+  mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  cricheroUrl: zod.string().nullish(),
+  availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Reset a player's registration payment to pending (organizer only)
+ */
+export const ResetRegistrationPaymentPendingParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const ResetRegistrationPaymentPendingResponse = zod.object({
+  id: zod.number(),
+  tournamentId: zod.number(),
+  categoryId: zod.number().nullish(),
+  teamId: zod.number().nullish(),
+  name: zod.string(),
+  city: zod.string().nullish(),
+  role: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
+  photoUrl: zod.string().nullish(),
+  basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -2063,6 +2338,20 @@ export const GetAuctionStateResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -2318,6 +2607,20 @@ export const StartAuctionResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -2573,6 +2876,20 @@ export const PauseAuctionResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -2833,6 +3150,20 @@ export const NextPlayerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -3097,6 +3428,20 @@ export const PlaceBidResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -3352,6 +3697,20 @@ export const SellPlayerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -3616,6 +3975,20 @@ export const ManualSellResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -3871,6 +4244,20 @@ export const MarkUnsoldResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -4135,6 +4522,20 @@ export const ReAuctionPlayerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -4397,6 +4798,20 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -4659,6 +5074,20 @@ export const ConcludeAuctionResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -4914,6 +5343,20 @@ export const UndoLastActionResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -5141,19 +5584,28 @@ export const UndoLastActionResponse = zod.object({
 });
 
 /**
- * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+ * @summary Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
  */
 export const ResetTrialAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
 export const ResetTrialAuctionBody = zod.object({
-  password: zod.string(),
+  password: zod
+    .string()
+    .optional()
+    .describe(
+      "Tournament organizer password. Optional when the caller already has an organizer session for this tournament.",
+    ),
   reason: zod
     .string()
     .describe(
       "Mandatory audit reason for clearing practice auction data (min 10 characters)",
     ),
+  resetContext: zod
+    .enum(["organizer", "admin"])
+    .optional()
+    .describe("organizer for operator panel; admin for super admin panel"),
 });
 
 export const ResetTrialAuctionResponse = zod.object({
@@ -5178,6 +5630,20 @@ export const ResetTrialAuctionResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -5437,6 +5903,20 @@ export const SetDisplayOverlayResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -5698,6 +6178,20 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -6015,6 +6509,20 @@ export const SyncFortuneWheelResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -6274,6 +6782,20 @@ export const SetCategoryFilterResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -6545,6 +7067,20 @@ export const SetBreakTimerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -6810,6 +7346,20 @@ export const StartTimerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -7065,6 +7615,20 @@ export const StopTimerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
@@ -7320,6 +7884,20 @@ export const DeferPlayerResponse = zod.object({
         .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),

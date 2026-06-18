@@ -11,7 +11,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
   const live = state.isBidding && !paused;
 
   return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 px-[3%] h-full border-b border-white/10 bg-black/40">
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 px-[3%] min-h-[3.5rem] h-full border-b border-white/10 bg-black/40 overflow-hidden">
       {/* Left: brand mark + tournament */}
       <div className="flex items-center gap-4">
         <div

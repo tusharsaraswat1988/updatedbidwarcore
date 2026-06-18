@@ -11,6 +11,9 @@ import {
   useUpdatePlayer,
   useDeletePlayer,
   useBulkCreatePlayers,
+  useApproveRegistrationPayment,
+  useRejectRegistrationPayment,
+  useResetRegistrationPaymentPending,
   useSearchGlobalPlayers,
   getSearchGlobalPlayersQueryKey,
   useListImportSources,
@@ -47,7 +50,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PaymentStatusBadge } from "@/components/registration-payment/payment-status-badge";
 import { RegistrationPaymentReview } from "@/components/registration-payment/registration-payment-review";
 import type { RegistrationPaymentStatus } from "@workspace/api-base/registration-payment";
 import {
@@ -687,8 +689,8 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Player Name <span className="text-destructive">*</span></Label>
           {player ? (
@@ -729,7 +731,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         )}
       </div>
       {/* Row 2: Mobile (required) | Role */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mobile Number <span className="text-destructive">*</span></Label>
           <div className="relative">
@@ -835,7 +837,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         />
       </div>
       {/* Row 4: Jersey No | Jersey Size */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Jersey No.</Label>
           <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
@@ -843,7 +845,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
       </div>
       {/* Row 5: Base Price / Selected Bid Value */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {playerBidMode ? (
           <div className="space-y-2 col-span-2">
             <Label>Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
@@ -923,7 +925,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
       ) : (["cricket", "other", ""].includes(tournament?.sport ?? "cricket") ? (
         /* Fallback free-text spec fields — only shown for cricket/other/unknown sport */
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Batting Style</Label>
             <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
@@ -1040,11 +1042,17 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* Retained player section */}
-      <div className="pt-2 border-t border-border space-y-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Retained Player (Optional)</p>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
+        <div className="space-y-1">
+          <Label>
+            Retained Player <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Choose whether this player is available for auction or already pre-sold to a team.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Status</Label>
             <Select value={form.status} onValueChange={v => f("status", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent className="dark">
@@ -1076,11 +1084,17 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* Player tag section */}
-      <div className="pt-2 border-t border-border space-y-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player Tag (Optional — display only)</p>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
+        <div className="space-y-1">
+          <Label>
+            Player Tag <span className="text-xs font-normal text-muted-foreground">(Optional — display only)</span>
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Add a visual badge on the auction screen. Does not affect bidding rules.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Tag</Label>
             <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="No tag" /></SelectTrigger>
               <SelectContent className="dark">
@@ -1391,12 +1405,11 @@ type PlayersFilterPersist = {
   teamIds: number[];
   tagFilters: string[];
   genderFilters: string[];
-  missingMobileOnly: boolean;
   sortKey: PlayerSortKey;
   sortDir: SortDir;
 };
 
-const FILTER_STORAGE_VERSION = "v2";
+const FILTER_STORAGE_VERSION = "v3";
 function filterStorageKey(tournamentId: number) {
   return `players-filters:${FILTER_STORAGE_VERSION}:${tournamentId}`;
 }
@@ -1481,7 +1494,6 @@ function playerPassesAdvancedFilters(
     teamIds: Set<number>;
     tagFilters: Set<string>;
     genderFilters: Set<string>;
-    missingMobileOnly: boolean;
     teamFilterActive: boolean;
   },
 ) {
@@ -1495,9 +1507,6 @@ function playerPassesAdvancedFilters(
     return false;
   }
   if (opts.genderFilters.size > 0 && !opts.genderFilters.has(playerGenderFilterKey(player.gender))) {
-    return false;
-  }
-  if (opts.missingMobileOnly && player.mobileNumber) {
     return false;
   }
   return true;
@@ -1522,8 +1531,8 @@ function MultiFilterPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5" disabled={disabled}>
-          <Filter className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-xs" disabled={disabled}>
+          <Filter className="w-3 h-3 shrink-0" />
           {label}
           {activeCount > 0 && (
             <Badge variant="secondary" className="h-5 min-w-5 px-1 text-[10px] font-bold">
@@ -1567,19 +1576,10 @@ function MultiFilterPopover({
   );
 }
 
-type PaymentFilterValue = "all" | RegistrationPaymentStatus;
-
-const PAYMENT_FILTER_CHIPS: { value: PaymentFilterValue; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "approved", label: "Approved" },
-  { value: "pending", label: "Pending" },
-  { value: "rejected", label: "Rejected" },
-];
-
 type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold";
 
 const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass: string; activeClass: string }[] = [
-  { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-foreground text-background border-foreground" },
+  { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-muted/60 text-foreground border-border" },
   { value: "available", label: "Available", idleClass: "text-blue-300/80", activeClass: "bg-blue-500/20 text-blue-200 border-blue-500/40" },
   { value: "retained", label: "Retained", idleClass: "text-purple-300/80", activeClass: "bg-purple-500/20 text-purple-200 border-purple-500/40" },
   { value: "sold", label: "Sold", idleClass: "text-green-300/80", activeClass: "bg-green-500/20 text-green-200 border-green-500/40" },
@@ -1605,7 +1605,7 @@ function StatusFilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
         active ? activeClass : `bg-card border-border hover:bg-accent/50 ${idleClass}`
       }`}
     >
@@ -2013,6 +2013,84 @@ function PlayerCategorySelect({
   );
 }
 
+const PAYMENT_STATUS_OPTIONS: { value: RegistrationPaymentStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+
+function PlayerPaymentStatusSelect({
+  tournamentId,
+  playerId,
+  status,
+}: {
+  tournamentId: number;
+  playerId: number;
+  status: RegistrationPaymentStatus | null | undefined;
+}) {
+  const approve = useApproveRegistrationPayment();
+  const reject = useRejectRegistrationPayment();
+  const resetPending = useResetRegistrationPaymentPending();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const current = status ?? "pending";
+
+  async function handleChange(value: string) {
+    const next = value as RegistrationPaymentStatus;
+    if (next === current) return;
+    setSaving(true);
+    try {
+      if (next === "approved") {
+        await approve.mutateAsync({ tournamentId, playerId });
+      } else if (next === "rejected") {
+        await reject.mutateAsync({ tournamentId, playerId });
+      } else {
+        await resetPending.mutateAsync({ tournamentId, playerId });
+      }
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; data?: { error?: string }; message?: string })?.response?.data?.error
+        || (err as { data?: { error?: string } })?.data?.error
+        || (err as { message?: string })?.message
+        || "Please try again";
+      toast({ title: "Could not update payment status", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusTone: Record<RegistrationPaymentStatus, string> = {
+    approved: "text-green-400 border-green-500/30",
+    pending: "text-amber-400 border-amber-500/30",
+    rejected: "text-red-400 border-red-500/30",
+  };
+
+  return (
+    <Select value={current} onValueChange={handleChange} disabled={saving}>
+      <SelectTrigger
+        className={`h-8 min-w-[108px] max-w-[132px] text-xs ${statusTone[current]}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {saving ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          <SelectValue />
+        )}
+      </SelectTrigger>
+      <SelectContent className="dark" onClick={e => e.stopPropagation()}>
+        {PAYMENT_STATUS_OPTIONS.map(opt => (
+          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ─── Players Page ──────────────────────────────────────────────────────────────
 
 export default function Players() {
@@ -2023,7 +2101,7 @@ export default function Players() {
   const { data: players, isLoading } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: categories } = useListCategories(tournamentId, {
+  const { data: categories, isFetched: categoriesFetched } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teams } = useListTeams(tournamentId, {
@@ -2046,13 +2124,11 @@ export default function Players() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [tab, setTab] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilterValue>("all");
   const [search, setSearch] = useState("");
   const [categoryIds, setCategoryIds] = useState<Set<number>>(new Set());
   const [teamIds, setTeamIds] = useState<Set<number>>(new Set());
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
   const [genderFilters, setGenderFilters] = useState<Set<string>>(new Set());
-  const [missingMobileOnly, setMissingMobileOnly] = useState(false);
   const [sortKey, setSortKey] = useState<PlayerSortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filtersHydrated, setFiltersHydrated] = useState(false);
@@ -2072,7 +2148,6 @@ export default function Players() {
       setTeamIds(new Set(saved.teamIds ?? []));
       setTagFilters(new Set(saved.tagFilters ?? []));
       setGenderFilters(new Set(saved.genderFilters ?? []));
-      setMissingMobileOnly(saved.missingMobileOnly ?? false);
       setSortKey(saved.sortKey ?? "id");
       setSortDir(saved.sortDir ?? "asc");
     } else {
@@ -2082,7 +2157,6 @@ export default function Players() {
       setTeamIds(new Set());
       setTagFilters(new Set());
       setGenderFilters(new Set());
-      setMissingMobileOnly(false);
       setSortKey("id");
       setSortDir("asc");
     }
@@ -2100,11 +2174,10 @@ export default function Players() {
       teamIds: [...teamIds],
       tagFilters: [...tagFilters],
       genderFilters: [...genderFilters],
-      missingMobileOnly,
       sortKey,
       sortDir,
     });
-  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, sortKey, sortDir]);
+  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, genderFilters, sortKey, sortDir]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -2151,7 +2224,6 @@ export default function Players() {
     setTeamIds(new Set());
     setTagFilters(new Set());
     setGenderFilters(new Set());
-    setMissingMobileOnly(false);
   }
 
   const catMap = useMemo(
@@ -2192,8 +2264,28 @@ export default function Players() {
   }, [players]);
 
   const teamFilterEnabled = tab === "all" || tab === "sold" || tab === "retained";
+
+  const categoryOptions = (categories || []).map(c => ({
+    value: c.id,
+    label: c.name,
+    color: c.colorCode,
+  }));
+  const hasCategories = categoriesFetched && categoryOptions.length > 0;
+
+  useEffect(() => {
+    if (!categoriesFetched || hasCategories) return;
+    if (categoryIds.size > 0) setCategoryIds(new Set());
+    if (sortKey === "category") {
+      setSortKey("id");
+      setSortDir("asc");
+    }
+  }, [categoriesFetched, hasCategories, categoryIds.size, sortKey]);
+
   const hasAdvancedFilters =
-    categoryIds.size > 0 || (teamFilterEnabled && teamIds.size > 0) || tagFilters.size > 0 || genderFilters.size > 0 || missingMobileOnly;
+    (hasCategories && categoryIds.size > 0)
+    || (teamFilterEnabled && teamIds.size > 0)
+    || tagFilters.size > 0
+    || genderFilters.size > 0;
 
   const paymentEnabled = tournament?.enableRegistrationPayment === true;
 
@@ -2201,30 +2293,21 @@ export default function Players() {
     const list = (players || []).filter(p => {
       const matchesTab = tab === "all" || p.status === tab;
       if (!matchesTab || !playerMatchesSearch(p, search)) return false;
-      if (paymentEnabled && paymentFilter !== "all") {
-        if ((p.registrationPaymentStatus ?? null) !== paymentFilter) return false;
-      }
       return playerPassesAdvancedFilters(p, {
         categoryIds,
         teamIds,
         tagFilters,
         genderFilters,
-        missingMobileOnly,
         teamFilterActive: teamFilterEnabled,
       });
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
-  }, [players, tab, paymentFilter, paymentEnabled, search, categoryIds, teamIds, tagFilters, genderFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
+  }, [players, tab, search, categoryIds, teamIds, tagFilters, genderFilters, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
 
-  const categoryOptions = (categories || []).map(c => ({
-    value: c.id,
-    label: c.name,
-    color: c.colorCode,
-  }));
-  const hasCategories = categoryOptions.length > 0;
+  const tableColCount = 8 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -2394,16 +2477,21 @@ export default function Players() {
           </DialogContent>
         </Dialog>
 
-        <div className="space-y-3">
-          <Input
-            placeholder="Search by serial, name, or mobile..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="max-w-sm"
-          />
+        <div className="rounded-xl border border-border/60 bg-card/25 px-2.5 py-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            <div className="relative shrink-0 w-full sm:w-[220px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search serial, name, mobile…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <div className="hidden sm:block w-px h-5 bg-border shrink-0" aria-hidden />
+
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 flex-1">
               {STATUS_FILTER_CHIPS.map(chip => (
                 <StatusFilterChip
                   key={chip.value}
@@ -2415,94 +2503,55 @@ export default function Players() {
                   activeClass={chip.activeClass}
                 />
               ))}
-            </div>
-            {filtered.length !== statusCounts.all && (
-              <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap">
-                Showing {filtered.length} of {statusCounts.all}
-              </span>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs shrink-0"
-              disabled={!players?.length || exportingExcel}
-              onClick={() => void handleExportExcel()}
-            >
-              {exportingExcel ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <FileSpreadsheet className="w-3.5 h-3.5" />
+              {filtered.length !== statusCounts.all && (
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap px-1">
+                  {filtered.length}/{statusCounts.all}
+                </span>
               )}
-              {exportingExcel ? "Exporting..." : "Export to Excel"}
-            </Button>
-          </div>
-
-          {paymentEnabled && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">
-                Payment
-              </span>
-              {PAYMENT_FILTER_CHIPS.map(chip => (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => setPaymentFilter(chip.value)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    paymentFilter === chip.value
-                      ? "bg-primary/15 text-primary border-primary/40"
-                      : "border-border text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  {chip.label}
-                </button>
-              ))}
             </div>
-          )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <MultiFilterPopover
-              label="Category"
-              options={categoryOptions}
-              selected={categoryIds}
-              onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
-              onClear={() => setCategoryIds(new Set())}
-            />
-            <MultiFilterPopover
-              label="Team"
-              options={teamOptions}
-              selected={teamIds}
-              onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
-              onClear={() => setTeamIds(new Set())}
-              disabled={!teamFilterEnabled}
-            />
-            <MultiFilterPopover
-              label="Tag"
-              options={tagOptions}
-              selected={tagFilters}
-              onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
-              onClear={() => setTagFilters(new Set())}
-            />
-            <MultiFilterPopover
-              label="Gender"
-              options={genderOptions}
-              selected={genderFilters}
-              onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
-              onClear={() => setGenderFilters(new Set())}
-            />
-            <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-sm cursor-pointer hover:bg-accent/50">
-              <Checkbox
-                checked={missingMobileOnly}
-                onCheckedChange={v => setMissingMobileOnly(v === true)}
+            <div className="hidden lg:block w-px h-5 bg-border shrink-0" aria-hidden />
+
+            <div className="flex items-center gap-1 shrink-0">
+              {hasCategories && (
+                <MultiFilterPopover
+                  label="Category"
+                  options={categoryOptions}
+                  selected={categoryIds}
+                  onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
+                  onClear={() => setCategoryIds(new Set())}
+                />
+              )}
+              <MultiFilterPopover
+                label="Team"
+                options={teamOptions}
+                selected={teamIds}
+                onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
+                onClear={() => setTeamIds(new Set())}
+                disabled={!teamFilterEnabled}
               />
-              <span className="text-xs sm:text-sm whitespace-nowrap">Missing mobile</span>
-            </label>
-            {hasAdvancedFilters && (
-              <Button type="button" variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={clearAdvancedFilters}>
-                <X className="w-3.5 h-3.5" /> Clear filters
-              </Button>
-            )}
-            <div className="lg:hidden ml-auto min-w-[140px]">
+              <MultiFilterPopover
+                label="Tag"
+                options={tagOptions}
+                selected={tagFilters}
+                onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
+                onClear={() => setTagFilters(new Set())}
+              />
+              <MultiFilterPopover
+                label="Gender"
+                options={genderOptions}
+                selected={genderFilters}
+                onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
+                onClear={() => setGenderFilters(new Set())}
+              />
+              {hasAdvancedFilters && (
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={clearAdvancedFilters}>
+                  <X className="w-3 h-3" /> Clear
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0 sm:ml-auto">
               <Select
                 value={`${sortKey}:${sortDir}`}
                 onValueChange={v => {
@@ -2511,8 +2560,8 @@ export default function Players() {
                   setSortDir(d);
                 }}
               >
-                <SelectTrigger className="h-9 text-xs">
-                  <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                <SelectTrigger className="h-8 w-[128px] text-xs gap-1">
+                  <SlidersHorizontal className="w-3 h-3 shrink-0" />
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2521,11 +2570,26 @@ export default function Players() {
                   <SelectItem value="name:asc">Name A–Z</SelectItem>
                   <SelectItem value="name:desc">Name Z–A</SelectItem>
                   <SelectItem value="status:asc">Status</SelectItem>
-                  <SelectItem value="category:asc">Category</SelectItem>
+                  {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
                   <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
                   <SelectItem value="team:asc">Team → Name</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs shrink-0"
+                disabled={!players?.length || exportingExcel}
+                onClick={() => void handleExportExcel()}
+              >
+                {exportingExcel ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden md:inline">{exportingExcel ? "Exporting…" : "Export"}</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -2604,6 +2668,9 @@ export default function Players() {
                       onSort={handleSort}
                       className="min-w-[100px]"
                     />
+                    {paymentEnabled && (
+                      <TableHead className="min-w-[120px]">Payment</TableHead>
+                    )}
                     <SortableTableHead
                       label="Team"
                       sortKey="team"
@@ -2663,12 +2730,6 @@ export default function Players() {
                                   </Badge>
                                 )}
                               </div>
-                              {paymentEnabled && player.registrationPaymentStatus && (
-                                <PaymentStatusBadge
-                                  status={player.registrationPaymentStatus as RegistrationPaymentStatus}
-                                  compact
-                                />
-                              )}
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
@@ -2692,6 +2753,15 @@ export default function Players() {
                               {statusLabels[player.status] || player.status}
                             </Badge>
                           </TableCell>
+                          {paymentEnabled && (
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <PlayerPaymentStatusSelect
+                                tournamentId={tournamentId}
+                                playerId={player.id}
+                                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell>
                             {showTeam && team ? (
                               <span className="text-sm font-medium truncate block" style={{ color: team.color || undefined }}>
@@ -2738,7 +2808,7 @@ export default function Players() {
                         </TableRow>
                         {isExpanded && (
                           <TableRow key={`${player.id}-detail`} className="border-border/40 bg-muted/10 hover:bg-muted/10">
-                            <TableCell colSpan={hasCategories ? 9 : 8} className="py-3 px-4">
+                            <TableCell colSpan={tableColCount} className="py-3 px-4">
                               <PlayerDetailPanel
                                 player={player}
                                 cat={cat}
@@ -2770,14 +2840,16 @@ export default function Players() {
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
                 return (
-                  <button
+                  <div
                     key={player.id}
-                    type="button"
                     className={`w-full text-left rounded-xl border border-border/60 bg-card/30 p-3 transition-colors hover:bg-card/50 border-l-[3px] ${statusBorderAccent[player.status] || ""}`}
                     style={{ contentVisibility: "auto", containIntrinsicSize: "0 72px" }}
-                    onClick={() => setDrawerPlayer(player)}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3"
+                      onClick={() => setDrawerPlayer(player)}
+                    >
                       <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.id}</span>
                       <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                       <div className="min-w-0 flex-1">
@@ -2794,25 +2866,32 @@ export default function Players() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {[player.mobileNumber, cat?.name, statusLabels[player.status] || player.status]
+                          {[
+                            player.mobileNumber,
+                            hasCategories ? cat?.name : null,
+                            statusLabels[player.status] || player.status,
+                          ]
                             .filter(Boolean)
                             .join(" · ")}
                           {showTeam && team ? ` · ${team.name}` : ""}
                         </p>
-                        {paymentEnabled && player.registrationPaymentStatus && (
-                          <PaymentStatusBadge
-                            status={player.registrationPaymentStatus as RegistrationPaymentStatus}
-                            compact
-                            className="mt-0.5"
-                          />
-                        )}
                       </div>
                       {amount.text !== "—" && (
                         <p className={`text-sm font-mono shrink-0 ${amount.className}`}>{amount.text}</p>
                       )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </div>
-                  </button>
+                    </button>
+                    {paymentEnabled && (
+                      <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between gap-2" onClick={e => e.stopPropagation()}>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment</span>
+                        <PlayerPaymentStatusSelect
+                          tournamentId={tournamentId}
+                          playerId={player.id}
+                          status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

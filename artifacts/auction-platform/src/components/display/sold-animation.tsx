@@ -4,8 +4,7 @@ import { User } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { SoldCelebration } from "./sold-celebration";
-import type { SoldRecord } from "./types";
-import type { UnsoldRecord } from "./use-sold-animation";
+import type { SoldRecord, UnsoldRecord } from "./types";
 
 export const SoldStamp = memo(function SoldStamp() {
   return (

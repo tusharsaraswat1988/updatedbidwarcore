@@ -11,7 +11,7 @@ export function SideStageFrame({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="fixed inset-0 overflow-hidden font-['Barlow_Condensed']"
+      className="absolute inset-0 overflow-hidden font-['Barlow_Condensed']"
       style={{
         ...styleVars,
         backgroundColor: "var(--stage-bg)",

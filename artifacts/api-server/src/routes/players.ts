@@ -19,6 +19,7 @@ import { onAuctionPlayerRosterChangedAsync } from "../lib/master-sports/cricket-
 import {
   PAYMENT_COLLECTION_MODES,
   PAYMENT_VERIFICATION_METHODS,
+  REGISTRATION_PAYMENT_STATUSES,
 } from "@workspace/api-base/registration-payment";
 import {
   resolveOrganizerPaymentStatus,
@@ -750,6 +751,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     playerTagTeamId: z.number().int().nullable().optional(),
     isNonPlayingMember: z.boolean().optional(),
     reason: z.string().optional(),
+    registrationPaymentStatus: z.enum(REGISTRATION_PAYMENT_STATUSES).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -856,6 +858,20 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
   if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
   if (d.isNonPlayingMember !== undefined) updates.isNonPlayingMember = d.isNonPlayingMember;
+
+  if (d.registrationPaymentStatus !== undefined) {
+    const paymentConfig = await fetchTournamentPaymentConfig(tid);
+    if (!paymentConfig?.enableRegistrationPayment) {
+      res.status(400).json({ error: "Registration payment is not enabled for this tournament." });
+      return;
+    }
+    updates.registrationPaymentStatus = d.registrationPaymentStatus;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
 
   const [player] = await db
     .update(playersTable)
@@ -1147,7 +1163,7 @@ async function updateRegistrationPaymentStatus(
   res: import("express").Response,
   tid: number,
   playerId: number,
-  status: "approved" | "rejected",
+  status: (typeof REGISTRATION_PAYMENT_STATUSES)[number],
 ) {
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
@@ -1175,7 +1191,12 @@ async function updateRegistrationPaymentStatus(
 
   auditLog(req, {
     category: "player",
-    action: status === "approved" ? "registration_payment.approved" : "registration_payment.rejected",
+    action:
+      status === "approved"
+        ? "registration_payment.approved"
+        : status === "rejected"
+          ? "registration_payment.rejected"
+          : "registration_payment.pending",
     summary: `Registration payment ${status} for "${player.name}"`,
     tournamentId: tid,
     playerId,
@@ -1204,6 +1225,16 @@ router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/r
     return;
   }
   await updateRegistrationPaymentStatus(req, res, tid, playerId, "rejected");
+});
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/pending", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "pending");
 });
 
 export default router;

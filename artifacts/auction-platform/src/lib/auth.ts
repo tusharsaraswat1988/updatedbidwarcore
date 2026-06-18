@@ -359,6 +359,7 @@ export async function loginOrganizerAccount(
   success: boolean;
   error?: string;
   organizer?: OrganizerInfo;
+  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
   loginGuard?: LoginGuardStatus;
 }> {
   try {
@@ -374,20 +375,24 @@ export async function loginOrganizerAccount(
         loginGuard: d.loginGuard,
       };
     }
-    return { success: true, organizer: d.organizer };
+    return { success: true, organizer: d.organizer, tournaments: d.tournaments };
   } catch { return { success: false, error: "Network error" }; }
 }
 
 export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
+  serverError?: boolean;
   organizer?: OrganizerInfo;
   tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/me");
-    if (!r.ok) return { loggedIn: false };
+    // 401/403 = cookie invalid/expired → truly logged out
+    // 5xx = DB/server error → don't treat as logged out (avoid session flash)
+    if (r.status === 401 || r.status === 403) return { loggedIn: false };
+    if (!r.ok) return { loggedIn: false, serverError: true };
     return r.json();
-  } catch { return { loggedIn: false }; }
+  } catch { return { loggedIn: false, serverError: true }; }
 }
 
 export async function logoutOrganizerAccount(): Promise<void> {

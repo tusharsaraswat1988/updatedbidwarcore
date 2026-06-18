@@ -5,8 +5,26 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-export const pool = new Pool({ connectionString: resolveDatabaseUrl() });
+export const pool = new Pool({
+  connectionString: resolveDatabaseUrl(),
+  // Fail fast if a new connection can't be established in 20s (Neon cold start
+  // can take up to ~15s; beyond that it's likely a connectivity problem).
+  connectionTimeoutMillis: 20_000,
+  // Release idle connections after 30s to avoid stale TCP issues on Neon.
+  idleTimeoutMillis: 30_000,
+  max: 10,
+});
 export const db = drizzle(pool, { schema });
+
+// Keep Neon database alive with a lightweight ping every 4 minutes.
+// Neon suspends the compute after ~5 minutes of inactivity, causing cold-start
+// latency (5-60s) on the next query. This ping prevents the suspension.
+const KEEP_ALIVE_INTERVAL_MS = 4 * 60 * 1000;
+setInterval(() => {
+  pool.query("SELECT 1").catch(() => {
+    // Ignore errors — this is best-effort, the pool will reconnect automatically.
+  });
+}, KEEP_ALIVE_INTERVAL_MS);
 
 /** Idempotent column adds so new fields persist without a manual migrate step. */
 void pool

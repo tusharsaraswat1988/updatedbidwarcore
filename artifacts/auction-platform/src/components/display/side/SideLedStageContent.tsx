@@ -1,4 +1,6 @@
 import type { LedView } from "@/lib/led-view/types";
+import type { AuctionFeedState } from "@workspace/api-base/auction-connection-state";
+import { resolveReconnectStandby } from "../display-reconnect-standby";
 import { SideStageFrame } from "./SideStageFrame";
 import { SideSponsorPanel } from "./SideSponsorPanel";
 import { SidePlayerProfilePanel } from "./SidePlayerProfilePanel";
@@ -41,29 +43,20 @@ function StandbyScreen({
 export function SideLedStageContent({
   view,
   panel,
+  feedState,
 }: {
   view: LedView;
   panel: SideLedPanelMode;
+  feedState?: AuctionFeedState;
 }) {
-  if (view.loading) {
+  const standby = resolveReconnectStandby(view, feedState);
+  if (standby) {
     return (
       <SideStageFrame>
         <StandbyScreen
-          tone="info"
-          tournamentName={view.tournament?.name}
-          message="Connecting to live auction"
-        />
-      </SideStageFrame>
-    );
-  }
-
-  if (view.error) {
-    return (
-      <SideStageFrame>
-        <StandbyScreen
-          tone="error"
-          tournamentName={view.tournament?.name}
-          message={view.error}
+          tone={standby.tone}
+          tournamentName={standby.tournamentName}
+          message={standby.message}
         />
       </SideStageFrame>
     );

@@ -68,8 +68,8 @@ function DatePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full justify-start rounded-md border border-input/70 bg-muted/10 px-3 py-1 text-base font-normal shadow-sm transition-colors hover:bg-muted/10 md:text-sm",
-            !value && "text-muted-foreground/60",
+            "flex h-9 w-full justify-start rounded-md border border-input bg-secondary/40 px-3 py-1 text-base font-normal text-foreground shadow-sm transition-colors hover:bg-secondary/50 md:text-sm",
+            !value && "text-muted-foreground",
             className,
           )}
         >

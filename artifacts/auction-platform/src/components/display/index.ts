@@ -24,11 +24,11 @@ export { DisplayConnectionBanner } from "./display-connection-banner";
 export { OutcomeResultPanel } from "./outcome-result-panel";
 export type { OutcomeResultData } from "./outcome-result-panel";
 export { FortuneWheelOverlay } from "./fortune-wheel-overlay";
-export { useSoldAnimation } from "./use-sold-animation";
-export { playSoldAudio } from "./sold-audio";
 export type {
   WheelItem,
   SoldRecord,
+  SoldPhase,
+  UnsoldRecord,
   PurseRow,
   PlayerLite,
   CategoryLite,

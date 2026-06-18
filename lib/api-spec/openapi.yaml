@@ -481,6 +481,21 @@ paths:
       responses:
         "204":
           description: Deleted
+        "409":
+          description: Category has assigned players
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, code]
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [CATEGORY_HAS_PLAYERS]
+                  playerCount:
+                    type: integer
 
   # ─── PLAYERS ────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/players:
@@ -715,6 +730,30 @@ paths:
       responses:
         "200":
           description: Payment rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/pending:
+    post:
+      operationId: resetRegistrationPaymentPending
+      tags: [players]
+      summary: Reset a player's registration payment to pending (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment reset to pending
           content:
             application/json:
               schema:
@@ -2772,6 +2811,10 @@ components:
         reason:
           type: string
           description: Mandatory audit reason for critical player changes (min 10 characters)
+        registrationPaymentStatus:
+          type: string
+          enum: [pending, approved, rejected]
+          description: Organizer updates registration payment verification status
 
     BulkPlayerInput:
       type: object

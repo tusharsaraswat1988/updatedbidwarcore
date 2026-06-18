@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { db } from "@workspace/db";
-import { categoriesTable } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { categoriesTable, playersTable } from "@workspace/db";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason } from "../lib/audit-reason";
@@ -143,9 +143,27 @@ router.delete("/tournaments/:tournamentId/categories/:categoryId", async (req, r
     .select()
     .from(categoriesTable)
     .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
+  if (!beforeCat) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const [{ assignedCount }] = await db
+    .select({ assignedCount: sql<number>`cast(count(*) as int)` })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.categoryId, catId)));
+
+  if (assignedCount > 0) {
+    res.status(409).json({
+      error: "This category is assigned to players and cannot be deleted. Reassign or remove those players first.",
+      code: "CATEGORY_HAS_PLAYERS",
+      playerCount: assignedCount,
+    });
+    return;
+  }
+
   await db.delete(categoriesTable).where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
-  if (beforeCat) {
-    auditLog(req, {
+  auditLog(req, {
       category: "category",
       action: "category.deleted",
       summary: `Category "${beforeCat.name}" deleted`,
@@ -154,7 +172,6 @@ router.delete("/tournaments/:tournamentId/categories/:categoryId", async (req, r
       resource: { type: "category", id: catId },
       before: snapshotCategory(beforeCat),
     });
-  }
   res.status(204).send();
 });
 

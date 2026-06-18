@@ -16,6 +16,13 @@ export type SoldRecord = {
   teamLogoUrl?: string | null;
 };
 
+export type SoldPhase = "stamp" | "card" | null;
+
+export type UnsoldRecord = {
+  playerName: string;
+  photoUrl: string | null | undefined;
+};
+
 export type PurseRow = {
   teamId: number;
   teamName: string;

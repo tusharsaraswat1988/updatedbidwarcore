@@ -797,6 +797,10 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
       if (next && next.startsWith("/")) navigate(next);
       return true;
     }
+    if (me.serverError) {
+      setError("Sign-in succeeded but the server is slow to respond. Please wait a moment and try again.");
+      return false;
+    }
     setError(SESSION_SAVE_ERROR);
     return false;
   }
@@ -822,6 +826,14 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
       }
       setLoginGuard(null);
       setCooldownSec(0);
+      // Use organizer + tournaments from the login response directly — avoids a
+      // second slow GET /me round-trip which is the main cause of the long spinner.
+      if (r.organizer) {
+        onSuccess(r.organizer, r.tournaments ?? []);
+        if (next && next.startsWith("/")) navigate(next);
+        return;
+      }
+      // Fallback: login response didn't include organizer data (older server)
       await finishAccountSession();
     } finally {
       setLoading(false);
@@ -1773,6 +1785,13 @@ export default function OrganizerPortal() {
       setChecking(false);
       return true;
     }
+    // Transient server error (DB cold start, 500, network blip) — do NOT log the
+    // user out. Keep the existing session state. Only clear on an explicit "not
+    // logged in" response (serverError is false and loggedIn is false).
+    if (me.serverError) {
+      setChecking(false);
+      return false;
+    }
     setOrganizer(null);
     setTournaments([]);
     setNeedsMobile(false);
@@ -1803,6 +1822,15 @@ export default function OrganizerPortal() {
           setGoogleError(
             "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
           );
+        }
+      }
+      // If already logged in and there's a ?next= param, navigate there immediately
+      // (handles the case where OrganizerGuard redirected the user here while they
+      // already had a valid session, e.g. after a page refresh on a protected route)
+      if (loggedIn) {
+        const next = new URLSearchParams(window.location.search).get("next") ?? "";
+        if (next && next.startsWith("/")) {
+          navigate(next);
         }
       }
     });
@@ -1841,7 +1869,9 @@ export default function OrganizerPortal() {
     setOrganizer(org);
     setTournaments(tours);
     setNeedsMobile(!!org.needsMobile);
-    if (nextParam && nextParam.startsWith("/")) navigate(nextParam);
+    // Navigation to nextParam is handled by finishAccountSession in AuthForm
+    // to avoid double-navigate. Only navigate here if no nextParam (stay on /organizer,
+    // show dashboard).
   }
 
   function handleProfileComplete(org: OrganizerInfo) {

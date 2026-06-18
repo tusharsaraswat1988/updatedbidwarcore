@@ -2723,6 +2723,103 @@ export const useRejectRegistrationPayment = <
 };
 
 /**
+ * @summary Reset a player's registration payment to pending (organizer only)
+ */
+export const getResetRegistrationPaymentPendingUrl = (
+  tournamentId: number,
+  playerId: number,
+) => {
+  return `/api/tournaments/${tournamentId}/players/${playerId}/registration-payment/pending`;
+};
+
+export const resetRegistrationPaymentPending = async (
+  tournamentId: number,
+  playerId: number,
+  options?: RequestInit,
+): Promise<Player> => {
+  return customFetch<Player>(
+    getResetRegistrationPaymentPendingUrl(tournamentId, playerId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getResetRegistrationPaymentPendingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetRegistrationPaymentPending>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetRegistrationPaymentPending>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  const mutationKey = ["resetRegistrationPaymentPending"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetRegistrationPaymentPending>>,
+    { tournamentId: number; playerId: number }
+  > = (props) => {
+    const { tournamentId, playerId } = props ?? {};
+
+    return resetRegistrationPaymentPending(
+      tournamentId,
+      playerId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetRegistrationPaymentPendingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetRegistrationPaymentPending>>
+>;
+
+export type ResetRegistrationPaymentPendingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset a player's registration payment to pending (organizer only)
+ */
+export const useResetRegistrationPaymentPending = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetRegistrationPaymentPending>>,
+    TError,
+    { tournamentId: number; playerId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetRegistrationPaymentPending>>,
+  TError,
+  { tournamentId: number; playerId: number },
+  TContext
+> => {
+  return useMutation(
+    getResetRegistrationPaymentPendingMutationOptions(options),
+  );
+};
+
+/**
  * @summary Get current auction state
  */
 export const getGetAuctionStateUrl = (tournamentId: number) => {
@@ -3753,7 +3850,7 @@ export const useUndoLastAction = <
 };
 
 /**
- * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+ * @summary Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
  */
 export const getResetTrialAuctionUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/reset-trial`;
@@ -3817,7 +3914,7 @@ export type ResetTrialAuctionMutationBody = BodyType<ResetTrialAuctionBody>;
 export type ResetTrialAuctionMutationError = ErrorType<void>;
 
 /**
- * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+ * @summary Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
  */
 export const useResetTrialAuction = <
   TError = ErrorType<void>,

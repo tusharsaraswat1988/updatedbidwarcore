@@ -128,7 +128,7 @@ export function PublicNavbar() {
             </button>
             <button
               onClick={() => navigate("/organizer")}
-              className="hidden lg:inline-flex px-4 py-2 rounded-lg text-black text-sm font-medium transition-colors"
+              className="inline-flex px-3 py-2 sm:px-4 rounded-lg text-black text-sm font-medium transition-colors"
               style={{ backgroundColor: colors.primary }}
             >
               Get Started

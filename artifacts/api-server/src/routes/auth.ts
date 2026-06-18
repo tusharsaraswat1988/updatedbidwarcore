@@ -1157,7 +1157,23 @@ router.post("/auth/organizer-account/login", async (req, res) => {
     summary: `Organizer "${organizer.name}" logged in`,
     actor: { type: "organizer_account", id: String(organizer.id), label: organizer.name },
   });
-  res.json({ success: true, organizer: organizerToJson(organizer) });
+  // Include tournaments in the login response so the frontend can skip the
+  // extra GET /me round-trip after login (which is the slow Neon cold-start call).
+  res.json({
+    success: true,
+    organizer: organizerToJson(organizer),
+    tournaments: myTournaments.map(t => ({
+      id: t.id,
+      name: t.name,
+      sport: t.sport,
+      status: t.status,
+      licenseStatus: t.licenseStatus,
+      venue: t.venue ?? null,
+      auctionDate: t.auctionDate ?? null,
+      auctionTime: t.auctionTime ?? null,
+      createdAt: t.createdAt.toISOString(),
+    })),
+  });
 });
 
 router.get("/auth/organizer-account/me", async (req, res) => {

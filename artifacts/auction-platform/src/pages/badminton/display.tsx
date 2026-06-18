@@ -9,6 +9,7 @@ import { BroadcastDisplay } from "@/components/badminton/broadcast-display";
 import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonBranding, sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { FullscreenLayout } from "@/components/layout";
+import { DisplayStageViewport } from "@/components/display/display-stage-viewport";
 import { StageFrame } from "@/components/display/v1/StageFrame";
 import { StageThemeProvider } from "@/components/display/v1/StageThemeProvider";
 import { DevThemePicker } from "@/components/display/v1/DevThemePicker";
@@ -80,28 +81,30 @@ export default function BadmintonDisplayPage() {
 
   return (
     <FullscreenLayout>
-      <StageThemeProvider initialTheme={initialTheme}>
-        <StageFrame>
-          {isLoading ? (
-            <LedStandby message="Connecting to match…" />
-          ) : !data?.state ? (
-            <LedStandby message="Match not available" />
-          ) : (
-            <BroadcastDisplay
-              state={data.state as BadmintonMatchState}
-              tournamentName={tournamentName}
-              tournamentLogoUrl={branding?.logoUrl ?? undefined}
-              courtNumber={courtNumber ?? (data.detail?.courtNumber as string | undefined)}
-              matchNumber={data.detail?.matchNumber as string | undefined}
-              roundName={data.detail?.roundName as string | undefined}
-              matchLabel={data.detail?.matchLabel as string | undefined}
-              sponsorLogos={sponsorLogosFromBranding(branding)}
-              scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
-            />
-          )}
-          <DevThemePicker anchor="stage" />
-        </StageFrame>
-      </StageThemeProvider>
+      <DisplayStageViewport>
+        <StageThemeProvider initialTheme={initialTheme}>
+          <StageFrame>
+            {isLoading ? (
+              <LedStandby message="Connecting to match…" />
+            ) : !data?.state ? (
+              <LedStandby message="Match not available" />
+            ) : (
+              <BroadcastDisplay
+                state={data.state as BadmintonMatchState}
+                tournamentName={tournamentName}
+                tournamentLogoUrl={branding?.logoUrl ?? undefined}
+                courtNumber={courtNumber ?? (data.detail?.courtNumber as string | undefined)}
+                matchNumber={data.detail?.matchNumber as string | undefined}
+                roundName={data.detail?.roundName as string | undefined}
+                matchLabel={data.detail?.matchLabel as string | undefined}
+                sponsorLogos={sponsorLogosFromBranding(branding)}
+                scoreBoardSponsor={branding?.scoreBoardSponsor ?? null}
+              />
+            )}
+            <DevThemePicker anchor="stage" />
+          </StageFrame>
+        </StageThemeProvider>
+      </DisplayStageViewport>
     </FullscreenLayout>
   );
 }
