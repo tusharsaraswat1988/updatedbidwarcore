@@ -5,10 +5,12 @@ import { startConsentBlastScheduler } from "./lib/scheduler";
 import { getRuntimeConfig } from "./lib/runtime-env";
 import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
+import { ensureCoreSchema, pool } from "@workspace/db";
 
 const { port } = getRuntimeConfig();
 
 async function start() {
+  await ensureCoreSchema(pool);
   await initRedisClients();
   await startAuctionEventSubscriber();
 

@@ -280,6 +280,27 @@ const migrations: Array<{ label: string; sql: string }> = [
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS features_json jsonb;
     `,
   },
+  {
+    label: "tournaments_and_organizers_core_v2",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_threshold_seconds integer NOT NULL DEFAULT 3;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_seconds integer NOT NULL DEFAULT 5;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS cheer_heat_meter_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS cheer_fan_battle_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS local_mode_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token text;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_expires_at timestamptz;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_synced_at timestamptz;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_last_mirror_at timestamptz;
+
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_method text;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_ip text;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_url text;
+    `,
+  },
 ];
 
 for (const m of migrations) {

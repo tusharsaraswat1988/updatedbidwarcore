@@ -1,9 +1,12 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { resolveDatabaseUrl } from "./database-url";
+import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
 
 const { Pool } = pg;
+
+export { ensureCoreSchema } from "./ensure-schema";
 
 export const pool = new Pool({
   connectionString: resolveDatabaseUrl(),
