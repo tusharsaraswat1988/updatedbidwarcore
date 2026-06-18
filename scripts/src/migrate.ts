@@ -281,6 +281,34 @@ const migrations: Array<{ label: string; sql: string }> = [
     `,
   },
   {
+    label: "create_creative_jobs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS creative_jobs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tournament_id INTEGER NOT NULL,
+        template_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        contract_json JSONB NOT NULL,
+        aspect_ratio TEXT NOT NULL,
+        requested_by_user_id INTEGER,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        error_message TEXT,
+        result_url TEXT,
+        download_enabled BOOLEAN NOT NULL DEFAULT FALSE
+      );
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_id
+        ON creative_jobs (tournament_id);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_status
+        ON creative_jobs (status);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_created_at
+        ON creative_jobs (created_at);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_created
+        ON creative_jobs (tournament_id, created_at DESC);
+    `,
+  },
+  {
     label: "tournaments_and_organizers_core_v2",
     sql: `
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_enabled boolean NOT NULL DEFAULT false;

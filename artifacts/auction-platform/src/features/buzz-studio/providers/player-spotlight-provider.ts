@@ -9,6 +9,7 @@ import type { Player, Team } from "@workspace/api-client-react";
 import {
   apiBuzzStudioDataSource,
   buildTeamById,
+  buildContractBranding,
   contractMetadata,
   optionalUrl,
   resolvePlayerDesignation,
@@ -21,10 +22,11 @@ export function mapPlayerSpotlightFromSnapshot(
 ): PlayerSpotlightContract[] {
   const teamById = buildTeamById(snapshot.teams);
   const metadata = contractMetadata(snapshot.tournamentId);
+  const branding = buildContractBranding(snapshot);
 
   return snapshot.players
     .toSorted((a, b) => a.name.localeCompare(b.name))
-    .map((player) => mapPlayerToSpotlightContract(player, snapshot, teamById, metadata));
+    .map((player) => mapPlayerToSpotlightContract(player, snapshot, teamById, metadata, branding));
 }
 
 function mapPlayerToSpotlightContract(
@@ -32,6 +34,7 @@ function mapPlayerToSpotlightContract(
   snapshot: BuzzStudioTournamentSnapshot,
   teamById: Map<number, Team>,
   metadata: ReturnType<typeof contractMetadata>,
+  branding: ReturnType<typeof buildContractBranding>,
 ): PlayerSpotlightContract {
   const team = player.teamId != null ? teamById.get(player.teamId) : undefined;
 
@@ -45,6 +48,7 @@ function mapPlayerToSpotlightContract(
     sport: snapshot.sport,
     designation: resolvePlayerDesignation(player),
     city: optionalUrl(player.city),
+    branding,
     metadata,
   };
 }

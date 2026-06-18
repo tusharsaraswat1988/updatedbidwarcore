@@ -187,6 +187,8 @@ export type {
 export {
   toSportType,
   snapshotFromTournamentData,
+  buildContractBranding,
+  brandingContextFromTournament,
   buildTeamById,
   buildPlayerById,
   buildBidCountByPlayer,
@@ -243,3 +245,20 @@ export {
   isRenderFailed,
   isRenderPending,
 } from "./rendering/index";
+
+/* ─── Creative Jobs ────────────────────────────────────────────────────── */
+
+export type {
+  CreativeJob,
+  CreativeJobMetadata,
+  CreativeJobStatus,
+  CreateCreativeJobRequest,
+} from "./jobs/index";
+
+export {
+  createCreativeJob,
+  listCreativeJobs,
+  getCreativeJob,
+  canDownloadCreative,
+  CREATIVE_JOB_STATUS_LABELS,
+} from "./jobs/index";

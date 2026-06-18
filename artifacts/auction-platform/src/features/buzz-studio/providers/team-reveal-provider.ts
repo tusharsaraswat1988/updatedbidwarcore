@@ -8,6 +8,7 @@ import type { TeamRevealContract } from "../contracts/TeamReveal.contract";
 import type { Team } from "@workspace/api-client-react";
 import {
   apiBuzzStudioDataSource,
+  buildContractBranding,
   contractMetadata,
   countSquadPlayers,
   optionalUrl,
@@ -20,16 +21,18 @@ export function mapTeamRevealFromSnapshot(
   snapshot: BuzzStudioTournamentSnapshot,
 ): TeamRevealContract[] {
   const metadata = contractMetadata(snapshot.tournamentId);
+  const branding = buildContractBranding(snapshot);
 
   return snapshot.teams
     .toSorted((a, b) => a.name.localeCompare(b.name))
-    .map((team) => mapTeamRevealContract(team, snapshot, metadata));
+    .map((team) => mapTeamRevealContract(team, snapshot, metadata, branding));
 }
 
 function mapTeamRevealContract(
   team: Team,
   snapshot: BuzzStudioTournamentSnapshot,
   metadata: ReturnType<typeof contractMetadata>,
+  branding: ReturnType<typeof buildContractBranding>,
 ): TeamRevealContract {
   const captain = resolveTeamCaptain(team.id, snapshot.players);
   const playerCount = countSquadPlayers(team.id, snapshot.players);
@@ -45,6 +48,7 @@ function mapTeamRevealContract(
     playerCount: playerCount > 0 ? playerCount : undefined,
     totalSpend,
     currency: snapshot.currency,
+    branding,
     metadata,
   };
 }

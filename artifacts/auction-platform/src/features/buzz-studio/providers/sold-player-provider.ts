@@ -10,6 +10,7 @@ import {
   apiBuzzStudioDataSource,
   buildBidCountByPlayer,
   buildTeamById,
+  buildContractBranding,
   contractMetadata,
   optionalUrl,
   resolvePlayerDesignation,
@@ -23,12 +24,13 @@ export function mapSoldPlayersFromSnapshot(
   const teamById = buildTeamById(snapshot.teams);
   const bidCountByPlayer = buildBidCountByPlayer(snapshot.bids);
   const metadata = contractMetadata(snapshot.tournamentId);
+  const branding = buildContractBranding(snapshot);
 
   return snapshot.players
     .filter((player) => player.status === "sold" && player.soldPrice != null)
     .toSorted((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0))
     .map((player) =>
-      mapSoldPlayerContract(player, snapshot, teamById, bidCountByPlayer, metadata),
+      mapSoldPlayerContract(player, snapshot, teamById, bidCountByPlayer, metadata, branding),
     );
 }
 
@@ -38,6 +40,7 @@ function mapSoldPlayerContract(
   teamById: Map<number, Team>,
   bidCountByPlayer: Map<number, number>,
   metadata: ReturnType<typeof contractMetadata>,
+  branding: ReturnType<typeof buildContractBranding>,
 ): SoldPlayerContract {
   const team = player.teamId != null ? teamById.get(player.teamId) : undefined;
   const bidCount = bidCountByPlayer.get(player.id);
@@ -54,6 +57,7 @@ function mapSoldPlayerContract(
     currency: snapshot.currency,
     bidCount: bidCount && bidCount > 0 ? bidCount : undefined,
     designation: resolvePlayerDesignation(player),
+    branding,
     metadata,
   };
 }

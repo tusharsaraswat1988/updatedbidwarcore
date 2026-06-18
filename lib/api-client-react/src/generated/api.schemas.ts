@@ -98,6 +98,9 @@ export const TournamentScoringPhase = {
 /** Per-tournament module feature flags (Buzz Studio, future modules). */
 export interface TournamentFeatures {
   buzzStudio?: boolean;
+  allowCreativeDownloads?: boolean;
+  allowPlayerDownloads?: boolean;
+  watermarkRequired?: boolean;
   ownerApp?: boolean;
   scoring?: boolean;
   sponsorshipHub?: boolean;

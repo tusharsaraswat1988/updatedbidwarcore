@@ -9,6 +9,7 @@ import type { Player, Team } from "@workspace/api-client-react";
 import {
   apiBuzzStudioDataSource,
   buildTeamById,
+  buildContractBranding,
   contractMetadata,
   optionalUrl,
   resolvePlayerDesignation,
@@ -23,6 +24,7 @@ export function mapTopBuysFromSnapshot(
 ): TopBuysListContract {
   const teamById = buildTeamById(snapshot.teams);
   const metadata = contractMetadata(snapshot.tournamentId);
+  const branding = buildContractBranding(snapshot);
 
   const topSold = snapshot.players
     .filter((player) => player.status === "sold" && player.soldPrice != null)
@@ -30,13 +32,14 @@ export function mapTopBuysFromSnapshot(
     .slice(0, TOP_BUYS_LIMIT);
 
   const entries = topSold.map((player, index) =>
-    mapTopBuyEntry(player, snapshot, teamById, index + 1, metadata),
+    mapTopBuyEntry(player, snapshot, teamById, index + 1, metadata, branding),
   );
 
   return {
     sport: snapshot.sport,
     entries,
     title: entries.length > 0 ? `Top ${entries.length} Buys` : "Top Buys",
+    branding,
     metadata,
   };
 }
@@ -47,6 +50,7 @@ function mapTopBuyEntry(
   teamById: Map<number, Team>,
   rank: number,
   metadata: ReturnType<typeof contractMetadata>,
+  branding: ReturnType<typeof buildContractBranding>,
 ): TopBuyContract {
   const team = player.teamId != null ? teamById.get(player.teamId) : undefined;
 
@@ -62,6 +66,7 @@ function mapTopBuyEntry(
     currency: snapshot.currency,
     rank,
     designation: resolvePlayerDesignation(player),
+    branding,
     metadata,
   };
 }

@@ -2,13 +2,15 @@
  * BidWar Media Center — Template Studio
  *
  * Registry-driven preview studio using Phase-13 live data providers.
- * No PNG generation, downloads, storage, or sharing.
+ * Queues creative jobs; PNG rendering is a future phase.
  */
 
 import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRoute } from "wouter";
 import {
   ArrowLeft,
+  Clock,
   ImageOff,
   Loader2,
   Moon,
@@ -29,6 +31,13 @@ import {
 } from "@/features/buzz-studio";
 import { BuzzTemplateType } from "@/features/buzz-studio/registry/template-types";
 import {
+  createCreativeJob,
+  CREATIVE_JOB_STATUS_LABELS,
+  listCreativeJobs,
+  type CreativeJob,
+  type CreativeJobStatus,
+} from "@/features/buzz-studio/jobs";
+import {
   getTemplateStudioConfig,
   hasTemplateStudioSupport,
   isTopBuysEmpty,
@@ -48,6 +57,95 @@ const ASPECT_RATIO_CLASS: Record<AspectRatioOption, string> = {
   "4:5": "aspect-[4/5] w-full max-w-[420px]",
   "16:9": "aspect-video w-full max-w-[640px]",
 };
+
+const STATUS_BADGE_VARIANT: Record<
+  CreativeJobStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  queued: "secondary",
+  processing: "default",
+  completed: "outline",
+  failed: "destructive",
+};
+
+function formatJobCreatedAt(iso: string): string {
+  const date = new Date(iso);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatTemplateLabel(templateId: string): string {
+  const entry = getTemplateById(templateId as BuzzTemplateType);
+  return entry?.title ?? templateId;
+}
+
+function CreativeHistoryPanel({
+  jobs,
+  isLoading,
+  isError,
+}: {
+  jobs: CreativeJob[];
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  return (
+    <section className="flex min-h-0 flex-col gap-2 border-b border-border pb-3">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Creative History
+      </h2>
+      {isLoading ? (
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading jobs…
+        </div>
+      ) : isError ? (
+        <p className="py-2 text-sm text-destructive">Could not load creative history.</p>
+      ) : jobs.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground">
+          No creatives queued yet. Generate one to start.
+        </p>
+      ) : (
+        <div className="min-h-0 max-h-[220px] overflow-auto rounded-md border border-border">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 bg-card/95 backdrop-blur">
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="px-2 py-1.5 font-semibold">Status</th>
+                <th className="px-2 py-1.5 font-semibold">Template</th>
+                <th className="px-2 py-1.5 font-semibold">Created</th>
+                <th className="px-2 py-1.5 font-semibold">Ratio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.id} className="border-b border-border/60 last:border-0">
+                  <td className="px-2 py-2">
+                    <Badge variant={STATUS_BADGE_VARIANT[job.status]} className="text-[10px]">
+                      {CREATIVE_JOB_STATUS_LABELS[job.status]}
+                    </Badge>
+                  </td>
+                  <td className="max-w-[88px] truncate px-2 py-2 text-foreground">
+                    {formatTemplateLabel(job.templateId)}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3 shrink-0 opacity-70" />
+                      {formatJobCreatedAt(job.createdAt)}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 font-mono text-muted-foreground">{job.aspectRatio}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function resolveTemplateId(raw: string | undefined): BuzzTemplateType | null {
   if (!raw || !templateExists(raw)) return null;
@@ -189,10 +287,24 @@ export default function TemplateStudioPage() {
   const studioConfig = templateId ? getTemplateStudioConfig(templateId) : undefined;
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, error } = useTemplateStudioData(
     tournamentId,
     templateId ?? BuzzTemplateType.PLAYER_SPOTLIGHT,
   );
+
+  const creativeJobsQueryKey = ["buzz-studio", "creative-jobs", tournamentId] as const;
+
+  const {
+    data: creativeJobs = [],
+    isLoading: jobsLoading,
+    isError: jobsError,
+  } = useQuery({
+    queryKey: creativeJobsQueryKey,
+    queryFn: () => listCreativeJobs(tournamentId, { limit: 20 }),
+    enabled: tournamentId > 0,
+    refetchInterval: 15000,
+  });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -238,13 +350,41 @@ export default function TemplateStudioPage() {
     return data.items.length === 0;
   }, [activeContract, data]);
 
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      if (!templateId || !activeContract) {
+        throw new Error("No contract data available for this template.");
+      }
+      return createCreativeJob({
+        tournamentId,
+        templateId,
+        contract: activeContract,
+        aspectRatio,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: creativeJobsQueryKey });
+      toast({
+        title: "Creative queued successfully",
+        description: "Your creative job has been added to the queue.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Could not queue creative",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const backPath = resolveMediaCenterBackPath(tournamentId, isOrganizerRoute);
 
+  const canGenerate = Boolean(activeContract) && !isEmpty && !generateMutation.isPending;
+
   function handleGenerateClick() {
-    toast({
-      title: "PNG renderer coming in next phase",
-      description: "Creative export is not available yet.",
-    });
+    if (!canGenerate) return;
+    generateMutation.mutate();
   }
 
   if (!templateId || !entry || !entry.enabled || !studioConfig || !hasTemplateStudioSupport(templateId)) {
@@ -293,8 +433,19 @@ export default function TemplateStudioPage() {
                 </div>
               </div>
             </div>
-            <Button className="font-display font-bold" onClick={handleGenerateClick}>
-              Generate Creative
+            <Button
+              className="font-display font-bold"
+              onClick={handleGenerateClick}
+              disabled={!canGenerate}
+            >
+              {generateMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Queuing…
+                </>
+              ) : (
+                "Generate Creative"
+              )}
             </Button>
           </header>
 
@@ -401,6 +552,11 @@ export default function TemplateStudioPage() {
               </main>
 
               <aside className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card/70 p-3">
+                <CreativeHistoryPanel
+                  jobs={creativeJobs}
+                  isLoading={jobsLoading}
+                  isError={jobsError}
+                />
                 <div className="space-y-2 border-b border-border pb-3">
                   <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Registry

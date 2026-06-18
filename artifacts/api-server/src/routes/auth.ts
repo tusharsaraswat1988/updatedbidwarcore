@@ -728,6 +728,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     scoringEnabled: z.boolean().optional(),
     features: z.object({
       buzzStudio: z.boolean().optional(),
+      allowCreativeDownloads: z.boolean().optional(),
+      allowPlayerDownloads: z.boolean().optional(),
+      watermarkRequired: z.boolean().optional(),
       ownerApp: z.boolean().optional(),
       scoring: z.boolean().optional(),
       sponsorshipHub: z.boolean().optional(),

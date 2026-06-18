@@ -16,10 +16,20 @@ import {
 } from "@workspace/api-client-react";
 import type { Bid, Player, Team, Tournament } from "@workspace/api-client-react";
 import { SportType } from "../types/sport-types";
+import {
+  brandingContextFromTournament,
+  type BuzzStudioBrandingContext,
+} from "./contract-branding";
+
+export {
+  buildContractBranding,
+  brandingContextFromTournament,
+  type BuzzStudioBrandingContext,
+} from "./contract-branding";
 
 /* ─── Snapshot ───────────────────────────────────────────────────────────── */
 
-export interface BuzzStudioTournamentSnapshot {
+export interface BuzzStudioTournamentSnapshot extends BuzzStudioBrandingContext {
   tournamentId: number;
   sport: SportType;
   currency: string;
@@ -57,6 +67,7 @@ export function snapshotFromTournamentData(
 ): BuzzStudioTournamentSnapshot {
   return {
     tournamentId: tournament.id,
+    ...brandingContextFromTournament(tournament),
     sport: toSportType(tournament.sport),
     currency: "INR",
     players,
