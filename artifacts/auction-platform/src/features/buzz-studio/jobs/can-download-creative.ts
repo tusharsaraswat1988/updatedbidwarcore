@@ -1,8 +1,8 @@
 /**
  * Buzz Studio — Download permission utility
  *
- * Foundation for organizer and player download gates.
- * No download UI in this phase.
+ * Organizer downloads in Template Studio when Buzz Studio or allowCreativeDownloads is on.
+ * Player downloads remain gated by allowPlayerDownloads (future share links).
  */
 
 import {
@@ -24,7 +24,7 @@ export function canDownloadCreative(
 ): boolean {
   const resolved = resolveTournamentFeatures(features);
   if (audience === "organizer") {
-    return resolved.allowCreativeDownloads === true;
+    return resolved.allowCreativeDownloads === true || resolved.buzzStudio === true;
   }
   return resolved.allowPlayerDownloads === true;
 }

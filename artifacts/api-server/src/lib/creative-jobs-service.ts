@@ -71,7 +71,7 @@ export function canDownloadCreative(
 ): boolean {
   const resolved = resolveTournamentFeatures(features);
   if (audience === "organizer") {
-    return resolved.allowCreativeDownloads === true;
+    return resolved.allowCreativeDownloads === true || resolved.buzzStudio === true;
   }
   return resolved.allowPlayerDownloads === true;
 }

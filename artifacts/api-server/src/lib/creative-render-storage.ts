@@ -72,6 +72,33 @@ async function saveToLocalPrivateStorage(input: StoreCreativePngInput): Promise<
   return `local://creative-renders/${input.tournamentId}/${input.jobId}.png`;
 }
 
+const LOCAL_RESULT_PREFIX = "local://creative-renders/";
+
+function creativeRenderBaseDir(): string {
+  return (
+    process.env.CREATIVE_RENDER_LOCAL_DIR?.trim() ||
+    path.join(process.cwd(), "data", "creative-renders")
+  );
+}
+
+/** Resolve a stored local:// result URL to an absolute filesystem path (path traversal safe). */
+export function resolveLocalCreativePngPath(resultUrl: string): string | null {
+  if (!resultUrl.startsWith(LOCAL_RESULT_PREFIX)) return null;
+  const relative = resultUrl.slice(LOCAL_RESULT_PREFIX.length);
+  if (!relative || relative.includes("..")) return null;
+
+  const baseDir = path.resolve(creativeRenderBaseDir());
+  const filePath = path.resolve(baseDir, relative);
+  if (filePath !== baseDir && !filePath.startsWith(`${baseDir}${path.sep}`)) {
+    return null;
+  }
+  return filePath;
+}
+
+export function isLocalCreativeResultUrl(resultUrl: string): boolean {
+  return resultUrl.startsWith(LOCAL_RESULT_PREFIX);
+}
+
 /**
  * Persist PNG output. Prefers Cloudinary when configured; falls back to local private disk.
  */
