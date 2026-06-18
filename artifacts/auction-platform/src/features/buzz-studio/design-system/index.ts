@@ -11,11 +11,20 @@ export {
   MvpBadge,
   WinnerBadge,
   SoldBadge,
+  RankingBadge,
   getSportMeta,
   getSportLabel,
   getSportEmoji,
 } from "./badges";
-export type { SportBadgeProps, CaptainBadgeProps, MvpBadgeProps, WinnerBadgeProps, SoldBadgeProps, SportMeta } from "./badges";
+export type {
+  SportBadgeProps,
+  CaptainBadgeProps,
+  MvpBadgeProps,
+  WinnerBadgeProps,
+  SoldBadgeProps,
+  RankingBadgeProps,
+  SportMeta,
+} from "./badges";
 
 /* ─── Frames ──────────────────────────────────────────────────────────── */
 export {

@@ -40,11 +40,11 @@ export const Typography = {
    */
   PlayerName: {
     ...BASE_FONT,
-    fontSize: "clamp(1.25rem, 4.5vw, 2.25rem)",
+    fontSize: "clamp(1.5rem, 5.5vw, 2.75rem)",
     fontWeight: 900,
     color: t.white,
     letterSpacing: "0.06em",
-    lineHeight: 1.1,
+    lineHeight: 1.05,
     margin: 0,
   },
 
@@ -64,7 +64,7 @@ export const Typography = {
    */
   PriceValue: {
     ...BASE_FONT,
-    fontSize: "clamp(1.5rem, 5vw, 3rem)",
+    fontSize: "clamp(2rem, 7vw, 4rem)",
     fontWeight: 900,
     color: t.primaryGold,
     letterSpacing: "0.02em",

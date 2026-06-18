@@ -95,6 +95,15 @@ export const TournamentScoringPhase = {
   completed: "completed",
 } as const;
 
+/** Per-tournament module feature flags (Buzz Studio, future modules). */
+export interface TournamentFeatures {
+  buzzStudio?: boolean;
+  ownerApp?: boolean;
+  scoring?: boolean;
+  sponsorshipHub?: boolean;
+  analytics?: boolean;
+}
+
 export interface Tournament {
   id: number;
   name: string;
@@ -228,6 +237,8 @@ export interface Tournament {
    * @nullable
    */
   scoringPin?: string | null;
+  /** Per-tournament module feature flags */
+  features?: TournamentFeatures;
   createdAt: string;
 }
 

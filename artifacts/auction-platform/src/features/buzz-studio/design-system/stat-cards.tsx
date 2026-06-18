@@ -150,12 +150,13 @@ export function PriceDisplay({ price, label, style }: PriceDisplayProps) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "4px",
-        padding: "10px 20px",
-        borderRadius: "10px",
-        background: Gradients.DarkPremium,
-        border: `1px solid ${t.primaryGold}25`,
+        gap: "6px",
+        padding: "16px 28px",
+        borderRadius: "14px",
+        background: Gradients.DarkGoldPremium,
+        border: `1.5px solid rgba(251,191,36,0.50)`,
         textAlign: "center",
+        boxShadow: `0 0 36px rgba(251,191,36,0.20), 0 6px 28px rgba(0,0,0,0.55)`,
         ...style,
       }}
     >

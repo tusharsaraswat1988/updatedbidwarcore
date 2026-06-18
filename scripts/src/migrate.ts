@@ -274,6 +274,12 @@ const migrations: Array<{ label: string; sql: string }> = [
       ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
     `,
   },
+  {
+    label: "tournaments_features_json",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS features_json jsonb;
+    `,
+  },
 ];
 
 for (const m of migrations) {

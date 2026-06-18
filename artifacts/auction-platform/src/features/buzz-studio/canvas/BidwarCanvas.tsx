@@ -20,19 +20,25 @@ export function BidwarCanvas({
 }: BidwarCanvasProps) {
   return (
     <div style={styles.root}>
-      {/* Premium gold glow ring */}
+      {/* Premium luminous gold glow ring — provides the border */}
       <div style={styles.glowRing} aria-hidden="true" />
 
-      {/* Watermark — rendered behind all content */}
+      {/* Level 1: BIDWAR watermark — large, ultra-low opacity, diagonal */}
       {showWatermark && (
         <span style={styles.watermark} aria-hidden="true">
           {BIDWAR_WATERMARK}
         </span>
       )}
 
-      {/* Card surface */}
+      {/* Card surface with 5-layer background system */}
       <div style={styles.card}>
-        {/* Optional header */}
+
+        {/* Level 2: Corner brand mark — top-right, non-intrusive */}
+        <div style={styles.cornerBrand} aria-hidden="true">
+          <span style={styles.cornerBrandText}>BW</span>
+        </div>
+
+        {/* Optional title/subtitle header */}
         {(title || subtitle) && (
           <div style={styles.header}>
             {title && <h2 style={styles.title}>{title}</h2>}
@@ -40,18 +46,16 @@ export function BidwarCanvas({
           </div>
         )}
 
-        {/* Arbitrary children */}
+        {/* Template content */}
         <div style={styles.content}>{children}</div>
 
-        {/* Footer row — branding + optional QR */}
+        {/* Level 3: Premium footer branding */}
         {(showFooterBranding || showQrPlaceholder) && (
           <div style={styles.footer}>
             {showFooterBranding && (
               <div style={styles.branding}>
-                <span style={styles.brandingPrimary}>Powered by BidWar</span>
-                <span style={styles.brandingSecondary}>
-                  From Auction to Champion
-                </span>
+                <span style={styles.brandingPrimary}>POWERED BY BIDWAR</span>
+                <span style={styles.brandingSecondary}>◆ From Auction to Champion ◆</span>
               </div>
             )}
 
@@ -67,9 +71,17 @@ export function BidwarCanvas({
   );
 }
 
-/* ─── Inline styles (no external deps, no theme provider import) ─────────── */
+/* ─── Inline styles ──────────────────────────────────────────────────────── */
+//
+// Color constants — avoids importing theme to keep canvas self-contained
+// and renderer-safe (no circular imports).
+//
+const G  = "#FBBF24"; // primaryGold
+const G2 = "#D97706"; // secondaryGold
 
 const styles: Record<string, React.CSSProperties> = {
+
+  // Outermost shell — deep black base, provides the 2px glow border gap
   root: {
     position: "relative",
     display: "inline-flex",
@@ -78,47 +90,60 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     width: "100%",
     minHeight: "320px",
-    background: "#050505",
-    borderRadius: "16px",
+    background: "#020202",
+    borderRadius: "18px",
     overflow: "hidden",
     padding: "2px",
     boxSizing: "border-box",
   },
 
-  /* Subtle premium gold glow border */
+  // Premium gold glow ring — luminous border effect on root outer edge
   glowRing: {
     position: "absolute",
     inset: 0,
-    borderRadius: "16px",
-    background:
-      "linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(217,119,6,0.08) 50%, rgba(251,191,36,0.18) 100%)",
+    borderRadius: "18px",
+    background: `linear-gradient(135deg, ${G}48 0%, ${G2}20 35%, rgba(0,0,0,0) 50%, ${G2}20 65%, ${G}48 100%)`,
     pointerEvents: "none",
     zIndex: 0,
   },
 
-  /* Watermark — absolute, behind children */
+  // Level 1: BIDWAR behind-content watermark
   watermark: {
     position: "absolute",
     top: "50%",
     left: "50%",
-    transform: "translate(-50%, -50%) rotate(-30deg)",
-    fontSize: "clamp(4rem, 18vw, 9rem)",
+    transform: "translate(-50%, -50%) rotate(-28deg)",
+    fontSize: "clamp(5rem, 22vw, 11rem)",
     fontWeight: 900,
-    letterSpacing: "0.15em",
-    color: "rgba(251,191,36,0.04)",
+    letterSpacing: "0.18em",
+    color: "rgba(251,191,36,0.07)",
     userSelect: "none",
     pointerEvents: "none",
     whiteSpace: "nowrap",
     zIndex: 1,
+    fontFamily: "system-ui, sans-serif",
   },
 
-  /* Card surface */
+  // Card surface with 5-layer background system:
+  //   Layer 5 (top):    edge vignette — dark at corners
+  //   Layer 3:          large gold center radial glow
+  //   Layer 2:          subtle charcoal diagonal texture lines
+  //   Layer 1 (bottom): deep charcoal surface gradient
   card: {
     position: "relative",
     zIndex: 2,
     width: "100%",
-    background: "#0B0B0B",
-    borderRadius: "14px",
+    background: [
+      // Layer 5: edge vignette
+      "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.65) 100%)",
+      // Layer 3: gold center radial glow
+      `radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)`,
+      // Layer 2: charcoal diagonal texture (very subtle)
+      "repeating-linear-gradient(-55deg, transparent 0px, transparent 60px, rgba(255,255,255,0.009) 60px, rgba(255,255,255,0.009) 62px)",
+      // Layer 1: deep charcoal surface gradient
+      "linear-gradient(180deg, #141414 0%, #0c0c0c 50%, #060606 100%)",
+    ].join(", "),
+    borderRadius: "16px",
     display: "flex",
     flexDirection: "column",
     gap: "0",
@@ -126,8 +151,27 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
 
+  // Level 2: Corner brand mark — barely-visible BW mark, top-right of card
+  cornerBrand: {
+    position: "absolute",
+    top: "8px",
+    right: "12px",
+    zIndex: 10,
+    pointerEvents: "none",
+  },
+
+  cornerBrandText: {
+    fontFamily: "system-ui, sans-serif",
+    fontSize: "0.45rem",
+    fontWeight: 900,
+    color: "rgba(251,191,36,0.42)",
+    letterSpacing: "0.25em",
+    userSelect: "none",
+    textTransform: "uppercase" as const,
+  },
+
   header: {
-    padding: "20px 24px 0",
+    padding: "20px 22px 0",
     display: "flex",
     flexDirection: "column",
     gap: "4px",
@@ -137,8 +181,9 @@ const styles: Record<string, React.CSSProperties> = {
     margin: 0,
     fontSize: "1.125rem",
     fontWeight: 700,
-    color: "#FBBF24",
+    color: G,
     letterSpacing: "0.02em",
+    fontFamily: "system-ui, sans-serif",
   },
 
   subtitle: {
@@ -146,49 +191,52 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.8125rem",
     color: "rgba(255,255,255,0.45)",
     letterSpacing: "0.01em",
+    fontFamily: "system-ui, sans-serif",
   },
 
+  // Template content area — slightly tighter padding vs original
   content: {
-    padding: "20px 24px",
+    padding: "18px 22px",
     flex: 1,
     color: "#FFFFFF",
   },
 
-  /* Footer row */
+  // Level 3: Footer with premium typography
   footer: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "12px 24px 16px",
-    borderTop: "1px solid rgba(251,191,36,0.10)",
+    padding: "10px 22px 14px",
+    borderTop: "1px solid rgba(251,191,36,0.20)",
     gap: "12px",
   },
 
   branding: {
     display: "flex",
     flexDirection: "column",
-    gap: "1px",
+    gap: "2px",
   },
 
   brandingPrimary: {
+    fontFamily: "system-ui, sans-serif",
     fontSize: "0.6875rem",
-    fontWeight: 700,
-    color: "#FBBF24",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
+    fontWeight: 800,
+    color: G,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
   },
 
   brandingSecondary: {
-    fontSize: "0.625rem",
-    color: "rgba(255,255,255,0.35)",
-    letterSpacing: "0.04em",
+    fontFamily: "system-ui, sans-serif",
+    fontSize: "0.5625rem",
+    color: "rgba(255,255,255,0.38)",
+    letterSpacing: "0.10em",
   },
 
-  /* QR placeholder */
   qrBox: {
     width: "52px",
     height: "52px",
-    border: "1.5px solid rgba(251,191,36,0.35)",
+    border: `1.5px solid rgba(251,191,36,0.35)`,
     borderRadius: "6px",
     display: "flex",
     alignItems: "center",
@@ -201,5 +249,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     color: "rgba(251,191,36,0.5)",
     letterSpacing: "0.08em",
+    fontFamily: "system-ui, sans-serif",
   },
 };

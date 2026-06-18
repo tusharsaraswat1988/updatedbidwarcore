@@ -5,7 +5,7 @@
  * This file is pure data — no React, no components.
  *
  * Rules:
- *   - PLAYER_SPOTLIGHT is the only enabled template.
+ *   - Enabled templates: PLAYER_SPOTLIGHT, SOLD_PLAYER, TOP_BUYS.
  *   - All others: enabled: false, comingSoon: true.
  *   - contractName must match the interface name in contracts/.
  *   - aspectRatios must list all output sizes the renderer should produce.
@@ -44,8 +44,7 @@ export const TOP_BUYS_META: BuzzTemplateDefinition = {
   title: "Top Buys",
   description: "Showcase the highest-value auction purchases in a ranked list creative.",
   category: BuzzTemplateCategory.AUCTION,
-  enabled: false,
-  comingSoon: true,
+  enabled: true,
   aspectRatios: ["1:1", "4:5"],
   contractName: "TopBuysListContract",
 };
@@ -55,8 +54,7 @@ export const TEAM_REVEAL_META: BuzzTemplateDefinition = {
   title: "Team Reveal",
   description: "Reveal a team's final squad composition with captain and total spend.",
   category: BuzzTemplateCategory.TEAM,
-  enabled: false,
-  comingSoon: true,
+  enabled: true,
   aspectRatios: ["1:1", "9:16"],
   contractName: "TeamRevealContract",
 };

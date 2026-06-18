@@ -25,6 +25,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
@@ -661,6 +662,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       cheerMessagePresets: tournament.cheerMessagePresets ?? null,
       localModeEnabled: tournament.localModeEnabled ?? false,
       scoringEnabled: tournament.scoringEnabled ?? false,
+      features: resolveTournamentFeatures(tournament.featuresJson),
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
@@ -724,6 +726,13 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
+    features: z.object({
+      buzzStudio: z.boolean().optional(),
+      ownerApp: z.boolean().optional(),
+      scoring: z.boolean().optional(),
+      sponsorshipHub: z.boolean().optional(),
+      analytics: z.boolean().optional(),
+    }).optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -768,6 +777,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.scoringEnabled !== undefined) {
     updates.scoringEnabled = d.scoringEnabled;
     updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
+  }
+  if (d.features !== undefined) {
+    updates.featuresJson = mergeTournamentFeatures(beforeTournament?.featuresJson, d.features);
   }
 
   // Auto-link organizer account by mobile or email when those fields are set

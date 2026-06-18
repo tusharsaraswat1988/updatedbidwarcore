@@ -3,6 +3,7 @@ import {
   resolveBroadcastAudioUrl,
   type PlatformAudioDefaults,
 } from "@workspace/api-base/platform-audio";
+import { resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import type { tournamentsTable } from "@workspace/db";
 
 type TournamentRow = typeof tournamentsTable.$inferSelect;
@@ -76,6 +77,7 @@ export function publicTournamentSerializer(
     matchDates: t.matchDates ?? null,
     scoringEnabled: t.scoringEnabled ?? false,
     scoringPhase: t.scoringPhase ?? "disabled",
+    features: resolveTournamentFeatures(t.featuresJson),
     createdAt: t.createdAt.toISOString(),
     ...(platform
       ? {

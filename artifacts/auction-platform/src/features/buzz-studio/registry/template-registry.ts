@@ -13,7 +13,7 @@
  *
  * Component registration rules:
  *   - ONLY built templates receive a non-null component.
- *   - Currently only PLAYER_SPOTLIGHT is registered.
+ *   - Currently PLAYER_SPOTLIGHT, SOLD_PLAYER, TOP_BUYS, and TEAM_REVEAL are registered.
  *   - Future templates: import the component, set component: TheComponent.
  *   - NEVER add a switch statement in consumer code — use getTemplateById().
  *
@@ -42,6 +42,8 @@ import { TEMPLATE_PREVIEWS } from "./template-previews";
 
 import { PlayerSpotlight } from "../templates/player-spotlight/PlayerSpotlight";
 import { SoldPlayer } from "../templates/sold-player/SoldPlayer";
+import { TopBuys } from "../templates/top-buys/TopBuys";
+import { TeamReveal } from "../templates/team-reveal/TeamReveal";
 
 /**
  * Maps each BuzzTemplateType to its React component.
@@ -50,8 +52,8 @@ import { SoldPlayer } from "../templates/sold-player/SoldPlayer";
 const COMPONENT_MAP: Readonly<Record<BuzzTemplateType, ComponentType<Record<string, unknown>> | null>> = {
   [BuzzTemplateType.PLAYER_SPOTLIGHT]: PlayerSpotlight as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.SOLD_PLAYER]: SoldPlayer as ComponentType<Record<string, unknown>>,
-  [BuzzTemplateType.TOP_BUYS]: null,
-  [BuzzTemplateType.TEAM_REVEAL]: null,
+  [BuzzTemplateType.TOP_BUYS]: TopBuys as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.TEAM_REVEAL]: TeamReveal as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.AUCTION_SUMMARY]: null,
   [BuzzTemplateType.MVP_CARD]: null,
   [BuzzTemplateType.TOURNAMENT_LAUNCH]: null,

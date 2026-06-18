@@ -106,6 +106,8 @@ export const tournamentsTable = pgTable("tournaments", {
   /** Optional delegate PIN for scoring without organizer JWT (V1). */
   scoringPin: text("scoring_pin"),
   scoringSettingsJson: jsonb("scoring_settings_json").$type<Record<string, unknown>>(),
+  /** Per-tournament module feature flags — see @workspace/api-base/tournament-features */
+  featuresJson: jsonb("features_json").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },

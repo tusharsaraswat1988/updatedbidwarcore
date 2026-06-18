@@ -204,6 +204,90 @@ export function WinnerBadge({ label = "Winner", style }: WinnerBadgeProps) {
   );
 }
 
+/* ─── RankingBadge ───────────────────────────────────────────────────────── */
+
+/**
+ * Rank position pill used in Top Buys, leaderboards, and tournament standings.
+ *
+ * #1 → Gold       (primaryGold palette)
+ * #2 → Silver     (slate palette)
+ * #3 → Bronze     (amber-brown palette)
+ * #4+ → Neutral   (low-opacity white)
+ *
+ * @example
+ * <RankingBadge rank={1} />   // → #1  (gold)
+ * <RankingBadge rank={3} />   // → #3  (bronze)
+ * <RankingBadge rank={7} />   // → #7  (neutral)
+ */
+
+/** Medal color presets keyed by rank position 1–3. */
+const RANK_MEDAL_COLORS: Record<1 | 2 | 3, React.CSSProperties> = {
+  1: {
+    background: `linear-gradient(135deg, ${t.primaryGold}28 0%, ${t.primaryGold}0D 100%)`,
+    border: `1.5px solid ${t.primaryGold}70`,
+    color: t.primaryGold,
+    boxShadow: `0 0 12px ${t.primaryGold}35, inset 0 1px 0 ${t.primaryGold}30`,
+    fontWeight: 900,
+    fontSize: "0.6875rem",
+  },
+  2: {
+    background: "rgba(148,163,184,0.12)",
+    border: "1.5px solid rgba(148,163,184,0.50)",
+    color: "#C0CCDA",
+    boxShadow: "0 0 8px rgba(148,163,184,0.22)",
+  },
+  3: {
+    background: "rgba(180,83,9,0.14)",
+    border: "1.5px solid rgba(180,83,9,0.50)",
+    color: "#D97706",
+    boxShadow: "0 0 8px rgba(180,83,9,0.22)",
+  },
+};
+
+export interface RankingBadgeProps {
+  /** Rank position. 1 = gold, 2 = silver, 3 = bronze, 4+ = neutral. */
+  rank: number;
+  style?: CSSProperties;
+}
+
+export function RankingBadge({ rank, style }: RankingBadgeProps) {
+  const BASE: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "3px 10px",
+    borderRadius: "999px",
+    fontFamily: "system-ui, sans-serif",
+    fontSize: "0.625rem",
+    fontWeight: 900,
+    letterSpacing: "0.08em",
+    userSelect: "none",
+  };
+
+  const medal = RANK_MEDAL_COLORS[rank as 1 | 2 | 3];
+  if (medal) {
+    return (
+      <span style={{ ...BASE, ...medal, ...style }}>#{rank}</span>
+    );
+  }
+
+  // Standard neutral for #4+
+  return (
+    <span
+      style={{
+        ...BASE,
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.14)",
+        color: "rgba(255,255,255,0.50)",
+        fontWeight: 700,
+        ...style,
+      }}
+    >
+      #{rank}
+    </span>
+  );
+}
+
 /* ─── SoldBadge ──────────────────────────────────────────────────────────── */
 
 export interface SoldBadgeProps {
@@ -213,7 +297,7 @@ export interface SoldBadgeProps {
 }
 
 /**
- * Auction sold badge. Danger-red filled variant.
+ * Auction sold badge. Danger-red gradient with glow.
  * Optionally shows the hammer price.
  */
 export function SoldBadge({ price, style }: SoldBadgeProps) {
@@ -223,11 +307,12 @@ export function SoldBadge({ price, style }: SoldBadgeProps) {
         display: "inline-flex",
         alignItems: "center",
         gap: "6px",
-        padding: "5px 14px",
+        padding: "6px 16px",
         borderRadius: "999px",
-        background: t.danger,
+        background: "linear-gradient(135deg, #EF4444 0%, #C71A1A 100%)",
+        boxShadow: "0 0 18px rgba(239,68,68,0.50), 0 2px 8px rgba(0,0,0,0.40)",
         fontFamily: "system-ui, sans-serif",
-        fontSize: "0.625rem",
+        fontSize: "0.6875rem",
         fontWeight: 900,
         color: t.white,
         letterSpacing: "0.14em",

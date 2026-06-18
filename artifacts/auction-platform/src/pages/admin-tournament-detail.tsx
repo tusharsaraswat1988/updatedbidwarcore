@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw } from "lucide-react";
+import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveDisplaysPanel } from "@/components/admin/live-displays-panel";
@@ -22,6 +22,7 @@ import {
   listAdminTournaments,
   updateAdminTournament,
 } from "@/lib/auth";
+import { Switch } from "@/components/ui/switch";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
 type Tab = DataTab | `live-${LiveOpsSection}`;
@@ -113,6 +114,7 @@ export default function AdminTournamentDetailPage() {
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [scoringToggleLoading, setScoringToggleLoading] = useState(false);
+  const [buzzStudioToggleLoading, setBuzzStudioToggleLoading] = useState(false);
 
   const reloadDetail = useCallback(() => {
     if (!tournamentId) return Promise.resolve();
@@ -208,6 +210,9 @@ export default function AdminTournamentDetailPage() {
                   {(detail.tournament.sport === "cricket" || detail.tournament.sport === "badminton") &&
                     detail.tournament.scoringEnabled && (
                     <StatusPill tone="green">Match Scoring</StatusPill>
+                  )}
+                  {detail.tournament.features?.buzzStudio && (
+                    <StatusPill tone="green">Buzz Studio</StatusPill>
                   )}
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -305,6 +310,36 @@ export default function AdminTournamentDetailPage() {
                         </Button>
                       </div>
                     )}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-card/70 p-4">
+                  <h2 className="font-display font-black text-white">Tournament Features</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Enable premium modules for this tournament. Admin only.
+                  </p>
+                  <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-medium text-white">Enable Buzz Studio</span>
+                      </div>
+                      <p className="mt-1.5 text-xs text-muted-foreground max-w-lg leading-relaxed">
+                        Allow organizers to access BidWar Media Center and generate tournament creatives.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={detail.tournament.features?.buzzStudio === true}
+                      disabled={buzzStudioToggleLoading}
+                      onCheckedChange={async (checked) => {
+                        if (!tournamentId) return;
+                        setBuzzStudioToggleLoading(true);
+                        const r = await updateAdminTournament(tournamentId, {
+                          features: { buzzStudio: checked },
+                        });
+                        if (r.success) await reloadDetail();
+                        setBuzzStudioToggleLoading(false);
+                      }}
+                    />
                   </div>
                 </div>
               </div>

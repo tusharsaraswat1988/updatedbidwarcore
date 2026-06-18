@@ -37,6 +37,16 @@ export function setupAreaPath(tournamentId: number): string {
   return `/tournament/${tournamentId}`;
 }
 
+/** BidWar Media Center — organizer Buzz Studio hub (requires features.buzzStudio). */
+export function mediaCenterPath(tournamentId: number): string {
+  return `/organizer/media-center/${tournamentId}`;
+}
+
+/** Canonical tournament-scoped path (alias). */
+export function mediaCenterTournamentPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/media-center`;
+}
+
 /** LED big-screen display path (optional auction code for public gate). */
 export function displayScreenPath(
   tournamentId: number,

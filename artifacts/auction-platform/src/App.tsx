@@ -49,12 +49,14 @@ const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
 const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
+const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
+const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -239,6 +241,7 @@ function Router() {
         <Route path="/admin/settings/system/default-audio" component={AdminSystemPage} />
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
+        <Route path="/admin/buzz-studio-dev" component={BuzzStudioDevPage} />
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
         <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>
@@ -361,6 +364,18 @@ function Router() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/media-center">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/organizer/media-center/:id">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/cricket">

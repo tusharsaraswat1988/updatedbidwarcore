@@ -3,14 +3,15 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Sparkles,
 } from "lucide-react";
-import { auctionRoomPath, auctionResetPath, displayScreenPath, scoringPath } from "@/lib/tournament-navigation";
+import { auctionRoomPath, auctionResetPath, displayScreenPath, scoringPath, mediaCenterPath, mediaCenterTournamentPath } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBadmintonScoringActive, useCricketScoringActive } from "@/hooks/use-platform-features";
+import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
@@ -67,6 +68,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   });
   const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -105,7 +107,10 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
   // Helper: nav link class
   function navCls(path: string) {
-    const active = location === path;
+    let active = location === path;
+    if (!active && tournamentId && path === mediaCenterPath(tournamentId)) {
+      active = location === mediaCenterTournamentPath(tournamentId);
+    }
     return `flex items-center rounded-md transition-colors ${
       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
     } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`;
@@ -193,6 +198,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
+                {buzzStudioActive ? (
+                  <Link href={mediaCenterPath(tournamentId)} title="Media Center" className={navCls(mediaCenterPath(tournamentId))}>
+                    <Sparkles className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Media Center</span>}
+                  </Link>
+                ) : null}
                 {cricketScoringActive ? (
                   <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/scoring`)}>
                     <CircleDot className="w-5 h-5 flex-shrink-0" />

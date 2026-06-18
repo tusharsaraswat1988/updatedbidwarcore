@@ -73,11 +73,12 @@ export {
   MvpBadge,
   WinnerBadge,
   SoldBadge,
+  RankingBadge,
   getSportMeta,
   getSportLabel,
   getSportEmoji,
 } from "./design-system/badges";
-export type { SportMeta, SportBadgeProps, SoldBadgeProps, WinnerBadgeProps } from "./design-system/badges";
+export type { SportMeta, SportBadgeProps, SoldBadgeProps, WinnerBadgeProps, RankingBadgeProps } from "./design-system/badges";
 
 export {
   PlayerFrame,
@@ -121,6 +122,9 @@ export {
 export { SoldPlayer } from "./templates/sold-player/SoldPlayer";
 export type { SoldPlayerContract } from "./templates/sold-player/SoldPlayer.types";
 export { formatSoldPrice, formatBidCount } from "./templates/sold-player/SoldPlayer.utils";
+
+export { TopBuys } from "./templates/top-buys/TopBuys";
+export { formatTopBuyPrice, resolveRank, compactGridCols } from "./templates/top-buys/TopBuys.utils";
 
 /* ─── Contracts ────────────────────────────────────────────────────────── */
 
@@ -172,3 +176,31 @@ export {
   getComingSoonTemplates,
   templateExists,
 } from "./registry/template-registry";
+
+/* ─── Render Pipeline ──────────────────────────────────────────────────── */
+
+export { RenderFormat, RenderStatus, ShareChannel } from "./rendering/index";
+
+export type {
+  RenderJob,
+  RenderJobSubmission,
+  RenderResult,
+  StoredAsset,
+  AssetStorageProvider,
+  ShareMetadata,
+  ShareRequest,
+} from "./rendering/index";
+
+export {
+  NotImplementedError,
+  createRenderJob,
+  submitRenderJob,
+  pollRenderStatus,
+  storeRenderResult,
+  createShareMetadata,
+  getShareByJobId,
+  runFullPipeline,
+  isRenderComplete,
+  isRenderFailed,
+  isRenderPending,
+} from "./rendering/index";

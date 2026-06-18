@@ -67,4 +67,28 @@ export const Gradients = {
    * Danger/error glow — unsold or flagged player cards.
    */
   DangerGlow: `radial-gradient(circle, ${t.danger}1A 0%, transparent 70%)`,
+
+  /**
+   * Stronger player hero glow — used behind featured/xl PlayerFrame.
+   * More intense than GoldGlow; covers a wider halo radius.
+   */
+  PlayerHeroGlow: `radial-gradient(circle, ${t.primaryGold}38 0%, ${t.primaryGold}10 42%, transparent 68%)`,
+
+  /**
+   * Price hero glow — behind PriceDisplay blocks.
+   * Gives the sold price an ambient gold spotlight effect.
+   */
+  PriceHeroGlow: `radial-gradient(ellipse at center, ${t.primaryGold}1C 0%, transparent 58%)`,
+
+  /**
+   * Energy burst — elliptical radial behind a hero avatar.
+   * Used in PlayerSpotlight to create a sports-energy halo effect.
+   */
+  EnergyBurst: `radial-gradient(ellipse at 50% 55%, ${t.primaryGold}16 0%, ${t.primaryGold}06 35%, transparent 65%)`,
+
+  /**
+   * Dark gold premium surface — richer than DarkPremium.
+   * Used for featured cards and hero price blocks.
+   */
+  DarkGoldPremium: `linear-gradient(160deg, #221900 0%, #130f00 50%, #080808 100%)`,
 } as const;

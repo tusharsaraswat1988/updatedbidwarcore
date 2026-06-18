@@ -24,7 +24,8 @@
     "./registration-declaration": "./src/registration-declaration.ts",
     "./bid-value": "./src/bid-value.ts",
     "./platform-audio": "./src/platform-audio.ts",
-    "./auction-connection-state": "./src/auction-connection-state.ts"
+    "./auction-connection-state": "./src/auction-connection-state.ts",
+    "./tournament-features": "./src/tournament-features.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
