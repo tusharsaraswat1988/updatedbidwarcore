@@ -24,7 +24,6 @@ import {
   canViewCreativeJobFile,
   creativeJobDownloadFilename,
   creativeJobFileUrl,
-  fetchCreativeJobFileBlob,
 } from "@/features/buzz-studio/jobs/creative-job-file";
 
 const STATUS_BADGE_VARIANT: Record<
@@ -101,26 +100,23 @@ export function CreativeHistoryPanel({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const handleDownload = useCallback(
-    async (job: CreativeJob) => {
+    (job: CreativeJob) => {
       if (!canViewCreativeJobFile(job)) return;
       setDownloadingId(job.id);
       try {
-        const blob = await fetchCreativeJobFileBlob(tournamentId, job.id);
-        const objectUrl = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
-        anchor.href = objectUrl;
+        anchor.href = creativeJobFileUrl(tournamentId, job.id, { download: true });
         anchor.download = creativeJobDownloadFilename(job);
+        anchor.rel = "noopener";
+        document.body.appendChild(anchor);
         anchor.click();
-        URL.revokeObjectURL(objectUrl);
-        toast({ title: "Download started", description: anchor.download });
-      } catch (err) {
+        anchor.remove();
         toast({
-          title: "Download failed",
-          description: err instanceof Error ? err.message : "Could not download creative.",
-          variant: "destructive",
+          title: "Download started",
+          description: creativeJobDownloadFilename(job),
         });
       } finally {
-        setDownloadingId(null);
+        window.setTimeout(() => setDownloadingId(null), 400);
       }
     },
     [tournamentId, toast],

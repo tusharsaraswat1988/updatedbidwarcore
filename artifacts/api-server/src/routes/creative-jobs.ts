@@ -1,6 +1,4 @@
 import { Router, type Response } from "express";
-import { access } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
 import { z } from "zod";
 import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { db } from "@workspace/db";
@@ -14,10 +12,7 @@ import {
   updateCreativeJobStatus,
   CREATIVE_JOB_STATUSES,
 } from "../lib/creative-jobs-service";
-import {
-  isLocalCreativeResultUrl,
-  resolveLocalCreativePngPath,
-} from "../lib/creative-render-storage.js";
+import { readCreativeJobPngBuffer } from "../lib/creative-job-file-serve.js";
 
 const router = Router();
 
@@ -49,14 +44,6 @@ function creativeDownloadFilename(templateId: string, aspectRatio: string, jobId
   const safeTemplate = templateId.replace(/[^a-z0-9_-]/gi, "-");
   const ratio = aspectRatio.replace(":", "x");
   return `bidwar-${safeTemplate}-${ratio}-${jobId.slice(0, 8)}.png`;
-}
-
-function cloudinaryAttachmentUrl(secureUrl: string): string {
-  if (!secureUrl.includes("res.cloudinary.com") || !secureUrl.includes("/upload/")) {
-    return secureUrl;
-  }
-  if (secureUrl.includes("/upload/fl_attachment")) return secureUrl;
-  return secureUrl.replace("/upload/", "/upload/fl_attachment/");
 }
 
 // GET /tournaments/:tournamentId/creative-jobs
@@ -114,34 +101,20 @@ router.get("/tournaments/:tournamentId/creative-jobs/:jobId/file", async (req, r
   const asDownload = req.query.download === "1" || req.query.download === "true";
   const filename = creativeDownloadFilename(job.templateId, job.aspectRatio, job.id);
 
-  if (job.resultUrl.startsWith("https://")) {
-    const target = asDownload ? cloudinaryAttachmentUrl(job.resultUrl) : job.resultUrl;
-    res.redirect(302, target);
-    return;
-  }
-
-  if (isLocalCreativeResultUrl(job.resultUrl)) {
-    const filePath = resolveLocalCreativePngPath(job.resultUrl);
-    if (!filePath) {
-      res.status(404).json({ error: "Creative file not found" });
-      return;
-    }
-    try {
-      await access(filePath, fsConstants.R_OK);
-    } catch {
-      res.status(404).json({ error: "Creative file not found on disk" });
-      return;
-    }
+  try {
+    const buffer = await readCreativeJobPngBuffer(job.resultUrl);
     res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Length", String(buffer.length));
+    res.setHeader("Cache-Control", "private, max-age=3600");
     res.setHeader(
       "Content-Disposition",
       `${asDownload ? "attachment" : "inline"}; filename="${filename}"`,
     );
-    res.sendFile(filePath);
-    return;
+    res.send(buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Creative file not available";
+    res.status(404).json({ error: message });
   }
-
-  res.status(404).json({ error: "Unsupported creative storage URL" });
 });
 
 const createJobSchema = z.object({
