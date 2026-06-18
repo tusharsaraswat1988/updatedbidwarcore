@@ -244,6 +244,27 @@ export {
   isRenderComplete,
   isRenderFailed,
   isRenderPending,
+  BUZZ_EXPORT_DIMENSIONS,
+  isBuzzAspectRatio,
+  resolveBuzzExportDimensions,
+  pickRenderContext,
+  canvasH,
+  canvasW,
+  posterSpacing,
+  isLandscapePoster,
+  isTallPoster,
+  heroTitleSize,
+  heroLogoSize,
+  secondaryLabelSize,
+  bodyLabelSize,
+} from "./rendering/index";
+
+export type {
+  BuzzRenderMode,
+  BuzzAspectRatio,
+  BuzzTemplateRenderProps,
+  BuzzRenderContext,
+  PosterSpacing,
 } from "./rendering/index";
 
 /* ─── Creative Jobs ────────────────────────────────────────────────────── */

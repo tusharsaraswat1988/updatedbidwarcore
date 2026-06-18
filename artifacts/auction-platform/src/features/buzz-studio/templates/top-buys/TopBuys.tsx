@@ -26,6 +26,25 @@ import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
 import { PriceDisplay } from "../../design-system/stat-cards";
 import { formatTopBuyPrice, resolveRank, compactGridCols } from "./TopBuys.utils";
 import type { TopBuyContract, TopBuysListContract } from "./TopBuys.types";
+import {
+  pickRenderContext,
+  type BuzzTemplateRenderProps,
+} from "../../rendering/buzz-render-context";
+import {
+  heroLogoSize,
+  heroTitleSize,
+  secondaryLabelSize,
+  bodyLabelSize,
+  isLandscapePoster,
+  isTallPoster,
+  posterSpacing,
+} from "../../rendering/poster-layout";
+import {
+  posterColumnRoot,
+  posterLandscapeRoot,
+} from "../../rendering/poster-shell";
+
+type TopBuysProps = TopBuysListContract & BuzzTemplateRenderProps;
 
 /* ─── CompactBuyCard ─────────────────────────────────────────────────────── */
 //
@@ -103,8 +122,9 @@ function CompactBuyCard({ entry, rank }: CompactBuyCardProps) {
  *   5. Team row for #1
  *   6. Compact grid — rank + avatar + name + price for #2–N
  */
-export function TopBuys(props: TopBuysListContract) {
-  const { entries, title, sport } = props;
+export function TopBuys(props: TopBuysProps) {
+  const renderCtx = pickRenderContext(props);
+  const { entries, title, sport, renderMode, aspectRatio, renderWidth, renderHeight } = props;
 
   if (entries.length === 0) return null;
 
@@ -114,101 +134,203 @@ export function TopBuys(props: TopBuysListContract) {
   const entryCountLabel = `TOP ${entries.length}`;
   const gridCols = compactGridCols(restEntries.length);
 
+  const headerBlock = (
+    <>
+      <div style={s.headerStrip}>
+        <SportBadge sport={sport} />
+        <span style={s.entryCountLabel}>{entryCountLabel}</span>
+      </div>
+      <div style={s.titleBlock}>
+        <h1 style={s.titleText}>{(title ?? "TOP BUYS").toUpperCase()}</h1>
+        <span style={s.subtitleText}>AUCTION HIGHLIGHTS</span>
+      </div>
+      <div style={s.accentDivider} aria-hidden="true" />
+    </>
+  );
+
+  const featuredBlock = (
+    <div style={s.featuredCard}>
+      <div style={s.featuredRankRow}>
+        <RankingBadge rank={featuredRank} />
+      </div>
+      <div style={s.featuredAvatarWrapper}>
+        <div style={s.featuredAvatarGlow} aria-hidden="true" />
+        <PlayerSlot
+          playerName={featuredEntry.playerName}
+          imageUrl={featuredEntry.playerImageUrl}
+          size="lg"
+        />
+      </div>
+      <div style={s.featuredNameArea}>
+        <h2 style={Typography.PlayerName}>{featuredEntry.playerName.toUpperCase()}</h2>
+        {featuredEntry.designation && (
+          <span style={s.featuredDesignation}>{featuredEntry.designation.toUpperCase()}</span>
+        )}
+      </div>
+      <div style={s.featuredInnerDivider} aria-hidden="true" />
+      <PriceDisplay price={featuredPrice} label="Top Buy" style={s.featuredPriceBlock} />
+      {featuredEntry.teamName && (
+        <div style={s.featuredTeamRow}>
+          <TeamSlot
+            teamName={featuredEntry.teamName}
+            imageUrl={featuredEntry.teamLogoUrl}
+            size={26}
+          />
+          <span style={Typography.TeamName}>{featuredEntry.teamName.toUpperCase()}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const gridBlock =
+    restEntries.length > 0 ? (
+      <>
+        <div style={s.sectionDivider} aria-hidden="true" />
+        <div
+          style={{
+            ...s.compactGrid,
+            gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+          }}
+        >
+          {restEntries.map((entry, idx) => (
+            <CompactBuyCard
+              key={entry.playerId ?? `entry-${idx}`}
+              entry={entry}
+              rank={resolveRank(entry, idx + 1)}
+            />
+          ))}
+        </div>
+      </>
+    ) : null;
+
+  if (renderCtx) {
+    const spacing = posterSpacing(renderCtx);
+    const avatarSize = heroLogoSize(renderCtx);
+    const titleSize = heroTitleSize(renderCtx);
+    const labelSize = secondaryLabelSize(renderCtx);
+    const bodySize = bodyLabelSize(renderCtx);
+    const landscape = isLandscapePoster(renderCtx);
+    const tall = isTallPoster(renderCtx);
+
+    const posterHeader = (
+      <>
+        <div style={s.headerStrip}>
+          <SportBadge sport={sport} />
+          <span style={{ ...s.entryCountLabel, fontSize: labelSize }}>{entryCountLabel}</span>
+        </div>
+        <div style={s.titleBlock}>
+          <h1 style={{ ...s.titleText, fontSize: titleSize }}>{(title ?? "TOP BUYS").toUpperCase()}</h1>
+          <span style={{ ...s.subtitleText, fontSize: labelSize }}>AUCTION HIGHLIGHTS</span>
+        </div>
+        <div style={s.accentDivider} aria-hidden="true" />
+      </>
+    );
+
+    const posterFeatured = (
+      <div style={{ ...s.featuredCard, padding: `${spacing.sectionGap}px`, marginBottom: spacing.sectionGap }}>
+        <div style={s.featuredRankRow}>
+          <RankingBadge rank={featuredRank} />
+        </div>
+        <div style={s.featuredAvatarWrapper}>
+          <div style={{ ...s.featuredAvatarGlow, inset: -avatarSize * 0.35 }} aria-hidden="true" />
+          <PlayerSlot
+            playerName={featuredEntry.playerName}
+            imageUrl={featuredEntry.playerImageUrl}
+            size={`${Math.round(avatarSize * 0.85)}px`}
+          />
+        </div>
+        <div style={s.featuredNameArea}>
+          <h2 style={{ ...Typography.PlayerName, fontSize: titleSize * 0.55 }}>
+            {featuredEntry.playerName.toUpperCase()}
+          </h2>
+          {featuredEntry.designation && (
+            <span style={{ ...s.featuredDesignation, fontSize: labelSize }}>
+              {featuredEntry.designation.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div style={s.featuredInnerDivider} aria-hidden="true" />
+        <PriceDisplay
+          price={featuredPrice}
+          label="Top Buy"
+          style={{ ...s.featuredPriceBlock, padding: `${bodySize}px ${bodySize * 1.4}px` }}
+        />
+        {featuredEntry.teamName && (
+          <div style={{ ...s.featuredTeamRow, padding: `${bodySize * 0.4}px ${bodySize}px` }}>
+            <TeamSlot
+              teamName={featuredEntry.teamName}
+              imageUrl={featuredEntry.teamLogoUrl}
+              size={Math.round(bodySize * 1.4)}
+            />
+            <span style={{ ...Typography.TeamName, fontSize: bodySize * 0.85 }}>
+              {featuredEntry.teamName.toUpperCase()}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+
+    const posterGrid =
+      restEntries.length > 0 ? (
+        <div
+          style={{
+            ...s.compactGrid,
+            gap: spacing.sectionGap * 0.5,
+            gridTemplateColumns: landscape
+              ? "1fr"
+              : `repeat(${tall ? Math.min(gridCols, 2) : gridCols}, 1fr)`,
+            flex: landscape ? 1 : undefined,
+            minHeight: 0,
+            overflow: landscape ? "auto" : undefined,
+          }}
+        >
+          {restEntries.map((entry, idx) => (
+            <CompactBuyCard
+              key={entry.playerId ?? `entry-${idx}`}
+              entry={entry}
+              rank={resolveRank(entry, idx + 1)}
+            />
+          ))}
+        </div>
+      ) : null;
+
+    return (
+      <BidwarCanvas
+        branding={props.branding}
+        showFooterBranding
+        renderMode={renderMode ?? renderCtx.renderMode}
+        aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
+        renderWidth={renderWidth ?? renderCtx.renderWidth}
+        renderHeight={renderHeight ?? renderCtx.renderHeight}
+      >
+        {landscape ? (
+          <div style={{ ...posterLandscapeRoot(renderCtx), alignItems: "stretch" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+              {posterHeader}
+              {posterFeatured}
+            </div>
+            <div style={{ flex: 0.95, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+              <div style={s.sectionDivider} aria-hidden="true" />
+              {posterGrid}
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...posterColumnRoot(renderCtx), gap: tall ? spacing.sectionGap * 1.2 : spacing.sectionGap }}>
+            {posterHeader}
+            {posterFeatured}
+            {posterGrid}
+          </div>
+        )}
+      </BidwarCanvas>
+    );
+  }
+
   return (
     <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
-
-        {/* ── Header: sport badge ← → entry count label ───────────────────── */}
-        <div style={s.headerStrip}>
-          <SportBadge sport={sport} />
-          <span style={s.entryCountLabel}>{entryCountLabel}</span>
-        </div>
-
-        {/* ── Title block ──────────────────────────────────────────────────── */}
-        <div style={s.titleBlock}>
-          <h1 style={s.titleText}>{(title ?? "TOP BUYS").toUpperCase()}</h1>
-          <span style={s.subtitleText}>AUCTION HIGHLIGHTS</span>
-        </div>
-
-        {/* ── Gold accent divider below title — thicker and wider ──────────── */}
-        <div style={s.accentDivider} aria-hidden="true" />
-
-        {/* ── Featured card — the #1 buy ─────────────────────────────────── */}
-        <div style={s.featuredCard}>
-
-          {/* Rank badge top-left — gold #1 treatment */}
-          <div style={s.featuredRankRow}>
-            <RankingBadge rank={featuredRank} />
-          </div>
-
-          {/* Player avatar with glow halo behind it */}
-          <div style={s.featuredAvatarWrapper}>
-            <div style={s.featuredAvatarGlow} aria-hidden="true" />
-            <PlayerSlot
-              playerName={featuredEntry.playerName}
-              imageUrl={featuredEntry.playerImageUrl}
-              size="lg"
-            />
-          </div>
-
-          {/* Player name + designation */}
-          <div style={s.featuredNameArea}>
-            <h2 style={Typography.PlayerName}>
-              {featuredEntry.playerName.toUpperCase()}
-            </h2>
-            {featuredEntry.designation && (
-              <span style={s.featuredDesignation}>
-                {featuredEntry.designation.toUpperCase()}
-              </span>
-            )}
-          </div>
-
-          {/* Thin gold divider inside the featured card */}
-          <div style={s.featuredInnerDivider} aria-hidden="true" />
-
-          {/* PRICE — the most important number on the card */}
-          <PriceDisplay
-            price={featuredPrice}
-            label="Top Buy"
-            style={s.featuredPriceBlock}
-          />
-
-          {/* Team row */}
-          {featuredEntry.teamName && (
-            <div style={s.featuredTeamRow}>
-              <TeamSlot
-                teamName={featuredEntry.teamName}
-                imageUrl={featuredEntry.teamLogoUrl}
-                size={26}
-              />
-              <span style={Typography.TeamName}>
-                {featuredEntry.teamName.toUpperCase()}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* ── Compact grid — entries #2 and below ───────────────────────── */}
-        {restEntries.length > 0 && (
-          <>
-            <div style={s.sectionDivider} aria-hidden="true" />
-            <div
-              style={{
-                ...s.compactGrid,
-                gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-              }}
-            >
-              {restEntries.map((entry, idx) => (
-                <CompactBuyCard
-                  key={entry.playerId ?? `entry-${idx}`}
-                  entry={entry}
-                  rank={resolveRank(entry, idx + 1)}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
+        {headerBlock}
+        {featuredBlock}
+        {gridBlock}
       </div>
     </BidwarCanvas>
   );

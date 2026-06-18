@@ -50,10 +50,10 @@ import { TeamReveal } from "../templates/team-reveal/TeamReveal";
  * null = planned but not yet built.
  */
 const COMPONENT_MAP: Readonly<Record<BuzzTemplateType, ComponentType<Record<string, unknown>> | null>> = {
-  [BuzzTemplateType.PLAYER_SPOTLIGHT]: PlayerSpotlight as ComponentType<Record<string, unknown>>,
-  [BuzzTemplateType.SOLD_PLAYER]: SoldPlayer as ComponentType<Record<string, unknown>>,
-  [BuzzTemplateType.TOP_BUYS]: TopBuys as ComponentType<Record<string, unknown>>,
-  [BuzzTemplateType.TEAM_REVEAL]: TeamReveal as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.PLAYER_SPOTLIGHT]: PlayerSpotlight as unknown as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.SOLD_PLAYER]: SoldPlayer as unknown as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.TOP_BUYS]: TopBuys as unknown as ComponentType<Record<string, unknown>>,
+  [BuzzTemplateType.TEAM_REVEAL]: TeamReveal as unknown as ComponentType<Record<string, unknown>>,
   [BuzzTemplateType.AUCTION_SUMMARY]: null,
   [BuzzTemplateType.MVP_CARD]: null,
   [BuzzTemplateType.TOURNAMENT_LAUNCH]: null,

@@ -28,6 +28,33 @@
 export { RenderFormat, RenderStatus } from "./render-types";
 export { ShareChannel } from "./share-contracts";
 
+/* ─── Poster render context (preview + export) ───────────────────────────── */
+export type {
+  BuzzRenderMode,
+  BuzzAspectRatio,
+  BuzzTemplateRenderProps,
+  BuzzRenderContext,
+} from "./buzz-render-context";
+export {
+  BUZZ_EXPORT_DIMENSIONS,
+  isBuzzAspectRatio,
+  resolveBuzzExportDimensions,
+  hasRenderFrame,
+  pickRenderContext,
+  canvasH,
+  canvasW,
+} from "./buzz-render-context";
+export type { PosterSpacing } from "./poster-layout";
+export {
+  posterSpacing,
+  isLandscapePoster,
+  isTallPoster,
+  heroTitleSize,
+  heroLogoSize,
+  secondaryLabelSize,
+  bodyLabelSize,
+} from "./poster-layout";
+
 /* ─── Types: Render Jobs ─────────────────────────────────────────────────── */
 export type { RenderJob, RenderJobSubmission } from "./render-jobs";
 

@@ -52,14 +52,16 @@ function buildHtmlDocument(markup: string, dimensions: RenderDimensions): string
     body {
       display: flex;
       align-items: stretch;
-      justify-content: center;
+      justify-content: stretch;
     }
     #buzz-root {
       width: ${width}px;
       height: ${height}px;
       display: flex;
+      flex-direction: column;
       align-items: stretch;
-      justify-content: center;
+      justify-content: flex-start;
+      flex: 1;
     }
     #buzz-root > div {
       width: 100% !important;
@@ -99,7 +101,15 @@ export function renderCreativeJobHtml(input: RenderHtmlInput): RenderHtmlResult 
 
   const dimensions = resolveRenderDimensions(aspectRatio);
   const Template = entry.component;
-  const markup = renderToStaticMarkup(<Template {...contract} />);
+  const markup = renderToStaticMarkup(
+    <Template
+      {...contract}
+      renderMode="export"
+      aspectRatio={dimensions.aspectRatio}
+      renderWidth={dimensions.width}
+      renderHeight={dimensions.height}
+    />,
+  );
   const html = buildHtmlDocument(markup, dimensions);
 
   return { html, dimensions };

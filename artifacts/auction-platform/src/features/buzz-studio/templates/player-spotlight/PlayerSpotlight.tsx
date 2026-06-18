@@ -6,10 +6,29 @@ import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge } from "../../design-system/badges";
 import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
 import type { PlayerSpotlightContract } from "../../contracts/PlayerSpotlight.contract";
+import {
+  pickRenderContext,
+  type BuzzTemplateRenderProps,
+} from "../../rendering/buzz-render-context";
+import {
+  heroLogoSize,
+  heroTitleSize,
+  secondaryLabelSize,
+  bodyLabelSize,
+  isLandscapePoster,
+} from "../../rendering/poster-layout";
+import {
+  posterColumnBody,
+  posterColumnRoot,
+  posterLandscapeMain,
+  posterLandscapeRoot,
+  posterLandscapeSide,
+} from "../../rendering/poster-shell";
 
-/* ─── Component ──────────────────────────────────────────────────────────── */
+type PlayerSpotlightProps = PlayerSpotlightContract & BuzzTemplateRenderProps;
 
-export function PlayerSpotlight(props: PlayerSpotlightContract) {
+export function PlayerSpotlight(props: PlayerSpotlightProps) {
+  const renderCtx = pickRenderContext(props);
   const {
     playerName,
     teamName,
@@ -18,71 +37,123 @@ export function PlayerSpotlight(props: PlayerSpotlightContract) {
     sport,
     designation,
     city,
+    renderMode,
+    aspectRatio,
+    renderWidth,
+    renderHeight,
   } = props;
+
+  if (renderCtx) {
+    const avatarSize = heroLogoSize(renderCtx);
+    const titleSize = heroTitleSize(renderCtx);
+    const labelSize = secondaryLabelSize(renderCtx);
+    const bodySize = bodyLabelSize(renderCtx);
+    const landscape = isLandscapePoster(renderCtx);
+
+    const heroBlock = (
+      <>
+        <div style={s.topRow}>
+          <SportBadge sport={sport} />
+        </div>
+        <div style={s.avatarSection}>
+          <div style={{ ...s.energyBurst, inset: -avatarSize * 0.55 }} aria-hidden="true" />
+          <PlayerSlot
+            playerName={playerName}
+            imageUrl={playerImageUrl}
+            size={`${avatarSize}px`}
+          />
+        </div>
+        <div style={s.nameArea}>
+          <h1
+            style={{
+              ...Typography.PlayerName,
+              fontSize: titleSize,
+              textAlign: landscape ? "left" : "center",
+            }}
+          >
+            {playerName.toUpperCase()}
+          </h1>
+          {designation && (
+            <span style={{ ...s.designationPill, fontSize: labelSize }}>{designation.toUpperCase()}</span>
+          )}
+          {city && (
+            <span style={{ ...s.cityText, fontSize: labelSize * 0.9 }}>• {city.toUpperCase()} •</span>
+          )}
+        </div>
+      </>
+    );
+
+    const teamBlock = teamName ? (
+      <div style={{ ...s.teamSection, alignItems: landscape ? "flex-start" : "center" }}>
+        <span style={{ ...s.teamSectionLabel, fontSize: labelSize }}>TEAM</span>
+        <div style={{ ...s.teamRow, padding: `${Math.round(bodySize * 0.5)}px ${Math.round(bodySize * 1.2)}px` }}>
+          <TeamSlot teamName={teamName} imageUrl={teamLogoUrl} size={Math.round(bodySize * 1.6)} />
+          <span style={{ ...Typography.TeamName, fontSize: bodySize }}>{teamName.toUpperCase()}</span>
+        </div>
+      </div>
+    ) : null;
+
+    return (
+      <BidwarCanvas
+        branding={props.branding}
+        showFooterBranding
+        renderMode={renderMode ?? renderCtx.renderMode}
+        aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
+        renderWidth={renderWidth ?? renderCtx.renderWidth}
+        renderHeight={renderHeight ?? renderCtx.renderHeight}
+      >
+        {landscape ? (
+          <div style={posterLandscapeRoot(renderCtx)}>
+            <div style={posterLandscapeMain()}>{heroBlock}</div>
+            <div style={posterLandscapeSide()}>
+              <div style={s.divider} aria-hidden="true" />
+              {teamBlock}
+            </div>
+          </div>
+        ) : (
+          <div style={posterColumnRoot(renderCtx)}>
+            {heroBlock}
+            <div style={posterColumnBody()}>
+              <div style={s.divider} aria-hidden="true" />
+              {teamBlock}
+            </div>
+          </div>
+        )}
+      </BidwarCanvas>
+    );
+  }
 
   return (
     <BidwarCanvas branding={props.branding} showFooterBranding>
       <div style={s.layout}>
-
-        {/* ── Top row: sport badge left-aligned ─────────────────────────── */}
         <div style={s.topRow}>
           <SportBadge sport={sport} />
         </div>
-
-        {/* ── Avatar with energy burst halo behind it ────────────────────── */}
         <div style={s.avatarSection}>
           <div style={s.energyBurst} aria-hidden="true" />
-          <PlayerSlot
-            playerName={playerName}
-            imageUrl={playerImageUrl}
-            size="xl"
-          />
+          <PlayerSlot playerName={playerName} imageUrl={playerImageUrl} size="xl" />
         </div>
-
-        {/* ── Name + designation + city ─────────────────────────────────── */}
         <div style={s.nameArea}>
           <h1 style={Typography.PlayerName}>{playerName.toUpperCase()}</h1>
-
-          {designation && (
-            <span style={s.designationPill}>{designation.toUpperCase()}</span>
-          )}
-
-          {city && (
-            <span style={s.cityText}>• {city.toUpperCase()} •</span>
-          )}
+          {designation && <span style={s.designationPill}>{designation.toUpperCase()}</span>}
+          {city && <span style={s.cityText}>• {city.toUpperCase()} •</span>}
         </div>
-
-        {/* ── Gold divider ──────────────────────────────────────────────── */}
         <div style={s.divider} aria-hidden="true" />
-
-        {/* ── Team section ─────────────────────────────────────────────── */}
         {teamName && (
           <div style={s.teamSection}>
             <span style={s.teamSectionLabel}>TEAM</span>
             <div style={s.teamRow}>
-              <TeamSlot
-                teamName={teamName}
-                imageUrl={teamLogoUrl}
-                size={34}
-              />
+              <TeamSlot teamName={teamName} imageUrl={teamLogoUrl} size={34} />
               <span style={Typography.TeamName}>{teamName.toUpperCase()}</span>
             </div>
           </div>
         )}
-
       </div>
     </BidwarCanvas>
   );
 }
 
-/* ─── Template-local styles ──────────────────────────────────────────────── */
-//
-// Only layout / spacing / template-specific accents.
-// Colors, typography, gradients → design system.
-//
-
 const s: Record<string, React.CSSProperties> = {
-
   layout: {
     display: "flex",
     flexDirection: "column",
@@ -90,24 +161,19 @@ const s: Record<string, React.CSSProperties> = {
     width: "100%",
     padding: "0 0 4px",
   },
-
   topRow: {
     width: "100%",
     display: "flex",
     justifyContent: "flex-start",
-    paddingBottom: "12px",
+    paddingBottom: 12,
   },
-
-  // Wrapper for avatar + behind-avatar energy burst glow
   avatarSection: {
     position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: "14px",
+    marginBottom: 14,
   },
-
-  // Static radial burst — creates sports-energy feel behind the avatar
   energyBurst: {
     position: "absolute",
     inset: "-50px",
@@ -115,69 +181,56 @@ const s: Record<string, React.CSSProperties> = {
     background: Gradients.EnergyBurst,
     pointerEvents: "none",
   },
-
   nameArea: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "6px",
-    paddingBottom: "12px",
+    gap: 6,
+    paddingBottom: 12,
     textAlign: "center",
   },
-
-  // Designation as a pill — more prominent than a plain label
   designationPill: {
     fontFamily: "system-ui, -apple-system, sans-serif",
-    fontSize: "clamp(0.5625rem, 1.6vw, 0.6875rem)",
     fontWeight: 700,
     color: t.primaryGold,
     letterSpacing: "0.16em",
-    background: `rgba(251,191,36,0.10)`,
-    border: `1px solid rgba(251,191,36,0.28)`,
-    borderRadius: "999px",
+    background: "rgba(251,191,36,0.10)",
+    border: "1px solid rgba(251,191,36,0.28)",
+    borderRadius: 999,
     padding: "3px 12px",
   },
-
   cityText: {
     fontFamily: "system-ui, -apple-system, sans-serif",
-    fontSize: "clamp(0.5rem, 1.3vw, 0.6rem)",
     color: "rgba(255,255,255,0.32)",
     letterSpacing: "0.20em",
   },
-
   divider: {
     width: "50%",
-    height: "1px",
+    height: 1,
     background: Gradients.GoldDivider,
-    marginBottom: "12px",
+    marginBottom: 12,
+    alignSelf: "center",
   },
-
   teamSection: {
     display: "flex",
     flexDirection: "column",
-    alignItems: "center",
-    gap: "6px",
+    gap: 6,
     width: "100%",
   },
-
   teamSectionLabel: {
     fontFamily: "system-ui, -apple-system, sans-serif",
-    fontSize: "clamp(0.45rem, 1.2vw, 0.5625rem)",
     fontWeight: 700,
     color: "rgba(255,255,255,0.28)",
     letterSpacing: "0.22em",
-    textTransform: "uppercase" as const,
+    textTransform: "uppercase",
   },
-
-  // Gold-tinted franchise pill
   teamRow: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    padding: "8px 18px",
-    borderRadius: "10px",
-    background: `linear-gradient(90deg, rgba(251,191,36,0.09) 0%, rgba(251,191,36,0.04) 100%)`,
-    border: `1px solid rgba(251,191,36,0.20)`,
+    gap: 10,
+    borderRadius: 10,
+    background: "linear-gradient(90deg, rgba(251,191,36,0.09) 0%, rgba(251,191,36,0.04) 100%)",
+    border: "1px solid rgba(251,191,36,0.20)",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
   },
 };

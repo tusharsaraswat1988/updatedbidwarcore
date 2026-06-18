@@ -1,8 +1,12 @@
 import React from "react";
 import { BIDWAR_WATERMARK } from "../assets/watermark";
 import type { BuzzBranding } from "../contracts/branding";
+import {
+  pickRenderContext,
+  type BuzzTemplateRenderProps,
+} from "../rendering/buzz-render-context";
 
-type BidwarCanvasProps = {
+type BidwarCanvasProps = BuzzTemplateRenderProps & {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
@@ -36,25 +40,58 @@ export function BidwarCanvas({
   showWatermark,
   showFooterBranding = false,
   showQrPlaceholder = false,
+  renderMode,
+  aspectRatio,
+  renderWidth,
+  renderHeight,
 }: BidwarCanvasProps) {
   const resolved = resolveBranding(branding, showWatermark);
+  const renderCtx = pickRenderContext({
+    renderMode,
+    aspectRatio,
+    renderWidth,
+    renderHeight,
+  });
+  const isPosterFrame = renderCtx != null;
+
+  const rootStyle: React.CSSProperties = isPosterFrame
+    ? {
+        ...styles.rootPoster,
+        width: renderCtx.renderWidth,
+        height: renderCtx.renderHeight,
+        minHeight: renderCtx.renderHeight,
+      }
+    : styles.rootLegacy;
+
+  const cardStyle: React.CSSProperties = isPosterFrame ? styles.cardPoster : styles.cardLegacy;
+
+  const contentStyle: React.CSSProperties = isPosterFrame
+    ? {
+        ...styles.contentPoster,
+        padding: `${Math.round(renderCtx.renderHeight * 0.028)}px ${Math.round(renderCtx.renderWidth * 0.055)}px`,
+      }
+    : styles.contentLegacy;
+
+  const footerStyle: React.CSSProperties = isPosterFrame
+    ? {
+        ...styles.footer,
+        marginTop: "auto",
+        flexShrink: 0,
+        padding: `${Math.round(renderCtx.renderHeight * 0.018)}px ${Math.round(renderCtx.renderWidth * 0.055)}px ${Math.round(renderCtx.renderHeight * 0.028)}px`,
+      }
+    : styles.footer;
 
   return (
-    <div style={styles.root}>
-      {/* Premium luminous gold glow ring — provides the border */}
+    <div style={rootStyle}>
       <div style={styles.glowRing} aria-hidden="true" />
 
-      {/* Level 1: BIDWAR watermark — large, ultra-low opacity, diagonal */}
       {resolved.watermarkEnabled ? (
         <span style={styles.watermark} aria-hidden="true">
           {BIDWAR_WATERMARK}
         </span>
       ) : null}
 
-      {/* Card surface with 5-layer background system */}
-      <div style={styles.card}>
-
-        {/* Level 2: Corner brand mark — top-right, non-intrusive */}
+      <div style={cardStyle}>
         <div style={styles.cornerBrand} aria-hidden="true">
           {resolved.tournamentLogoUrl ? (
             <img
@@ -67,7 +104,6 @@ export function BidwarCanvas({
           )}
         </div>
 
-        {/* Optional title/subtitle header */}
         {(title || subtitle) && (
           <div style={styles.header}>
             {title && <h2 style={styles.title}>{title}</h2>}
@@ -75,12 +111,10 @@ export function BidwarCanvas({
           </div>
         )}
 
-        {/* Template content */}
-        <div style={styles.content}>{children}</div>
+        <div style={contentStyle}>{children}</div>
 
-        {/* Level 3: Premium footer branding */}
         {(showFooterBranding || showQrPlaceholder) && (
-          <div style={styles.footer}>
+          <div style={footerStyle}>
             {showFooterBranding && (
               <div style={styles.branding}>
                 {resolved.sponsorLogoUrl ? (
@@ -107,18 +141,26 @@ export function BidwarCanvas({
   );
 }
 
-/* ─── Inline styles ──────────────────────────────────────────────────────── */
-//
-// Color constants — avoids importing theme to keep canvas self-contained
-// and renderer-safe (no circular imports).
-//
-const G  = "#FBBF24"; // primaryGold
-const G2 = "#D97706"; // secondaryGold
+const G = "#FBBF24";
+const G2 = "#D97706";
 
 const styles: Record<string, React.CSSProperties> = {
+  /** Full-bleed poster frame — fills export/preview canvas exactly. */
+  rootPoster: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    background: "#020202",
+    borderRadius: 0,
+    overflow: "hidden",
+    padding: 0,
+    boxSizing: "border-box",
+  },
 
-  // Outermost shell — deep black base, provides the 2px glow border gap
-  root: {
+  /** Legacy card shell for dev sandbox without render context. */
+  rootLegacy: {
     position: "relative",
     display: "inline-flex",
     flexDirection: "column",
@@ -133,17 +175,15 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
 
-  // Premium gold glow ring — luminous border effect on root outer edge
   glowRing: {
     position: "absolute",
     inset: 0,
-    borderRadius: "18px",
+    borderRadius: "inherit",
     background: `linear-gradient(135deg, ${G}48 0%, ${G2}20 35%, rgba(0,0,0,0) 50%, ${G2}20 65%, ${G}48 100%)`,
     pointerEvents: "none",
     zIndex: 0,
   },
 
-  // Level 1: BIDWAR behind-content watermark
   watermark: {
     position: "absolute",
     top: "50%",
@@ -160,23 +200,34 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "system-ui, sans-serif",
   },
 
-  // Card surface with 5-layer background system:
-  //   Layer 5 (top):    edge vignette — dark at corners
-  //   Layer 3:          large gold center radial glow
-  //   Layer 2:          subtle charcoal diagonal texture lines
-  //   Layer 1 (bottom): deep charcoal surface gradient
-  card: {
+  cardPoster: {
+    position: "relative",
+    zIndex: 2,
+    display: "flex",
+    flexDirection: "column",
+    width: "100%",
+    height: "100%",
+    flex: 1,
+    minHeight: 0,
+    background: [
+      "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.65) 100%)",
+      "radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)",
+      "repeating-linear-gradient(-55deg, transparent 0px, transparent 60px, rgba(255,255,255,0.009) 60px, rgba(255,255,255,0.009) 62px)",
+      "linear-gradient(180deg, #141414 0%, #0c0c0c 50%, #060606 100%)",
+    ].join(", "),
+    borderRadius: 0,
+    overflow: "hidden",
+    boxSizing: "border-box",
+  },
+
+  cardLegacy: {
     position: "relative",
     zIndex: 2,
     width: "100%",
     background: [
-      // Layer 5: edge vignette
       "radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.65) 100%)",
-      // Layer 3: gold center radial glow
-      `radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)`,
-      // Layer 2: charcoal diagonal texture (very subtle)
+      "radial-gradient(ellipse at 50% 38%, rgba(251,191,36,0.09) 0%, transparent 60%)",
       "repeating-linear-gradient(-55deg, transparent 0px, transparent 60px, rgba(255,255,255,0.009) 60px, rgba(255,255,255,0.009) 62px)",
-      // Layer 1: deep charcoal surface gradient
       "linear-gradient(180deg, #141414 0%, #0c0c0c 50%, #060606 100%)",
     ].join(", "),
     borderRadius: "16px",
@@ -187,7 +238,6 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
 
-  // Level 2: Corner brand mark — barely-visible BW mark, top-right of card
   cornerBrand: {
     position: "absolute",
     top: "8px",
@@ -245,14 +295,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "system-ui, sans-serif",
   },
 
-  // Template content area — slightly tighter padding vs original
-  content: {
+  contentPoster: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    color: "#FFFFFF",
+    boxSizing: "border-box",
+  },
+
+  contentLegacy: {
     padding: "18px 22px",
     flex: 1,
     color: "#FFFFFF",
   },
 
-  // Level 3: Footer with premium typography
   footer: {
     display: "flex",
     alignItems: "center",

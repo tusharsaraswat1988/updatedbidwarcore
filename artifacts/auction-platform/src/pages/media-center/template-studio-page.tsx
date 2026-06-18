@@ -27,6 +27,7 @@ import {
   getTemplateById,
   templateExists,
   type BuzzTemplateRegistryEntry,
+  BUZZ_EXPORT_DIMENSIONS,
 } from "@/features/buzz-studio";
 import { BuzzTemplateType } from "@/features/buzz-studio/registry/template-types";
 import {
@@ -49,11 +50,17 @@ import {
 const ASPECT_RATIO_OPTIONS = ["1:1", "4:5", "16:9"] as const;
 type AspectRatioOption = (typeof ASPECT_RATIO_OPTIONS)[number];
 
-const ASPECT_RATIO_CLASS: Record<AspectRatioOption, string> = {
-  "1:1": "aspect-square w-full max-w-[520px]",
-  "4:5": "aspect-[4/5] w-full max-w-[420px]",
-  "16:9": "aspect-video w-full max-w-[640px]",
+/** Scale export canvas to fit preview panel — WYSIWYG with PNG output. */
+const PREVIEW_MAX_WIDTH: Record<AspectRatioOption, number> = {
+  "1:1": 520,
+  "4:5": 420,
+  "16:9": 640,
 };
+
+function previewScale(aspectRatio: AspectRatioOption): number {
+  const dims = BUZZ_EXPORT_DIMENSIONS[aspectRatio];
+  return PREVIEW_MAX_WIDTH[aspectRatio] / dims.width;
+}
 
 function resolveTemplateId(raw: string | undefined): BuzzTemplateType | null {
   if (!raw || !templateExists(raw)) return null;
@@ -91,6 +98,8 @@ function TemplateLivePreview({
   }
 
   const Template = entry.component;
+  const dims = BUZZ_EXPORT_DIMENSIONS[aspectRatio];
+  const scale = previewScale(aspectRatio);
   const surfaceClass =
     previewTheme === "dark"
       ? "bg-[#0a0a0a] border-white/10"
@@ -98,11 +107,31 @@ function TemplateLivePreview({
 
   return (
     <div
-      className={`flex flex-1 items-center justify-center overflow-auto rounded-xl border p-6 transition-colors ${surfaceClass}`}
+      className={`flex flex-1 overflow-auto rounded-xl border p-4 transition-colors ${surfaceClass}`}
     >
-      <div className={`mx-auto ${ASPECT_RATIO_CLASS[aspectRatio]}`}>
-        <div className="flex h-full w-full items-center justify-center">
-          <Template {...(contract ?? {})} />
+      <div
+        className="mx-auto"
+        style={{
+          width: Math.round(dims.width * scale),
+          height: Math.round(dims.height * scale),
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: dims.width,
+            height: dims.height,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          <Template
+            {...(contract ?? {})}
+            renderMode="preview"
+            aspectRatio={aspectRatio}
+            renderWidth={dims.width}
+            renderHeight={dims.height}
+          />
         </div>
       </div>
     </div>
