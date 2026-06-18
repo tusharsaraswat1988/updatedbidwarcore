@@ -80,8 +80,8 @@ import { settingsPath } from "@/lib/settings-navigation";
 import {
   bidValueSourceLabel,
   canEditPlayerBidValue,
-  isPlayerBidValueMode,
-  parseBidValueOptions,
+  getOrganizerBidOptions,
+  shouldShowPlayerBidValueSelector,
 } from "@workspace/api-base/bid-value";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
@@ -450,11 +450,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
   const isEdit = !!player;
-  const playerBidMode = isPlayerBidValueMode(tournament ?? {});
-  const organizerBidOptions = Array.isArray(tournament?.bidValueOptions)
-    ? [...new Set((tournament.bidValueOptions as number[]).filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b)
-    : parseBidValueOptions(typeof tournament?.bidValueOptions === "string" ? tournament.bidValueOptions : null);
+  const showPlayerBidSelector = shouldShowPlayerBidValueSelector(tournament ?? {});
+  const organizerBidOptions = getOrganizerBidOptions(tournament ?? {});
   const bidValueEditable = canEditPlayerBidValue(tournament?.status);
+  const lockedBidDisplayAmount =
+    player?.selectedBidValue ?? player?.basePrice ?? tournament?.minBid ?? 100000;
 
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
@@ -615,13 +615,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             ? null
             : undefined,
       photoUrl: form.photoUrl || undefined,
-      ...(playerBidMode
-        ? {
-            selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined,
-          }
-        : {
-            basePrice: parseInt(String(form.basePrice)) || 0,
-          }),
+      ...(bidValueEditable
+        ? showPlayerBidSelector
+          ? { selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined }
+          : { basePrice: parseInt(String(form.basePrice)) || tournament?.minBid || 100000 }
+        : {}),
       jerseyNumber: form.jerseyNumber || undefined,
       jerseySize: form.jerseySize || undefined,
       achievements: form.achievements || undefined,
@@ -846,7 +844,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
       {/* Row 5: Base Price / Selected Bid Value */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {playerBidMode ? (
+        {showPlayerBidSelector && bidValueEditable ? (
           <div className="space-y-2 col-span-2">
             <Label>Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
             <Select
@@ -856,7 +854,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 f("selectedBidValue", v);
                 f("basePrice", v);
               }}
-              disabled={!bidValueEditable}
               required
             >
               <SelectTrigger><SelectValue placeholder="Select bid value" /></SelectTrigger>
@@ -868,11 +865,16 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 ))}
               </SelectContent>
             </Select>
-            {!bidValueEditable && (
-              <p className="text-[10px] text-muted-foreground">Bid value is locked after the auction starts.</p>
-            )}
           </div>
-        ) : (
+        ) : showPlayerBidSelector && !bidValueEditable ? (
+          <div className="space-y-2 col-span-2">
+            <Label>Selected Bid Value (₹)</Label>
+            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
+              {formatIndianRupee(lockedBidDisplayAmount)}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Bid value is locked after the auction starts.</p>
+          </div>
+        ) : bidValueEditable ? (
           <div className="space-y-2">
             <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
             <Input
@@ -880,11 +882,18 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               value={form.basePrice}
               onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
               required
-              disabled={!bidValueEditable}
             />
-            {!bidValueEditable && (
-              <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
-            )}
+            <p className="text-[10px] text-muted-foreground">
+              Uses tournament minimum bid ({formatIndianRupee(tournament?.minBid ?? 100000)}).
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Base Price (₹)</Label>
+            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
+              {formatIndianRupee(lockedBidDisplayAmount)}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
           </div>
         )}
       </div>

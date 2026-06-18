@@ -42,6 +42,28 @@ export function isPlayerBidValueMode(config: Pick<BidValueTournamentConfig, "bid
   return config.bidValueMode === "player";
 }
 
+/** Normalize organizer bid options from API (array) or DB (JSON string). */
+export function getOrganizerBidOptions(
+  config: Pick<BidValueTournamentConfig, "bidValueOptions"> & {
+    bidValueOptions?: number[] | string | null;
+  },
+): number[] {
+  const raw = config.bidValueOptions;
+  if (Array.isArray(raw)) {
+    return [...new Set(raw.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b);
+  }
+  return parseBidValueOptions(raw);
+}
+
+/** Player self-selection UI is shown only when mode is player and options are configured. */
+export function shouldShowPlayerBidValueSelector(
+  config: Pick<BidValueTournamentConfig, "bidValueMode" | "bidValueOptions"> & {
+    bidValueOptions?: number[] | string | null;
+  },
+): boolean {
+  return isPlayerBidValueMode(config) && getOrganizerBidOptions(config).length > 0;
+}
+
 export function bidValueSourceLabel(source: BidValueSource | null | undefined): string {
   return source === "player" ? "Player Selected" : "System Assigned";
 }
@@ -54,15 +76,8 @@ export function resolvePlayerBidFields(
   tournament: BidValueTournamentConfig,
   input: BidValuePlayerInput,
 ): { ok: true; fields: ResolvedPlayerBidFields } | { ok: false; error: string; field?: string } {
-  if (isPlayerBidValueMode(tournament)) {
-    const options = parseBidValueOptions(tournament.bidValueOptions);
-    if (options.length === 0) {
-      return {
-        ok: false,
-        error: "Player-selected bid values are not configured for this tournament.",
-        field: "selectedBidValue",
-      };
-    }
+  if (shouldShowPlayerBidValueSelector(tournament)) {
+    const options = getOrganizerBidOptions(tournament);
     const selected = input.selectedBidValue ?? input.basePrice;
     if (selected == null || !Number.isFinite(selected)) {
       return { ok: false, error: "Please select your bid value.", field: "selectedBidValue" };

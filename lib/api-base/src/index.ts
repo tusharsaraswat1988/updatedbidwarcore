@@ -25,6 +25,8 @@ export {
   parseBidValueOptions,
   serializeBidValueOptions,
   isPlayerBidValueMode,
+  getOrganizerBidOptions,
+  shouldShowPlayerBidValueSelector,
   bidValueSourceLabel,
   resolvePlayerBidFields,
   canEditPlayerBidValue,

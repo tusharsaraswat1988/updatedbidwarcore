@@ -5,6 +5,8 @@ import {
   serializeBidValueOptions,
   bidValueSourceLabel,
   canEditPlayerBidValue,
+  shouldShowPlayerBidValueSelector,
+  getOrganizerBidOptions,
 } from "../bid-value.ts";
 
 describe("parseBidValueOptions", () => {
@@ -67,6 +69,38 @@ describe("resolvePlayerBidFields", () => {
     if (result.ok) {
       expect(result.fields.basePrice).toBe(50000);
     }
+  });
+
+  it("falls back to system mode when player mode has no options", () => {
+    const result = resolvePlayerBidFields(
+      { bidValueMode: "player", minBid: 75000, bidValueOptions: null },
+      {},
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.fields.basePrice).toBe(75000);
+      expect(result.fields.bidValueSource).toBe("system");
+    }
+  });
+});
+
+describe("shouldShowPlayerBidValueSelector", () => {
+  it("is true only for player mode with configured options", () => {
+    expect(shouldShowPlayerBidValueSelector({ bidValueMode: "system", minBid: 100000, bidValueOptions: null })).toBe(false);
+    expect(shouldShowPlayerBidValueSelector({ bidValueMode: "player", minBid: 100000, bidValueOptions: null })).toBe(false);
+    expect(
+      shouldShowPlayerBidValueSelector({
+        bidValueMode: "player",
+        minBid: 100000,
+        bidValueOptions: serializeBidValueOptions([500, 1000]),
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("getOrganizerBidOptions", () => {
+  it("accepts parsed arrays from API serializers", () => {
+    expect(getOrganizerBidOptions({ bidValueOptions: [3000, 500, 1500] })).toEqual([500, 1500, 3000]);
   });
 });
 
