@@ -177,6 +177,45 @@ export {
   templateExists,
 } from "./registry/template-registry";
 
+/* ─── Live Data Providers ──────────────────────────────────────────────── */
+
+export type {
+  BuzzStudioTournamentSnapshot,
+  BuzzStudioLiveDataSource,
+} from "./providers/provider-types";
+
+export {
+  toSportType,
+  snapshotFromTournamentData,
+  buildTeamById,
+  buildPlayerById,
+  buildBidCountByPlayer,
+  resolvePlayerDesignation,
+  resolveTeamCaptain,
+  countSquadPlayers,
+  apiBuzzStudioDataSource,
+} from "./providers/provider-types";
+
+export {
+  getPlayerSpotlightContracts,
+  mapPlayerSpotlightFromSnapshot,
+} from "./providers/player-spotlight-provider";
+
+export {
+  getSoldPlayerContracts,
+  mapSoldPlayersFromSnapshot,
+} from "./providers/sold-player-provider";
+
+export {
+  getTopBuysContract,
+  mapTopBuysFromSnapshot,
+} from "./providers/top-buys-provider";
+
+export {
+  getTeamRevealContracts,
+  mapTeamRevealFromSnapshot,
+} from "./providers/team-reveal-provider";
+
 /* ─── Render Pipeline ──────────────────────────────────────────────────── */
 
 export { RenderFormat, RenderStatus, ShareChannel } from "./rendering/index";

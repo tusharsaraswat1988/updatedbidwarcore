@@ -1,4 +1,4 @@
-import { useRoute } from "wouter";
+import { Link, useRoute } from "wouter";
 import type { ReactNode } from "react";
 import {
   useGetTournament,
@@ -10,14 +10,16 @@ import { AppLayout } from "@/components/layout";
 import { BuzzStudioFeatureGuard } from "@/components/buzz-studio-feature-guard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import {
   getEnabledTemplates,
   getComingSoonTemplates,
   BuzzTemplateCategory,
 } from "@/features/buzz-studio";
-import { Sparkles, Image, Clock, Trophy, Users, UserCheck } from "lucide-react";
+import {
+  templateStudioPath,
+  templateStudioTournamentPath,
+} from "@/lib/tournament-navigation";
+import { Sparkles, Image, Clock, Trophy, Users, UserCheck, ChevronRight } from "lucide-react";
 
 const CATEGORY_LABELS: Record<BuzzTemplateCategory, string> = {
   [BuzzTemplateCategory.PLAYER]: "Player",
@@ -34,7 +36,7 @@ export default function MediaCenterPage() {
     tournamentParams?.id || organizerParams?.id || "0",
     10,
   );
-  const { toast } = useToast();
+  const isOrganizerRoute = Boolean(organizerParams);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: tournamentId > 0 },
@@ -46,11 +48,10 @@ export default function MediaCenterPage() {
   const enabledTemplates = getEnabledTemplates();
   const comingSoonTemplates = getComingSoonTemplates();
 
-  function handleGenerateClick() {
-    toast({
-      title: "Coming soon",
-      description: "Creative generation coming soon.",
-    });
+  function templateHref(templateId: string): string {
+    return isOrganizerRoute
+      ? templateStudioPath(tournamentId, templateId)
+      : templateStudioTournamentPath(tournamentId, templateId);
   }
 
   return (
@@ -84,30 +85,35 @@ export default function MediaCenterPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {enabledTemplates.map((entry) => (
-                <Card key={entry.id} className="border-border bg-card/70 hover:border-primary/30 transition-colors">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-display font-bold text-white">
-                        {entry.title}
-                      </CardTitle>
-                      <Badge variant="outline" className="text-[10px] shrink-0 border-primary/30 text-primary">
-                        {CATEGORY_LABELS[entry.category]}
-                      </Badge>
-                    </div>
-                    <CardDescription className="text-xs leading-relaxed">
-                      {entry.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex flex-wrap gap-1">
-                      {entry.aspectRatios.map((ratio) => (
-                        <Badge key={ratio} variant="secondary" className="text-[10px]">
-                          {ratio}
+                <Link key={entry.id} href={templateHref(entry.id)}>
+                  <Card className="h-full border-border bg-card/70 hover:border-primary/40 hover:bg-card/90 transition-colors cursor-pointer group">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-base font-display font-bold text-white group-hover:text-primary transition-colors">
+                          {entry.title}
+                        </CardTitle>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardDescription className="text-xs leading-relaxed flex-1">
+                          {entry.description}
+                        </CardDescription>
+                        <Badge variant="outline" className="text-[10px] shrink-0 border-primary/30 text-primary">
+                          {CATEGORY_LABELS[entry.category]}
                         </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-wrap gap-1">
+                        {entry.aspectRatios.map((ratio) => (
+                          <Badge key={ratio} variant="secondary" className="text-[10px]">
+                            {ratio}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           </section>
@@ -178,17 +184,6 @@ export default function MediaCenterPage() {
                 )}
               </CardContent>
             </Card>
-          </section>
-
-          {/* ── Section 4: Generate Button ────────────────────────────────── */}
-          <section className="flex justify-center pt-2 pb-4">
-            <Button
-              size="lg"
-              className="font-display font-bold px-10"
-              onClick={handleGenerateClick}
-            >
-              Generate Creative
-            </Button>
           </section>
         </div>
       </BuzzStudioFeatureGuard>

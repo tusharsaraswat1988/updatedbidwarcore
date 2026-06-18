@@ -42,9 +42,25 @@ export function mediaCenterPath(tournamentId: number): string {
   return `/organizer/media-center/${tournamentId}`;
 }
 
+/** Template Studio — organizer route for a specific template. */
+export function templateStudioPath(
+  tournamentId: number,
+  templateId: string,
+): string {
+  return `/organizer/media-center/${tournamentId}/${templateId}`;
+}
+
 /** Canonical tournament-scoped path (alias). */
 export function mediaCenterTournamentPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/media-center`;
+}
+
+/** Template Studio — tournament-scoped route for a specific template. */
+export function templateStudioTournamentPath(
+  tournamentId: number,
+  templateId: string,
+): string {
+  return `/tournament/${tournamentId}/media-center/${templateId}`;
 }
 
 /** LED big-screen display path (optional auction code for public gate). */

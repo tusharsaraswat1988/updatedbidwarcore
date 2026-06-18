@@ -57,6 +57,7 @@ const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
+const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -366,10 +367,22 @@ function Router() {
             return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
           }}
         </Route>
+        <Route path="/tournament/:id/media-center/:templateId">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
+          }}
+        </Route>
         <Route path="/tournament/:id/media-center">
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/organizer/media-center/:id/:templateId">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/organizer/media-center/:id">
