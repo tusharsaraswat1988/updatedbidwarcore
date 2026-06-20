@@ -18,14 +18,21 @@ type BidwarCanvasProps = BuzzTemplateRenderProps & {
    * Never stored inside a creative job contract — resolved externally by aspectRatio.
    */
   backgroundImageUrl?: string;
-  /** Legacy override; when omitted, derived from branding.watermarkEnabled (default true). */
+  /** Legacy override; when omitted, derived from branding.watermarkEnabled (default false). */
   showWatermark?: boolean;
   showFooterBranding?: boolean;
   showQrPlaceholder?: boolean;
+  /**
+   * Renders the small top-right tournament/BW corner mark.
+   * Templates that draw their own tournament header (e.g. Team Reveal)
+   * set this to false to avoid duplicate branding.
+   * @default true
+   */
+  showCornerBrand?: boolean;
 };
 
 function resolveBranding(branding?: BuzzBranding, showWatermark?: boolean) {
-  const watermarkEnabled = showWatermark ?? branding?.watermarkEnabled !== false;
+  const watermarkEnabled = showWatermark ?? branding?.watermarkEnabled === true;
   return {
     watermarkEnabled,
     footerPrimary: branding?.poweredByText?.trim() || "POWERED BY BIDWAR",
@@ -47,6 +54,7 @@ export function BidwarCanvas({
   showWatermark,
   showFooterBranding = false,
   showQrPlaceholder = false,
+  showCornerBrand = true,
   renderMode,
   aspectRatio,
   renderWidth,
@@ -105,17 +113,19 @@ export function BidwarCanvas({
       ) : null}
 
       {/* Branding: corner tournament logo */}
-      <div style={styles.cornerBrand} aria-hidden="true">
-        {resolved.tournamentLogoUrl ? (
-          <img
-            src={resolved.tournamentLogoUrl}
-            alt=""
-            style={styles.cornerTournamentLogo}
-          />
-        ) : (
-          <span style={styles.cornerBrandText}>BW</span>
-        )}
-      </div>
+      {showCornerBrand ? (
+        <div style={styles.cornerBrand} aria-hidden="true">
+          {resolved.tournamentLogoUrl ? (
+            <img
+              src={resolved.tournamentLogoUrl}
+              alt=""
+              style={styles.cornerTournamentLogo}
+            />
+          ) : (
+            <span style={styles.cornerBrandText}>BW</span>
+          )}
+        </div>
+      ) : null}
 
       {(title || subtitle) && (
         <div style={styles.header}>
