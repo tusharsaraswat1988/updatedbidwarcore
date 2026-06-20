@@ -1,26 +1,25 @@
 /**
- * Buzz Studio — Team Reveal Template (Phase 17A)
+ * Buzz Studio — Team Reveal Template (Phase 17B)
  *
- * Visual hierarchy: Team Name → Logo → Captain → Spend → Branding
+ * Design philosophy: background is the creative (70%), content is typography (30%).
  *
- * Design language:
- *   - Glass circular logo badge (no glow rings, no gold frame)
- *   - Team name dominates as the largest element on canvas
- *   - Compact captain pill and inline stat chips below the name
- *   - Bottom-center BIDWAR watermark (opacity 0.05) replaces diagonal
- *   - BidwarCanvas footer carries tournament branding
- *   - Background is admin-uploaded full-bleed image — no overlays added
+ * NO glass cards. NO pill containers. NO rounded component boxes. NO borders
+ * around content. NO dashboard chrome. NO UI widgets.
  *
- * POSTER_TOKENS defined here are designed to be portable to PlayerSpotlight,
- * SoldPlayer, and TopBuys in subsequent phases.
+ * Think: IPL franchise reveal · auction announcement · sports Instagram creative
+ * NOT: SaaS admin panel · analytics card · component library screenshot
+ *
+ * Visual weight:
+ *   Team Logo  ≈ 20%   — clean image, no container
+ *   Team Name  ≈ 50%   — dominant, weight 900
+ *   Everything ≈ 30%   — pure label/value typography
+ *
+ * POSTER_TOKENS are portable to PlayerSpotlight, SoldPlayer, and TopBuys.
  */
 
 import React from "react";
-import { BIDWAR_WATERMARK } from "../../assets/watermark";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
-import { SportBadge, CaptainBadge } from "../../design-system/badges";
-import { AvatarSlot } from "../../design-system/logo-slots";
 import { monogramFor } from "../../asset-engine/monogram-generator";
 import {
   pickRenderContext,
@@ -31,7 +30,6 @@ import {
   isLandscapePoster,
   posterSpacing,
   heroTitleSize,
-  secondaryLabelSize,
   bodyLabelSize,
 } from "../../rendering/poster-layout";
 import { formatTeamSpend } from "./TeamReveal.utils";
@@ -39,44 +37,35 @@ import type { TeamRevealContract } from "./TeamReveal.types";
 
 // ─── Poster Design Tokens ─────────────────────────────────────────────────────
 //
-// Shared visual language for all Buzz Studio templates.
-// These tokens are the single source of truth for colors, borders, and surfaces.
-// Copy-portable to PlayerSpotlight, SoldPlayer, and TopBuys.
+// Typography-first tokens. No card surfaces, no border tokens, no containers.
+// Portable to PlayerSpotlight, SoldPlayer, and TopBuys.
 
 export const POSTER_TOKENS = {
-  font:            "system-ui, sans-serif",
-  white:           "#FFFFFF",
-  gold:            t.primaryGold,
-  ghostText:       "rgba(255,255,255,0.30)",
-  mutedText:       "rgba(255,255,255,0.55)",
-  glassDark:       "rgba(0,0,0,0.38)",
-  glassLight:      "rgba(255,255,255,0.07)",
-  borderSubtle:    "1px solid rgba(255,255,255,0.12)",
-  borderMedium:    "1px solid rgba(255,255,255,0.18)",
-  borderGlass:     "1.5px solid rgba(255,255,255,0.16)",
-  borderGold:      `1px solid rgba(251,191,36,0.35)`,
-  divider:         "linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent)",
-  tagBg:           "rgba(251,191,36,0.09)",
-  tagBorder:       "1px solid rgba(251,191,36,0.30)",
-  watermark:       "rgba(255,255,255,0.05)",
+  font:     "system-ui, sans-serif",
+  white:    "#FFFFFF",
+  gold:     t.primaryGold,
+  ghost:    "rgba(255,255,255,0.40)",
+  hairline: "rgba(255,255,255,0.14)",
 } as const;
 
-// ─── Component Types ──────────────────────────────────────────────────────────
+const PT = POSTER_TOKENS;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type TeamRevealProps = TeamRevealContract &
   BuzzTemplateRenderProps & {
-    /** Injected at render time from Creative Assets Manager. Never stored in contracts. */
+    /** Injected at render time from Creative Assets Manager. Never in contracts. */
     backgroundImageUrl?: string;
   };
 
 type PosterCtx = NonNullable<ReturnType<typeof pickRenderContext>>;
 
-// ─── Glass Logo Badge ─────────────────────────────────────────────────────────
+// ─── Team Logo ────────────────────────────────────────────────────────────────
 //
-// Team logo inside a circular glass container.
-// No gold ring, no radial glow, no box-shadow.
+// Clean image directly on background. No circular container. No border. No glow.
+// Falls back to bold initials text when no logo is uploaded.
 
-function GlassLogoBadge({
+function TeamLogo({
   teamName,
   logoUrl,
   size,
@@ -86,210 +75,105 @@ function GlassLogoBadge({
   size: number;
 }) {
   const { initials } = monogramFor(teamName, "team");
-  const fontSize = Math.round(size * 0.30);
+
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt={teamName}
+        draggable={false}
+        style={{
+          width:          size,
+          height:         size,
+          objectFit:      "contain",
+          objectPosition: "center",
+          display:        "block",
+          flexShrink:     0,
+        }}
+      />
+    );
+  }
 
   return (
-    <div
+    <span
       style={{
-        width:        size,
-        height:       size,
-        borderRadius: "50%",
-        background:   POSTER_TOKENS.glassLight,
-        border:       POSTER_TOKENS.borderGlass,
-        overflow:     "hidden",
-        flexShrink:   0,
-        display:      "flex",
-        alignItems:   "center",
-        justifyContent: "center",
+        display:       "block",
+        fontFamily:    PT.font,
+        fontSize:      `${Math.round(size * 0.44)}px`,
+        fontWeight:    900,
+        color:         "rgba(255,255,255,0.68)",
+        letterSpacing: "0.06em",
+        lineHeight:    1,
+        textAlign:     "center",
+        width:         size,
+        userSelect:    "none",
+        flexShrink:    0,
       }}
     >
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt={teamName}
-          draggable={false}
-          style={{
-            width:          "100%",
-            height:         "100%",
-            objectFit:      "cover",
-            objectPosition: "center",
-            display:        "block",
-          }}
-        />
-      ) : (
-        <span
-          style={{
-            fontFamily:   POSTER_TOKENS.font,
-            fontSize:     `${fontSize}px`,
-            fontWeight:   900,
-            color:        "rgba(255,255,255,0.82)",
-            letterSpacing: "0.05em",
-            userSelect:   "none",
-          }}
-        >
-          {initials}
-        </span>
-      )}
-    </div>
+      {initials}
+    </span>
   );
 }
 
-// ─── Stat Pill ────────────────────────────────────────────────────────────────
+// ─── Stat Block ───────────────────────────────────────────────────────────────
 //
-// Compact inline stat: value over label. Replaces full StatCard boxes.
-// Reduces DOM and padding for tighter composition.
+// Label above value. Pure text — no container, no border, no card.
+// Example: CAPTAIN / Rohit Sharma · SQUAD / 15 PLAYERS · SPEND / ₹42.5 Cr
 
-function StatPill({
+function StatBlock({
   label,
   value,
   gold = false,
-  fontSize,
+  align = "center",
+  labelSize,
+  valueSize,
 }: {
   label: string;
   value: string | number;
   gold?: boolean;
-  fontSize: number;
+  align?: "center" | "left";
+  labelSize: number;
+  valueSize: number;
 }) {
   return (
     <div
       style={{
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        gap:            Math.round(fontSize * 0.28),
-        padding:        `${Math.round(fontSize * 0.65)}px ${Math.round(fontSize * 1.15)}px`,
-        borderRadius:   10,
-        background:     POSTER_TOKENS.glassDark,
-        border:         gold ? POSTER_TOKENS.borderGold : POSTER_TOKENS.borderSubtle,
-        minWidth:       Math.round(fontSize * 5.5),
+        display:       "flex",
+        flexDirection: "column",
+        alignItems:    align === "left" ? "flex-start" : "center",
+        gap:           Math.round(labelSize * 0.5),
       }}
     >
       <span
         style={{
-          fontFamily:    POSTER_TOKENS.font,
-          fontSize:      `${Math.round(fontSize * 1.22)}px`,
-          fontWeight:    900,
-          color:         gold ? POSTER_TOKENS.gold : POSTER_TOKENS.white,
-          letterSpacing: "0.04em",
-          lineHeight:    1,
-        }}
-      >
-        {value}
-      </span>
-      <span
-        style={{
-          fontFamily:    POSTER_TOKENS.font,
-          fontSize:      `${Math.round(fontSize * 0.70)}px`,
-          fontWeight:    600,
-          color:         POSTER_TOKENS.ghostText,
-          letterSpacing: "0.18em",
+          fontFamily:    PT.font,
+          fontSize:      `${labelSize}px`,
+          fontWeight:    700,
+          color:         PT.ghost,
+          letterSpacing: "0.24em",
           textTransform: "uppercase",
           lineHeight:    1,
         }}
       >
         {label}
       </span>
-    </div>
-  );
-}
-
-// ─── Captain Row ──────────────────────────────────────────────────────────────
-
-function CaptainRow({
-  captainName,
-  captainImageUrl,
-  bodySize,
-  microSize,
-  align = "center",
-}: {
-  captainName: string;
-  captainImageUrl?: string | null;
-  bodySize: number;
-  microSize: number;
-  align?: "center" | "flex-start";
-}) {
-  return (
-    <div
-      style={{
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     align,
-        gap:            Math.round(bodySize * 0.35),
-      }}
-    >
       <span
         style={{
-          fontFamily:    POSTER_TOKENS.font,
-          fontSize:      `${microSize}px`,
+          fontFamily:    PT.font,
+          fontSize:      `${valueSize}px`,
           fontWeight:    700,
-          color:         POSTER_TOKENS.ghostText,
-          letterSpacing: "0.28em",
-          textTransform: "uppercase",
-          lineHeight:    1,
+          color:         gold ? PT.gold : PT.white,
+          letterSpacing: "0.04em",
+          lineHeight:    1.1,
+          whiteSpace:    "nowrap",
+          overflow:      "hidden",
+          textOverflow:  "ellipsis",
+          maxWidth:      "22ch",
         }}
       >
-        CAPTAIN
+        {value}
       </span>
-      <div
-        style={{
-          display:     "flex",
-          alignItems:  "center",
-          gap:         Math.round(bodySize * 0.55),
-          padding:     `${Math.round(bodySize * 0.45)}px ${Math.round(bodySize * 1.1)}px`,
-          borderRadius: 10,
-          background:  POSTER_TOKENS.glassDark,
-          border:      POSTER_TOKENS.borderSubtle,
-        }}
-      >
-        <AvatarSlot
-          name={captainName}
-          kind="player"
-          imageUrl={captainImageUrl ?? undefined}
-          size="sm"
-        />
-        <span
-          style={{
-            fontFamily:    POSTER_TOKENS.font,
-            fontSize:      `${bodySize}px`,
-            fontWeight:    700,
-            color:         POSTER_TOKENS.white,
-            letterSpacing: "0.05em",
-            whiteSpace:    "nowrap",
-            overflow:      "hidden",
-            textOverflow:  "ellipsis",
-            maxWidth:      "28ch",
-          }}
-        >
-          {captainName}
-        </span>
-        <CaptainBadge />
-      </div>
     </div>
-  );
-}
-
-// ─── Reveal Tag ───────────────────────────────────────────────────────────────
-
-function RevealTag({ fontSize }: { fontSize: number }) {
-  return (
-    <span
-      style={{
-        fontFamily:    POSTER_TOKENS.font,
-        fontSize:      `${fontSize}px`,
-        fontWeight:    800,
-        color:         POSTER_TOKENS.gold,
-        letterSpacing: "0.12em",
-        background:    POSTER_TOKENS.tagBg,
-        border:        POSTER_TOKENS.tagBorder,
-        borderRadius:  999,
-        padding:       `${Math.round(fontSize * 0.35)}px ${Math.round(fontSize * 1.0)}px`,
-        textTransform: "uppercase",
-        lineHeight:    1,
-        userSelect:    "none",
-      }}
-    >
-      ● TEAM REVEAL ●
-    </span>
   );
 }
 
@@ -300,9 +184,7 @@ export function TeamReveal(props: TeamRevealProps) {
   const {
     teamName,
     teamLogoUrl,
-    sport,
     captainName,
-    captainImageUrl,
     playerCount,
     backgroundImageUrl,
     renderMode,
@@ -312,14 +194,14 @@ export function TeamReveal(props: TeamRevealProps) {
   } = props;
 
   const spendDisplay = formatTeamSpend(props);
-  const hasStats     = playerCount != null || spendDisplay != null;
-  const hasCaptain   = !!captainName;
-  const displayName  = teamName ?? "FRANCHISE";
+  const hasStats    = playerCount != null || spendDisplay != null;
+  const hasCaptain  = !!captainName;
+  const displayName = teamName ?? "FRANCHISE";
 
   const canvasProps = {
-    branding:          props.branding,
+    branding:           props.branding,
     backgroundImageUrl,
-    showWatermark:     false,   // diagonal replaced by bottom-center watermark inside template
+    showWatermark:      false,
     showFooterBranding: true,
   } as const;
 
@@ -336,9 +218,7 @@ export function TeamReveal(props: TeamRevealProps) {
           ctx={renderCtx}
           displayName={displayName}
           teamLogoUrl={teamLogoUrl}
-          sport={sport}
           captainName={captainName}
-          captainImageUrl={captainImageUrl}
           playerCount={playerCount}
           spendDisplay={spendDisplay}
           hasStats={hasStats}
@@ -348,15 +228,12 @@ export function TeamReveal(props: TeamRevealProps) {
     );
   }
 
-  // Dev sandbox / legacy card mode (no render context)
   return (
     <BidwarCanvas {...canvasProps}>
       <TeamRevealLegacy
         displayName={displayName}
         teamLogoUrl={teamLogoUrl}
-        sport={sport}
         captainName={captainName}
-        captainImageUrl={captainImageUrl}
         playerCount={playerCount}
         spendDisplay={spendDisplay}
         hasStats={hasStats}
@@ -372,9 +249,7 @@ function TeamRevealPoster({
   ctx,
   displayName,
   teamLogoUrl,
-  sport,
   captainName,
-  captainImageUrl,
   playerCount,
   spendDisplay,
   hasStats,
@@ -383,9 +258,7 @@ function TeamRevealPoster({
   ctx: PosterCtx;
   displayName: string;
   teamLogoUrl?: string | null;
-  sport: TeamRevealContract["sport"];
   captainName?: string | null;
-  captainImageUrl?: string | null;
   playerCount?: number | null;
   spendDisplay: string | null;
   hasStats: boolean;
@@ -393,28 +266,31 @@ function TeamRevealPoster({
 }) {
   const spacing   = posterSpacing(ctx);
   const titleSize = heroTitleSize(ctx);
-  const labelSize = secondaryLabelSize(ctx);
   const bodySize  = bodyLabelSize(ctx);
-  const microSize = canvasH(ctx.renderHeight, 0.012, 10, 14);
+  const microSize = canvasH(ctx.renderHeight, 0.013, 11, 15);
   const landscape = isLandscapePoster(ctx);
 
   const gap      = spacing.sectionGap;
   const halfGap  = Math.round(gap * 0.55);
-  const thirdGap = Math.round(gap * 0.35);
+  const thirdGap = Math.round(gap * 0.33);
 
-  // Logo badge: larger than heroLogoSize — it's the primary visual anchor
-  const badgeSize = canvasH(ctx.renderHeight, 0.17, 152, 228);
+  // Logo scales differently for landscape (fills column height) vs portrait
+  const logoSize = landscape
+    ? canvasH(ctx.renderHeight, 0.38, 280, 400)
+    : canvasH(ctx.renderHeight, 0.19, 160, 220);
+
+  // ── Shared elements ──
 
   const teamNameEl = (
     <h1
       style={{
         margin:        0,
-        fontFamily:    POSTER_TOKENS.font,
+        fontFamily:    PT.font,
         fontSize:      `${titleSize}px`,
         fontWeight:    900,
-        color:         POSTER_TOKENS.white,
-        letterSpacing: "0.06em",
-        lineHeight:    1.0,
+        color:         PT.white,
+        letterSpacing: "0.07em",
+        lineHeight:    0.96,
         textTransform: "uppercase",
         textAlign:     landscape ? "left" : "center",
       }}
@@ -423,234 +299,201 @@ function TeamRevealPoster({
     </h1>
   );
 
-  const franchiseLabel = (
+  const revealLabelEl = (
     <span
       style={{
-        fontFamily:    POSTER_TOKENS.font,
-        fontSize:      `${microSize}px`,
+        fontFamily:    PT.font,
+        fontSize:      `${Math.round(microSize * 1.2)}px`,
         fontWeight:    700,
-        color:         POSTER_TOKENS.ghostText,
-        letterSpacing: "0.30em",
+        color:         PT.gold,
+        letterSpacing: "0.32em",
         textTransform: "uppercase",
         lineHeight:    1,
+        opacity:       0.90,
       }}
     >
-      FRANCHISE
+      TEAM REVEAL
     </span>
   );
 
-  const dividerEl = (
+  const hairlineEl = (
     <div
       aria-hidden="true"
       style={{
-        width:      landscape ? "60%" : "70%",
+        width:      landscape ? "55%" : "36%",
         height:     1,
-        background: POSTER_TOKENS.divider,
+        background: PT.hairline,
         flexShrink: 0,
         alignSelf:  landscape ? "flex-start" : "center",
       }}
     />
   );
 
-  const statsEl = hasStats ? (
-    <div
-      style={{
-        display:        "flex",
-        gap:            halfGap,
-        justifyContent: landscape ? "flex-start" : "center",
-        flexWrap:       "wrap",
-      }}
-    >
-      {spendDisplay != null && (
-        <StatPill label="Total Spend" value={spendDisplay} gold fontSize={bodySize} />
-      )}
-      {playerCount != null && (
-        <StatPill label="Squad Size" value={playerCount} fontSize={bodySize} />
-      )}
-    </div>
-  ) : null;
+  // ── Stats — pure text label/value pairs, no containers ──
 
   const captainEl = hasCaptain ? (
-    <CaptainRow
-      captainName={captainName!}
-      captainImageUrl={captainImageUrl}
-      bodySize={bodySize}
-      microSize={microSize}
-      align={landscape ? "flex-start" : "center"}
+    <StatBlock
+      label="CAPTAIN"
+      value={captainName!}
+      align={landscape ? "left" : "center"}
+      labelSize={microSize}
+      valueSize={bodySize}
     />
   ) : null;
 
-  // Bottom-center watermark (replaces diagonal BIDWAR watermark from BidwarCanvas)
-  const watermarkEl = (
-    <div
-      aria-hidden="true"
-      style={{
-        display:        "flex",
-        justifyContent: "center",
-        width:          "100%",
-        marginTop:      "auto",
-        paddingTop:     thirdGap,
-        flexShrink:     0,
-      }}
-    >
-      <span
-        style={{
-          fontFamily:    POSTER_TOKENS.font,
-          fontSize:      `${canvasH(ctx.renderHeight, 0.020, 13, 18)}px`,
-          fontWeight:    900,
-          color:         POSTER_TOKENS.watermark,
-          letterSpacing: "0.40em",
-          textTransform: "uppercase",
-          userSelect:    "none",
-        }}
-      >
-        {BIDWAR_WATERMARK}
-      </span>
-    </div>
-  );
+  const squadEl = playerCount != null ? (
+    <StatBlock
+      label="SQUAD"
+      value={`${playerCount} PLAYERS`}
+      align={landscape ? "left" : "center"}
+      labelSize={microSize}
+      valueSize={bodySize}
+    />
+  ) : null;
+
+  const spendEl = spendDisplay != null ? (
+    <StatBlock
+      label="SPEND"
+      value={spendDisplay}
+      gold
+      align={landscape ? "left" : "center"}
+      labelSize={microSize}
+      valueSize={bodySize}
+    />
+  ) : null;
 
   // ── Landscape (16:9) ──
+  // LEFT: large logo  |  RIGHT: name → reveal → hairline → stats row
+
   if (landscape) {
     return (
       <div
         style={{
-          display:     "flex",
+          display:       "flex",
           flexDirection: "row",
-          alignItems:  "stretch",
-          width:       "100%",
-          height:      "100%",
-          flex:        1,
-          gap:         gap * 1.8,
-          minHeight:   0,
+          alignItems:    "center",
+          width:         "100%",
+          height:        "100%",
+          flex:          1,
+          gap:           gap * 2,
+          minHeight:     0,
         }}
       >
-        {/* Left: name + info */}
+        {/* Logo — left column, vertically centered */}
         <div
           style={{
-            flex:          1.1,
-            display:       "flex",
-            flexDirection: "column",
+            flex:           "0 0 auto",
+            display:        "flex",
+            alignItems:     "center",
             justifyContent: "center",
-            gap:           halfGap,
-            minWidth:      0,
+            height:         "100%",
           }}
         >
-          {franchiseLabel}
-          {teamNameEl}
-          {dividerEl}
-          {captainEl}
-          {statsEl}
+          <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={logoSize} />
         </div>
 
-        {/* Right: sport badge + logo */}
+        {/* Name + stats — right column */}
         <div
           style={{
-            flex:          0.9,
-            display:       "flex",
-            flexDirection: "column",
-            alignItems:    "center",
+            flex:           1,
+            display:        "flex",
+            flexDirection:  "column",
             justifyContent: "center",
-            gap:           halfGap,
-            minWidth:      0,
+            gap:            halfGap,
+            minWidth:       0,
           }}
         >
-          <div
-            style={{
-              display:        "flex",
-              justifyContent: "space-between",
-              alignItems:     "center",
-              width:          "100%",
-              marginBottom:   thirdGap,
-            }}
-          >
-            <SportBadge sport={sport} />
-            <RevealTag fontSize={labelSize} />
+          {/* Name block */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: thirdGap }}>
+            {teamNameEl}
+            {revealLabelEl}
           </div>
-          <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={badgeSize} />
+
+          {hairlineEl}
+
+          {/* Stats row — all 3 side by side for landscape */}
+          {(hasCaptain || hasStats) && (
+            <div
+              style={{
+                display: "flex",
+                gap:     gap * 1.4,
+                alignItems: "flex-start",
+              }}
+            >
+              {captainEl}
+              {squadEl}
+              {spendEl}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   // ── Portrait (1:1, 4:5, 9:16) ──
+  // Centered column: Logo → Name → TEAM REVEAL → hairline → stats stack
+
   return (
     <div
       style={{
-        display:       "flex",
-        flexDirection: "column",
-        width:         "100%",
-        height:        "100%",
-        flex:          1,
-        minHeight:     0,
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
+        width:          "100%",
+        height:         "100%",
+        flex:           1,
+        gap:            gap,
+        minHeight:      0,
       }}
     >
-      {/* Top strip */}
-      <div
-        style={{
-          display:        "flex",
-          justifyContent: "space-between",
-          alignItems:     "center",
-          width:          "100%",
-          flexShrink:     0,
-          paddingBottom:  halfGap,
-        }}
-      >
-        <SportBadge sport={sport} />
-        <RevealTag fontSize={labelSize} />
-      </div>
+      {/* Logo — clean image, no container */}
+      <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={logoSize} />
 
-      {/* Hero block — vertically centered */}
+      {/* Name block — team name dominates */}
       <div
         style={{
-          flex:           1,
           display:        "flex",
           flexDirection:  "column",
           alignItems:     "center",
-          justifyContent: "center",
-          gap:            halfGap,
-          minHeight:      0,
+          gap:            thirdGap,
         }}
       >
-        <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={badgeSize} />
-
-        {/* Name group — tight vertical stack */}
-        <div
-          style={{
-            display:       "flex",
-            flexDirection: "column",
-            alignItems:    "center",
-            gap:           thirdGap,
-            marginTop:     Math.round(thirdGap * 0.5),
-          }}
-        >
-          {franchiseLabel}
-          {teamNameEl}
-        </div>
-
-        {dividerEl}
-
-        {captainEl}
-
-        {statsEl}
+        {teamNameEl}
+        {revealLabelEl}
       </div>
 
-      {/* Bottom watermark — opacity 0.05, never competes with content */}
-      {watermarkEl}
+      {/* Hairline separator */}
+      {hairlineEl}
+
+      {/* Stats — label/value pairs, pure typography */}
+      {(hasCaptain || hasStats) && (
+        <div
+          style={{
+            display:        "flex",
+            flexDirection:  "column",
+            alignItems:     "center",
+            gap:            halfGap,
+          }}
+        >
+          {captainEl}
+          {squadEl}
+          {spendEl}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Legacy Card (Dev Sandbox) ────────────────────────────────────────────────
 //
-// Shown in local dev without a render context (no aspectRatio/dimensions).
+// Shown in local dev without render context (no aspectRatio/dimensions).
 // Uses clamp-based sizes for responsive preview card.
 
 function TeamRevealLegacy({
   displayName,
   teamLogoUrl,
-  sport,
   captainName,
-  captainImageUrl,
   playerCount,
   spendDisplay,
   hasStats,
@@ -658,9 +501,7 @@ function TeamRevealLegacy({
 }: {
   displayName: string;
   teamLogoUrl?: string | null;
-  sport: TeamRevealContract["sport"];
   captainName?: string | null;
-  captainImageUrl?: string | null;
   playerCount?: number | null;
   spendDisplay: string | null;
   hasStats: boolean;
@@ -669,89 +510,65 @@ function TeamRevealLegacy({
   return (
     <div
       style={{
-        display:       "flex",
-        flexDirection: "column",
-        alignItems:    "center",
-        width:         "100%",
-        gap:           14,
-        padding:       "4px 0 8px",
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
+        width:          "100%",
+        gap:            "clamp(14px, 3.5vw, 24px)",
+        padding:        "12px 0",
       }}
     >
-      {/* Top row */}
-      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-        <SportBadge sport={sport} />
-        <span
-          style={{
-            fontFamily:    POSTER_TOKENS.font,
-            fontSize:      "0.5rem",
-            fontWeight:    800,
-            color:         POSTER_TOKENS.gold,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            background:    POSTER_TOKENS.tagBg,
-            border:        POSTER_TOKENS.tagBorder,
-            borderRadius:  999,
-            padding:       "3px 10px",
-          }}
-        >
-          ● TEAM REVEAL ●
-        </span>
-      </div>
+      {/* Logo */}
+      <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={96} />
 
-      <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={96} />
-
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
-        <span
-          style={{
-            fontFamily:    POSTER_TOKENS.font,
-            fontSize:      "0.45rem",
-            fontWeight:    700,
-            color:         POSTER_TOKENS.ghostText,
-            letterSpacing: "0.26em",
-            textTransform: "uppercase",
-          }}
-        >
-          FRANCHISE
-        </span>
+      {/* Name block */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" }}>
         <h1
           style={{
             margin:        0,
-            fontFamily:    POSTER_TOKENS.font,
+            fontFamily:    PT.font,
             fontSize:      "clamp(1.5rem, 5.5vw, 2.75rem)",
             fontWeight:    900,
-            color:         POSTER_TOKENS.white,
-            letterSpacing: "0.06em",
-            lineHeight:    1.05,
+            color:         PT.white,
+            letterSpacing: "0.07em",
+            lineHeight:    1.0,
             textTransform: "uppercase",
           }}
         >
           {displayName.toUpperCase()}
         </h1>
+        <span
+          style={{
+            fontFamily:    PT.font,
+            fontSize:      "0.5rem",
+            fontWeight:    700,
+            color:         PT.gold,
+            letterSpacing: "0.30em",
+            textTransform: "uppercase",
+            opacity:       0.90,
+          }}
+        >
+          TEAM REVEAL
+        </span>
       </div>
 
-      <div
-        aria-hidden="true"
-        style={{ width: "55%", height: 1, background: POSTER_TOKENS.divider }}
-      />
+      {/* Hairline */}
+      <div aria-hidden="true" style={{ width: "36%", height: 1, background: PT.hairline }} />
 
-      {hasStats && (
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          {spendDisplay != null && (
-            <StatPill label="Total Spend" value={spendDisplay} gold fontSize={14} />
+      {/* Stats — pure text */}
+      {(hasCaptain || hasStats) && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          {hasCaptain && (
+            <StatBlock label="CAPTAIN" value={captainName!} labelSize={10} valueSize={14} />
           )}
           {playerCount != null && (
-            <StatPill label="Squad Size" value={playerCount} fontSize={14} />
+            <StatBlock label="SQUAD" value={`${playerCount} PLAYERS`} labelSize={10} valueSize={14} />
+          )}
+          {spendDisplay != null && (
+            <StatBlock label="SPEND" value={spendDisplay} gold labelSize={10} valueSize={14} />
           )}
         </div>
-      )}
-
-      {hasCaptain && (
-        <CaptainRow
-          captainName={captainName!}
-          captainImageUrl={captainImageUrl}
-          bodySize={14}
-          microSize={10}
-        />
       )}
     </div>
   );
