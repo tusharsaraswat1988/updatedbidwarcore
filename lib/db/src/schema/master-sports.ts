@@ -36,6 +36,11 @@ export const masterSponsorsTable = pgTable(
     logoUrl: text("logo_url"),
     website: text("website"),
     description: text("description"),
+    isTitleSponsor: boolean("is_title_sponsor").notNull().default(false),
+    isCoSponsor: boolean("is_co_sponsor").notNull().default(false),
+    sponsorPriority: integer("sponsor_priority").notNull().default(0),
+    /** Future tier column — maps to SponsorPriorityType enum in @workspace/api-base/sponsor-priority */
+    priorityType: text("priority_type").notNull().default("NORMAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

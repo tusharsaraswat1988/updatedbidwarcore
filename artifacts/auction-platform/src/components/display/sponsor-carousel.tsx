@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
 
 /**
  * Rotating sponsor logo carousel — top-right of LED display.
@@ -32,13 +33,21 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   if (!logos.length) return null;
   const current = logos[idx];
 
-  const label = current.name?.trim() || current.type?.trim() || "Sponsor";
+  const priorityType = resolveSponsorPriorityType(current);
+  const priorityLabel =
+    priorityType === SponsorPriorityType.TITLE
+      ? "Title Sponsor"
+      : priorityType === SponsorPriorityType.CO_SPONSOR
+        ? "Co Sponsor"
+        : current.type?.trim() || "";
+
+  const label = current.name?.trim() || priorityLabel || "Sponsor";
 
   return (
     <div className={`flex flex-col items-end flex-shrink-0 ${compact ? "gap-0.5" : "gap-2"}`}>
-      {!compact && current.type?.trim() && (
+      {!compact && priorityLabel && (
         <p className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-white/75 text-right">
-          {current.type}
+          {priorityLabel}
         </p>
       )}
       <div

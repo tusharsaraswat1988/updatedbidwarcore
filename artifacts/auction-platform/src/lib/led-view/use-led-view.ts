@@ -18,7 +18,7 @@ import {
 import { useBranding } from "@/hooks/use-branding";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
-import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
 import { useCountdownSeconds } from "./use-countdown-seconds";
 import {
@@ -548,7 +548,7 @@ export function useLedView(
         };
       });
 
-    const sponsorLogos = parseSponsorLogos(tournament.sponsorLogos);
+    const sponsorLogos = getSponsorsByPriority(parseSponsorLogos(tournament.sponsorLogos));
     const sponsors = sponsorLogos.map((s) => ({
       name: s.name ?? "",
       type: s.type ?? "Partner",

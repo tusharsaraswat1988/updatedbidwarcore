@@ -38,7 +38,7 @@ export interface BuzzBranding {
 
   /**
    * Controls whether the BIDWAR watermark is shown behind content.
-   * @default true
+   * @default false
    */
   watermarkEnabled?: boolean;
 

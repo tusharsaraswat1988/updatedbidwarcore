@@ -59,7 +59,7 @@ function buildJobMetadata(features: Partial<TournamentFeatures> | null | undefin
   return {
     allowCreativeDownloads: resolved.allowCreativeDownloads === true,
     allowPlayerDownloads: resolved.allowPlayerDownloads === true,
-    watermarkRequired: resolved.watermarkRequired !== false,
+    watermarkRequired: resolved.watermarkRequired === true,
     shareId: null,
     shareEnabled: false,
   };

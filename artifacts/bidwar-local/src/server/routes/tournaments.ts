@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { validateAndSerializeSponsorLogos } from "@workspace/api-base/sponsor-priority";
 import type { LocalDb } from "@workspace/db-local";
 import {
   tournamentsTable, teamsTable, playersTable, categoriesTable,
@@ -93,6 +94,14 @@ export function createTournamentsRouter(db: LocalDb) {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
     const d = parsed.data;
+    if (d.sponsorLogos !== undefined) {
+      const sponsorCheck = validateAndSerializeSponsorLogos(d.sponsorLogos ?? undefined);
+      if (!sponsorCheck.ok) {
+        res.status(400).json({ error: sponsorCheck.error });
+        return;
+      }
+      d.sponsorLogos = sponsorCheck.serialized ?? null;
+    }
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
     const [row] = await db.update(tournamentsTable).set({ ...d, updatedAt: new Date().toISOString() })
       .where(eq(tournamentsTable.id, id)).returning();

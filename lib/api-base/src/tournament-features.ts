@@ -32,7 +32,7 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   buzzStudio: false,
   allowCreativeDownloads: false,
   allowPlayerDownloads: false,
-  watermarkRequired: true,
+  watermarkRequired: false,
   ownerApp: false,
   scoring: false,
   sponsorshipHub: false,
@@ -46,7 +46,7 @@ function readFlag(
   key: keyof TournamentFeatures,
 ): boolean {
   if (key === "watermarkRequired") {
-    return src[key] !== false;
+    return src[key] === true;
   }
   return src[key] === true;
 }

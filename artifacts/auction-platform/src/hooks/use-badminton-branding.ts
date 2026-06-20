@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import { parseSponsorLogos, getSponsorsByPriority } from "@/lib/sponsor-logo";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 export interface ScoreBoardSponsor {
@@ -34,7 +34,7 @@ export function sponsorLogosFromBranding(
   branding: BadmintonBranding | undefined,
 ): SponsorLogo[] {
   if (!branding?.sponsorLogos) return [];
-  return parseSponsorLogos(branding.sponsorLogos);
+  return getSponsorsByPriority(parseSponsorLogos(branding.sponsorLogos));
 }
 
 export function sponsorUrlsFromBranding(branding: BadmintonBranding | undefined): string[] {

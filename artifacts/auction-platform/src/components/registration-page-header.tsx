@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trophy } from "lucide-react";
 import { cldUrl } from "@/lib/cloudinary";
-import { parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
+import { getSponsorsByPriority, parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
 import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 
 function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
@@ -83,7 +83,10 @@ export function RegistrationPageHeader({
   sponsorLogosJson,
   brandNameFallback = "BidWar",
 }: RegistrationPageHeaderProps) {
-  const sponsorLogos = useMemo(() => parseSponsorLogos(sponsorLogosJson), [sponsorLogosJson]);
+  const sponsorLogos = useMemo(
+    () => getSponsorsByPriority(parseSponsorLogos(sponsorLogosJson)),
+    [sponsorLogosJson],
+  );
 
   return (
     <div className="mb-6 sm:mb-8">

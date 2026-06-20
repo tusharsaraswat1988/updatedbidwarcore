@@ -31,7 +31,7 @@ import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsol
 import { useStickyCountdown } from "@/hooks/use-sticky-countdown";
 import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
-import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 
 const TEAMS_PREVIEW = 6;
 
@@ -1057,7 +1057,7 @@ export default function LiveViewerPage() {
   }, []);
 
   const sponsorLogos = useMemo(
-    () => parseSponsorLogos(tournament?.sponsorLogos),
+    () => getSponsorsByPriority(parseSponsorLogos(tournament?.sponsorLogos)),
     [tournament?.sponsorLogos],
   );
   const hasSponsorRibbon = sponsorLogos.length > 0;

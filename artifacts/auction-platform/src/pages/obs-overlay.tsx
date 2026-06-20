@@ -14,7 +14,7 @@ import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import { BroadcastOverlayBrandMark } from "@/components/display/broadcast-overlay-brand-mark";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
-import { parseSponsorLogos } from "@/lib/sponsor-logo";
+import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 import { getDisplayTheme } from "@/lib/display-theme";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
@@ -404,7 +404,7 @@ export default function ObsOverlay() {
   }, []);
 
   const sponsorLogos = useMemo(
-    () => parseSponsorLogos(tournament?.sponsorLogos),
+    () => getSponsorsByPriority(parseSponsorLogos(tournament?.sponsorLogos)),
     [tournament?.sponsorLogos],
   );
 

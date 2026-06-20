@@ -12,7 +12,7 @@ import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { FormField, inputClass, PageHeader, HubPageShell, BtnPrimary, BtnSecondary, hubCardClass, hubPanelClass } from "@/components/badminton/page-chrome";
 import { ScoreBoardSponsorPanel, hasScoreBoardSponsor } from "@/components/badminton/score-board-sponsor-panel";
 import { badmintonFetch } from "@/lib/badminton-api";
-import { parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
+import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type SponsorLogo } from "@/lib/sponsor-logo";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
@@ -54,7 +54,7 @@ function brandingFromApi(branding: BadmintonBranding): {
       primaryColor: branding.primaryColor,
       accentColor: branding.accentColor,
     },
-    sponsorLogos: parseSponsorLogos(branding.sponsorLogos),
+    sponsorLogos: getSponsorsByPriority(parseSponsorLogos(branding.sponsorLogos)),
     scoreBoardSponsor: branding.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR,
   };
 }
@@ -206,6 +206,12 @@ export default function BadmintonBrandingPage() {
   const persistBranding = useCallback(
     (immediate = false) => {
       if (!tournamentId) return;
+      const filtered = sponsorLogos.filter((l) => l.url.trim());
+      const sponsorValidation = validateSponsorList(filtered);
+      if (!sponsorValidation.ok) {
+        setSaveError(sponsorValidation.error);
+        return;
+      }
       const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
       const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
       if (signature === lastSavedPayloadRef.current) return;

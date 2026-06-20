@@ -28,6 +28,7 @@ import {
   PAYMENT_VERIFICATION_METHODS,
 } from "@workspace/api-base/registration-payment";
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
+import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
 import {
   resolveBroadcastAudioUrl,
@@ -123,6 +124,17 @@ router.post("/tournaments", async (req, res) => {
   const parsed = tournamentInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  let validatedSponsorLogos: string | null | undefined;
+  if (d.sponsorLogos !== undefined) {
+    const sponsorCheck = parseValidatedSponsorLogos(d.sponsorLogos);
+    if (!sponsorCheck.ok) {
+      res.status(400).json({ error: sponsorCheck.error });
+      return;
+    }
+    validatedSponsorLogos = sponsorCheck.value ?? null;
+  }
+
   const auctionCode = await generateUniqueAuctionCode(d.name, d.auctionDate);
 
   let organizerId: number | null = null;
@@ -162,7 +174,7 @@ router.post("/tournaments", async (req, res) => {
       organizerMobile,
       organizerEmail,
       logoUrl: d.logoUrl ?? null,
-      sponsorLogos: d.sponsorLogos ?? null,
+      sponsorLogos: validatedSponsorLogos ?? null,
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,
@@ -323,7 +335,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
   if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
-  if (d.sponsorLogos !== undefined) updates.sponsorLogos = d.sponsorLogos;
+  if (d.sponsorLogos !== undefined) {
+    const sponsorCheck = parseValidatedSponsorLogos(d.sponsorLogos);
+    if (!sponsorCheck.ok) {
+      res.status(400).json({ error: sponsorCheck.error });
+      return;
+    }
+    updates.sponsorLogos = sponsorCheck.value ?? null;
+  }
   if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;

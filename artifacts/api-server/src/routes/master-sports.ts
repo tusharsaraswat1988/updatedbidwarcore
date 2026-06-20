@@ -20,6 +20,7 @@ import {
   ensureStatisticsForMigratedPlayers,
 } from "../lib/master-sports/migrate-badminton";
 import { syncAllAuctionPlayersToMaster } from "../lib/master-sports/sync";
+import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 
 const router = Router({ mergeParams: true });
 
@@ -241,6 +242,15 @@ router.patch("/branding", async (req, res) => {
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
+  }
+
+  if (parsed.data.sponsorLogos !== undefined) {
+    const sponsorCheck = parseValidatedSponsorLogos(parsed.data.sponsorLogos ?? undefined);
+    if (!sponsorCheck.ok) {
+      res.status(400).json({ error: sponsorCheck.error });
+      return;
+    }
+    parsed.data.sponsorLogos = sponsorCheck.value ?? null;
   }
 
   try {

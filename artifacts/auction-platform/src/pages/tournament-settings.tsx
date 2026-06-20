@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
+import { type SponsorLogo, normalizeSponsorLogos, validateSponsorList } from "@/lib/sponsor-logo";
 import { SettingsCard } from "@/components/settings/settings-card";
 import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
@@ -462,8 +462,12 @@ export default function TournamentSettings() {
     if (editForm.bidValueMode === "player" && bidValueOptions.filter((n) => n > 0).length === 0) {
       return "Add at least one allowed bid value for Player Selected mode";
     }
+    const sponsorValidation = validateSponsorList(sponsorLogos.filter((l) => l.url.trim()));
+    if (!sponsorValidation.ok) {
+      return sponsorValidation.error;
+    }
     return null;
-  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
