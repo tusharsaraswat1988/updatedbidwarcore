@@ -1,29 +1,299 @@
+/**
+ * Buzz Studio — Team Reveal Template (Phase 17A)
+ *
+ * Visual hierarchy: Team Name → Logo → Captain → Spend → Branding
+ *
+ * Design language:
+ *   - Glass circular logo badge (no glow rings, no gold frame)
+ *   - Team name dominates as the largest element on canvas
+ *   - Compact captain pill and inline stat chips below the name
+ *   - Bottom-center BIDWAR watermark (opacity 0.05) replaces diagonal
+ *   - BidwarCanvas footer carries tournament branding
+ *   - Background is admin-uploaded full-bleed image — no overlays added
+ *
+ * POSTER_TOKENS defined here are designed to be portable to PlayerSpotlight,
+ * SoldPlayer, and TopBuys in subsequent phases.
+ */
+
 import React from "react";
+import { BIDWAR_WATERMARK } from "../../assets/watermark";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
 import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
 import { SportBadge, CaptainBadge } from "../../design-system/badges";
-import { TeamSlot, AvatarSlot } from "../../design-system/logo-slots";
-import { StatCard } from "../../design-system/stat-cards";
+import { AvatarSlot } from "../../design-system/logo-slots";
+import { monogramFor } from "../../asset-engine/monogram-generator";
 import {
   pickRenderContext,
   type BuzzTemplateRenderProps,
+  canvasH,
 } from "../../rendering/buzz-render-context";
 import {
-  heroLogoSize,
-  heroTitleSize,
   isLandscapePoster,
-  isTallPoster,
   posterSpacing,
+  heroTitleSize,
   secondaryLabelSize,
   bodyLabelSize,
 } from "../../rendering/poster-layout";
 import { formatTeamSpend } from "./TeamReveal.utils";
 import type { TeamRevealContract } from "./TeamReveal.types";
 
+// ─── Poster Design Tokens ─────────────────────────────────────────────────────
+//
+// Shared visual language for all Buzz Studio templates.
+// These tokens are the single source of truth for colors, borders, and surfaces.
+// Copy-portable to PlayerSpotlight, SoldPlayer, and TopBuys.
+
+export const POSTER_TOKENS = {
+  font:            "system-ui, sans-serif",
+  white:           "#FFFFFF",
+  gold:            t.primaryGold,
+  ghostText:       "rgba(255,255,255,0.30)",
+  mutedText:       "rgba(255,255,255,0.55)",
+  glassDark:       "rgba(0,0,0,0.38)",
+  glassLight:      "rgba(255,255,255,0.07)",
+  borderSubtle:    "1px solid rgba(255,255,255,0.12)",
+  borderMedium:    "1px solid rgba(255,255,255,0.18)",
+  borderGlass:     "1.5px solid rgba(255,255,255,0.16)",
+  borderGold:      `1px solid rgba(251,191,36,0.35)`,
+  divider:         "linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent)",
+  tagBg:           "rgba(251,191,36,0.09)",
+  tagBorder:       "1px solid rgba(251,191,36,0.30)",
+  watermark:       "rgba(255,255,255,0.05)",
+} as const;
+
+// ─── Component Types ──────────────────────────────────────────────────────────
+
 type TeamRevealProps = TeamRevealContract &
   BuzzTemplateRenderProps & {
+    /** Injected at render time from Creative Assets Manager. Never stored in contracts. */
     backgroundImageUrl?: string;
   };
+
+type PosterCtx = NonNullable<ReturnType<typeof pickRenderContext>>;
+
+// ─── Glass Logo Badge ─────────────────────────────────────────────────────────
+//
+// Team logo inside a circular glass container.
+// No gold ring, no radial glow, no box-shadow.
+
+function GlassLogoBadge({
+  teamName,
+  logoUrl,
+  size,
+}: {
+  teamName: string;
+  logoUrl?: string | null;
+  size: number;
+}) {
+  const { initials } = monogramFor(teamName, "team");
+  const fontSize = Math.round(size * 0.30);
+
+  return (
+    <div
+      style={{
+        width:        size,
+        height:       size,
+        borderRadius: "50%",
+        background:   POSTER_TOKENS.glassLight,
+        border:       POSTER_TOKENS.borderGlass,
+        overflow:     "hidden",
+        flexShrink:   0,
+        display:      "flex",
+        alignItems:   "center",
+        justifyContent: "center",
+      }}
+    >
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={teamName}
+          draggable={false}
+          style={{
+            width:          "100%",
+            height:         "100%",
+            objectFit:      "cover",
+            objectPosition: "center",
+            display:        "block",
+          }}
+        />
+      ) : (
+        <span
+          style={{
+            fontFamily:   POSTER_TOKENS.font,
+            fontSize:     `${fontSize}px`,
+            fontWeight:   900,
+            color:        "rgba(255,255,255,0.82)",
+            letterSpacing: "0.05em",
+            userSelect:   "none",
+          }}
+        >
+          {initials}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Stat Pill ────────────────────────────────────────────────────────────────
+//
+// Compact inline stat: value over label. Replaces full StatCard boxes.
+// Reduces DOM and padding for tighter composition.
+
+function StatPill({
+  label,
+  value,
+  gold = false,
+  fontSize,
+}: {
+  label: string;
+  value: string | number;
+  gold?: boolean;
+  fontSize: number;
+}) {
+  return (
+    <div
+      style={{
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        gap:            Math.round(fontSize * 0.28),
+        padding:        `${Math.round(fontSize * 0.65)}px ${Math.round(fontSize * 1.15)}px`,
+        borderRadius:   10,
+        background:     POSTER_TOKENS.glassDark,
+        border:         gold ? POSTER_TOKENS.borderGold : POSTER_TOKENS.borderSubtle,
+        minWidth:       Math.round(fontSize * 5.5),
+      }}
+    >
+      <span
+        style={{
+          fontFamily:    POSTER_TOKENS.font,
+          fontSize:      `${Math.round(fontSize * 1.22)}px`,
+          fontWeight:    900,
+          color:         gold ? POSTER_TOKENS.gold : POSTER_TOKENS.white,
+          letterSpacing: "0.04em",
+          lineHeight:    1,
+        }}
+      >
+        {value}
+      </span>
+      <span
+        style={{
+          fontFamily:    POSTER_TOKENS.font,
+          fontSize:      `${Math.round(fontSize * 0.70)}px`,
+          fontWeight:    600,
+          color:         POSTER_TOKENS.ghostText,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          lineHeight:    1,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Captain Row ──────────────────────────────────────────────────────────────
+
+function CaptainRow({
+  captainName,
+  captainImageUrl,
+  bodySize,
+  microSize,
+  align = "center",
+}: {
+  captainName: string;
+  captainImageUrl?: string | null;
+  bodySize: number;
+  microSize: number;
+  align?: "center" | "flex-start";
+}) {
+  return (
+    <div
+      style={{
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     align,
+        gap:            Math.round(bodySize * 0.35),
+      }}
+    >
+      <span
+        style={{
+          fontFamily:    POSTER_TOKENS.font,
+          fontSize:      `${microSize}px`,
+          fontWeight:    700,
+          color:         POSTER_TOKENS.ghostText,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          lineHeight:    1,
+        }}
+      >
+        CAPTAIN
+      </span>
+      <div
+        style={{
+          display:     "flex",
+          alignItems:  "center",
+          gap:         Math.round(bodySize * 0.55),
+          padding:     `${Math.round(bodySize * 0.45)}px ${Math.round(bodySize * 1.1)}px`,
+          borderRadius: 10,
+          background:  POSTER_TOKENS.glassDark,
+          border:      POSTER_TOKENS.borderSubtle,
+        }}
+      >
+        <AvatarSlot
+          name={captainName}
+          kind="player"
+          imageUrl={captainImageUrl ?? undefined}
+          size="sm"
+        />
+        <span
+          style={{
+            fontFamily:    POSTER_TOKENS.font,
+            fontSize:      `${bodySize}px`,
+            fontWeight:    700,
+            color:         POSTER_TOKENS.white,
+            letterSpacing: "0.05em",
+            whiteSpace:    "nowrap",
+            overflow:      "hidden",
+            textOverflow:  "ellipsis",
+            maxWidth:      "28ch",
+          }}
+        >
+          {captainName}
+        </span>
+        <CaptainBadge />
+      </div>
+    </div>
+  );
+}
+
+// ─── Reveal Tag ───────────────────────────────────────────────────────────────
+
+function RevealTag({ fontSize }: { fontSize: number }) {
+  return (
+    <span
+      style={{
+        fontFamily:    POSTER_TOKENS.font,
+        fontSize:      `${fontSize}px`,
+        fontWeight:    800,
+        color:         POSTER_TOKENS.gold,
+        letterSpacing: "0.12em",
+        background:    POSTER_TOKENS.tagBg,
+        border:        POSTER_TOKENS.tagBorder,
+        borderRadius:  999,
+        padding:       `${Math.round(fontSize * 0.35)}px ${Math.round(fontSize * 1.0)}px`,
+        textTransform: "uppercase",
+        lineHeight:    1,
+        userSelect:    "none",
+      }}
+    >
+      ● TEAM REVEAL ●
+    </span>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export function TeamReveal(props: TeamRevealProps) {
   const renderCtx = pickRenderContext(props);
@@ -42,23 +312,29 @@ export function TeamReveal(props: TeamRevealProps) {
   } = props;
 
   const spendDisplay = formatTeamSpend(props);
-  const hasStats = playerCount != null || spendDisplay != null;
-  const hasCaptain = !!captainName;
-  const displayTeamName = teamName ?? "FRANCHISE";
+  const hasStats     = playerCount != null || spendDisplay != null;
+  const hasCaptain   = !!captainName;
+  const displayName  = teamName ?? "FRANCHISE";
+
+  const canvasProps = {
+    branding:          props.branding,
+    backgroundImageUrl,
+    showWatermark:     false,   // diagonal replaced by bottom-center watermark inside template
+    showFooterBranding: true,
+  } as const;
 
   if (renderCtx) {
     return (
       <BidwarCanvas
-        branding={props.branding}
-        backgroundImageUrl={backgroundImageUrl}
-        showFooterBranding
+        {...canvasProps}
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
         renderWidth={renderWidth ?? renderCtx.renderWidth}
         renderHeight={renderHeight ?? renderCtx.renderHeight}
       >
         <TeamRevealPoster
-          displayTeamName={displayTeamName}
+          ctx={renderCtx}
+          displayName={displayName}
           teamLogoUrl={teamLogoUrl}
           sport={sport}
           captainName={captainName}
@@ -67,56 +343,34 @@ export function TeamReveal(props: TeamRevealProps) {
           spendDisplay={spendDisplay}
           hasStats={hasStats}
           hasCaptain={hasCaptain}
-          ctx={renderCtx}
         />
       </BidwarCanvas>
     );
   }
 
+  // Dev sandbox / legacy card mode (no render context)
   return (
-    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
-      <div style={s.layoutLegacy}>
-        <div style={s.topStrip}>
-          <SportBadge sport={sport} />
-          <span style={s.announceTag}>● TEAM REVEAL ●</span>
-        </div>
-        <div style={s.teamLogoSection}>
-          <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl} size={96} />
-        </div>
-        <div style={s.teamNameArea}>
-          <span style={s.franchiseLabel}>FRANCHISE</span>
-          <h1 style={{ ...legacyTitle, textAlign: "center" }}>{displayTeamName.toUpperCase()}</h1>
-        </div>
-        <div style={s.divider} aria-hidden="true" />
-        {hasStats && (
-          <div style={s.statsRow}>
-            {playerCount != null && (
-              <StatCard label="Squad Size" value={playerCount} icon="👥" />
-            )}
-            {spendDisplay != null && (
-              <StatCard label="Total Spend" value={spendDisplay} highlight icon="💰" />
-            )}
-          </div>
-        )}
-        {hasCaptain && (
-          <div style={s.captainSection}>
-            <div style={s.captainSeparator} aria-hidden="true" />
-            <span style={s.captainLabel}>CAPTAIN</span>
-            <div style={s.captainRow}>
-              <AvatarSlot name={captainName!} kind="player" imageUrl={captainImageUrl ?? undefined} size="sm" />
-              <span style={s.captainNameText}>{captainName!}</span>
-              <CaptainBadge />
-            </div>
-          </div>
-        )}
-      </div>
+    <BidwarCanvas {...canvasProps}>
+      <TeamRevealLegacy
+        displayName={displayName}
+        teamLogoUrl={teamLogoUrl}
+        sport={sport}
+        captainName={captainName}
+        captainImageUrl={captainImageUrl}
+        playerCount={playerCount}
+        spendDisplay={spendDisplay}
+        hasStats={hasStats}
+        hasCaptain={hasCaptain}
+      />
     </BidwarCanvas>
   );
 }
 
+// ─── Poster Composition ───────────────────────────────────────────────────────
+
 function TeamRevealPoster({
   ctx,
-  displayTeamName,
+  displayName,
   teamLogoUrl,
   sport,
   captainName,
@@ -126,8 +380,8 @@ function TeamRevealPoster({
   hasStats,
   hasCaptain,
 }: {
-  ctx: NonNullable<ReturnType<typeof pickRenderContext>>;
-  displayTeamName: string;
+  ctx: PosterCtx;
+  displayName: string;
   teamLogoUrl?: string | null;
   sport: TeamRevealContract["sport"];
   captainName?: string | null;
@@ -137,347 +391,368 @@ function TeamRevealPoster({
   hasStats: boolean;
   hasCaptain: boolean;
 }) {
-  const spacing = posterSpacing(ctx);
-  const logoSize = heroLogoSize(ctx);
+  const spacing   = posterSpacing(ctx);
   const titleSize = heroTitleSize(ctx);
   const labelSize = secondaryLabelSize(ctx);
-  const bodySize = bodyLabelSize(ctx);
+  const bodySize  = bodyLabelSize(ctx);
+  const microSize = canvasH(ctx.renderHeight, 0.012, 10, 14);
   const landscape = isLandscapePoster(ctx);
-  const tall = isTallPoster(ctx);
 
-  const tagStyle: React.CSSProperties = {
-    fontFamily: "system-ui, sans-serif",
-    fontSize: labelSize,
-    fontWeight: 800,
-    color: t.primaryGold,
-    letterSpacing: "0.14em",
-    background: "rgba(251,191,36,0.09)",
-    border: "1px solid rgba(251,191,36,0.30)",
-    borderRadius: 999,
-    padding: `${Math.round(labelSize * 0.35)}px ${Math.round(labelSize * 1.1)}px`,
-    textTransform: "uppercase",
-  };
+  const gap      = spacing.sectionGap;
+  const halfGap  = Math.round(gap * 0.55);
+  const thirdGap = Math.round(gap * 0.35);
 
-  const heroNameStyle: React.CSSProperties = {
-    margin: 0,
-    fontFamily: "system-ui, sans-serif",
-    fontSize: titleSize,
-    fontWeight: 900,
-    color: "#FFFFFF",
-    letterSpacing: "0.05em",
-    lineHeight: 1.02,
-    textAlign: landscape ? "left" : "center",
-    textTransform: "uppercase",
-  };
+  // Logo badge: larger than heroLogoSize — it's the primary visual anchor
+  const badgeSize = canvasH(ctx.renderHeight, 0.17, 152, 228);
 
-  const statCardStyle: React.CSSProperties = {
-    minWidth: landscape ? 180 : 140,
-    padding: `${Math.round(bodySize * 0.8)}px ${Math.round(bodySize * 1.2)}px`,
-  };
-
-  const heroBlock = (
-    <>
-      <div style={p.topStrip}>
-        <SportBadge sport={sport} />
-        <span style={tagStyle}>● TEAM REVEAL ●</span>
-      </div>
-      <div style={{ ...p.logoSection, marginBottom: spacing.sectionGap }}>
-        <TeamSlot teamName={displayTeamName} imageUrl={teamLogoUrl ?? undefined} size={logoSize} />
-      </div>
-      <div style={{ ...p.nameArea, alignItems: landscape ? "flex-start" : "center" }}>
-        <span style={{ ...p.microLabel, fontSize: labelSize }}>FRANCHISE</span>
-        <h1 style={heroNameStyle}>{displayTeamName.toUpperCase()}</h1>
-      </div>
-    </>
-  );
-
-  const statsBlock = hasStats ? (
-    <div
+  const teamNameEl = (
+    <h1
       style={{
-        ...p.statsRow,
-        gap: spacing.sectionGap,
-        marginBottom: hasCaptain ? spacing.sectionGap : 0,
+        margin:        0,
+        fontFamily:    POSTER_TOKENS.font,
+        fontSize:      `${titleSize}px`,
+        fontWeight:    900,
+        color:         POSTER_TOKENS.white,
+        letterSpacing: "0.06em",
+        lineHeight:    1.0,
+        textTransform: "uppercase",
+        textAlign:     landscape ? "left" : "center",
       }}
     >
-      {playerCount != null && (
-        <StatCard
-          label="Squad Size"
-          value={playerCount}
-          icon="👥"
-          style={statCardStyle}
-        />
-      )}
+      {displayName.toUpperCase()}
+    </h1>
+  );
+
+  const franchiseLabel = (
+    <span
+      style={{
+        fontFamily:    POSTER_TOKENS.font,
+        fontSize:      `${microSize}px`,
+        fontWeight:    700,
+        color:         POSTER_TOKENS.ghostText,
+        letterSpacing: "0.30em",
+        textTransform: "uppercase",
+        lineHeight:    1,
+      }}
+    >
+      FRANCHISE
+    </span>
+  );
+
+  const dividerEl = (
+    <div
+      aria-hidden="true"
+      style={{
+        width:      landscape ? "60%" : "70%",
+        height:     1,
+        background: POSTER_TOKENS.divider,
+        flexShrink: 0,
+        alignSelf:  landscape ? "flex-start" : "center",
+      }}
+    />
+  );
+
+  const statsEl = hasStats ? (
+    <div
+      style={{
+        display:        "flex",
+        gap:            halfGap,
+        justifyContent: landscape ? "flex-start" : "center",
+        flexWrap:       "wrap",
+      }}
+    >
       {spendDisplay != null && (
-        <StatCard
-          label="Total Spend"
-          value={spendDisplay}
-          highlight
-          icon="💰"
-          style={statCardStyle}
-        />
+        <StatPill label="Total Spend" value={spendDisplay} gold fontSize={bodySize} />
+      )}
+      {playerCount != null && (
+        <StatPill label="Squad Size" value={playerCount} fontSize={bodySize} />
       )}
     </div>
   ) : null;
 
-  const captainBlock = hasCaptain ? (
-    <div style={p.captainSection}>
-      <div style={p.captainSeparator} aria-hidden="true" />
-      <span style={{ ...p.microLabel, fontSize: labelSize }}>CAPTAIN</span>
-      <div style={{ ...p.captainRow, padding: `${Math.round(bodySize * 0.7)}px ${Math.round(bodySize * 1.4)}px` }}>
-        <AvatarSlot name={captainName!} kind="player" imageUrl={captainImageUrl ?? undefined} size="sm" />
-        <span style={{ ...p.captainName, fontSize: bodySize }}>{captainName!}</span>
-        <CaptainBadge />
-      </div>
-    </div>
+  const captainEl = hasCaptain ? (
+    <CaptainRow
+      captainName={captainName!}
+      captainImageUrl={captainImageUrl}
+      bodySize={bodySize}
+      microSize={microSize}
+      align={landscape ? "flex-start" : "center"}
+    />
   ) : null;
 
+  // Bottom-center watermark (replaces diagonal BIDWAR watermark from BidwarCanvas)
+  const watermarkEl = (
+    <div
+      aria-hidden="true"
+      style={{
+        display:        "flex",
+        justifyContent: "center",
+        width:          "100%",
+        marginTop:      "auto",
+        paddingTop:     thirdGap,
+        flexShrink:     0,
+      }}
+    >
+      <span
+        style={{
+          fontFamily:    POSTER_TOKENS.font,
+          fontSize:      `${canvasH(ctx.renderHeight, 0.020, 13, 18)}px`,
+          fontWeight:    900,
+          color:         POSTER_TOKENS.watermark,
+          letterSpacing: "0.40em",
+          textTransform: "uppercase",
+          userSelect:    "none",
+        }}
+      >
+        {BIDWAR_WATERMARK}
+      </span>
+    </div>
+  );
+
+  // ── Landscape (16:9) ──
   if (landscape) {
     return (
-      <div style={p.landscapeRoot}>
-        <div style={p.landscapeHeroCol}>{heroBlock}</div>
-        <div style={p.landscapeSideCol}>
-          {statsBlock}
-          {captainBlock}
+      <div
+        style={{
+          display:     "flex",
+          flexDirection: "row",
+          alignItems:  "stretch",
+          width:       "100%",
+          height:      "100%",
+          flex:        1,
+          gap:         gap * 1.8,
+          minHeight:   0,
+        }}
+      >
+        {/* Left: name + info */}
+        <div
+          style={{
+            flex:          1.1,
+            display:       "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap:           halfGap,
+            minWidth:      0,
+          }}
+        >
+          {franchiseLabel}
+          {teamNameEl}
+          {dividerEl}
+          {captainEl}
+          {statsEl}
+        </div>
+
+        {/* Right: sport badge + logo */}
+        <div
+          style={{
+            flex:          0.9,
+            display:       "flex",
+            flexDirection: "column",
+            alignItems:    "center",
+            justifyContent: "center",
+            gap:           halfGap,
+            minWidth:      0,
+          }}
+        >
+          <div
+            style={{
+              display:        "flex",
+              justifyContent: "space-between",
+              alignItems:     "center",
+              width:          "100%",
+              marginBottom:   thirdGap,
+            }}
+          >
+            <SportBadge sport={sport} />
+            <RevealTag fontSize={labelSize} />
+          </div>
+          <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={badgeSize} />
         </div>
       </div>
     );
   }
 
+  // ── Portrait (1:1, 4:5, 9:16) ──
   return (
     <div
       style={{
-        ...p.portraitRoot,
-        gap: tall ? spacing.sectionGap * 1.25 : spacing.sectionGap,
+        display:       "flex",
+        flexDirection: "column",
+        width:         "100%",
+        height:        "100%",
+        flex:          1,
+        minHeight:     0,
       }}
     >
-      {heroBlock}
-      <div style={p.portraitBody}>
-        {statsBlock}
-        {captainBlock}
+      {/* Top strip */}
+      <div
+        style={{
+          display:        "flex",
+          justifyContent: "space-between",
+          alignItems:     "center",
+          width:          "100%",
+          flexShrink:     0,
+          paddingBottom:  halfGap,
+        }}
+      >
+        <SportBadge sport={sport} />
+        <RevealTag fontSize={labelSize} />
       </div>
+
+      {/* Hero block — vertically centered */}
+      <div
+        style={{
+          flex:           1,
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+          justifyContent: "center",
+          gap:            halfGap,
+          minHeight:      0,
+        }}
+      >
+        <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={badgeSize} />
+
+        {/* Name group — tight vertical stack */}
+        <div
+          style={{
+            display:       "flex",
+            flexDirection: "column",
+            alignItems:    "center",
+            gap:           thirdGap,
+            marginTop:     Math.round(thirdGap * 0.5),
+          }}
+        >
+          {franchiseLabel}
+          {teamNameEl}
+        </div>
+
+        {dividerEl}
+
+        {captainEl}
+
+        {statsEl}
+      </div>
+
+      {/* Bottom watermark — opacity 0.05, never competes with content */}
+      {watermarkEl}
     </div>
   );
 }
 
-const legacyTitle: React.CSSProperties = {
-  fontFamily: "system-ui, sans-serif",
-  fontSize: "clamp(1.5rem, 5.5vw, 2.75rem)",
-  fontWeight: 900,
-  color: "#FFFFFF",
-  letterSpacing: "0.06em",
-  lineHeight: 1.05,
-  margin: 0,
-};
+// ─── Legacy Card (Dev Sandbox) ────────────────────────────────────────────────
+//
+// Shown in local dev without a render context (no aspectRatio/dimensions).
+// Uses clamp-based sizes for responsive preview card.
 
-const p: Record<string, React.CSSProperties> = {
-  portraitRoot: {
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
-    height: "100%",
-    flex: 1,
-    minHeight: 0,
-    justifyContent: "space-between",
-  },
-  portraitBody: {
-    display: "flex",
-    flexDirection: "column",
-    width: "100%",
-    gap: 20,
-  },
-  landscapeRoot: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "stretch",
-    width: "100%",
-    height: "100%",
-    flex: 1,
-    gap: 48,
-    minHeight: 0,
-  },
-  landscapeHeroCol: {
-    flex: 1.15,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    minWidth: 0,
-    height: "100%",
-  },
-  landscapeSideCol: {
-    flex: 0.85,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    gap: 28,
-    minWidth: 0,
-    height: "100%",
-  },
-  topStrip: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 12,
-  },
-  logoSection: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nameArea: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-  },
-  microLabel: {
-    fontFamily: "system-ui, sans-serif",
-    fontWeight: 700,
-    color: "rgba(255,255,255,0.28)",
-    letterSpacing: "0.26em",
-    textTransform: "uppercase",
-  },
-  statsRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    width: "100%",
-  },
-  captainSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-  },
-  captainSeparator: {
-    width: "100%",
-    height: 1,
-    background: "rgba(255,255,255,0.07)",
-  },
-  captainRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    borderRadius: 12,
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.10)",
-  },
-  captainName: {
-    fontFamily: "system-ui, sans-serif",
-    fontWeight: 700,
-    color: "#FFFFFF",
-    letterSpacing: "0.06em",
-    flexShrink: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-};
+function TeamRevealLegacy({
+  displayName,
+  teamLogoUrl,
+  sport,
+  captainName,
+  captainImageUrl,
+  playerCount,
+  spendDisplay,
+  hasStats,
+  hasCaptain,
+}: {
+  displayName: string;
+  teamLogoUrl?: string | null;
+  sport: TeamRevealContract["sport"];
+  captainName?: string | null;
+  captainImageUrl?: string | null;
+  playerCount?: number | null;
+  spendDisplay: string | null;
+  hasStats: boolean;
+  hasCaptain: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display:       "flex",
+        flexDirection: "column",
+        alignItems:    "center",
+        width:         "100%",
+        gap:           14,
+        padding:       "4px 0 8px",
+      }}
+    >
+      {/* Top row */}
+      <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+        <SportBadge sport={sport} />
+        <span
+          style={{
+            fontFamily:    POSTER_TOKENS.font,
+            fontSize:      "0.5rem",
+            fontWeight:    800,
+            color:         POSTER_TOKENS.gold,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            background:    POSTER_TOKENS.tagBg,
+            border:        POSTER_TOKENS.tagBorder,
+            borderRadius:  999,
+            padding:       "3px 10px",
+          }}
+        >
+          ● TEAM REVEAL ●
+        </span>
+      </div>
 
-const s: Record<string, React.CSSProperties> = {
-  layoutLegacy: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    width: "100%",
-    padding: "0 0 4px",
-  },
-  topStrip: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 10,
-  },
-  announceTag: {
-    fontFamily: "system-ui, sans-serif",
-    fontSize: "clamp(0.45rem, 1.3vw, 0.5625rem)",
-    fontWeight: 800,
-    color: t.primaryGold,
-    letterSpacing: "0.14em",
-    background: "rgba(251,191,36,0.09)",
-    border: "1px solid rgba(251,191,36,0.30)",
-    borderRadius: 999,
-    padding: "3px 10px",
-    textTransform: "uppercase",
-  },
-  teamLogoSection: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-  },
-  teamNameArea: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 5,
-    paddingBottom: 12,
-    textAlign: "center",
-  },
-  franchiseLabel: {
-    fontFamily: "system-ui, sans-serif",
-    fontSize: "clamp(0.45rem, 1.2vw, 0.5625rem)",
-    fontWeight: 700,
-    color: "rgba(255,255,255,0.28)",
-    letterSpacing: "0.26em",
-    textTransform: "uppercase",
-  },
-  divider: {
-    width: "55%",
-    height: 1,
-    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
-    marginBottom: 14,
-  },
-  statsRow: {
-    display: "flex",
-    gap: 12,
-    justifyContent: "center",
-    flexWrap: "wrap",
-    marginBottom: 14,
-    width: "100%",
-  },
-  captainSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 7,
-    width: "100%",
-  },
-  captainSeparator: {
-    width: "100%",
-    height: 1,
-    background: "rgba(255,255,255,0.07)",
-  },
-  captainLabel: {
-    fontFamily: "system-ui, sans-serif",
-    fontSize: "clamp(0.45rem, 1.2vw, 0.5625rem)",
-    fontWeight: 700,
-    color: "rgba(255,255,255,0.28)",
-    letterSpacing: "0.26em",
-    textTransform: "uppercase",
-  },
-  captainRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "8px 18px",
-    borderRadius: 10,
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.10)",
-  },
-  captainNameText: {
-    fontFamily: "system-ui, sans-serif",
-    fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-    fontWeight: 700,
-    color: "#FFFFFF",
-    letterSpacing: "0.06em",
-    flexShrink: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-};
+      <GlassLogoBadge teamName={displayName} logoUrl={teamLogoUrl} size={96} />
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textAlign: "center" }}>
+        <span
+          style={{
+            fontFamily:    POSTER_TOKENS.font,
+            fontSize:      "0.45rem",
+            fontWeight:    700,
+            color:         POSTER_TOKENS.ghostText,
+            letterSpacing: "0.26em",
+            textTransform: "uppercase",
+          }}
+        >
+          FRANCHISE
+        </span>
+        <h1
+          style={{
+            margin:        0,
+            fontFamily:    POSTER_TOKENS.font,
+            fontSize:      "clamp(1.5rem, 5.5vw, 2.75rem)",
+            fontWeight:    900,
+            color:         POSTER_TOKENS.white,
+            letterSpacing: "0.06em",
+            lineHeight:    1.05,
+            textTransform: "uppercase",
+          }}
+        >
+          {displayName.toUpperCase()}
+        </h1>
+      </div>
+
+      <div
+        aria-hidden="true"
+        style={{ width: "55%", height: 1, background: POSTER_TOKENS.divider }}
+      />
+
+      {hasStats && (
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          {spendDisplay != null && (
+            <StatPill label="Total Spend" value={spendDisplay} gold fontSize={14} />
+          )}
+          {playerCount != null && (
+            <StatPill label="Squad Size" value={playerCount} fontSize={14} />
+          )}
+        </div>
+      )}
+
+      {hasCaptain && (
+        <CaptainRow
+          captainName={captainName!}
+          captainImageUrl={captainImageUrl}
+          bodySize={14}
+          microSize={10}
+        />
+      )}
+    </div>
+  );
+}
