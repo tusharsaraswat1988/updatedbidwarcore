@@ -1,20 +1,35 @@
 /**
- * Buzz Studio — Team Reveal Template (Phase 17B)
+ * Buzz Studio — Team Reveal Template (Phase 17C)
  *
- * Design philosophy: background is the creative (70%), content is typography (30%).
+ * COMPOSITION: Three-zone layout — every zone has a purpose.
  *
- * NO glass cards. NO pill containers. NO rounded component boxes. NO borders
- * around content. NO dashboard chrome. NO UI widgets.
+ * Portrait (1:1 · 4:5 · 9:16):
+ * ┌─────────────────────────────────┐
+ * │  ━━━━━ TEAM REVEAL ━━━━━        │  Zone 1 — 11% canvas height
+ * │                                 │
+ * │         [ LOGO ]                │  Zone 2 — flex:1 (hero)
+ * │      TEAM NAME                  │     Logo: 26% canvas height
+ * │                                 │     Name: 90–120px, weight 900
+ * │                                 │
+ * │  CAPTAIN    SQUAD     SPEND     │  Zone 3 — 16% canvas height
+ * │  Name       15        ₹8.1L     │     3-col typography row
+ * └─────────────────────────────────┘
+ *         [BidwarCanvas Footer]
  *
- * Think: IPL franchise reveal · auction announcement · sports Instagram creative
- * NOT: SaaS admin panel · analytics card · component library screenshot
+ * Landscape (16:9):
+ * ┌───────────────┬──────────────────────┐
+ * │               │  ━━ TEAM REVEAL ━━   │
+ * │  [ BIG LOGO ] │                      │
+ * │               │  TEAM NAME           │
+ * │               │  (120px, dominant)   │
+ * │               │  CAPTAIN SQUAD SPEND │
+ * └───────────────┴──────────────────────┘
+ *              [Footer — full width]
  *
- * Visual weight:
- *   Team Logo  ≈ 20%   — clean image, no container
- *   Team Name  ≈ 50%   — dominant, weight 900
- *   Everything ≈ 30%   — pure label/value typography
- *
- * POSTER_TOKENS are portable to PlayerSpotlight, SoldPlayer, and TopBuys.
+ * Design rules:
+ *   - No glass cards. No pill containers. No borders around content.
+ *   - Background = creative (70%). Content = typography (30%).
+ *   - Eyes must reach LOGO then NAME before anything else.
  */
 
 import React from "react";
@@ -25,27 +40,27 @@ import {
   pickRenderContext,
   type BuzzTemplateRenderProps,
   canvasH,
+  canvasW,
 } from "../../rendering/buzz-render-context";
 import {
   isLandscapePoster,
   posterSpacing,
-  heroTitleSize,
   bodyLabelSize,
 } from "../../rendering/poster-layout";
 import { formatTeamSpend } from "./TeamReveal.utils";
 import type { TeamRevealContract } from "./TeamReveal.types";
 
 // ─── Poster Design Tokens ─────────────────────────────────────────────────────
-//
-// Typography-first tokens. No card surfaces, no border tokens, no containers.
-// Portable to PlayerSpotlight, SoldPlayer, and TopBuys.
+// Typography-first. No card surfaces or border tokens.
+// Portable to PlayerSpotlight, SoldPlayer, TopBuys.
 
 export const POSTER_TOKENS = {
-  font:     "system-ui, sans-serif",
-  white:    "#FFFFFF",
-  gold:     t.primaryGold,
-  ghost:    "rgba(255,255,255,0.40)",
-  hairline: "rgba(255,255,255,0.14)",
+  font:          "system-ui, sans-serif",
+  white:         "#FFFFFF",
+  gold:          t.primaryGold,
+  ghost:         "rgba(255,255,255,0.40)",
+  hairline:      "rgba(255,255,255,0.14)",
+  goldRule:      "rgba(251,191,36,0.28)",
 } as const;
 
 const PT = POSTER_TOKENS;
@@ -54,16 +69,13 @@ const PT = POSTER_TOKENS;
 
 type TeamRevealProps = TeamRevealContract &
   BuzzTemplateRenderProps & {
-    /** Injected at render time from Creative Assets Manager. Never in contracts. */
     backgroundImageUrl?: string;
   };
 
 type PosterCtx = NonNullable<ReturnType<typeof pickRenderContext>>;
 
 // ─── Team Logo ────────────────────────────────────────────────────────────────
-//
-// Clean image directly on background. No circular container. No border. No glow.
-// Falls back to bold initials text when no logo is uploaded.
+// Plain image on background. No container. No border. No glow.
 
 function TeamLogo({
   teamName,
@@ -101,7 +113,7 @@ function TeamLogo({
         fontFamily:    PT.font,
         fontSize:      `${Math.round(size * 0.44)}px`,
         fontWeight:    900,
-        color:         "rgba(255,255,255,0.68)",
+        color:         "rgba(255,255,255,0.70)",
         letterSpacing: "0.06em",
         lineHeight:    1,
         textAlign:     "center",
@@ -115,10 +127,55 @@ function TeamLogo({
   );
 }
 
+// ─── Reveal Header ────────────────────────────────────────────────────────────
+// Editorial label above logo: ━━━ TEAM REVEAL ━━━
+
+function RevealHeader({
+  microSize,
+  ruleWidth,
+}: {
+  microSize: number;
+  ruleWidth: number;
+}) {
+  const ruleStyle: React.CSSProperties = {
+    width:      ruleWidth,
+    height:     1,
+    background: PT.goldRule,
+    flexShrink: 0,
+  };
+
+  return (
+    <div
+      style={{
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        gap:            Math.round(microSize * 0.70),
+      }}
+    >
+      <div style={ruleStyle} aria-hidden="true" />
+      <span
+        style={{
+          fontFamily:    PT.font,
+          fontSize:      `${microSize}px`,
+          fontWeight:    700,
+          color:         PT.gold,
+          letterSpacing: "0.34em",
+          textTransform: "uppercase",
+          lineHeight:    1,
+          opacity:       0.88,
+          userSelect:    "none",
+        }}
+      >
+        TEAM REVEAL
+      </span>
+      <div style={ruleStyle} aria-hidden="true" />
+    </div>
+  );
+}
+
 // ─── Stat Block ───────────────────────────────────────────────────────────────
-//
-// Label above value. Pure text — no container, no border, no card.
-// Example: CAPTAIN / Rohit Sharma · SQUAD / 15 PLAYERS · SPEND / ₹42.5 Cr
+// Label above value. Pure text. No container, no border, no card.
 
 function StatBlock({
   label,
@@ -141,7 +198,7 @@ function StatBlock({
         display:       "flex",
         flexDirection: "column",
         alignItems:    align === "left" ? "flex-start" : "center",
-        gap:           Math.round(labelSize * 0.5),
+        gap:           Math.round(labelSize * 0.55),
       }}
     >
       <span
@@ -168,7 +225,7 @@ function StatBlock({
           whiteSpace:    "nowrap",
           overflow:      "hidden",
           textOverflow:  "ellipsis",
-          maxWidth:      "22ch",
+          maxWidth:      "18ch",
         }}
       >
         {value}
@@ -265,77 +322,49 @@ function TeamRevealPoster({
   hasCaptain: boolean;
 }) {
   const spacing   = posterSpacing(ctx);
-  const titleSize = heroTitleSize(ctx);
   const bodySize  = bodyLabelSize(ctx);
   const microSize = canvasH(ctx.renderHeight, 0.013, 11, 15);
   const landscape = isLandscapePoster(ctx);
 
-  const gap      = spacing.sectionGap;
-  const halfGap  = Math.round(gap * 0.55);
-  const thirdGap = Math.round(gap * 0.33);
+  const gap     = spacing.sectionGap;
+  const halfGap = Math.round(gap * 0.55);
 
-  // Logo scales differently for landscape (fills column height) vs portrait
+  // ── Typography ──
+  // Portrait target: 90–120px. Landscape: slightly smaller (less height to scale from).
+  const titleSize = landscape
+    ? canvasH(ctx.renderHeight, 0.11, 82, 130)
+    : canvasH(ctx.renderHeight, 0.09, 82, 130);
+
+  const teamNameStyle: React.CSSProperties = {
+    margin:        0,
+    fontFamily:    PT.font,
+    fontSize:      `${titleSize}px`,
+    fontWeight:    900,
+    color:         PT.white,
+    letterSpacing: "0.07em",
+    lineHeight:    0.95,
+    textTransform: "uppercase",
+    textAlign:     landscape ? "left" : "center",
+  };
+
+  // ── Logo sizes ──
+  // Portrait: 35–50% larger than Phase 17B baseline.
+  // Landscape: fills left column height proportionally.
   const logoSize = landscape
-    ? canvasH(ctx.renderHeight, 0.38, 280, 400)
-    : canvasH(ctx.renderHeight, 0.19, 160, 220);
+    ? canvasH(ctx.renderHeight, 0.50, 340, 500)
+    : canvasH(ctx.renderHeight, 0.26, 220, 285);
 
-  // ── Shared elements ──
+  // ── Rule width for TEAM REVEAL header ──
+  const ruleWidth = canvasW(ctx.renderWidth, 0.20, 120, 200);
 
-  const teamNameEl = (
-    <h1
-      style={{
-        margin:        0,
-        fontFamily:    PT.font,
-        fontSize:      `${titleSize}px`,
-        fontWeight:    900,
-        color:         PT.white,
-        letterSpacing: "0.07em",
-        lineHeight:    0.96,
-        textTransform: "uppercase",
-        textAlign:     landscape ? "left" : "center",
-      }}
-    >
-      {displayName.toUpperCase()}
-    </h1>
-  );
-
-  const revealLabelEl = (
-    <span
-      style={{
-        fontFamily:    PT.font,
-        fontSize:      `${Math.round(microSize * 1.2)}px`,
-        fontWeight:    700,
-        color:         PT.gold,
-        letterSpacing: "0.32em",
-        textTransform: "uppercase",
-        lineHeight:    1,
-        opacity:       0.90,
-      }}
-    >
-      TEAM REVEAL
-    </span>
-  );
-
-  const hairlineEl = (
-    <div
-      aria-hidden="true"
-      style={{
-        width:      landscape ? "55%" : "36%",
-        height:     1,
-        background: PT.hairline,
-        flexShrink: 0,
-        alignSelf:  landscape ? "flex-start" : "center",
-      }}
-    />
-  );
-
-  // ── Stats — pure text label/value pairs, no containers ──
+  // ── Stat elements ──
+  const statsAlign = landscape ? "left" : "center";
 
   const captainEl = hasCaptain ? (
     <StatBlock
       label="CAPTAIN"
       value={captainName!}
-      align={landscape ? "left" : "center"}
+      align={statsAlign}
       labelSize={microSize}
       valueSize={bodySize}
     />
@@ -344,8 +373,8 @@ function TeamRevealPoster({
   const squadEl = playerCount != null ? (
     <StatBlock
       label="SQUAD"
-      value={`${playerCount} PLAYERS`}
-      align={landscape ? "left" : "center"}
+      value={playerCount}
+      align={statsAlign}
       labelSize={microSize}
       valueSize={bodySize}
     />
@@ -356,14 +385,17 @@ function TeamRevealPoster({
       label="SPEND"
       value={spendDisplay}
       gold
-      align={landscape ? "left" : "center"}
+      align={statsAlign}
       labelSize={microSize}
       valueSize={bodySize}
     />
   ) : null;
 
+  const anyStats = hasCaptain || hasStats;
+
   // ── Landscape (16:9) ──
-  // LEFT: large logo  |  RIGHT: name → reveal → hairline → stats row
+  // LEFT: large logo, vertically centered
+  // RIGHT: flex column space-between → reveal (top) · name (center) · stats (bottom)
 
   if (landscape) {
     return (
@@ -371,55 +403,43 @@ function TeamRevealPoster({
         style={{
           display:       "flex",
           flexDirection: "row",
-          alignItems:    "center",
+          alignItems:    "stretch",
           width:         "100%",
           height:        "100%",
           flex:          1,
-          gap:           gap * 2,
           minHeight:     0,
         }}
       >
-        {/* Logo — left column, vertically centered */}
+        {/* Left: logo */}
         <div
           style={{
-            flex:           "0 0 auto",
+            flex:           "0 0 42%",
             display:        "flex",
             alignItems:     "center",
             justifyContent: "center",
-            height:         "100%",
           }}
         >
           <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={logoSize} />
         </div>
 
-        {/* Name + stats — right column */}
+        {/* Right: reveal · name · stats */}
         <div
           style={{
             flex:           1,
             display:        "flex",
             flexDirection:  "column",
-            justifyContent: "center",
-            gap:            halfGap,
+            justifyContent: "space-between",
+            paddingTop:     halfGap,
+            paddingBottom:  halfGap,
             minWidth:       0,
           }}
         >
-          {/* Name block */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: thirdGap }}>
-            {teamNameEl}
-            {revealLabelEl}
-          </div>
+          <RevealHeader microSize={microSize} ruleWidth={ruleWidth} />
 
-          {hairlineEl}
+          <h1 style={teamNameStyle}>{displayName.toUpperCase()}</h1>
 
-          {/* Stats row — all 3 side by side for landscape */}
-          {(hasCaptain || hasStats) && (
-            <div
-              style={{
-                display: "flex",
-                gap:     gap * 1.4,
-                alignItems: "flex-start",
-              }}
-            >
+          {anyStats && (
+            <div style={{ display: "flex", gap: gap * 1.4, alignItems: "flex-start" }}>
               {captainEl}
               {squadEl}
               {spendEl}
@@ -431,64 +451,82 @@ function TeamRevealPoster({
   }
 
   // ── Portrait (1:1, 4:5, 9:16) ──
-  // Centered column: Logo → Name → TEAM REVEAL → hairline → stats stack
+  // Zone 1 (fixed height): TEAM REVEAL header
+  // Zone 2 (flex:1):       Logo + Name — hero group, vertically centered
+  // Zone 3 (fixed height): 3-column stats row
+
+  const revealZoneH = canvasH(ctx.renderHeight, 0.11, 82, 120);
+  const statsZoneH  = canvasH(ctx.renderHeight, 0.16, 100, 150);
 
   return (
     <div
       style={{
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        justifyContent: "center",
-        width:          "100%",
-        height:         "100%",
-        flex:           1,
-        gap:            gap,
-        minHeight:      0,
+        display:       "flex",
+        flexDirection: "column",
+        alignItems:    "center",
+        width:         "100%",
+        height:        "100%",
+        flex:          1,
+        minHeight:     0,
       }}
     >
-      {/* Logo — clean image, no container */}
-      <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={logoSize} />
-
-      {/* Name block — team name dominates */}
+      {/* Zone 1 — TEAM REVEAL editorial header */}
       <div
         style={{
+          height:         revealZoneH,
+          flexShrink:     0,
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          width:          "100%",
+        }}
+      >
+        <RevealHeader microSize={microSize} ruleWidth={ruleWidth} />
+      </div>
+
+      {/* Zone 2 — Hero: Logo + Name, vertically centered in remaining space */}
+      <div
+        style={{
+          flex:           1,
           display:        "flex",
           flexDirection:  "column",
           alignItems:     "center",
-          gap:            thirdGap,
+          justifyContent: "center",
+          gap:            halfGap,
+          minHeight:      0,
         }}
       >
-        {teamNameEl}
-        {revealLabelEl}
+        <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={logoSize} />
+        <h1 style={teamNameStyle}>{displayName.toUpperCase()}</h1>
       </div>
 
-      {/* Hairline separator */}
-      {hairlineEl}
-
-      {/* Stats — label/value pairs, pure typography */}
-      {(hasCaptain || hasStats) && (
+      {/* Zone 3 — Stats: 3-column typography row */}
+      {anyStats ? (
         <div
           style={{
+            height:         statsZoneH,
+            flexShrink:     0,
             display:        "flex",
-            flexDirection:  "column",
             alignItems:     "center",
-            gap:            halfGap,
+            justifyContent: "center",
+            gap:            gap * 1.5,
+            width:          "100%",
           }}
         >
           {captainEl}
           {squadEl}
           {spendEl}
         </div>
+      ) : (
+        // Keep zone height even with no stats so layout stays balanced
+        <div style={{ height: statsZoneH, flexShrink: 0 }} />
       )}
     </div>
   );
 }
 
 // ─── Legacy Card (Dev Sandbox) ────────────────────────────────────────────────
-//
-// Shown in local dev without render context (no aspectRatio/dimensions).
-// Uses clamp-based sizes for responsive preview card.
+// No render context — clamp-based sizes for responsive preview card.
 
 function TeamRevealLegacy({
   displayName,
@@ -513,60 +551,53 @@ function TeamRevealLegacy({
         display:        "flex",
         flexDirection:  "column",
         alignItems:     "center",
-        justifyContent: "center",
         width:          "100%",
-        gap:            "clamp(14px, 3.5vw, 24px)",
-        padding:        "12px 0",
+        gap:            "clamp(12px, 3vw, 22px)",
+        padding:        "10px 0",
       }}
     >
-      {/* Logo */}
-      <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={96} />
-
-      {/* Name block */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center" }}>
-        <h1
-          style={{
-            margin:        0,
-            fontFamily:    PT.font,
-            fontSize:      "clamp(1.5rem, 5.5vw, 2.75rem)",
-            fontWeight:    900,
-            color:         PT.white,
-            letterSpacing: "0.07em",
-            lineHeight:    1.0,
-            textTransform: "uppercase",
-          }}
-        >
-          {displayName.toUpperCase()}
-        </h1>
-        <span
-          style={{
-            fontFamily:    PT.font,
-            fontSize:      "0.5rem",
-            fontWeight:    700,
-            color:         PT.gold,
-            letterSpacing: "0.30em",
-            textTransform: "uppercase",
-            opacity:       0.90,
-          }}
-        >
+      {/* Reveal header */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+        <div style={{ width: 80, height: 1, background: PT.goldRule }} aria-hidden="true" />
+        <span style={{
+          fontFamily:    PT.font, fontSize: "0.45rem", fontWeight: 700,
+          color:         PT.gold, letterSpacing: "0.32em", textTransform: "uppercase",
+          lineHeight:    1, opacity: 0.88,
+        }}>
           TEAM REVEAL
         </span>
+        <div style={{ width: 80, height: 1, background: PT.goldRule }} aria-hidden="true" />
       </div>
 
-      {/* Hairline */}
-      <div aria-hidden="true" style={{ width: "36%", height: 1, background: PT.hairline }} />
+      {/* Logo */}
+      <TeamLogo teamName={displayName} logoUrl={teamLogoUrl} size={108} />
 
-      {/* Stats — pure text */}
+      {/* Name */}
+      <h1 style={{
+        margin:        0,
+        fontFamily:    PT.font,
+        fontSize:      "clamp(1.6rem, 6vw, 3rem)",
+        fontWeight:    900,
+        color:         PT.white,
+        letterSpacing: "0.07em",
+        lineHeight:    0.95,
+        textTransform: "uppercase",
+        textAlign:     "center",
+      }}>
+        {displayName.toUpperCase()}
+      </h1>
+
+      {/* Stats */}
       {(hasCaptain || hasStats) && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-start", justifyContent: "center" }}>
           {hasCaptain && (
-            <StatBlock label="CAPTAIN" value={captainName!} labelSize={10} valueSize={14} />
+            <StatBlock label="CAPTAIN" value={captainName!} labelSize={9} valueSize={13} />
           )}
           {playerCount != null && (
-            <StatBlock label="SQUAD" value={`${playerCount} PLAYERS`} labelSize={10} valueSize={14} />
+            <StatBlock label="SQUAD" value={playerCount} labelSize={9} valueSize={13} />
           )}
           {spendDisplay != null && (
-            <StatBlock label="SPEND" value={spendDisplay} gold labelSize={10} valueSize={14} />
+            <StatBlock label="SPEND" value={spendDisplay} gold labelSize={9} valueSize={13} />
           )}
         </div>
       )}
