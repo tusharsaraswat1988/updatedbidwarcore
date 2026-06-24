@@ -1,30 +1,31 @@
 import { useBranding } from "@/hooks/use-branding";
-import { cldUrl } from "@/lib/cloudinary";
 import { ExternalLink } from "lucide-react";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
 type PoweredByBidWarLinkProps = {
   className?: string;
-  variant?: "default" | "header";
+  variant?: "default" | "footer" | "headerLogo";
 };
 
 export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
   const { logos, brandName, poweredByText } = useBranding();
-  const logoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const logoSrc =
+    getBrandWordmarkSrc(logos, ["mainReverse", "main"]) ||
+    getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
   const label = poweredByText?.trim() || "Powered by BidWar";
 
-  if (variant === "header") {
+  if (variant === "headerLogo") {
     return (
       <a
         href={BIDWAR_HOME_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${label} — opens BidWar home page in a new tab`}
+        aria-label={`${brandName} — opens home page in a new tab`}
         className={[
-          "group inline-flex flex-col items-center gap-1 px-1 py-0.5",
+          "group inline-flex items-center justify-center px-1 py-0.5",
           "transition-all duration-300",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-lg",
           className,
@@ -39,9 +40,28 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
           loading="lazy"
           decoding="async"
         />
-        <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/60 text-center leading-tight transition-colors duration-300 group-hover:text-primary/90">
-          {label}
-        </span>
+      </a>
+    );
+  }
+
+  if (variant === "footer") {
+    return (
+      <a
+        href={BIDWAR_HOME_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${label} — opens BidWar home page in a new tab`}
+        className={[
+          "inline-block text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.16em]",
+          "text-muted-foreground/60 text-center leading-tight",
+          "transition-colors duration-300 hover:text-primary/90",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {label}
       </a>
     );
   }

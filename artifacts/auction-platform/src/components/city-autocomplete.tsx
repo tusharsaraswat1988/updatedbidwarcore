@@ -16,7 +16,7 @@ export function CityAutocomplete({
   value,
   onChange,
   id,
-  placeholder = "Mumbai",
+  placeholder = "",
   className,
   showHint = true,
 }: CityAutocompleteProps) {

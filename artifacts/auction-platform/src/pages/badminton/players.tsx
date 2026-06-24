@@ -923,7 +923,6 @@ function PlayerFormModal({
             inputMode="numeric"
             value={form.age}
             onChange={(e) => setField("age", e.target.value)}
-            placeholder="25"
             className={inputClass}
           />
         </FormField>
@@ -970,7 +969,6 @@ function PlayerFormModal({
           <input
             value={form.jerseyNumber}
             onChange={(e) => setField("jerseyNumber", e.target.value)}
-            placeholder="7"
             inputMode="numeric"
             className={inputClass}
           />
@@ -986,7 +984,6 @@ function PlayerFormModal({
         <textarea
           value={form.achievements}
           onChange={(e) => setField("achievements", e.target.value)}
-          placeholder="District champion, state medalist…"
           rows={3}
           className={cn(inputClass, "min-h-[88px] resize-y")}
         />

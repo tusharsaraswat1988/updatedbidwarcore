@@ -34,6 +34,10 @@ import {
   resolvePlayerBidFields,
   serializeBidValueOptions,
 } from "@workspace/api-base/bid-value";
+import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
+import { publicTournamentSerializer } from "../lib/serializers/tournament";
+import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import type { Request, Response } from "express";
 
 async function fetchTournamentBidConfig(tid: number) {
   const [tournament] = await db
@@ -416,11 +420,7 @@ router.get("/tournaments/:tournamentId/registration-status", async (req, res) =>
   res.json(status);
 });
 
-router.get("/tournaments/:tournamentId/register/lookup", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-  const mobileRaw = String(req.query.mobile || "").trim();
+async function handleRegisterLookup(tid: number, mobileRaw: string, res: Response) {
   const mobileParsed = parseIndianMobile(mobileRaw);
   if (!mobileParsed.ok) {
     res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
@@ -443,11 +443,67 @@ router.get("/tournaments/:tournamentId/register/lookup", async (req, res) => {
   }
 
   res.json({ registered: true, player: playerToPublicJson(player) });
+}
+
+router.get("/register/:code/context", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const status = await computeRegistrationStatus(tid);
+  if (!status) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  res.json({
+    tournament: publicTournamentSerializer(tournament, { platformDefaults }),
+    registration: status,
+  });
 });
 
-router.post("/tournaments/:tournamentId/register", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+router.get("/register/:code/lookup", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const mobileRaw = String(req.query.mobile || "").trim();
+  await handleRegisterLookup(tid, mobileRaw, res);
+});
+
+router.get("/tournaments/:tournamentId/register/lookup", async (_req, res) => {
+  res.status(410).json({
+    error: "This registration URL is no longer valid. Use the link shared by your organizer (contains the tournament code).",
+  });
+});
+
+router.post("/register/:code", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+  await handlePublicPlayerRegistration(req, res, tid);
+});
+
+router.post("/tournaments/:tournamentId/register", async (_req, res) => {
+  res.status(410).json({
+    error: "This registration URL is no longer valid. Use the link shared by your organizer (contains the tournament code).",
+  });
+});
+
+async function handlePublicPlayerRegistration(req: Request, res: Response, tid: number) {
   const status = await computeRegistrationStatus(tid);
   if (!status) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -617,7 +673,7 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   }
 
   res.status(201).json({ ...playerToPublicJson(player), updated: false });
-});
+}
 
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);

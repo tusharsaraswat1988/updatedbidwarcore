@@ -1,13 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRoute } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import {
-  useGetTournament,
-  useRegisterPlayer,
-  useGetRegistrationStatus,
-  getGetTournamentQueryKey,
-  getGetRegistrationStatusQueryKey,
-} from "@workspace/api-client-react";
+import type { RegistrationStatus, Tournament } from "@workspace/api-client-react";
+import { normalizeRegistrationCode } from "@workspace/api-base/registration-url";
 import { FullscreenLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +22,7 @@ import { PlayerGenderSelect } from "@/components/player-gender-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
 import { RegistrationPageHeader } from "@/components/registration-page-header";
+import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import { formatIndianRupee } from "@/lib/format";
@@ -80,9 +76,14 @@ function useRoleSpecs(roleId: number | undefined) {
 }
 
 export default function PlayerRegister() {
-  const [, params] = useRoute("/tournament/:id/register");
-  const tournamentId = parseInt(params?.id || "0");
+  const [, params] = useRoute("/register/:code");
+  const registrationCode = params?.code ? normalizeRegistrationCode(params.code) : "";
   const { brandName } = useBranding();
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [status, setStatus] = useState<RegistrationStatus | null>(null);
+  const [registerPending, setRegisterPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [waConsent, setWaConsent] = useState(false);
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
@@ -124,24 +125,41 @@ export default function PlayerRegister() {
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
   const [selectedBidValue, setSelectedBidValue] = useState("");
 
-  const { data: tournament } = useGetTournament(tournamentId, {
-    query: {
-      queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      staleTime: 0,
-      refetchOnMount: "always",
-    },
-  });
-  const { data: status, refetch: refetchStatus } = useGetRegistrationStatus(tournamentId, {
-    query: {
-      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      staleTime: 0,
-      refetchOnMount: "always",
-      refetchInterval: 30000,
-    },
-  });
-  const registerPlayer = useRegisterPlayer();
+  const loadContext = useCallback(async () => {
+    if (!registrationCode) {
+      setContextError("Invalid registration link.");
+      setTournament(null);
+      setStatus(null);
+      setContextLoading(false);
+      return;
+    }
+    setContextLoading(true);
+    setContextError(null);
+    try {
+      const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}/context`);
+      if (!res.ok) {
+        setContextError("Registration link not found. Ask your organizer for the correct link.");
+        setTournament(null);
+        setStatus(null);
+        return;
+      }
+      const data = await res.json() as { tournament: Tournament; registration: RegistrationStatus };
+      setTournament(data.tournament);
+      setStatus(data.registration);
+    } catch {
+      setContextError("Could not load registration form. Please try again.");
+      setTournament(null);
+      setStatus(null);
+    } finally {
+      setContextLoading(false);
+    }
+  }, [registrationCode]);
+
+  useEffect(() => {
+    void loadContext();
+  }, [loadContext]);
+
+  const refetchStatus = loadContext;
 
   // Dynamic roles from sport master table
   const sportSlug = (tournament as { sport?: string } | undefined)?.sport;
@@ -265,11 +283,12 @@ export default function PlayerRegister() {
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
     if (sanitized.length >= 10) {
       mobileDebounceRef.current = setTimeout(async () => {
+        if (!registrationCode) return;
         setLookupLoading(true);
         try {
           const [globalRes, tournamentRes] = await Promise.all([
             fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1`),
-            fetch(`/api/tournaments/${tournamentId}/register/lookup?mobile=${encodeURIComponent(sanitized)}`),
+            fetch(`/api/register/${encodeURIComponent(registrationCode)}/lookup?mobile=${encodeURIComponent(sanitized)}`),
           ]);
           const data: GlobalPlayerLookup[] = await globalRes.json();
           const match = Array.isArray(data) && data.length > 0
@@ -376,9 +395,11 @@ export default function PlayerRegister() {
     }
 
     try {
-      const result = await registerPlayer.mutateAsync({
-        tournamentId,
-        data: {
+      setRegisterPending(true);
+      const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: form.name,
           mobileNumber: mobileResult.normalized,
           email: emailResult.email || undefined,
@@ -403,35 +424,76 @@ export default function PlayerRegister() {
           registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
           utrNumber: utrNumber.trim() || undefined,
           paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
-        },
+        }),
       });
-      setRegistrationUpdated(!!(result as { updated?: boolean }).updated);
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (result?.field === "email") {
+          setEmailError(result.error || "Please enter a valid email address");
+          return;
+        }
+        if (result?.field === "registrationDeclarationAccepted") {
+          setErrorMsg(result.error || "Please accept the declaration to continue.");
+          return;
+        }
+        if (result && typeof result === "object" && result.reason) {
+          setErrorMsg(
+            result.reason === "deadline_passed"
+              ? "Registration closed: the deadline has passed."
+              : "Registration closed: the player limit has been reached.",
+          );
+          void refetchStatus();
+          return;
+        }
+        setErrorMsg(result?.error || "Submission failed. Please try again.");
+        return;
+      }
+      setRegistrationUpdated(!!result.updated);
       setSubmitted(true);
-      if (!(result as { updated?: boolean }).updated) refetchStatus();
+      if (!result.updated) void refetchStatus();
     } catch (err: any) {
-      const data = err?.data ?? err?.response?.data;
-      if (data?.field === "email") {
-        setEmailError(data.error || "Please enter a valid email address");
-        return;
-      }
-      if (data?.field === "registrationDeclarationAccepted") {
-        setErrorMsg(data.error || "Please accept the declaration to continue.");
-        return;
-      }
-      if (data && typeof data === "object" && data.reason) {
-        setErrorMsg(
-          data.reason === "deadline_passed"
-            ? "Registration closed: the deadline has passed."
-            : "Registration closed: the player limit has been reached.",
-        );
-        refetchStatus();
-      } else {
-        setErrorMsg(err?.message || "Submission failed. Please try again.");
-      }
+      setErrorMsg(err?.message || "Submission failed. Please try again.");
+    } finally {
+      setRegisterPending(false);
     }
   }
 
   const f = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
+
+  if (contextLoading) {
+    return (
+      <FullscreenLayout>
+        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground mt-3">Loading registration form…</p>
+          <footer className="absolute bottom-6 left-0 right-0 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
+  if (contextError || !tournament || !status) {
+    return (
+      <FullscreenLayout>
+        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4 py-8">
+          <Card className="w-full max-w-md border-destructive/40">
+            <CardContent className="p-8 text-center space-y-3">
+              <Lock className="w-12 h-12 text-destructive mx-auto" />
+              <h1 className="text-xl font-semibold">Registration unavailable</h1>
+              <p className="text-sm text-muted-foreground">
+                {contextError ?? "Registration link not found. Ask your organizer for the correct link."}
+              </p>
+            </CardContent>
+          </Card>
+          <footer className="mt-8 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
+        </div>
+      </FullscreenLayout>
+    );
+  }
 
   return (
     <FullscreenLayout>
@@ -440,7 +502,6 @@ export default function PlayerRegister() {
           <RegistrationPageHeader
             tournamentName={tournament?.name}
             tournamentLogoUrl={(tournament as { logoUrl?: string | null } | undefined)?.logoUrl}
-            auctionCode={(tournament as { auctionCode?: string | null } | undefined)?.auctionCode}
             sponsorLogosJson={(tournament as { sponsorLogos?: string | null } | undefined)?.sponsorLogos}
             brandNameFallback={brandName}
           />
@@ -642,7 +703,7 @@ export default function PlayerRegister() {
                         </div>
                         <div className="space-y-2">
                           <Label>Age</Label>
-                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" className="h-11 sm:h-9" />
+                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} className="h-11 sm:h-9" />
                         </div>
                         <PlayerGenderSelect
                           value={form.gender}
@@ -700,15 +761,15 @@ export default function PlayerRegister() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Batting Style</Label>
-                              <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" className="h-11 sm:h-9" />
+                              <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} className="h-11 sm:h-9" />
                             </div>
                             <div className="space-y-2">
                               <Label>Bowling Style</Label>
-                              <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" className="h-11 sm:h-9" />
+                              <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} className="h-11 sm:h-9" />
                             </div>
                             <div className="space-y-2 sm:col-span-2">
                               <Label>Specialization</Label>
-                              <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." className="h-11 sm:h-9" />
+                              <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} className="h-11 sm:h-9" />
                             </div>
                           </div>
                         ) : null)}
@@ -738,7 +799,7 @@ export default function PlayerRegister() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Jersey Number</Label>
-                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
+                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} inputMode="numeric" className="h-11 sm:h-9" />
                         </div>
                         <JerseySizeSelect
                           value={form.jerseySize}
@@ -792,7 +853,7 @@ export default function PlayerRegister() {
 
                       <div className="space-y-2">
                         <Label>Achievements / Bio</Label>
-                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of Season 2024, 500+ runs..." className="h-11 sm:h-9" />
+                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-11 sm:h-9" />
                       </div>
 
                       {isCricket && (
@@ -810,7 +871,6 @@ export default function PlayerRegister() {
                           <Input
                             value={form.cricheroUrl}
                             onChange={e => f("cricheroUrl", e.target.value)}
-                            placeholder="https://crichero.com/player/..."
                             type="url"
                             inputMode="url"
                             className="h-11 sm:h-9 border-primary/30 bg-background/60 focus-visible:border-primary focus-visible:ring-primary/25"
@@ -926,7 +986,7 @@ export default function PlayerRegister() {
                           onUtrChange={setUtrNumber}
                           onScreenshotChange={setPaymentScreenshotUrl}
                           tournamentName={tournament?.name}
-                          disabled={registerPlayer.isPending}
+                          disabled={registerPending}
                         />
                       )}
 
@@ -934,9 +994,9 @@ export default function PlayerRegister() {
                         type="submit"
                         size="lg"
                         className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
-                        disabled={registerPlayer.isPending || (declarationRequired && !declarationAccepted)}
+                        disabled={registerPending || (declarationRequired && !declarationAccepted)}
                       >
-                        {registerPlayer.isPending ? (
+                        {registerPending ? (
                           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
                         ) : existingRegistration ? (
                           "Update Registration"
@@ -950,6 +1010,10 @@ export default function PlayerRegister() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <footer className="mt-8 pb-2 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
         </div>
       </div>
     </FullscreenLayout>

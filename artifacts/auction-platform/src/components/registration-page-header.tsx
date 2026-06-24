@@ -71,7 +71,6 @@ function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
 type RegistrationPageHeaderProps = {
   tournamentName?: string;
   tournamentLogoUrl?: string | null;
-  auctionCode?: string | null;
   sponsorLogosJson?: string | null;
   brandNameFallback?: string;
 };
@@ -79,7 +78,6 @@ type RegistrationPageHeaderProps = {
 export function RegistrationPageHeader({
   tournamentName,
   tournamentLogoUrl,
-  auctionCode,
   sponsorLogosJson,
   brandNameFallback = "BidWar",
 }: RegistrationPageHeaderProps) {
@@ -106,7 +104,7 @@ export function RegistrationPageHeader({
         </div>
 
         <div className="flex justify-center px-1">
-          <PoweredByBidWarLink variant="header" />
+          <PoweredByBidWarLink variant="headerLogo" />
         </div>
 
         <div className="flex justify-end min-w-0">
@@ -119,11 +117,6 @@ export function RegistrationPageHeader({
           {tournamentName || brandNameFallback}
         </h1>
         <p className="text-muted-foreground mt-1">Player Registration</p>
-        {auctionCode ? (
-          <p className="text-xs font-mono text-amber-400 mt-1">
-            Code: {auctionCode}
-          </p>
-        ) : null}
       </div>
     </div>
   );

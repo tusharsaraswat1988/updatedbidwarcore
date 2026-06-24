@@ -28,6 +28,7 @@ import {
   getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { playerRegistrationPublicUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -827,7 +828,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         <div className="space-y-2">
           <Label>Age</Label>
-          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} />
         </div>
         <PlayerGenderSelect
           value={form.gender}
@@ -838,7 +839,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Jersey No.</Label>
-          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
+          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} />
         </div>
         <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
       </div>
@@ -937,15 +938,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Batting Style</Label>
-            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
+            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Bowling Style</Label>
-            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
+            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Specialization</Label>
-            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} />
           </div>
         </div>
       ) : null)}
@@ -1043,11 +1044,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       })()}
       <div className="space-y-2">
         <Label>Crichero URL</Label>
-        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." />
+        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
       </div>
       <div className="space-y-2">
         <Label>Achievements</Label>
-        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of the Season 2024..." />
+        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} />
       </div>
 
       {/* Retained player section */}
@@ -2329,7 +2330,12 @@ export default function Players() {
     { value: "_unset", label: "Not specified" },
   ];
 
-  const regUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/register` : "";
+  const regUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const code = tournament?.auctionCode;
+    if (!code) return "";
+    return playerRegistrationPublicUrl(window.location.origin, code);
+  }, [tournament?.auctionCode]);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -2435,16 +2441,24 @@ export default function Players() {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
-              <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
-              <CopyTextButton text={regUrl} label="Copy link" />
-              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
-                <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="w-3 h-3" /> WhatsApp
-                </a>
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
-                <ExternalLink className="w-3 h-3" /> Open
-              </Button>
+              {regUrl ? (
+                <>
+                  <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+                  <CopyTextButton text={regUrl} label="Copy link" />
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                    <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="w-3 h-3" /> WhatsApp
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+                    <ExternalLink className="w-3 h-3" /> Open
+                  </Button>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Registration link is unavailable until this tournament has an auction code.
+                </p>
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground border-t border-border/50 pt-3">
               Configure registration deadline, payment, and declaration in{" "}

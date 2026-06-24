@@ -28,6 +28,7 @@ const Reports = lazy(() => import("@/pages/reports"));
 const LinksPage = lazy(() => import("@/pages/links"));
 const FortuneWheel = lazy(() => import("@/pages/fortune-wheel"));
 const PlayerRegister = lazy(() => import("@/pages/player-register"));
+const PlayerRegisterLegacy = lazy(() => import("@/pages/player-register-legacy"));
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
@@ -176,7 +177,8 @@ function Router() {
           }}
         </Route>
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
-        <Route path="/tournament/:id/register" component={PlayerRegister} />
+        <Route path="/register/:code" component={PlayerRegister} />
+        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 
