@@ -1,6 +1,77 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
-import { EyesMascot } from "./EyesMascot";
+
+/* ─── Animated eyes mascot (shown when auction is awaiting) ─── */
+
+type Offset = { x: number; y: number };
+const CENTER: Offset = { x: 0, y: 0 };
+const MAX_R = 2.5;
+const GAZE_DIRS: Offset[] = [
+  { x: MAX_R, y: 0 }, { x: -MAX_R, y: 0 },
+  { x: 0, y: -MAX_R }, { x: 0, y: MAX_R },
+  { x: MAX_R * 0.7, y: -MAX_R * 0.7 }, { x: -MAX_R * 0.7, y: -MAX_R * 0.7 },
+  { x: MAX_R * 0.7, y: MAX_R * 0.7 }, { x: -MAX_R * 0.7, y: MAX_R * 0.7 },
+];
+function randomDir(exclude?: Offset): Offset {
+  const choices = exclude
+    ? GAZE_DIRS.filter((d) => d.x !== exclude.x || d.y !== exclude.y)
+    : GAZE_DIRS;
+  return choices[Math.floor(Math.random() * choices.length)]!;
+}
+
+const EyesMascot = memo(function EyesMascot({ idle }: { idle: boolean }) {
+  const [left, setLeft] = useState<Offset>(CENTER);
+  const [right, setRight] = useState<Offset>(CENTER);
+  const [blink, setBlink] = useState(false);
+  const lastDir = useRef<Offset | null>(null);
+
+  useEffect(() => {
+    if (!idle) {
+      setLeft(CENTER);
+      setRight(CENTER);
+      setBlink(true);
+      const t = setTimeout(() => setBlink(false), 180);
+      lastDir.current = null;
+      return () => clearTimeout(t);
+    }
+    function look() {
+      const dir = randomDir(lastDir.current ?? undefined);
+      lastDir.current = dir;
+      setLeft(dir);
+      setRight({ x: dir.x * (0.8 + Math.random() * 0.4), y: dir.y * (0.8 + Math.random() * 0.4) });
+    }
+    look();
+    const id = setInterval(look, 1500 + Math.random() * 900);
+    return () => clearInterval(id);
+  }, [idle]);
+
+  const EYE_R = 6;
+  const PUPIL_R = 2.4;
+  const ey = 11;
+
+  return (
+    <svg width="46" height="22" viewBox="0 0 46 22" style={{ display: "block", flexShrink: 0 }}>
+      {/* Left eye */}
+      <circle cx={10} cy={ey} r={EYE_R} fill="white" opacity={blink ? 0.15 : 1} />
+      {!blink && (
+        <g style={{ transform: `translate(${left.x}px,${left.y}px)`, transition: "transform 0.32s cubic-bezier(.4,0,.2,1)" }}>
+          <circle cx={10} cy={ey} r={PUPIL_R} fill="#1a1a1a" />
+          <circle cx={11.2} cy={ey - 1.4} r={0.85} fill="white" opacity={0.75} />
+        </g>
+      )}
+      {/* Right eye */}
+      <circle cx={36} cy={ey} r={EYE_R} fill="white" opacity={blink ? 0.15 : 1} />
+      {!blink && (
+        <g style={{ transform: `translate(${right.x}px,${right.y}px)`, transition: "transform 0.32s cubic-bezier(.4,0,.2,1)" }}>
+          <circle cx={36} cy={ey} r={PUPIL_R} fill="#1a1a1a" />
+          <circle cx={37.2} cy={ey - 1.4} r={0.85} fill="white" opacity={0.75} />
+        </g>
+      )}
+    </svg>
+  );
+});
+
+/* ─── TopStrip ─── */
 
 /**
  * TOP STRIP — BIDWAR LIVE brand, tournament line, LIVE pill, remaining counter.
@@ -54,8 +125,13 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
           }`}
         >
           {!live && !paused ? (
-            /* Awaiting: cartoon eyes look around instead of static text */
-            <EyesMascot idle />
+            /* Awaiting: cartoon eyes instead of static text */
+            <>
+              <EyesMascot idle />
+              <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/50">
+                Awaiting
+              </span>
+            </>
           ) : (
             <>
               <span

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { User, UserRound } from "lucide-react";
 import type { LedView } from "@/lib/led-view/types";
 import type { PlayerGender } from "@/lib/led-view/player-gender";
@@ -38,7 +38,7 @@ export const PlayerPortrait = memo(function PlayerPortrait({
   const specGridClass = portraitSpecGridClass(infoRows.length);
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden bg-black/40 border border-white/10">
+    <div className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border border-white/10">
       {showPhoto ? (
         <img
           src={currentPlayer.portrait}
@@ -92,9 +92,7 @@ export const PlayerPortrait = memo(function PlayerPortrait({
           ) : null}
         </p>
 
-        <h2 className="font-['Bebas_Neue'] text-[clamp(1.35rem,2.8vw,2.25rem)] leading-[0.92] uppercase text-white tracking-tight">
-          {currentPlayer.name}
-        </h2>
+        <PortraitPlayerName name={currentPlayer.name} />
 
         {infoRows.length > 0 ? (
           <div
@@ -121,6 +119,55 @@ export const PlayerPortrait = memo(function PlayerPortrait({
     </div>
   );
 });
+
+function PortraitPlayerName({ name }: { name: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLHeadingElement>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) return;
+
+    const fit = () => {
+      text.style.fontSize = "";
+      const maxPx = parseFloat(getComputedStyle(text).fontSize);
+      const minPx = 18;
+      let lo = minPx;
+      let hi = maxPx;
+      let best = minPx;
+
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        text.style.fontSize = `${mid}px`;
+        if (text.scrollWidth <= container.clientWidth) {
+          best = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+
+      text.style.fontSize = `${best}px`;
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [name]);
+
+  return (
+    <div ref={containerRef} className="w-full">
+      <h2
+        ref={textRef}
+        className="w-max max-w-full font-['Bebas_Neue'] text-[clamp(1.75rem,18cqw,4rem)] leading-[0.88] uppercase text-white tracking-tight whitespace-nowrap"
+      >
+        {name}
+      </h2>
+    </div>
+  );
+}
 
 function GenderPortraitIcon({ gender }: { gender: PlayerGender }) {
   const className =

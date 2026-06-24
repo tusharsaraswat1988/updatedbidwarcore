@@ -23,9 +23,14 @@ function randomDir(exclude?: Offset): Offset {
   return choices[Math.floor(Math.random() * choices.length)]!;
 }
 
+const TRANSITION = "transform 0.35s cubic-bezier(.4,0,.2,1)";
+
 /**
  * Two cartoon eyes that look around randomly while idle (awaiting),
  * and snap back to centre when the auction goes live or paused.
+ *
+ * Uses `transform` on `<g>` elements — not cx/cy — because CSS transitions
+ * on SVG presentation attributes are unreliable in React.
  */
 export const EyesMascot = memo(function EyesMascot({
   idle,
@@ -37,10 +42,8 @@ export const EyesMascot = memo(function EyesMascot({
   const [blinking, setBlinking] = useState(false);
   const lastDir = useRef<Offset | null>(null);
 
-  // Gaze loop when idle
   useEffect(() => {
     if (!idle) {
-      // Snap pupils to centre then blink once on becoming active
       setLeftPupil(CENTER);
       setRightPupil(CENTER);
       setBlinking(true);
@@ -52,7 +55,6 @@ export const EyesMascot = memo(function EyesMascot({
     function look() {
       const dir = randomDir(lastDir.current ?? undefined);
       lastDir.current = dir;
-      // Pupils can move slightly independently for a more natural look
       setLeftPupil(dir);
       setRightPupil({
         x: dir.x * (0.7 + Math.random() * 0.5),
@@ -60,7 +62,6 @@ export const EyesMascot = memo(function EyesMascot({
       });
     }
 
-    // Initial glance
     look();
     const id = setInterval(look, 1600 + Math.random() * 800);
     return () => clearInterval(id);
@@ -70,59 +71,96 @@ export const EyesMascot = memo(function EyesMascot({
   const PUPIL_R = 2.5;
   const lx = 9;
   const rx = 27;
-  const cy = 10;
+  const ey = 10;
+
+  // Blink: squish the eyes vertically
+  const eyeScaleY = blinking ? 0.08 : 1;
 
   return (
     <svg
-      width="36"
-      height="20"
-      viewBox="0 0 36 20"
+      width="44"
+      height="24"
+      viewBox="0 0 44 24"
       aria-hidden="true"
-      style={{ flexShrink: 0 }}
+      style={{ flexShrink: 0, display: "block" }}
     >
-      {/* Left eye white */}
-      <circle cx={lx} cy={cy} r={EYE_R} fill="white" opacity={blinking ? 0.15 : 1} />
-      {/* Right eye white */}
-      <circle cx={rx} cy={cy} r={EYE_R} fill="white" opacity={blinking ? 0.15 : 1} />
+      {/* Left eye */}
+      <g
+        transform={`translate(${lx}, ${ey})`}
+        style={{ transition: "transform 0.1s" }}
+      >
+        {/* Eye white with blink squish */}
+        <ellipse
+          cx={0}
+          cy={0}
+          rx={EYE_R}
+          ry={EYE_R}
+          fill="white"
+          stroke="rgba(255,255,255,0.3)"
+          strokeWidth={0.5}
+          style={{
+            transform: `scaleY(${eyeScaleY})`,
+            transition: "transform 0.07s",
+            transformOrigin: "0 0",
+          }}
+        />
+        {/* Left pupil group — translate for smooth gaze */}
+        <g
+          style={{
+            transform: `translate(${leftPupil.x}px, ${leftPupil.y}px)`,
+            transition: TRANSITION,
+          }}
+        >
+          <ellipse
+            cx={0}
+            cy={0}
+            rx={PUPIL_R}
+            ry={PUPIL_R * (blinking ? 0.1 : 1)}
+            fill="#111"
+            style={{ transition: "ry 0.07s" }}
+          />
+          {/* Shine */}
+          <circle cx={1} cy={-1.2} r={0.9} fill="white" opacity={0.7} />
+        </g>
+      </g>
 
-      {!blinking && (
-        <>
-          {/* Left pupil */}
-          <circle
-            cx={lx + leftPupil.x}
-            cy={cy + leftPupil.y}
-            r={PUPIL_R}
+      {/* Right eye */}
+      <g
+        transform={`translate(${rx}, ${ey})`}
+        style={{ transition: "transform 0.1s" }}
+      >
+        <ellipse
+          cx={0}
+          cy={0}
+          rx={EYE_R}
+          ry={EYE_R}
+          fill="white"
+          stroke="rgba(255,255,255,0.3)"
+          strokeWidth={0.5}
+          style={{
+            transform: `scaleY(${eyeScaleY})`,
+            transition: "transform 0.07s",
+            transformOrigin: "0 0",
+          }}
+        />
+        {/* Right pupil group */}
+        <g
+          style={{
+            transform: `translate(${rightPupil.x}px, ${rightPupil.y}px)`,
+            transition: TRANSITION,
+          }}
+        >
+          <ellipse
+            cx={0}
+            cy={0}
+            rx={PUPIL_R}
+            ry={PUPIL_R * (blinking ? 0.1 : 1)}
             fill="#111"
-            style={{ transition: "cx 0.35s cubic-bezier(.4,0,.2,1), cy 0.35s cubic-bezier(.4,0,.2,1)" }}
+            style={{ transition: "ry 0.07s" }}
           />
-          {/* Left pupil shine */}
-          <circle
-            cx={lx + leftPupil.x + 1}
-            cy={cy + leftPupil.y - 1.2}
-            r={0.9}
-            fill="white"
-            opacity={0.7}
-            style={{ transition: "cx 0.35s cubic-bezier(.4,0,.2,1), cy 0.35s cubic-bezier(.4,0,.2,1)" }}
-          />
-          {/* Right pupil */}
-          <circle
-            cx={rx + rightPupil.x}
-            cy={cy + rightPupil.y}
-            r={PUPIL_R}
-            fill="#111"
-            style={{ transition: "cx 0.35s cubic-bezier(.4,0,.2,1), cy 0.35s cubic-bezier(.4,0,.2,1)" }}
-          />
-          {/* Right pupil shine */}
-          <circle
-            cx={rx + rightPupil.x + 1}
-            cy={cy + rightPupil.y - 1.2}
-            r={0.9}
-            fill="white"
-            opacity={0.7}
-            style={{ transition: "cx 0.35s cubic-bezier(.4,0,.2,1), cy 0.35s cubic-bezier(.4,0,.2,1)" }}
-          />
-        </>
-      )}
+          <circle cx={1} cy={-1.2} r={0.9} fill="white" opacity={0.7} />
+        </g>
+      </g>
     </svg>
   );
 });

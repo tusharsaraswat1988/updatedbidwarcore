@@ -1971,7 +1971,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
-// POST defer current player — send to back of queue, auto-advance to next
+// POST defer current player — send to back of queue; auto-advance unless manual selection mode
 router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -2025,6 +2025,48 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   if (trialPlayerIds && trialPlayerIds.length > 0) baseConditions.push(inArray(playersTable.id, trialPlayerIds));
 
   const allAvailable = await db.select().from(playersTable).where(and(...baseConditions));
+
+  // Manual mode: defer only — operator picks the next player via next-player + playerId
+  if (selMode === "manual") {
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "active",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerSeconds: timerSecs,
+        timerEndsAt: null,
+        timerType: null,
+        pausedTimeRemaining: null,
+        deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+        lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    logPlayerAuctionEnd({
+      tournamentId: tid,
+      playerId: deferredId,
+      globalPlayerId: null,
+      categoryId: null,
+      sport: tournament?.sport ?? "cricket",
+      playerName: deferredPlayer?.name ?? "Player",
+      playerRole: null,
+      playerAge: null,
+      playerCity: null,
+      basePrice: null,
+      playerSnapshotJson: "{}",
+      outcome: "deferred",
+      finalAmount: null,
+      soldToTeamId: null,
+      soldToTeamName: null,
+    });
+
+    res.json(await broadcastState(tid, ["players"]));
+    return;
+  }
+
   const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
   const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
 
@@ -2033,8 +2075,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
   let newRandomDrawQueue: string | null = session.randomDrawQueue ?? null;
 
   if (pool.length > 0) {
-    const effectiveMode = selMode === "manual" ? "sequential" : selMode;
-    const pick = selectPlayerFromPool(pool, effectiveMode, session);
+    const pick = selectPlayerFromPool(pool, selMode, session);
     if (pick) {
       selectedPlayerId = pick.playerId;
       newRandomDrawQueue = pick.randomDrawQueue;

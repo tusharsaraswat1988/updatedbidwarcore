@@ -483,6 +483,12 @@ export default function AuctionOperator() {
     if (controlsLocked || deferPlayerMut.isPending) return;
     const result = await deferPlayerMut.mutateAsync({ tournamentId });
     applyMutationResult(result);
+    if (selectionMode === "manual" && !(result as { currentPlayer?: unknown } | undefined)?.currentPlayer) {
+      toast({
+        title: "Player deferred",
+        description: "Pick the next player from the queue using Go.",
+      });
+    }
   }
 
   function openCountdownDialog() {
