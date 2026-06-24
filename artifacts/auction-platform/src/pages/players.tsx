@@ -665,6 +665,32 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
   const f = (key: string, val: string | number | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
+  function clearProfileFill(newName: string) {
+    setForm(prev => ({
+      ...prev,
+      name: newName,
+      city: "",
+      role: "",
+      battingStyle: "",
+      bowlingStyle: "",
+      specialization: "",
+      age: "",
+      gender: "",
+      photoUrl: "",
+      achievements: "",
+      jerseyNumber: "",
+      jerseySize: "",
+      cricheroUrl: "",
+      mobileNumber: "",
+      basePrice: basePriceTouched ? prev.basePrice : (tournament?.minBid || 100000),
+    }));
+    setFilledFromProfile(false);
+    setMobileLookedUp(false);
+    setPendingMobileProfile(null);
+    setMatchedTournamentPlayer(null);
+    setExtraSpecSelections({});
+  }
+
   function fillFromProfile(p: SuggestionProfile) {
     setForm(prev => ({
       ...prev,
@@ -698,7 +724,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <>
               <GlobalPlayerSearch
                 value={form.name}
-                onChange={v => { f("name", v); setFilledFromProfile(false); }}
+                onChange={v => {
+                  if (filledFromProfile) clearProfileFill(v);
+                  else f("name", v);
+                }}
                 onFillFromProfile={fillFromProfile}
               />
               {filledFromProfile && (
@@ -708,7 +737,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                   <button
                     type="button"
                     className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => setFilledFromProfile(false)}
+                    onClick={() => clearProfileFill(form.name)}
                   >
                     · clear
                   </button>
