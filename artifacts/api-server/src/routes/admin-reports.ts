@@ -4,7 +4,8 @@ import { heavyLimiter, exportLimiter } from "../lib/rate-limiters";
 import {
   tournamentsTable, teamsTable, categoriesTable, playersTable,
 } from "@workspace/db";
-import { brandingSettingsTable } from "@workspace/db/schema";
+import { brandingService } from "../lib/branding-service.js";
+import { drawPdfPageWatermark } from "../lib/pdf-branding.js";
 import { and, eq, inArray, gte, lte, ilike, desc } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
@@ -448,16 +449,18 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
 
 type BrandingData = {
   brandName: string;
+  watermarkImageBuffer: Buffer | null;
   watermarkText: string;
   watermarkOpacity: number;
 };
 
 async function fetchBranding(): Promise<BrandingData> {
-  const [row] = await db.select().from(brandingSettingsTable).limit(1);
+  const branding = await brandingService.resolvePdfWatermarkBranding();
   return {
-    brandName: row?.brandName ?? "BidWar",
-    watermarkText: row?.watermarkText || (row?.brandName ?? "BidWar"),
-    watermarkOpacity: row?.watermarkOpacity ?? 0.04,
+    brandName: branding.brandName,
+    watermarkImageBuffer: branding.watermarkImageBuffer,
+    watermarkText: branding.watermarkText,
+    watermarkOpacity: branding.watermarkOpacity,
   };
 }
 
@@ -567,10 +570,7 @@ function renderPdf(report: ReportData, res: Response, branding: BrandingData): v
     const w = doc.page.width;
     const h = doc.page.height;
     // watermark
-    doc.save();
-    doc.rotate(-25, { origin: [w / 2, h / 2] });
-    doc.fillColor("#000000", branding.watermarkOpacity).font("Helvetica-Bold").fontSize(120).text(branding.watermarkText, 0, h / 2 - 60, { width: w, align: "center" });
-    doc.restore();
+    drawPdfPageWatermark(doc, branding);
     // footer
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7)
       .text(`Page ${i + 1} of ${range.count}  ·  ${branding.brandName} Report Center  ·  Confidential`, doc.page.margins.left, h - doc.page.margins.bottom + 6, { width: w - doc.page.margins.left - doc.page.margins.right, align: "center" });

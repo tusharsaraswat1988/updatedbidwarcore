@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, categoriesTable, playersTable } from "@workspace/db";
-import { brandingSettingsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { brandingService } from "../lib/branding-service.js";
+import { drawPdfPageWatermark, fetchImageBuffer } from "../lib/pdf-branding.js";
 
 const router = Router();
 
@@ -28,27 +29,6 @@ function fmtShort(n: number | null | undefined): string {
   if (n >= 100000) return `\u20B9${(n / 100000).toFixed(2)} L`;
   if (n >= 1000) return `\u20B9${(n / 1000).toFixed(1)} K`;
   return `\u20B9${n}`;
-}
-
-async function fetchBranding() {
-  const [row] = await db.select().from(brandingSettingsTable).limit(1);
-  return {
-    brandName: row?.brandName ?? "BidWar",
-    poweredByText: row?.poweredByText ?? "Powered by BidWar",
-    miniBrandText: row?.miniBrandText ?? "BW",
-    miniLogoUrl: row?.miniLogoUrl ?? row?.mainLogoUrl ?? null,
-    showBrandingPdf: row?.showBrandingPdf ?? true,
-  };
-}
-
-async function fetchImageBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
-  }
 }
 
 router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: Response) => {
@@ -245,8 +225,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
-  const branding = await fetchBranding();
-  const brandLogoBuffer = branding.miniLogoUrl ? await fetchImageBuffer(branding.miniLogoUrl) : null;
+  const branding = await brandingService.resolvePdfWatermarkBranding();
+  const brandLogoBuffer = branding.footerLogoBuffer;
   const ownerPhotoBuffer = team.ownerPhotoUrl ? await fetchImageBuffer(team.ownerPhotoUrl) : null;
 
   const doc = new PDFDocument({ size: "A4", layout: "portrait", margin: 28, bufferPages: true });
@@ -488,6 +468,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
         .text("UNLICENSED COPY", 0, ph / 2 - 50, { width: pw, align: "center" });
       doc.restore();
     }
+
+    drawPdfPageWatermark(doc, branding);
 
     doc.save();
     doc.fillColor("#0a0a0a").rect(LEFT, ph - doc.page.margins.bottom + 4, W, 18).fill();

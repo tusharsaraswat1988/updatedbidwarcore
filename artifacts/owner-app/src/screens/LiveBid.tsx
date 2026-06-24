@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut, ShieldAlert,
@@ -621,23 +621,28 @@ export function LiveBid({
   const showUnsoldResult = !hasPlayer && resolvedOutcome?.type === "unsold";
   const showLastSoldResult = !hasPlayer && !showUnsoldResult && !!state?.lastSoldPlayer;
 
-  useEffect(() => {
-    if (!resolvedOutcome) return;
-
-    const key = resolvedOutcome.type === "sold"
+  const outcomeBannerKey = useMemo(() => {
+    if (!resolvedOutcome) return null;
+    return resolvedOutcome.type === "sold"
       ? `sold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.teamId ?? ""}:${resolvedOutcome.amount ?? 0}:${resolvedOutcome.action}`
       : `unsold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.action}`;
-    if (!key || key === lastOutcomeKeyRef.current) return;
-    lastOutcomeKeyRef.current = key;
+  }, [resolvedOutcome]);
 
-    if (resolvedOutcome.type === "unsold") {
+  const purseBoosterBannerKey =
+    state?.lastPurseBooster?.teamId === teamId ? state.lastPurseBooster.id : null;
+
+  useEffect(() => {
+    if (!outcomeBannerKey || outcomeBannerKey === lastOutcomeKeyRef.current) return;
+    lastOutcomeKeyRef.current = outcomeBannerKey;
+
+    if (resolvedOutcome?.type === "unsold") {
       const name = resolvedOutcome.playerName ?? "Player";
       setUnsoldBanner({ name });
       const t = setTimeout(() => setUnsoldBanner(null), 4000);
       return () => clearTimeout(t);
     }
 
-    if (resolvedOutcome.teamId === teamId) {
+    if (resolvedOutcome?.type === "sold" && resolvedOutcome.teamId === teamId) {
       const name = resolvedOutcome.playerName ?? state?.lastSoldPlayer?.name ?? "Player";
       setWonBanner({ name, soldAmount: resolvedOutcome.amount });
       const t = setTimeout(() => setWonBanner(null), 5500);
@@ -645,22 +650,16 @@ export function LiveBid({
     }
 
     return undefined;
-  }, [
-    state?.outcome?.type,
-    state?.outcome?.playerId,
-    state?.outcome?.playerName,
-    state?.outcome?.teamId,
-    state?.outcome?.amount,
-    state?.lastAction,
-    state?.lastSoldPlayer?.name,
-    teamId,
-  ]);
+  }, [outcomeBannerKey, teamId]);
 
   useEffect(() => {
+    if (purseBoosterBannerKey == null) return;
+    if (prevBoosterRef.current === purseBoosterBannerKey) return;
+
     const boost = state?.lastPurseBooster;
-    if (!boost || boost.teamId !== teamId) return;
-    if (prevBoosterRef.current === boost.id) return;
-    prevBoosterRef.current = boost.id;
+    if (!boost || boost.teamId !== teamId || boost.id !== purseBoosterBannerKey) return;
+
+    prevBoosterRef.current = purseBoosterBannerKey;
     setPurseBoosterBanner({
       amount: boost.amount,
       previousCapacity: boost.previousCapacity,
@@ -668,7 +667,7 @@ export function LiveBid({
     });
     const t = setTimeout(() => setPurseBoosterBanner(null), 5500);
     return () => clearTimeout(t);
-  }, [state?.lastPurseBooster, teamId]);
+  }, [purseBoosterBannerKey, teamId]);
 
   const navBtnClass = (blocked: boolean) =>
     `p-2 transition-colors rounded-xl active:scale-90 ${
@@ -959,8 +958,11 @@ export function LiveBid({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8 cursor-pointer"
               style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+              onClick={() => setPurseBoosterBanner(null)}
+              role="button"
+              aria-label="Dismiss purse update"
             >
               <div className="text-center">
                 <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
@@ -969,6 +971,7 @@ export function LiveBid({
                 <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
                 <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
                 <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+                <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
               </div>
             </motion.div>
           )}
@@ -1236,8 +1239,11 @@ export function LiveBid({
         {purseBoosterBanner && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 cursor-pointer"
             style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+            onClick={() => setPurseBoosterBanner(null)}
+            role="button"
+            aria-label="Dismiss purse update"
           >
             <div className="text-center">
               <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
@@ -1246,6 +1252,7 @@ export function LiveBid({
               <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
               <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
               <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+              <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
             </div>
           </motion.div>
         )}

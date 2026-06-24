@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { db, notificationLogsTable, organizersTable, brandingSettingsTable } from "@workspace/db";
+import { brandingService } from "../branding-service.js";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
 import { getPublicOrigin } from "../runtime-env";
@@ -333,16 +334,17 @@ async function enrichPlayerRegisteredPayload(
 ): Promise<NotificationPayloadMap["PLAYER_REGISTERED"]> {
   const [branding] = await db
     .select({
-      miniLogoUrl: brandingSettingsTable.miniLogoUrl,
       brandName: brandingSettingsTable.brandName,
       poweredByText: brandingSettingsTable.poweredByText,
     })
     .from(brandingSettingsTable)
     .limit(1);
 
+  const logoUrl = await brandingService.resolveEmailLogoAssetUrl();
+
   return {
     ...payload,
-    bidwarLogoUrl: branding?.miniLogoUrl ?? null,
+    bidwarLogoUrl: logoUrl,
     brandName: branding?.brandName ?? "BidWar",
     poweredByText: branding?.poweredByText ?? "Powered by BidWar",
   };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
+import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 import { TeamLogo } from "@/components/TeamLogo";
 
 interface Props {
@@ -22,6 +23,7 @@ const STEPS = [
 export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onReady }: Props) {
   const [step, setStep] = useState(0);
   const { brandName, logos, poweredByText, miniBrandText } = useBranding();
+  const splashSrc = resolveSplashLogoUrl(logos);
 
   useEffect(() => {
     const timings = [600, 700, 700, 500];
@@ -49,14 +51,18 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
       <div className="w-full max-w-sm text-center space-y-10">
         {/* Brand logo */}
         <div className="flex items-center justify-center gap-2.5">
-          {logos.mini ? (
+          {splashSrc ? (
+            <img src={splashSrc} alt={brandName} className="h-12 w-auto max-w-[220px] object-contain" />
+          ) : logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
           ) : (
             <div className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
               {miniBrandText}
             </div>
           )}
-          <span className="font-display font-black text-2xl text-white tracking-wide">{brandName}</span>
+          {!splashSrc && (
+            <span className="font-display font-black text-2xl text-white tracking-wide">{brandName}</span>
+          )}
         </div>
 
         {/* Team badge */}

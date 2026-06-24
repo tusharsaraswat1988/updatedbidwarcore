@@ -53,11 +53,17 @@ function buildMetaBlock(meta: PageMeta): string {
   const canonical = esc(meta.canonical);
   const ogTitle = esc(meta.ogTitle ?? meta.title);
   const ogDesc = esc(meta.ogDescription ?? meta.description);
-  const ogImage = esc(meta.ogImage ?? "https://bidwar.in/opengraph.jpg");
+  const ogImage = meta.ogImage ? esc(meta.ogImage) : null;
   const twitterTitle = esc(meta.twitterTitle ?? meta.ogTitle ?? meta.title);
   const twitterDesc = esc(meta.twitterDescription ?? meta.ogDescription ?? meta.description);
   const robots = esc(meta.robots ?? "index, follow");
   const keywords = meta.keywords ? `\n    <meta name="keywords" content="${esc(meta.keywords)}" />` : "";
+  const ogImageTags = ogImage
+    ? `\n    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content="${ogImage}" />`
+    : "";
 
   return `<!-- PAGE_META_START -->
     <title>${title}</title>
@@ -69,16 +75,12 @@ function buildMetaBlock(meta: PageMeta): string {
     <meta property="og:site_name" content="BidWar" />
     <meta property="og:title" content="${ogTitle}" />
     <meta property="og:description" content="${ogDesc}" />
-    <meta property="og:url" content="${canonical}" />
-    <meta property="og:image" content="${ogImage}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="${canonical}" />${ogImageTags}
     <meta property="og:locale" content="en_IN" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}" />
     <meta name="twitter:site" content="@bidwar_in" />
     <meta name="twitter:title" content="${twitterTitle}" />
     <meta name="twitter:description" content="${twitterDesc}" />
-    <meta name="twitter:image" content="${ogImage}" />
     <!-- PAGE_META_END -->`;
 }
 

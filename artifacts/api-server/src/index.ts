@@ -7,11 +7,14 @@ import { getRuntimeConfig } from "./lib/runtime-env";
 import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
 import { ensureCoreSchema, pool } from "@workspace/db";
+import { brandingService } from "./lib/branding-service.js";
 
 const { port } = getRuntimeConfig();
 
 async function start() {
   await ensureCoreSchema(pool);
+  await brandingService.migrateLegacyBrandingAssets();
+  await brandingService.refreshPlatformBrandingCache();
   await initRedisClients();
   await startAuctionEventSubscriber();
 

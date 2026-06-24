@@ -964,7 +964,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
         title={config.title}
         description={config.description}
         canonical={config.canonical}
-        ogImage="https://bidwar.in/opengraph.jpg"
+        ogImage={logos.openGraph ?? undefined}
       />
       <SportLandingSchemaMarkup
         name={config.breadcrumbLabel}

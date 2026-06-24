@@ -84,7 +84,15 @@ export function getDevOwnerAppProxyTarget(): string {
  */
 export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
   const target = getDevApiProxyTarget();
+  const manifestProxy: ViteApiProxyOptions = {
+    target,
+    changeOrigin: true,
+    secure: false,
+    ws: false,
+  };
   return {
+    "/site.webmanifest": manifestProxy,
+    "/owner-app/manifest.webmanifest": manifestProxy,
     [API_PREFIX]: {
       target,
       changeOrigin: true,
@@ -107,6 +115,37 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
  * Vite server.proxy config: forwards `/owner-app/*` to the owner-app dev server.
  * Path is kept as-is — owner-app Vite uses `base: "/owner-app/"` and expects `/owner-app/...` URLs.
  */
+function ownerAppProxyUnavailableHtml(target: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Owner app unavailable</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #09090b; color: #fafafa; margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    main { max-width: 32rem; text-align: center; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+    p { color: #a1a1aa; line-height: 1.6; margin: 0 0 1rem; }
+    code { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Owner app is not running</h1>
+    <p>
+      This page is proxied to the owner-app dev server at
+      <code>${target}</code>, but nothing is listening there.
+    </p>
+    <p>
+      From the repo root, run <code>pnpm dev</code> or
+      <code>pnpm dev:restart</code> to start API, auction-platform, and owner-app together.
+    </p>
+  </main>
+</body>
+</html>`;
+}
+
 export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
   const target = getDevOwnerAppProxyTarget();
   return {
@@ -117,6 +156,19 @@ export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
       ws: true,
       selfHandleResponse: true,
       configure: (proxy) => {
+        proxy.on("error", (err, _req, res) => {
+          if (res && !res.headersSent && typeof res.writeHead === "function") {
+            const body = ownerAppProxyUnavailableHtml(target);
+            res.writeHead(502, {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Length": String(Buffer.byteLength(body)),
+              "Cache-Control": "no-store",
+            });
+            res.end(body);
+            return;
+          }
+          console.error("[owner-app proxy]", err);
+        });
         proxy.on("proxyRes", (proxyRes, _req, res) => {
           res.setHeader(
             "Set-Cookie",

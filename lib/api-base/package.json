@@ -27,7 +27,8 @@
     "./auction-connection-state": "./src/auction-connection-state.ts",
     "./tournament-features": "./src/tournament-features.ts",
     "./sponsor-priority": "./src/sponsor-priority.ts",
-    "./registration-url": "./src/registration-url.ts"
+    "./registration-url": "./src/registration-url.ts",
+    "./branding-assets": "./src/branding-assets.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

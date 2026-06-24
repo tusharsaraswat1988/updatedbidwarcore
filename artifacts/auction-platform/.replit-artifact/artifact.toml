@@ -24,3 +24,4 @@ run = "node artifacts/auction-platform/server.cjs"
 [services.env]
 PORT = "24755"
 BASE_PATH = "/"
+OWNER_APP_DEV_PROXY_TARGET = "http://127.0.0.1:5174"

@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getObsBrandMarkSrc } from "@/lib/brand-assets";
 
 /**
  * Persistent venue branding — visible from the back row without
@@ -15,7 +15,7 @@ export const BidwarBrandWatermark = memo(function BidwarBrandWatermark({
   const { logos, brandName, poweredByText } = useBranding();
   const label = poweredByText?.trim() || "Powered by BidWar";
   const logoAlt = getBrandLogoAlt(brandName);
-  const logoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const logoSrc = cldUrl(logos.obsWatermark ?? logos.mini, "headerLogo") || getObsBrandMarkSrc(logos);
 
   return (
     <div

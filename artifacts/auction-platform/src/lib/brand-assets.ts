@@ -5,6 +5,13 @@ type BrandLogos = {
   mainReverse?: string | null;
   mini?: string | null;
   appIcon?: string | null;
+  favicon?: string | null;
+  pwaIcon?: string | null;
+  appleTouchIcon?: string | null;
+  openGraph?: string | null;
+  obsWatermark?: string | null;
+  pdfWatermark?: string | null;
+  splash?: string | null;
 };
 
 const BRAND_FALLBACK_LOGO_SVG =
@@ -27,8 +34,9 @@ export function getBrandLogoAlt(brandName?: string) {
 const WORDMARK_LOGO_KEYS = new Set<keyof BrandLogos>(["main", "mainReverse"]);
 
 function brandLogoPreset(key: keyof BrandLogos): Parameters<typeof cldUrl>[1] {
-  if (key === "appIcon") return "appIcon";
-  if (WORDMARK_LOGO_KEYS.has(key)) return "brandWordmark";
+  if (key === "appIcon" || key === "favicon" || key === "pwaIcon" || key === "appleTouchIcon") return "appIcon";
+  if (key === "obsWatermark" || key === "pdfWatermark") return "headerLogo";
+  if (WORDMARK_LOGO_KEYS.has(key as "main" | "mainReverse")) return "brandWordmark";
   return "headerLogo";
 }
 
@@ -57,4 +65,14 @@ export function getBrandLogoSrc(
     if (raw) return raw;
   }
   return BRAND_FALLBACK_LOGO_SVG;
+}
+
+/** OBS overlay / streaming brand mark: OBS_WATERMARK → SYMBOL → PRIMARY → app icon */
+export function getObsBrandMarkSrc(logos: BrandLogos | undefined): string {
+  return getBrandLogoSrc(logos, ["obsWatermark", "mini", "main", "appIcon"]);
+}
+
+/** Splash / loading screens: SPLASH_LOGO → PRIMARY → SYMBOL */
+export function getSplashLogoSrc(logos: BrandLogos | undefined): string {
+  return getBrandLogoSrc(logos, ["splash", "main", "mini", "appIcon"]);
 }

@@ -26,6 +26,8 @@ import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import { useBranding } from "@/hooks/useBranding";
+import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -79,6 +81,8 @@ export function OwnerRoute() {
   const pushDoneRef  = useRef(false);
 
   const [screen, setScreen] = useState<Screen>("loading");
+  const { logos, brandName, miniBrandText } = useBranding();
+  const splashSrc = resolveSplashLogoUrl(logos);
 
   // Keep the screen awake while the owner is active — critical during live bidding.
   // Released automatically when the page is hidden; re-acquired on visibility restore.
@@ -255,7 +259,16 @@ export function OwnerRoute() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (screen === "loading" || !team) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]">
+      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-6">
+        {splashSrc ? (
+          <img src={splashSrc} alt={brandName} className="h-16 w-auto max-w-[240px] object-contain" />
+        ) : logos.mini ? (
+          <img src={logos.mini} alt={brandName} className="h-10 w-auto" />
+        ) : (
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
+            {miniBrandText}
+          </div>
+        )}
         <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
       </div>
     );

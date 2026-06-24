@@ -37,4 +37,23 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_ip text;
     ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_url text;
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS branding_assets (
+      id SERIAL PRIMARY KEY,
+      asset_type TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_name TEXT,
+      mime_type TEXT,
+      width INTEGER,
+      height INTEGER,
+      file_size INTEGER,
+      version INTEGER NOT NULL DEFAULT 1,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS branding_assets_asset_type_active_idx
+      ON branding_assets (asset_type);
+  `);
 }

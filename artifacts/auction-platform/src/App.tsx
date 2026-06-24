@@ -10,6 +10,7 @@ import { PageTracking } from "@/components/page-tracking";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
+import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
 
 import Landing from "@/pages/landing";
 
@@ -106,21 +107,41 @@ function BrandingEffects() {
   const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
 
   useEffect(() => {
-    const iconSrc = getBrandLogoSrc(logos, ["appIcon", "mini", "main"]) || BRAND_ICON_PLACEHOLDER;
-    const iconLinks = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]'),
-    );
-    iconLinks.forEach((link) => {
-      link.href = iconSrc;
-    });
+    applyPwaHeadBranding(logos, "/site.webmanifest");
 
-    const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-    if (apple) apple.href = iconSrc;
+    const faviconSrc = getBrandLogoSrc(logos, ["favicon", "appIcon", "pwaIcon", "mini", "main"]) || BRAND_ICON_PLACEHOLDER;
+    const appleSrc = resolvePwaIconUrl(logos) || faviconSrc;
+
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
+      link.href = faviconSrc;
+    });
+    document.querySelectorAll<HTMLLinkElement>('link[rel="apple-touch-icon"]').forEach((link) => {
+      link.href = appleSrc;
+    });
 
     if (brandName && brandName !== "BidWar") {
       document.title = document.title.replace(/BidWar/g, brandName);
     }
-  }, [logos.appIcon, logos.mini, logos.main, brandName]);
+  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, logos.mini, logos.main, brandName]);
+
+  useEffect(() => {
+    const ogImage = logos.openGraph;
+    if (!ogImage) return;
+
+    function setMeta(selector: string, attr: string, content: string) {
+      let el = document.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement("meta");
+        const [k, v] = attr.split("=");
+        el.setAttribute(k, v);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    }
+
+    setMeta('meta[property="og:image"]', "property=og:image", ogImage);
+    setMeta('meta[name="twitter:image"]', "name=twitter:image", ogImage);
+  }, [logos.openGraph]);
 
   useEffect(() => {
     const selector = 'meta[name="google-site-verification"]';

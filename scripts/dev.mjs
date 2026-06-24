@@ -10,6 +10,7 @@ import {
   freePorts,
   waitForPortsFree,
   waitForApiHealth,
+  getDevStackStatus,
   killChildTree,
 } from "./dev-ports.mjs";
 
@@ -86,27 +87,35 @@ if (loaded) {
   );
 }
 
-/** True when our API already responds — avoids killing a live dev stack on duplicate `pnpm dev`. */
-async function isDevAlreadyRunning() {
-  try {
-    const res = await fetch(`http://127.0.0.1:${API_PORT}/api/healthz`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT };
 
-if (!forceStart && (await isDevAlreadyRunning())) {
-  console.error(
-    "\n  Dev servers are already running.\n" +
-      `  API:      http://127.0.0.1:${API_PORT}/api/healthz\n` +
-      `  Frontend: http://127.0.0.1:${FRONTEND_PORT}/admin/login\n\n` +
-      "  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
-      "  To force-kill existing processes: `pnpm dev -- --force`\n",
-  );
-  process.exit(1);
+if (!forceStart) {
+  const stack = await getDevStackStatus(devPortsConfig);
+  const allRunning = stack.api && stack.web && stack.owner;
+
+  if (allRunning) {
+    console.error(
+      "\n  Dev servers are already running.\n" +
+        `  API:       http://127.0.0.1:${API_PORT}/api/healthz\n` +
+        `  Frontend:  http://127.0.0.1:${FRONTEND_PORT}/admin/login\n` +
+        `  Owner app: http://127.0.0.1:${FRONTEND_PORT}/owner-app/join\n\n` +
+        "  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
+        "  To force-kill existing processes: `pnpm dev -- --force`\n",
+    );
+    process.exit(1);
+  }
+
+  if (stack.api || stack.web || stack.owner) {
+    console.error(
+      "\n  Partial dev stack detected — owner links will not work until all services run.\n" +
+        `  API (${API_PORT}):        ${stack.api ? "running" : "NOT running"}\n` +
+        `  Frontend (${FRONTEND_PORT}):   ${stack.web ? "running" : "NOT running"}\n` +
+        `  Owner app (${OWNER_APP_PORT}): ${stack.owner ? "running" : "NOT running"}\n\n` +
+        "  Run `pnpm dev:restart` to start API, auction-platform, and owner-app together.\n" +
+        "  Or use `pnpm dev -- --force` to replace whatever is on the dev ports.\n",
+    );
+    process.exit(1);
+  }
 }
 
 console.log("Checking dev ports…");

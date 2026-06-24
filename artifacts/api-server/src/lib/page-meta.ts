@@ -21,9 +21,9 @@ import {
   getAuthorBySlug,
   getAllBlogUrls,
 } from "@workspace/blog-data";
+import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
 
 const BASE_URL = "https://bidwar.in";
-const DEFAULT_OG_IMAGE = `${BASE_URL}/opengraph.jpg`;
 const PHONE = "+91-8707488250";
 
 // ─── Shared schema fragments ──────────────────────────────────────────────────
@@ -186,7 +186,6 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     keywords: "sports auction software, cricket auction software, IPL style auction, live player auction platform, franchise auction system, tournament management software India, digital sports auction, real-time bidding software, cricket league auction",
     ogTitle: "BidWar — Live Sports Auction Software | Run IPL-Style Player Auctions",
     ogDescription: "Run professional IPL-style player auctions live. Real-time bidding, LED broadcast display, team owner mobile panel, Broadcast Overlay. Built for cricket, football, kabaddi and franchise leagues across India.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(SOFTWARE_APPLICATION_SCHEMA, ORGANIZATION_SCHEMA, WEBSITE_SCHEMA, HOME_FAQ_SCHEMA)],
   },
 
@@ -197,7 +196,6 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     keywords: "upcoming cricket auctions, upcoming sports auctions India, live auction events, franchise player auction schedule, cricket league auction dates",
     ogTitle: "Upcoming Live Sports Auctions | BidWar Platform",
     ogDescription: "Discover live franchise player auctions happening across India. Cricket, football, kabaddi, and more — powered by BidWar.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(ORGANIZATION_SCHEMA, {
       "@type": "WebPage",
       "name": "Upcoming Live Sports Auctions",
@@ -215,7 +213,6 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     keywords: "contact BidWar, auction software support, BidWar demo, BidWar pricing, auction software India contact",
     ogTitle: "Contact BidWar | Same-Day Auction Software Support",
     ogDescription: "Reach the BidWar team for demos, pricing, or event setup assistance. WhatsApp, email, and phone support available.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(ORGANIZATION_SCHEMA, {
       "@type": "ContactPage",
       "name": "Contact BidWar",
@@ -291,7 +288,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "cricket auction software, IPL style auction software, cricket player auction platform, T20 league auction, local cricket auction India, franchise cricket auction",
     ogTitle: "Cricket Auction Software — IPL-Style Player Bidding | BidWar",
     ogDescription: "Run IPL-format cricket player auctions with Platinum-to-Emerging categories, team purse tracking, LED display, and one-tap mobile bidding. Free trial included.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Cricket Auction Software", "IPL-style cricket player auction platform with real-time bidding, LED broadcast display, and team owner mobile panels.", `${BASE_URL}/cricket-auction-software`),
       ORGANIZATION_SCHEMA,
@@ -312,7 +308,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "football player auction software, football franchise auction India, ISL style auction, football league bidding, local football auction platform",
     ogTitle: "Football Player Auction Software — Franchise Bidding | BidWar",
     ogDescription: "Live football franchise auctions with position-based categories, team budgets, and broadcast-quality LED display. Mobile bidding for all team owners. Free trial.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Football Player Auction", "Live football franchise player auction platform with position-based categories, mobile bidding, and broadcast LED display.", `${BASE_URL}/football-player-auction`),
       ORGANIZATION_SCHEMA,
@@ -332,7 +327,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "kabaddi auction platform, PKL style auction software, kabaddi player auction India, kabaddi franchise league, Pro Kabaddi League auction software",
     ogTitle: "Kabaddi Auction Platform — PKL-Style Franchise Bidding | BidWar",
     ogDescription: "Run PKL-format kabaddi player auctions with raider, defender, all-rounder categories, squad quotas, LED display, and mobile owner bidding. Free trial.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Kabaddi Auction Platform", "PKL-style kabaddi franchise player auction platform with raider/defender categories, squad enforcement, and broadcast display.", `${BASE_URL}/kabaddi-auction-platform`),
       ORGANIZATION_SCHEMA,
@@ -351,7 +345,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "esports auction system, esports player auction software, gaming league auction, BGMI auction, Valorant franchise auction, esports tournament India",
     ogTitle: "Esports Auction System — Live Gaming Franchise Bidding | BidWar",
     ogDescription: "Esports franchise player auctions with role-based categories (IGL, fragger, support), mobile bidding, YouTube Live overlay, and real-time broadcast display.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Esports Auction System", "Live esports franchise player auction system with role-based categories, mobile bidding, and broadcast overlay for gaming leagues.", `${BASE_URL}/esports-auction-system`),
       ORGANIZATION_SCHEMA,
@@ -366,7 +359,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "corporate sports auction, business league auction software, corporate cricket auction, office sports league bidding, corporate franchise auction India",
     ogTitle: "Business League Auction Software — Corporate Sports Franchise Bidding | BidWar",
     ogDescription: "Corporate sports franchise auctions with sponsor branding, YouTube Live overlay, executive mobile bidding panels, and broadcast-quality LED display.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Business League Auction", "Corporate and business league franchise player auction platform with sponsor branding, live streaming support, and mobile bidding.", `${BASE_URL}/business-league-auction`),
       ORGANIZATION_SCHEMA,
@@ -381,7 +373,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "live player bidding software, real-time auction platform, sports bidding technology India, live auction sync, sub-second bid updates",
     ogTitle: "Live Player Bidding — How Real-Time Auction Sync Works | BidWar",
     ogDescription: "Sub-second bid sync across operator dashboard, team owner phones, and LED display screens. The technology powering India's live sports auction platform.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Live Player Bidding", "Real-time sports player bidding platform with sub-second sync, mobile owner panels, and broadcast LED display for franchise leagues.", `${BASE_URL}/live-player-bidding`),
       ORGANIZATION_SCHEMA,
@@ -396,7 +387,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "tournament auction platform, sports franchise auction software India, tournament player bidding, franchise auction management, multi-sport auction platform",
     ogTitle: "Tournament Auction Platform — All Sports Franchise Bidding | BidWar",
     ogDescription: "India's complete tournament auction platform for cricket, football, kabaddi, basketball, and more. Real-time bidding, LED display, and mobile owner panels.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       SOFTWARE_APPLICATION_SCHEMA,
       ORGANIZATION_SCHEMA,
@@ -411,7 +401,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "basketball auction software, basketball franchise auction India, NBA style auction platform, basketball player bidding, corporate basketball league auction",
     ogTitle: "Basketball Auction Software — Franchise Player Bidding | BidWar",
     ogDescription: "Live basketball franchise auctions with position categories (guard, forward, center), team budgets, mobile owner bidding, and broadcast-quality LED display.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Basketball Auction Software", "Live basketball franchise player auction platform with position-based categories, mobile bidding panels, and broadcast LED display.", `${BASE_URL}/basketball-auction-software`),
       ORGANIZATION_SCHEMA,
@@ -431,7 +420,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "badminton auction platform, badminton player auction software, badminton league auction India, badminton franchise bidding, badminton tournament management",
     ogTitle: "Badminton Auction Platform — Franchise Bidding & Live Scoring | BidWar",
     ogDescription: "Live badminton franchise auctions with category bidding, mobile owner panels, LED display, and a built-in badminton scoring system for your league matches.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Badminton Auction Platform", "Live badminton franchise player auction platform with category bidding, mobile owner panels, and integrated badminton scoring for league matches.", `${BASE_URL}/badminton-auction-platform`),
       ORGANIZATION_SCHEMA,
@@ -451,7 +439,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "sports auction software, franchise auction software India, live sports player auction, multi-sport auction platform, franchise bidding software",
     ogTitle: "Sports Auction Software — Professional Franchise Auctions | BidWar",
     ogDescription: "One platform for all franchise sports auctions. Cricket, football, kabaddi, badminton, basketball — real-time bidding, LED display, mobile owner panels. Free trial.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Sports Auction Software", "India's most complete sports auction platform for franchise leagues — cricket, football, kabaddi, badminton, basketball, and more.", `${BASE_URL}/sports-auction-software`),
       ORGANIZATION_SCHEMA,
@@ -466,7 +453,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "badminton scoring software, live badminton score, badminton tournament scoring, digital badminton scorer, badminton scoreboard India",
     ogTitle: "Badminton Scoring Software — Live Digital Scoring | BidWar",
     ogDescription: "Rally-by-rally live badminton scoring on any device. LED scoreboards, automatic deuce/game detection, standings, and tournament reports.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Badminton Scoring Software", "Live rally-by-rally badminton scoring platform with LED scoreboards, standings, and tournament management for clubs and leagues.", `${BASE_URL}/badminton-scoring-software`),
       ORGANIZATION_SCHEMA,
@@ -486,7 +472,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "franchise auction software, franchise player bidding, franchise league auction India, IPL franchise auction platform, automated franchise bidding",
     ogTitle: "Franchise Auction Software — Automated Player Bidding | BidWar",
     ogDescription: "Professional franchise player auctions with automated bidding workflows, purse tracking, category-based bidding, and broadcast LED display. Free trial available.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Franchise Auction Software", "Professional franchise-based sports player auction platform with automated bidding, purse tracking, and broadcast LED display for all sports.", `${BASE_URL}/franchise-auction-software`),
       ORGANIZATION_SCHEMA,
@@ -501,7 +486,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "player auction software, sports player auction platform India, digital player bidding, player auction management, live player auction software",
     ogTitle: "Player Auction Software — Digital Player Bidding for Sports Leagues | BidWar",
     ogDescription: "Run live player auctions with automated bidding, team budget management, mobile owner panels, and broadcast display. Free trial for 2 teams.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Player Auction Software", "Digital sports player auction platform with automated bidding workflows, team budget management, and live broadcast display for franchise leagues.", `${BASE_URL}/player-auction-software`),
       ORGANIZATION_SCHEMA,
@@ -516,7 +500,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "sports league management software, league management platform India, sports tournament management, online league software, cricket league management system",
     ogTitle: "Sports League Management Software — Full Season Operations | BidWar",
     ogDescription: "One platform for the full league season: registrations, auctions, scheduling, live scoring, standings, and end-of-season reports. All sports supported.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Sports League Management Software", "End-to-end sports league management platform for registrations, franchise auctions, match scheduling, live scoring, and standings.", `${BASE_URL}/sports-league-management-software`),
       ORGANIZATION_SCHEMA,
@@ -536,7 +519,6 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
     keywords: "volleyball player auction software, volleyball franchise auction India, volleyball league bidding, corporate volleyball auction, volleyball tournament auction platform",
     ogTitle: "Volleyball Player Auction Software — Franchise Bidding | BidWar",
     ogDescription: "Live volleyball franchise auctions with position categories (setter, libero, outside hitter, middle blocker), team budgets, mobile owner bidding, and broadcast LED display.",
-    ogImage: DEFAULT_OG_IMAGE,
     schemas: [graph(
       sportSoftwareSchema("Volleyball Player Auction", "Live volleyball franchise player auction platform with position-based categories, mobile bidding, and broadcast LED display.", `${BASE_URL}/volleyball-player-auction`),
       ORGANIZATION_SCHEMA,
@@ -552,6 +534,12 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
 
 // ─── Public lookup function ───────────────────────────────────────────────────
 
+function withPlatformOgImage(meta: PageMeta): PageMeta {
+  if (meta.ogImage) return meta;
+  const platformOg = getPlatformOpenGraphImageUrl();
+  return platformOg ? { ...meta, ogImage: platformOg } : meta;
+}
+
 /**
  * Returns page-specific metadata for a given URL pathname, or null if the
  * page is an app page (tournament, admin, organizer) that should receive the
@@ -560,15 +548,15 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
 export function getPageMeta(pathname: string): PageMeta | null {
   // Exact match for static pages
   const staticMatch = STATIC_PAGES[pathname];
-  if (staticMatch) return staticMatch;
+  if (staticMatch) return withPlatformOgImage(staticMatch);
 
   // Exact match for SEO landing pages
   const seoMatch = SEO_LANDING_PAGES[pathname];
-  if (seoMatch) return seoMatch;
+  if (seoMatch) return withPlatformOgImage(seoMatch);
 
   // Pattern match for /legal/:slug
   if (/^\/legal\/[a-z-]+$/.test(pathname)) {
-    return {
+    return withPlatformOgImage({
       title: "Legal | BidWar Sports Auction Platform",
       description: "BidWar legal policies and terms governing use of the auction platform.",
       canonical: `${BASE_URL}${pathname}`,
@@ -581,13 +569,12 @@ export function getPageMeta(pathname: string): PageMeta | null {
 
   // /blog — listing page
   if (pathname === "/blog") {
-    return {
+    return withPlatformOgImage({
       title: "BidWar Blog — Sports Auction Guides, Tips & Platform Walkthroughs",
       description: "Practical guides for franchise league organisers: how to run auctions, configure BidWar, stream live, and manage sports events. Covers cricket, football, kabaddi, and more.",
       canonical: `${BASE_URL}/blog`,
       ogTitle: "BidWar Blog — Sports Auction Guides & Tips",
       ogDescription: "Practical guides for franchise league organisers running sports auctions with BidWar.",
-      ogImage: DEFAULT_OG_IMAGE,
       schemas: [
         {
           "@context": "https://schema.org",
@@ -619,13 +606,13 @@ export function getPageMeta(pathname: string): PageMeta | null {
     const post = getPostMetaBySlug(slug);
     if (post) {
       const category = getCategoryBySlug(post.category);
-      return {
+      return withPlatformOgImage({
         title: `${post.title} — BidWar Blog`,
         description: post.description,
         canonical: post.canonical,
         ogTitle: post.title,
         ogDescription: post.description,
-        ogImage: post.heroImage ?? DEFAULT_OG_IMAGE,
+        ...(post.heroImage ? { ogImage: post.heroImage } : {}),
         schemas: [
           {
             "@context": "https://schema.org",
@@ -663,13 +650,12 @@ export function getPageMeta(pathname: string): PageMeta | null {
     const slug = categoryMatch[1];
     const category = getCategoryBySlug(slug);
     if (category) {
-      return {
+      return withPlatformOgImage({
         title: `${category.name} — BidWar Blog`,
         description: category.description,
         canonical: `${BASE_URL}/blog/category/${slug}`,
         ogTitle: `${category.name} — BidWar Blog`,
         ogDescription: category.description,
-        ogImage: DEFAULT_OG_IMAGE,
         schemas: [],
       };
     }
@@ -681,13 +667,12 @@ export function getPageMeta(pathname: string): PageMeta | null {
     const slug = authorMatch[1];
     const author = getAuthorBySlug(slug);
     if (author) {
-      return {
+      return withPlatformOgImage({
         title: `${author.name} — BidWar Blog`,
         description: author.bio,
         canonical: `${BASE_URL}/blog/author/${slug}`,
         ogTitle: `Articles by ${author.name} — BidWar Blog`,
         ogDescription: author.bio,
-        ogImage: DEFAULT_OG_IMAGE,
         schemas: [],
       };
     }
@@ -697,7 +682,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
   const tagMatch = pathname.match(/^\/blog\/tag\/([a-z0-9-]+)$/);
   if (tagMatch) {
     const slug = tagMatch[1];
-    return {
+    return withPlatformOgImage({
       title: `#${slug} Articles — BidWar Blog`,
       description: `Sports auction articles tagged with "${slug}" on the BidWar Blog.`,
       canonical: `${BASE_URL}/blog/tag/${slug}`,

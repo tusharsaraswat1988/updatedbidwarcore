@@ -11,6 +11,7 @@ export * from "./player_import_logs";
 export * from "./comm";
 export * from "./sports";
 export * from "./branding";
+export * from "./branding-assets";
 export * from "./push_subscriptions";
 export * from "./settings";
 export * from "./sms-settings";

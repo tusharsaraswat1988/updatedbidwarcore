@@ -20,6 +20,10 @@ import {
 import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
+import {
+  buildAuctionPlatformManifest,
+  buildOwnerAppManifest,
+} from "./lib/branding-manifest.js";
 
 const app: Express = express();
 
@@ -122,6 +126,31 @@ logger.info("Auth: stateless JWT cookies (bidwar_auth)");
 app.use(globalLimiter);
 
 app.use("/api", router);
+
+// ── Dynamic PWA manifests (BrandingService → install icons) ───────────────────
+app.get("/site.webmanifest", async (_req, res) => {
+  try {
+    const manifest = await buildAuctionPlatformManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build auction-platform manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
+app.get("/owner-app/manifest.webmanifest", async (_req, res) => {
+  try {
+    const manifest = await buildOwnerAppManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build owner-app manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
 
 // ── Optional single-process static file serving ───────────────────────────────
 // Enabled when SERVE_STATIC=true (or automatically in production when not

@@ -149,3 +149,44 @@ export async function waitForApiHealth(apiPort, timeoutMs = 45000) {
     `API did not become healthy at ${url} within ${timeoutMs / 1000}s`,
   );
 }
+
+/**
+ * @param {{ api: number; frontend: number; ownerApp: number }} ports
+ * @returns {Promise<{ api: boolean; web: boolean; owner: boolean }>}
+ */
+export async function getDevStackStatus(ports) {
+  /** @type {{ api: boolean; web: boolean; owner: boolean }} */
+  const status = { api: false, web: false, owner: false };
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${ports.api}/api/healthz`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    status.api = res.ok;
+  } catch {
+    /* down */
+  }
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${ports.frontend}/admin/login`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    status.web = res.ok;
+  } catch {
+    /* down */
+  }
+
+  try {
+    const res = await fetch(`http://127.0.0.1:${ports.ownerApp}/owner-app/`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (res.ok) {
+      const text = await res.text();
+      status.owner = text.includes('id="root"') || text.includes("BidWar Owner");
+    }
+  } catch {
+    /* down */
+  }
+
+  return status;
+}

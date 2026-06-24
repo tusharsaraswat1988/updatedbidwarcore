@@ -5,7 +5,7 @@ import { formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import type { PurseRow } from "./types";
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getObsBrandMarkSrc } from "@/lib/brand-assets";
 
 /**
  * Overlay 1 — IPL-style TEAM PURSE STATUS table.
@@ -25,7 +25,7 @@ export const TeamOverlay = memo(function TeamOverlay({
 }) {
   const { logos, brandName } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
-  const brandLogoSrc = cldUrl(logos.mini, "headerLogo") || getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const brandLogoSrc = getObsBrandMarkSrc(logos);
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"

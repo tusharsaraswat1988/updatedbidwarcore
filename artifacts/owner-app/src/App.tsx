@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { OWNER_APP_BASE } from "@workspace/api-base/owner-urls";
+import { BrandingEffects } from "@/components/BrandingEffects";
 import { OwnerRoute } from "@/screens/OwnerRoute";
 import { Launcher } from "@/screens/Launcher";
 import { MobileEntry } from "@/screens/MobileEntry";
@@ -22,6 +23,7 @@ function Router() {
 export default function App() {
   return (
     <WouterRouter base={BASE}>
+      <BrandingEffects />
       <Router />
     </WouterRouter>
   );
