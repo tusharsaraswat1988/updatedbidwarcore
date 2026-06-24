@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
+import { EyesMascot } from "./EyesMascot";
 
 /**
  * TOP STRIP — BIDWAR LIVE brand, tournament line, LIVE pill, remaining counter.
@@ -52,22 +53,27 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
                 : "border-white/15 bg-white/5"
           }`}
         >
-          <span
-            className={`size-2 rounded-full ${
-              live
-                ? "bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]"
-                : paused
-                  ? "bg-amber-400 shadow-[0_0_10px_#fbbf24]"
-                  : "bg-white/40"
-            }`}
-          />
-          <span
-            className={`text-[10px] font-mono uppercase tracking-[0.4em] ${
-              live ? "text-red-300" : paused ? "text-amber-300" : "text-white/55"
-            }`}
-          >
-            {live ? "Live · Bidding Open" : paused ? "Paused" : "Awaiting"}
-          </span>
+          {!live && !paused ? (
+            /* Awaiting: cartoon eyes look around instead of static text */
+            <EyesMascot idle />
+          ) : (
+            <>
+              <span
+                className={`size-2 rounded-full ${
+                  live
+                    ? "bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]"
+                    : "bg-amber-400 shadow-[0_0_10px_#fbbf24]"
+                }`}
+              />
+              <span
+                className={`text-[10px] font-mono uppercase tracking-[0.4em] ${
+                  live ? "text-red-300" : "text-amber-300"
+                }`}
+              >
+                {live ? "Live · Bidding Open" : "Paused"}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
