@@ -8,19 +8,23 @@ import {
   globalPlayersTable,
   playersTable,
   teamsTable,
+  tournamentsTable,
   masterTeamsTable,
-  masterSponsorsTable,
   type Player,
   type Team,
 } from "@workspace/db";
+import { isPlayerSportProfilesEnabled } from "@workspace/api-base/player-sport-profiles";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { logSync } from "./sync-helpers";
 import {
   assignPlayerToFranchiseRoster,
-  endActiveRosterAssignment,
 } from "./roster-assignments";
 import { ensureCricketStatisticsBaseline } from "./cricket-stats";
+import {
+  buildSportProfileFromAuctionPlayer,
+  playerSportProfileService,
+} from "./player-sport-profile-service";
 
 export type SyncResult = {
   masterPlayerId: string;
@@ -40,6 +44,16 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function resolveTournamentSport(tournamentId?: number): Promise<string> {
+  if (!tournamentId) return "cricket";
+  const [tournament] = await db
+    .select({ sport: tournamentsTable.sport })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+  return (tournament?.sport ?? "cricket").trim().toLowerCase();
 }
 
 /** Find existing master player by auction id, mobile, email, or name similarity. */
@@ -109,7 +123,8 @@ async function findExistingMasterPlayer(
   return null;
 }
 
-function buildMasterPlayerFields(auctionPlayer: Player) {
+/** Identity-only fields — safe to merge on every sync when profiles are enabled. */
+function buildIdentityFields(auctionPlayer: Player) {
   const { firstName, lastName } = splitName(auctionPlayer.name);
   const mobileParsed = auctionPlayer.mobileNumber
     ? parseIndianMobile(auctionPlayer.mobileNumber)
@@ -127,10 +142,48 @@ function buildMasterPlayerFields(auctionPlayer: Player) {
     age: auctionPlayer.age,
     gender: auctionPlayer.gender,
     photoUrl: auctionPlayer.photoUrl,
+  };
+}
+
+/** Legacy sport columns — written on create only when profiles are enabled. */
+function buildLegacySportFields(auctionPlayer: Player, sportSlug: string) {
+  return {
     auctionPlayerId: auctionPlayer.id,
     defaultRole: auctionPlayer.role,
-    sport: "cricket",
+    sport: sportSlug,
   };
+}
+
+/** Legacy sync mapping — overwrites sport fields on every sync (pre-Sprint-2 behavior). */
+function buildMasterPlayerFields(auctionPlayer: Player, sportSlug = "cricket") {
+  return {
+    ...buildIdentityFields(auctionPlayer),
+    ...buildLegacySportFields(auctionPlayer, sportSlug),
+  };
+}
+
+async function upsertSportProfileForAuctionPlayer(
+  globalPlayerId: string,
+  auctionPlayer: Player,
+  sportSlug: string,
+): Promise<void> {
+  await playerSportProfileService.upsertSportProfile(globalPlayerId, {
+    sportSlug,
+    defaultRole: auctionPlayer.role,
+    profileJson: await buildSportProfileFromAuctionPlayer(auctionPlayer, sportSlug),
+  });
+}
+
+async function linkAuctionPlayerToGlobal(
+  auctionPlayer: Player,
+  globalPlayerId: string,
+): Promise<void> {
+  if (!auctionPlayer.globalPlayerId) {
+    await db
+      .update(playersTable)
+      .set({ globalPlayerId })
+      .where(eq(playersTable.id, auctionPlayer.id));
+  }
 }
 
 /**
@@ -153,8 +206,59 @@ export async function syncAuctionPlayerToMaster(
 
   if (!auctionPlayer) return null;
 
-  const fields = buildMasterPlayerFields(auctionPlayer);
+  const sportSlug = await resolveTournamentSport(tournamentId ?? auctionPlayer.tournamentId);
   const existing = await findExistingMasterPlayer(auctionPlayer);
+  const profilesEnabled = isPlayerSportProfilesEnabled();
+
+  if (profilesEnabled) {
+    if (existing) {
+      const identity = buildIdentityFields(auctionPlayer);
+      const [updated] = await db
+        .update(globalPlayersTable)
+        .set({
+          ...identity,
+          updatedAt: new Date(),
+        })
+        .where(eq(globalPlayersTable.id, existing.id))
+        .returning();
+
+      await upsertSportProfileForAuctionPlayer(updated.id, auctionPlayer, sportSlug);
+      await linkAuctionPlayerToGlobal(auctionPlayer, updated.id);
+
+      await logSync("auction_player_synced", "auction_player", String(auctionPlayer.id), updated.id, null, {
+        matched: true,
+        created: false,
+        profilesEnabled: true,
+        sportSlug,
+      });
+
+      return { masterPlayerId: updated.id, created: false, updated: true };
+    }
+
+    const gpId = generateMasterId("gp");
+    const [created] = await db
+      .insert(globalPlayersTable)
+      .values({
+        id: gpId,
+        ...buildIdentityFields(auctionPlayer),
+        ...buildLegacySportFields(auctionPlayer, sportSlug),
+      })
+      .returning();
+
+    await upsertSportProfileForAuctionPlayer(created.id, auctionPlayer, sportSlug);
+    await linkAuctionPlayerToGlobal(auctionPlayer, created.id);
+
+    await logSync("auction_player_synced", "auction_player", String(auctionPlayer.id), created.id, null, {
+      matched: false,
+      created: true,
+      profilesEnabled: true,
+      sportSlug,
+    });
+
+    return { masterPlayerId: created.id, created: true, updated: false };
+  }
+
+  const fields = buildMasterPlayerFields(auctionPlayer, sportSlug);
 
   if (existing) {
     const [updated] = await db
@@ -167,12 +271,7 @@ export async function syncAuctionPlayerToMaster(
       .where(eq(globalPlayersTable.id, existing.id))
       .returning();
 
-    if (!auctionPlayer.globalPlayerId) {
-      await db
-        .update(playersTable)
-        .set({ globalPlayerId: updated.id })
-        .where(eq(playersTable.id, auctionPlayer.id));
-    }
+    await linkAuctionPlayerToGlobal(auctionPlayer, updated.id);
 
     await logSync("auction_player_synced", "auction_player", String(auctionPlayer.id), updated.id, null, {
       matched: true,
@@ -188,10 +287,7 @@ export async function syncAuctionPlayerToMaster(
     .values({ id: gpId, ...fields })
     .returning();
 
-  await db
-    .update(playersTable)
-    .set({ globalPlayerId: created.id })
-    .where(eq(playersTable.id, auctionPlayer.id));
+  await linkAuctionPlayerToGlobal(auctionPlayer, created.id);
 
   await logSync("auction_player_synced", "auction_player", String(auctionPlayer.id), created.id, null, {
     matched: false,
@@ -293,6 +389,8 @@ export async function createPlayerTeamAssignmentFromSale(
   const assignmentType =
     auctionPlayer.status === "retained" ? "retained" : "auction_sale";
 
+  const sportSlug = await resolveTournamentSport(tournamentId);
+
   await assignPlayerToFranchiseRoster({
     masterPlayerId: syncResult.masterPlayerId,
     masterTeamId,
@@ -300,9 +398,12 @@ export async function createPlayerTeamAssignmentFromSale(
     auctionPlayerId: auctionPlayer.id,
     auctionTeamId: auctionTeam.id,
     assignmentType,
+    sport: sportSlug,
   });
 
-  await ensureCricketStatisticsBaseline(syncResult.masterPlayerId, tournamentId);
+  if (sportSlug === "cricket") {
+    await ensureCricketStatisticsBaseline(syncResult.masterPlayerId, tournamentId);
+  }
 }
 
 /** Fire-and-forget wrapper for auction hooks. */
@@ -330,3 +431,11 @@ export function syncAllAuctionPlayersAsync(tournamentId: number): void {
     console.error("[master-sports] syncAllAuctionPlayersToMaster failed:", err);
   });
 }
+
+// Exported for tests
+export {
+  buildIdentityFields,
+  buildLegacySportFields,
+  buildMasterPlayerFields,
+  resolveTournamentSport,
+};

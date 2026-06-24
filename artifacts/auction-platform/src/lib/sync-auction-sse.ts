@@ -9,6 +9,7 @@ import {
   getGetTeamPursesQueryKey,
   getListBidsQueryKey,
   getListPlayersQueryKey,
+  type Bid,
   type TeamPurse,
 } from "@workspace/api-client-react";
 
@@ -122,6 +123,57 @@ function syncTeamPurses(
   }
 }
 
+function resolveBidPlayerId(
+  msg: SseAuctionMessage,
+  auctionState: AuctionStateCache | undefined,
+): number | null {
+  if (typeof msg.playerId === "number") return msg.playerId;
+  const currentPlayer = auctionState?.currentPlayer as { id?: number } | null | undefined;
+  if (typeof currentPlayer?.id === "number") return currentPlayer.id;
+  const currentPlayerId = auctionState?.currentPlayerId;
+  return typeof currentPlayerId === "number" ? currentPlayerId : null;
+}
+
+/** Append live bid to cache — bid-events DB write is async so refetch alone drops history. */
+function appendBidToCache(
+  qc: QueryClient,
+  tournamentId: number,
+  msg: SseAuctionMessage,
+  auctionState: AuctionStateCache | undefined,
+): void {
+  const playerId = resolveBidPlayerId(msg, auctionState);
+  const teamId = msg.currentBidTeamId;
+  const amount = msg.currentBid;
+  if (playerId == null || teamId == null || amount == null) return;
+
+  const bidsKey = getListBidsQueryKey(tournamentId);
+  const prev = qc.getQueryData<Bid[]>(bidsKey) ?? [];
+  const nowMs = Date.now();
+  const alreadyRecorded = prev.some(
+    (b) =>
+      b.playerId === playerId &&
+      b.teamId === teamId &&
+      b.amount === amount &&
+      Math.abs(new Date(b.timestamp).getTime() - nowMs) < 10_000,
+  );
+  if (alreadyRecorded) return;
+
+  const currentPlayer = auctionState?.currentPlayer as { name?: string } | null | undefined;
+  const entry: Bid = {
+    id: -nowMs,
+    tournamentId,
+    playerId,
+    teamId,
+    amount,
+    timestamp: new Date(nowMs).toISOString(),
+    playerName: currentPlayer?.name ?? null,
+    teamName: msg.currentBidTeamName ?? null,
+    teamColor: msg.currentBidTeamColor ?? null,
+  };
+
+  qc.setQueryData(bidsKey, [entry, ...prev]);
+}
+
 function mergeBidDelta(
   prev: AuctionStateCache | undefined,
   msg: SseAuctionMessage,
@@ -203,6 +255,7 @@ export function applyAuctionSseMessage(
   if (msg.type === "bid") {
     const prev = qc.getQueryData<AuctionStateCache>(key);
     qc.setQueryData(key, withActivityStamp(mergeBidDelta(prev, msg), activityIso));
+    appendBidToCache(qc, tournamentId, msg, prev);
     return;
   }
 

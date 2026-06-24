@@ -163,7 +163,7 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
                     }}
                   >
                     <div className="col-span-1 text-center text-xs md:text-sm font-display font-black tabular-nums text-white/40">
-                      {p.id}
+                      {p.serialNo ?? p.id}
                     </div>
                     <div className="col-span-4 md:col-span-3 flex items-center gap-2 md:gap-3 min-w-0">
                       {p.photoUrl ? (

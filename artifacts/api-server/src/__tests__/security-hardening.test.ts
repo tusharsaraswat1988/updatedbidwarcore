@@ -40,6 +40,7 @@ function mockReq(ip = "203.0.113.10", jwtUser?: Record<string, unknown>): Reques
 
 const samplePlayer = {
   id: 1,
+  serialNo: 1,
   tournamentId: 5,
   categoryId: null,
   teamId: null,

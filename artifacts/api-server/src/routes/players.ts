@@ -4,7 +4,7 @@ import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializ
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
-import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
@@ -28,6 +28,7 @@ import {
   validatePlayerPaymentProof,
 } from "../lib/registration-payment";
 import { notifyAsync } from "../lib/notifications";
+import { allocateNextPlayerSerialNo } from "../lib/player-serial";
 import {
   canEditPlayerBidValue,
   parseBidValueOptions,
@@ -37,6 +38,13 @@ import {
 import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import {
+  persistPlayerSpecificationsDualWrite,
+  resolveLegacyFieldsForInsert,
+  serializePlayerWithSpecifications,
+  serializePlayersWithSpecifications,
+} from "../lib/player-spec-response";
+import { copyPlayerSpecifications } from "../lib/player-specification-service";
 import type { Request, Response } from "express";
 
 async function fetchTournamentBidConfig(tid: number) {
@@ -247,6 +255,11 @@ const cloudinaryImageUrl = z
 const PLAYER_TAG_VALUES = ["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"] as const;
 const jerseySizeSchema = z.enum(JERSEY_SIZE_VALUES);
 
+const playerSpecificationInputSchema = z.object({
+  specGroupId: z.number().int().positive(),
+  value: z.string().min(1),
+});
+
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
   teamId: z.number().int().nullable().optional(),
@@ -278,19 +291,19 @@ const playerInputSchema = z.object({
   paymentScreenshotUrl: cloudinaryImageUrl,
   markPaymentCompleted: z.boolean().optional(),
   registrationDeclarationAccepted: z.boolean().optional(),
+  specifications: z.array(playerSpecificationInputSchema).optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
   const players = await db
     .select()
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid))
-    .orderBy(playersTable.createdAt);
-  res.json(players.map(serializer));
+    .orderBy(asc(playersTable.serialNo));
+  res.json(await serializePlayersWithSpecifications(players, isOrganizer ? "private" : "public"));
 });
 
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
@@ -358,17 +371,20 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     return;
   }
 
+  const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
+      serialNo: await allocateNextPlayerSerialNo(tid),
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
-      battingStyle: d.battingStyle ?? null,
-      bowlingStyle: d.bowlingStyle ?? null,
-      specialization: d.specialization ?? null,
+      battingStyle: legacySpecFields.battingStyle,
+      bowlingStyle: legacySpecFields.bowlingStyle,
+      specialization: legacySpecFields.specialization,
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
@@ -409,7 +425,9 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
 
-  res.status(201).json(playerToJson(player));
+  await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
+
+  res.status(201).json(await serializePlayerWithSpecifications(player, "private"));
 });
 
 router.get("/tournaments/:tournamentId/registration-status", async (req, res) => {
@@ -442,7 +460,10 @@ async function handleRegisterLookup(tid: number, mobileRaw: string, res: Respons
     return;
   }
 
-  res.json({ registered: true, player: playerToPublicJson(player) });
+  res.json({
+    registered: true,
+    player: await serializePlayerWithSpecifications(player, "public"),
+  });
 }
 
 router.get("/register/:code/context", async (req, res) => {
@@ -565,13 +586,19 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       return;
     }
 
-    const updates = buildPublicRegistrationProfileUpdates(
-      d,
-      emailParsed.email,
-      paymentConfig,
-      paymentFields,
-      existing,
-    );
+    const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+    const updates = {
+      ...buildPublicRegistrationProfileUpdates(
+        d,
+        emailParsed.email,
+        paymentConfig,
+        paymentFields,
+        existing,
+      ),
+      battingStyle: legacySpecFields.battingStyle,
+      bowlingStyle: legacySpecFields.bowlingStyle,
+      specialization: legacySpecFields.specialization,
+    };
 
     const [player] = await db
       .update(playersTable)
@@ -590,8 +617,12 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     }
 
     syncAuctionPlayerToMasterAsync(player.id, tid);
+    await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
-    res.status(200).json({ ...playerToPublicJson(player), updated: true });
+    res.status(200).json({
+      ...(await serializePlayerWithSpecifications(player, "public")),
+      updated: true,
+    });
     return;
   }
 
@@ -605,17 +636,20 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     return;
   }
 
+  const publicLegacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
+      serialNo: await allocateNextPlayerSerialNo(tid),
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
-      battingStyle: d.battingStyle ?? null,
-      bowlingStyle: d.bowlingStyle ?? null,
-      specialization: d.specialization ?? null,
+      battingStyle: publicLegacySpecFields.battingStyle,
+      bowlingStyle: publicLegacySpecFields.bowlingStyle,
+      specialization: publicLegacySpecFields.specialization,
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
@@ -649,6 +683,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
   }
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
+  await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
   if (emailParsed.email) {
     const [tournamentInfo] = await db
@@ -672,7 +707,10 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     });
   }
 
-  res.status(201).json({ ...playerToPublicJson(player), updated: false });
+  res.status(201).json({
+    ...(await serializePlayerWithSpecifications(player, "public")),
+    updated: false,
+  });
 }
 
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
@@ -693,6 +731,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   let failed = 0;
   const errors: string[] = [];
   const batchMobiles = new Set<string>();
+  let nextSerial = await allocateNextPlayerSerialNo(tid);
 
   for (const pd of parsed.data.players) {
     try {
@@ -726,15 +765,17 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         errors.push(`${pd.name}: ${bidResolved.error}`);
         continue;
       }
-      await db.insert(playersTable).values({
+      const bulkLegacySpecFields = await resolveLegacyFieldsForInsert(tid, pd.role, pd);
+      const [inserted] = await db.insert(playersTable).values({
         tournamentId: tid,
+        serialNo: nextSerial++,
         categoryId: pd.categoryId ?? null,
         name: pd.name,
         city: pd.city ?? null,
         role: pd.role ?? null,
-        battingStyle: pd.battingStyle ?? null,
-        bowlingStyle: pd.bowlingStyle ?? null,
-        specialization: pd.specialization ?? null,
+        battingStyle: bulkLegacySpecFields.battingStyle,
+        bowlingStyle: bulkLegacySpecFields.bowlingStyle,
+        specialization: bulkLegacySpecFields.specialization,
         age: pd.age ?? null,
         gender: pd.gender ?? null,
         photoUrl: pd.photoUrl ?? null,
@@ -750,7 +791,10 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
-      });
+      }).returning({ id: playersTable.id });
+      if (inserted) {
+        await persistPlayerSpecificationsDualWrite(tid, inserted.id, pd.role, pd);
+      }
       batchMobiles.add(bulkMobile);
       created++;
     } catch (err) {
@@ -772,7 +816,7 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(isOrganizer ? playerToJson(player) : playerToPublicJson(player));
+  res.json(await serializePlayerWithSpecifications(player, isOrganizer ? "private" : "public"));
 });
 
 router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
@@ -808,6 +852,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     isNonPlayingMember: z.boolean().optional(),
     reason: z.string().optional(),
     registrationPaymentStatus: z.enum(REGISTRATION_PAYMENT_STATUSES).optional(),
+    specifications: z.array(playerSpecificationInputSchema).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -883,6 +928,26 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.battingStyle !== undefined) updates.battingStyle = d.battingStyle;
   if (d.bowlingStyle !== undefined) updates.bowlingStyle = d.bowlingStyle;
   if (d.specialization !== undefined) updates.specialization = d.specialization;
+
+  const specFieldsChanged =
+    d.battingStyle !== undefined
+    || d.bowlingStyle !== undefined
+    || d.specialization !== undefined
+    || d.specifications !== undefined
+    || d.role !== undefined;
+
+  if (specFieldsChanged) {
+    const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role ?? existing.role, {
+      battingStyle: d.battingStyle ?? existing.battingStyle,
+      bowlingStyle: d.bowlingStyle ?? existing.bowlingStyle,
+      specialization: d.specialization ?? existing.specialization,
+      specifications: d.specifications,
+    });
+    updates.battingStyle = legacySpecFields.battingStyle;
+    updates.bowlingStyle = legacySpecFields.bowlingStyle;
+    updates.specialization = legacySpecFields.specialization;
+  }
+
   if (d.age !== undefined) updates.age = d.age;
   if (d.gender !== undefined) updates.gender = d.gender;
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
@@ -976,6 +1041,15 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
 
+  if (specFieldsChanged) {
+    await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, {
+      battingStyle: player.battingStyle,
+      bowlingStyle: player.bowlingStyle,
+      specialization: player.specialization,
+      specifications: d.specifications,
+    });
+  }
+
   if (d.teamId !== undefined || d.status !== undefined) {
     const assignmentType =
       d.status === "sold" && existing.status !== "sold"
@@ -991,7 +1065,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     );
   }
 
-  res.json(playerToJson(player));
+  res.json(await serializePlayerWithSpecifications(player, "private"));
 });
 
 router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
@@ -1095,21 +1169,26 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .orderBy(playersTable.name);
 
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
 
-  const result = sourcePlayers.map((p) => {
-    let mobileDuplicate = false;
-    if (p.mobileNumber) {
-      const parsed = parseIndianMobile(p.mobileNumber);
-      mobileDuplicate = parsed.ok && mobileSet.has(parsed.normalized);
-    }
-    return {
-      ...serializer(p),
-      isDuplicate:
-        mobileDuplicate ||
-        nameSet.has(p.name.toLowerCase().trim()),
-    };
-  });
+  const result = await Promise.all(
+    sourcePlayers.map(async (p) => {
+      let mobileDuplicate = false;
+      if (p.mobileNumber) {
+        const parsed = parseIndianMobile(p.mobileNumber);
+        mobileDuplicate = parsed.ok && mobileSet.has(parsed.normalized);
+      }
+      const serialized = await serializePlayerWithSpecifications(
+        p,
+        isOrganizer ? "private" : "public",
+      );
+      return {
+        ...serialized,
+        isDuplicate:
+          mobileDuplicate
+          || nameSet.has(p.name.toLowerCase().trim()),
+      };
+    }),
+  );
 
   res.json(result);
 });
@@ -1146,6 +1225,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 
   let imported = 0;
   let skipped = 0;
+  let nextImportSerial = await allocateNextPlayerSerialNo(tid);
 
   for (const p of sourcePlayers) {
     let normalizedMobile: string | null = p.mobileNumber;
@@ -1161,8 +1241,9 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       }
     }
 
-    await db.insert(playersTable).values({
+    const [importedPlayer] = await db.insert(playersTable).values({
       tournamentId: tid,
+      serialNo: nextImportSerial++,
       categoryId: null,
       name: p.name,
       city: p.city,
@@ -1185,7 +1266,11 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       globalPlayerId: p.globalPlayerId,
       status: "available" as const,
       teamId: null,
-    });
+    }).returning({ id: playersTable.id });
+
+    if (importedPlayer) {
+      await copyPlayerSpecifications(p.id, importedPlayer.id);
+    }
 
     imported++;
   }

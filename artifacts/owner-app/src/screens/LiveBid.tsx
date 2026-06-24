@@ -194,7 +194,10 @@ function PlayerCard({ player, teamColor }: {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-mono text-sm text-[#71717a] shrink-0">#{player.serialNo ?? player.id}</span>
+          <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+        </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
           {player.role && (
             <span className="text-base text-[#a1a1aa] capitalize font-semibold">{player.role}</span>

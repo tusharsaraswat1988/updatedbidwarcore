@@ -195,7 +195,7 @@ function toLedTeam(
 }
 
 function toLedPlayer(p: LivePlayerDTO): LedPlayer {
-  const serialNo = Number.parseInt(String(p.id), 10) || 0;
+  const serialNo = Number.parseInt(String(p.serialNo ?? p.id), 10) || 0;
   return {
     id: p.id,
     name: p.name,

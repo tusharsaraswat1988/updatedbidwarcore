@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,8 @@ export const playersTable = pgTable(
   {
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
+    /** Tournament-scoped display serial (1..N per tournament). Not the global DB id. */
+    serialNo: integer("serial_no").notNull(),
     categoryId: integer("category_id"),
     teamId: integer("team_id"),
     name: text("name").notNull(),
@@ -58,6 +60,7 @@ export const playersTable = pgTable(
   },
   (t) => [
     index("ix_players_tournament_id").on(t.tournamentId),
+    uniqueIndex("uq_players_tournament_serial_no").on(t.tournamentId, t.serialNo),
     index("ix_players_mobile_number").on(t.mobileNumber),
     index("ix_players_name").on(t.name),
     index("ix_players_global_player_id").on(t.globalPlayerId),
@@ -66,6 +69,7 @@ export const playersTable = pgTable(
 
 export const insertPlayerSchema = createInsertSchema(playersTable).omit({
   id: true,
+  serialNo: true,
   createdAt: true,
   updatedAt: true,
 });

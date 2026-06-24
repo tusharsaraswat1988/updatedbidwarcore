@@ -26,6 +26,10 @@ import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import { formatIndianRupee } from "@/lib/format";
+import {
+  applySpecificationsToSelections,
+  buildSpecificationsFromSelections,
+} from "@/lib/player-specifications";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -43,6 +47,7 @@ interface GlobalPlayerLookup {
   battingStyle: string | null;
   bowlingStyle: string | null;
   specialization: string | null;
+  specifications?: { specGroupId: number; groupName?: string; value: string }[];
   jerseyNumber?: string | null;
   jerseySize?: string | null;
   achievements?: string | null;
@@ -191,34 +196,46 @@ export default function PlayerRegister() {
   // Reset spec selections when role changes
   useEffect(() => { setSpecSelections({}); }, [form.role]);
 
-  // Pre-fill dynamic spec group selections from previously-stored values
-  // Maps battingStyle→group[0], bowlingStyle→group[1], specialization→group[2]
+  // Pre-fill dynamic spec group selections from normalized or legacy values
   useEffect(() => {
-    if (!foundProfile || specs.length === 0) return;
-    const previousValues = [
-      foundProfile.battingStyle,
-      foundProfile.bowlingStyle,
-      foundProfile.specialization,
-    ];
-    const sortedGroups = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
-    setSpecSelections(prev => {
+    if (specs.length === 0) return;
+    const source = existingRegistration ?? foundProfile;
+    if (!source) return;
+    const { legacyForm, extraSelections } = applySpecificationsToSelections(
+      specs,
+      source.specifications?.map((s) => ({ specGroupId: s.specGroupId, value: s.value })),
+      {
+        battingStyle: source.battingStyle ?? "",
+        bowlingStyle: source.bowlingStyle ?? "",
+        specialization: source.specialization ?? "",
+      },
+    );
+    setForm((prev) => ({
+      ...prev,
+      battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+      bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+      specialization: legacyForm.specialization ?? prev.specialization,
+    }));
+    setSpecSelections((prev) => {
       const next = { ...prev };
-      sortedGroups.forEach((group, idx) => {
-        if (idx >= previousValues.length) return;
-        const prev_val = previousValues[idx];
-        if (!prev_val) return;
-        // Only pre-fill if not already chosen and the option exists in this group
-        if (next[group.id]) return;
-        const matchingOption = group.options.find(
-          opt => opt.optionName.toLowerCase() === prev_val.toLowerCase(),
-        );
-        if (matchingOption) {
-          next[group.id] = matchingOption.optionName;
-        }
-      });
+      for (const [groupId, value] of Object.entries(extraSelections)) {
+        next[Number(groupId)] = value;
+      }
+      for (const group of specs) {
+        const legacyKeyIdx = specs
+          .slice()
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .findIndex((g) => g.id === group.id);
+        const legacyVal =
+          legacyKeyIdx === 0 ? legacyForm.battingStyle
+          : legacyKeyIdx === 1 ? legacyForm.bowlingStyle
+          : legacyKeyIdx === 2 ? legacyForm.specialization
+          : undefined;
+        if (legacyVal && !next[group.id]) next[group.id] = legacyVal;
+      }
       return next;
     });
-  }, [specs, foundProfile]);
+  }, [specs, foundProfile, existingRegistration]);
 
   const canUpdateExisting = !!existingRegistration;
   const isClosed = status && !status.open && !canUpdateExisting;
@@ -286,8 +303,9 @@ export default function PlayerRegister() {
         if (!registrationCode) return;
         setLookupLoading(true);
         try {
+          const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
           const [globalRes, tournamentRes] = await Promise.all([
-            fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1`),
+            fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1${sportQ}`),
             fetch(`/api/register/${encodeURIComponent(registrationCode)}/lookup?mobile=${encodeURIComponent(sanitized)}`),
           ]);
           const data: GlobalPlayerLookup[] = await globalRes.json();
@@ -362,8 +380,8 @@ export default function PlayerRegister() {
       return;
     }
 
-    // Serialize spec selections into existing style fields (up to 3 groups)
     const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+    const specifications = buildSpecificationsFromSelections(sortedSpecs, specSelections);
     const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] || undefined) : (form.battingStyle || undefined);
     const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] || undefined) : (form.bowlingStyle || undefined);
     const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] || undefined) : (form.specialization || undefined);
@@ -408,6 +426,7 @@ export default function PlayerRegister() {
           battingStyle: battingStyle || undefined,
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,
+          specifications: specifications.length > 0 ? specifications : undefined,
           age: form.age ? parseInt(form.age) : undefined,
           gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
           jerseyNumber: form.jerseyNumber || undefined,

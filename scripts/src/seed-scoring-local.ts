@@ -6,7 +6,7 @@
 import { config as loadEnv } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { and, eq } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import { db, playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 
 loadEnv({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env") });
@@ -86,17 +86,25 @@ async function main() {
     }
 
     const created = need - available.length;
-    for (let i = 0; i < created; i++) {
-      const n = idx * 20 + existing.length + available.length + i + 1;
-      await db.insert(playersTable).values({
-        tournamentId: tournament.id,
-        teamId: team.id,
-        name: `${team.shortCode} Player ${n}`,
-        role: "All-rounder",
-        basePrice: 200000,
-        soldPrice: 200000,
-        status: "sold",
-      });
+    if (created > 0) {
+      const [maxRow] = await db
+        .select({ maxSerial: max(playersTable.serialNo) })
+        .from(playersTable)
+        .where(eq(playersTable.tournamentId, tournament.id));
+      let nextSerial = (maxRow?.maxSerial ?? 0) + 1;
+      for (let i = 0; i < created; i++) {
+        const n = idx * 20 + existing.length + available.length + i + 1;
+        await db.insert(playersTable).values({
+          tournamentId: tournament.id,
+          serialNo: nextSerial++,
+          teamId: team.id,
+          name: `${team.shortCode} Player ${n}`,
+          role: "All-rounder",
+          basePrice: 200000,
+          soldPrice: 200000,
+          status: "sold",
+        });
+      }
     }
 
     console.log(`  ${team.shortCode}: squad ready (${11} sold players)`);

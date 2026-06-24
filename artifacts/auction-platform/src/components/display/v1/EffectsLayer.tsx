@@ -609,7 +609,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                           {p.name}
                         </span>
                         <span className="text-[9px] font-mono uppercase text-white/50 tracking-[0.2em]">
-                          {p.role}
+                          {p.roleRaw}
                         </span>
                         <span
                           className="font-['Bebas_Neue'] tabular-nums text-sm"
@@ -694,7 +694,7 @@ export const EffectsLayer = memo(function EffectsLayer({
                       {p.name}
                     </p>
                     <p className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/50">
-                      {p.role} · {p.status}
+                      {p.roleRaw} · {p.status}
                     </p>
                   </div>
                   <p
@@ -906,7 +906,7 @@ function TopSoldRow({
           className="font-mono uppercase tracking-[0.35em] text-white/65 mt-[0.4vw] truncate"
           style={{ fontSize: "0.95vw" }}
         >
-          {player.role} · {player.team?.name ?? "—"}
+          {player.roleRaw} · {player.team?.name ?? "—"}
         </p>
         <div
           className="mt-[0.7vw] bg-white/10 overflow-hidden rounded-sm"

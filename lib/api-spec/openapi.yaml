@@ -1631,6 +1631,11 @@ paths:
           schema:
             type: integer
             default: 10
+        - name: sport
+          in: query
+          schema:
+            type: string
+          description: Filter suggestions to a sport slug (e.g. badminton). Used when PLAYER_SPORT_PROFILES_ENABLED=true.
       responses:
         "200":
           description: Matching player suggestions
@@ -2593,12 +2598,35 @@ components:
       type: string
       enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
 
+    PlayerSpecification:
+      type: object
+      required: [specGroupId, groupName, value]
+      properties:
+        specGroupId:
+          type: integer
+        groupName:
+          type: string
+        value:
+          type: string
+
+    PlayerSpecificationInput:
+      type: object
+      required: [specGroupId, value]
+      properties:
+        specGroupId:
+          type: integer
+        value:
+          type: string
+
     Player:
       type: object
-      required: [id, tournamentId, name, basePrice, status, createdAt]
+      required: [id, serialNo, tournamentId, name, basePrice, status, createdAt]
       properties:
         id:
           type: integer
+        serialNo:
+          type: integer
+          description: Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial # — not the global id.
         tournamentId:
           type: integer
         categoryId:
@@ -2617,6 +2645,11 @@ components:
           type: ["string", "null"]
         specialization:
           type: ["string", "null"]
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)
+          items:
+            $ref: "#/components/schemas/PlayerSpecification"
         age:
           type: ["integer", "null"]
         gender:
@@ -2750,6 +2783,11 @@ components:
         registrationDeclarationAccepted:
           type: boolean
           description: Player accepts organizer registration declaration (required when enabled)
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)
+          items:
+            $ref: "#/components/schemas/PlayerSpecificationInput"
 
     PlayerUpdate:
       type: object
@@ -2768,6 +2806,11 @@ components:
           type: string
         specialization:
           type: string
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)
+          items:
+            $ref: "#/components/schemas/PlayerSpecificationInput"
         age:
           type: integer
         gender:
@@ -3548,6 +3591,15 @@ components:
           type: integer
 
     # ─── Global Player Database schemas ───────────────────────────────────────
+    GlobalPlayerSportProfile:
+      type: object
+      required: [sport, defaultRole]
+      properties:
+        sport:
+          type: string
+        defaultRole:
+          type: ["string", "null"]
+
     GlobalPlayerSuggestion:
       type: object
       required: [id, name, appearanceCount]
@@ -3592,6 +3644,14 @@ components:
           type: integer
         appearanceCount:
           type: integer
+        sport:
+          type: ["string", "null"]
+          description: Tournament sport for this suggestion row (when PLAYER_SPORT_PROFILES_ENABLED=true)
+        sportProfiles:
+          type: array
+          description: Per-sport roles on global player GET responses (PLAYER_SPORT_PROFILES_ENABLED)
+          items:
+            $ref: "#/components/schemas/GlobalPlayerSportProfile"
 
     ImportSource:
       type: object

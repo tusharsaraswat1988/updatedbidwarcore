@@ -1,6 +1,6 @@
 import { Router } from "express";
 import os from "node:os";
-import { eq, and } from "drizzle-orm";
+import { eq, and, max } from "drizzle-orm";
 import { z } from "zod";
 import QRCode from "qrcode";
 import type { LocalDb } from "@workspace/db-local";
@@ -194,11 +194,18 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     }
 
     // Insert players
+    let nextImportSerial = 1;
+    const [maxRow] = await db
+      .select({ maxSerial: max(playersTable.serialNo) })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, localTid));
+    nextImportSerial = (maxRow?.maxSerial ?? 0) + 1;
+
     for (const player of players) {
       const localCatId = player.categoryId ? catIdMap.get(player.categoryId) ?? null : null;
       const localTeamId = player.teamId ? teamIdMap.get(player.teamId) ?? null : null;
       await db.insert(playersTable).values({
-        tournamentId: localTid, name: player.name,
+        tournamentId: localTid, serialNo: nextImportSerial++, name: player.name,
         categoryId: localCatId, teamId: localTeamId,
         role: player.role ?? null, city: player.city ?? null,
         basePrice: player.basePrice, soldPrice: player.soldPrice ?? null,

@@ -32,6 +32,9 @@ export {
   canEditPlayerBidValue,
 } from "./bid-value.ts";
 
+export { isPlayerSpecsV2Enabled } from "./player-specs-v2.ts";
+export { isPlayerSportProfilesEnabled } from "./player-sport-profiles.ts";
+
 export {
   getIstTodayDateString,
   validateAuctionDate,

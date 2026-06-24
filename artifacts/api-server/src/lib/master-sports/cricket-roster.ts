@@ -73,7 +73,7 @@ export async function syncAuctionPlayerRosterAssignment(
   if (auctionPlayer.status !== "sold" && auctionPlayer.status !== "retained") {
     const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId);
     if (syncResult?.masterPlayerId) {
-      await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId);
+      await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId, "cricket");
     }
     return null;
   }
@@ -114,6 +114,7 @@ export async function syncAuctionPlayerRosterAssignment(
     auctionPlayerId: auctionPlayer.id,
     auctionTeamId: auctionPlayer.teamId,
     assignmentType: type,
+    sport: "cricket",
   });
 
   await ensureCricketStatisticsBaseline(syncResult.masterPlayerId, tournamentId);
@@ -173,7 +174,7 @@ export async function onAuctionPlayerRosterChanged(
   if (!auctionPlayer.teamId) {
     const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId);
     if (syncResult?.masterPlayerId) {
-      await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId);
+      await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId, "cricket");
     }
     return;
   }

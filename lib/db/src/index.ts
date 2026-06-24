@@ -111,6 +111,74 @@ void pool
     console.error("[db] failed to ensure registration payment columns:", err);
   });
 
+/** Tournament-scoped player serial numbers (display Serial # — not global players.id). */
+void pool
+  .query(`
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS serial_no integer;
+
+    WITH ranked AS (
+      SELECT id,
+        ROW_NUMBER() OVER (PARTITION BY tournament_id ORDER BY created_at ASC, id ASC) AS rn
+      FROM players
+      WHERE serial_no IS NULL
+    )
+    UPDATE players p
+    SET serial_no = ranked.rn
+    FROM ranked
+    WHERE p.id = ranked.id;
+
+    UPDATE players SET serial_no = id WHERE serial_no IS NULL;
+
+    ALTER TABLE players ALTER COLUMN serial_no SET NOT NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_players_tournament_serial_no
+      ON players (tournament_id, serial_no);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.serial_no:", err);
+  });
+
+/** Normalized player specification values (multi-sport Sprint 1). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS player_spec_values (
+      id SERIAL PRIMARY KEY,
+      player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      spec_group_id INTEGER NOT NULL REFERENCES role_spec_groups(id),
+      value_text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_psv_player_spec_group
+      ON player_spec_values (player_id, spec_group_id);
+    CREATE INDEX IF NOT EXISTS ix_psv_player_id ON player_spec_values (player_id);
+    CREATE INDEX IF NOT EXISTS ix_psv_spec_group_id ON player_spec_values (spec_group_id);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure player_spec_values table:", err);
+  });
+
+/** Per-sport profiles for global player identities (multi-sport Sprint 2). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS player_sport_profiles (
+      id SERIAL PRIMARY KEY,
+      global_player_id TEXT NOT NULL REFERENCES global_players(id) ON DELETE CASCADE,
+      sport_slug TEXT NOT NULL REFERENCES sports(slug),
+      default_role TEXT,
+      profile_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_global_player_sport
+      ON player_sport_profiles (global_player_id, sport_slug);
+    CREATE INDEX IF NOT EXISTS ix_psp_global_player_id ON player_sport_profiles (global_player_id);
+    CREATE INDEX IF NOT EXISTS ix_psp_sport_slug ON player_sport_profiles (sport_slug);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure player_sport_profiles table:", err);
+  });
+
 /** Ensure platform audit table exists (append-only investigation trail). */
 void pool
   .query(`

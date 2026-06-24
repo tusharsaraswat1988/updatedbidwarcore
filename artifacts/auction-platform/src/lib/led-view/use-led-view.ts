@@ -19,6 +19,7 @@ import { useBranding } from "@/hooks/use-branding";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
+import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
 import { useCountdownSeconds } from "./use-countdown-seconds";
 import {
@@ -26,7 +27,6 @@ import {
   type DerivedState,
   type LedPlayer,
   type LedPlayerStatus,
-  type LedRoleCode,
   type LedTeam,
   type LedTeamSquad,
   type LedTopSold,
@@ -35,28 +35,9 @@ import {
   type LiveLastOutcome,
   type LedAuctionStateSlice,
 } from "./types";
+import { resolvePlayerSpecifications, specGroupLabelsForRole } from "@/lib/player-spec-display";
+import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
 import { resolvePlayerPortraitGender } from "./player-gender";
-
-const ROLE_LABEL: Record<LedRoleCode, string> = {
-  BAT: "Batter",
-  BOWL: "Bowler",
-  AR: "All-Rounder",
-  WK: "Wicket-Keeper",
-};
-
-function mapRole(raw: string | null | undefined): LedRoleCode {
-  if (!raw) return "AR";
-  const s = raw.toLowerCase();
-  if (s.includes("wicket") || s === "wk") return "WK";
-  if (s.includes("all") || s === "ar") return "AR";
-  if (s.includes("bowl") || s === "bowler") return "BOWL";
-  if (s.includes("bat") || s === "batter" || s === "batsman") return "BAT";
-  return "AR";
-}
-
-function mapHand(raw: string | null | undefined): "Right" | "Left" {
-  return raw && raw.toLowerCase().includes("left") ? "Left" : "Right";
-}
 
 function mapPlayerStatus(
   status: Player["status"],
@@ -69,6 +50,39 @@ function mapPlayerStatus(
   if (status === "unsold") return "unsold";
   if (status === "retained") return "retained";
   return "queue";
+}
+
+function resolveLeadingTeam(
+  teams: LedTeam[],
+  auctionState:
+    | {
+        currentBidTeamId?: number | null;
+        currentBidTeamName?: string | null;
+        currentBidTeamColor?: string | null;
+        currentBidTeamLogoUrl?: string | null;
+      }
+    | null
+    | undefined,
+): LedTeam | null {
+  if (auctionState?.currentBidTeamId == null) return null;
+  const id = String(auctionState.currentBidTeamId);
+  const fromPurse = teams.find((t) => t.id === id);
+  if (fromPurse) return fromPurse;
+
+  const name = auctionState.currentBidTeamName ?? "Team";
+  return {
+    id,
+    name,
+    short: name.slice(0, 3).toUpperCase(),
+    color: auctionState.currentBidTeamColor ?? "#3B82F6",
+    purse: 0,
+    totalPurse: 0,
+    logoUrl: auctionState.currentBidTeamLogoUrl ?? null,
+    playersBought: 0,
+    reservedAmount: 0,
+    maxBidAllowed: 0,
+    slotsRemaining: 0,
+  };
 }
 
 function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam {
@@ -96,24 +110,30 @@ function toLedPlayer(
   p: Player,
   currentPlayerId: number | null | undefined,
   categoryName?: string | null,
+  specGroupLabels?: string[],
 ): LedPlayer {
+  const roleRaw = p.role?.trim() || "Player";
+  const specs = resolvePlayerSpecifications(
+    p as Player & {
+      specifications?: { specGroupId: number; groupName: string; value: string }[];
+    },
+    { specGroupLabels },
+  );
+
   return {
     id: String(p.id),
     name: p.name,
-    role: mapRole(p.role),
-    roleRaw: p.role?.trim() || ROLE_LABEL[mapRole(p.role)],
+    roleRaw,
+    specs,
     basePrice: p.basePrice,
     city: p.city ?? "",
     age: p.age ?? 0,
-    battingHand: mapHand(p.battingStyle),
-    serialNo: p.id,
+    serialNo: p.serialNo ?? p.id,
     portrait: p.photoUrl ?? "",
     gender: resolvePlayerPortraitGender(p.gender, categoryName),
     status: mapPlayerStatus(p.status, p.id, currentPlayerId),
     soldToTeamId: p.teamId != null ? String(p.teamId) : null,
     soldPrice: p.soldPrice ?? p.retainedPrice ?? null,
-    bowlingStyle: p.bowlingStyle?.trim() || "",
-    specialization: p.specialization?.trim() || "",
     achievements: p.achievements?.trim() || "",
     categoryName: categoryName ?? null,
   };
@@ -145,6 +165,7 @@ const EMPTY_VIEW: LedView = {
   },
   currentPlayer: null,
   leadingTeam: null,
+  hasTeamBid: false,
   remaining: 0,
   totalPlayers: 0,
   derivedState: "idle",
@@ -285,6 +306,17 @@ export function useLedView(
     },
   });
 
+  const playersForSpecMap = useMemo(() => {
+    const list = allPlayers ?? [];
+    const current = state?.currentPlayer;
+    if (current && !list.some((p) => p.id === current.id)) {
+      return [...list, current];
+    }
+    return list;
+  }, [allPlayers, state?.currentPlayer]);
+
+  const roleSpecMap = useRoleSpecMap(tournament?.sport, playersForSpecMap);
+
   const { data: categories } = useListCategories(tournamentId, {
     query: {
       queryKey: getListCategoriesQueryKey(tournamentId),
@@ -344,8 +376,9 @@ export function useLedView(
     const categoryNameById = new Map((categories ?? []).map((c) => [c.id, c.name]));
     const categoryNameFor = (p: Player) =>
       p.categoryId != null ? categoryNameById.get(p.categoryId) ?? null : null;
+    const labelsFor = (p: Player) => specGroupLabelsForRole(roleSpecMap, p.role);
     const players = playersSource.map((p) =>
-      toLedPlayer(p, currentPlayerIdResolved, categoryNameFor(p)),
+      toLedPlayer(p, currentPlayerIdResolved, categoryNameFor(p), labelsFor(p)),
     );
 
     const currentPlayer = state?.currentPlayer
@@ -353,6 +386,7 @@ export function useLedView(
           state.currentPlayer,
           currentPlayerIdResolved,
           categoryNameFor(state.currentPlayer),
+          labelsFor(state.currentPlayer),
         )
       : outcome?.playerId
         ? players.find((p) => p.id === String(outcome.playerId)) ?? null
@@ -381,15 +415,28 @@ export function useLedView(
     );
 
     const currentBid = state?.currentBid ?? 0;
-    const leadingTeam =
-      state?.currentBidTeamId != null
-        ? teams.find((t) => t.id === String(state.currentBidTeamId)) ?? null
-        : null;
+    const leadingTeam = resolveLeadingTeam(teams, state);
 
-    const recentBids = (allBids ?? [])
+    const compareBidsRecentFirst = (
+      a: { timestamp: string; id: number },
+      b: { timestamp: string; id: number },
+    ) => {
+      const byTime = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      if (byTime !== 0) return byTime;
+      return b.id - a.id;
+    };
+
+    const playerBids = (allBids ?? [])
       .filter((b) => currentPlayerIdResolved != null && b.playerId === currentPlayerIdResolved)
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 3);
+      .sort(compareBidsRecentFirst);
+
+    const hasTeamBid =
+      state?.currentBidTeamId != null ||
+      state?.timerType === "bid" ||
+      playerBids.length > 0;
+
+    // Ladder shows the 3 most recent bids (not the 3 highest amounts).
+    const recentBids = playerBids.slice(0, 3);
 
     const log = recentBids.map((b) => ({
       id: String(b.id),
@@ -402,7 +449,9 @@ export function useLedView(
       const team = teams.find((t) => t.id === l.teamId) ?? teams[0];
       return { team, amount: l.amount, amountLabel: formatINR(l.amount), id: l.id };
     });
-    const uniqueBidders = new Set(log.map((l) => l.teamId)).size;
+    const uniqueBidders = new Set(
+      playerBids.map((b) => String(b.teamId)),
+    ).size;
 
     let derivedState: DerivedState = "idle";
     if (fortuneWheelActive) derivedState = "fortuneWheel";
@@ -477,7 +526,7 @@ export function useLedView(
     const basePrice = currentPlayer?.basePrice ?? 0;
     const bidBase = currentBid > 0 ? currentBid : basePrice;
 
-    const sortedBids = [...recentBids].sort((a, b) => b.amount - a.amount);
+    const sortedBids = [...playerBids].sort((a, b) => b.amount - a.amount);
     let observedStep = 0;
     if (sortedBids.length >= 2) {
       const delta = sortedBids[0].amount - sortedBids[1].amount;
@@ -494,7 +543,12 @@ export function useLedView(
       tournament.bidIncrement ?? 0,
       observedStep || (state?.bidIncrement ?? 0),
     );
-    const nextMin = currentBid > 0 ? currentBid + inc : basePrice;
+    const openingPrice = currentBid > 0 ? currentBid : basePrice;
+    const nextMin = computeNextBidAmount({
+      currentBid: openingPrice,
+      bidIncrement: inc,
+      currentBidTeamId: state?.currentBidTeamId,
+    });
 
     const soldOrRetained = players.filter(
       (p) => (p.status === "sold" || p.status === "retained") && p.soldToTeamId,
@@ -506,7 +560,7 @@ export function useLedView(
         .map((p) => ({
           id: p.id,
           name: p.name,
-          role: p.role,
+          roleRaw: p.roleRaw,
           portrait: p.portrait,
           soldPrice: p.soldPrice ?? p.basePrice,
           soldPriceLabel: formatINR(p.soldPrice ?? p.basePrice),
@@ -540,7 +594,7 @@ export function useLedView(
         return {
           id: p.id,
           name: p.name,
-          role: p.role,
+          roleRaw: p.roleRaw,
           portrait: p.portrait,
           soldPrice: p.soldPrice ?? 0,
           soldPriceLabel: formatINR(p.soldPrice ?? 0),
@@ -594,6 +648,7 @@ export function useLedView(
       },
       currentPlayer,
       leadingTeam,
+      hasTeamBid,
       remaining: state?.remainingPlayersCount ?? 0,
       totalPlayers: players.length || (state?.soldPlayersCount ?? 0) + (state?.remainingPlayersCount ?? 0),
       derivedState,
@@ -610,7 +665,7 @@ export function useLedView(
         date: tournament.auctionDate ?? "",
         logoUrl: tournament.logoUrl ?? null,
       },
-      roleLabel: currentPlayer ? ROLE_LABEL[currentPlayer.role] : "",
+      roleLabel: currentPlayer?.roleRaw ?? "",
       sponsors,
       branding,
       banner,
@@ -668,6 +723,7 @@ export function useLedView(
     breakMeta.isBreakFlag,
     connectionStatus,
     currentPlayerId,
+    roleSpecMap,
   ]);
 
   return useMemo(

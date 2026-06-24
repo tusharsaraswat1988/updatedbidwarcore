@@ -3,6 +3,8 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 export const playersTable = sqliteTable("players", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   tournamentId: integer("tournament_id").notNull(),
+  /** Tournament-scoped display serial (1..N per tournament). Not the global DB id. */
+  serialNo: integer("serial_no").notNull(),
   categoryId: integer("category_id"),
   teamId: integer("team_id"),
   name: text("name").notNull(),

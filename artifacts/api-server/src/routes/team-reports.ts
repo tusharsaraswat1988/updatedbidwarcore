@@ -81,10 +81,11 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));
 
-  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.name);
+  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.serialNo);
 
   const enrich = (p: typeof playersTable.$inferSelect) => ({
     id: p.id,
+    serialNo: p.serialNo,
     name: p.name,
     role: p.role ?? null,
     city: p.city ?? null,
@@ -179,16 +180,16 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));
 
-  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.name);
+  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.serialNo);
 
   type EnrichedPlayer = {
-    id: number; name: string; role: string | null; city: string | null; age: number | null;
+    id: number; serialNo: number; name: string; role: string | null; city: string | null; age: number | null;
     mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null; categoryName: string | null;
     soldPrice: number | null; retainedPrice: number | null; status: string; isNonPlayingMember: boolean;
   };
 
   const enrich = (p: typeof playersTable.$inferSelect): EnrichedPlayer => ({
-    id: p.id, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
+    id: p.id, serialNo: p.serialNo, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
     mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null, jerseySize: p.jerseySize ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     soldPrice: p.soldPrice ?? null, retainedPrice: p.retainedPrice ?? null,
@@ -324,7 +325,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   type ColDef = { label: string; width: number; get: (p: EnrichedPlayer, balance: number) => string };
 
   const mandatoryCols: ColDef[] = [
-    { label: "S.No", width: 0.4, get: (_, __, ...rest) => String(rest) },
+    { label: "Serial #", width: 0.4, get: (p) => String(p.serialNo) },
     { label: "Player Name", width: 2.2, get: (p) => p.name },
     { label: "Amount", width: 1.0, get: (p) => fmtShort(p.status === "retained" ? p.retainedPrice : p.soldPrice) },
   ];
@@ -375,7 +376,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   let balance = team.purse;
   let rowIdx = 0;
 
-  function drawPlayerRow(p: EnrichedPlayer, sno: number) {
+  function drawPlayerRow(p: EnrichedPlayer) {
     const price = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
     balance -= price;
     ensureRoom(15);
@@ -384,9 +385,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     let x = LEFT + 4;
     doc.fillColor("#0f172a").font("Helvetica").fontSize(7.5);
     activeCols.forEach((c, i) => {
-      let text: string;
-      if (c.label === "S.No") text = String(sno);
-      else text = c.get(p, balance);
+      const text = c.get(p, balance);
       doc.text(text, x, rY + 3, { width: colWidths[i] - 6, lineBreak: false, ellipsis: true });
       x += colWidths[i];
     });
@@ -398,7 +397,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   if (retained.length > 0) {
     drawSectionHeading(`Retained Players (${retained.length})`);
     drawTableHeader();
-    retained.forEach((p, i) => drawPlayerRow(p, i + 1));
+    retained.forEach((p) => drawPlayerRow(p));
     doc.moveDown(0.5);
   }
 
@@ -406,8 +405,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   if (preSold.length > 0) {
     drawSectionHeading(`Pre-Sold Players (${preSold.length})`);
     drawTableHeader();
-    const startSno = retained.length + 1;
-    preSold.forEach((p, i) => drawPlayerRow(p, startSno + i));
+    preSold.forEach((p) => drawPlayerRow(p));
     doc.moveDown(0.5);
   }
 

@@ -54,6 +54,7 @@ export async function setupTables(client: Client): Promise<void> {
     CREATE TABLE IF NOT EXISTS players (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tournament_id INTEGER NOT NULL,
+      serial_no INTEGER NOT NULL DEFAULT 0,
       category_id INTEGER,
       team_id INTEGER,
       name TEXT NOT NULL,
@@ -191,6 +192,8 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE players ADD COLUMN utr_number TEXT",
     "ALTER TABLE players ADD COLUMN payment_screenshot_url TEXT",
     "ALTER TABLE players ADD COLUMN payment_submitted_at TEXT",
+    "ALTER TABLE players ADD COLUMN serial_no INTEGER",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_players_tournament_serial_no ON players (tournament_id, serial_no)",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
   ];
   for (const sql of migrations) {
@@ -199,5 +202,29 @@ export async function setupTables(client: Client): Promise<void> {
     } catch {
       // Column already exists — expected for existing databases
     }
+  }
+
+  // Backfill tournament-scoped serial numbers for existing player rows
+  try {
+    const nullRows = await client.execute("SELECT COUNT(*) AS c FROM players WHERE serial_no IS NULL OR serial_no = 0");
+    const needsBackfill = Number(nullRows.rows[0]?.c ?? 0) > 0;
+    if (needsBackfill) {
+      const tourneys = await client.execute("SELECT DISTINCT tournament_id FROM players");
+      for (const row of tourneys.rows) {
+        const tid = row.tournament_id as number;
+        const players = await client.execute({
+          sql: "SELECT id FROM players WHERE tournament_id = ? ORDER BY created_at ASC, id ASC",
+          args: [tid],
+        });
+        for (let i = 0; i < players.rows.length; i++) {
+          await client.execute({
+            sql: "UPDATE players SET serial_no = ? WHERE id = ?",
+            args: [i + 1, players.rows[i]!.id],
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — local DB may be empty or mid-migration
   }
 }

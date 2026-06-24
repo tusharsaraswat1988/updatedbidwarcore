@@ -26,6 +26,7 @@ import {
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
+  type SearchGlobalPlayersParams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { playerRegistrationPublicUrl } from "@workspace/api-base/registration-url";
@@ -64,7 +65,13 @@ import {
 import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, FileSpreadsheet } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
-import { exportPlayersToExcel } from "@/lib/export-players-excel";
+import {
+  buildCsvTemplateExampleRow,
+  buildCsvTemplateHeaders,
+  fetchSportSpecCatalog,
+  parsePlayerCsv,
+  type SportSpecCatalog,
+} from "@/lib/csv-player-import";
 import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
@@ -75,6 +82,10 @@ import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
+import {
+  applySpecificationsToSelections,
+  buildSpecificationsPayload,
+} from "@/lib/player-specifications";
 import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
 import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
 import { settingsPath } from "@/lib/settings-navigation";
@@ -105,13 +116,15 @@ type SuggestionProfile = {
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   basePrice?: number;
+  specifications?: { specGroupId: number; groupName?: string; value: string }[];
   appearanceCount: number;
 };
 
-function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
+function GlobalPlayerSearch({ value, onChange, onFillFromProfile, sportSlug }: {
   value: string;
   onChange: (v: string) => void;
   onFillFromProfile: (p: SuggestionProfile) => void;
+  sportSlug?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -123,8 +136,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
   }, [value]);
 
   const { data: suggestions, isLoading, isFetching } = useSearchGlobalPlayers(
-    { q: debouncedQ, limit: 8 },
-    { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ }), enabled: debouncedQ.length >= 2 } },
+    { q: debouncedQ, limit: 8, ...(sportSlug ? { sport: sportSlug } : {}) } as SearchGlobalPlayersParams & { sport?: string },
+    { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ, ...(sportSlug ? { sport: sportSlug } : {}) }), enabled: debouncedQ.length >= 2 } },
   );
 
   useEffect(() => {
@@ -532,6 +545,29 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
   const sortedSpecGroups = [...specGroups].sort((a, b) => a.displayOrder - b.displayOrder);
 
+  useEffect(() => {
+    if (!player || sortedSpecGroups.length === 0) return;
+    const playerSpecs = (player as { specifications?: { specGroupId: number; value: string }[] })
+      .specifications;
+    const { legacyForm, extraSelections } = applySpecificationsToSelections(
+      sortedSpecGroups,
+      playerSpecs,
+      {
+        battingStyle: player.battingStyle ?? "",
+        bowlingStyle: player.bowlingStyle ?? "",
+        specialization: player.specialization ?? "",
+      },
+    );
+    setForm((prev) => ({
+      ...prev,
+      battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+      bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+      specialization: legacyForm.specialization ?? prev.specialization,
+    }));
+    setExtraSpecSelections(extraSelections);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.id, sortedSpecGroups.length]);
+
   function findTournamentPlayerByMobile(mobile: string) {
     const parsed = parseIndianMobile(mobile);
     if (!parsed.ok || !tournamentPlayers?.length) return null;
@@ -562,7 +598,8 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       mobileDebounceRef.current = setTimeout(async () => {
         setMobileLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`, {
+          const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5${sportQ}`, {
             credentials: "include",
           });
           const data: SuggestionProfile[] = await res.json();
@@ -601,6 +638,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       setEmailError(emailResult.error);
       return;
     }
+    const specifications = buildSpecificationsPayload(
+      sortedSpecGroups,
+      {
+        battingStyle: form.battingStyle,
+        bowlingStyle: form.bowlingStyle,
+        specialization: form.specialization,
+      },
+      extraSpecSelections,
+    );
     const data = {
       name: form.name,
       city: form.city || undefined,
@@ -608,6 +654,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
+      specifications: specifications.length > 0 ? specifications : undefined,
       age: form.age ? parseInt(form.age) : undefined,
       gender:
         form.gender === "M" || form.gender === "F"
@@ -700,9 +747,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       age: p.age != null ? String(p.age) : prev.age,
       gender: p.gender || prev.gender,
       photoUrl: p.photoUrl || prev.photoUrl,
-      battingStyle: p.battingStyle || prev.battingStyle,
-      bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
-      specialization: p.specialization || prev.specialization,
       achievements: p.achievements || prev.achievements,
       jerseyNumber: p.jerseyNumber || prev.jerseyNumber,
       jerseySize: (p.jerseySize as JerseySize | null) || prev.jerseySize,
@@ -710,6 +754,33 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       mobileNumber: p.mobileNumber || prev.mobileNumber,
       basePrice: p.basePrice || prev.basePrice,
     }));
+
+    if (p.specifications?.length && sortedSpecGroups.length > 0) {
+      const { legacyForm, extraSelections } = applySpecificationsToSelections(
+        sortedSpecGroups,
+        p.specifications,
+        {
+          battingStyle: p.battingStyle ?? "",
+          bowlingStyle: p.bowlingStyle ?? "",
+          specialization: p.specialization ?? "",
+        },
+      );
+      setForm((prev) => ({
+        ...prev,
+        battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+        bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+        specialization: legacyForm.specialization ?? prev.specialization,
+      }));
+      setExtraSpecSelections(extraSelections);
+    } else {
+      setForm(prev => ({
+        ...prev,
+        battingStyle: p.battingStyle || prev.battingStyle,
+        bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
+        specialization: p.specialization || prev.specialization,
+      }));
+    }
+
     setFilledFromProfile(true);
   }
 
@@ -729,6 +800,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                   else f("name", v);
                 }}
                 onFillFromProfile={fillFromProfile}
+                sportSlug={tournament?.sport ?? undefined}
               />
               {filledFromProfile && (
                 <p className="text-xs text-primary flex items-center gap-1">
@@ -1219,26 +1291,39 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
 // ─── Bulk Upload Dialog ────────────────────────────────────────────────────────
 
-function BulkUploadDialog({ tournamentId, categories, onClose }: {
+function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
   tournamentId: number;
+  sportSlug: string;
   categories: any[];
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const bulkCreate = useBulkCreatePlayers();
   const [csv, setCsv] = useState("");
+  const [catalog, setCatalog] = useState<SportSpecCatalog | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,gender,battingStyle,bowlingStyle,specialization,jerseyNumber,jerseySize,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
+  useEffect(() => {
+    let cancelled = false;
+    fetchSportSpecCatalog(sportSlug)
+      .then((c) => { if (!cancelled) setCatalog(c); })
+      .catch((err) => {
+        if (!cancelled) setCatalogError(err instanceof Error ? err.message : String(err));
+      });
+    return () => { cancelled = true; };
+  }, [sportSlug]);
+
+  const templateHeaders = buildCsvTemplateHeaders(catalog);
 
   function downloadTemplate() {
-    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,M,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
+    const content = `${templateHeaders}\n${buildCsvTemplateExampleRow(catalog)}`;
     const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "players_template.csv";
+    a.download = `players_template_${sportSlug}.csv`;
     a.click();
   }
 
@@ -1250,58 +1335,27 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
     reader.readAsText(file);
   }
 
-  function parseCsv(raw: string): any[] {
-    const lines = raw.trim().split("\n").map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) return [];
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    return lines.slice(1).map(line => {
-      const vals = line.split(",").map(v => v.trim());
-      const row: Record<string, any> = {};
-      headers.forEach((h, i) => { row[h] = vals[i] || ""; });
-      return {
-        name: row["name"] || "Unknown",
-        basePrice: parseInt(row["baseprice"] || row["base_price"] || "100000") || 100000,
-        role: row["role"] || undefined,
-        city: row["city"] || undefined,
-        age: row["age"] ? parseInt(row["age"]) : undefined,
-        gender: (() => {
-          const g = (row["gender"] || "").trim().toUpperCase();
-          return g === "M" || g === "F" ? g : undefined;
-        })(),
-        battingStyle: row["battingstyle"] || row["batting_style"] || undefined,
-        bowlingStyle: row["bowlingstyle"] || row["bowling_style"] || undefined,
-        specialization: row["specialization"] || undefined,
-        jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
-        jerseySize: row["jerseysize"] || row["jersey_size"] || undefined,
-        achievements: row["achievements"] || undefined,
-        mobileNumber: (() => {
-          const raw = row["mobilenumber"] || row["mobile_number"] || row["mobile"] || "";
-          if (!raw) return undefined;
-          const parsed = parseIndianMobile(raw);
-          return parsed.ok ? parsed.normalized : raw;
-        })(),
-        email: row["email"] || undefined,
-        availabilityDates: row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
-        cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
-      };
-    });
-  }
-
   async function handleUpload() {
-    const players = parseCsv(csv);
+    const players = parsePlayerCsv(csv, catalog);
     if (!players.length) return;
     const res = await bulkCreate.mutateAsync({ tournamentId, data: { players } });
     setResult({ created: res.created, failed: res.failed, errors: res.errors ?? [] });
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
   }
 
-  const parsed = csv ? parseCsv(csv) : [];
+  const parsed = csv ? parsePlayerCsv(csv, catalog) : [];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Upload a CSV file with player details. One player per row.</p>
+          <p className="text-sm text-muted-foreground">
+            Upload a CSV with sport-specific specification columns for{" "}
+            <span className="font-medium capitalize">{sportSlug}</span>.
+          </p>
+          {catalogError && (
+            <p className="text-xs text-amber-500 mt-1">Spec catalog unavailable — legacy columns used as fallback.</p>
+          )}
         </div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
           <Download className="w-3.5 h-3.5" /> Template
@@ -1321,7 +1375,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
           </div>
           <textarea
             className="w-full h-36 bg-card border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder={`Paste CSV here:\n${TEMPLATE_HEADERS}\nPlayer Name,100000,batsman,...`}
+            placeholder={`Paste CSV here:\n${templateHeaders}\n...`}
             value={csv}
             onChange={e => setCsv(e.target.value)}
           />
@@ -1340,7 +1394,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
             <Button
               className="flex-1"
               disabled={parsed.length === 0 || bulkCreate.isPending}
-              onClick={handleUpload}
+              onClick={() => void handleUpload()}
             >
               <Upload className="w-4 h-4 mr-2" />
               {bulkCreate.isPending ? "Uploading..." : `Upload ${parsed.length} Players`}
@@ -1416,15 +1470,16 @@ function playerAmountForSort(player: {
 }
 
 function playerMatchesSearch(
-  player: { id: number; name: string; mobileNumber?: string | null },
+  player: { id: number; serialNo?: number; name: string; mobileNumber?: string | null },
   rawQuery: string,
 ): boolean {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return true;
 
-  // Numeric: exact serial first; partial mobile only for 4+ digits (avoids "3" matching names/mobiles loosely)
+  // Numeric: exact tournament serial first; partial mobile only for 4+ digits (avoids "3" matching names/mobiles loosely)
   if (/^\d+$/.test(query)) {
-    if (String(player.id) === query) return true;
+    const serial = player.serialNo ?? player.id;
+    if (String(serial) === query) return true;
     if (query.length >= 4 && (player.mobileNumber || "").includes(query)) return true;
     return false;
   }
@@ -1490,7 +1545,7 @@ function sortPlayers(
     let cmp = 0;
     switch (sortKey) {
       case "id":
-        cmp = a.id - b.id;
+        cmp = (a.serialNo ?? a.id) - (b.serialNo ?? b.id);
         break;
       case "name":
         cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -1518,7 +1573,7 @@ function sortPlayers(
       }
     }
     if (cmp !== 0) return cmp * dir;
-    return a.id - b.id;
+    return (a.serialNo ?? a.id) - (b.serialNo ?? b.id);
   });
 }
 
@@ -1766,7 +1821,7 @@ function PlayerDetailPanel({
         <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">#{player.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">#{player.serialNo ?? player.id}</span>
             <h3 className="font-bold text-lg truncate">{player.name}</h3>
             {tagTheme && (
               <span
@@ -2759,7 +2814,7 @@ export default function Players() {
                           onClick={() => toggleExpand(player.id)}
                         >
                           <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
-                            {player.id}
+                            {player.serialNo ?? player.id}
                           </TableCell>
                           <TableCell>
                             <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
@@ -2902,7 +2957,7 @@ export default function Players() {
                       className="w-full flex items-center gap-3"
                       onClick={() => setDrawerPlayer(player)}
                     >
-                      <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.id}</span>
+                      <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.serialNo ?? player.id}</span>
                       <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -2961,6 +3016,7 @@ export default function Players() {
           </DialogHeader>
           <BulkUploadDialog
             tournamentId={tournamentId}
+            sportSlug={tournament?.sport ?? "cricket"}
             categories={categories || []}
             onClose={() => setBulkOpen(false)}
           />

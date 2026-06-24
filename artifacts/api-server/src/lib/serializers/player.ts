@@ -2,10 +2,13 @@ import type { playersTable } from "@workspace/db";
 
 type PlayerRow = typeof playersTable.$inferSelect;
 
+/** @deprecated Legacy cricket-shaped columns — prefer `specifications[]` when PLAYER_SPECS_V2_ENABLED. */
+
 /** Organizer/admin player — full record including PII and payment fields. */
 export function privatePlayerSerializer(p: PlayerRow) {
   return {
     id: p.id,
+    serialNo: p.serialNo,
     tournamentId: p.tournamentId,
     categoryId: p.categoryId,
     teamId: p.teamId,
@@ -46,6 +49,7 @@ export function privatePlayerSerializer(p: PlayerRow) {
 export function publicPlayerSerializer(p: PlayerRow) {
   return {
     id: p.id,
+    serialNo: p.serialNo,
     tournamentId: p.tournamentId,
     categoryId: p.categoryId,
     teamId: p.teamId,
@@ -80,6 +84,7 @@ export function publicPlayerSerializer(p: PlayerRow) {
 export function publicAuctionPlayerSerializer(p: PlayerRow) {
   return {
     id: p.id,
+    serialNo: p.serialNo,
     tournamentId: p.tournamentId,
     categoryId: p.categoryId,
     teamId: p.teamId,

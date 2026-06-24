@@ -1,19 +1,32 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { User, UserRound } from "lucide-react";
 import type { LedView } from "@/lib/led-view/types";
 import type { PlayerGender } from "@/lib/led-view/player-gender";
 import { hasUsablePortrait } from "@/lib/led-view/player-gender";
+import {
+  buildPortraitInfoRows,
+  portraitSpecGridClass,
+} from "@/lib/led-view/portrait-footer-stats";
 
 /**
- * PLAYER PORTRAIT — photo or gender placeholder, identity, role badge, stats.
+ * PLAYER PORTRAIT — full-bleed photo with identity + spec grid overlaid at bottom.
+ * Base price lives in BidCenter only.
  */
 export const PlayerPortrait = memo(function PlayerPortrait({
   view,
 }: {
   view: LedView;
 }) {
-  const { currentPlayer, roleLabel, basePriceLabel } = view;
+  const { currentPlayer, roleLabel } = view;
   const [photoFailed, setPhotoFailed] = useState(false);
+
+  const infoRows = useMemo(
+    () =>
+      currentPlayer
+        ? buildPortraitInfoRows(currentPlayer.age, currentPlayer.specs)
+        : [],
+    [currentPlayer],
+  );
 
   useEffect(() => {
     setPhotoFailed(false);
@@ -22,14 +35,15 @@ export const PlayerPortrait = memo(function PlayerPortrait({
   if (!currentPlayer) return null;
 
   const showPhoto = hasUsablePortrait(currentPlayer.portrait) && !photoFailed;
+  const specGridClass = portraitSpecGridClass(infoRows.length);
 
   return (
-    <div className="relative overflow-hidden bg-black/40 border border-white/10 h-full">
+    <div className="relative h-full min-h-0 overflow-hidden bg-black/40 border border-white/10">
       {showPhoto ? (
         <img
           src={currentPlayer.portrait}
           alt={currentPlayer.name}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-top"
           loading="eager"
           onError={() => setPhotoFailed(true)}
         />
@@ -39,20 +53,18 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
       )}
 
-      {/* Gradient floor */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent pointer-events-none" />
       <div
-        className="absolute inset-0 opacity-30 mix-blend-overlay"
+        className="absolute inset-0 opacity-30 mix-blend-overlay pointer-events-none"
         style={{
           background:
-            "linear-gradient(180deg, transparent 0%, transparent 60%, var(--accent-glow) 100%)",
+            "linear-gradient(180deg, transparent 0%, transparent 45%, var(--accent-glow) 100%)",
         }}
       />
 
-      {/* Jersey number badge */}
       <div className="absolute top-3 right-3 z-10">
         <div
-          className="size-14 grid place-items-center font-['Bebas_Neue'] text-2xl italic shadow-2xl"
+          className="size-12 sm:size-14 grid place-items-center font-['Bebas_Neue'] text-xl sm:text-2xl italic shadow-2xl"
           style={{
             backgroundColor: "var(--accent)",
             color: "var(--accent-on)",
@@ -62,64 +74,79 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
       </div>
 
-      {/* Identity */}
-      <div className="absolute inset-x-0 bottom-0 p-4 z-10">
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <span
-            className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-            style={{
-              backgroundColor: "var(--accent)",
-              color: "var(--accent-on)",
-            }}
-          >
-            {roleLabel}
-          </span>
-          <span className="text-white/70 text-[10px] font-mono uppercase tracking-[0.2em]">
-            {currentPlayer.city}
-          </span>
-        </div>
+      <div
+        className="absolute top-0 left-0 h-1 w-16 z-10"
+        style={{ backgroundColor: "var(--accent)" }}
+      />
 
-        <h2 className="font-['Bebas_Neue'] text-[clamp(2rem,4vw,4rem)] leading-[0.9] uppercase text-white tracking-tight">
+      <div className="absolute inset-x-0 bottom-0 z-10 px-3 sm:px-4 pb-3 pt-16 sm:pt-20 bg-gradient-to-t from-black via-black/95 to-transparent">
+        <p className="mb-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.14em] leading-snug">
+          <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
+          {currentPlayer.city ? (
+            <>
+              <span className="mx-2 text-white/35 font-normal">•</span>
+              <span className="text-white/80 font-mono tracking-[0.18em]">
+                {currentPlayer.city}
+              </span>
+            </>
+          ) : null}
+        </p>
+
+        <h2 className="font-['Bebas_Neue'] text-[clamp(1.35rem,2.8vw,2.25rem)] leading-[0.92] uppercase text-white tracking-tight">
           {currentPlayer.name}
         </h2>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 pt-3 border-t border-white/15">
-          <Stat label="Age" value={String(currentPlayer.age)} />
-          <Stat label="Bat" value={currentPlayer.battingHand} />
-          <Stat label="Base" value={basePriceLabel} />
-        </div>
+        {infoRows.length > 0 ? (
+          <div
+            className={`mt-2 pt-2 border-t border-white/15 grid ${specGridClass} gap-x-3 gap-y-1 sm:gap-y-1.5`}
+          >
+            {infoRows.map((row, index) => (
+              <SpecRow
+                key={`${row.label}-${index}`}
+                shortLabel={row.shortLabel}
+                fullLabel={row.label}
+                value={row.value}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
-
-      {/* Accent corner */}
-      <div
-        className="absolute top-0 left-0 h-1 w-16"
-        style={{ backgroundColor: "var(--accent)" }}
-      />
     </div>
   );
 });
 
 function GenderPortraitIcon({ gender }: { gender: PlayerGender }) {
   const className =
-    "w-[clamp(5rem,18vw,9rem)] h-[clamp(5rem,18vw,9rem)] text-white/20";
+    "w-[clamp(4rem,14vw,7rem)] h-[clamp(4rem,14vw,7rem)] text-white/20";
   if (gender === "female") {
     return <UserRound className={className} strokeWidth={1.15} aria-hidden />;
   }
   return <User className={className} strokeWidth={1.15} aria-hidden />;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function SpecRow({
+  shortLabel,
+  fullLabel,
+  value,
+}: {
+  shortLabel: string;
+  fullLabel: string;
+  value: string;
+}) {
   return (
-    <div>
-      <p className="text-[8px] font-mono uppercase tracking-widest text-white/45">
-        {label}
-      </p>
-      <p
-        className="font-mono text-sm font-bold mt-0.5 tabular-nums"
+    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 leading-snug">
+      <span
+        className="font-mono text-[12px] sm:text-[13px] uppercase tracking-[0.12em] text-white/50"
+        title={fullLabel}
+      >
+        {shortLabel}:
+      </span>
+      <span
+        className="font-mono text-[14px] sm:text-[15px] font-bold whitespace-normal break-words"
         style={{ color: "var(--accent)" }}
       >
         {value}
-      </p>
+      </span>
     </div>
   );
 }

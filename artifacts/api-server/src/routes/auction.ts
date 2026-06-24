@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
-import { publicAuctionPlayerSerializer } from "../lib/serializers/player";
+import { serializePlayerWithSpecifications } from "../lib/player-spec-response";
 import { requireTeamInTournament } from "../lib/team-tournament-guard";
 import { db } from "@workspace/db";
 import { cheerLimiter } from "../lib/rate-limiters";
@@ -12,6 +12,7 @@ import {
   playersTable,
   teamsTable,
   bidsTable,
+  auctionBidEventsTable,
   tournamentsTable,
   categoriesTable,
   organizersTable,
@@ -286,8 +287,6 @@ function rejectIfAuctionPaused(
   return false;
 }
 
-const playerToJson = publicAuctionPlayerSerializer;
-
 type BidTier = { upTo?: number; increment: number };
 
 function parseBidTiers(tiersJson: string | null | undefined, fallback: {
@@ -440,7 +439,7 @@ async function buildAuctionState(tournamentId: number) {
       .from(playersTable)
       .where(eq(playersTable.id, session.currentPlayerId));
     if (p) {
-      currentPlayer = playerToJson(p);
+      currentPlayer = await serializePlayerWithSpecifications(p, "auction");
       // Use category's bid settings and enforce max players if category defines them
       if (p.categoryId) {
         const [cat] = await db
@@ -1309,6 +1308,7 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   });
 
   res.json(await broadcastBidDelta(tid, {
+    playerId: session.currentPlayerId!,
     currentBid: amount,
     currentBidTeamId: teamId,
     currentBidTeamName: team.name,
@@ -2571,16 +2571,16 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
   res.json(await broadcastState(tid));
 });
 
-// GET bid history
+// GET bid history — live bids from auction_bid_events (not sold-only bids table)
 router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const bids = await db
     .select()
-    .from(bidsTable)
-    .where(eq(bidsTable.tournamentId, tid))
-    .orderBy(desc(bidsTable.timestamp));
+    .from(auctionBidEventsTable)
+    .where(eq(auctionBidEventsTable.tournamentId, tid))
+    .orderBy(desc(auctionBidEventsTable.timestamp));
 
   const result = await Promise.all(
     bids.map(async (bid) => {
@@ -2591,7 +2591,7 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
         tournamentId: bid.tournamentId,
         playerId: bid.playerId,
         teamId: bid.teamId,
-        amount: bid.amount,
+        amount: bid.bidAmount,
         timestamp: bid.timestamp.toISOString(),
         playerName: player?.name ?? null,
         teamName: team?.name ?? null,

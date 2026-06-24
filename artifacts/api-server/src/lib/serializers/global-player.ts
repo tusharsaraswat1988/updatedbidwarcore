@@ -27,6 +27,45 @@ export function privateGlobalPlayerSerializer(gp: GlobalPlayerRow) {
   };
 }
 
+/** Public search result — identity fields only (Sprint 2 sport-neutral search). */
+export function publicGlobalPlayerIdentitySearchSerializer(row: {
+  id: number;
+  name: string;
+  city: string | null;
+  age: number | null;
+  gender: string | null;
+  role: string | null;
+  photoUrl: string | null;
+  globalPlayerId: string | null;
+  basePrice: number | null;
+  appearanceCount: number;
+  sport?: string | null;
+}) {
+  return {
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    age: row.age,
+    gender: row.gender,
+    role: row.role,
+    photoUrl: row.photoUrl,
+    globalPlayerId: row.globalPlayerId,
+    basePrice: row.basePrice,
+    appearanceCount: row.appearanceCount,
+    sport: row.sport ?? null,
+  };
+}
+
+/** Private identity search — includes mobile. */
+export function privateGlobalPlayerIdentitySearchSerializer(row: {
+  mobileNumber?: string | null;
+} & Parameters<typeof publicGlobalPlayerIdentitySearchSerializer>[0]) {
+  return {
+    ...publicGlobalPlayerIdentitySearchSerializer(row),
+    mobileNumber: row.mobileNumber ?? null,
+  };
+}
+
 /** Public search result from tournament player dedup query. */
 export function publicGlobalPlayerSearchSerializer(row: {
   id: number;

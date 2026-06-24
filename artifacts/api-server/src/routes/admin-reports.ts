@@ -169,12 +169,13 @@ async function loadFilteredPlayers(tournamentId: number, f: Filters) {
   if (f.search) conditions.push(ilike(playersTable.name, `%${f.search}%`));
   if (f.minPrice !== undefined) conditions.push(gte(playersTable.soldPrice, f.minPrice));
   if (f.maxPrice !== undefined) conditions.push(lte(playersTable.soldPrice, f.maxPrice));
-  return await db.select().from(playersTable).where(and(...conditions)).orderBy(playersTable.name);
+  return await db.select().from(playersTable).where(and(...conditions)).orderBy(playersTable.serialNo);
 }
 
 // ─── Report builders ──────────────────────────────────────────────────────────
 
 const PLAYER_COLUMNS: Column[] = [
+  { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
   { key: "name", label: "Name", width: 1.6 },
   { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
   { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },

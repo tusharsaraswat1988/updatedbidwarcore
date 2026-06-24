@@ -158,35 +158,43 @@ export async function getDevStackStatus(ports) {
   /** @type {{ api: boolean; web: boolean; owner: boolean }} */
   const status = { api: false, web: false, owner: false };
 
-  try {
-    const res = await fetch(`http://127.0.0.1:${ports.api}/api/healthz`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    status.api = res.ok;
-  } catch {
-    /* down */
-  }
-
-  try {
-    const res = await fetch(`http://127.0.0.1:${ports.frontend}/admin/login`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    status.web = res.ok;
-  } catch {
-    /* down */
-  }
-
-  try {
-    const res = await fetch(`http://127.0.0.1:${ports.ownerApp}/owner-app/`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    if (res.ok) {
-      const text = await res.text();
-      status.owner = text.includes('id="root"') || text.includes("BidWar Owner");
+  async function probe(url, check) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      try {
+        return await check(res);
+      } finally {
+        if (!res.bodyUsed) {
+          await res.arrayBuffer().catch(() => {});
+        }
+      }
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
     }
-  } catch {
-    /* down */
   }
+
+  status.api = await probe(
+    `http://127.0.0.1:${ports.api}/api/healthz`,
+    (res) => res.ok,
+  );
+
+  status.web = await probe(
+    `http://127.0.0.1:${ports.frontend}/admin/login`,
+    (res) => res.ok,
+  );
+
+  status.owner = await probe(
+    `http://127.0.0.1:${ports.ownerApp}/owner-app/`,
+    async (res) => {
+      if (!res.ok) return false;
+      const text = await res.text();
+      return text.includes('id="root"') || text.includes("BidWar Owner");
+    },
+  );
 
   return status;
 }

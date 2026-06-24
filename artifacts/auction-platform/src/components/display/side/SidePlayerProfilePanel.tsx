@@ -128,23 +128,12 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
         <div className="grid grid-cols-2 gap-2">
           <ProfileStat label="Age" value={player.age ? String(player.age) : "—"} />
           <ProfileStat label="City" value={player.city || "—"} />
-          <ProfileStat label="Batting" value={player.battingHand} />
-          <ProfileStat label="Bowling" value={player.bowlingStyle || "—"} />
           <ProfileStat label="Base Price" value={basePriceLabel} accent />
-          <ProfileStat
-            label="Role"
-            value={player.roleRaw || roleLabel}
-          />
+          <ProfileStat label="Role" value={player.roleRaw || roleLabel} />
+          {player.specs.map((spec) => (
+            <ProfileStat key={spec.label} label={spec.label} value={spec.value} />
+          ))}
         </div>
-
-        {player.specialization ? (
-          <div className="border-l-2 pl-3" style={{ borderColor: "var(--accent)" }}>
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/45">
-              Specialization
-            </p>
-            <p className="mt-1 text-sm leading-snug text-white/85">{player.specialization}</p>
-          </div>
-        ) : null}
 
         {player.achievements ? (
           <div className="border border-white/10 bg-white/[0.03] p-3">

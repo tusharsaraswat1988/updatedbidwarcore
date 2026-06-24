@@ -67,7 +67,7 @@ function saveCols(tid: number, cols: Set<ColKey>) {
 }
 
 type ReportPlayer = {
-  id: number; name: string; role: string | null; city: string | null; age: number | null;
+  id: number; serialNo: number; name: string; role: string | null; city: string | null; age: number | null;
   photoUrl: string | null; mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null;
   categoryName: string | null; categoryColor: string | null;
   soldPrice: number | null; retainedPrice: number | null;
@@ -106,10 +106,9 @@ function PlayerPhoto({ url, name, small }: { url: string | null; name: string; s
 }
 
 function PlayerTable({
-  players, startSno, cols, initialBalance, sectionLabel, showPhoto,
+  players, cols, initialBalance, sectionLabel, showPhoto,
 }: {
   players: ReportPlayer[];
-  startSno: number;
   cols: Set<ColKey>;
   initialBalance: number;
   sectionLabel: string;
@@ -125,7 +124,7 @@ function PlayerTable({
       <table className="w-full table-fixed border-collapse border border-gray-400 text-sm">
         <thead>
           <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className={`w-12 ${REPORT_TH} text-left`}>S.No</th>
+            <th className={`w-12 ${REPORT_TH} text-left`}>Serial #</th>
             {showPhoto && <th className="w-14 border border-gray-400 px-2 py-1.5" />}
             <th className={`${REPORT_TH} text-left`}>Player Name</th>
             {cols.has("age") && <th className={`w-14 ${REPORT_TH} text-center`}>Age</th>}
@@ -149,7 +148,7 @@ function PlayerTable({
             const cell = "border border-gray-400 px-3 py-2 align-top";
             return (
               <tr key={p.id} className={`print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                <td className={`${cell} text-xs text-gray-500`}>{startSno + i}</td>
+                <td className={`${cell} text-xs text-gray-500`}>{p.serialNo ?? p.id}</td>
                 {showPhoto && (
                   <td className={`${cell} py-1`}>
                     <PlayerPhoto url={p.photoUrl} name={p.name} small />
@@ -392,7 +391,6 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
 
         <PlayerTable
           players={retainedPlayers}
-          startSno={1}
           cols={cols}
           initialBalance={purgeSummary.totalPurse}
           sectionLabel={`Retained Players (${retainedPlayers.length})`}
@@ -401,7 +399,6 @@ function ReportPreview({ report, cols }: { report: ReportData; cols: Set<ColKey>
 
         <PlayerTable
           players={preSoldPlayers}
-          startSno={retainedPlayers.length + 1}
           cols={cols}
           initialBalance={purgeSummary.totalPurse - purgeSummary.retainedSpend}
           sectionLabel={`Pre-Sold Players (${preSoldPlayers.length})`}

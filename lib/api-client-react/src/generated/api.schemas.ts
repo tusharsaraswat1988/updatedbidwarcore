@@ -732,6 +732,8 @@ export const PlayerRegistrationPaymentStatus = {
 
 export interface Player {
   id: number;
+  /** Tournament-scoped display serial (1..N). Use for auction Serial # — not global id. */
+  serialNo: number;
   tournamentId: number;
   /** @nullable */
   categoryId?: number | null;
@@ -748,6 +750,12 @@ export interface Player {
   bowlingStyle?: string | null;
   /** @nullable */
   specialization?: string | null;
+  /** Normalized sport specifications (when PLAYER_SPECS_V2_ENABLED). */
+  specifications?: {
+    specGroupId: number;
+    groupName: string;
+    value: string;
+  }[];
   /** @nullable */
   age?: number | null;
   /**
@@ -831,6 +839,11 @@ export const PlayerInputPlayerTag = {
   star_player: "star_player",
 } as const;
 
+export interface PlayerSpecificationInput {
+  specGroupId: number;
+  value: string;
+}
+
 export interface PlayerInput {
   categoryId?: number;
   name: string;
@@ -869,6 +882,8 @@ export interface PlayerInput {
   markPaymentCompleted?: boolean;
   /** Player accepts organizer registration declaration (required when enabled) */
   registrationDeclarationAccepted?: boolean;
+  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
+  specifications?: PlayerSpecificationInput[];
 }
 
 export type PlayerUpdateGender =
@@ -940,6 +955,8 @@ export interface PlayerUpdate {
   reason?: string;
   /** Organizer updates registration payment verification status */
   registrationPaymentStatus?: PlayerUpdateRegistrationPaymentStatus;
+  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
+  specifications?: PlayerSpecificationInput[];
 }
 
 export interface BulkPlayerInput {
@@ -1972,6 +1989,8 @@ export type SearchGlobalPlayersParams = {
    */
   q: string;
   limit?: number;
+  /** When set, prefer tournament rows for this sport (prevents cross-sport spec bleed). */
+  sport?: string;
 };
 
 export type ListImportCandidatesParams = {

@@ -238,8 +238,9 @@ async function seedTournament1() {
 
   // Insert players
   const playerRows = await db.insert(playersTable).values(
-    IPL_PLAYERS.map(p => ({
+    IPL_PLAYERS.map((p, i) => ({
       tournamentId: t.id,
+      serialNo: i + 1,
       categoryId: catMap[p.tier],
       name: p.name,
       city: p.city,
@@ -318,8 +319,9 @@ async function seedTournament2() {
 
   // Insert players
   const playerRows = await db.insert(playersTable).values(
-    MEGA_PLAYERS.map(p => ({
+    MEGA_PLAYERS.map((p, i) => ({
       tournamentId: t.id,
+      serialNo: i + 1,
       categoryId: catMap[p.tier],
       name: p.name,
       city: p.city,

@@ -6,8 +6,9 @@ import type { LedView } from "@/lib/led-view/types";
  * Pure presentation. Re-flashes via key on currentBid change.
  */
 export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
-  const { state, leadingTeam, currentBidLabel, uniqueBidders, derivedState } = view;
+  const { state, leadingTeam, currentBidLabel, uniqueBidders, derivedState, hasTeamBid } = view;
   const showLeading = state.isBidding || derivedState === "sold";
+  const bidAmountLabel = hasTeamBid ? "Current Bid" : "Bid Starts At";
 
   return (
     <div
@@ -19,7 +20,7 @@ export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
         className="text-[10px] font-mono uppercase tracking-[0.5em] mb-2"
         style={{ color: "var(--accent)" }}
       >
-        {state.currentBid > 0 ? "Current Bid" : "Opening Bid"}
+        {bidAmountLabel}
       </span>
 
       <div
@@ -35,7 +36,7 @@ export const BidCenter = memo(function BidCenter({ view }: { view: LedView }) {
       </div>
 
       {/* Leading team card — logo + name; label confirms highest bidder */}
-      {showLeading && leadingTeam && state.currentBid > 0 ? (
+      {showLeading && hasTeamBid && leadingTeam && state.currentBid > 0 ? (
         <div className="mt-6 flex flex-col items-center gap-2">
           <div
             className="flex items-center gap-6 px-8 py-3 border-l-[6px] bg-white/95 text-black min-h-[4.5rem]"

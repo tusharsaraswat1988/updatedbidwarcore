@@ -3,6 +3,7 @@ import { compactAuctionStateForSse } from "./auction-sse-payload";
 import { publishAuctionEvent } from "./auction-events";
 
 export type BidDeltaFields = {
+  playerId: number;
   currentBid: number;
   currentBidTeamId: number;
   currentBidTeamName: string | null;

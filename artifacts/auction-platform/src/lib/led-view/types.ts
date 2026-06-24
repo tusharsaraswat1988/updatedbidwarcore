@@ -3,7 +3,11 @@ import type { PlayerGender } from "./player-gender";
 
 export type { PlayerGender } from "./player-gender";
 
-export type LedRoleCode = "BAT" | "BOWL" | "AR" | "WK";
+export type LedPlayerSpec = {
+  label: string;
+  value: string;
+};
+
 export type LedPlayerStatus = "queue" | "live" | "sold" | "unsold" | "retained";
 
 export type LedTeam = {
@@ -23,22 +27,20 @@ export type LedTeam = {
 export type LedPlayer = {
   id: string;
   name: string;
-  role: LedRoleCode;
-  /** Raw role label from tournament setup (e.g. "Opening Batsman"). */
+  /** Sport-specific role from tournament setup (e.g. "Doubles Player"). */
   roleRaw: string;
+  /** Dynamic specification chips from player_spec_values or legacy fallback. */
+  specs: LedPlayerSpec[];
   basePrice: number;
   city: string;
   age: number;
-  battingHand: "Right" | "Left";
-  /** Player serial # — same as `players.id` (Players page Serial # column). */
+  /** Tournament-scoped display serial (Players page Serial # column). */
   serialNo: number;
   portrait: string;
   gender: PlayerGender;
   status: LedPlayerStatus;
   soldToTeamId: string | null;
   soldPrice: number | null;
-  bowlingStyle: string;
-  specialization: string;
   achievements: string;
   categoryName: string | null;
 };
@@ -61,7 +63,7 @@ export type DerivedState =
 export type LedSquadPlayer = {
   id: string;
   name: string;
-  role: LedRoleCode;
+  roleRaw: string;
   portrait: string;
   soldPrice: number;
   soldPriceLabel: string;
@@ -166,6 +168,8 @@ export type LedView = {
   };
   currentPlayer: LedPlayer | null;
   leadingTeam: LedTeam | null;
+  /** True once any team has placed a bid on the current player (including at base price). */
+  hasTeamBid: boolean;
   remaining: number;
   totalPlayers: number;
   derivedState: DerivedState;

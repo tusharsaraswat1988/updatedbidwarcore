@@ -6,7 +6,7 @@
  * Logs all operations to master_sports_sync_log.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   badmintonPlayersTable,
@@ -178,7 +178,13 @@ export async function ensureStatisticsForMigratedPlayers(tournamentId: number): 
     const [existing] = await db
       .select()
       .from(playerStatisticsTable)
-      .where(eq(playerStatisticsTable.playerId, bp.masterPlayerId))
+      .where(
+        and(
+          eq(playerStatisticsTable.playerId, bp.masterPlayerId),
+          eq(playerStatisticsTable.sport, "badminton"),
+          eq(playerStatisticsTable.tournamentId, tournamentId),
+        ),
+      )
       .limit(1);
 
     if (!existing) {

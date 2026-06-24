@@ -82,7 +82,7 @@ import { useToast } from "@/hooks/use-toast";
 
 
 function playerMatchesSearch(
-  player: { id: number; name: string },
+  player: { id: number; serialNo?: number; name: string },
   rawQuery: string,
 ): boolean {
   const query = rawQuery.trim().toLowerCase();
@@ -90,7 +90,7 @@ function playerMatchesSearch(
 
   if (player.name.toLowerCase().includes(query)) return true;
 
-  if (/^\d+$/.test(query) && String(player.id) === query) return true;
+  if (/^\d+$/.test(query) && String(player.serialNo ?? player.id) === query) return true;
 
   return false;
 }
@@ -1139,7 +1139,7 @@ export default function AuctionOperator() {
 
                       <div className="flex items-start gap-1.5 min-w-0">
                         {/* Player # — matches Players page serial column */}
-                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{player.id}</span>
+                        <span className="text-[10px] text-white/18 w-4 text-right flex-shrink-0 font-mono pt-0.5">{player.serialNo ?? player.id}</span>
 
                         {/* Jersey */}
                         {player.jerseyNumber && (
