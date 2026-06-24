@@ -106,6 +106,13 @@ export const PlayerPortrait = memo(function PlayerPortrait({
                 shortLabel={row.shortLabel}
                 fullLabel={row.label}
                 value={row.value}
+                className={
+                  infoRows.length > 2 &&
+                  infoRows.length % 2 === 1 &&
+                  index === infoRows.length - 1
+                    ? "col-span-2"
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -128,25 +135,27 @@ function SpecRow({
   shortLabel,
   fullLabel,
   value,
+  className,
 }: {
   shortLabel: string;
   fullLabel: string;
   value: string;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 leading-snug">
+    <p className={`min-w-0 leading-snug ${className ?? ""}`}>
       <span
         className="font-mono text-[12px] sm:text-[13px] uppercase tracking-[0.12em] text-white/50"
         title={fullLabel}
       >
-        {shortLabel}:
+        {shortLabel}:{" "}
       </span>
       <span
-        className="font-mono text-[14px] sm:text-[15px] font-bold whitespace-normal break-words"
+        className="font-mono text-[14px] sm:text-[15px] font-bold"
         style={{ color: "var(--accent)" }}
       >
         {value}
       </span>
-    </div>
+    </p>
   );
 }

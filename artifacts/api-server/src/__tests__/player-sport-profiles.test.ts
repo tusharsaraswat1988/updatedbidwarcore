@@ -89,16 +89,16 @@ describe("PLAYER_SPORT_PROFILES_ENABLED feature flag", () => {
     vi.resetModules();
   });
 
-  it("is disabled by default", async () => {
+  it("is enabled by default when env is unset", async () => {
     vi.stubEnv("PLAYER_SPORT_PROFILES_ENABLED", "");
     const { isPlayerSportProfilesEnabled } = await import("@workspace/api-base");
-    expect(isPlayerSportProfilesEnabled()).toBe(false);
+    expect(isPlayerSportProfilesEnabled()).toBe(true);
   });
 
-  it("is enabled when true", async () => {
-    vi.stubEnv("PLAYER_SPORT_PROFILES_ENABLED", "true");
+  it("is disabled when explicitly false", async () => {
+    vi.stubEnv("PLAYER_SPORT_PROFILES_ENABLED", "false");
     const { isPlayerSportProfilesEnabled } = await import("@workspace/api-base");
-    expect(isPlayerSportProfilesEnabled()).toBe(true);
+    expect(isPlayerSportProfilesEnabled()).toBe(false);
   });
 });
 

@@ -28,6 +28,8 @@ function devEnv(overrides) {
     NODE_ENV: "development",
     PLAYER_SPECS_V2_ENABLED:
       process.env.PLAYER_SPECS_V2_ENABLED?.trim() || "true",
+    PLAYER_SPORT_PROFILES_ENABLED:
+      process.env.PLAYER_SPORT_PROFILES_ENABLED?.trim() || "true",
     SERVE_STATIC: "false",
     APP_DOMAIN: process.env.APP_DOMAIN?.trim() || "localhost",
     APP_PUBLIC_SCHEME: process.env.APP_PUBLIC_SCHEME?.trim() || "http",
