@@ -45,7 +45,7 @@ const PRESETS = {
   /**
    * Full wordmark — trim empty margins, preserve aspect ratio (no square letterbox).
    */
-  brandWordmark: "e_trim/w_960,c_limit,f_auto,q_auto",
+  brandWordmark: "w_960,c_limit,f_auto,q_auto",
 
   /**
    * 512×512 px — app icon / favicon source.

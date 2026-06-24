@@ -1,6 +1,7 @@
+import { useState, useEffect, useCallback } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { ExternalLink } from "lucide-react";
-import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
+import { BRAND_ICON_PLACEHOLDER, getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
@@ -9,11 +10,26 @@ type PoweredByBidWarLinkProps = {
   variant?: "default" | "footer" | "headerLogo";
 };
 
+function useResilientBrandLogo(order: Array<"main" | "mainReverse" | "mini" | "appIcon">) {
+  const { logos } = useBranding();
+  const primary = getBrandLogoSrc(logos, order);
+  const [src, setSrc] = useState(primary);
+
+  useEffect(() => {
+    setSrc(primary);
+  }, [primary]);
+
+  const onError = useCallback(() => {
+    setSrc(BRAND_ICON_PLACEHOLDER);
+  }, []);
+
+  return { src, onError };
+}
+
 export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
-  const { logos, brandName, poweredByText } = useBranding();
-  const logoSrc =
-    getBrandWordmarkSrc(logos, ["mainReverse", "main"]) ||
-    getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const { brandName, poweredByText } = useBranding();
+  const headerLogo = useResilientBrandLogo(["mini", "appIcon", "mainReverse", "main"]);
+  const defaultLogo = useResilientBrandLogo(["mainReverse", "main", "mini", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
   const label = poweredByText?.trim() || "Powered by BidWar";
 
@@ -34,8 +50,9 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
           .join(" ")}
       >
         <img
-          src={logoSrc}
+          src={headerLogo.src}
           alt={logoAlt}
+          onError={headerLogo.onError}
           className="h-5 sm:h-6 w-auto opacity-60 transition-all duration-300 group-hover:opacity-95 group-hover:scale-105"
           loading="lazy"
           decoding="async"
@@ -83,8 +100,9 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
         .join(" ")}
     >
       <img
-        src={logoSrc}
+        src={defaultLogo.src}
         alt={logoAlt}
+        onError={defaultLogo.onError}
         className="h-6 w-auto opacity-40 transition-all duration-300 group-hover:opacity-90 group-hover:scale-105"
         loading="lazy"
         decoding="async"
