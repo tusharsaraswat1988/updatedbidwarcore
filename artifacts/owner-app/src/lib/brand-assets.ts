@@ -1,5 +1,6 @@
 type BrandLogos = {
   main?: string | null;
+  mainReverse?: string | null;
   mini?: string | null;
   appIcon?: string | null;
   favicon?: string | null;
@@ -19,9 +20,9 @@ export function resolveAppleTouchIconUrl(logos: BrandLogos): string {
   return logos.appleTouchIcon ?? logos.pwaIcon ?? logos.favicon ?? logos.appIcon ?? STATIC_APPLE;
 }
 
-/** SPLASH_LOGO → PRIMARY_LOGO → SYMBOL_LOGO */
+/** SPLASH_LOGO → REVERSE → PRIMARY → SYMBOL on dark owner surfaces */
 export function resolveSplashLogoUrl(logos: BrandLogos): string | null {
-  return logos.splash ?? logos.main ?? logos.mini ?? null;
+  return logos.splash ?? logos.mainReverse ?? logos.main ?? logos.mini ?? null;
 }
 
 export function applyPwaHeadBranding(logos: BrandLogos, manifestHref = "/owner-app/manifest.webmanifest"): void {

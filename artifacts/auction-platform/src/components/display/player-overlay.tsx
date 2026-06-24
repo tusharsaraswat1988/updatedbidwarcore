@@ -91,12 +91,11 @@ export const PlayerOverlay = memo(function PlayerOverlay({ players, purses, cate
             {/* Brand watermark below title */}
             <div className="flex items-center gap-1.5 mt-1">
               {(logos.obsWatermark ?? logos.mini) ? (
-                <img src={obsMarkSrc} alt={logoAlt} className="h-4 w-auto opacity-50" />
+                <img src={obsMarkSrc} alt={logoAlt} className="h-5 w-auto opacity-70" />
+              ) : visibility.showPoweredByViewer ? (
+                <span className="text-[9px] font-semibold uppercase tracking-widest text-white/30">{poweredByText}</span>
               ) : (
                 <span className="text-[9px] font-black tracking-widest uppercase text-blue-300/40">{miniBrandText}</span>
-              )}
-              {visibility.showPoweredByViewer && (
-                <span className="text-[9px] font-semibold uppercase tracking-widest text-white/30">{poweredByText}</span>
               )}
             </div>
             {activeFilterLabels.length > 0 && (

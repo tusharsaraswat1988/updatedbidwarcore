@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone } from "lucide-react";
 import { useBranding } from "@/hooks/useBranding";
+import { OWNER_AUTH_LOGIN } from "@/lib/brand-usage";
 import { parseOwnerDeepLink, submitOwnerMobile } from "@/lib/owner-flow";
 
 export function MobileEntry() {
@@ -52,11 +53,11 @@ export function MobileEntry() {
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center -mt-4">
               {logos.mainReverse ? (
-                <img src={logos.mainReverse} alt={brandName} className="h-[8.4rem] w-auto" />
+                <img src={logos.mainReverse} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
               ) : logos.main ? (
-                <img src={logos.main} alt={brandName} className="h-[8.4rem] w-auto" />
+                <img src={logos.main} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
               ) : logos.mini ? (
-                <img src={logos.mini} alt={brandName} className="h-[8.4rem] w-auto" />
+                <img src={logos.mini} alt={brandName} className="h-16 w-auto mx-auto" />
               ) : (
                 <div className="w-[8.4rem] h-[8.4rem] rounded-2xl flex items-center justify-center font-display font-black text-3xl bg-amber-400/20 text-amber-400 border border-amber-400/30">
                   {miniBrandText}

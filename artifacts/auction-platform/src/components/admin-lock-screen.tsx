@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoAlt } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 
 interface AdminLockScreenProps {
   lockMinutes?: number;
@@ -62,13 +65,15 @@ export function AdminLockScreen({ lockMinutes = 2, onUnlock }: AdminLockScreenPr
             <Lock className="w-9 h-9 text-amber-400" />
           </motion.div>
           <div>
-            <div className="flex items-center justify-center gap-2 mb-1">
-              {logos.mini ? (
-                <img src={logos.mini} alt={logoAlt} className="h-8 w-auto opacity-80" />
-              ) : (
-                <ShieldCheck className="w-6 h-6 text-amber-400" />
-              )}
-              <span className="font-display font-black text-lg text-white">{brandName.toUpperCase()}</span>
+            <div className="flex items-center justify-center mb-1">
+              {(() => {
+                const lockLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
+                return lockLogoSrc ? (
+                  <img src={lockLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />
+                ) : (
+                  <ShieldCheck className="w-6 h-6 text-amber-400" />
+                );
+              })()}
             </div>
             <p className="text-amber-300 font-semibold text-sm">Session Locked</p>
             <p className="text-muted-foreground text-xs mt-1">

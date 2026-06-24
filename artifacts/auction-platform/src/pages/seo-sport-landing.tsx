@@ -12,6 +12,9 @@ import { SportLandingSchemaMarkup } from "@/components/schema-markup";
 import { PublicNavbar } from "@/components/public-navbar";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -950,7 +953,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
   const config = SPORT_CONFIGS[slug];
-  const footerLogoSrc = getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const footerLogoSrc = getBrandLogoSrc(logos, landingFooterPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
   if (!config) {
@@ -1373,7 +1376,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
               <div className="col-span-2 md:col-span-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  <img src={footerLogoSrc} alt={logoAlt} className="h-28 w-auto" loading="lazy" decoding="async" />
+                  <img src={footerLogoSrc} alt={logoAlt} className={landingFooterPreset.sizeClass} loading="lazy" decoding="async" />
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">India's live sports auction platform for franchise tournaments.</p>
                 <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">

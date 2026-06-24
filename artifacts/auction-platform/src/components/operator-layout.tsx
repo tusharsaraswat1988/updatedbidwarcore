@@ -11,6 +11,9 @@ import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
 import { openSetupArea } from "@/lib/tournament-navigation";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const operatorHeaderPreset = getBrandSurfacePreset("operator-header");
 import { AuctionFeedIndicator } from "@/components/auction/auction-connection-banner";
 
 type OperatorLayoutProps = {
@@ -92,32 +95,34 @@ function OperatorAppIcon() {
 }
 
 function OperatorCenterBrand() {
-  const { logos, brandName, poweredByText, loading } = useBranding();
-  const mainLogoSrc = cldUrl(logos.main, "headerLogo");
+  const { logos, brandName, loading } = useBranding();
+  const symbolSrc =
+    cldUrl(logos.mini, "headerLogo") ||
+    cldUrl(logos.appIcon, "headerLogo") ||
+    getBrandLogoSrc(logos, operatorHeaderPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
   if (loading) {
     return <div className="h-11 w-32" aria-hidden />;
   }
 
-  return (
-    <div className="flex flex-col items-center gap-0.5 leading-none text-center px-3 py-1 rounded-lg bg-white/[0.03] border border-white/8">
-      {mainLogoSrc ? (
-        <img
-          src={mainLogoSrc}
-          alt={logoAlt}
-          className="h-7 sm:h-8 max-w-[160px] sm:max-w-[200px] object-contain"
-          loading="eager"
-          decoding="async"
-        />
-      ) : (
-        <span className="font-display font-black text-sm sm:text-base tracking-tight text-white uppercase">
-          {brandName}
-        </span>
-      )}
-      <span className="text-[8px] sm:text-[9px] font-semibold uppercase tracking-[0.22em] text-white/40 whitespace-nowrap">
-        {poweredByText}
+  if (!symbolSrc) {
+    return (
+      <span className="font-display font-black text-sm sm:text-base tracking-tight text-white uppercase">
+        {brandName}
       </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center px-3 py-1 rounded-lg bg-white/[0.03] border border-white/8">
+      <img
+        src={symbolSrc}
+        alt={logoAlt}
+        className={operatorHeaderPreset.sizeClass}
+        loading="eager"
+        decoding="async"
+      />
     </div>
   );
 }

@@ -41,6 +41,10 @@ import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobi
 import { HintLabel } from "@/components/ui/hint-label";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const authLoginPreset = getBrandSurfacePreset("auth-login");
+const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
@@ -726,7 +730,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
-  const logoSrc = getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const logoSrc = getBrandLogoSrc(logos, authLoginPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
@@ -919,7 +923,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
         </button>
 
         <div className="text-center space-y-3">
-          <img src={logos.mainReverse || logoSrc} alt={logoAlt} className="h-26 w-auto mx-auto" />
+          <img src={logoSrc} alt={logoAlt} className={authLoginPreset.sizeClass} />
           <p className="text-muted-foreground text-sm">My Tournaments</p>
         </div>
 
@@ -1451,17 +1455,17 @@ function OrganizerDashboard({
       <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* BidWar brand logo */}
-            {logos.mini ? (
-              <img src={logos.mini} alt={logoAlt} className="h-8 w-auto" />
-            ) : logos.main ? (
-              <img src={logos.main} alt={logoAlt} className="h-8 w-auto" />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
-                {miniBrandText}
-              </div>
-            )}
-            <span className="font-display font-black text-lg text-white tracking-wide hidden sm:inline">{brandName}</span>
+            {/* BidWar brand mark */}
+            {(() => {
+              const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
+              return headerLogoSrc ? (
+                <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
+                  {miniBrandText}
+                </div>
+              );
+            })()}
             <div className="w-px h-6 bg-border/60 hidden sm:block" />
             <div>
               <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>

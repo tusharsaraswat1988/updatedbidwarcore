@@ -1,5 +1,8 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const chyronPreset = getBrandSurfacePreset("led-chyron");
 
 /**
  * CHYRON STRIP — sponsor logos pulled live from the production tournament.
@@ -61,16 +64,16 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black to-transparent pointer-events-none" />
       </div>
 
-      <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+      <div className="flex items-center pl-4 border-l border-white/10">
         {branding?.miniLogoUrl ? (
           <img
             src={branding.miniLogoUrl}
-            alt={branding.brandName}
-            className="h-7 w-7 object-contain"
+            alt={branding.brandName ?? "BidWar"}
+            className={chyronPreset.sizeClass}
           />
         ) : (
           <div
-            className="h-7 w-7 grid place-items-center"
+            className={`${chyronPreset.sizeClass} grid place-items-center`}
             style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
           >
             <span className="font-['Bebas_Neue'] text-sm tracking-tighter italic">
@@ -78,14 +81,6 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
             </span>
           </div>
         )}
-        <div className="flex flex-col leading-none">
-          <span className="font-['Bebas_Neue'] text-base tracking-widest uppercase text-white/85">
-            {branding?.brandName ?? "BidWar"}
-          </span>
-          <span className="text-[8px] font-mono uppercase tracking-[0.25em] text-white/40">
-            {branding?.poweredByText ?? "Powered by BidWar"}
-          </span>
-        </div>
       </div>
     </div>
   );

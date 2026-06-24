@@ -15,7 +15,10 @@ import type { DisplayAuction } from "@/lib/auth";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 import { PublicNavbar } from "@/components/public-navbar";
-import { getBrandLogoAlt } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
 // ─── Solutions Hub Data ───────────────────────────────────────────────────────
 
@@ -1565,9 +1568,9 @@ export default function Landing() {
                   <div className="h-10 w-40" aria-hidden />
                 ) : (logos.mainReverse || logos.main) ? (
                   <img
-                    src={logos.mainReverse || logos.main || ""}
+                    src={getBrandLogoSrc(logos, landingFooterPreset.logoOrder)}
                     alt={logoAlt}
-                    className="h-24 w-auto max-w-[560px] object-contain object-left"
+                    className={landingFooterPreset.sizeClass}
                     loading="lazy"
                     decoding="async"
                   />

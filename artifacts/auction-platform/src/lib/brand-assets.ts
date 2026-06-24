@@ -1,6 +1,6 @@
 import { cldUrl } from "@/lib/cloudinary";
 
-type BrandLogos = {
+export type BrandLogos = {
   main?: string | null;
   mainReverse?: string | null;
   mini?: string | null;

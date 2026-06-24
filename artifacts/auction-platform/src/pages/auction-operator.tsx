@@ -723,12 +723,11 @@ export default function AuctionOperator() {
     >
       <div className="flex flex-col h-full overflow-hidden bg-[#0f1117] text-white" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-        {feed.state !== "live" && (
-          <DisplayConnectionBanner
-            feedState={feed.state}
-            secondsSinceLastActivity={feed.secondsSinceLastActivity}
-          />
-        )}
+        <DisplayConnectionBanner
+          feedState={feed.state}
+          secondsSinceLastActivity={feed.secondsSinceLastActivity}
+          placement="inline"
+        />
 
         {operatorLockReady && operatorReadOnly && (
           <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
@@ -1782,13 +1781,8 @@ export default function AuctionOperator() {
 
           <div className="w-px h-4 bg-white/8 mx-4 flex-shrink-0" />
 
-          {/* Powered by — right */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] text-white/20">Auction Room · Powered by</span>
-            <span className="text-[10px] font-black tracking-tight">
-              <span className="text-yellow-400/60">BID</span><span className="text-white/40">WAR</span>
-            </span>
-          </div>
+          {/* Operator footer — branding handled in header center mark */}
+          <div className="w-[1px] flex-shrink-0" aria-hidden />
         </div>
 
         {/* Mobile panel switcher */}

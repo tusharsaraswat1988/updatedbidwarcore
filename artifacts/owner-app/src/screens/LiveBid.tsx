@@ -1006,7 +1006,6 @@ export function LiveBid({
         <AuctionConnectionBanner
           feedState={feed.state}
           secondsSinceLastActivity={feed.secondsSinceLastActivity}
-          variant="compact"
         />
 
         {/* ── Sign-out confirmation ── */}
@@ -1281,7 +1280,6 @@ export function LiveBid({
       <AuctionConnectionBanner
         feedState={feed.state}
         secondsSinceLastActivity={feed.secondsSinceLastActivity}
-        variant="compact"
       />
 
       {/* ── Sign-out confirmation ── */}

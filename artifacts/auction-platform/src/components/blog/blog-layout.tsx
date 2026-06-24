@@ -1,6 +1,9 @@
 import { PublicNavbar } from "@/components/public-navbar";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
 interface BlogLayoutProps {
   children: React.ReactNode;
@@ -9,7 +12,7 @@ interface BlogLayoutProps {
 /** Shared nav + footer wrapper for all blog pages, matching the site's dark theme. */
 export function BlogLayout({ children }: BlogLayoutProps) {
   const { logos, brandName } = useBranding();
-  const footerLogoSrc = getBrandLogoSrc(logos, ["mainReverse", "main", "mini", "appIcon"]);
+  const footerLogoSrc = getBrandLogoSrc(logos, landingFooterPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
   return (
@@ -29,7 +32,7 @@ export function BlogLayout({ children }: BlogLayoutProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
             <div className="col-span-2 md:col-span-1">
               <a href="/" className="flex items-center gap-2 mb-3 hover:opacity-80 transition-opacity">
-                <img src={footerLogoSrc} alt={logoAlt} className="h-28 w-auto" loading="lazy" decoding="async" />
+                <img src={footerLogoSrc} alt={logoAlt} className={landingFooterPreset.sizeClass} loading="lazy" decoding="async" />
               </a>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 India's live sports auction platform for franchise leagues.

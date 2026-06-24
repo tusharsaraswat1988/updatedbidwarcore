@@ -5,6 +5,9 @@ import { BookOpen, ChevronDown, Menu, X } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingHeaderPreset = getBrandSurfacePreset("landing-header");
 
 const NAV_BLOG_POSTS = [...BLOG_POSTS_META]
   .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
@@ -14,7 +17,7 @@ export function PublicNavbar() {
   const [path, navigate] = useLocation();
   const { logos, colors, brandName, loading: brandingLoading } = useBranding();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const headerLogoSrc = getBrandLogoSrc(logos, ["main", "mainReverse", "mini", "appIcon"]);
+  const headerLogoSrc = getBrandLogoSrc(logos, landingHeaderPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
   const isHome = useMemo(() => path === "/", [path]);
@@ -69,7 +72,7 @@ export function PublicNavbar() {
               <img
                 src={headerLogoSrc}
                 alt={logoAlt}
-                className="block w-[136px] sm:w-[168px] md:w-[188px] h-auto max-w-none object-contain object-left translate-y-[2px]"
+                className={`block max-w-none translate-y-[2px] ${landingHeaderPreset.sizeClass}`}
                 loading="eager"
                 decoding="async"
               />

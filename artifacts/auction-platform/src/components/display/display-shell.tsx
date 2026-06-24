@@ -14,7 +14,6 @@ import { deriveAuctionDisplayMode } from "@/lib/auction-display-status";
 import { useBroadcastAudio } from "./use-broadcast-audio";
 import { useDisplayAudioLeader } from "./use-display-audio-leader";
 import { AudioUnlockButton } from "./audio-unlock-button";
-import { BidwarBrandWatermark } from "./bidwar-brand-watermark";
 import { DisplayConnectionBanner } from "./display-connection-banner";
 import { DisplayStageViewport } from "./display-stage-viewport";
 import { LedStageContent, StageThemeProvider, DevThemePicker } from "./v1";
@@ -116,21 +115,15 @@ export function DisplayShell({
         <DevThemePicker anchor="stage" />
       </StageThemeProvider>
 
-      {feed.state !== "live" ? (
-        <DisplayConnectionBanner
-          feedState={feed.state}
-          secondsSinceLastActivity={feed.secondsSinceLastActivity}
-          variant="compact"
-          className="!top-3 !left-3 !right-3 !max-w-none"
-        />
-      ) : null}
+      <DisplayConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+      />
 
       <AudioUnlockButton
         visible={!!audioSettings?.audioEnabled && isAudioLeader && !isUnlocked && !showSoldOverlay}
         onUnlock={unlockAudio}
       />
-
-      <BidwarBrandWatermark accent={resolvedTheme.accentColor} />
     </DisplayStageViewport>
   );
 }

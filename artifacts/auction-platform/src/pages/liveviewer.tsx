@@ -20,6 +20,7 @@ import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, F
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { useBranding } from "@/hooks/use-branding";
 
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
@@ -947,7 +948,8 @@ export default function LiveViewerPage() {
   const tournamentId = parseInt(legacyParams?.id || liveParams?.id || "0");
   const { logos, brandName } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
-  const miniLogoSrc = getBrandLogoSrc(logos, ["mini", "main", "appIcon"]);
+  const viewerHeaderPreset = getBrandSurfacePreset("auction-viewer-header");
+  const miniLogoSrc = getBrandLogoSrc(logos, viewerHeaderPreset.logoOrder);
 
   // ── Cheer state (declared early so the socket callback is stable) ─────────
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
@@ -1345,9 +1347,8 @@ export default function LiveViewerPage() {
       <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10">
         <div className="px-3 sm:px-4 py-2 sm:py-2.5">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <img src={logos.mini || miniLogoSrc} alt={logoAlt} className="h-6 sm:h-7 w-auto" />
-              <span className="hidden sm:inline font-display font-black text-amber-400 text-sm tracking-widest">{brandName.toUpperCase()}</span>
+            <div className="flex items-center flex-shrink-0">
+              <img src={logos.mini || miniLogoSrc} alt={logoAlt} className={viewerHeaderPreset.sizeClass} />
             </div>
             {sponsorLogos.length > 0 && (
               <div className="hidden md:block ml-auto">
@@ -1404,10 +1405,14 @@ export default function LiveViewerPage() {
             </span>
           </div>
         </div>
-        <DisplayConnectionBanner
-          feedState={feed.state}
-          secondsSinceLastActivity={feed.secondsSinceLastActivity}
-        />
+        {feed.state !== "live" && (
+          <DisplayConnectionBanner
+            feedState={feed.state}
+            secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            placement="inline"
+            className="mt-1.5"
+          />
+        )}
       </div>
 
       {/* ── Last result ticker ────────────────────────────────────────── */}

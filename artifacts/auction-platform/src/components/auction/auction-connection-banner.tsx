@@ -6,6 +6,7 @@ import {
   formatLastActivityDiagnostic,
   type AuctionFeedState,
 } from "@workspace/api-base/auction-connection-state";
+import { useConnectionBannerPulse } from "@/hooks/use-connection-banner-pulse";
 
 const BANNER_STYLES: Record<
   Exclude<AuctionFeedState, "live">,
@@ -23,6 +24,12 @@ const BANNER_STYLES: Record<
     container: "bg-red-500/10 border-red-500/25 text-red-200",
     icon: "text-red-400",
   },
+};
+
+const SHORT_FEED_LABEL: Record<Exclude<AuctionFeedState, "live">, string> = {
+  awaiting_operator_response: "Awaiting operator",
+  reconnecting: "Reconnecting",
+  disconnected: "Offline",
 };
 
 export const AuctionFeedIndicator = memo(function AuctionFeedIndicator({
@@ -66,83 +73,74 @@ export const AuctionFeedIndicator = memo(function AuctionFeedIndicator({
 export const AuctionConnectionBanner = memo(function AuctionConnectionBanner({
   feedState,
   secondsSinceLastActivity,
-  variant = "banner",
+  placement = "overlay",
   className = "",
 }: {
   feedState: AuctionFeedState;
   secondsSinceLastActivity?: number | null;
+  /** @deprecated use `placement` — kept for existing call sites */
   variant?: "banner" | "pill" | "compact";
+  placement?: "overlay" | "inline";
   className?: string;
 }) {
-  if (feedState === "live") return null;
+  const visible = useConnectionBannerPulse(feedState);
+  if (feedState === "live" || !visible) return null;
 
   const copy = AUCTION_FEED_UI[feedState];
   const styles = BANNER_STYLES[feedState];
   const diagnostic = formatLastActivityDiagnostic(secondsSinceLastActivity ?? null);
+  const tooltip = diagnostic ? `${copy.title} · ${diagnostic}` : copy.subtitle;
 
   const icon =
     feedState === "awaiting_operator_response" ? (
-      <Clock className={`w-4 h-4 shrink-0 ${styles.icon}`} />
+      <Clock className={`w-3 h-3 shrink-0 ${styles.icon}`} />
     ) : feedState === "reconnecting" ? (
-      <RefreshCw className={`w-4 h-4 shrink-0 animate-spin ${styles.icon}`} />
+      <RefreshCw className={`w-3 h-3 shrink-0 animate-spin ${styles.icon}`} />
     ) : (
-      <WifiOff className={`w-4 h-4 shrink-0 ${styles.icon}`} />
+      <WifiOff className={`w-3 h-3 shrink-0 ${styles.icon}`} />
     );
 
-  if (variant === "pill") {
-    return (
-      <div
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-sm ${styles.container} ${className}`}
-        role="status"
-        aria-live="polite"
-        title={diagnostic ?? undefined}
-      >
-        {icon}
-        <span>{copy.title}</span>
-      </div>
-    );
-  }
+  const pill = (
+    <div
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-medium leading-none backdrop-blur-sm ${styles.container}`}
+      role="status"
+      aria-live="polite"
+      title={tooltip}
+    >
+      {icon}
+      <span>{SHORT_FEED_LABEL[feedState]}</span>
+    </div>
+  );
 
-  if (variant === "compact") {
+  if (placement === "inline") {
     return (
       <AnimatePresence>
         <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
-          transition={{ type: "spring", stiffness: 400, damping: 28 }}
-          className={`absolute top-4 left-4 right-4 z-50 mx-auto max-w-md safe-top ${className}`}
+          key="connection-banner-inline"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ duration: 0.2 }}
+          className={className}
         >
-          <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border backdrop-blur-md shadow-lg ${styles.container}`}
-            role="status"
-            aria-live="polite"
-            title={diagnostic ?? undefined}
-          >
-            {icon}
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-sm">{copy.title}</p>
-              <p className="text-xs opacity-80">{copy.subtitle}</p>
-            </div>
-            {feedState === "reconnecting" ? (
-              <div className="w-5 h-5 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin shrink-0" />
-            ) : null}
-          </div>
+          {pill}
         </motion.div>
       </AnimatePresence>
     );
   }
 
   return (
-    <div
-      className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold border-b backdrop-blur-sm flex-shrink-0 ${styles.container} ${className}`}
-      role="status"
-      aria-live="polite"
-      title={diagnostic ?? undefined}
-    >
-      {icon}
-      <span>{copy.title}</span>
-      <span className="hidden sm:inline font-normal opacity-80">· {copy.subtitle}</span>
-    </div>
+    <AnimatePresence>
+      <motion.div
+        key="connection-banner-overlay"
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.2 }}
+        className={`absolute top-3 left-3 z-50 safe-top pointer-events-none ${className}`}
+      >
+        {pill}
+      </motion.div>
+    </AnimatePresence>
   );
 });

@@ -562,7 +562,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
       canonical: `${BASE_URL}${pathname}`,
       robots: "noindex, follow",
       schemas: [],
-    };
+    });
   }
 
   // ── Blog pages ──────────────────────────────────────────────────────────────
@@ -596,7 +596,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
           ],
         },
       ],
-    };
+    });
   }
 
   // /blog/:slug — individual article
@@ -640,7 +640,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
             ],
           },
         ],
-      };
+      });
     }
   }
 
@@ -657,7 +657,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
         ogTitle: `${category.name} — BidWar Blog`,
         ogDescription: category.description,
         schemas: [],
-      };
+      });
     }
   }
 
@@ -674,7 +674,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
         ogTitle: `Articles by ${author.name} — BidWar Blog`,
         ogDescription: author.bio,
         schemas: [],
-      };
+      });
     }
   }
 
@@ -687,7 +687,7 @@ export function getPageMeta(pathname: string): PageMeta | null {
       description: `Sports auction articles tagged with "${slug}" on the BidWar Blog.`,
       canonical: `${BASE_URL}/blog/tag/${slug}`,
       schemas: [],
-    };
+    });
   }
 
   return null;

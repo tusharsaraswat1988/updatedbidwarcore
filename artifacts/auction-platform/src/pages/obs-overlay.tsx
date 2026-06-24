@@ -455,15 +455,10 @@ export default function ObsOverlay() {
     }}>
 
       {/* ── Connection status — top center ── */}
-      {feed.state !== "live" && (
-        <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}>
-          <DisplayConnectionBanner
-            feedState={feed.state}
-            secondsSinceLastActivity={feed.secondsSinceLastActivity}
-            variant="pill"
-          />
-        </div>
-      )}
+      <DisplayConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+      />
 
       {/* ── Top-center: permanent BidWar brand mark ── */}
       <div style={{

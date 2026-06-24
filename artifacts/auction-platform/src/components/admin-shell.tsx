@@ -12,6 +12,9 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
@@ -34,7 +37,7 @@ type AdminShellProps = {
 };
 
 function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { mini?: string | null }; brandName: string }) {
-  const shellLogoSrc = getBrandLogoSrc(logos, ["mini"]);
+  const shellLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
   return (
     <div className="flex h-16 items-center gap-3 border-b border-border px-4">
@@ -42,13 +45,10 @@ function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { 
         <img
           src={cldUrl(logos.mini, "headerLogo") || shellLogoSrc}
           alt={logoAlt}
-          className="h-9 w-9 object-contain"
+          className={sidebarPreset.sizeClass}
         />
       )}
       <div className="min-w-0">
-        <div className="truncate font-display text-lg font-black uppercase tracking-wide text-white">
-          {brandName || "BidWar"}
-        </div>
         <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Super Admin</div>
       </div>
     </div>

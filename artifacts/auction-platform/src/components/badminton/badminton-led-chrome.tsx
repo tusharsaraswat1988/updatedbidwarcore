@@ -228,25 +228,17 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
         <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black to-transparent pointer-events-none" />
       </div>
 
-      <div className="flex items-center gap-2 pl-4 border-l border-white/10 shrink-0">
+      <div className="flex items-center pl-4 border-l border-white/10 shrink-0">
         {miniSrc ? (
-          <img src={miniSrc} alt={logoAlt} className="h-7 w-7 object-contain" />
+          <img src={miniSrc} alt={logoAlt} className="h-8 w-8 object-contain" />
         ) : (
           <div
-            className="h-7 w-7 grid place-items-center"
+            className="h-8 w-8 grid place-items-center"
             style={{ backgroundColor: accentBg, color: accentOn }}
           >
             <span className="font-['Bebas_Neue'] text-sm tracking-tighter italic">BW</span>
           </div>
         )}
-        <div className="flex flex-col leading-none hidden sm:flex">
-          <span className="font-['Bebas_Neue'] text-base tracking-widest uppercase text-white/85">
-            {brandName}
-          </span>
-          <span className="text-[8px] font-mono uppercase tracking-[0.25em] text-white/40">
-            {poweredByText}
-          </span>
-        </div>
       </div>
     </div>
   );

@@ -109,10 +109,7 @@ function StandbyScreen({
   const headline = tone === "error" ? "OFFLINE" : "STANDBY";
 
   return (
-    <div
-      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#050505] font-['Barlow_Condensed']"
-      style={{ animation: "auction-toast-drop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both" }}
-    >
+    <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#050505] font-['Barlow_Condensed']">
       <div className="absolute inset-0 opacity-25 pointer-events-none">
         <div
           className="absolute inset-0"
@@ -166,7 +163,10 @@ function StandbyScreen({
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center">
+      <div
+        className="relative z-10 flex w-full max-w-4xl flex-col items-center px-[6%] text-center"
+        style={{ animation: "auction-standby-enter 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both" }}
+      >
         <div className="mb-6 flex items-end gap-1">
           {[0.2, 0.4, 1, 0.4, 0.2].map((opacity, i) => (
             <span
@@ -182,14 +182,14 @@ function StandbyScreen({
           ))}
         </div>
 
-        <h1 className="font-['Bebas_Neue'] text-7xl md:text-8xl tracking-[0.15em] text-white/95 text-center mb-3">
+        <h1 className="font-['Bebas_Neue'] text-7xl md:text-8xl tracking-[0.15em] text-white/95 text-center mb-3 w-full">
           {headline}
         </h1>
 
-        <div className="flex items-center gap-4">
+        <div className="flex max-w-full flex-wrap items-center justify-center gap-4">
           <div className="h-px w-12" style={{ backgroundColor: accentSoft }} />
           <p
-            className="uppercase tracking-[0.4em] text-xs font-semibold"
+            className="max-w-full text-center uppercase tracking-[0.4em] text-xs font-semibold"
             style={{ color: accent }}
           >
             {message}

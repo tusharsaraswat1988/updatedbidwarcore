@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { ExternalLink } from "lucide-react";
 import { BRAND_ICON_PLACEHOLDER, getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const registrationHeaderPreset = getBrandSurfacePreset("registration-header");
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
@@ -28,7 +31,7 @@ function useResilientBrandLogo(order: Array<"main" | "mainReverse" | "mini" | "a
 
 export function PoweredByBidWarLink({ className, variant = "default" }: PoweredByBidWarLinkProps) {
   const { brandName, poweredByText } = useBranding();
-  const headerLogo = useResilientBrandLogo(["mini", "appIcon", "mainReverse", "main"]);
+  const headerLogo = useResilientBrandLogo(registrationHeaderPreset.logoOrder);
   const defaultLogo = useResilientBrandLogo(["mainReverse", "main", "mini", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
   const label = poweredByText?.trim() || "Powered by BidWar";
@@ -53,7 +56,7 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
           src={headerLogo.src}
           alt={logoAlt}
           onError={headerLogo.onError}
-          className="h-5 sm:h-6 w-auto opacity-60 transition-all duration-300 group-hover:opacity-95 group-hover:scale-105"
+          className={`${registrationHeaderPreset.sizeClass} transition-all duration-300 group-hover:opacity-95 group-hover:scale-105`}
           loading="lazy"
           decoding="async"
         />

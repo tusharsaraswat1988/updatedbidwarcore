@@ -14,6 +14,9 @@ import { useBadmintonScoringActive, useCricketScoringActive } from "@/hooks/use-
 import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 
 interface LayoutProps {
   children: ReactNode;
@@ -61,7 +64,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const sidebarLogoSrc =
     cldUrl(logos.appIcon, "appIcon") ||
     cldUrl(logos.mini, "headerLogo") ||
-    getBrandLogoSrc(logos, ["appIcon", "mini", "main"]);
+    getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
@@ -137,8 +140,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             <>
               {brandingLoading
                 ? <div className="h-9 w-9 flex-shrink-0" />
-                : <img src={sidebarLogoSrc} alt={logoAlt} className="h-9 w-9 object-contain flex-shrink-0" />}
-              <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">{brandName.toUpperCase()}</span>
+                : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"

@@ -11,12 +11,16 @@ export const DisplayConnectionBanner = memo(function DisplayConnectionBanner({
   feedState,
   status,
   secondsSinceLastActivity,
-  variant = "banner",
+  placement = "overlay",
+  className = "",
 }: {
   feedState?: AuctionFeedState;
   status?: ConnectionStatus;
   secondsSinceLastActivity?: number | null;
-  variant?: "banner" | "pill";
+  /** @deprecated use `placement` */
+  variant?: "banner" | "pill" | "compact";
+  placement?: "overlay" | "inline";
+  className?: string;
 }) {
   const resolvedFeed = useMemo((): AuctionFeedState => {
     if (feedState) return feedState;
@@ -29,7 +33,8 @@ export const DisplayConnectionBanner = memo(function DisplayConnectionBanner({
     <AuctionConnectionBanner
       feedState={resolvedFeed}
       secondsSinceLastActivity={secondsSinceLastActivity}
-      variant={variant}
+      placement={placement}
+      className={className}
     />
   );
 });
