@@ -1,37 +1,36 @@
 /**
- * Buzz Studio — Sold Player Template
+ * Buzz Studio — Sold Player Template (Phase 18)
  *
- * Communicates SOLD / PLAYER / PRICE / TEAM within 1 second.
- * Data-only — all background rendering is handled by BidwarCanvas.
+ * Asset-driven content injector. Visual design lives in the background asset;
+ * BidWar renders sold status, player photo/name, price, and team identity only.
+ *
+ * Pipeline: Background Asset → Dynamic Images → Dynamic Text → Footer Branding
  */
 
 import React from "react";
 import { BidwarCanvas } from "../../canvas/BidwarCanvas";
-import { Typography } from "../../design-system/typography";
-import { defaultBuzzTheme as t } from "../../theme/buzz-theme";
-import { SportBadge, SoldBadge } from "../../design-system/badges";
-import { PlayerSlot, TeamSlot } from "../../design-system/logo-slots";
-import { PriceDisplay } from "../../design-system/stat-cards";
 import { formatSoldPrice, formatBidCount } from "./SoldPlayer.utils";
 import type { SoldPlayerContract } from "./SoldPlayer.types";
 import {
   pickRenderContext,
   type BuzzTemplateRenderProps,
 } from "../../rendering/buzz-render-context";
+import { getTemplateLayout } from "../../rendering/template-layout-registry";
+import { BuzzTemplateType } from "../../registry/template-types";
+import { isLandscapePoster, posterSpacing } from "../../rendering/poster-layout";
 import {
-  heroLogoSize,
-  heroTitleSize,
-  secondaryLabelSize,
-  bodyLabelSize,
-  isLandscapePoster,
-} from "../../rendering/poster-layout";
-import {
-  posterColumnBody,
-  posterColumnRoot,
-  posterLandscapeMain,
-  posterLandscapeRoot,
-  posterLandscapeSide,
-} from "../../rendering/poster-shell";
+  PosterZoneStack,
+  PosterImage,
+  PosterTitle,
+  PosterMicroLabel,
+  PosterAmount,
+  PosterMetaLine,
+  TournamentHeader,
+  TeamIdentityRow,
+  posterSizes,
+  posterTextAlign,
+  posterFlexAlign,
+} from "../../rendering/poster-primitives";
 
 type SoldPlayerProps = SoldPlayerContract &
   BuzzTemplateRenderProps & {
@@ -45,7 +44,6 @@ export function SoldPlayer(props: SoldPlayerProps) {
     playerImageUrl,
     teamName,
     teamLogoUrl,
-    sport,
     designation,
     bidCount,
     backgroundImageUrl,
@@ -57,228 +55,125 @@ export function SoldPlayer(props: SoldPlayerProps) {
 
   const priceDisplay = formatSoldPrice(props);
   const hasBidCount = bidCount != null && bidCount > 0;
+  const tournamentName = props.branding?.tagline;
+  const tournamentLogoUrl = props.branding?.tournamentLogoUrl;
+
+  const canvasProps = {
+    branding: props.branding,
+    backgroundImageUrl,
+    showFooterBranding: true,
+    showCornerBrand: false,
+  } as const;
 
   if (renderCtx) {
-    const avatarSize = heroLogoSize(renderCtx);
-    const titleSize = heroTitleSize(renderCtx);
-    const labelSize = secondaryLabelSize(renderCtx);
-    const bodySize = bodyLabelSize(renderCtx);
+    const layout = getTemplateLayout(BuzzTemplateType.SOLD_PLAYER, renderCtx.aspectRatio);
+    const zones = layout?.zones ?? {};
+    const sizes = posterSizes(renderCtx);
     const landscape = isLandscapePoster(renderCtx);
+    const align = posterTextAlign(landscape);
+    const flexAlign = posterFlexAlign(landscape);
+    const spacing = posterSpacing(renderCtx);
 
-    const identityBlock = (
+    const identityColumn = (
       <>
-        <div style={s.topStrip}>
-          <SportBadge sport={sport} />
-          <SoldBadge />
-        </div>
-        <div style={s.avatarWrapper}>
-          <PlayerSlot
-            playerName={playerName}
-            imageUrl={playerImageUrl}
-            size={`${avatarSize}px`}
-          />
-        </div>
-        <div style={{ ...s.nameArea, alignItems: landscape ? "flex-start" : "center" }}>
-          <h1 style={{ ...Typography.PlayerName, fontSize: titleSize, textAlign: landscape ? "left" : "center" }}>
-            {playerName.toUpperCase()}
-          </h1>
-          {designation && (
-            <span style={{ ...s.designationPill, fontSize: labelSize }}>{designation.toUpperCase()}</span>
-          )}
-        </div>
+        <PosterZoneStack spec={{ ...zones.statusLabel, align: flexAlign }} ctx={renderCtx}>
+          <PosterMicroLabel size={sizes.labelSize} gold>SOLD</PosterMicroLabel>
+        </PosterZoneStack>
+        <PosterZoneStack spec={{ ...zones.playerPhoto, flex: 1 }} ctx={renderCtx}>
+          <PosterImage name={playerName} url={playerImageUrl} size={sizes.heroPhotoSize} kind="player" />
+        </PosterZoneStack>
+        <PosterZoneStack spec={{ ...zones.playerName, align: flexAlign }} ctx={renderCtx}>
+          <PosterTitle size={sizes.titleSize} align={align}>{playerName}</PosterTitle>
+          {designation ? (
+            <PosterMetaLine size={sizes.labelSize}>{designation}</PosterMetaLine>
+          ) : null}
+        </PosterZoneStack>
       </>
     );
 
-    const priceBlock = (
-      <PriceDisplay
-        price={priceDisplay}
-        label="Sold For"
-        style={{
-          ...s.priceBlock,
-          padding: `${Math.round(bodySize * 0.9)}px ${Math.round(bodySize * 1.6)}px`,
-        }}
-      />
-    );
-
-    const footerBlock = (
+    const dealColumn = (
       <>
+        <PosterZoneStack spec={{ ...zones.amount, align: flexAlign }} ctx={renderCtx}>
+          <PosterAmount label="SOLD FOR" value={priceDisplay} labelSize={sizes.labelSize} valueSize={sizes.amountSize} align={align} />
+        </PosterZoneStack>
         {teamName && (
-          <div style={{ ...s.soldToSection, alignItems: landscape ? "flex-start" : "center" }}>
-            <span style={{ ...s.soldToLabel, fontSize: labelSize }}>SOLD TO</span>
-            <div style={{ ...s.teamRow, padding: `${Math.round(bodySize * 0.5)}px ${Math.round(bodySize * 1.4)}px` }}>
-              <TeamSlot teamName={teamName} imageUrl={teamLogoUrl} size={Math.round(bodySize * 1.5)} />
-              <span style={{ ...Typography.TeamName, fontSize: bodySize }}>{teamName.toUpperCase()}</span>
-            </div>
-          </div>
+          <PosterZoneStack spec={{ ...zones.teamLogo, align: flexAlign }} ctx={renderCtx}>
+            <TeamIdentityRow
+              teamName={teamName}
+              teamLogoUrl={teamLogoUrl}
+              logoSize={Math.round(sizes.bodySize * 1.7)}
+              nameSize={sizes.bodySize}
+              label="SOLD TO"
+              labelSize={sizes.labelSize}
+              align={align}
+            />
+          </PosterZoneStack>
         )}
         {hasBidCount && (
-          <div style={s.bidCountRow}>
-            <span style={s.bidCountDot} aria-hidden="true" />
-            <span style={{ ...s.bidCountText, fontSize: labelSize }}>{formatBidCount(bidCount!)}</span>
-            <span style={s.bidCountDot} aria-hidden="true" />
-          </div>
+          <PosterMetaLine size={sizes.microSize}>{formatBidCount(bidCount!)}</PosterMetaLine>
         )}
       </>
+    );
+
+    const content = landscape ? (
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
+        <PosterZoneStack spec={{ ...zones.tournamentLogo, align: "center" }} ctx={renderCtx}>
+          <TournamentHeader
+            logoUrl={tournamentLogoUrl}
+            name={tournamentName}
+            logoSize={sizes.tournLogoSize}
+            nameSize={sizes.tournNameSize}
+            microSize={sizes.microSize}
+          />
+        </PosterZoneStack>
+        <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0, gap: spacing.sectionGap }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>{identityColumn}</div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: spacing.sectionGap * 0.7, minWidth: 0 }}>{dealColumn}</div>
+        </div>
+      </div>
+    ) : (
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
+        <PosterZoneStack spec={zones.tournamentLogo} ctx={renderCtx}>
+          <TournamentHeader
+            logoUrl={tournamentLogoUrl}
+            name={tournamentName}
+            logoSize={sizes.tournLogoSize}
+            nameSize={sizes.tournNameSize}
+            microSize={sizes.microSize}
+          />
+        </PosterZoneStack>
+        {identityColumn}
+        {dealColumn}
+      </div>
     );
 
     return (
       <BidwarCanvas
-        branding={props.branding}
-        backgroundImageUrl={backgroundImageUrl}
-        showFooterBranding
+        {...canvasProps}
         renderMode={renderMode ?? renderCtx.renderMode}
         aspectRatio={aspectRatio ?? renderCtx.aspectRatio}
         renderWidth={renderWidth ?? renderCtx.renderWidth}
         renderHeight={renderHeight ?? renderCtx.renderHeight}
       >
-        {landscape ? (
-          <div style={posterLandscapeRoot(renderCtx)}>
-            <div style={posterLandscapeMain()}>{identityBlock}</div>
-            <div style={posterLandscapeSide()}>
-              {priceBlock}
-              {footerBlock}
-            </div>
-          </div>
-        ) : (
-          <div style={posterColumnRoot(renderCtx)}>
-            {identityBlock}
-            <div style={posterColumnBody()}>
-              <div style={s.divider} aria-hidden="true" />
-              {priceBlock}
-              {footerBlock}
-            </div>
-          </div>
-        )}
+        {content}
       </BidwarCanvas>
     );
   }
 
   return (
-    <BidwarCanvas branding={props.branding} backgroundImageUrl={backgroundImageUrl} showFooterBranding>
-      <div style={s.layout}>
-        <div style={s.topStrip}>
-          <SportBadge sport={sport} />
-          <SoldBadge />
-        </div>
-        <div style={s.avatarWrapper}>
-          <PlayerSlot playerName={playerName} imageUrl={playerImageUrl} size="lg" />
-        </div>
-        <div style={s.nameArea}>
-          <h1 style={Typography.PlayerName}>{playerName.toUpperCase()}</h1>
-          {designation && <span style={s.designationPill}>{designation.toUpperCase()}</span>}
-        </div>
-        <div style={s.divider} aria-hidden="true" />
-        <PriceDisplay price={priceDisplay} label="Sold For" style={s.priceBlock} />
+    <BidwarCanvas {...canvasProps}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", gap: 14 }}>
+        <TournamentHeader logoUrl={tournamentLogoUrl} name={tournamentName} logoSize={64} nameSize={13} microSize={9} />
+        <PosterMicroLabel size={12} gold>SOLD</PosterMicroLabel>
+        <PosterImage name={playerName} url={playerImageUrl} size={110} kind="player" />
+        <PosterTitle size={30}>{playerName}</PosterTitle>
+        {designation && <PosterMetaLine size={11}>{designation}</PosterMetaLine>}
+        <PosterAmount label="SOLD FOR" value={priceDisplay} labelSize={10} valueSize={28} />
         {teamName && (
-          <div style={s.soldToSection}>
-            <span style={s.soldToLabel}>SOLD TO</span>
-            <div style={s.teamRow}>
-              <TeamSlot teamName={teamName} imageUrl={teamLogoUrl} size={32} />
-              <span style={Typography.TeamName}>{teamName.toUpperCase()}</span>
-            </div>
-          </div>
+          <TeamIdentityRow teamName={teamName} teamLogoUrl={teamLogoUrl} logoSize={34} nameSize={14} label="SOLD TO" labelSize={9} />
         )}
-        {hasBidCount && (
-          <div style={s.bidCountRow}>
-            <span style={s.bidCountDot} aria-hidden="true" />
-            <span style={s.bidCountText}>{formatBidCount(bidCount!)}</span>
-            <span style={s.bidCountDot} aria-hidden="true" />
-          </div>
-        )}
+        {hasBidCount && <PosterMetaLine size={10}>{formatBidCount(bidCount!)}</PosterMetaLine>}
       </div>
     </BidwarCanvas>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  layout: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    width: "100%",
-    padding: "0 0 4px",
-    gap: 0,
-  },
-  topStrip: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 12,
-  },
-  avatarWrapper: {
-    marginBottom: 16,
-  },
-  nameArea: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 7,
-    paddingBottom: 14,
-    textAlign: "center",
-  },
-  designationPill: {
-    fontFamily: "system-ui, -apple-system, sans-serif",
-    fontWeight: 700,
-    color: t.primaryGold,
-    letterSpacing: "0.16em",
-    background: "rgba(251,191,36,0.10)",
-    border: "1px solid rgba(251,191,36,0.28)",
-    borderRadius: 999,
-    padding: "3px 12px",
-  },
-  divider: {
-    width: "55%",
-    height: 1,
-    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
-    marginBottom: 16,
-    alignSelf: "center",
-  },
-  priceBlock: {
-    width: "100%",
-    marginBottom: 16,
-  },
-  soldToSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 7,
-    marginBottom: 12,
-    width: "100%",
-  },
-  soldToLabel: {
-    fontFamily: "system-ui, -apple-system, sans-serif",
-    fontWeight: 700,
-    color: "rgba(255,255,255,0.32)",
-    letterSpacing: "0.22em",
-    textTransform: "uppercase",
-  },
-  teamRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 10,
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.10)",
-  },
-  bidCountRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 7,
-  },
-  bidCountDot: {
-    width: 3,
-    height: 3,
-    borderRadius: "50%",
-    background: `${t.primaryGold}55`,
-    display: "inline-block",
-    flexShrink: 0,
-  },
-  bidCountText: {
-    fontFamily: "system-ui, -apple-system, sans-serif",
-    fontWeight: 600,
-    color: `${t.primaryGold}85`,
-    letterSpacing: "0.10em",
-    textTransform: "uppercase",
-  },
-};

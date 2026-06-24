@@ -257,6 +257,11 @@ export {
   heroLogoSize,
   secondaryLabelSize,
   bodyLabelSize,
+  TEMPLATE_LAYOUT_SCHEMAS,
+  getTemplateLayout,
+  getTemplateLayoutSchema,
+  backgroundImageKeyForRatio,
+  POSTER_TOKENS,
 } from "./rendering/index";
 
 export type {
@@ -265,6 +270,12 @@ export type {
   BuzzTemplateRenderProps,
   BuzzRenderContext,
   PosterSpacing,
+  PosterZoneId,
+  PosterZoneRect,
+  PosterZoneStackSpec,
+  PosterZoneSpec,
+  TemplateLayoutDefinition,
+  TemplateLayoutSchema,
 } from "./rendering/index";
 
 /* ─── Creative Jobs ────────────────────────────────────────────────────── */

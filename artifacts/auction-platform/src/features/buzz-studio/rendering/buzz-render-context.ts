@@ -21,6 +21,11 @@ export interface BuzzTemplateRenderProps {
   aspectRatio?: BuzzAspectRatio | string;
   renderWidth?: number;
   renderHeight?: number;
+  /**
+   * Top Buys only — use absolute zones calibrated to the template-specific
+   * background frames (uploaded separately from global backgrounds).
+   */
+  featuredFrameLayout?: boolean;
 }
 
 export interface BuzzRenderContext extends Required<BuzzTemplateRenderProps> {

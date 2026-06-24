@@ -8,7 +8,7 @@ import { updateCreativeJobStatus, updateCreativeJobStatusById } from "./creative
 import { screenshotHtmlToPng } from "./creative-render-screenshot.js";
 import { storeCreativePng } from "./creative-render-storage.js";
 import { logger } from "./logger.js";
-import { getBuzzStudioBackgroundUrl } from "./buzz-studio-assets.js";
+import { resolveBuzzStudioBackground } from "./buzz-studio-assets.js";
 
 export async function processCreativeJobRow(row: CreativeJobRow): Promise<void> {
   const { id: jobId, tournamentId, templateId, contractJson, aspectRatio } = row;
@@ -16,13 +16,17 @@ export async function processCreativeJobRow(row: CreativeJobRow): Promise<void> 
   try {
     // Resolve the admin-uploaded background URL at render time.
     // This keeps background ownership in Creative Assets Manager, not in contracts.
-    const backgroundImageUrl = await getBuzzStudioBackgroundUrl(aspectRatio) ?? undefined;
+    const { url: backgroundImageUrl, featuredFrameLayout } = await resolveBuzzStudioBackground(
+      templateId,
+      aspectRatio,
+    );
 
     const { html, dimensions } = renderCreativeJobHtml({
       templateId,
       contract: contractJson,
       aspectRatio,
-      backgroundImageUrl,
+      backgroundImageUrl: backgroundImageUrl ?? undefined,
+      featuredFrameLayout,
     });
 
     const pngBuffer = await screenshotHtmlToPng(html, dimensions);

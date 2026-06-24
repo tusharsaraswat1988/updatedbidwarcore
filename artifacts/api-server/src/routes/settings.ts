@@ -432,4 +432,54 @@ router.patch("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
   res.json(await readBuzzStudioAssets());
 });
 
+// ─── Top Buys template backgrounds (separate from global) ───────────────────
+
+const updateTopBuysTemplateAssetsSchema = z.object({
+  "1:1":  z.string().url().nullable().optional(),
+  "4:5":  z.string().url().nullable().optional(),
+  "9:16": z.string().url().nullable().optional(),
+  "16:9": z.string().url().nullable().optional(),
+});
+
+// GET /settings/buzz-studio-template-assets/top-buys — public read
+router.get("/settings/buzz-studio-template-assets/top-buys", async (_req, res) => {
+  const { readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  res.json(await readTopBuysTemplateAssets());
+});
+
+// GET /auth/admin/settings/buzz-studio-template-assets/top-buys
+router.get("/auth/admin/settings/buzz-studio-template-assets/top-buys", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  const { readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  res.json(await readTopBuysTemplateAssets());
+});
+
+// PATCH /auth/admin/settings/buzz-studio-template-assets/top-buys
+router.patch("/auth/admin/settings/buzz-studio-template-assets/top-buys", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updateTopBuysTemplateAssetsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const { TOP_BUYS_TEMPLATE_BG_KEYS, readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  const data = parsed.data;
+  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
+  for (const ratio of ratios) {
+    if (data[ratio] !== undefined) {
+      await upsertKey(TOP_BUYS_TEMPLATE_BG_KEYS[ratio], data[ratio] ?? null);
+    }
+  }
+
+  res.json(await readTopBuysTemplateAssets());
+});
+
 export default router;

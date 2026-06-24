@@ -86,12 +86,14 @@ function TemplateLivePreview({
   aspectRatio,
   previewTheme,
   backgroundImageUrl,
+  featuredFrameLayout,
 }: {
   entry: BuzzTemplateRegistryEntry;
   contract: Record<string, unknown> | undefined;
   aspectRatio: AspectRatioOption;
   previewTheme: "dark" | "light";
   backgroundImageUrl: string | null;
+  featuredFrameLayout?: boolean;
 }) {
   if (!entry.component) {
     return (
@@ -139,6 +141,7 @@ function TemplateLivePreview({
             renderWidth={dims.width}
             renderHeight={dims.height}
             backgroundImageUrl={backgroundImageUrl ?? undefined}
+            featuredFrameLayout={featuredFrameLayout}
           />
         </div>
       </div>
@@ -267,7 +270,29 @@ export default function TemplateStudioPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const activeBackgroundUrl = buzzBackgrounds?.[aspectRatio] ?? null;
+  const { data: topBuysTemplateBackgrounds } = useQuery<BuzzStudioBackgrounds>({
+    queryKey: ["buzz-studio-template-backgrounds", "top_buys"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/buzz-studio-template-assets/top-buys");
+      if (!res.ok) return { "1:1": null, "4:5": null, "9:16": null, "16:9": null };
+      return res.json() as Promise<BuzzStudioBackgrounds>;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: templateId === BuzzTemplateType.TOP_BUYS,
+  });
+
+  const templateBackgroundUrl =
+    templateId === BuzzTemplateType.TOP_BUYS
+      ? (topBuysTemplateBackgrounds?.[aspectRatio] ?? null)
+      : null;
+
+  const activeBackgroundUrl = templateBackgroundUrl ?? buzzBackgrounds?.[aspectRatio] ?? null;
+
+  const featuredFrameLayout = Boolean(
+    templateId === BuzzTemplateType.TOP_BUYS &&
+    templateBackgroundUrl &&
+    aspectRatio === "4:5",
+  );
 
   const filteredItems = useMemo(() => {
     if (!data?.items.length) return [];
@@ -508,6 +533,7 @@ export default function TemplateStudioPage() {
                     aspectRatio={aspectRatio}
                     previewTheme={previewTheme}
                     backgroundImageUrl={activeBackgroundUrl}
+                    featuredFrameLayout={featuredFrameLayout}
                   />
                 )}
               </main>

@@ -27,12 +27,8 @@ export interface RenderHtmlInput {
   templateId: string;
   contract: Record<string, unknown>;
   aspectRatio: string;
-  /**
-   * Full-bleed background image URL resolved from Creative Assets Manager
-   * settings by the caller (creative-render-process) before rendering.
-   * Injected as a render-time prop — never stored inside the contract.
-   */
   backgroundImageUrl?: string;
+  featuredFrameLayout?: boolean;
 }
 
 export interface RenderHtmlResult {
@@ -115,6 +111,7 @@ export function renderCreativeJobHtml(input: RenderHtmlInput): RenderHtmlResult 
       renderWidth={dimensions.width}
       renderHeight={dimensions.height}
       backgroundImageUrl={input.backgroundImageUrl}
+      featuredFrameLayout={input.featuredFrameLayout}
     />,
   );
   const html = buildHtmlDocument(markup, dimensions);

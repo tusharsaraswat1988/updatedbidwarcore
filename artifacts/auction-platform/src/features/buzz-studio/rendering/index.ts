@@ -55,6 +55,63 @@ export {
   bodyLabelSize,
 } from "./poster-layout";
 
+/* ─── Asset-driven layout schema (Phase 18) ─────────────────────────────── */
+export type {
+  PosterZoneId,
+  PosterZoneRect,
+  PosterZoneStackSpec,
+  PosterZoneSpec,
+  TemplateLayoutDefinition,
+  TemplateLayoutSchema,
+} from "./template-layout-schema";
+export type { TemplateLayoutMode } from "./template-layout-schema";
+export { backgroundImageKeyForRatio, isZoneRect, templateBackgroundImageKey } from "./template-layout-schema";
+export { PosterAbsoluteZone } from "./poster-absolute-zone";
+export type {
+  TemplateFrameRect,
+  TemplatePlaceholderFrames,
+  TemplateFrameMetadataEntry,
+} from "./template-frame-schema";
+export {
+  frameToZoneRect,
+  resolveFramePixels,
+} from "./template-frame-schema";
+export {
+  getTemplatePlaceholderFrames,
+  getTemplateFrameMetadataEntry,
+} from "./template-frame-registry";
+export {
+  FramePhoto,
+  FrameLogo,
+  FramePlayerName,
+  FrameAmount,
+  FrameRank,
+  fitNameFontSize,
+  fitAmountFontSize,
+} from "./poster-content-frame";
+export {
+  TEMPLATE_LAYOUT_SCHEMAS,
+  getTemplateLayout,
+  getTemplateLayoutSchema,
+} from "./template-layout-registry";
+export {
+  POSTER_TOKENS,
+  PosterZoneStack,
+  PosterImage,
+  PosterMicroLabel,
+  PosterTitle,
+  PosterAmount,
+  PosterRank,
+  PosterMetaLine,
+  TournamentHeader,
+  StatBlock,
+  TeamIdentityRow,
+  BidwarFooter,
+  posterSizes,
+  posterTextAlign,
+  posterFlexAlign,
+} from "./poster-primitives";
+
 /* ─── Types: Render Jobs ─────────────────────────────────────────────────── */
 export type { RenderJob, RenderJobSubmission } from "./render-jobs";
 

@@ -339,7 +339,141 @@ export default function AdminCreativeAssets() {
           </ul>
         </div>
 
+        <TopBuysTemplateAssetsSection />
+
       </div>
     </AdminShell>
+  );
+}
+
+// ─── Top Buys Template Backgrounds (separate from global) ─────────────────────
+
+function TopBuysTemplateAssetsSection() {
+  type AspectRatio = "1:1" | "4:5" | "9:16" | "16:9";
+  const ASPECT_RATIOS: AspectRatio[] = ["1:1", "4:5", "9:16", "16:9"];
+
+  const [backgrounds, setBackgrounds] = useState<Record<AspectRatio, string | null>>({
+    "1:1": null,
+    "4:5": null,
+    "9:16": null,
+    "16:9": null,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/admin/settings/buzz-studio-template-assets/top-buys", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Record<AspectRatio, string | null> | null) => {
+        if (data) {
+          setBackgrounds({
+            "1:1":  data["1:1"]  ?? null,
+            "4:5":  data["4:5"]  ?? null,
+            "9:16": data["9:16"] ?? null,
+            "16:9": data["16:9"] ?? null,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleChange = useCallback((ratio: AspectRatio, url: string | null) => {
+    setBackgrounds((prev) => ({ ...prev, [ratio]: url }));
+    setDirty(true);
+    setSaved(false);
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const r = await fetch("/api/auth/admin/settings/buzz-studio-template-assets/top-buys", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(backgrounds),
+      });
+      if (!r.ok) {
+        let message = `Save failed (${r.status})`;
+        try {
+          const d = await r.json() as { error?: string };
+          if (d.error) message = d.error;
+        } catch { /* non-JSON body */ }
+        setSaveError(message);
+      } else {
+        setSaved(true);
+        setDirty(false);
+        setTimeout(() => setSaved(false), 3000);
+      }
+    } catch {
+      setSaveError("Save failed — check your connection");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const uploadedCount = Object.values(backgrounds).filter(Boolean).length;
+
+  return (
+    <div className="space-y-5 border-t border-border/40 pt-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-5 py-4 flex-1">
+          <Layers className="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-400" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-sky-200">
+              Top Buys Template Backgrounds
+            </p>
+            <p className="text-xs text-sky-200/70 leading-relaxed">
+              Separate from global backgrounds. Upload the empty frame artwork here
+              (e.g. gold photo frame + podium with TOP BUYS title baked in).
+              Media Center Top Buys at 4:5 uses these when present — global backgrounds
+              are unchanged and still used by other templates.
+            </p>
+            <p className="text-xs text-sky-200/50">
+              {uploadedCount} of 4 Top Buys backgrounds configured
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {saveError && (
+            <p className="flex items-center gap-1 text-xs text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {saveError}
+            </p>
+          )}
+          {saved && (
+            <Badge className="gap-1 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+              <CheckCircle2 className="h-3 w-3" /> Saved
+            </Badge>
+          )}
+          <Button onClick={handleSave} disabled={saving || loading || !dirty} className="h-9 gap-2">
+            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Top Buys
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-card/30 py-12 text-muted-foreground">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading Top Buys assets…</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {ASPECT_RATIOS.map((ratio) => (
+            <BackgroundUploadCard
+              key={`top-buys-${ratio}`}
+              ratio={ratio}
+              url={backgrounds[ratio]}
+              onChange={(url) => handleChange(ratio, url)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
