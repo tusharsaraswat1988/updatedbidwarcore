@@ -9,13 +9,13 @@
     "url": "https://github.com/tusharsaraswat1988/updatedbidwarcore.git"
   },
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "electron .",
     "build:icons": "node ./scripts/generate-icons.mjs",
     "build:frontend": "node ./scripts/copy-frontend.mjs",
     "build:server": "node ./build-server.mjs",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:electron": "node ./build-electron.mjs",
     "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "smoke:p0": "node ./scripts/smoke-p0.mjs",
