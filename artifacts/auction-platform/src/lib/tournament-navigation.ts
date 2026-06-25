@@ -31,6 +31,11 @@ export function obsOverlayPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs`;
 }
 
+/** Mobile cricket scorer (organizer). */
+export function scoringPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/score`;
+}
+
 /** Open setup in the opener tab when launched from Setup; otherwise new tab. */
 export function openSetupArea(tournamentId: number): void {
   const path = setupAreaPath(tournamentId);

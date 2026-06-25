@@ -164,6 +164,15 @@ export async function createScoringMatch(
   return { match, state: initialState };
 }
 
+export async function listScoringMatches(tournamentId: number) {
+  await ensureTournamentScoring(tournamentId);
+  return db
+    .select()
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.tournamentId, tournamentId))
+    .orderBy(desc(scoringMatchesTable.createdAt));
+}
+
 export async function getScoringMatch(tournamentId: number, matchId: number) {
   const [match] = await db
     .select()

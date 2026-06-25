@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "seed:demo": "tsx src/seed-demo.ts",
+    "seed:demo": "tsx --env-file=../.env src/seed-demo.ts",
+    "seed:scoring-local": "tsx --env-file=../.env src/seed-scoring-local.ts",
     "seed:sports": "tsx src/seed-sports.ts",
     "migrate": "tsx src/migrate.ts",
     "dev": "node ./dev.mjs",

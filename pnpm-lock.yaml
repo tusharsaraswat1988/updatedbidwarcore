@@ -353,6 +353,9 @@ importers:
       '@workspace/cheer-presets':
         specifier: workspace:*
         version: link:../../lib/cheer-presets
+      '@workspace/scoring-core':
+        specifier: workspace:*
+        version: link:../../lib/scoring-core
       browser-image-compression:
         specifier: ^2.0.2
         version: 2.0.2

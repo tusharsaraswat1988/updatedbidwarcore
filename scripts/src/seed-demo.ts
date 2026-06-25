@@ -223,11 +223,12 @@ async function seedTournament1() {
 
   // Insert teams
   const teamRows = await db.insert(teamsTable).values(
-    IPL_TEAMS.map(team => ({
+    IPL_TEAMS.map((team, i) => ({
       tournamentId: t.id,
       name: team.name,
       shortCode: team.shortCode,
       ownerName: team.ownerName,
+      ownerMobile: `9876543${String(210 + i).padStart(3, "0")}`,
       color: team.color,
       logoUrl: avatar(team.shortCode, team.bg),
       purse: 10000000,
@@ -302,11 +303,12 @@ async function seedTournament2() {
 
   // Insert teams
   const teamRows = await db.insert(teamsTable).values(
-    MEGA_TEAMS.map(team => ({
+    MEGA_TEAMS.map((team, i) => ({
       tournamentId: t.id,
       name: team.name,
       shortCode: team.shortCode,
       ownerName: team.ownerName,
+      ownerMobile: `9876500${String(100 + i).padStart(3, "0")}`,
       color: team.color,
       logoUrl: avatar(team.shortCode, team.bg),
       purse: 8000000,
