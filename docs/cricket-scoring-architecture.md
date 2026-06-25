@@ -479,11 +479,20 @@ Event store, reducer V1, mobile scorer, standings, auction squad integration, SS
 
 **Exit criteria:** Fans can share tournament hub, match scorecards, and player profiles with rich previews; MoM appears on completed scorecards; scoring APIs documented in OpenAPI. **Met.**
 
-### Phase 4 — Future ready
+### Phase 4 — Future ready ✅
 
-- DLS / rain interruptions
-- Global stats, offline scorer queue
-- Analytics (wagon wheel, etc. — if in scope later)
+| Deliverable | Status |
+|-------------|--------|
+| DLS / rain interruptions (`cricket.match.interrupted`, `resumed`, `cricket.dls.applied`) | ✅ |
+| `scoring_dls_calculations` audit table | ✅ |
+| Scorer UI: rain delay, resume, DLS revised overs, abandon NR | ✅ |
+| Global career stats (`player_statistics` projection on match complete) | ✅ |
+| Global leaderboards API + public page | ✅ |
+| Offline scorer queue (IndexedDB, sync on reconnect) | ✅ |
+
+**Exit criteria:** Rain-affected matches can pause, apply DLS targets, and abandon as NR; career stats materialize globally; scorers queue balls offline and sync on reconnect. **Met.**
+
+*Analytics (wagon wheel, etc.) remain out of scope — architecture-ready via event store.*
 
 ---
 

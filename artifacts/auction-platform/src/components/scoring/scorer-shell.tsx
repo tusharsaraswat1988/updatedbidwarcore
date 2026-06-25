@@ -7,6 +7,7 @@ type ScorerShellProps = {
   tournamentId: number;
   title: string;
   subtitle?: string;
+  statusBanner?: ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
   backHref: string;
@@ -16,6 +17,7 @@ type ScorerShellProps = {
 export function ScorerShell({
   title,
   subtitle,
+  statusBanner,
   onRefresh,
   refreshing,
   backHref,
@@ -50,6 +52,7 @@ export function ScorerShell({
           ) : null}
         </div>
       </header>
+      {statusBanner ? <div className="max-w-lg mx-auto w-full px-3 pt-2">{statusBanner}</div> : null}
       <main className="flex-1 overflow-y-auto overscroll-contain max-w-lg mx-auto w-full">{children}</main>
     </div>
   );

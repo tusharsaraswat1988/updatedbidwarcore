@@ -6,6 +6,9 @@ import {
   type CricketLineupSetPayload,
   type CricketMatchAbandonedPayload,
   type CricketMatchCompletedPayload,
+  type CricketMatchInterruptedPayload,
+  type CricketMatchResumedPayload,
+  type CricketDlsAppliedPayload,
   type CricketMatchStartedPayload,
   type CricketPenaltyAwardedPayload,
   type CricketPlayerRetiredPayload,
@@ -122,6 +125,12 @@ function applyBallRecorded(
   state: CricketScoreboardState,
   payload: CricketBallRecordedPayload,
 ): CricketScoreboardState {
+  if (state.sessionStatus === "paused") {
+    throw new InvalidEventPayloadError(
+      CricketEventType.BALL_RECORDED,
+      "match is interrupted — resume play before recording balls",
+    );
+  }
   if (payload.innings !== state.currentInnings) {
     throw new InvalidEventPayloadError(
       CricketEventType.BALL_RECORDED,
@@ -312,8 +321,59 @@ function applyMatchAbandoned(
     matchStatus: "abandoned",
     sessionStatus: "idle",
     abandonedReason: payload.reason,
+    interruptionReason: null,
     freeHitActive: false,
   };
+}
+
+function applyMatchInterrupted(
+  state: CricketScoreboardState,
+  payload: CricketMatchInterruptedPayload,
+): CricketScoreboardState {
+  return {
+    ...state,
+    sessionStatus: "paused",
+    interruptionReason: payload.reason,
+    freeHitActive: false,
+  };
+}
+
+function applyMatchResumed(state: CricketScoreboardState): CricketScoreboardState {
+  if (state.matchStatus !== "live") return state;
+  return {
+    ...state,
+    sessionStatus: "live",
+    interruptionReason: null,
+  };
+}
+
+function applyDlsApplied(
+  state: CricketScoreboardState,
+  payload: CricketDlsAppliedPayload,
+): CricketScoreboardState {
+  const innings = state.innings.find((i) => i.innings === payload.innings);
+  if (!innings) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.DLS_APPLIED,
+      `innings ${payload.innings} not found`,
+    );
+  }
+
+  let next: CricketScoreboardState = {
+    ...state,
+    target: payload.target,
+    revisedOversLimit: payload.revisedOvers,
+    oversLimit: payload.innings <= 2 ? payload.revisedOvers : state.oversLimit,
+    sessionStatus: state.matchStatus === "live" ? "live" : state.sessionStatus,
+    interruptionReason: null,
+  };
+
+  next = updateInnings(next, payload.innings, (inn) => ({
+    ...inn,
+    oversLimit: payload.revisedOvers,
+  }));
+
+  return next;
 }
 
 function appendThisOver(
@@ -369,6 +429,15 @@ export function reduceCricket(
       break;
     case CricketEventType.MATCH_ABANDONED:
       next = applyMatchAbandoned(state, parsed.payload as CricketMatchAbandonedPayload);
+      break;
+    case CricketEventType.MATCH_INTERRUPTED:
+      next = applyMatchInterrupted(state, parsed.payload as CricketMatchInterruptedPayload);
+      break;
+    case CricketEventType.MATCH_RESUMED:
+      next = applyMatchResumed(state);
+      break;
+    case CricketEventType.DLS_APPLIED:
+      next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload);
       break;
     case CricketEventType.BALL_UNDONE:
       throw new InvalidEventPayloadError(

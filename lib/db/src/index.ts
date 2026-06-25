@@ -822,6 +822,19 @@ void pool
       ON scoring_player_awards (match_id, award_type);
     CREATE INDEX IF NOT EXISTS ix_scoring_awards_tournament_id ON scoring_player_awards (tournament_id);
     CREATE INDEX IF NOT EXISTS ix_scoring_awards_player_id ON scoring_player_awards (player_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_dls_calculations (
+      id SERIAL PRIMARY KEY,
+      match_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1,
+      inputs_json JSONB NOT NULL,
+      outputs_json JSONB NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ix_scoring_dls_match_id ON scoring_dls_calculations (match_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_dls_tournament_id ON scoring_dls_calculations (tournament_id);
   `)
   .catch((err) => {
     console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);

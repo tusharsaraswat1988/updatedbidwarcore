@@ -7,3 +7,4 @@ export * from "./schedule";
 export * from "./scorecard";
 export * from "./leaderboard";
 export * from "./mom";
+export * from "./dls";

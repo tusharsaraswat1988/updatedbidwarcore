@@ -1,4 +1,9 @@
 import type { CricketScoreboardState } from "@workspace/scoring-core";
+import {
+  calculateDlsChaseTarget,
+  calculateDlsMidChasePar,
+  type DlsChaseTargetResult,
+} from "@workspace/scoring-core";
 import { getActiveInnings, oversText } from "@/lib/scoring-ball";
 
 export function battingTeamId(state: CricketScoreboardState): number | null {
@@ -82,4 +87,54 @@ export function buildMatchResult(state: CricketScoreboardState): {
     resultText: "Match tied",
     isTie: true,
   };
+}
+
+/** Compute DLS par score and revised target for rain-affected overs. */
+export function computeDlsApplication(
+  state: CricketScoreboardState,
+  revisedOvers: number,
+): DlsChaseTargetResult & { innings: number } {
+  const scheduled = state.oversLimit;
+  const first = state.innings.find((i) => i.innings === 1);
+  if (!first) {
+    throw new Error("First innings required for DLS");
+  }
+
+  const firstOvers = oversText(first.over, first.ball);
+  const second = state.innings.find((i) => i.innings === 2);
+  const current = getActiveInnings(state);
+
+  if (!second || second.phase === "completed") {
+    const result = calculateDlsChaseTarget({
+      scheduledOvers: scheduled,
+      firstInningsRuns: first.runs,
+      firstInningsOvers: firstOvers,
+      firstInningsWickets: first.wickets,
+      revisedOvers,
+    });
+    return { ...result, innings: second?.innings ?? 2 };
+  }
+
+  if (!current || current.innings < 2) {
+    const result = calculateDlsChaseTarget({
+      scheduledOvers: scheduled,
+      firstInningsRuns: first.runs,
+      firstInningsOvers: firstOvers,
+      firstInningsWickets: first.wickets,
+      revisedOvers,
+    });
+    return { ...result, innings: 2 };
+  }
+
+  const result = calculateDlsMidChasePar({
+    scheduledOvers: scheduled,
+    firstInningsRuns: first.runs,
+    firstInningsOvers: firstOvers,
+    firstInningsWickets: first.wickets,
+    secondInningsRuns: current.runs,
+    secondInningsOvers: oversText(current.over, current.ball),
+    secondInningsWickets: current.wickets,
+    revisedOvers,
+  });
+  return { ...result, innings: current.innings };
 }

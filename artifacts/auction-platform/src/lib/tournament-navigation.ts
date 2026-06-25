@@ -141,6 +141,11 @@ export function globalCricketPlayerPath(globalPlayerId: string): string {
   return `/player/${globalPlayerId}`;
 }
 
+/** Global cricket career leaderboards. */
+export function globalCricketLeaderboardsPath(): string {
+  return "/cricket/leaderboards";
+}
+
 /** LED cricket scoreboard (public, optional auction code). */
 export function scoreDisplayPath(
   tournamentId: number,

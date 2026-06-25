@@ -118,6 +118,7 @@ export async function appendScoringEvent(
     eventType: string;
     payload: Record<string, unknown>;
     expectedSequence: number;
+    correlationId?: string;
   },
 ): Promise<ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches/${matchId}/events`, {
@@ -281,6 +282,23 @@ export async function getGlobalCricketPlayerProfile(globalPlayerId: string) {
   const r = await apiFetch(`/global-players/${globalPlayerId}/cricket-profile`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
+}
+
+export type GlobalLeaderboardRow = {
+  rank: number;
+  globalPlayerId: string;
+  playerName: string;
+  value: number;
+};
+
+export async function getGlobalCricketLeaderboard(
+  category: LeaderboardCategory,
+  limit = 20,
+): Promise<GlobalLeaderboardRow[]> {
+  const r = await apiFetch(`/cricket/global-leaderboards/${category}?limit=${limit}`);
+  if (!r.ok) throw new Error(await parseError(r));
+  const data = await r.json();
+  return data.rows ?? [];
 }
 
 export async function undoScoringEvent(

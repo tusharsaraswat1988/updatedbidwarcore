@@ -31,6 +31,7 @@ import {
   getTournamentPlayerPublicProfile,
   getTournamentTeamPublicProfile,
 } from "../lib/scoring-public-service";
+import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 
 const router = Router();
@@ -549,6 +550,28 @@ router.get("/global-players/:globalPlayerId/cricket-profile", async (req, res) =
 
   try {
     res.json(await getGlobalPlayerCricketProfile(globalPlayerId));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Global cricket career leaderboards (public, cross-tournament). */
+router.get("/cricket/global-leaderboards/:category", async (req, res) => {
+  const category = req.params.category as LeaderboardCategory;
+  if (!LEADERBOARD_CATEGORIES.has(category)) {
+    res.status(400).json({ error: "Invalid leaderboard category" });
+    return;
+  }
+
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10) || 20, 50);
+
+  try {
+    const rows = await getGlobalCricketLeaderboard(category, limit);
+    res.json({ category, rows });
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });

@@ -3,6 +3,7 @@ import {
   scoringEventsTable,
   scoringMatchesTable,
   scoringSessionsTable,
+  scoringDlsCalculationsTable,
   teamsTable,
   tournamentsTable,
 } from "@workspace/db";
@@ -28,6 +29,7 @@ import {
   projectMatchAwards,
   rebuildTournamentLeaderboards,
 } from "./scoring-stats-service";
+import { projectGlobalCricketStatsForMatch } from "./scoring-global-stats-service";
 
 export type ScoringActor = {
   type: "organizer" | "admin" | "scorer_pin" | "system";
@@ -85,6 +87,30 @@ async function loadMatchEvents(matchId: number): Promise<ScoringEventEnvelope[]>
     .where(eq(scoringEventsTable.matchId, matchId))
     .orderBy(scoringEventsTable.sequence);
   return rows.map(rowToEnvelope);
+}
+
+async function persistDlsCalculation(
+  matchId: number,
+  tournamentId: number,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const existing = await db
+    .select({ id: scoringDlsCalculationsTable.id })
+    .from(scoringDlsCalculationsTable)
+    .where(eq(scoringDlsCalculationsTable.matchId, matchId));
+
+  await db.insert(scoringDlsCalculationsTable).values({
+    matchId,
+    tournamentId,
+    revision: existing.length + 1,
+    inputsJson: payload,
+    outputsJson: {
+      parScore: payload.parScore,
+      target: payload.target,
+      revisedOvers: payload.revisedOvers,
+    },
+    reason: typeof payload.reason === "string" ? payload.reason : null,
+  });
 }
 
 async function projectMatchState(
@@ -406,12 +432,17 @@ export async function appendScoringEvent(
 
   publishScoringUpdate(tournamentId, updatedMatch, state);
 
+  if (input.eventType === CricketEventType.DLS_APPLIED) {
+    await persistDlsCalculation(matchId, tournamentId, parsed.payload);
+  }
+
   if (matchStatus === "completed" || matchStatus === "abandoned") {
     await rebuildTournamentStandings(tournamentId);
     if (matchStatus === "completed") {
       await projectMatchPlayerStats(matchId);
       await projectMatchAwards(matchId);
       await rebuildTournamentLeaderboards(tournamentId);
+      await projectGlobalCricketStatsForMatch(matchId);
     }
   }
 

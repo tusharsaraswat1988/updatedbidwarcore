@@ -18,10 +18,17 @@ import {
   undoScoringEvent,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
+import {
+  countQueuedScoringEvents,
+  enqueueScoringEvent,
+  isNetworkScoringError,
+  listQueuedScoringEvents,
+  removeQueuedScoringEvent,
+} from "@/lib/scoring-offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
-import { Monitor } from "lucide-react";
+import { Monitor, WifiOff } from "lucide-react";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
@@ -52,6 +59,7 @@ export default function ScoringMatchPage() {
   });
 
   const [busy, setBusy] = useState(false);
+  const [queueDepth, setQueueDepth] = useState(0);
   const [localBowlerId, setLocalBowlerId] = useState<number | null>(null);
   const [pendingNewBatsman, setPendingNewBatsman] = useState(false);
   const [localStrikerId, setLocalStrikerId] = useState<number | null>(null);
@@ -63,6 +71,15 @@ export default function ScoringMatchPage() {
     if (data) sequenceRef.current = data.state.lastSequence;
   }, [data?.state.lastSequence]);
 
+  const refreshQueueDepth = useCallback(async () => {
+    if (!matchId) return;
+    setQueueDepth(await countQueuedScoringEvents(matchId));
+  }, [matchId]);
+
+  useEffect(() => {
+    void refreshQueueDepth();
+  }, [refreshQueueDepth]);
+
   const applyDetail = useCallback(
     (detail: ScoringMatchDetail) => {
       setMatchDetail(detail);
@@ -70,6 +87,56 @@ export default function ScoringMatchPage() {
     },
     [setMatchDetail, invalidateAll],
   );
+
+  const drainQueue = useCallback(async () => {
+    if (!data || sendInFlightRef.current) return;
+    const queued = await listQueuedScoringEvents(matchId);
+    if (queued.length === 0) return;
+
+    sendInFlightRef.current = true;
+    setBusy(true);
+    try {
+      for (const item of queued) {
+        try {
+          const result = await appendScoringEvent(tournamentId, matchId, {
+            eventType: item.eventType,
+            payload: item.payload,
+            expectedSequence: sequenceRef.current,
+            correlationId: item.correlationId,
+          });
+          sequenceRef.current = result.state.lastSequence;
+          await removeQueuedScoringEvent(item.id);
+          applyDetail({
+            match: result.match,
+            state: result.state,
+            eventCount: data.eventCount + 1,
+            lastSequence: result.state.lastSequence,
+          });
+        } catch (e) {
+          const err = e as Error & { status?: number };
+          if (err.status === 409) {
+            const refreshed = await refetch();
+            if (refreshed.data) {
+              sequenceRef.current = refreshed.data.state.lastSequence;
+            }
+            break;
+          }
+          if (isNetworkScoringError(e)) break;
+          throw e;
+        }
+      }
+    } finally {
+      sendInFlightRef.current = false;
+      setBusy(false);
+      await refreshQueueDepth();
+    }
+  }, [applyDetail, data, matchId, refetch, refreshQueueDepth, tournamentId]);
+
+  useEffect(() => {
+    const onOnline = () => void drainQueue();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [drainQueue]);
 
   const sendEvent = useCallback(
     async (eventType: string, payload: Record<string, unknown>) => {
@@ -91,6 +158,7 @@ export default function ScoringMatchPage() {
         });
         setLocalStrikerId(null);
         setLocalNonStrikerId(null);
+        await drainQueue();
       } catch (e) {
         const err = e as Error & { status?: number };
         if (err.status === 409) {
@@ -101,6 +169,20 @@ export default function ScoringMatchPage() {
           toast({
             title: "Already saved",
             description: "Match synced — continue from the latest step.",
+          });
+        } else if (isNetworkScoringError(e)) {
+          await enqueueScoringEvent({
+            tournamentId,
+            matchId,
+            eventType,
+            payload,
+            expectedSequence: sequenceRef.current,
+          });
+          sequenceRef.current += 1;
+          await refreshQueueDepth();
+          toast({
+            title: "Saved offline",
+            description: "Ball queued — will sync when connection returns.",
           });
         } else {
           toast({
@@ -114,7 +196,7 @@ export default function ScoringMatchPage() {
         setBusy(false);
       }
     },
-    [applyDetail, data, matchId, refetch, toast, tournamentId],
+    [applyDetail, data, drainQueue, matchId, refetch, refreshQueueDepth, toast, tournamentId],
   );
 
   const home = teams?.find((t) => t.id === data?.match.homeTeamId);
@@ -144,6 +226,24 @@ export default function ScoringMatchPage() {
         backHref={`/tournament/${tournamentId}/score`}
         onRefresh={() => void refetch()}
         refreshing={isFetching}
+        statusBanner={
+          queueDepth > 0 ? (
+            <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 flex items-center gap-2 text-xs text-amber-100">
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — will sync when online.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-auto h-7 text-xs"
+                onClick={() => void drainQueue()}
+              >
+                Sync now
+              </Button>
+            </div>
+          ) : null
+        }
       >
         {isLoading || !data ? (
           <div className="p-4 space-y-3">

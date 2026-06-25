@@ -1813,6 +1813,40 @@ paths:
         "404":
           description: Player not found
 
+  /cricket/global-leaderboards/{category}:
+    get:
+      operationId: getGlobalCricketLeaderboard
+      tags: [scoring]
+      summary: Global cricket career leaderboards (cross-tournament)
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [runs, wickets, sixes, fours, strike_rate, economy, catches, stumpings]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        "200":
+          description: Global leaderboard rows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [category, rows]
+                properties:
+                  category:
+                    type: string
+                  rows:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GlobalLeaderboardRow"
+
   /tournaments/{tournamentId}/import-sources:
     get:
       operationId: listImportSources
@@ -4246,3 +4280,16 @@ components:
           type: array
           items:
             type: object
+
+    GlobalLeaderboardRow:
+      type: object
+      required: [rank, globalPlayerId, playerName, value]
+      properties:
+        rank:
+          type: integer
+        globalPlayerId:
+          type: string
+        playerName:
+          type: string
+        value:
+          type: number

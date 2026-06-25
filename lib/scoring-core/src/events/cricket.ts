@@ -10,6 +10,9 @@ export const CricketEventType = {
   MATCH_COMPLETED: "cricket.match.completed",
   BALL_UNDONE: "cricket.ball.undone",
   MATCH_ABANDONED: "cricket.match.abandoned",
+  MATCH_INTERRUPTED: "cricket.match.interrupted",
+  MATCH_RESUMED: "cricket.match.resumed",
+  DLS_APPLIED: "cricket.dls.applied",
   PENALTY_AWARDED: "cricket.penalty.awarded",
   PLAYER_RETIRED: "cricket.player.retired",
   SUPER_OVER_STARTED: "cricket.super_over.started",
@@ -84,6 +87,20 @@ export const cricketMatchAbandonedPayloadSchema = z.object({
   reason: z.string().min(1),
 });
 
+export const cricketMatchInterruptedPayloadSchema = z.object({
+  reason: z.string().min(1).default("Rain"),
+});
+
+export const cricketMatchResumedPayloadSchema = z.object({});
+
+export const cricketDlsAppliedPayloadSchema = z.object({
+  innings: z.number().int().min(1).max(4),
+  revisedOvers: z.number().int().positive(),
+  parScore: z.number().min(0),
+  target: z.number().int().positive(),
+  reason: z.string().optional(),
+});
+
 export const cricketPenaltyAwardedPayloadSchema = z.object({
   innings: z.number().int().min(1).max(4),
   battingTeamId: z.number().int().positive(),
@@ -112,6 +129,9 @@ export type CricketInningsEndedPayload = z.infer<typeof cricketInningsEndedPaylo
 export type CricketMatchCompletedPayload = z.infer<typeof cricketMatchCompletedPayloadSchema>;
 export type CricketBallUndonePayload = z.infer<typeof cricketBallUndonePayloadSchema>;
 export type CricketMatchAbandonedPayload = z.infer<typeof cricketMatchAbandonedPayloadSchema>;
+export type CricketMatchInterruptedPayload = z.infer<typeof cricketMatchInterruptedPayloadSchema>;
+export type CricketMatchResumedPayload = z.infer<typeof cricketMatchResumedPayloadSchema>;
+export type CricketDlsAppliedPayload = z.infer<typeof cricketDlsAppliedPayloadSchema>;
 export type CricketPenaltyAwardedPayload = z.infer<typeof cricketPenaltyAwardedPayloadSchema>;
 export type CricketPlayerRetiredPayload = z.infer<typeof cricketPlayerRetiredPayloadSchema>;
 export type CricketSuperOverStartedPayload = z.infer<typeof cricketSuperOverStartedPayloadSchema>;
@@ -124,6 +144,9 @@ const cricketPayloadSchemas: Record<CricketEventTypeName, z.ZodType<Record<strin
   [CricketEventType.MATCH_COMPLETED]: cricketMatchCompletedPayloadSchema,
   [CricketEventType.BALL_UNDONE]: cricketBallUndonePayloadSchema,
   [CricketEventType.MATCH_ABANDONED]: cricketMatchAbandonedPayloadSchema,
+  [CricketEventType.MATCH_INTERRUPTED]: cricketMatchInterruptedPayloadSchema,
+  [CricketEventType.MATCH_RESUMED]: cricketMatchResumedPayloadSchema,
+  [CricketEventType.DLS_APPLIED]: cricketDlsAppliedPayloadSchema,
   [CricketEventType.PENALTY_AWARDED]: cricketPenaltyAwardedPayloadSchema,
   [CricketEventType.PLAYER_RETIRED]: cricketPlayerRetiredPayloadSchema,
   [CricketEventType.SUPER_OVER_STARTED]: cricketSuperOverStartedPayloadSchema,

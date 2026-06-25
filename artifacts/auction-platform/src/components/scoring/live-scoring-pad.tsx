@@ -23,8 +23,11 @@ import {
   battingTeamId,
   bowlingTeamId,
   buildMatchResult,
+  computeDlsApplication,
   suggestInningsEndReason,
 } from "@/lib/scoring-match-logic";
+import { Input } from "@/components/ui/input";
+import { CloudRain } from "lucide-react";
 
 type WicketType =
   | "bowled"
@@ -98,6 +101,20 @@ export function LiveScoringPad({
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
+  const [dlsSheet, setDlsSheet] = useState(false);
+  const [revisedOvers, setRevisedOvers] = useState("15");
+
+  const isPaused = state.sessionStatus === "paused";
+
+  const dlsPreview = useMemo(() => {
+    const overs = parseInt(revisedOvers, 10);
+    if (!overs || overs < 1 || state.innings.length === 0) return null;
+    try {
+      return computeDlsApplication(state, overs);
+    } catch {
+      return null;
+    }
+  }, [revisedOvers, state]);
 
   const strikerId = localStrikerId ?? state.strikerId;
   const nonStrikerId = localNonStrikerId ?? state.nonStrikerId;
@@ -127,7 +144,7 @@ export function LiveScoringPad({
   }, [players, bowlingId, state.lineups]);
 
   async function recordBall(input: BallInput) {
-    if (!canTap() || busy || !innings || !strikerId || !nonStrikerId || !activeBowlerId) return;
+    if (!canTap() || busy || isPaused || !innings || !strikerId || !nonStrikerId || !activeBowlerId) return;
 
     const pos = input.isLegalDelivery
       ? nextLegalBallPosition(innings)
@@ -182,6 +199,14 @@ export function LiveScoringPad({
 
   return (
     <div className="flex flex-col">
+      {isPaused ? (
+        <div className="mx-4 mt-3 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 flex items-center gap-2 text-sm text-sky-100">
+          <CloudRain className="w-4 h-4 shrink-0" />
+          <span>
+            Rain delay{state.interruptionReason ? ` — ${state.interruptionReason}` : ""}. Resume play or apply DLS.
+          </span>
+        </div>
+      ) : null}
       {/* Scoreboard strip */}
       <div className="px-4 py-3 border-b border-border/60 bg-card/50">
         <div className="flex items-start justify-between gap-3">
@@ -342,6 +367,43 @@ export function LiveScoringPad({
             <SheetTitle>Match actions</SheetTitle>
           </SheetHeader>
           <div className="grid gap-2 mt-4 pb-6">
+            {!isPaused ? (
+              <Button
+                variant="outline"
+                className="h-12 border-sky-500/40"
+                disabled={busy}
+                onClick={async () => {
+                  setSecondaryOpen(false);
+                  await onEvent(CricketEventType.MATCH_INTERRUPTED, { reason: "Rain" });
+                }}
+              >
+                <CloudRain className="w-4 h-4 mr-2" />
+                Rain delay
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="h-12"
+                disabled={busy}
+                onClick={async () => {
+                  setSecondaryOpen(false);
+                  await onEvent(CricketEventType.MATCH_RESUMED, {});
+                }}
+              >
+                Resume play
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="h-12"
+              disabled={busy || state.innings.length === 0}
+              onClick={() => {
+                setSecondaryOpen(false);
+                setDlsSheet(true);
+              }}
+            >
+              Apply DLS (revised overs)
+            </Button>
             <Button
               variant="outline"
               className="h-12"
@@ -419,6 +481,57 @@ export function LiveScoringPad({
               }}
             >
               End match
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-12"
+              disabled={busy}
+              onClick={async () => {
+                setSecondaryOpen(false);
+                await onEvent(CricketEventType.MATCH_ABANDONED, { reason: "Rain — no result" });
+              }}
+            >
+              Abandon (no result)
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={dlsSheet} onOpenChange={setDlsSheet}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>DLS — revised overs</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-4 pb-6">
+            <div>
+              <label className="text-xs text-muted-foreground">Overs per innings (revised)</label>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={revisedOvers}
+                onChange={(e) => setRevisedOvers(e.target.value)}
+                className="mt-1 h-12 text-lg"
+              />
+            </div>
+            <Button
+              className="w-full h-12"
+              disabled={busy || !dlsPreview}
+              onClick={async () => {
+                if (!dlsPreview) return;
+                setDlsSheet(false);
+                await onEvent(CricketEventType.DLS_APPLIED, {
+                  innings: dlsPreview.innings,
+                  revisedOvers: parseInt(revisedOvers, 10),
+                  parScore: dlsPreview.parScore,
+                  target: dlsPreview.target,
+                  reason: "Rain — DLS",
+                });
+              }}
+            >
+              {dlsPreview
+                ? `Apply DLS target ${dlsPreview.target} (${revisedOvers} overs)`
+                : "Apply DLS target"}
             </Button>
           </div>
         </SheetContent>

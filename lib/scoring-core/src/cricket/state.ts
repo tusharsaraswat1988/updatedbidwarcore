@@ -58,6 +58,10 @@ export type CricketScoreboardState = {
   powerplayOvers: number[];
   /** Players retired hurt (may return) per team. */
   retiredHurt: Record<number, number[]>;
+  /** Rain / interruption reason when session is paused. */
+  interruptionReason: string | null;
+  /** Active DLS revised overs limit for current innings. */
+  revisedOversLimit: number | null;
 };
 
 export function createInitialCricketState(meta: MatchMeta): CricketScoreboardState {
@@ -88,6 +92,8 @@ export function createInitialCricketState(meta: MatchMeta): CricketScoreboardSta
     freeHitActive: false,
     powerplayOvers: [],
     retiredHurt: {},
+    interruptionReason: null,
+    revisedOversLimit: null,
   };
 }
 
