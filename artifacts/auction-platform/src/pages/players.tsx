@@ -467,6 +467,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   const showPlayerBidSelector = shouldShowPlayerBidValueSelector(tournament ?? {});
   const organizerBidOptions = getOrganizerBidOptions(tournament ?? {});
   const bidValueEditable = canEditPlayerBidValue(tournament?.status);
+  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
   const lockedBidDisplayAmount =
     player?.selectedBidValue ?? player?.basePrice ?? tournament?.minBid ?? 100000;
 
@@ -673,7 +674,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,
-      cricheroUrl: form.cricheroUrl || undefined,
+      cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
       teamId: form.status === "retained" && form.retainedTeamId ? parseInt(form.retainedTeamId) : undefined,
@@ -1143,10 +1144,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           </div>
         );
       })()}
-      <div className="space-y-2">
-        <Label>Crichero URL</Label>
-        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
-      </div>
+      {isCricket && (
+        <div className="space-y-2">
+          <Label>Crichero URL</Label>
+          <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Achievements</Label>
         <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} />
@@ -1806,12 +1809,13 @@ function PlayerDetailPanel({
   tagTeam: { name: string; color?: string | null } | null;
   roleSpecGroups: { groupName: string }[];
   tournamentId: number;
-  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null };
+  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null; sport?: string | null };
   categories?: CategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const tagTheme = getTagTheme(player.playerTag);
+  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
   const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
   const operatorUrl = `/tournament/${tournamentId}/auction`;
 
@@ -1987,7 +1991,7 @@ function PlayerDetailPanel({
             <p className="text-muted-foreground">{player.achievements}</p>
           </div>
         )}
-        {player.cricheroUrl && (
+        {isCricket && player.cricheroUrl && (
           <div className="col-span-2 sm:col-span-3">
             <a
               href={player.cricheroUrl}
