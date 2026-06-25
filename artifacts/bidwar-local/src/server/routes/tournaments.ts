@@ -21,11 +21,13 @@ import {
   resolveOfflineUrl,
   resolveOfflineSponsorLogos,
 } from "../lib/offline-media.js";
+import { localMediaUrlSchema, zodFirstError } from "../lib/local-url-schema.js";
 
 const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   id: t.id, name: t.name, sport: t.sport, venue: t.venue, auctionDate: t.auctionDate,
   organizerName: t.organizerName, organizerMobile: t.organizerMobile, organizerEmail: t.organizerEmail,
   logoUrl: resolveOfflineUrl(t.logoUrl), sponsorLogos: resolveOfflineSponsorLogos(t.sponsorLogos),
+  basePurse: t.basePurse, minBid: t.minBid,
   bidIncrement: t.bidIncrement, bidTier1UpTo: t.bidTier1UpTo, bidTier1Increment: t.bidTier1Increment,
   bidTier2UpTo: t.bidTier2UpTo, bidTier2Increment: t.bidTier2Increment,
   bidTier3Increment: t.bidTier3Increment, bidTiers: t.bidTiers, timerSeconds: t.timerSeconds,
@@ -91,7 +93,7 @@ export function createTournamentsRouter(db: LocalDb) {
       auctionDate: z.string().max(30).nullable().optional(),
       organizerName: z.string().max(120).nullable().optional(),
       organizerMobile: z.string().max(20).nullable().optional(),
-      logoUrl: z.string().url().nullable().optional(),
+      logoUrl: localMediaUrlSchema,
       sponsorLogos: z.string().nullable().optional(),
       basePurse: z.number().int().min(0).optional(),
       minBid: z.number().int().min(0).optional(),
@@ -99,11 +101,45 @@ export function createTournamentsRouter(db: LocalDb) {
       bidTiers: z.string().nullable().optional(),
       timerSeconds: z.number().int().min(5).max(300).optional(),
       bidTimerSeconds: z.number().int().min(5).max(300).optional(),
-      playerSelectionMode: z.enum(["manual","random","queue"]).optional(),
-      status: z.enum(["setup","active","paused","completed"]).optional(),
+      playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
+      minimumSquadSize: z.number().int().min(0).nullable().optional(),
+      maximumSquadSize: z.number().int().min(0).nullable().optional(),
+      status: z.enum(["setup", "active", "paused", "completed"]).optional(),
+      // Ignored on local — accepted so cloud settings UI PATCH body validates.
+      reason: z.string().optional(),
+      auctionTime: z.string().nullable().optional(),
+      bidExtensionEnabled: z.boolean().optional(),
+      bidExtensionThresholdSeconds: z.number().int().optional(),
+      bidExtensionSeconds: z.number().int().optional(),
+      registrationDeadline: z.string().nullable().optional(),
+      registrationLimit: z.number().int().nullable().optional(),
+      enableRegistrationPayment: z.boolean().optional(),
+      registrationFee: z.number().int().nullable().optional(),
+      upiId: z.string().nullable().optional(),
+      paymentVerificationMethod: z.string().nullable().optional(),
+      paymentCollectionMode: z.string().optional(),
+      enableRegistrationDeclaration: z.boolean().optional(),
+      registrationDeclarationText: z.string().nullable().optional(),
+      bidValueMode: z.enum(["system", "player"]).optional(),
+      bidValueOptions: z.array(z.number().int().positive()).optional(),
+      audioEnabled: z.boolean().optional(),
+      masterVolume: z.number().int().optional(),
+      countdownSoundEnabled: z.boolean().optional(),
+      countdownSoundUrl: z.string().nullable().optional(),
+      countdownSoundVolume: z.number().int().optional(),
+      soldSoundEnabled: z.boolean().optional(),
+      soldSoundUrl: z.string().nullable().optional(),
+      soldSoundVolume: z.number().int().optional(),
+      breakEndMusicEnabled: z.boolean().optional(),
+      breakEndMusicUrl: z.string().nullable().optional(),
+      breakEndMusicVolume: z.number().int().optional(),
+      mainBannerUrl: z.string().nullable().optional(),
+      mainBannerEnabled: z.boolean().optional(),
+      mainBannerFit: z.enum(["cover", "contain"]).optional(),
+      matchDates: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    if (!parsed.success) { res.status(400).json({ error: zodFirstError(parsed.error) }); return; }
     const d = parsed.data;
     if (d.sponsorLogos !== undefined) {
       const sponsorCheck = validateAndSerializeSponsorLogos(d.sponsorLogos ?? undefined);
@@ -113,8 +149,37 @@ export function createTournamentsRouter(db: LocalDb) {
       }
       d.sponsorLogos = sponsorCheck.serialized ?? null;
     }
-    if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
-    const [row] = await db.update(tournamentsTable).set({ ...d, updatedAt: new Date().toISOString() })
+
+    const nextMinSquad = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : undefined;
+    const nextMaxSquad = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : undefined;
+    if (nextMinSquad !== undefined && nextMaxSquad !== undefined
+      && nextMinSquad > 0 && nextMaxSquad > 0 && nextMaxSquad < nextMinSquad) {
+      res.status(400).json({ error: "Maximum players cannot be less than minimum players." });
+      return;
+    }
+
+    const updates: Record<string, unknown> = {};
+    if (d.name !== undefined) updates.name = d.name;
+    if (d.sport !== undefined) updates.sport = d.sport;
+    if (d.venue !== undefined) updates.venue = d.venue;
+    if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
+    if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
+    if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
+    if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
+    if (d.sponsorLogos !== undefined) updates.sponsorLogos = d.sponsorLogos;
+    if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
+    if (d.minBid !== undefined) updates.minBid = d.minBid;
+    if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
+    if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
+    if (d.timerSeconds !== undefined) updates.timerSeconds = d.timerSeconds;
+    if (d.bidTimerSeconds !== undefined) updates.bidTimerSeconds = d.bidTimerSeconds;
+    if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
+    if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
+    if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
+    if (d.status !== undefined) updates.status = d.status;
+
+    if (Object.keys(updates).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
+    const [row] = await db.update(tournamentsTable).set({ ...updates, updatedAt: new Date().toISOString() })
       .where(eq(tournamentsTable.id, id)).returning();
     if (!row) { res.status(404).json({ error: "Not found" }); return; }
     res.json(tournamentToJson(row));

@@ -10,6 +10,7 @@ import { getActiveBoosterTotalsForTeams } from "../lib/purse-capacity.js";
 import { computeScoutPurseProtection } from "../lib/scout-purse.js";
 
 import { resolveOfflineUrl } from "../lib/offline-media.js";
+import { localMediaUrlSchema, zodFirstError } from "../lib/local-url-schema.js";
 
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
@@ -241,14 +242,14 @@ export function createTeamsRouter(db: LocalDb) {
       ownerName: z.string().min(1).max(120).optional(),
       ownerMobile: z.string().max(20).nullable().optional(),
       color: z.string().max(20).optional(),
-      logoUrl: z.string().url().nullable().optional(),
+      logoUrl: localMediaUrlSchema,
       purse: z.number().int().min(0).optional(),
       purseUsed: z.number().int().min(0).optional(),
       isBiddingEnabled: z.boolean().optional(),
       accessCode: z.string().max(20).nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    if (!parsed.success) { res.status(400).json({ error: zodFirstError(parsed.error) }); return; }
     const d = parsed.data;
     if (Object.keys(d).length === 0) { res.status(400).json({ error: "No fields to update" }); return; }
     const patch = { ...d };

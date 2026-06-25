@@ -8,6 +8,7 @@ import { playersTable } from "@workspace/db-local";
 
 const playerGenderSchema = z.enum(PLAYER_GENDER_VALUES);
 import { resolveOfflineUrl } from "../lib/offline-media.js";
+import { localMediaUrlSchema, zodFirstError } from "../lib/local-url-schema.js";
 
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id, serialNo: p.serialNo, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
@@ -93,7 +94,7 @@ export function createPlayersRouter(db: LocalDb) {
       retainedPrice: z.number().int().min(0).nullable().optional(),
       status: z.enum(["available","sold","unsold","retained"]).optional(),
       jerseyNumber: z.string().max(10).nullable().optional(),
-      photoUrl: z.string().url().nullable().optional(),
+      photoUrl: localMediaUrlSchema,
       achievements: z.string().max(500).nullable().optional(),
       mobileNumber: z.string().max(20).nullable().optional(),
       battingStyle: z.string().max(60).nullable().optional(),

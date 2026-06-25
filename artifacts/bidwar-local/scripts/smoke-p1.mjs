@@ -103,6 +103,42 @@ async function main() {
     const tid = importRes.json.tournamentId;
     pass(`import with operatorPin tournamentId=${tid}`);
 
+    const getT = await fetchJson(`${base}/api/tournaments/${tid}`);
+    if (!getT.res.ok || getT.json?.basePurse !== 10_000_000 || getT.json?.minBid !== 100_000) {
+      fail(`GET tournament missing basePurse/minBid: ${getT.text.slice(0, 200)}`);
+      return;
+    }
+    pass("GET tournament returns basePurse and minBid");
+
+    const patchSettings = await fetchJson(`${base}/api/tournaments/${tid}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reason: "smoke test",
+        name: "P1 Smoke Tournament",
+        sport: "cricket",
+        logoUrl: "/media/test-logo.png",
+        sponsorLogos: "[]",
+        basePurse: 100_000,
+        minBid: 10_000,
+        bidTiers: JSON.stringify([{ increment: 10_000 }]),
+        timerSeconds: 30,
+        bidTimerSeconds: 15,
+        playerSelectionMode: "manual",
+        minimumSquadSize: 6,
+        maximumSquadSize: 7,
+        bidExtensionEnabled: false,
+        enableRegistrationPayment: false,
+        audioEnabled: true,
+        mainBannerEnabled: false,
+      }),
+    });
+    if (!patchSettings.res.ok || patchSettings.json?.basePurse !== 100_000) {
+      fail(`PATCH tournament settings: ${patchSettings.text.slice(0, 300)}`);
+      return;
+    }
+    pass("PATCH tournament settings (offline logo + squad rules)");
+
     const metaRes = await fetchJson(`${base}/local/tournament-meta?tournamentId=${tid}`);
     if (!metaRes.res.ok || metaRes.json?.operatorPin !== operatorPin) {
       fail(`tournament-meta: ${metaRes.text.slice(0, 200)}`);
