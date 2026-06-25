@@ -17,10 +17,15 @@ import {
   getActiveBoosterTotalsForTeams,
 } from "../lib/purse-capacity.js";
 
+import {
+  resolveOfflineUrl,
+  resolveOfflineSponsorLogos,
+} from "../lib/offline-media.js";
+
 const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   id: t.id, name: t.name, sport: t.sport, venue: t.venue, auctionDate: t.auctionDate,
   organizerName: t.organizerName, organizerMobile: t.organizerMobile, organizerEmail: t.organizerEmail,
-  logoUrl: t.logoUrl, sponsorLogos: t.sponsorLogos, basePurse: t.basePurse, minBid: t.minBid,
+  logoUrl: resolveOfflineUrl(t.logoUrl), sponsorLogos: resolveOfflineSponsorLogos(t.sponsorLogos),
   bidIncrement: t.bidIncrement, bidTier1UpTo: t.bidTier1UpTo, bidTier1Increment: t.bidTier1Increment,
   bidTier2UpTo: t.bidTier2UpTo, bidTier2Increment: t.bidTier2Increment,
   bidTier3Increment: t.bidTier3Increment, bidTiers: t.bidTiers, timerSeconds: t.timerSeconds,
@@ -181,7 +186,7 @@ export function createTournamentsRouter(db: LocalDb) {
 
       return {
         teamId: t.id, teamName: t.name, shortCode: t.shortCode, ownerName: t.ownerName,
-        color: t.color, logoUrl: t.logoUrl,
+        color: t.color, logoUrl: resolveOfflineUrl(t.logoUrl),
         originalPurse: t.purse,
         boosterTotal,
         effectiveCapacity,

@@ -9,9 +9,11 @@ import { isOrganizerForTournament } from "../lib/local-auth.js";
 import { getActiveBoosterTotalsForTeams } from "../lib/purse-capacity.js";
 import { computeScoutPurseProtection } from "../lib/scout-purse.js";
 
+import { resolveOfflineUrl } from "../lib/offline-media.js";
+
 const teamToJson = (t: typeof teamsTable.$inferSelect) => ({
   id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
-  ownerName: t.ownerName, ownerMobile: t.ownerMobile, color: t.color, logoUrl: t.logoUrl,
+  ownerName: t.ownerName, ownerMobile: t.ownerMobile, color: t.color, logoUrl: resolveOfflineUrl(t.logoUrl),
   purse: t.purse, purseUsed: t.purseUsed, isBiddingEnabled: t.isBiddingEnabled,
   accessCode: t.accessCode, cloudId: t.cloudId, createdAt: t.createdAt,
 });
@@ -24,7 +26,7 @@ const teamToPublicJson = (t: typeof teamsTable.$inferSelect) => ({
   name: t.name,
   shortCode: t.shortCode,
   color: t.color,
-  logoUrl: t.logoUrl,
+  logoUrl: resolveOfflineUrl(t.logoUrl),
   purse: t.purse,
   purseUsed: t.purseUsed,
   isBiddingEnabled: t.isBiddingEnabled,

@@ -7,12 +7,14 @@ import type { LocalDb } from "@workspace/db-local";
 import { playersTable } from "@workspace/db-local";
 
 const playerGenderSchema = z.enum(PLAYER_GENDER_VALUES);
+import { resolveOfflineUrl } from "../lib/offline-media.js";
+
 const playerToJson = (p: typeof playersTable.$inferSelect) => ({
   id: p.id, serialNo: p.serialNo, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
   name: p.name, city: p.city, role: p.role, battingStyle: p.battingStyle,
   bowlingStyle: p.bowlingStyle, specialization: p.specialization, age: p.age,
   gender: p.gender ?? null,
-  photoUrl: p.photoUrl, basePrice: p.basePrice, soldPrice: p.soldPrice,
+  photoUrl: resolveOfflineUrl(p.photoUrl), basePrice: p.basePrice, soldPrice: p.soldPrice,
   retainedPrice: p.retainedPrice, status: p.status, jerseyNumber: p.jerseyNumber,
   achievements: p.achievements, mobileNumber: p.mobileNumber, cricheroUrl: p.cricheroUrl,
   availabilityDates: p.availabilityDates, cloudId: p.cloudId, createdAt: p.createdAt,

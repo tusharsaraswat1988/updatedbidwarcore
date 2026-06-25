@@ -23,7 +23,10 @@ async function downloadToFile(url: string, destPath: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "BidWar-Local/1.0" },
+    });
     if (!res.ok || !res.body) return false;
     await pipeline(Readable.fromWeb(res.body as import("node:stream/web").ReadableStream), createWriteStream(destPath));
     return true;

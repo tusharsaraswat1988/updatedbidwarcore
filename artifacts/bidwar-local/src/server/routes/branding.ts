@@ -6,6 +6,7 @@ import {
   ASSET_TYPE_TO_LEGACY_COLUMN,
   type BrandingAssetType,
 } from "@workspace/api-base/branding-assets";
+import { resolveOfflineUrl } from "../lib/offline-media.js";
 
 const BRANDING_KEY = "branding";
 
@@ -94,7 +95,20 @@ function resolveBrandingResponse(parsed: Record<string, unknown>): Record<string
     ...LOCAL_DEFAULT_ASSETS,
     ...(merged.assets as Record<string, string> | undefined),
   };
-  return { ...merged, assets };
+  const resolvedAssets: Record<string, string> = {};
+  for (const [key, value] of Object.entries(assets)) {
+    if (typeof value === "string") {
+      resolvedAssets[key] = resolveOfflineUrl(value) ?? value;
+    }
+  }
+  const out: Record<string, unknown> = { ...merged, assets: resolvedAssets };
+  for (const [key, value] of Object.entries(out)) {
+    if (key === "assets") continue;
+    if (typeof value === "string" && (value.startsWith("http") || value.startsWith("/"))) {
+      out[key] = resolveOfflineUrl(value) ?? value;
+    }
+  }
+  return out;
 }
 
 export function createBrandingRouter(db: LocalDb) {

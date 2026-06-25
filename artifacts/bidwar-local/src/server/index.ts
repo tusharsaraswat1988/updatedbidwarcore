@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
@@ -16,6 +16,7 @@ import { createAuctionRouter } from "./routes/auction.js";
 import { createBrandingRouter } from "./routes/branding.js";
 import { createLocalRouter } from "./routes/local.js";
 import { createSyncWorker } from "./sync-worker.js";
+import { configureOfflineMedia } from "./lib/offline-media.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,9 +50,9 @@ async function main() {
   app.use("/local", createLocalRouter(db, CLOUD_BASE_URL));
 
   const mediaDir = path.join(path.dirname(DB_PATH), "media");
-  if (existsSync(mediaDir)) {
-    app.use("/media", express.static(mediaDir));
-  }
+  configureOfflineMedia(mediaDir);
+  if (!existsSync(mediaDir)) mkdirSync(mediaDir, { recursive: true });
+  app.use("/media", express.static(mediaDir));
 
   // Unmatched /api/* must return JSON 404 — never fall through to the SPA catch-all.
   app.use("/api", (_req, res) => {

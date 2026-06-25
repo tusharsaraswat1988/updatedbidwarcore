@@ -189,6 +189,12 @@
       </div>
       <input type="file" id="file-input" accept=".json" onchange="handleFileImport(event)" />
       <div id="import-msg"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-outline" onclick="rebundleMedia()">Download offline images</button>
+        <span class="section-hint" style="margin:0;flex:1;min-width:200px;">
+          Needs internet once — saves sponsor logos and player photos for the LED display.
+        </span>
+      </div>
     </div>
 
     <!-- Connection Kit -->
@@ -654,7 +660,16 @@
           const name = String(json.tournament?.name || "tournament");
           const playerCount = Number(json.players?.length || 0);
           const teamCount = Number(json.teams?.length || 0);
-          showMsg(msgEl, `Imported: ${name} (${playerCount} players, ${teamCount} teams)`, "ok");
+          let importText = `Imported: ${name} (${playerCount} players, ${teamCount} teams)`;
+          if (typeof data.mediaBundled === "number") {
+            importText += ` — ${data.mediaBundled} images saved offline`;
+          }
+          if (data.mediaFailed > 0) {
+            importText += `. ${data.mediaFailed} images failed — click Download offline images when online.`;
+            showMsg(msgEl, importText, "err");
+          } else {
+            showMsg(msgEl, importText, "ok");
+          }
           loadTournaments();
           loadConnectionKit();
           loadTournamentMeta();
@@ -665,6 +680,31 @@
         showMsg(msgEl, `Error reading file: ${String(e.message || e)}`, "err");
       }
       event.target.value = "";
+    }
+
+    async function rebundleMedia() {
+      if (!tournamentId) {
+        alert("Import a tournament first.");
+        return;
+      }
+      const msgEl = document.getElementById("import-msg");
+      showMsg(msgEl, "Downloading images for offline display…", "ok");
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/rebundle-media`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...localHeaders() },
+          credentials: "include",
+          body: JSON.stringify({ tournamentId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showMsg(msgEl, data.message || "Images downloaded.", data.failed > 0 ? "err" : "ok");
+        } else {
+          showMsg(msgEl, `Download failed: ${data.error || "Unknown error"}`, "err");
+        }
+      } catch (e) {
+        showMsg(msgEl, `Download failed: ${String(e.message || e)}`, "err");
+      }
     }
 
     async function manualSync() {

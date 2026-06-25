@@ -26,6 +26,7 @@ import {
   collectBrandingMediaUrls,
   rewriteBrandingPayload,
 } from "../lib/media-bundle.js";
+import { rebundleTournamentMedia } from "../lib/offline-media.js";
 
 function detectLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
@@ -158,6 +159,11 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     }
     const mediaMap = await bundleMediaUrls(mediaDir, mediaUrlList);
     const rw = (url: string | null | undefined) => rewriteUrl(url, mediaMap);
+    const remoteCount = new Set(
+      mediaUrlList.filter((u): u is string => !!u && /^https?:\/\//i.test(u)),
+    ).size;
+    const mediaBundled = mediaMap.size;
+    const mediaFailed = Math.max(0, remoteCount - mediaBundled);
 
     const now = new Date().toISOString();
 
@@ -271,8 +277,36 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       tournamentId: localTid,
       operatorPin: operatorPin ?? null,
       cloudBaseUrl: cloudBaseUrl ?? null,
+      mediaBundled,
+      mediaFailed,
       message: `Imported ${players.length} players, ${teams.length} teams`,
     });
+  });
+
+  // POST /local/rebundle-media — download sponsor/player images for offline LED display
+  router.post("/rebundle-media", async (req, res) => {
+    const schema = z.object({ tournamentId: z.number().int() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const { tournamentId: localTid } = parsed.data;
+
+    const dbPath = process.env.DB_PATH || path.join(process.cwd(), "auction.db");
+    const mediaDir = path.join(path.dirname(dbPath), "media");
+
+    try {
+      const stats = await rebundleTournamentMedia(db, mediaDir, localTid);
+      res.json({
+        ok: true,
+        ...stats,
+        message:
+          stats.failed > 0
+            ? `Downloaded ${stats.bundled}/${stats.total} images. ${stats.failed} failed — check internet and try again.`
+            : `Downloaded ${stats.bundled} images for offline display.`,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Rebundle failed";
+      res.status(400).json({ error: msg });
+    }
   });
 
   // GET /local/sync-status
