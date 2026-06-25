@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import type { PublicScorecardResponse } from "@/lib/scoring-api";
 import { cricketPlayerPublicPath } from "@/lib/tournament-navigation";
 import { Award } from "lucide-react";
+import { cricketTableHeadRowClass, cricketTableWrapClass } from "@/components/scoring/cricket-page-chrome";
 
 function playerName(map: Record<string, string>, id: number): string {
   return map[String(id)] ?? `Player ${id}`;
@@ -30,14 +31,14 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           {match.roundName ?? "Match"} · {match.status}
         </p>
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-display font-bold text-foreground">
           {match.homeTeam?.name ?? "Home"} vs {match.awayTeam?.name ?? "Away"}
         </h1>
         {match.resultSummary ? (
-          <p className="text-sm text-amber-300/90">{match.resultSummary}</p>
+          <p className="text-sm text-primary">{match.resultSummary}</p>
         ) : null}
         {manOfTheMatch ? (
-          <p className="text-sm text-amber-200/90 flex items-center gap-2 pt-1">
+          <p className="text-sm text-primary flex items-center gap-2 pt-1">
             <Award className="h-4 w-4 shrink-0" />
             Player of the Match:{" "}
             {tournamentId ? (
@@ -63,16 +64,16 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Innings {inn.innings} — {teamLabel(match, inn.battingTeamId)}
             </h2>
-            <p className="text-lg font-bold tabular-nums text-white">
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {inn.totalRuns}/{inn.totalWickets}{" "}
               <span className="text-sm font-normal text-muted-foreground">({inn.overs} ov)</span>
             </p>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className={cricketTableWrapClass}>
             <table className="w-full text-sm min-w-[28rem]">
               <thead>
-                <tr className="border-b border-white/10 text-left text-muted-foreground">
+                <tr className={cricketTableHeadRowClass}>
                   <th className="px-3 py-2 font-medium">Batter</th>
                   <th className="px-3 py-2 font-medium text-right">R</th>
                   <th className="px-3 py-2 font-medium text-right">B</th>
@@ -83,9 +84,9 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
               </thead>
               <tbody>
                 {inn.batting.map((b) => (
-                  <tr key={b.playerId} className="border-b border-white/5">
+                  <tr key={b.playerId} className="border-b border-border/50">
                     <td className="px-3 py-2">
-                      <span className="font-medium text-white/95">
+                      <span className="font-medium text-foreground">
                         {playerName(players, b.playerId)}
                         {b.notOut ? " *" : ""}
                       </span>
@@ -114,10 +115,10 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
           </p>
 
           {inn.bowling.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-white/10">
+            <div className={cricketTableWrapClass}>
               <table className="w-full text-sm min-w-[24rem]">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-muted-foreground">
+                  <tr className={cricketTableHeadRowClass}>
                     <th className="px-3 py-2 font-medium">Bowler</th>
                     <th className="px-3 py-2 font-medium text-right">O</th>
                     <th className="px-3 py-2 font-medium text-right">R</th>
@@ -127,8 +128,8 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
                 </thead>
                 <tbody>
                   {inn.bowling.map((b) => (
-                    <tr key={b.playerId} className="border-b border-white/5">
-                      <td className="px-3 py-2 font-medium text-white/95">
+                    <tr key={b.playerId} className="border-b border-border/50">
+                      <td className="px-3 py-2 font-medium text-foreground">
                         {playerName(players, b.playerId)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">{b.overs}</td>

@@ -12,7 +12,7 @@ type ScoreButtonProps = {
 const variantClasses: Record<NonNullable<ScoreButtonProps["variant"]>, string> = {
   default: "bg-card border-border text-foreground active:bg-muted",
   run: "bg-primary/15 border-primary/40 text-primary active:bg-primary/25",
-  extra: "bg-amber-500/15 border-amber-500/40 text-amber-300 active:bg-amber-500/25",
+  extra: "bg-primary/10 border-primary/30 text-primary active:bg-primary/20",
   wicket: "bg-red-500/15 border-red-500/40 text-red-300 active:bg-red-500/25",
   undo: "bg-muted/40 border-border text-muted-foreground active:bg-muted",
   muted: "bg-muted/20 border-border/50 text-muted-foreground",

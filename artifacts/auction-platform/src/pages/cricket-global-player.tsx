@@ -1,9 +1,17 @@
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Award, Trophy } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ShareButtons } from "@/components/scoring/share-buttons";
 import { getGlobalCricketPlayerProfile } from "@/lib/scoring-api";
+import {
+  CricketEmptyState,
+  CricketLoadingShell,
+  CricketPublicPageHeader,
+  CricketPublicShell,
+  cricketCardClass,
+  cricketSectionTitleClass,
+} from "@/components/scoring/cricket-page-chrome";
+import { cn } from "@/lib/utils";
 
 export default function CricketGlobalPlayerPage() {
   const [, params] = useRoute("/player/:globalPlayerId");
@@ -18,40 +26,29 @@ export default function CricketGlobalPlayerPage() {
   const pageUrl =
     typeof window !== "undefined" ? `${window.location.origin}/player/${globalPlayerId}` : "";
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1a] p-6">
-        <Skeleton className="h-10 w-48 bg-white/10" />
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center text-muted-foreground">
-        Player profile not found.
-      </div>
-    );
-  }
+  if (isLoading) return <CricketLoadingShell />;
+  if (error || !data) return <CricketEmptyState message="Player profile not found." />;
 
   const { globalPlayer, careerStats, manOfTheMatchCount, tournaments } = data;
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-foreground">
-      <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        <header className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-400/80">Cricket career</p>
-          <h1 className="text-3xl font-bold text-white">{globalPlayer.name}</h1>
-          {globalPlayer.city ? <p className="text-sm text-muted-foreground">{globalPlayer.city}</p> : null}
-          {pageUrl ? (
+    <CricketPublicShell>
+      <CricketPublicPageHeader
+        eyebrow="Cricket career"
+        title={globalPlayer.name}
+        subtitle={globalPlayer.city ? <p>{globalPlayer.city}</p> : undefined}
+        actions={
+          pageUrl ? (
             <ShareButtons url={pageUrl} shareText={`${globalPlayer.name} — cricket career stats`} />
-          ) : null}
-        </header>
+          ) : null
+        }
+      />
 
+      <div className="space-y-6">
         {careerStats ? (
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-400" />
+          <section className={cn(cricketCardClass, "p-4")}>
+            <h2 className={cn(cricketSectionTitleClass, "mb-3 flex items-center gap-2")}>
+              <Trophy className="h-4 w-4 text-primary" />
               Career totals
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
@@ -61,8 +58,8 @@ export default function CricketGlobalPlayerPage() {
                 ["Wickets", careerStats.wickets],
                 ["MoM", manOfTheMatchCount],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-lg bg-black/20 px-3 py-2">
-                  <div className="text-lg font-bold text-white tabular-nums">{value}</div>
+                <div key={String(label)} className="rounded-lg bg-muted/30 px-3 py-2">
+                  <div className="text-lg font-bold text-foreground tabular-nums">{value}</div>
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
                 </div>
               ))}
@@ -71,20 +68,23 @@ export default function CricketGlobalPlayerPage() {
         ) : null}
 
         {manOfTheMatchCount > 0 ? (
-          <p className="text-sm text-amber-300/90 flex items-center gap-2">
+          <p className="text-sm text-primary flex items-center gap-2">
             <Award className="h-4 w-4" />
             {manOfTheMatchCount} Man of the Match award{manOfTheMatchCount === 1 ? "" : "s"}
           </p>
         ) : null}
 
         {tournaments.length > 0 ? (
-          <section className="rounded-xl border border-white/10 overflow-hidden">
-            <h2 className="px-4 py-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-white/10">
+          <section className={cn(cricketCardClass, "overflow-hidden")}>
+            <h2 className={cn(cricketSectionTitleClass, "px-4 py-3 border-b border-border")}>
               Tournaments
             </h2>
             <ul>
               {tournaments.map((t) => (
-                <li key={t.id} className="px-4 py-2.5 border-b border-white/5 last:border-0 text-sm text-white">
+                <li
+                  key={t.id}
+                  className="px-4 py-2.5 border-b border-border/50 last:border-0 text-sm text-foreground"
+                >
                   {t.name}
                 </li>
               ))}
@@ -92,6 +92,6 @@ export default function CricketGlobalPlayerPage() {
           </section>
         ) : null}
       </div>
-    </div>
+    </CricketPublicShell>
   );
 }

@@ -475,7 +475,7 @@ Event store, reducer V1, mobile scorer, standings, auction squad integration, SS
 | Man of the Match awards (`scoring_player_awards`) | ✅ |
 | Share URLs + WhatsApp-friendly OG meta (cricket pages) | ✅ |
 | OpenAPI for scoring routes | ✅ |
-| Scorer shell visual refresh (IPL-grade dark theme) | ✅ |
+| Scorer shell visual refresh (BidWar auction theme + branding) | ✅ |
 
 **Exit criteria:** Fans can share tournament hub, match scorecards, and player profiles with rich previews; MoM appears on completed scorecards; scoring APIs documented in OpenAPI. **Met.**
 

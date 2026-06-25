@@ -45,7 +45,7 @@ function statusColor(status: string) {
   if (status === "live") return "text-green-400";
   if (status === "completed") return "text-muted-foreground";
   if (status === "abandoned") return "text-red-400";
-  return "text-amber-400";
+  return "text-primary";
 }
 
 export default function ScoringMatchListPage() {
@@ -206,7 +206,7 @@ export default function ScoringMatchListPage() {
             </div>
 
             {unsyncedTeams > 0 ? (
-              <p className="text-xs text-amber-400/90 px-1">
+              <p className="text-xs text-primary px-1">
                 {unsyncedTeams} team(s) not yet linked to master sports — tap Sync before scoring.
               </p>
             ) : null}
@@ -296,7 +296,7 @@ export default function ScoringMatchListPage() {
                 </Select>
               </div>
               {squadData?.squads.some((s) => !s.ready) ? (
-                <p className="text-xs text-amber-400/90">
+                <p className="text-xs text-primary">
                   Some teams have fewer than {squadData.minPlayingXi} sold/retained players — playing XI may be incomplete.
                 </p>
               ) : null}

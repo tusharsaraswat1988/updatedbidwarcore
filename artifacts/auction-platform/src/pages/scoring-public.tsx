@@ -5,10 +5,20 @@ import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import { getScoringLeaderboard, getScoringStandings } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { CircleDot } from "lucide-react";
 import { cricketMatchPublicPath, cricketTeamPublicPath } from "@/lib/tournament-navigation";
 import { ShareButtons } from "@/components/scoring/share-buttons";
+import {
+  CricketEmptyState,
+  CricketFilterPill,
+  CricketLoadingShell,
+  CricketPublicPageHeader,
+  CricketPublicShell,
+  cricketCardClass,
+  cricketEyebrowClass,
+  cricketSectionTitleClass,
+} from "@/components/scoring/cricket-page-chrome";
+import { cn } from "@/lib/utils";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 
 const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
@@ -21,7 +31,7 @@ const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: s
 function statusBadge(status: string) {
   if (status === "live") return "text-emerald-400";
   if (status === "completed") return "text-muted-foreground";
-  return "text-amber-400/90";
+  return "text-primary";
 }
 
 export default function ScoringPublicPage() {
@@ -63,43 +73,25 @@ export default function ScoringPublicPage() {
     typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/cricket` : "";
   const shareTitle = data?.tournament?.name ?? "Cricket tournament";
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1a] text-foreground">
-        <div className="max-w-3xl mx-auto p-6 space-y-4">
-          <Skeleton className="h-10 w-64 bg-white/10" />
-          <Skeleton className="h-32 w-full bg-white/10" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !data?.tournament) {
-    return (
-      <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center text-muted-foreground">
-        Tournament scoring not available.
-      </div>
-    );
-  }
+  if (isLoading) return <CricketLoadingShell lines={2} />;
+  if (error || !data?.tournament) return <CricketEmptyState message="Tournament scoring not available." />;
 
   return (
-    <div className="min-h-screen bg-[#0a0f1a] text-foreground">
-      <header className="border-b border-white/10 bg-gradient-to-b from-[#121a2e] to-transparent">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-amber-400/80 mb-2">Cricket</p>
-          <h1 className="text-3xl font-bold tracking-tight text-white">{data.tournament.name}</h1>
-          {pageUrl ? (
-            <div className="pt-3">
-              <ShareButtons url={pageUrl} shareText={`${shareTitle} — live scores & leaderboards`} compact />
-            </div>
-          ) : null}
-        </div>
-      </header>
+    <CricketPublicShell>
+      <CricketPublicPageHeader
+        eyebrow="Cricket"
+        title={data.tournament.name}
+        actions={
+          pageUrl ? (
+            <ShareButtons url={pageUrl} shareText={`${shareTitle} — live scores & leaderboards`} compact />
+          ) : null
+        }
+      />
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+      <main className="space-y-8">
         {liveMatches.length > 0 ? (
           <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-2">
+            <h2 className={cn(cricketSectionTitleClass, "mb-3 flex items-center gap-2 text-emerald-400")}>
               <CircleDot className="h-4 w-4 animate-pulse" />
               Live
             </h2>
@@ -108,9 +100,12 @@ export default function ScoringPublicPage() {
                 <li key={m.id}>
                   <Link
                     href={`/tournament/${tournamentId}/score-display`}
-                    className="block rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 hover:bg-emerald-500/10 transition-colors"
+                    className={cn(
+                      cricketCardClass,
+                      "block border-emerald-500/30 bg-emerald-500/5 px-4 py-3 hover:bg-emerald-500/10 transition-colors",
+                    )}
                   >
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                       {teamMap.get(m.homeTeamId)?.name ?? "Home"} vs{" "}
                       {teamMap.get(m.awayTeamId)?.name ?? "Away"}
                     </span>
@@ -123,9 +118,7 @@ export default function ScoringPublicPage() {
         ) : null}
 
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Matches
-          </h2>
+          <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Matches</h2>
           <ul className="space-y-2">
             {upcoming.slice(0, 8).map(
               (m: {
@@ -136,20 +129,15 @@ export default function ScoringPublicPage() {
                 roundName: string | null;
                 scheduledAt: string | null;
               }) => (
-                <li
-                  key={m.id}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
-                >
-                  <div className="font-medium text-white/95">
+                <li key={m.id} className={cn(cricketCardClass, "px-4 py-3 bg-card/50")}>
+                  <div className="font-medium text-foreground">
                     {teamMap.get(m.homeTeamId)?.name ?? "Home"} vs{" "}
                     {teamMap.get(m.awayTeamId)?.name ?? "Away"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     <span className={statusBadge(m.status)}>{m.status}</span>
                     {m.roundName ? ` · ${m.roundName}` : ""}
-                    {m.scheduledAt
-                      ? ` · ${new Date(m.scheduledAt).toLocaleString()}`
-                      : ""}
+                    {m.scheduledAt ? ` · ${new Date(m.scheduledAt).toLocaleString()}` : ""}
                   </div>
                 </li>
               ),
@@ -162,9 +150,7 @@ export default function ScoringPublicPage() {
 
         {completed.length > 0 ? (
           <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Results
-            </h2>
+            <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Results</h2>
             <ul className="space-y-2">
               {completed.slice(0, 10).map(
                 (m: {
@@ -176,16 +162,16 @@ export default function ScoringPublicPage() {
                   <li key={m.id}>
                     <Link
                       href={cricketMatchPublicPath(tournamentId, m.id)}
-                      className="block rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06] transition-colors"
+                      className={cn(cricketCardClass, "block px-4 py-3 hover:border-primary/25 transition-colors")}
                     >
-                      <div className="font-medium text-white/95">
+                      <div className="font-medium text-foreground">
                         {teamMap.get(m.homeTeamId)?.name ?? "Home"} vs{" "}
                         {teamMap.get(m.awayTeamId)?.name ?? "Away"}
                       </div>
                       {m.resultSummary ? (
                         <p className="text-xs text-muted-foreground mt-1">{m.resultSummary}</p>
                       ) : (
-                        <p className="text-xs text-amber-400/80 mt-1">View scorecard →</p>
+                        <p className={cn("text-xs mt-1", cricketEyebrowClass)}>View scorecard →</p>
                       )}
                     </Link>
                   </li>
@@ -196,23 +182,12 @@ export default function ScoringPublicPage() {
         ) : null}
 
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            Player stats
-          </h2>
+          <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Player stats</h2>
           <div className="flex flex-wrap gap-2 mb-3">
             {LEADERBOARD_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setLbTab(tab.key)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  lbTab === tab.key
-                    ? "bg-amber-500/20 text-amber-300"
-                    : "bg-white/5 text-muted-foreground hover:text-white"
-                }`}
-              >
+              <CricketFilterPill key={tab.key} active={lbTab === tab.key} onClick={() => setLbTab(tab.key)}>
                 {tab.label}
-              </button>
+              </CricketFilterPill>
             ))}
           </div>
           <LeaderboardTable
@@ -224,13 +199,11 @@ export default function ScoringPublicPage() {
 
         {standings && standings.length > 0 ? (
           <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Points table
-            </h2>
+            <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Points table</h2>
             <StandingsTable rows={standings} />
           </section>
         ) : null}
       </main>
-    </div>
+    </CricketPublicShell>
   );
 }
