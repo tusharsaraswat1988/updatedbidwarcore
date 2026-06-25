@@ -34,6 +34,11 @@ async function main() {
 
   app.get("/healthz", (_req, res) => res.json({ ok: true, mode: "local" }));
 
+  const staticDir = path.join(__dirname, "../static");
+  if (existsSync(staticDir)) {
+    app.use("/static", express.static(staticDir));
+  }
+
   app.use("/api", createAuthRouter(db));
   app.use("/api", createTournamentsRouter(db));
   app.use("/api", createTeamsRouter(db));

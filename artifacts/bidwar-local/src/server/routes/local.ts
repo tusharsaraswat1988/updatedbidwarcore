@@ -23,6 +23,8 @@ import {
   rewriteUrl,
   rewriteSponsorLogos,
   urlsFromSponsorLogos,
+  collectBrandingMediaUrls,
+  rewriteBrandingPayload,
 } from "../lib/media-bundle.js";
 
 function detectLocalLanIp(): string {
@@ -152,9 +154,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       ...players.map((player) => player.photoUrl ?? null),
     ];
     if (branding && typeof branding === "object") {
-      for (const value of Object.values(branding)) {
-        if (typeof value === "string" && /^https?:\/\//i.test(value)) mediaUrlList.push(value);
-      }
+      mediaUrlList.push(...collectBrandingMediaUrls(branding));
     }
     const mediaMap = await bundleMediaUrls(mediaDir, mediaUrlList);
     const rw = (url: string | null | undefined) => rewriteUrl(url, mediaMap);
@@ -262,10 +262,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     grantOrganizerForTournament(res, getLocalJwtUser(req), localTid);
 
     if (branding && typeof branding === "object") {
-      const brandingPayload: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(branding)) {
-        brandingPayload[key] = typeof value === "string" ? rw(value) : value;
-      }
+      const brandingPayload = rewriteBrandingPayload(branding, mediaMap);
       await saveBrandingSnapshot(db, brandingPayload);
     }
 

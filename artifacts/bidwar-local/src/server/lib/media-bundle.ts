@@ -10,7 +10,11 @@ function extFromUrl(url: string): string | null {
   try {
     const pathname = new URL(url).pathname;
     const ext = extname(pathname).toLowerCase();
-    if (/^\.(jpe?g|png|webp|gif|svg)$/.test(ext)) return ext;
+    if (/^\.(jpe?g|png|webp|gif|svg|ico)$/.test(ext)) return ext;
+    if (url.includes("res.cloudinary.com")) {
+      if (/\.svg/i.test(pathname)) return ".svg";
+      return ".png";
+    }
   } catch { /* ignore */ }
   return null;
 }
@@ -51,7 +55,7 @@ export async function bundleMediaUrls(
 
   for (const url of unique) {
     const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
-    const urlExt = extFromUrl(url) ?? ".bin";
+    const urlExt = extFromUrl(url) ?? ".png";
     const destPath = `${mediaDir}/${hash}${urlExt}`;
     const publicPath = `/media/${hash}${urlExt}`;
     if (existsSync(destPath)) {
@@ -104,4 +108,44 @@ export function urlsFromSponsorLogos(sponsorLogos: string | null | undefined): s
   } catch {
     return [];
   }
+}
+
+/** Collect remote URLs from a branding export payload (top-level + assets map). */
+export function collectBrandingMediaUrls(branding: Record<string, unknown>): string[] {
+  const urls: string[] = [];
+  for (const value of Object.values(branding)) {
+    if (typeof value === "string" && /^https?:\/\//i.test(value)) urls.push(value);
+  }
+  const assets = branding.assets;
+  if (assets && typeof assets === "object" && !Array.isArray(assets)) {
+    for (const value of Object.values(assets as Record<string, unknown>)) {
+      if (typeof value === "string" && /^https?:\/\//i.test(value)) urls.push(value);
+    }
+  }
+  return urls;
+}
+
+/** Rewrite all http(s) logo URLs in branding, including nested `assets`. */
+export function rewriteBrandingPayload(
+  branding: Record<string, unknown>,
+  map: Map<string, string>,
+): Record<string, unknown> {
+  const rw = (url: string | null | undefined) => rewriteUrl(url, map);
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(branding)) {
+    if (key === "assets" && value && typeof value === "object" && !Array.isArray(value)) {
+      const rewritten: Record<string, string> = {};
+      for (const [assetType, assetUrl] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof assetUrl === "string") {
+          rewritten[assetType] = rw(assetUrl) ?? assetUrl;
+        }
+      }
+      out.assets = rewritten;
+    } else if (typeof value === "string" && /^https?:\/\//i.test(value)) {
+      out[key] = rw(value) ?? value;
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
 }

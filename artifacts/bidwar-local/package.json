@@ -63,6 +63,7 @@
       "frontend-dist/**",
       "owner-app-dist/**",
       "renderer/**",
+      "static/**",
       "node_modules/**"
     ],
     "win": {

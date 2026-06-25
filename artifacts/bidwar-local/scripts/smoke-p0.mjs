@@ -159,6 +159,14 @@ async function main() {
     }
     pass("connection-kit deep links");
 
+    const brandRes2 = await fetchJson(`${base}/api/branding`);
+    const logoUrl = brandRes2.json?.miniLogoUrl ?? brandRes2.json?.assets?.SYMBOL_LOGO;
+    if (!brandRes2.res.ok || !logoUrl || !String(logoUrl).startsWith("/static/")) {
+      fail(`default branding logo: ${JSON.stringify(brandRes2.json)?.slice(0, 200)}`);
+      return;
+    }
+    pass("default offline branding logo");
+
     if (process.exitCode) {
       console.log("\nSome checks failed.");
     } else {
