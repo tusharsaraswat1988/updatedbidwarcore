@@ -70,4 +70,21 @@ export function invalidateIntelCacheForTournament(tournamentId: number): void {
   for (const key of memory.keys()) {
     if (key.includes(needle)) memory.delete(key);
   }
+
+  const redis = getRedisCommandClient();
+  if (!redis) return;
+
+  void (async () => {
+    try {
+      let cursor = "0";
+      const pattern = `${REDIS_PREFIX}*:${tournamentId}:*`;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+        cursor = nextCursor;
+        if (keys.length > 0) await redis.del(...keys);
+      } while (cursor !== "0");
+    } catch {
+      // Non-critical — cache entries expire within TTL
+    }
+  })();
 }

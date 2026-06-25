@@ -1032,7 +1032,7 @@ paths:
     post:
       operationId: resetTrialAuction
       tags: [auction]
-      summary: Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
+      summary: Reset all players back to available (clears bids, bid feed history, and AI intelligence logs). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
       parameters:
         - name: tournamentId
           in: path
