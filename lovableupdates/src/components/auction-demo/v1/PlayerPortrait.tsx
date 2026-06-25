@@ -1,0 +1,120 @@
+import { memo, useEffect, useState } from "react";
+import { User, UserRound } from "lucide-react";
+import type { LedView } from "@/lib/auction-demo/use-auction-state";
+
+function hasUsablePortrait(url: string | null | undefined): boolean {
+  return Boolean(url?.trim());
+}
+
+export const PlayerPortrait = memo(function PlayerPortrait({
+  view,
+}: {
+  view: LedView;
+}) {
+  const { currentPlayer, roleLabel, basePriceLabel } = view;
+  const [photoFailed, setPhotoFailed] = useState(false);
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [currentPlayer?.id, currentPlayer?.portrait]);
+
+  if (!currentPlayer) return null;
+
+  const showPhoto = hasUsablePortrait(currentPlayer.portrait) && !photoFailed;
+
+  return (
+    <div className="relative overflow-hidden bg-black/40 border border-white/10 h-full">
+      {showPhoto ? (
+        <img
+          src={currentPlayer.portrait}
+          alt={currentPlayer.name}
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          onError={() => setPhotoFailed(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white/[0.06] via-black/20 to-black/70">
+          <GenderPortraitIcon gender={currentPlayer.gender} />
+        </div>
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      <div
+        className="absolute inset-0 opacity-30 mix-blend-overlay"
+        style={{
+          background:
+            "linear-gradient(180deg, transparent 0%, transparent 60%, var(--accent-glow) 100%)",
+        }}
+      />
+
+      <div className="absolute top-3 right-3 z-10">
+        <div
+          className="size-14 grid place-items-center font-['Bebas_Neue'] text-2xl italic shadow-2xl"
+          style={{
+            backgroundColor: "var(--accent)",
+            color: "var(--accent-on)",
+          }}
+        >
+          #{currentPlayer.serialNo}
+        </div>
+      </div>
+
+      <div className="absolute inset-x-0 bottom-0 p-4 z-10">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span
+            className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+            style={{
+              backgroundColor: "var(--accent)",
+              color: "var(--accent-on)",
+            }}
+          >
+            {roleLabel}
+          </span>
+          <span className="text-white/70 text-[10px] font-mono uppercase tracking-[0.2em]">
+            {currentPlayer.city}
+          </span>
+        </div>
+
+        <h2 className="font-['Bebas_Neue'] text-[clamp(2rem,4vw,4rem)] leading-[0.9] uppercase text-white tracking-tight">
+          {currentPlayer.name}
+        </h2>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 pt-3 border-t border-white/15">
+          <Stat label="Age" value={String(currentPlayer.age)} />
+          <Stat label="Bat" value={currentPlayer.battingHand} />
+          <Stat label="Base" value={basePriceLabel} />
+        </div>
+      </div>
+
+      <div
+        className="absolute top-0 left-0 h-1 w-16"
+        style={{ backgroundColor: "var(--accent)" }}
+      />
+    </div>
+  );
+});
+
+function GenderPortraitIcon({ gender }: { gender: "male" | "female" | null }) {
+  const className =
+    "w-[clamp(5rem,18vw,9rem)] h-[clamp(5rem,18vw,9rem)] text-white/20";
+  if (gender === "female") {
+    return <UserRound className={className} strokeWidth={1.15} aria-hidden />;
+  }
+  return <User className={className} strokeWidth={1.15} aria-hidden />;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[8px] font-mono uppercase tracking-widest text-white/45">
+        {label}
+      </p>
+      <p
+        className="font-mono text-sm font-bold mt-0.5 tabular-nums"
+        style={{ color: "var(--accent)" }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}

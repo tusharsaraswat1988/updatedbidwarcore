@@ -18,6 +18,7 @@ export const brandingSettingsTable = pgTable("branding_settings", {
 
   // Visual Assets
   mainLogoUrl: text("main_logo_url"),
+  mainLogoReverseUrl: text("main_logo_reverse_url"),
   miniLogoUrl: text("mini_logo_url"),
   appIconUrl: text("app_icon_url"),
   splashScreenUrl: text("splash_screen_url"),

@@ -24,6 +24,10 @@ import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
 import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useMutationSync } from "@/hooks/use-mutation-sync";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import { useBranding } from "@/hooks/useBranding";
+import { resolveSplashLogoUrl } from "@/lib/brand-assets";
 
 type Screen = "loading" | "gate" | "warmup" | "live" | "squad" | "scout" | "completed";
 
@@ -77,6 +81,8 @@ export function OwnerRoute() {
   const pushDoneRef  = useRef(false);
 
   const [screen, setScreen] = useState<Screen>("loading");
+  const { logos, brandName, miniBrandText } = useBranding();
+  const splashSrc = resolveSplashLogoUrl(logos);
 
   // Keep the screen awake while the owner is active — critical during live bidding.
   // Released automatically when the page is hidden; re-acquired on visibility restore.
@@ -96,10 +102,11 @@ export function OwnerRoute() {
     },
   });
 
-  // Live SSE push + polling fallback for owner panels
-  useAuctionSocket(tournamentId);
+  // Live SSE push + polling fallback only when disconnected
+  const { connectionStatus } = useAuctionSocket(tournamentId);
+  const { applyMutationResult, invalidateFallback } = useMutationSync(tournamentId, connectionStatus);
 
-  const pollInterval = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
+  const pollFallbackMs = screen === "live" || screen === "squad" || screen === "scout" ? 1000 : 5000;
   const { data: state, isFetching: stateFetching, isError: stateIsError } = useGetAuctionState(tournamentId, {
     query: {
       queryKey:       getGetAuctionStateQueryKey(tournamentId),
@@ -107,7 +114,7 @@ export function OwnerRoute() {
       refetchInterval: (query) => {
         const d = query.state.data;
         if (d?.licenseStatus === "completed" || d?.status === "completed") return false;
-        return pollInterval;
+        return sseAwareRefetchInterval(connectionStatus, pollFallbackMs);
       },
     },
   });
@@ -135,7 +142,9 @@ export function OwnerRoute() {
   useEffect(() => {
     if (!team) return;
     if (!teamNeedsAccessCode(team) || isOwnerSessionVerified(teamId)) {
-      if (screen === "loading") setScreen("warmup");
+      if (screen === "loading") {
+        setScreen(isOwnerSessionVerified(teamId) ? "live" : "warmup");
+      }
     } else {
       setScreen("gate");
     }
@@ -197,14 +206,18 @@ export function OwnerRoute() {
   }
 
   const isCompleted = state?.licenseStatus === "completed" || state?.status === "completed";
+  const embeddedPurses = state?.teamPurses;
 
-  const { data: allPurses } = useGetTeamPurses(tournamentId, {
+  const { data: allPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey:       getGetTeamPursesQueryKey(tournamentId),
-      enabled:        !!tournamentId && (screen === "live" || screen === "completed"),
-      refetchInterval: isCompleted ? false : 10000,
+      enabled:        !!tournamentId && (screen === "live" || screen === "completed") && !embeddedPurses?.length,
+      refetchInterval: isCompleted
+        ? false
+        : sseAwareRefetchInterval(connectionStatus, 10000),
     },
   });
+  const allPurses = embeddedPurses ?? allPursesFromQuery;
 
   const placeBid = usePlaceBid();
   const [lastBidError, setLastBidError] = useState("");
@@ -226,11 +239,11 @@ export function OwnerRoute() {
   async function handleBid(amount: number): Promise<"success" | "leading" | "error"> {
     try {
       const storedCode = getStoredOwnerAccessCode(teamId);
-      await placeBid.mutateAsync({
+      const result = await placeBid.mutateAsync({
         tournamentId,
         data: { teamId, amount, ...(storedCode ? { accessCode: storedCode } : {}) },
       });
-      qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+      applyMutationResult(result);
       setLastBidError("");
       return "success";
     } catch (err: unknown) {
@@ -238,7 +251,7 @@ export function OwnerRoute() {
       const display = msg || "Bid failed. Please try again.";
       setLastBidError(display);
       if (msg.includes("already the highest bidder")) {
-        qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+        invalidateFallback();
         return "leading";
       }
       return "error";
@@ -248,7 +261,16 @@ export function OwnerRoute() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (screen === "loading" || !team) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#09090b]">
+      <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-6">
+        {splashSrc ? (
+          <img src={splashSrc} alt={brandName} className="h-16 w-auto max-w-[240px] object-contain" />
+        ) : logos.mini ? (
+          <img src={logos.mini} alt={brandName} className="h-10 w-auto" />
+        ) : (
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
+            {miniBrandText}
+          </div>
+        )}
         <div className="w-8 h-8 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -325,7 +347,8 @@ export function OwnerRoute() {
       tournament={tournament ?? null}
       teamPurse={teamPurse ?? null}
       teamId={teamId}
-      isFetching={stateFetching}
+      tournamentId={tournamentId}
+      connectionStatus={connectionStatus}
       bidErrorMsg={lastBidError}
       onBid={handleBid}
       onViewSquad={handleViewSquad}

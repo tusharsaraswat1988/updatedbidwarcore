@@ -3,11 +3,9 @@
  * Expects API on VERIFY_API_URL (default http://127.0.0.1:8080) and
  * frontend on VERIFY_FRONTEND_URL (default http://127.0.0.1:FRONTEND_PORT).
  */
-import { config } from "dotenv";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { loadAppEnv } from "@workspace/db/load-app-env";
 
-config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env") });
+loadAppEnv({ nodeEnv: "development" });
 import { isDevLocalhostOrigin } from "@workspace/api-base/dev-cors";
 import {
   API_PREFIX,
@@ -163,6 +161,24 @@ async function main(): Promise<void> {
     );
   }
   pass(`Frontend proxies /owner-app → owner-app (${frontBase})`);
+
+  const ownerJoin = await fetchOk(
+    `${frontBase}/owner-app/join?tournamentId=5&teamId=4`,
+  );
+  if (!ownerJoin.ok || !ownerJoin.text.includes("BidWar Owner")) {
+    fail(
+      `Owner join route failed at ${frontBase}/owner-app/join — start full dev stack with \`pnpm dev\` (owner-app on port ${ownerPort}). ${ownerJoin.status} ${ownerJoin.text.slice(0, 160)}`,
+    );
+  }
+  if (
+    !ownerJoin.text.includes("/owner-app/src/main.tsx") &&
+    !ownerJoin.text.includes("/owner-app/@vite/client")
+  ) {
+    fail(
+      `Owner join HTML at ${frontBase}/owner-app/join is missing /owner-app asset prefixes — blank page likely. Restart auction-platform after pulling vite-proxy changes.`,
+    );
+  }
+  pass(`Frontend /owner-app/join?tournamentId=&teamId=`);
 
   const ownerRoot = await fetchOk(`${ownerBase}/owner-app/`);
   if (!ownerRoot.ok || !ownerRoot.text.includes("root")) {

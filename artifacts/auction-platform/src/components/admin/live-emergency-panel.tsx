@@ -221,12 +221,12 @@ export function LiveEmergencyPanel({
               </Button>
             </div>
           )}
-          {t.sport === "cricket" && (
+          {(t.sport === "cricket" || t.sport === "badminton") && (
             <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/10 px-3 py-2 sm:w-auto">
               <div className="text-xs text-muted-foreground">
                 Match scoring:{" "}
                 <span className={t.scoringEnabled ? "font-semibold text-primary" : "font-semibold text-white"}>
-                  {t.scoringEnabled ? "Enabled (testing)" : "Disabled"}
+                  {t.scoringEnabled ? "Enabled" : "Disabled"}
                 </span>
               </div>
               <Button
@@ -289,7 +289,7 @@ export function LiveEmergencyPanel({
             <DialogTitle className="text-red-400">Reset auction data</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This clears bids, player sales, and auction progress for <strong className="text-white">{t.name}</strong>.
+            This clears bids, bid feed history, AI intelligence data, player sales, and auction progress for <strong className="text-white">{t.name}</strong>.
             Enter your super admin password to confirm.
           </p>
           <Input

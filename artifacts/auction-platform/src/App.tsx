@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +7,14 @@ import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { PageTracking } from "@/components/page-tracking";
-import { BadmintonFeatureGuard } from "@/components/badminton-feature-guard";
+import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
+import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
+import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
+import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
+import { setOperatorPinGetter } from "@workspace/api-client-react";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
+import { resolveLocalOperatorPin } from "@/lib/local-operator-pin";
+import { LocalVenueGate } from "@/components/local-venue-gate";
 
 import Landing from "@/pages/landing";
 
@@ -20,11 +27,13 @@ const Players = lazy(() => import("@/pages/players"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const AuctionReset = lazy(() => import("@/pages/auction-reset"));
 const DisplayView = lazy(() => import("@/pages/display"));
+const SideDisplayView = lazy(() => import("@/pages/side-display"));
 import { RedirectToOwnerApp } from "@/components/redirect-to-owner-app";
 const Reports = lazy(() => import("@/pages/reports"));
 const LinksPage = lazy(() => import("@/pages/links"));
 const FortuneWheel = lazy(() => import("@/pages/fortune-wheel"));
 const PlayerRegister = lazy(() => import("@/pages/player-register"));
+const PlayerRegisterLegacy = lazy(() => import("@/pages/player-register-legacy"));
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
@@ -37,6 +46,7 @@ const AdminTournamentDetail = lazy(() => import("@/pages/admin-tournament-detail
 const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
+const ObsOverlayPreview = lazy(() => import("@/pages/obs-overlay-preview"));
 const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
@@ -45,12 +55,16 @@ const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
 const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
+const AdminCreativeAssets = lazy(() => import("@/pages/admin-creative-assets"));
+const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
 const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
+const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
+const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -60,12 +74,26 @@ const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
+const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+
+// Blog
+const BlogIndex    = lazy(() => import("@/pages/blog/index"));
+const BlogArticle  = lazy(() => import("@/pages/blog/article"));
+const BlogCategory = lazy(() => import("@/pages/blog/category"));
+const BlogTag      = lazy(() => import("@/pages/blog/tag"));
+const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
 
 // Badminton Tournament System
 const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
 const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
 const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
+const BadmintonMatchControlPage = lazy(() => import("@/pages/badminton/match-control"));
+const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
+const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
+const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
+const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
+const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
 const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
 const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
@@ -79,36 +107,98 @@ const queryClient = new QueryClient({
   },
 });
 
+function LocalOperatorPinEffects() {
+  useEffect(() => {
+    if (!isBidWarLocalHost()) return;
+    setOperatorPinGetter(() => resolveLocalOperatorPin());
+    return () => setOperatorPinGetter(null);
+  }, []);
+  return null;
+}
+
 function BrandingEffects() {
   const { logos, brandName } = useBranding();
+  const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
 
   useEffect(() => {
-    if (logos.appIcon) {
-      const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-      if (icon) icon.href = logos.appIcon;
-      if (apple) apple.href = logos.appIcon;
-    }
+    applyPwaHeadBranding(logos, "/site.webmanifest");
+
+    const faviconSrc = getBrandLogoSrc(logos, ["favicon", "appIcon", "pwaIcon", "mini", "main"]) || BRAND_ICON_PLACEHOLDER;
+    const appleSrc = resolvePwaIconUrl(logos) || faviconSrc;
+
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
+      link.href = faviconSrc;
+    });
+    document.querySelectorAll<HTMLLinkElement>('link[rel="apple-touch-icon"]').forEach((link) => {
+      link.href = appleSrc;
+    });
+
     if (brandName && brandName !== "BidWar") {
       document.title = document.title.replace(/BidWar/g, brandName);
     }
-  }, [logos.appIcon, brandName]);
+  }, [logos.favicon, logos.appleTouchIcon, logos.pwaIcon, logos.appIcon, logos.mini, logos.main, brandName]);
+
+  useEffect(() => {
+    const ogImage = logos.openGraph;
+    if (!ogImage) return;
+
+    function setMeta(selector: string, attr: string, content: string) {
+      let el = document.querySelector<HTMLMetaElement>(selector);
+      if (!el) {
+        el = document.createElement("meta");
+        const [k, v] = attr.split("=");
+        el.setAttribute(k, v);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", content);
+    }
+
+    setMeta('meta[property="og:image"]', "property=og:image", ogImage);
+    setMeta('meta[name="twitter:image"]', "name=twitter:image", ogImage);
+  }, [logos.openGraph]);
+
+  useEffect(() => {
+    const selector = 'meta[name="google-site-verification"]';
+    let tag = document.querySelector<HTMLMetaElement>(selector);
+
+    if (!googleSiteVerification) {
+      if (tag) tag.remove();
+      return;
+    }
+
+    if (!tag) {
+      tag = document.createElement("meta");
+      tag.setAttribute("name", "google-site-verification");
+      document.head.appendChild(tag);
+    }
+    tag.setAttribute("content", googleSiteVerification);
+  }, [googleSiteVerification]);
 
   return null;
 }
 
+function RouteSuspenseFallback() {
+  const [location] = useLocation();
+  const className = isBadmintonOrganizerPath(location)
+    ? BADMINTON_ROUTE_LOADING_CLASS
+    : "min-h-screen bg-background";
+  return <div className={className} aria-busy="true" />;
+}
+
 function Router() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
         {/* Public routes */}
         <Route path="/" component={Landing} />
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
+        <Route path="/auction-tips" component={AuctionTipsPage} />
         <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/tournament/:id/display" component={DisplayView} />
+        <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
         {/* Public live viewer — no auction code gate; share /live/:id with fans */}
         <Route path="/live/:id" component={LiveViewer} />
@@ -122,18 +212,20 @@ function Router() {
           }}
         </Route>
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
-        <Route path="/tournament/:id/register" component={PlayerRegister} />
+        <Route path="/register/:code" component={PlayerRegister} />
+        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
+        <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 
         {/* Badminton — public scoreboard / display / overlay pages (feature-flagged) */}
         <Route path="/badminton/:matchId/score">
-          {() => <BadmintonFeatureGuard><BadmintonScorerPage /></BadmintonFeatureGuard>}
+          {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
         </Route>
         <Route path="/badminton/:matchId/display">
-          {() => <BadmintonFeatureGuard><BadmintonDisplayPage /></BadmintonFeatureGuard>}
+          {() => <ScoringFeatureGuard><BadmintonDisplayPage /></ScoringFeatureGuard>}
         </Route>
         <Route path="/badminton/:matchId/overlay">
-          {() => <BadmintonFeatureGuard><BadmintonOverlayPage /></BadmintonFeatureGuard>}
+          {() => <ScoringFeatureGuard><BadmintonOverlayPage /></ScoringFeatureGuard>}
         </Route>
         <Route path="/tournament/:id/owner/:teamId">
           {(params) => (
@@ -180,13 +272,16 @@ function Router() {
         <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
+        <Route path="/admin/creative-assets" component={AdminCreativeAssets} />
         <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
         <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
         <Route path="/admin/settings/system/builds" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/default-audio" component={AdminSystemPage} />
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
+        <Route path="/admin/buzz-studio-dev" component={BuzzStudioDevPage} />
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
         <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>
@@ -197,7 +292,23 @@ function Router() {
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/organizer" component={OrganizerPortal} />
         <Route path="/organizer/profile" component={OrganizerProfile} />
+        <Route path="/legal">{() => <Redirect to="/legal/terms" />}</Route>
         <Route path="/legal/:slug" component={LegalPage} />
+
+        {/* Blog */}
+        <Route path="/blog" component={BlogIndex} />
+        <Route path="/blog/category/:slug">
+          {(params) => <BlogCategory slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/tag/:slug">
+          {(params) => <BlogTag slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/author/:slug">
+          {(params) => <BlogAuthor slug={params?.slug ?? ""} />}
+        </Route>
+        <Route path="/blog/:slug">
+          {(params) => <BlogArticle slug={params?.slug ?? ""} />}
+        </Route>
 
         {/* SEO landing pages */}
         <Route path="/cricket-auction-software">{() => <SeoSportLanding slug="cricket-auction-software" />}</Route>
@@ -207,6 +318,14 @@ function Router() {
         <Route path="/business-league-auction">{() => <SeoSportLanding slug="business-league-auction" />}</Route>
         <Route path="/live-player-bidding">{() => <SeoSportLanding slug="live-player-bidding" />}</Route>
         <Route path="/tournament-auction-platform">{() => <SeoSportLanding slug="tournament-auction-platform" />}</Route>
+        <Route path="/basketball-auction-software">{() => <SeoSportLanding slug="basketball-auction-software" />}</Route>
+        <Route path="/badminton-auction-platform">{() => <SeoSportLanding slug="badminton-auction-platform" />}</Route>
+        <Route path="/volleyball-player-auction">{() => <SeoSportLanding slug="volleyball-player-auction" />}</Route>
+        <Route path="/sports-auction-software">{() => <SeoSportLanding slug="sports-auction-software" />}</Route>
+        <Route path="/franchise-auction-software">{() => <SeoSportLanding slug="franchise-auction-software" />}</Route>
+        <Route path="/player-auction-software">{() => <SeoSportLanding slug="player-auction-software" />}</Route>
+        <Route path="/sports-league-management-software">{() => <SeoSportLanding slug="sports-league-management-software" />}</Route>
+        <Route path="/badminton-scoring-software">{() => <SeoSportLanding slug="badminton-scoring-software" />}</Route>
 
         {/* Organizer-protected routes */}
         <Route path="/tournament/:id">
@@ -287,24 +406,72 @@ function Router() {
             return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
           }}
         </Route>
-        <Route path="/tournament/:id/cricket/match/:matchId" component={ScoringMatchPublic} />
-        <Route path="/tournament/:id/cricket" component={ScoringPublic} />
+        <Route path="/tournament/:id/media-center/:templateId">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/media-center">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/organizer/media-center/:id/:templateId">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/organizer/media-center/:id">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/cricket/match/:matchId">
+          {() => (
+            <ScoringFeatureGuard>
+              <ScoringMatchPublic />
+            </ScoringFeatureGuard>
+          )}
+        </Route>
+        <Route path="/tournament/:id/cricket">
+          {() => (
+            <ScoringFeatureGuard>
+              <ScoringPublic />
+            </ScoringFeatureGuard>
+          )}
+        </Route>
         <Route path="/tournament/:id/score/schedule">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><ScoringSchedule /></OrganizerGuard>;
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><ScoringSchedule /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
           }}
         </Route>
         <Route path="/tournament/:id/score/:matchId">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><ScoringMatch /></OrganizerGuard>;
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><ScoringMatch /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
           }}
         </Route>
         <Route path="/tournament/:id/score">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><ScoringMatchList /></OrganizerGuard>;
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><ScoringMatchList /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
           }}
         </Route>
 
@@ -313,9 +480,9 @@ function Router() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return (
-              <BadmintonFeatureGuard>
+              <ScoringFeatureGuard>
                 <OrganizerGuard tournamentId={tid}><BadmintonPlayersPage /></OrganizerGuard>
-              </BadmintonFeatureGuard>
+              </ScoringFeatureGuard>
             );
           }}
         </Route>
@@ -323,9 +490,69 @@ function Router() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return (
-              <BadmintonFeatureGuard>
+              <ScoringFeatureGuard>
                 <OrganizerGuard tournamentId={tid}><BadmintonMatchesPage /></OrganizerGuard>
-              </BadmintonFeatureGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/matches/:matchId/control">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonMatchControlPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/courts">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonCourtsPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/categories">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonCategoriesPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/analytics">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonAnalyticsPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/branding">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonBrandingPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
+            );
+          }}
+        </Route>
+        <Route path="/tournament/:id/badminton/broadcast">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return (
+              <ScoringFeatureGuard>
+                <OrganizerGuard tournamentId={tid}><BadmintonBroadcastPage /></OrganizerGuard>
+              </ScoringFeatureGuard>
             );
           }}
         </Route>
@@ -333,9 +560,9 @@ function Router() {
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return (
-              <BadmintonFeatureGuard>
+              <ScoringFeatureGuard>
                 <OrganizerGuard tournamentId={tid}><BadmintonTournamentHub /></OrganizerGuard>
-              </BadmintonFeatureGuard>
+              </ScoringFeatureGuard>
             );
           }}
         </Route>
@@ -352,8 +579,11 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <BrandingEffects />
+          <LocalOperatorPinEffects />
           <PageTracking />
-          <Router />
+          <LocalVenueGate>
+            <Router />
+          </LocalVenueGate>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

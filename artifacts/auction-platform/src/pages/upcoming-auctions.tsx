@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import { MapPin, Users, Calendar, IndianRupee, ArrowLeft, Trophy } from "lucide-react";
+import { MapPin, Users, Calendar, IndianRupee, Trophy } from "lucide-react";
 import {
   formatDate,
   formatPurse,
@@ -10,6 +10,7 @@ import {
   type UpcomingTournament,
 } from "@/data/upcoming-auctions";
 import type { DisplayAuction } from "@/lib/auth";
+import { PublicNavbar } from "@/components/public-navbar";
 
 // ─── Adapter ──────────────────────────────────────────────────────────────────
 
@@ -179,7 +180,7 @@ function TournamentCard({ t }: { t: UpcomingTournament }) {
 
 export default function UpcomingAuctions() {
   const [, navigate] = useLocation();
-  const { logos, brandName } = useBranding();
+  const { brandName } = useBranding();
   const [items, setItems] = useState<UpcomingTournament[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -194,36 +195,11 @@ export default function UpcomingAuctions() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white">
+    <div className="min-h-screen bg-[#09090b] text-white pt-16">
       <title>Upcoming Auctions | {brandName}</title>
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#09090b]/90 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Back</span>
-            </button>
-            <div className="w-px h-5 bg-white/10" />
-            <div className="flex items-center gap-2.5">
-              <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-8 w-auto" />
-              <span className="font-display font-black text-lg tracking-tight text-white hidden sm:block">
-                {brandName.toUpperCase()}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/organizer")}
-            className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-colors"
-          >
-            Get Started
-          </button>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* Header */}
       <section className="relative py-14 px-6 overflow-hidden">

@@ -6,6 +6,35 @@ import { z } from "zod";
 
 const router = Router();
 
+const DEFAULT_SPORTS = [
+  { name: "Cricket", slug: "cricket" },
+  { name: "Football", slug: "football" },
+  { name: "Kabaddi", slug: "kabaddi" },
+  { name: "Badminton", slug: "badminton" },
+  { name: "Volleyball", slug: "volleyball" },
+  { name: "E-Sports", slug: "esports" },
+  { name: "Other", slug: "other" },
+] as const;
+
+export function slugifySportName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "other";
+}
+
+/** Resolve active sport id from slug — used when linking tournaments to master sports. */
+export async function resolveSportIdBySlug(slug: string): Promise<number | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const [sport] = await db
+    .select({ id: sportsTable.id })
+    .from(sportsTable)
+    .where(and(eq(sportsTable.slug, normalized), eq(sportsTable.active, true)));
+  return sport?.id ?? null;
+}
+
 // ─── GET /sports ─────────────────────────────────────────────────────────────
 // List all active sports (public — used by registration forms, tournament creation)
 router.get("/sports", async (_req, res) => {
@@ -14,6 +43,12 @@ router.get("/sports", async (_req, res) => {
     .from(sportsTable)
     .where(eq(sportsTable.active, true))
     .orderBy(sportsTable.name);
+
+  if (sports.length === 0) {
+    res.json([...DEFAULT_SPORTS]);
+    return;
+  }
+
   res.json(sports);
 });
 
@@ -77,6 +112,31 @@ router.get("/sports/roles/:roleId/specs", async (req, res) => {
   res.json(groupsWithOptions);
 });
 
+// ─── Admin: POST /auth/admin/sports ───────────────────────────────────────────
+router.post("/auth/admin/sports", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const schema = z.object({
+    name: z.string().min(1).max(80),
+    slug: z.string().min(1).max(40).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+  const slug = (parsed.data.slug ?? slugifySportName(parsed.data.name)).toLowerCase();
+  const existing = await db
+    .select({ id: sportsTable.id })
+    .from(sportsTable)
+    .where(eq(sportsTable.slug, slug));
+  if (existing.length > 0) {
+    res.status(409).json({ error: "A sport with this slug already exists" });
+    return;
+  }
+  const [sport] = await db
+    .insert(sportsTable)
+    .values({ name: parsed.data.name.trim(), slug })
+    .returning();
+  res.status(201).json(sport);
+});
+
 // ─── Admin: PATCH /auth/admin/sports/:sportId ─────────────────────────────────
 router.patch("/auth/admin/sports/:sportId", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
@@ -92,6 +152,20 @@ router.patch("/auth/admin/sports/:sportId", async (req, res) => {
     .returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
+});
+
+// ─── Admin: DELETE /auth/admin/sports/:sportId ────────────────────────────────
+router.delete("/auth/admin/sports/:sportId", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const sportId = parseInt(req.params.sportId);
+  if (isNaN(sportId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [updated] = await db
+    .update(sportsTable)
+    .set({ active: false })
+    .where(eq(sportsTable.id, sportId))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ ok: true });
 });
 
 // ─── Admin: POST /auth/admin/sports/:sportId/roles ────────────────────────────
@@ -213,6 +287,62 @@ router.delete("/auth/admin/sport-roles/:roleId", async (req, res) => {
   const roleId = parseInt(req.params.roleId);
   if (isNaN(roleId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.update(sportRolesTable).set({ active: false }).where(eq(sportRolesTable.id, roleId));
+  res.json({ ok: true });
+});
+
+const reorderSchema = z.object({ ids: z.array(z.number().int().positive()) });
+
+// ─── Admin: POST /auth/admin/sports/:sportId/roles/reorder ───────────────────
+router.post("/auth/admin/sports/:sportId/roles/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const sportId = parseInt(req.params.sportId);
+  if (isNaN(sportId)) { res.status(400).json({ error: "Invalid sport ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(sportRolesTable)
+        .set({ displayOrder: i })
+        .where(and(eq(sportRolesTable.id, id), eq(sportRolesTable.sportId, sportId))),
+    ),
+  );
+  res.json({ ok: true });
+});
+
+// ─── Admin: POST /auth/admin/sport-roles/:roleId/spec-groups/reorder ─────────
+router.post("/auth/admin/sport-roles/:roleId/spec-groups/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const roleId = parseInt(req.params.roleId);
+  if (isNaN(roleId)) { res.status(400).json({ error: "Invalid role ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(roleSpecGroupsTable)
+        .set({ displayOrder: i })
+        .where(and(eq(roleSpecGroupsTable.id, id), eq(roleSpecGroupsTable.roleId, roleId))),
+    ),
+  );
+  res.json({ ok: true });
+});
+
+// ─── Admin: POST /auth/admin/spec-groups/:groupId/options/reorder ────────────
+router.post("/auth/admin/spec-groups/:groupId/options/reorder", async (req, res) => {
+  if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+  const groupId = parseInt(req.params.groupId);
+  if (isNaN(groupId)) { res.status(400).json({ error: "Invalid group ID" }); return; }
+  const parsed = reorderSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid ids" }); return; }
+  await Promise.all(
+    parsed.data.ids.map((id, i) =>
+      db
+        .update(roleSpecOptionsTable)
+        .set({ displayOrder: i })
+        .where(and(eq(roleSpecOptionsTable.id, id), eq(roleSpecOptionsTable.groupId, groupId))),
+    ),
+  );
   res.json({ ok: true });
 });
 

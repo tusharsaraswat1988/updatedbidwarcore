@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { LocalDb } from "@workspace/db-local";
-import { categoriesTable } from "@workspace/db-local";
+import { categoriesTable, playersTable } from "@workspace/db-local";
 
 const catToJson = (c: typeof categoriesTable.$inferSelect) => ({
   id: c.id, tournamentId: c.tournamentId, name: c.name, minBid: c.minBid,
@@ -67,6 +67,26 @@ export function createCategoriesRouter(db: LocalDb) {
     const tid = parseInt(req.params.tournamentId);
     const catId = parseInt(req.params.categoryId);
     if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [existing] = await db.select({ id: categoriesTable.id })
+      .from(categoriesTable)
+      .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+    const [{ assignedCount }] = await db
+      .select({ assignedCount: sql<number>`cast(count(*) as int)` })
+      .from(playersTable)
+      .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.categoryId, catId)));
+
+    if (assignedCount > 0) {
+      res.status(409).json({
+        error: "This category is assigned to players and cannot be deleted. Reassign or remove those players first.",
+        code: "CATEGORY_HAS_PLAYERS",
+        playerCount: assignedCount,
+      });
+      return;
+    }
+
     await db.delete(categoriesTable)
       .where(and(eq(categoriesTable.id, catId), eq(categoriesTable.tournamentId, tid)));
     res.status(204).send();

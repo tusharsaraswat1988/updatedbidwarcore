@@ -12,6 +12,8 @@ import {
   Play, RefreshCw, ExternalLink, Circle, Laptop, Router,
   Smartphone, Monitor, QrCode, Package, FolderOpen, Activity,
 } from "lucide-react";
+import { LocalConnectionKit } from "@/components/local-connection-kit";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 // ─── Step completion helpers ──────────────────────────────────────────────────
 
@@ -165,8 +167,8 @@ function CloudSyncStatus({ tournamentId }: CloudSyncStatusProps) {
     if (!auctionState?.status) return "Not yet started";
     const map: Record<string, string> = {
       idle: "Waiting to start",
-      active: "Live — syncing",
-      paused: "Paused",
+      active: "Live at venue",
+      paused: "Paused at venue",
       completed: "Auction complete",
     };
     return map[auctionState.status] ?? "Connected";
@@ -211,8 +213,9 @@ function CloudSyncStatus({ tournamentId }: CloudSyncStatusProps) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        While BidWar Local is running, every bid and player sale is automatically sent to this page in real time —
-        so your big screen and any online viewers stay in sync with what is happening at the venue.
+        While BidWar Local is running, auction display state is mirrored to the cloud when internet is available —
+        so online viewers and the cloud display can follow the venue. Final player results and purses are pushed
+        separately with &quot;Sync to Cloud&quot; after the auction ends.
       </p>
     </div>
   );
@@ -500,15 +503,21 @@ export default function LocalModePage() {
           <p className="text-sm text-muted-foreground">
             All devices — owner phones, the big display screen, and the auction computer — must be on
             the <strong className="text-foreground">same Wi-Fi network</strong>.
-            BidWar Local will show you a QR code to make connecting easy.
+            {isBidWarLocalHost()
+              ? " Use the connection kit below — scan a QR code or copy the link for each role."
+              : " After import, BidWar Local shows a Connection Kit with QR codes for each device."}
           </p>
 
-          <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
-            <li>On the auction computer, open <strong className="text-foreground">BidWar Local</strong>.</li>
-            <li>You will see a <strong className="text-foreground">QR code</strong> on screen.</li>
-            <li>Each team owner scans the QR code with their phone or tablet to open the bidding screen.</li>
-            <li>The big display screen opens the link shown below the QR code in a browser, then goes full-screen.</li>
-          </ol>
+          {isBidWarLocalHost() ? (
+            <LocalConnectionKit tournamentId={tournamentId} />
+          ) : (
+            <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
+              <li>On the auction computer, open <strong className="text-foreground">BidWar Local</strong>.</li>
+              <li>Open the <strong className="text-foreground">Connection Kit</strong> after importing your tournament.</li>
+              <li>Each team owner scans their team&apos;s QR code to open the bidding screen.</li>
+              <li>The big display scans or opens the <strong className="text-foreground">LED Display</strong> link, then goes full-screen.</li>
+            </ol>
+          )}
 
           <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded border border-border/40">
             <QrCode className="w-4 h-4 text-cyan-400 flex-shrink-0" />

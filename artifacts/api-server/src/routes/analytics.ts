@@ -8,7 +8,7 @@ import {
   tournamentsTable,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { computeAllTeamPurseProtections } from "../lib/purse-protection";
+import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
 
 const router = Router();
 
@@ -80,81 +80,7 @@ router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
 router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-
-  const [tournamentRow] = await db
-    .select({ minimumSquadSize: tournamentsTable.minimumSquadSize })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tid));
-
-  const teams = await db
-    .select()
-    .from(teamsTable)
-    .where(eq(teamsTable.tournamentId, tid))
-    .orderBy(teamsTable.name);
-
-  const players = await db
-    .select()
-    .from(playersTable)
-    .where(eq(playersTable.tournamentId, tid));
-
-  const protections = await computeAllTeamPurseProtections(tid, teams);
-
-  const result = teams.map((team) => {
-    const teamSoldRetained = players.filter(
-      (p) => p.teamId === team.id && (p.status === "sold" || p.status === "retained")
-    );
-    // Non-playing members are shown in the roster but not counted as squad slots
-    const playersBought = teamSoldRetained.filter((p) => !p.isNonPlayingMember).length;
-    const retainedCount = players.filter(
-      (p) => p.teamId === team.id && p.status === "retained"
-    ).length;
-
-    // Highest-paid player for this team — compare soldPrice (sold) vs retainedPrice (retained)
-    const topPlayer = teamSoldRetained.reduce<typeof teamSoldRetained[0] | null>(
-      (best, p) => {
-        const pAmt = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
-        const bAmt = best
-          ? (best.status === "retained" ? (best.retainedPrice ?? 0) : (best.soldPrice ?? 0))
-          : -1;
-        return pAmt > bAmt ? p : best;
-      },
-      null
-    );
-
-    const p = protections.get(team.id);
-    const originalPurse = p?.originalPurse ?? team.purse;
-    const boosterTotal = p?.boosterTotal ?? 0;
-    const effectiveCapacity = p?.effectiveCapacity ?? team.purse;
-    const purseRemaining = p?.purseRemaining ?? (effectiveCapacity - team.purseUsed);
-    return {
-      teamId: team.id,
-      teamName: team.name,
-      shortCode: team.shortCode,
-      ownerName: team.ownerName,
-      color: team.color,
-      logoUrl: team.logoUrl,
-      originalPurse,
-      boosterTotal,
-      effectiveCapacity,
-      purse: effectiveCapacity,
-      purseUsed: team.purseUsed,
-      purseRemaining,
-      playersBought,
-      retainedCount,
-      reservePurse: p?.reservePurse ?? 0,
-      spendablePurse: p?.spendablePurse ?? purseRemaining,
-      slotsRequired: p?.slotsRequired ?? 0,
-      lowestBasePrice: p?.lowestBasePrice ?? 0,
-      minimumSquadSize: tournamentRow?.minimumSquadSize ?? 0,
-      maximumSquadSize: p?.maximumSquadSize ?? 0,
-      topPlayerName: topPlayer?.name ?? null,
-      topPlayerAmount: topPlayer
-        ? (topPlayer.status === "retained" ? (topPlayer.retainedPrice ?? null) : (topPlayer.soldPrice ?? null))
-        : null,
-    };
-  });
-
-  res.json(result);
+  res.json(await buildTeamPurseSnapshot(tid));
 });
 
 // GET top bids

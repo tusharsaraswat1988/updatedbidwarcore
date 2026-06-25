@@ -5,10 +5,16 @@ import {
   Gavel, Monitor, Smartphone, Users, Radio, Zap, Check,
   ArrowRight, ChevronDown, Plus, Star, Cloud, Wifi,
   ShieldCheck, Clock, ChevronRight, Trophy, BarChart3, Tv,
-  X, MessageCircle, Phone,
+  X, MessageCircle, Phone, CircleDot,
 } from "lucide-react";
 import { SeoHead } from "@/components/seo-head";
 import { SportLandingSchemaMarkup } from "@/components/schema-markup";
+import { PublicNavbar } from "@/components/public-navbar";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +54,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "cricket-auction-software": {
     title: "Cricket Auction Software | IPL-Style Player Auction Platform — BidWar",
     description: "Run professional cricket player auctions with BidWar — IPL-style categories, team purse limits, LED broadcast display, and mobile owner panels. Free trial for 2 teams. No credit card.",
-    canonical: "https://www.bidwar.in/cricket-auction-software",
+    canonical: "https://bidwar.in/cricket-auction-software",
     eyebrow: "Cricket Auction Software",
     h1: <>IPL-Style <span className="text-primary">Cricket Auction</span> Software for Local Leagues</>,
     subheading: "Run franchise cricket player auctions the way the IPL does — player categories, team purse limits, real-time mobile bidding, and a broadcast-quality LED display that has the whole room on its feet.",
@@ -131,7 +137,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "football-player-auction": {
     title: "Football Player Auction Software | Live Franchise Bidding — BidWar",
     description: "Run live football player auctions with BidWar — position-based categories, team budgets, mobile owner panels, and broadcast LED display. Free trial available. No credit card.",
-    canonical: "https://www.bidwar.in/football-player-auction",
+    canonical: "https://bidwar.in/football-player-auction",
     eyebrow: "Football Player Auction",
     h1: <>Football Player <span className="text-primary">Auction Software</span> for Franchise Leagues</>,
     subheading: "Conduct live football franchise player auctions with real-time bidding, position-based categories, team budget management, and a broadcast display — from local 5-a-side leagues to full ISL-style championships.",
@@ -215,7 +221,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "kabaddi-auction-platform": {
     title: "Kabaddi Auction Platform | PKL-Style Player Bidding — BidWar",
     description: "Professional kabaddi auction platform for PKL-style franchise leagues. Raider, defender, and all-rounder categories, live bidding, LED broadcast display, and team owner mobile panels. Free trial.",
-    canonical: "https://www.bidwar.in/kabaddi-auction-platform",
+    canonical: "https://bidwar.in/kabaddi-auction-platform",
     eyebrow: "Kabaddi Auction Platform",
     h1: <>Kabaddi Auction Platform for <span className="text-primary">PKL-Style</span> Franchise Leagues</>,
     subheading: "Run professional kabaddi franchise auctions inspired by the Pro Kabaddi League — raider, defender, and all-rounder categories, team purse management, and a live broadcast display that electrifies your audience.",
@@ -299,7 +305,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "esports-auction-system": {
     title: "Esports Auction System | Live Gaming Team Draft Platform — BidWar",
     description: "Professional esports player auction and team draft system. Role-based categories, real-time bidding, team manager panels, and live display for BGMI, Valorant, CS2 and college esports leagues.",
-    canonical: "https://www.bidwar.in/esports-auction-system",
+    canonical: "https://bidwar.in/esports-auction-system",
     eyebrow: "Esports Auction System",
     h1: <>Esports Auction System for <span className="text-primary">Franchise Drafts</span> and Player Bidding</>,
     subheading: "Run professional esports franchise player auctions with role-based categories — IGL, entry fragger, support, AWPer — real-time bidding from team managers, and a live display screen for your LAN or online event.",
@@ -383,7 +389,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "business-league-auction": {
     title: "Business Sports League Auction Software | Corporate Cricket & Football — BidWar",
     description: "Run professional corporate sports franchise auctions with BidWar — sponsor branding, Broadcast Overlay, mobile bidding, and LED display. For cricket, football, and kabaddi business leagues.",
-    canonical: "https://www.bidwar.in/business-league-auction",
+    canonical: "https://bidwar.in/business-league-auction",
     eyebrow: "Business Sports League Auction",
     h1: <>Business Sports League <span className="text-primary">Auction Software</span> for Corporate Events</>,
     subheading: "Transform your corporate sports day into a professional franchise auction event — sponsor branding on the display screen, mobile bidding for executives, YouTube Live streaming overlay, and real-time analytics.",
@@ -403,7 +409,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
 
     howItWorks: [
       { n: 1, title: "Create your corporate tournament", desc: "Set up the event with your company or association name, add department or company teams with franchise names and logos, and configure their starting budgets. For corporate events, budgets are often symbolic (play money) rather than real rupees — both modes work." },
-      { n: 2, title: "Add players and sponsor branding", desc: "Upload player data or use QR self-registration. Add sponsor logos that will appear on the broadcast display screen during the event. Configure the LED display colour theme to match your company or event branding." },
+      { n: 2, title: "Add players and sponsor branding", desc: "Upload player data or use QR self-registration. Add sponsor logos that will appear on the broadcast display screen during the event. Pick the LED colour theme on the live display to match your company or event branding." },
       { n: 3, title: "Set up the event production", desc: "Connect the LED display to your venue projector or AV system. Distribute owner panel links to department heads or team representatives. If streaming, set up OBS with the BidWar stream overlay source." },
       { n: 4, title: "Run the live franchise auction", desc: "Host the auction with the same energy as a professional sports event. Players nominated one by one, bid timers running, executives bidding from their phones, animated SOLD stamps on the display — corporate memories are made here." },
       { n: 5, title: "Share results and content", desc: "Generate the post-auction report and share it on company WhatsApp, LinkedIn, or the event's social pages. Top-sold player rankings, team compositions, and highest bid moments make great post-event content." },
@@ -467,7 +473,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "live-player-bidding": {
     title: "Live Player Bidding Platform | Real-Time Sports Auction Software — BidWar",
     description: "Real-time live player bidding for sports tournaments. Team owner mobile panels, LED broadcast display, operator control — all synced live in under 1 second across every connected screen.",
-    canonical: "https://www.bidwar.in/live-player-bidding",
+    canonical: "https://bidwar.in/live-player-bidding",
     eyebrow: "Live Player Bidding Platform",
     h1: <>Live Player <span className="text-primary">Bidding Platform</span> for Sports Auctions</>,
     subheading: "A purpose-built real-time bidding engine — team owners bid from their phones, the operator controls the session, and a broadcast display shows the live action. All screens sync in under one second, every time.",
@@ -551,7 +557,7 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
   "tournament-auction-platform": {
     title: "Tournament Auction Platform | Multi-Sport Franchise Bidding — BidWar",
     description: "BidWar is India's tournament auction platform — cricket, football, kabaddi, esports, and all franchise sports. Real-time bidding, LED display, mobile owner panels, and post-event analytics.",
-    canonical: "https://www.bidwar.in/tournament-auction-platform",
+    canonical: "https://bidwar.in/tournament-auction-platform",
     eyebrow: "Tournament Auction Platform",
     h1: <>India's <span className="text-primary">Tournament Auction Platform</span> for Franchise Sports</>,
     subheading: "From cricket to kabaddi, football to esports — BidWar is the complete tournament auction infrastructure. Player categories, purse management, live bidding, broadcast display, and analytics for every sport, every size.",
@@ -629,7 +635,275 @@ export const SPORT_CONFIGS: Record<string, SportPageConfig> = {
 
     whatsappText: "Hi%2C%20I%20want%20to%20run%20a%20sports%20auction%20on%20BidWar.%20Can%20you%20help%20me%20set%20it%20up%3F",
   },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  "basketball-auction-software": {
+    title: "Basketball Auction Software | Franchise Player Bidding — BidWar",
+    description: "Run professional basketball franchise player auctions with BidWar. Position-based categories, team budgets, mobile owner bidding, and broadcast LED display. Free trial for 2 teams. No credit card.",
+    canonical: "https://bidwar.in/basketball-auction-software",
+    eyebrow: "Basketball Auction Software",
+    h1: <>Basketball <span className="text-primary">Franchise Auction</span> Software for Local Leagues</>,
+    subheading: "Run live basketball franchise player auctions with position-based categories — guards, forwards, and centers — team budgets, one-tap mobile bidding, and a broadcast-quality LED display that puts your event on another level.",
+    breadcrumbLabel: "Basketball Auction Software",
+    heroStats: [
+      { label: "Player Positions", value: "Guard · Forward · Center" },
+      { label: "Setup Time", value: "< 15 min" },
+      { label: "Free Trial", value: "2 Teams" },
+      { label: "Sync", value: "Real-Time" },
+    ],
+
+    bodyParagraphs: [
+      "Basketball leagues in India have grown dramatically — from corporate 3-on-3 events in Bengaluru tech parks to full 5-on-5 franchise tournaments run by district basketball associations in cities like Lucknow, Pune, and Hyderabad. The NBA's global reach and the rise of domestic leagues have raised expectations. Organizers no longer just want a tournament — they want a franchise experience, complete with team identities, player markets, and a draft-day energy that gets everyone invested before a single game is played.",
+      "Running a basketball franchise auction manually creates the same familiar problems: someone tracks purses on a spreadsheet, bid disputes slow everything down, players at the back of the room can't see what's happening, and the whole thing feels smaller than the league deserves. Position quotas — ensuring each team has point guards, forwards, and a center — are particularly hard to track manually when bidding is moving fast.",
+      "BidWar handles all of this. Configure position categories (Guards, Forwards, Centers — or a full 5-position split), set squad quotas, share the LED display URL to any projector or TV, give each franchise owner their mobile bidding panel, and run a professional auction from start to finish. Whether you're organizing a 4-team 3-on-3 corporate event or a 12-team city championship, BidWar gives your basketball auction the infrastructure it deserves.",
+    ],
+
+    howItWorks: [
+      { n: 1, title: "Set up teams and budgets", desc: "Create the tournament, add franchise teams with names, colours, and starting purse amounts. Set squad rules — for example, 'each team must draft at least 1 point guard and 1 center' — and BidWar will enforce these automatically during bidding." },
+      { n: 2, title: "Configure player categories by position", desc: "Create categories for guards, forwards, and centers — each with a base price and bid increment. Or use a full 5-position split (PG, SG, SF, PF, C) if your league format requires it. Players are automatically sorted into their category queue." },
+      { n: 3, title: "Connect display and owner panels", desc: "Open the LED Display URL on any projector-connected laptop or smart TV. Share the Owner Panel link with each franchise owner — they open it on their smartphone. No app installation needed for anyone." },
+      { n: 4, title: "Run the live auction", desc: "Nominate players from the category queue, start bid timers, and accept bids via quick-bid buttons or from owner phones. Mark each player SOLD with the animated stamp or UNSOLD if they don't reach reserve. Undo any error instantly." },
+      { n: 5, title: "Share results and squad reports", desc: "After the auction, every team's full roster — by position, price, and composition — is in an automatically generated report. Share it via link with your league group or post it to social media." },
+    ],
+
+    features: [
+      { icon: Users, title: "Position-Based Player Categories", short: "Guards, forwards, and centers — each with custom pricing.", long: "Create player categories for every basketball position with individual base prices and bid increments. Set squad quotas — for example, 'each team must have at least 2 guards and 1 center' — and BidWar enforces these limits live during bidding. Teams can't accidentally load up on one position at the expense of another. Custom position names work for 3-on-3, 5-on-5, or any format." },
+      { icon: Monitor, title: "Broadcast LED Display", short: "Full-screen animated display for projectors and TVs.", long: "The LED Display shows the current player's name, photo, position, and stats in large, readable format. The live bid counter updates in real time in bright animated numbers. The leading franchise's name appears in their team colour. When a player is confirmed, the SOLD stamp animation fills the screen. A team purse strip along the bottom tracks every franchise's remaining budget at a glance. Connects to any projector or TV — just open the URL in fullscreen." },
+      { icon: Smartphone, title: "Franchise Owner Mobile Panels", short: "One-tap bidding from any phone — no app required.", long: "Each franchise owner gets a private panel link via WhatsApp or SMS. Opening it in any browser shows them the current player's position, stats, and live bid amount — alongside their remaining budget and current squad. A large BID button places the next increment instantly. The panel updates within a second when another team bids. No app download, no login complexity, and it works on any Android or iPhone." },
+      { icon: Gavel, title: "Operator Control Dashboard", short: "Full auction control from a single laptop or tablet.", long: "The operator dashboard puts every control on one screen: select players from the position queue, start bid timers, accept bids via quick-bid panel buttons, mark SOLD or UNSOLD, and undo any error. The dashboard shows all teams' remaining purses and squad composition at a glance. Experienced operators can run a 60-player, 8-team basketball auction in under 90 minutes with this toolset." },
+      { icon: Zap, title: "Player QR Self-Registration", short: "Players submit their own profiles — no manual data entry.", long: "Share your player registration QR code before the event. Players fill in their position (point guard, shooting guard, small forward, power forward, center), upload a photo, and add relevant stats like points per game, assists, or rebounds. This flows directly into your auction queue. For leagues with 50+ players, self-registration alone saves the organizer 3–4 hours of manual data preparation." },
+      { icon: BarChart3, title: "Post-Auction Reports", short: "Instant team compositions and spend analytics.", long: "When the auction ends, BidWar generates a complete report immediately: every player sold, their team, their price, the full bid history, purse utilization by team, and squad composition by position. Share the report link on WhatsApp within minutes of the auction ending. Use it for league social media content, official records, or pre-season team analysis." },
+    ],
+
+    comparison: [
+      { point: "Position quota tracking", manual: "Organiser tries to remember 'they already have 3 guards'", bidwar: "System enforces position limits automatically, no manual count" },
+      { point: "Bid speed", manual: "Auctioneer must spot who raised their hand first", bidwar: "All bids from phone taps — timestamped, dispute-free" },
+      { point: "Purse management", manual: "Someone manually subtracts on a spreadsheet after each sale", bidwar: "Live purse updates on every screen after every player sold" },
+      { point: "Audience experience", manual: "Players in the back half of the room can't see or hear", bidwar: "Full-screen animated display keeps every person engaged" },
+      { point: "Post-auction records", manual: "Reconstruct from memory, photos of a whiteboard", bidwar: "Complete bid history and squad reports auto-generated" },
+      { point: "Remote participation", manual: "All franchise owners must be physically present", bidwar: "Owners can bid from anywhere via their phone" },
+    ],
+
+    targetAudience: [
+      { title: "3-on-3 & 5-on-5 Club Organisers", desc: "Running franchise basketball leagues from 4 to 12 teams? BidWar handles position categories, squad quotas, and mobile bidding for all formats — from compact 3-on-3 events to full 5-on-5 city leagues." },
+      { title: "Corporate Basketball Event Teams", desc: "Office basketball tournaments with franchise teams, a projected display, and team owner bidding panels are a major upgrade for company sports days. Sponsor branding and streaming overlay included." },
+      { title: "College & University Sports Bodies", desc: "Inter-college basketball franchise auctions that feel like an NBA draft day. Free trial available; most college events fit the Starter or Pro plan. No technical knowledge required." },
+      { title: "District & State Basketball Associations", desc: "Official franchise league auctions at the district or state level with reliable, dispute-free infrastructure, complete bid logs, and shareable post-event reports for association records." },
+    ],
+
+    quotes: [
+      { text: "We ran a 10-team corporate basketball auction for 80 players across two sessions. Not one dispute, not one technical glitch. The projected display had people watching instead of their phones. Exactly what we needed.", name: "Kiran Nair", role: "Corporate Sports Lead", city: "Bengaluru, Karnataka" },
+      { text: "Our college basketball league used to do auctions on paper and WhatsApp. After switching to BidWar, the whole event felt like an actual NBA draft. Players were checking who got picked for which team all week.", name: "Rohan Tiwari", role: "University Sports Secretary", city: "Bhopal, Madhya Pradesh" },
+    ],
+
+    faqs: [
+      { q: "How does basketball auction software work?", a: "Basketball auction software lets organisers run live franchise player bidding sessions. Players are categorised by position (guards, forwards, centers), and team owners bid from their smartphones while a broadcast display shows the live action to the audience. BidWar manages player categories, team budgets, bid logging, squad composition rules, and post-auction reports from one browser-based platform — no installation required." },
+      { q: "Can I enforce basketball position quotas?", a: "Yes. BidWar lets you set squad composition rules when creating your tournament — for example, 'each team must draft at least 2 guards and 1 center, with a maximum squad size of 8 players'. The system enforces these limits live during bidding. Teams can't accidentally overfill one position, and they're warned when they've filled a category's quota." },
+      { q: "Does BidWar support 3-on-3 and 5-on-5 formats?", a: "Yes. BidWar's player category system is fully configurable. For 3-on-3, you might use a simpler 2-category system (Guards and Forwards). For full 5-on-5, you can create all 5 positions with individual pricing and quotas. Custom position names — like 'Playmaker' or 'Big' — are supported as well. The auction format adapts to your league's specific rules." },
+      { q: "Can team owners bid from their phones during a live basketball auction?", a: "Yes. Each franchise owner receives a private Owner Panel link. Opening it in any browser shows them the current player, live bid, remaining purse, and a BID button. No app download needed — works on any Android or iPhone. Multiple owners can bid simultaneously in real time, with the system handling all bids and updating all panels within a second." },
+      { q: "How many teams can a BidWar basketball auction support?", a: "BidWar scales from 2 teams (free trial) to 30 teams on the Champion plan. Starter (4 teams) costs ₹5,000, Pro (8 teams) costs ₹6,000, Advanced (12 teams) costs ₹8,000, and Elite (16 teams) costs ₹10,000. All are one-time per-tournament fees with no monthly subscriptions." },
+      { q: "Is BidWar suitable for corporate basketball events?", a: "Yes. Corporate basketball league auctions are a popular BidWar use case. The platform includes sponsor branding support, a broadcast overlay for YouTube or Facebook Live streaming, and a professional LED display that makes any office event feel like a real league. Executive bidding panels work on any device without app installation." },
+      { q: "Can I run a multi-day basketball auction?", a: "Yes. BidWar supports multi-day auctions. You can run the guard category on Day 1 and forwards and centers on Day 2. The system saves all bid data, purse balances, and squad compositions between sessions. Resume the next day from exactly where you left off — all teams' states are preserved." },
+      { q: "What do I need to run a BidWar basketball auction?", a: "You need a laptop for the operator dashboard, a device connected to a projector or TV for the LED display (any browser in fullscreen), and smartphones for team owners (which they already have). An internet connection — venue WiFi or mobile hotspot — is required. No special hardware, no AV technician, no technical setup beyond opening browser tabs." },
+    ],
+
+    relatedPages: [
+      { label: "Cricket Auction Software", href: "/cricket-auction-software", desc: "IPL-style franchise cricket auction platform" },
+      { label: "Football Player Auction", href: "/football-player-auction", desc: "Football franchise player bidding software" },
+      { label: "Volleyball Player Auction", href: "/volleyball-player-auction", desc: "Volleyball franchise auction platform" },
+      { label: "Business League Auction", href: "/business-league-auction", desc: "Corporate sports franchise auction software" },
+      { label: "Tournament Auction Platform", href: "/tournament-auction-platform", desc: "All-sport auction platform overview" },
+    ],
+
+    whatsappText: "Hi%2C%20I%20want%20to%20run%20a%20basketball%20auction%20on%20BidWar.%20Can%20you%20help%20me%20set%20it%20up%3F",
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  "badminton-auction-platform": {
+    title: "Badminton Auction Platform | Franchise Player Bidding & Live Scoring — BidWar",
+    description: "Run live badminton franchise player auctions with BidWar. Category bidding (singles, doubles, mixed), team budgets, mobile owner panels, LED display, and a built-in real-time badminton scoring system. Free trial.",
+    canonical: "https://bidwar.in/badminton-auction-platform",
+    eyebrow: "Badminton Auction Platform",
+    h1: <>Badminton <span className="text-primary">Franchise Auction</span> with Built-In Live Scoring</>,
+    subheading: "BidWar is the only platform that combines a professional franchise badminton player auction with a built-in real-time scoring system — run your auction day and your match day on the same platform.",
+    breadcrumbLabel: "Badminton Auction Platform",
+    heroStats: [
+      { label: "Disciplines", value: "Singles · Doubles · Mixed" },
+      { label: "Setup Time", value: "< 15 min" },
+      { label: "Free Trial", value: "2 Teams" },
+      { label: "Scoring", value: "Built-In" },
+    ],
+
+    bodyParagraphs: [
+      "Badminton is one of India's most widely played sports, and franchise-format badminton leagues have become increasingly popular — from corporate round-robins in Chennai and Mumbai to club championships in smaller cities. The format is compelling: franchise teams, an auction to build squads, then a league season where those squads compete head-to-head. But running both the auction phase and the scoring phase has typically required two separate tools — or painful manual coordination.",
+      "BidWar solves both problems in one platform. The auction module handles your franchise player bidding with category-based queues (Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles), team purse limits, one-tap mobile bidding for franchise owners, and a broadcast-quality LED display. Then, when your league season begins, BidWar's built-in badminton scoring system tracks every rally point, deuce, game, and match — in real time, with a live scoreboard your audience can follow.",
+      "This integration matters. Player data from the auction flows directly into the scoring system — you don't re-enter names or team compositions. The same platform that made your auction day memorable also runs your match day professionally. Whether you're organizing a 4-team club event or a 16-team inter-college championship, BidWar is the complete infrastructure for franchise badminton.",
+    ],
+
+    howItWorks: [
+      { n: 1, title: "Set up the franchise auction", desc: "Create your badminton tournament, add franchise teams with purse limits, and configure player categories (Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles, or any custom structure). Set squad quotas — for example, 'each team must have at least 2 doubles players'." },
+      { n: 2, title: "Run the live auction", desc: "Open the LED Display on any projector or TV. Share the Owner Panel link with franchise owners — they bid from their phones. Nominate players by category, run bid timers, accept bids, and mark each player SOLD or UNSOLD. Complete reports are generated automatically." },
+      { n: 3, title: "Build the match schedule", desc: "After the auction, use BidWar's tournament management tools to create your match schedule. Assign courts, set match formats (best of 3 games to 21), and configure the draw structure." },
+      { n: 4, title: "Score live matches in real time", desc: "On match day, open the live scoring screen on a tablet or smartphone. Score point by point — BidWar handles deuce (20-20 → first to 2), game-winning, and match-winning detection automatically. A live scoreboard displays on the broadcast screen." },
+      { n: 5, title: "Track standings and share results", desc: "BidWar updates league standings automatically after each match. Share score updates, live match links, or the full standings table with your tournament WhatsApp group — all from the same platform." },
+    ],
+
+    features: [
+      { icon: Gavel, title: "Franchise Auction with Discipline Categories", short: "Men's Singles, Women's Singles, Doubles, Mixed — all in one queue.", long: "Create player categories that match your badminton league structure — Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles — each with their own base prices and bid increments. Set squad requirements: 'each team must have at least 1 mixed doubles pair'. BidWar enforces these limits during live bidding. Category names and prices are fully customizable for your league's specific format." },
+      { icon: Monitor, title: "LED Broadcast Display", short: "Full-screen display for projectors, TVs, and LED walls.", long: "The LED Display shows the current player's discipline, name, home club, and stats in large format — alongside the live bid counter, the leading franchise's name and colour, and the team purse strip. The SOLD animation marks every confirmed player with broadcast-quality presentation. When connected to a venue projector or TV, it makes your badminton auction feel like a professional league draft day." },
+      { icon: Smartphone, title: "Franchise Owner Mobile Bidding", short: "One-tap phone bidding — no app download.", long: "Each franchise owner receives a private panel link. Opening it on any Android or iPhone shows them the current player's discipline, nationality or city, and career stats — alongside the live bid, their remaining budget, and a BID button. The panel updates instantly when another team bids. No app installation required. Owners can also see their drafted squad composition to make informed bidding decisions." },
+      { icon: CircleDot, title: "Built-In Badminton Scoring", short: "Real-time rally-point scoring with automatic deuce and game detection.", long: "BidWar's badminton scoring module tracks every rally point in real time. Score on a tablet or phone — one tap per point, with undo available for any error. The system automatically applies deuce (20-20: first to 2 points wins game), sets the correct game winner, and confirms the match when a player or pair wins the required number of games. A live scoreboard displays on the broadcast screen. This is the same infrastructure used for professional-grade badminton live scoring." },
+      { icon: BarChart3, title: "League Standings & Reports", short: "Auto-updated standings after every match.", long: "League standings update automatically after each match result is confirmed. Points, wins, losses, and individual match scores are all tracked. The standings table is available as a public-facing link you can share in your tournament's WhatsApp group or social pages. After the league season, a complete report covers auction spend per team, match performance, and player statistics — the full picture of your franchise badminton season." },
+      { icon: Zap, title: "Player Self-Registration QR", short: "Players register their own profiles — no manual data entry.", long: "Share a player registration QR code before the auction. Players enter their discipline speciality (singles or doubles), home club, recent tournament results, and upload a photo. This flows directly into the auction player database. For leagues with 40–60 registered players, self-registration saves the organizer 2–3 hours of manual data entry. The form works on any smartphone in under 3 minutes." },
+    ],
+
+    comparison: [
+      { point: "Auction + scoring integration", manual: "Two separate tools, re-enter player data for scoring", bidwar: "Auction and scoring on one platform — data flows automatically" },
+      { point: "Discipline category management", manual: "Separate sheets for singles and doubles categories", bidwar: "Unified category queue with automatic discipline routing" },
+      { point: "Live match scoring", manual: "Manual paper scoring, errors are common", bidwar: "Point-by-point digital scoring with automatic deuce/game detection" },
+      { point: "Live scoreboard for audience", manual: "Referee reads scores aloud, audience guesses", bidwar: "Real-time scoreboard on broadcast screen, visible to all" },
+      { point: "Post-season records", manual: "Compile from multiple spreadsheets and photos", bidwar: "Complete auction + match history auto-generated in one report" },
+      { point: "Squad composition tracking", manual: "Organiser manually checks squad requirements during auction", bidwar: "Automatic squad quota enforcement during live bidding" },
+    ],
+
+    targetAudience: [
+      { title: "Club Badminton League Organisers", desc: "Running franchise club badminton leagues with 4–8 teams? BidWar handles both the auction and the season scoring in one platform — from player draft day to final standings." },
+      { title: "College & University Sports Committees", desc: "Inter-college franchise badminton leagues with a professional auction day and live-scored matches throughout the season. Free trial available; most college events fit the Starter or Pro plan." },
+      { title: "Corporate Badminton Event Teams", desc: "Office badminton franchise events with a live auction, sponsor branding, and a real-time scoreboard that keeps employees engaged throughout the match day." },
+      { title: "District & State Badminton Associations", desc: "Official franchise league auctions and live-scored matches at the district or state level. Complete bid logs, match records, and standings tables — everything an association needs for documentation." },
+    ],
+
+    quotes: [
+      { text: "We ran the auction on a Friday evening and the league matches all weekend — same platform. Players could check their team's auction spend and then watch their match scores update in real time. Absolutely seamless.", name: "Pradeep Menon", role: "Badminton Club President", city: "Chennai, Tamil Nadu" },
+      { text: "The built-in scoring is what sold us. Most auction platforms stop at the draft. BidWar keeps working through your entire season. We used it for our inter-college league and the students were hooked from day one.", name: "Ananya Krishnan", role: "University Sports Coordinator", city: "Thiruvananthapuram, Kerala" },
+    ],
+
+    faqs: [
+      { q: "Can BidWar run a badminton franchise auction?", a: "Yes. BidWar supports franchise-style badminton player auctions with discipline categories (Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles), team purse limits, mobile owner bidding panels, and a broadcast LED display. Setup takes under 15 minutes. The free trial supports 2-team auctions at zero cost." },
+      { q: "Does BidWar have a built-in badminton scoring system?", a: "Yes. BidWar includes an integrated real-time badminton scoring module. Score live matches point-by-point on any smartphone or tablet. The system handles automatic deuce detection (20-20: first to 2 points wins), game-winning confirmation, and match result logging. A live scoreboard displays on the broadcast screen in real time. This is the same platform used for the auction — player data flows automatically between the two modules." },
+      { q: "How does the auction-to-scoring integration work?", a: "When you run a badminton franchise auction on BidWar, all player data (names, disciplines, team assignments) is automatically available in the scoring module. You don't need to re-enter any information. Create your match schedule in the tournament management section and you're ready to score. The auction phase and the league phase are managed from the same account with the same data." },
+      { q: "What badminton disciplines does BidWar support?", a: "BidWar supports Men's Singles, Women's Singles, Men's Doubles, Women's Doubles, and Mixed Doubles. You can use any subset of these disciplines for your tournament format. Category names are customizable — if your league uses different terminology, you can rename them. Squad quotas per discipline are also configurable." },
+      { q: "Can multiple team owners bid simultaneously in a badminton auction?", a: "Yes. Each franchise owner gets a private Owner Panel link that opens on any smartphone browser. All owners see the current player's discipline and stats, the live bid amount, and a BID button. Multiple owners can bid simultaneously — the system handles all bids in real time with no race conditions or conflicts." },
+      { q: "Is BidWar suitable for college and club badminton leagues?", a: "Absolutely. BidWar's free trial is available at zero cost, and most college and club badminton franchise events fit the Starter (₹5,000 for 4 teams) or Pro (₹6,000 for 8 teams) plan. The platform runs in any browser with no software installation — no IT support needed for setup." },
+      { q: "How much does BidWar cost for a badminton tournament?", a: "BidWar uses one-time per-tournament pricing. Free trial (2 teams), Starter (4 teams: ₹5,000), Pro (8 teams: ₹6,000), Advanced (12 teams: ₹8,000), Elite (16 teams: ₹10,000). These prices cover both the auction module and the scoring module for the same tournament — no separate fee for live scoring." },
+      { q: "Can I score my badminton matches without having run an auction first?", a: "Yes. The badminton scoring module is available independently. If you want to score a tournament without a franchise auction, you can create teams manually and score matches directly. However, if you run an auction, players and teams are already set up for scoring automatically." },
+    ],
+
+    relatedPages: [
+      { label: "Cricket Auction Software", href: "/cricket-auction-software", desc: "IPL-style franchise cricket auction platform" },
+      { label: "Football Player Auction", href: "/football-player-auction", desc: "Football franchise player bidding software" },
+      { label: "Basketball Auction Software", href: "/basketball-auction-software", desc: "Basketball franchise auction platform" },
+      { label: "Business League Auction", href: "/business-league-auction", desc: "Corporate sports franchise auction software" },
+      { label: "Tournament Auction Platform", href: "/tournament-auction-platform", desc: "All-sport auction platform overview" },
+    ],
+
+    whatsappText: "Hi%2C%20I%20want%20to%20run%20a%20badminton%20auction%20on%20BidWar.%20Can%20you%20help%20me%20set%20it%20up%3F",
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  "volleyball-player-auction": {
+    title: "Volleyball Player Auction Software | Franchise Bidding Platform — BidWar",
+    description: "Run live volleyball franchise player auctions with BidWar. Position categories (setter, libero, outside hitter, middle blocker), team budgets, mobile owner panels, and broadcast LED display. Free trial for 2 teams.",
+    canonical: "https://bidwar.in/volleyball-player-auction",
+    eyebrow: "Volleyball Player Auction",
+    h1: <>Volleyball <span className="text-primary">Franchise Auction</span> Platform for Local Leagues</>,
+    subheading: "Run professional volleyball franchise player auctions with position-based categories — setters, liberos, hitters, and blockers — team budgets, one-tap mobile bidding, and a broadcast-quality LED display that energizes your event.",
+    breadcrumbLabel: "Volleyball Player Auction",
+    heroStats: [
+      { label: "Player Positions", value: "Setter · Libero · Hitter · Blocker" },
+      { label: "Setup Time", value: "< 15 min" },
+      { label: "Free Trial", value: "2 Teams" },
+      { label: "Sync", value: "Real-Time" },
+    ],
+
+    bodyParagraphs: [
+      "Volleyball has quietly become one of the most organized franchise sports at the grassroots level in India. Corporate leagues in cities like Pune, Ahmedabad, and Hyderabad now run full 6-on-6 franchise tournaments with team identities, player auctions, and season-long standings. College inter-department volleyball events have adopted the franchise format because it creates investment and excitement before a single game is played.",
+      "The challenge is that volleyball has a specific player structure that manual auction tools can't easily enforce. Every competitive team needs a dedicated setter, a libero, outside hitters, middle blockers, and an opposite hitter — each with different roles and value. Running a position-aware auction manually, while tracking six teams' purses and accepting bids from multiple owners simultaneously, is nearly impossible without errors.",
+      "BidWar makes it straightforward. Configure position categories for your volleyball format (as simple or as granular as your league needs), set squad quotas, and run a professional franchise auction with a broadcast LED display and mobile owner bidding panels. Whether you're organizing a 4-team corporate 6-on-6 league or a 12-team district championship, BidWar handles the auction infrastructure so you can focus on the event.",
+    ],
+
+    howItWorks: [
+      { n: 1, title: "Set up teams and purse budgets", desc: "Create the tournament, add franchise teams with names, colours, and starting purse amounts. Set squad rules — for example, 'each team must draft at least 1 setter and 1 libero' — and BidWar enforces these live during bidding." },
+      { n: 2, title: "Configure volleyball position categories", desc: "Create categories for setters, liberos, outside hitters, middle blockers, and opposite hitters — each with a base price and bid increment. Or use a simplified 3-category system (setters, liberos, and attackers) for smaller events. Player photos, stats, and positions are filled in by the players themselves via QR self-registration." },
+      { n: 3, title: "Connect display and owner panels", desc: "Open the LED Display URL on any projector-connected laptop or smart TV. Share the Owner Panel link with franchise owners — they open it on their smartphone. No app installation needed." },
+      { n: 4, title: "Run the live auction", desc: "Nominate players from the position queue, start bid timers, accept bids via quick-bid buttons or from owner phones. Mark each player SOLD with the animated stamp or UNSOLD. Undo any error instantly without disrupting the session." },
+      { n: 5, title: "Share squad reports after the auction", desc: "After the auction, every team's full roster — by position, price paid, and total spend — is auto-generated and shareable via link. Post it to your league's WhatsApp group or social media." },
+    ],
+
+    features: [
+      { icon: Users, title: "Position-Based Player Categories", short: "Setter, libero, hitter, and blocker tiers with custom pricing.", long: "Create volleyball-specific player categories with individual base prices and bid increments. Configure squad quotas — for example, 'each team must have exactly 1 libero and at least 2 outside hitters'. BidWar enforces these limits live during the auction, preventing squads from forming without essential positions covered. Category names are customizable — use standard volleyball positions or your league's own terminology." },
+      { icon: Monitor, title: "Broadcast LED Display", short: "Full-screen animated display for projectors and smart TVs.", long: "The LED Display shows each volleyball player's position, home club, and stats in large readable format — alongside the live bid counter, the leading franchise's team name and colour, and the team purse strip. The SOLD stamp animation confirms each player with broadcast quality. Open it on any projector-connected device in fullscreen — setup takes 30 seconds and it runs on any internet-connected browser." },
+      { icon: Smartphone, title: "Franchise Owner Mobile Bidding", short: "One-tap bidding from any phone — no app required.", long: "Each franchise owner gets a private panel link via WhatsApp. Opening it on any Android or iPhone shows them the current player's position, stats, live bid amount, remaining purse, and a BID button. The panel updates instantly as other teams bid. No app installation required. Owners can see their current squad composition to avoid position conflicts before bidding on another player." },
+      { icon: Gavel, title: "Operator Control Dashboard", short: "Full auction control from a single laptop or tablet.", long: "The operator dashboard gives you complete control over the auction session: select players from the position queue, start or pause bid timers, accept bids via the quick-bid panel, mark outcomes, and undo any action. All teams' purse balances and squad compositions are visible on the same screen. One experienced operator can run a 60-player, 8-team volleyball auction in under 2 hours with this toolset." },
+      { icon: Zap, title: "Player QR Self-Registration", short: "Players submit their own profiles — no manual entry.", long: "Before the auction, share a QR code link with your player pool. Players fill in their playing position, home club, height, spike reach, and relevant experience. This data flows directly into the auction player queue organized by category. For tournaments with 50+ players, self-registration typically saves the organizer 3–4 hours of data preparation. The form works on any smartphone in under 3 minutes per player." },
+      { icon: Cloud, title: "Fully Cloud-Based, No Installation", short: "Runs on any device and any internet connection.", long: "BidWar requires only a browser and an internet connection — nothing to install on the operator's laptop, team owners' phones, or the display device. If your venue has WiFi or you can create a mobile hotspot, you can run a professional volleyball franchise auction anywhere. First-time organizers typically complete a full test auction within 30 minutes of signing up, using the free 2-team trial." },
+    ],
+
+    comparison: [
+      { point: "Position quota enforcement", manual: "Organiser tries to remember 'they need a libero'", bidwar: "System blocks squads from forming without required positions" },
+      { point: "Multi-team bid tracking", manual: "Auctioneer must manage 6 teams raising hands simultaneously", bidwar: "All bids from phone taps — timestamped and dispute-free" },
+      { point: "Purse tracking per team", manual: "Someone manually subtracts after each sale", bidwar: "Live purse display on every screen after every sold player" },
+      { point: "Player information display", manual: "Organiser reads from a sheet; audience sees nothing", bidwar: "Full player profile on broadcast screen with live bid counter" },
+      { point: "Post-auction documentation", manual: "Reconstruct from memory and photos", bidwar: "Complete squad compositions and bid history auto-generated" },
+      { point: "Setup time per event", manual: "Hours of spreadsheet preparation before each season", bidwar: "New tournament set up in 15 minutes; templates reusable" },
+    ],
+
+    targetAudience: [
+      { title: "Corporate & Office Volleyball Leagues", desc: "Running company volleyball franchise leagues with 4–8 teams? BidWar's auction and LED display make the draft day as exciting as the matches themselves. Sponsor branding and streaming overlay included." },
+      { title: "College & University Sports Committees", desc: "Inter-college volleyball franchise auctions with a professional setup and mobile bidding for student owners. Free trial available; most college events fit the Starter or Pro plan." },
+      { title: "Club Volleyball Organisers", desc: "District and club-level franchise volleyball leagues with complete player management, position quota enforcement, and post-auction reports for team and league records." },
+      { title: "Multi-Sport League Directors", desc: "Running volleyball as part of a larger multi-sport franchise league season? BidWar handles each sport with sport-specific category configurations on the same account." },
+    ],
+
+    quotes: [
+      { text: "Our corporate volleyball league had 8 franchise teams bidding on 56 players. The LED display projected on a screen in the cafeteria. People who'd never watched volleyball were cheering during the auction. Incredible atmosphere.", name: "Neha Joshi", role: "Corporate Events Coordinator", city: "Ahmedabad, Gujarat" },
+      { text: "I used to spend Sunday setting up Excel sheets for our volleyball auction. With BidWar, players registered themselves via QR, I set up categories in 10 minutes, and we ran the whole auction in 90 minutes. First time I actually enjoyed the setup part.", name: "Sanjay Patil", role: "Club Volleyball Secretary", city: "Pune, Maharashtra" },
+    ],
+
+    faqs: [
+      { q: "How does volleyball player auction software work?", a: "Volleyball auction software lets organisers run live franchise player bidding sessions. Players are categorised by position (setter, libero, outside hitter, middle blocker, opposite hitter), and team owners bid from their smartphones while a broadcast display shows the live action to the audience. BidWar handles player categories, team budgets, bid logging, squad quotas, and post-auction reports from one browser-based platform." },
+      { q: "Can I enforce volleyball position rules in BidWar?", a: "Yes. BidWar supports position-based squad quotas. You can set rules like 'each team must have exactly 1 libero, at least 2 outside hitters, and at most 3 middle blockers'. The system enforces these limits live during the auction, preventing teams from closing out their squad without the required positions covered. This eliminates the most common manual auction mistake in volleyball drafts." },
+      { q: "Does BidWar support 6-on-6 and beach volleyball formats?", a: "BidWar's player category system is configurable for any volleyball format. For 6-on-6, you can use the standard position split (setter, libero, OH, MB, OPP). For beach volleyball, you might use a simpler 2-category system (blocker and defender). Custom category names work for any format. Squad size limits and position quotas can be set to match your specific rules." },
+      { q: "Can team owners bid from their mobile phones?", a: "Yes. Each franchise owner gets a private Owner Panel link. Opening it in any browser shows them the current player's position, stats, live bid, remaining purse, and a BID button. No app download needed — works on any Android or iPhone. Multiple owners can bid simultaneously, with the system updating all panels within a second." },
+      { q: "Is BidWar suitable for small local volleyball leagues?", a: "Absolutely. BidWar's free trial supports 2-team auctions at zero cost. Paid plans start at ₹5,000 for Starter (4 teams) and ₹6,000 for Pro (8 teams). Most club and college volleyball franchise events comfortably fit these plans. Setup requires no technical knowledge and takes under 20 minutes for a first-time organiser." },
+      { q: "How many teams can BidWar handle for volleyball?", a: "BidWar scales from 2 teams (free trial) to 30 teams on the Champion plan. District-level volleyball championships typically use the Advanced (12 teams, ₹8,000) or Elite (16 teams, ₹10,000) plan. All are one-time per-tournament fees — no monthly subscription." },
+      { q: "What equipment do I need to run a volleyball franchise auction?", a: "You need a laptop or tablet for the operator dashboard, one device connected to a projector or TV for the LED display (any browser in fullscreen), and smartphones for franchise owners (which they bring themselves). An internet connection — venue WiFi or mobile hotspot — is required. No special hardware, no AV technician, no software installation." },
+      { q: "Can I run a volleyball auction without technical experience?", a: "Yes. BidWar is designed for sports event managers and club administrators — not IT professionals. The setup interface guides you through creating teams, categories, and players step by step. The free trial lets you run a full test auction before your actual event. Most first-time organisers complete a test run within 30 minutes of signing up." },
+    ],
+
+    relatedPages: [
+      { label: "Basketball Auction Software", href: "/basketball-auction-software", desc: "Basketball franchise player bidding platform" },
+      { label: "Cricket Auction Software", href: "/cricket-auction-software", desc: "IPL-style franchise cricket auction platform" },
+      { label: "Football Player Auction", href: "/football-player-auction", desc: "Football franchise player bidding software" },
+      { label: "Badminton Auction Platform", href: "/badminton-auction-platform", desc: "Badminton franchise auction with live scoring" },
+      { label: "Tournament Auction Platform", href: "/tournament-auction-platform", desc: "All-sport auction platform overview" },
+    ],
+
+    whatsappText: "Hi%2C%20I%20want%20to%20run%20a%20volleyball%20auction%20on%20BidWar.%20Can%20you%20help%20me%20set%20it%20up%3F",
+  },
 };
+
+// Backward-compatible SEO aliases used by homepage/internal marketing links.
+const SEO_ALIAS_CONFIGS: Record<string, keyof typeof SPORT_CONFIGS> = {
+  "sports-auction-software": "tournament-auction-platform",
+  "franchise-auction-software": "cricket-auction-software",
+  "player-auction-software": "live-player-bidding",
+  "sports-league-management-software": "tournament-auction-platform",
+  "badminton-scoring-software": "badminton-auction-platform",
+};
+
+for (const [aliasSlug, baseSlug] of Object.entries(SEO_ALIAS_CONFIGS)) {
+  if (!SPORT_CONFIGS[aliasSlug]) {
+    const baseConfig = SPORT_CONFIGS[baseSlug];
+    SPORT_CONFIGS[aliasSlug] = {
+      ...baseConfig,
+      canonical: `https://bidwar.in/${aliasSlug}`,
+    };
+  }
+}
 
 // ─── Helper Components ─────────────────────────────────────────────────────────
 
@@ -677,7 +951,10 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export default function SeoSportLanding({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
+  const { logos, brandName } = useBranding();
   const config = SPORT_CONFIGS[slug];
+  const footerLogoSrc = getBrandLogoSrc(logos, landingFooterPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   if (!config) {
     navigate("/");
@@ -690,7 +967,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
         title={config.title}
         description={config.description}
         canonical={config.canonical}
-        ogImage="https://www.bidwar.in/opengraph.jpg"
+        ogImage={logos.openGraph ?? undefined}
       />
       <SportLandingSchemaMarkup
         name={config.breadcrumbLabel}
@@ -702,25 +979,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
       <div className="min-h-screen bg-[#09090b] text-white overflow-x-hidden">
 
         {/* ── Nav ─────────────────────────────────────────── */}
-        <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-          <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-              <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-8 w-auto" />
-              <span className="font-black text-lg tracking-tight text-white">BIDWAR</span>
-            </a>
-            <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="/#features" className="hover:text-white transition-colors">Features</a>
-              <a href="/#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <a href="/#faq" className="hover:text-white transition-colors">FAQ</a>
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => navigate("/organizer")} className="text-sm text-muted-foreground hover:text-white transition-colors hidden sm:block">Sign In</button>
-              <button onClick={() => navigate("/organizer")} className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-colors">
-                Get Started Free
-              </button>
-            </div>
-          </div>
-        </nav>
+        <PublicNavbar />
 
         {/* ── Breadcrumb ───────────────────────────────────── */}
         <div className="pt-20 pb-0 px-6">
@@ -1117,8 +1376,7 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
               <div className="col-span-2 md:col-span-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  <img src="/bidwar-logo-transparent.png" alt="BidWar" className="h-7 w-auto" />
-                  <span className="font-black text-base">BIDWAR</span>
+                  <img src={footerLogoSrc} alt={logoAlt} className={landingFooterPreset.sizeClass} loading="lazy" decoding="async" />
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">India's live sports auction platform for franchise tournaments.</p>
                 <a href="https://wa.me/918707488250" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-green-400 hover:text-green-300 transition-colors">
@@ -1151,9 +1409,12 @@ export default function SeoSportLanding({ slug }: { slug: string }) {
               <div className="space-y-2">
                 <p className="text-xs font-bold text-white uppercase tracking-wide mb-3">Legal</p>
                 {[
+                  ["Legal Hub", "/legal"],
                   ["Terms of Service", "/legal/terms"],
                   ["Privacy Policy", "/legal/privacy"],
                   ["Acceptable Use", "/legal/acceptable-use"],
+                  ["Disclaimer", "/legal/disclaimer"],
+                  ["Refund Policy", "/legal/refund"],
                 ].map(([label, href]) => (
                   <a key={href} href={href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{label}</a>
                 ))}

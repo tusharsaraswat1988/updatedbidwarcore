@@ -1,10 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, categoriesTable, playersTable } from "@workspace/db";
-import { brandingSettingsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import { z } from "zod";
+import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { brandingService } from "../lib/branding-service.js";
+import { drawPdfPageWatermark, fetchImageBuffer } from "../lib/pdf-branding.js";
 
 const router = Router();
 
@@ -29,35 +31,9 @@ function fmtShort(n: number | null | undefined): string {
   return `\u20B9${n}`;
 }
 
-async function fetchBranding() {
-  const [row] = await db.select().from(brandingSettingsTable).limit(1);
-  return {
-    brandName: row?.brandName ?? "BidWar",
-    poweredByText: row?.poweredByText ?? "Powered by BidWar",
-    miniBrandText: row?.miniBrandText ?? "BW",
-    miniLogoUrl: row?.miniLogoUrl ?? row?.mainLogoUrl ?? null,
-    showBrandingPdf: row?.showBrandingPdf ?? true,
-  };
-}
-
-async function fetchImageBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
-function isOrganizer(req: Request, tid: number): boolean {
-  const tidStr = String(tid);
-  return !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-}
-
 router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -93,7 +69,7 @@ router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: 
 router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
   const teamId = parseInt(String(req.params.teamId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
@@ -105,18 +81,21 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));
 
-  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.name);
+  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.serialNo);
 
   const enrich = (p: typeof playersTable.$inferSelect) => ({
     id: p.id,
+    serialNo: p.serialNo,
     name: p.name,
     role: p.role ?? null,
     city: p.city ?? null,
     age: p.age ?? null,
+    gender: p.gender ?? null,
     photoUrl: p.photoUrl ?? null,
     mobileNumber: p.mobileNumber || null,
     email: p.email ?? null,
     jerseyNumber: p.jerseyNumber ?? null,
+    jerseySize: p.jerseySize ?? null,
     categoryId: p.categoryId ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     categoryColor: p.categoryId ? (catMap.get(p.categoryId)?.colorCode ?? null) : null,
@@ -185,7 +164,7 @@ const pdfBodySchema = z.object({
 router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: Request, res: Response) => {
   const tid = parseInt(String(req.params.tournamentId));
   const teamId = parseInt(String(req.params.teamId));
-  if (!isOrganizer(req, tid)) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!(await canAccessPrivateTournamentData(req, tid))) { res.status(403).json({ error: "Unauthorized" }); return; }
 
   const body = pdfBodySchema.safeParse(req.body);
   const selectedCols: string[] = body.success ? body.data.columns : [];
@@ -201,17 +180,17 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));
 
-  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.name);
+  const allPlayers = await db.select().from(playersTable).where(and(eq(playersTable.teamId, teamId), eq(playersTable.tournamentId, tid))).orderBy(playersTable.serialNo);
 
   type EnrichedPlayer = {
-    id: number; name: string; role: string | null; city: string | null; age: number | null;
-    mobileNumber: string | null; email: string | null; jerseyNumber: string | null; categoryName: string | null;
+    id: number; serialNo: number; name: string; role: string | null; city: string | null; age: number | null;
+    mobileNumber: string | null; email: string | null; jerseyNumber: string | null; jerseySize: string | null; categoryName: string | null;
     soldPrice: number | null; retainedPrice: number | null; status: string; isNonPlayingMember: boolean;
   };
 
   const enrich = (p: typeof playersTable.$inferSelect): EnrichedPlayer => ({
-    id: p.id, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
-    mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null,
+    id: p.id, serialNo: p.serialNo, name: p.name, role: p.role ?? null, city: p.city ?? null, age: p.age ?? null,
+    mobileNumber: p.mobileNumber || null, email: p.email ?? null, jerseyNumber: p.jerseyNumber ?? null, jerseySize: p.jerseySize ?? null,
     categoryName: p.categoryId ? (catMap.get(p.categoryId)?.name ?? null) : null,
     soldPrice: p.soldPrice ?? null, retainedPrice: p.retainedPrice ?? null,
     status: p.status, isNonPlayingMember: p.isNonPlayingMember,
@@ -238,6 +217,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     { key: "categoryName", label: "Category" },
     { key: "role", label: "Role" },
     { key: "jerseyNumber", label: "Jersey No." },
+    { key: "jerseySize", label: "Jersey Size" },
     { key: "status", label: "Status" },
     { key: "remainingBalance", label: "Balance" },
   ].filter(c => selectedCols.includes(c.key));
@@ -246,8 +226,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
-  const branding = await fetchBranding();
-  const brandLogoBuffer = branding.miniLogoUrl ? await fetchImageBuffer(branding.miniLogoUrl) : null;
+  const branding = await brandingService.resolvePdfWatermarkBranding();
+  const brandLogoBuffer = branding.footerLogoBuffer;
   const ownerPhotoBuffer = team.ownerPhotoUrl ? await fetchImageBuffer(team.ownerPhotoUrl) : null;
 
   const doc = new PDFDocument({ size: "A4", layout: "portrait", margin: 28, bufferPages: true });
@@ -345,7 +325,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   type ColDef = { label: string; width: number; get: (p: EnrichedPlayer, balance: number) => string };
 
   const mandatoryCols: ColDef[] = [
-    { label: "S.No", width: 0.4, get: (_, __, ...rest) => String(rest) },
+    { label: "Serial #", width: 0.4, get: (p) => String(p.serialNo) },
     { label: "Player Name", width: 2.2, get: (p) => p.name },
     { label: "Amount", width: 1.0, get: (p) => fmtShort(p.status === "retained" ? p.retainedPrice : p.soldPrice) },
   ];
@@ -358,6 +338,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     categoryName: { label: "Category", width: 0.9, get: (p) => p.categoryName || "-" },
     role: { label: "Role", width: 0.9, get: (p) => p.role?.replace(/_/g, " ") || "-" },
     jerseyNumber: { label: "Jersey", width: 0.55, get: (p) => p.jerseyNumber || "-" },
+    jerseySize: { label: "Size", width: 0.55, get: (p) => p.jerseySize || "-" },
     status: { label: "Type", width: 0.7, get: (p) => p.status === "retained" ? "Retained" : "Pre-Sold" },
     remainingBalance: { label: "Balance", width: 0.95, get: (_p, balance) => fmtShort(balance) },
   };
@@ -395,7 +376,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   let balance = team.purse;
   let rowIdx = 0;
 
-  function drawPlayerRow(p: EnrichedPlayer, sno: number) {
+  function drawPlayerRow(p: EnrichedPlayer) {
     const price = p.status === "retained" ? (p.retainedPrice ?? 0) : (p.soldPrice ?? 0);
     balance -= price;
     ensureRoom(15);
@@ -404,9 +385,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     let x = LEFT + 4;
     doc.fillColor("#0f172a").font("Helvetica").fontSize(7.5);
     activeCols.forEach((c, i) => {
-      let text: string;
-      if (c.label === "S.No") text = String(sno);
-      else text = c.get(p, balance);
+      const text = c.get(p, balance);
       doc.text(text, x, rY + 3, { width: colWidths[i] - 6, lineBreak: false, ellipsis: true });
       x += colWidths[i];
     });
@@ -418,7 +397,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   if (retained.length > 0) {
     drawSectionHeading(`Retained Players (${retained.length})`);
     drawTableHeader();
-    retained.forEach((p, i) => drawPlayerRow(p, i + 1));
+    retained.forEach((p) => drawPlayerRow(p));
     doc.moveDown(0.5);
   }
 
@@ -426,8 +405,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   if (preSold.length > 0) {
     drawSectionHeading(`Pre-Sold Players (${preSold.length})`);
     drawTableHeader();
-    const startSno = retained.length + 1;
-    preSold.forEach((p, i) => drawPlayerRow(p, startSno + i));
+    preSold.forEach((p) => drawPlayerRow(p));
     doc.moveDown(0.5);
   }
 
@@ -488,6 +466,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
         .text("UNLICENSED COPY", 0, ph / 2 - 50, { width: pw, align: "center" });
       doc.restore();
     }
+
+    drawPdfPageWatermark(doc, branding);
 
     doc.save();
     doc.fillColor("#0a0a0a").rect(LEFT, ph - doc.page.margins.bottom + 4, W, 18).fill();

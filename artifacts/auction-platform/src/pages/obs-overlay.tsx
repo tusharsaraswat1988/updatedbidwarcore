@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import {
   useGetAuctionState, getGetAuctionStateQueryKey,
   useGetTournament, getGetTournamentQueryKey,
-  useListTeams, getListTeamsQueryKey,
+  useGetTeamPurses, getGetTeamPursesQueryKey,
 } from "@workspace/api-client-react";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { formatIndianRupee } from "@/lib/format";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
 import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import { BroadcastOverlayBrandMark } from "@/components/display/broadcast-overlay-brand-mark";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
-import { parseSponsorLogos } from "@/lib/sponsor-logo";
-import { getDisplayTheme } from "@/lib/display-theme";
+import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
+import { BIDWAR_BROADCAST_YELLOW } from "@/lib/bidwar-broadcast-colors";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
@@ -26,8 +28,8 @@ import {
   BROADCAST_OVERLAY_HEIGHT,
   BROADCAST_OVERLAY_CORNER_INSET_X,
   BROADCAST_OVERLAY_CORNER_INSET_TOP,
-  BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE,
   BROADCAST_OVERLAY_PANEL_PADDING_X,
+  BROADCAST_OVERLAY_BRAND_Z_INDEX,
 } from "@/lib/broadcast-overlay";
 
 /**
@@ -135,56 +137,122 @@ function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
   );
 }
 
-// ─── Team purse ticker ────────────────────────────────────────────────────────
-function TeamTicker({ teams }: { teams: Array<{ name: string; shortCode: string; color: string | null; purse: number; purseUsed: number; purseRemaining: number; logoUrl?: string | null }> }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const items = [...teams, ...teams]; // duplicate for seamless loop
+const TEAM_TICKER_HEIGHT_PX = 46;
+/** Clear gap between lower-third player panel and team ticker (hex glow + gradient bleed). */
+const BOTTOM_CHROME_GAP_PX = 16;
 
+type TeamTickerRow = {
+  name: string;
+  shortCode: string;
+  color: string | null;
+  logoUrl?: string | null;
+  playersBought: number;
+  playersDue: number | null;
+};
+
+function TeamTickerItem({ t }: { t: TeamTickerRow }) {
   return (
     <div style={{
-      height: 46,
-      background: "rgba(0,0,0,0.82)",
-      borderTop: "1px solid rgba(255,255,255,0.08)",
-      overflow: "hidden",
-      position: "relative",
+      display: "inline-flex", alignItems: "center", gap: 10,
+      padding: "0 28px", height: "100%",
+      borderRight: "1px solid rgba(255,255,255,0.06)",
+      flexShrink: 0,
     }}>
+      {t.logoUrl ? (
+        <img src={cldUrl(t.logoUrl, "teamLogo")} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color || "#666", flexShrink: 0 }} />
+      )}
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>{t.name}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: t.color || "#F59E0B", fontFamily: "monospace" }}>
+        {t.playersBought} taken
+      </span>
+      {t.playersDue !== null && (
+        <>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>·</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.55)", fontFamily: "monospace" }}>
+            {t.playersDue > 0 ? `${t.playersDue} due` : "full"}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Team squad ticker ────────────────────────────────────────────────────────
+function TeamTicker({ teams }: { teams: TeamTickerRow[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [needsScroll, setNeedsScroll] = useState(false);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const update = () => {
+      setNeedsScroll(measure.scrollWidth > container.clientWidth + 2);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    ro.observe(measure);
+    return () => ro.disconnect();
+  }, [teams]);
+
+  const items = needsScroll ? [...teams, ...teams] : teams;
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        height: TEAM_TICKER_HEIGHT_PX,
+        background: "rgba(0,0,0,0.82)",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       <div
-        ref={ref}
+        ref={measureRef}
+        aria-hidden
+        style={{
+          position: "absolute",
+          visibility: "hidden",
+          pointerEvents: "none",
+          display: "inline-flex",
+          alignItems: "center",
+          height: TEAM_TICKER_HEIGHT_PX,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {teams.map((t, i) => <TeamTickerItem key={`measure-${i}`} t={t} />)}
+      </div>
+      <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 0,
           height: "100%",
-          animation: `tickerScroll ${teams.length * 6}s linear infinite`,
+          width: needsScroll ? undefined : "100%",
+          justifyContent: needsScroll ? undefined : "center",
+          animation: needsScroll ? `tickerScroll ${Math.max(teams.length * 6, 12)}s linear infinite` : undefined,
           whiteSpace: "nowrap",
         }}
       >
         {items.map((t, i) => (
-          <div key={i} style={{
-            display: "inline-flex", alignItems: "center", gap: 10,
-            padding: "0 28px", height: "100%",
-            borderRight: "1px solid rgba(255,255,255,0.06)",
-          }}>
-            {t.logoUrl ? (
-              <img src={cldUrl(t.logoUrl, "teamLogo")} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
-            ) : (
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color || "#666", flexShrink: 0 }} />
-            )}
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.05em" }}>{t.shortCode}</span>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{t.name}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.color || "#F59E0B", fontFamily: "monospace" }}>
-              {formatShortIndianRupee(t.purseRemaining)}
-            </span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>left</span>
-          </div>
+          <TeamTickerItem key={`${t.shortCode}-${i}`} t={t} />
         ))}
       </div>
-      <style>{`
-        @keyframes tickerScroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
+      {needsScroll && (
+        <style>{`
+          @keyframes tickerScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+        `}</style>
+      )}
     </div>
   );
 }
@@ -200,17 +268,69 @@ export default function ObsOverlay() {
   const [, params] = useRoute("/tournament/:id/obs");
   const tournamentId = parseInt(params?.id || "0");
 
+  // Browser source must be transparent outside UI chrome — otherwise OBS/preview camera is hidden.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById("root");
+    const prev = {
+      htmlBg: html.style.background,
+      bodyBg: body.style.background,
+      rootBg: root?.style.background ?? "",
+      rootMinH: root?.style.minHeight ?? "",
+      htmlMinH: html.style.minHeight,
+      bodyMinH: body.style.minHeight,
+      bodyOverflow: body.style.overflow,
+    };
+
+    html.style.background = "transparent";
+    body.style.background = "transparent";
+    body.style.overflow = "hidden";
+    html.style.minHeight = "0";
+    body.style.minHeight = "0";
+    if (root) {
+      root.style.background = "transparent";
+      root.style.minHeight = `${BROADCAST_OVERLAY_HEIGHT}px`;
+    }
+
+    return () => {
+      html.style.background = prev.htmlBg;
+      body.style.background = prev.bodyBg;
+      body.style.overflow = prev.bodyOverflow;
+      html.style.minHeight = prev.htmlMinH;
+      body.style.minHeight = prev.bodyMinH;
+      if (root) {
+        root.style.background = prev.rootBg;
+        root.style.minHeight = prev.rootMinH;
+      }
+    };
+  }, []);
+
   const { connectionStatus } = useAuctionSocket(tournamentId);
-  const isStaleFeed = connectionStatus !== "connected";
 
   const { data: state } = useGetAuctionState(tournamentId, {
-    query: { queryKey: getGetAuctionStateQueryKey(tournamentId), enabled: !!tournamentId, refetchInterval: 10000 },
+    query: {
+      queryKey: getGetAuctionStateQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      refetchInterval: sseAwareRefetchInterval(connectionStatus, 10000),
+    },
   });
+  const lastActivityAt =
+    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
+  const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
+  const isStaleFeed = feed.state === "disconnected" || feed.state === "reconnecting";
+  const embeddedPurses = state?.teamPurses;
+  const { data: teamPursesFromQuery } = useGetTeamPurses(tournamentId, {
+    query: {
+      queryKey: getGetTeamPursesQueryKey(tournamentId),
+      enabled: !!tournamentId && !embeddedPurses?.length,
+      refetchInterval: sseAwareRefetchInterval(connectionStatus, 30000),
+      staleTime: 15000,
+    },
+  });
+  const teamPurses = embeddedPurses ?? teamPursesFromQuery;
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-  const { data: teamsRaw } = useListTeams(tournamentId, {
-    query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
   const [soldSnap, setSoldSnap] = useState<SoldSnap | null>(null);
@@ -277,19 +397,18 @@ export default function ObsOverlay() {
     if (state?.currentPlayer?.id) setShowSold(false);
   }, [state?.currentPlayer?.id]);
 
+  useEffect(() => {
+    return () => {
+      if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
+    };
+  }, []);
+
   const sponsorLogos = useMemo(
-    () => parseSponsorLogos(tournament?.sponsorLogos),
+    () => getSponsorsByPriority(parseSponsorLogos(tournament?.sponsorLogos)),
     [tournament?.sponsorLogos],
   );
 
-  const themeAccent = useMemo(() => {
-    try {
-      const name = localStorage.getItem(`display_theme_${tournamentId}`);
-      return getDisplayTheme(name).accentColor;
-    } catch {
-      return "#a78bfa";
-    }
-  }, [tournamentId]);
+  const themeAccent = BIDWAR_BROADCAST_YELLOW;
 
   const hasPlayer = !!state?.currentPlayer;
   const isActive = displayMode.phase === "live";
@@ -297,19 +416,25 @@ export default function ObsOverlay() {
   const bidColor = state?.currentBidTeamColor || "#00d4ff";
   const hasBid = !!state?.currentBidTeamName;
 
-  type TeamRow = { name: string; shortCode: string; color: string | null; purse: number; purseUsed: number; purseRemaining: number; logoUrl?: string | null };
-  const teams: TeamRow[] = (teamsRaw ?? []).map(t => ({
-    name: t.name,
+  const teams: TeamTickerRow[] = (teamPurses ?? []).map(t => ({
+    name: t.teamName,
     shortCode: t.shortCode,
     color: t.color ?? null,
-    purse: t.purse,
-    purseUsed: t.purseUsed ?? 0,
-    purseRemaining: t.purse - (t.purseUsed ?? 0),
     logoUrl: t.logoUrl,
+    playersBought: t.playersBought,
+    playersDue: t.maximumSquadSize > 0
+      ? Math.max(0, t.maximumSquadSize - t.playersBought)
+      : null,
   }));
 
+  const teamTickerOffset = teams.length > 0 && !showSold ? TEAM_TICKER_HEIGHT_PX : 0;
+  const bottomChromeGap = teamTickerOffset > 0 ? BOTTOM_CHROME_GAP_PX : 0;
+  const bottomStackHeight = SPONSOR_RIBBON_TOTAL_HEIGHT_PX + teamTickerOffset + bottomChromeGap;
+
   return (
-    <div style={{
+    <div
+      data-broadcast-overlay-root
+      style={{
       background: "transparent",
       width: `${BROADCAST_OVERLAY_WIDTH}px`,
       height: `${BROADCAST_OVERLAY_HEIGHT}px`,
@@ -323,68 +448,73 @@ export default function ObsOverlay() {
     }}>
 
       {/* ── Connection status — top center ── */}
-      {connectionStatus !== "connected" && (
-        <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 20 }}>
-          <DisplayConnectionBanner status={connectionStatus} variant="pill" />
-        </div>
-      )}
+      <DisplayConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+      />
 
-      {/* ── Top-left: permanent BidWar brand + optional tournament logo ── */}
+      {/* ── Top-center: permanent BidWar brand mark ── */}
       <div style={{
         position: "absolute",
         top: BROADCAST_OVERLAY_CORNER_INSET_TOP,
-        left: BROADCAST_OVERLAY_CORNER_INSET_X,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        gap: 8,
-        maxWidth: 220,
-        zIndex: 35,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: BROADCAST_OVERLAY_BRAND_Z_INDEX,
       }}>
         <BroadcastOverlayBrandMark />
-        {tournament?.logoUrl && (
-          <div style={{
-            background: "rgba(0,0,0,0.55)",
-            backdropFilter: "blur(12px)",
-            borderRadius: 12,
-            padding: "8px 14px",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}>
-            <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain" }} />
-          </div>
-        )}
       </div>
 
-      {/* ── Sponsor carousel — top-right ── */}
-      {sponsorLogos.length > 0 && (
+      {/* ── Top-left: tournament logo ── */}
+      {tournament?.logoUrl && (
         <div style={{
           position: "absolute",
-          top: isActive ? BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE : BROADCAST_OVERLAY_CORNER_INSET_TOP,
-          right: BROADCAST_OVERLAY_CORNER_INSET_X,
-          zIndex: 5,
+          top: BROADCAST_OVERLAY_CORNER_INSET_TOP,
+          left: BROADCAST_OVERLAY_CORNER_INSET_X,
+          zIndex: 35,
         }}>
-          <SponsorCarousel logos={sponsorLogos} />
+          <div style={{
+            background: "rgba(0,0,0,0.92)",
+            borderRadius: 12,
+            padding: "8px 14px",
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}>
+            <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 60, maxWidth: 200, objectFit: "contain" }} />
+          </div>
         </div>
       )}
 
-      {/* ── Live indicator — top-right ── */}
-      <AnimatePresence>
-        {isActive && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-            style={{
-              position: "absolute", top: 36, right: BROADCAST_OVERLAY_CORNER_INSET_X,
-              display: "flex", alignItems: "center", gap: 8,
-              background: "rgba(239,68,68,0.9)",
-              borderRadius: 8, padding: "6px 14px",
-              boxShadow: "0 0 20px rgba(239,68,68,0.5)",
-            }}
-          >
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", animation: "livePulse 1s ease-in-out infinite" }} />
-            <span style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "0.2em" }}>LIVE</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Top-right: LIVE + sponsor (inline row) ── */}
+      {(isActive || sponsorLogos.length > 0) && (
+        <div style={{
+          position: "absolute",
+          top: 36,
+          right: BROADCAST_OVERLAY_CORNER_INSET_X,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+          zIndex: 20,
+        }}>
+          <AnimatePresence>
+            {isActive && (
+              <motion.div
+                initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+                  background: "rgba(239,68,68,0.9)",
+                  borderRadius: 8, padding: "6px 14px",
+                  boxShadow: "0 0 20px rgba(239,68,68,0.5)",
+                }}
+              >
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", animation: "livePulse 1s ease-in-out infinite" }} />
+                <span style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "0.2em" }}>LIVE</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {sponsorLogos.length > 0 && (
+            <SponsorCarousel logos={sponsorLogos} />
+          )}
+        </div>
+      )}
 
       {/* ── Outcome fullscreen banner ── */}
       <AnimatePresence>
@@ -421,28 +551,16 @@ export default function ObsOverlay() {
         <AuctionStatusOverlay mode="paused" />
       )}
 
-      {/* ── Break countdown — bottom strip so camera feed stays visible ── */}
-      {stickyDc?.type === "break" && (
+      {/* ── Pre Auction & Break Timer — bottom strip so camera feed stays visible ── */}
+      {stickyDc && (
         <BreakCountdownOverlay
           key={stickyDc.endsAt}
-          type="break"
           endsAt={stickyDc.endsAt}
           message={stickyDc.message}
           tournamentName={tournament?.name ?? null}
           compact
           compactPlacement="bottom"
-          compactBottomOffset={
-            SPONSOR_RIBBON_TOTAL_HEIGHT_PX + (teams.length > 0 && !showSold ? 46 : 0)
-          }
-        />
-      )}
-      {stickyDc?.type === "pre-auction" && (
-        <BreakCountdownOverlay
-          key={stickyDc.endsAt}
-          type="pre-auction"
-          endsAt={stickyDc.endsAt}
-          message={stickyDc.message}
-          tournamentName={tournament?.name ?? null}
+          compactBottomOffset={bottomStackHeight}
         />
       )}
 
@@ -457,22 +575,24 @@ export default function ObsOverlay() {
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
             style={{
               position: "absolute",
-              bottom: teams.length > 0 ? 46 : 0,
+              bottom: bottomStackHeight,
               left: 0, right: 0,
+              zIndex: 30,
+              overflow: "hidden",
               opacity: displayMode.showStatusOverlay ? 0.4 : 1,
               transition: "opacity 0.3s ease",
             }}
           >
-            {/* Gradient fade above the panel */}
+            {/* Gradient fade above the panel — kept short so it does not bleed into team ticker */}
             <div style={{
-              height: 120,
-              background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.6))",
+              height: 48,
+              background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.55))",
               pointerEvents: "none",
             }} />
 
             {/* Main panel */}
             <div style={{
-              background: "rgba(0,0,0,0.88)",
+              background: "rgba(0,0,0,0.94)",
               borderTop: `3px solid ${isActive ? bidColor : "rgba(255,255,255,0.1)"}`,
               boxShadow: isActive ? `0 -4px 40px ${bidColor}33` : "none",
               padding: `18px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
@@ -500,7 +620,7 @@ export default function ObsOverlay() {
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#71717a", letterSpacing: "0.25em" }}>UP NEXT</span>
                   )}
                 </div>
-                <div style={{ fontSize: 42, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ fontSize: 54, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
                   {state?.currentPlayer?.name}
                 </div>
                 {(() => {
@@ -514,8 +634,7 @@ export default function ObsOverlay() {
                       borderRadius: 999,
                       fontSize: 12,
                       fontWeight: 800,
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
                       background: tt.bg,
                       border: `1.5px solid ${tt.border}`,
                       color: tt.color,
@@ -526,7 +645,7 @@ export default function ObsOverlay() {
                     </div>
                   ) : null;
                 })()}
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", marginTop: 5, display: "flex", gap: 12 }}>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.80)", marginTop: 5, display: "flex", gap: 12 }}>
                   {state?.currentPlayer?.role && <span>{state.currentPlayer.role}</span>}
                   {state?.currentPlayer?.city && <span style={{ opacity: 0.6 }}>· {state.currentPlayer.city}</span>}
                 </div>
@@ -558,15 +677,15 @@ export default function ObsOverlay() {
                 {hasBid ? (
                   freezeBidUpdates ? (
                     <div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                      <div style={{ fontSize: 52, fontWeight: 900, color: bidColor, lineHeight: 1, filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
+                      <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                         {formatIndianRupee(state?.currentBid ?? 0)}
                       </div>
                       <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                         {state?.currentBidTeamLogoUrl && (
                           <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                         )}
-                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                       </div>
                     </div>
                   ) : (
@@ -576,25 +695,25 @@ export default function ObsOverlay() {
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   >
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                    <div style={{ fontSize: 52, fontWeight: 900, color: bidColor, lineHeight: 1, filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
                     <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                       {state?.currentBidTeamLogoUrl && (
                         <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
                       )}
-                      <span style={{ fontSize: 15, color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                      <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                     </div>
                   </motion.div>
                   )
                 ) : (
                   <div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
-                    <div style={{ fontSize: 52, fontWeight: 900, color: "rgba(255,255,255,0.35)", lineHeight: 1 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.95)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: "rgba(255,255,255,0.95)", lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)" }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
-                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 6 }}>Waiting for first bid...</div>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.80)", marginTop: 6 }}>Waiting for first bid...</div>
                   </div>
                 )}
               </div>
@@ -616,14 +735,14 @@ export default function ObsOverlay() {
         <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} includePoweredByBidWar />
       </div>
 
-      {/* ── Team purse ticker — above sponsor strip ── */}
+      {/* ── Team squad ticker — above sponsor strip ── */}
       {teams.length > 0 && !showSold && (
         <div style={{
           position: "absolute",
           bottom: SPONSOR_RIBBON_TOTAL_HEIGHT_PX,
           left: 0,
           right: 0,
-          zIndex: 24,
+          zIndex: 22,
         }}>
           <TeamTicker teams={teams} />
         </div>

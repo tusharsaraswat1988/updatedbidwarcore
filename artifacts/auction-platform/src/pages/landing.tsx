@@ -1,19 +1,104 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import { cldUrl } from "@/lib/cloudinary";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Gavel, Monitor, Smartphone, Users, Cast, Dices, QrCode, Zap,
   ChevronRight, Check, Phone, ArrowRight, Trophy, Star, Shield,
   Globe, Cloud, Building2, GraduationCap, ChevronDown,
-  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle,
-  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet,
+  Mail, Wifi, BarChart3, Clock, ShieldCheck, Tv, Plus, MessageCircle, Instagram, Facebook, Youtube,
+  MapPin, Calendar, Target, CircleDot, Swords, Heart, Wallet, BookOpen,
 } from "lucide-react";
+import { BLOG_POSTS_META, BLOG_CATEGORIES } from "@workspace/blog-data";
 import { formatDate, formatPurse, SPORT_LABEL, type Sport, type UpcomingTournament } from "@/data/upcoming-auctions";
 import type { DisplayAuction } from "@/lib/auth";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
+import { PublicNavbar } from "@/components/public-navbar";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const landingFooterPreset = getBrandSurfacePreset("landing-footer");
+
+// ─── Solutions Hub Data ───────────────────────────────────────────────────────
+
+const SOLUTIONS = [
+  {
+    icon: Gavel,
+    title: "Sports Auction Software",
+    href: "/sports-auction-software",
+    description: "Run professional franchise auctions for cricket, football, kabaddi, badminton, basketball and more using one centralized platform.",
+    cta: "Explore Sports Auction Software",
+    accent: "text-yellow-400",
+    border: "hover:border-yellow-400/30",
+    glow: "hover:shadow-yellow-400/5",
+    iconBg: "bg-yellow-400/10",
+  },
+  {
+    icon: Trophy,
+    title: "Cricket Auction Software",
+    href: "/cricket-auction-software",
+    description: "IPL-style cricket player auctions with purse tracking, player categories, owner bidding panels and live display screens.",
+    cta: "Explore Cricket Auction Software",
+    accent: "text-blue-400",
+    border: "hover:border-blue-400/30",
+    glow: "hover:shadow-blue-400/5",
+    iconBg: "bg-blue-400/10",
+  },
+  {
+    icon: CircleDot,
+    title: "Badminton Scoring Software",
+    href: "/badminton-scoring-software",
+    description: "Live rally-by-rally badminton scoring, LED scoreboards, standings and tournament management in one platform.",
+    cta: "Explore Badminton Scoring Software",
+    accent: "text-green-400",
+    border: "hover:border-green-400/30",
+    glow: "hover:shadow-green-400/5",
+    iconBg: "bg-green-400/10",
+  },
+  {
+    icon: Building2,
+    title: "Franchise Auction Software",
+    href: "/franchise-auction-software",
+    description: "Conduct professional franchise-based player auctions with automated bidding workflows and real-time updates.",
+    cta: "Explore Franchise Auction Software",
+    accent: "text-purple-400",
+    border: "hover:border-purple-400/30",
+    glow: "hover:shadow-purple-400/5",
+    iconBg: "bg-purple-400/10",
+  },
+  {
+    icon: Users,
+    title: "Player Auction Software",
+    href: "/player-auction-software",
+    description: "Digitize player auctions for sports leagues with automated bidding, team budgets and live auction controls.",
+    cta: "Explore Player Auction Software",
+    accent: "text-orange-400",
+    border: "hover:border-orange-400/30",
+    glow: "hover:shadow-orange-400/5",
+    iconBg: "bg-orange-400/10",
+  },
+  {
+    icon: BarChart3,
+    title: "Sports League Management Software",
+    href: "/sports-league-management-software",
+    description: "Manage registrations, auctions, scoring, standings and tournament operations from one platform.",
+    cta: "Explore League Management Software",
+    accent: "text-cyan-400",
+    border: "hover:border-cyan-400/30",
+    glow: "hover:shadow-cyan-400/5",
+    iconBg: "bg-cyan-400/10",
+  },
+] as const;
+
+const RESOURCE_SLUGS = [
+  "how-to-run-franchise-player-auction",
+  "what-is-live-auction-software-sports",
+  "ipl-style-auction-format-local-cricket-leagues",
+  "badminton-scoring-software-live-rally-guide",
+  "sports-league-management-software-buyers-guide",
+  "cloud-vs-local-auction-software-sports-events",
+];
 
 const ProductShowcase = lazy(() => import("@/components/product-showcase").then(m => ({ default: m.ProductShowcase })));
 const Testimonials = lazy(() => import("@/components/testimonials").then(m => ({ default: m.Testimonials })));
@@ -81,6 +166,7 @@ const pricing = [
     color: "border-border bg-card/30",
     badge: null,
     discountedPrice: null as number | null,
+    cta: "Signup for Free Demo",
   },
   {
     label: "Starter",
@@ -400,6 +486,7 @@ interface ShowcaseItem {
 export default function Landing() {
   const [, navigate] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [payingPlan, setPayingPlan] = useState<PaymentPlan | null>(null);
   const [displayAuctions, setDisplayAuctions] = useState<UpcomingTournament[]>([]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[] | null>(null);
@@ -475,38 +562,7 @@ export default function Landing() {
       <HomeSchemaMarkup />
 
       {/* ── Nav ─────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            {brandingLoading
-              ? <div className="h-9 w-9 flex-shrink-0" />
-              : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
-            <span className="font-display font-black text-xl tracking-tight text-white">{brandName.toUpperCase()}</span>
-          </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#use-cases" className="hover:text-white transition-colors">Use Cases</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-            <button onClick={() => navigate("/upcoming-auctions")} className="hover:text-white transition-colors text-primary font-semibold">Upcoming Auctions</button>
-            <button onClick={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-white transition-colors font-semibold text-primary">Pay</button>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/organizer")}
-              className="text-sm text-muted-foreground hover:text-white transition-colors hidden sm:block"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => navigate("/organizer")}
-              className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-bold hover:bg-primary/90 transition-colors"
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="relative pt-32 pb-24 px-6 overflow-hidden">
@@ -984,14 +1040,29 @@ export default function Landing() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {pricing.map((p, i) => (
+            {pricing.map((p, i) => {
+              const handlePlanSelect = () =>
+                p.discountedPrice
+                  ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
+                  : navigate("/organizer");
+
+              return (
               <motion.div
                 key={p.label}
+                role="button"
+                tabIndex={0}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06 }}
-                className={`relative p-5 rounded-2xl border ${p.color} flex flex-col gap-4 transition-all hover:scale-[1.02]`}
+                onClick={handlePlanSelect}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handlePlanSelect();
+                  }
+                }}
+                className={`group relative p-5 rounded-2xl border ${p.color} flex flex-col gap-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:border-primary/50 hover:bg-primary/[0.04] hover:shadow-[0_0_20px_rgba(234,179,8,0.08)] active:scale-[0.99] active:border-primary/60 active:bg-primary/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60`}
               >
                 {p.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-black text-[10px] font-black uppercase tracking-wider whitespace-nowrap">
@@ -1022,22 +1093,12 @@ export default function Landing() {
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{p.desc}</p>
                 </div>
-                <button
-                  onClick={() =>
-                    p.discountedPrice
-                      ? setPayingPlan({ label: p.label, price: p.price, discountedPrice: p.discountedPrice })
-                      : navigate("/organizer")
-                  }
-                  className={`mt-auto w-full py-2 rounded-xl text-sm font-bold transition-all ${
-                    p.highlight
-                      ? "bg-primary text-black hover:bg-primary/90"
-                      : "border border-border text-foreground hover:bg-card/80"
-                  }`}
-                >
-                  Get started
-                </button>
+                <div className="mt-auto w-full py-2 rounded-xl text-sm font-bold text-center transition-all duration-200 border border-border text-foreground group-hover:bg-primary group-hover:text-black group-hover:border-primary [.group:active_&]:bg-primary [.group:active_&]:text-black [.group:active_&]:border-primary">
+                  {"cta" in p && p.cta ? p.cta : "Get started"}
+                </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Notes row */}
@@ -1122,6 +1183,264 @@ export default function Landing() {
       <Suspense fallback={null}>
         <Testimonials />
       </Suspense>
+
+      {/* ── Solutions Hub ────────────────────────────────────────────── */}
+      <section id="solutions" className="py-24 px-6 border-t border-border/30">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-14">
+            <div className="text-primary text-xs font-bold uppercase tracking-widest mb-3">Solutions</div>
+            <h2 className="text-3xl md:text-4xl font-display font-black mb-4">
+              One Platform for Every Sports Event
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-base">
+              BidWar powers franchise player auctions, live bidding, digital scoring, and league management across all major sports. Choose your solution below.
+            </p>
+          </div>
+
+          {/* Solution Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {SOLUTIONS.map((sol) => {
+              const Icon = sol.icon;
+              return (
+                <a
+                  key={sol.href}
+                  href={sol.href}
+                  className={`group relative flex flex-col rounded-2xl border border-border/40 bg-card/30 p-7 transition-all duration-300 hover:-translate-y-1 hover:bg-card/60 hover:shadow-xl ${sol.border} ${sol.glow}`}
+                >
+                  {/* Icon */}
+                  <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-5 ${sol.iconBg}`}>
+                    <Icon className={`w-6 h-6 ${sol.accent}`} />
+                  </div>
+
+                  {/* Title */}
+                  <h3 className={`font-display font-bold text-lg mb-3 group-hover:${sol.accent.replace("text-", "text-")} transition-colors`}>
+                    {sol.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed flex-1 mb-5">
+                    {sol.description}
+                  </p>
+
+                  {/* CTA */}
+                  <span className={`flex items-center gap-1.5 text-xs font-semibold ${sol.accent}`}>
+                    {sol.cta} <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+
+          {/* Explore BidWar Solutions prose block */}
+          <div className="mt-16 rounded-2xl border border-border/30 bg-card/20 p-8 md:p-12">
+            <h2 className="text-2xl md:text-3xl font-display font-black mb-6">
+              Explore BidWar Solutions
+            </h2>
+            <div className="prose prose-invert prose-sm md:prose-base max-w-none text-muted-foreground space-y-4 leading-relaxed">
+              <p>
+                BidWar is India's most complete platform for sports event management — combining{" "}
+                <a href="/sports-auction-software" className="text-primary hover:underline font-medium">sports auction software</a>,{" "}
+                <a href="/franchise-auction-software" className="text-primary hover:underline font-medium">franchise league management</a>,{" "}
+                <a href="/badminton-scoring-software" className="text-primary hover:underline font-medium">badminton scoring</a>,
+                live LED displays, team owner bidding panels, and tournament operations in a single cloud-based platform.
+              </p>
+              <p>
+                Whether you are organizing a 6-team{" "}
+                <a href="/cricket-auction-software" className="text-primary hover:underline font-medium">cricket auction</a>{" "}
+                with IPL-style purse rules, a multi-discipline{" "}
+                <a href="/badminton-scoring-software" className="text-primary hover:underline font-medium">badminton tournament</a>{" "}
+                with live scoreboards, or a corporate football franchise event — BidWar handles every layer of the operation.
+                Team owners bid from their phones via QR-code access. Players are displayed on any TV or projector using BidWar's
+                full-screen broadcast display. Purse deductions happen automatically with every sold bid.
+              </p>
+              <p>
+                For league administrators, BidWar's{" "}
+                <a href="/sports-league-management-software" className="text-primary hover:underline font-medium">sports league management software</a>{" "}
+                manages registrations, match scheduling, live scoring, standings, and end-of-season reports in one dashboard.
+                The same platform that runs your{" "}
+                <a href="/player-auction-software" className="text-primary hover:underline font-medium">player auction</a>{" "}
+                builds the squad rosters that feed directly into your league operations — no duplicate data entry, no spreadsheets.
+              </p>
+              <p>
+                BidWar currently supports cricket, football, kabaddi, badminton, basketball, volleyball, throwball, futsal, and multi-sport combined events.
+                Every sport uses the same core platform with sport-specific category structures, scoring rules, and display modes configured by the organizer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Popular Resources ─────────────────────────────────────────── */}
+      <section id="resources" className="py-24 px-6 border-t border-border/30">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Header */}
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <div className="text-primary text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+                <BookOpen className="w-3.5 h-3.5" /> Popular Resources
+              </div>
+              <h2 className="text-3xl md:text-4xl font-display font-black">
+                Guides, Strategies &amp; Tutorials
+              </h2>
+              <p className="text-muted-foreground mt-2 max-w-xl">
+                Educational guides, auction strategies, scoring tutorials and league management resources for tournament organizers.
+              </p>
+            </div>
+            <a
+              href="/blog"
+              className="hidden sm:flex items-center gap-2 text-sm text-primary font-semibold hover:underline"
+            >
+              View all articles <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Article Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {RESOURCE_SLUGS.map((slug) => {
+              const post = BLOG_POSTS_META.find((p) => p.slug === slug);
+              if (!post) return null;
+              const cat = BLOG_CATEGORIES.find((c) => c.slug === post.category);
+              return (
+                <a
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="group flex flex-col rounded-2xl border border-border/40 bg-card/30 hover:bg-card/60 hover:border-border/70 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
+                >
+                  <div className="p-6 flex flex-col gap-3 flex-1">
+                    {cat && (
+                      <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full w-fit ${cat.color} ${cat.bgColor}`}>
+                        {cat.name}
+                      </span>
+                    )}
+                    <h3 className="font-display font-bold text-base leading-snug group-hover:text-primary transition-colors">
+                      {post.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed flex-1 line-clamp-3">
+                      {post.excerpt}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground/60 pt-3 border-t border-border/30">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {post.readingTimeMinutes} min read
+                      </span>
+                      <span className="flex items-center gap-1 ml-auto text-primary font-medium">
+                        Read article <ChevronRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex sm:hidden justify-center">
+            <a href="/blog" className="flex items-center gap-2 text-sm text-primary font-semibold hover:underline">
+              View all articles <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Learn Sports Auction Management — SEO educational block */}
+          <div className="mt-16 space-y-8">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-display font-black mb-6">
+                Learn Sports Auction Management
+              </h2>
+              <div className="grid md:grid-cols-2 gap-8 text-sm text-muted-foreground leading-relaxed">
+                <div className="space-y-4">
+                  <p>
+                    <strong className="text-foreground">Sports auction software</strong> transforms the way franchise leagues build teams.
+                    Instead of random draws or manual spreadsheets, organizers use a{" "}
+                    <a href="/sports-auction-software" className="text-primary hover:underline">dedicated auction platform</a>{" "}
+                    where team owners bid against each other in real time. Each bid is registered instantly,
+                    team budgets (called purses) are deducted automatically, and the full session is displayed
+                    on an LED screen for everyone to follow. The result is a live-event experience that raises
+                    engagement, creates genuine strategic depth, and gives every franchise owner a reason
+                    to show up on match day.
+                  </p>
+                  <p>
+                    <a href="/cricket-auction-software" className="text-primary hover:underline font-medium">Cricket auction software</a>{" "}
+                    is the most-used category in India — replicating the IPL's purse structure, player tiers,
+                    retention rounds, and marquee bidding in a format any local league can afford. BidWar's{" "}
+                    <a href="/franchise-auction-software" className="text-primary hover:underline font-medium">franchise auction software</a>{" "}
+                    extends this to every sport: football position-based categories, kabaddi raider vs defender pools,
+                    badminton discipline slots, and corporate multi-sport events. One platform; every format.
+                  </p>
+                  <p>
+                    Organizers who have migrated from Excel sheets to BidWar report that auction-day disputes
+                    drop significantly — because purse deductions, bid records, and player allocations are
+                    tracked automatically with a permanent audit trail. No more post-auction arguments about
+                    "who bid how much for which player."
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <p>
+                    <a href="/badminton-scoring-software" className="text-primary hover:underline font-medium">Badminton scoring software</a>{" "}
+                    is BidWar's second core capability. Rally-by-rally digital scoring replaces paper scorecards,
+                    syncs live to any TV or projector via BidWar's scoreboard display mode, and automatically
+                    handles service rotation, deuce detection, and game progression based on BWF rules.
+                    Umpires score from any smartphone browser — no app installation required. Scores are
+                    visible to spectators in real time, making club tournaments feel like broadcast events.
+                  </p>
+                  <p>
+                    Beyond auctions and scoring,{" "}
+                    <a href="/sports-league-management-software" className="text-primary hover:underline font-medium">sports league management software</a>{" "}
+                    keeps the season running smoothly. BidWar manages player registrations, match scheduling,
+                    live scoring, standings, and tournament reports from a single dashboard. The{" "}
+                    <a href="/player-auction-software" className="text-primary hover:underline font-medium">player auction data</a>{" "}
+                    flows directly into team rosters, which feed into scheduling — no manual data re-entry
+                    at any stage.
+                  </p>
+                  <p>
+                    For deeper reading, explore our guides on{" "}
+                    <a href="/blog/category/auction-guides" className="text-primary hover:underline">auction how-to guides</a>,{" "}
+                    <a href="/blog/category/sport-formats" className="text-primary hover:underline">cricket auction formats</a>,{" "}
+                    <a href="/blog/category/platform-features" className="text-primary hover:underline">badminton scoring</a>, and{" "}
+                    <a href="/blog/category/platform-features" className="text-primary hover:underline">platform features</a> — written by organizers
+                    who have run hundreds of live auctions and tournaments across India.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversion Layer */}
+            <div className="relative rounded-2xl border border-primary/20 bg-primary/5 p-10 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-transparent pointer-events-none" />
+              <div className="relative text-center space-y-4">
+                <h2 className="text-2xl md:text-3xl font-display font-black">
+                  Ready to Run Your Next Sports Auction?
+                </h2>
+                <p className="text-muted-foreground max-w-xl mx-auto">
+                  Start with a free demo and see how BidWar manages auctions, scoring, league operations and live displays from one platform.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                  <a
+                    href="/organizer"
+                    className="px-7 py-3 rounded-xl bg-primary text-black font-display font-black text-sm hover:bg-primary/90 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.35)] flex items-center justify-center gap-2"
+                  >
+                    Book Free Demo <ChevronRight className="w-4 h-4" />
+                  </a>
+                  <a
+                    href="https://wa.me/918707488250"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-7 py-3 rounded-xl border border-border text-foreground font-semibold text-sm hover:bg-card/50 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Phone className="w-4 h-4 text-green-400" /> Contact Sales
+                  </a>
+                  <a
+                    href="#solutions"
+                    className="px-7 py-3 rounded-xl border border-border text-foreground font-semibold text-sm hover:bg-card/50 transition-all flex items-center justify-center gap-2"
+                  >
+                    Explore Solutions <ArrowRight className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── CTA Banner ──────────────────────────────────────────────── */}
       <section className="py-24 px-6">
@@ -1244,24 +1563,31 @@ export default function Landing() {
 
             {/* Brand */}
             <div className="space-y-4 md:col-span-1">
-              <div className="flex items-center gap-2.5">
-                {brandingLoading
-                  ? <div className="h-9 w-9 flex-shrink-0" />
-                  : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"} alt={brandName} className="h-9 w-auto" width={112} height={112} />}
-                <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
-              </div>
+              <a href="/" aria-label={`${brandName} Home`} className="inline-flex items-center hover:opacity-90 transition-opacity">
+                {brandingLoading ? (
+                  <div className="h-10 w-40" aria-hidden />
+                ) : (logos.mainReverse || logos.main) ? (
+                  <img
+                    src={getBrandLogoSrc(logos, landingFooterPreset.logoOrder)}
+                    alt={logoAlt}
+                    className={landingFooterPreset.sizeClass}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : null}
+              </a>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 India's live sports auction platform. IPL-grade infrastructure for cricket, football, kabaddi and franchise leagues.
               </p>
               <div className="flex items-center gap-3">
                 <a href="https://www.instagram.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  IG
+                  <Instagram className="w-4 h-4" />
                 </a>
                 <a href="https://www.facebook.com/bidwar.in" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  FB
+                  <Facebook className="w-4 h-4" />
                 </a>
                 <a href="https://www.youtube.com/@bidwarofficial" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:border-white/30 transition-colors text-xs font-bold">
-                  YT
+                  <Youtube className="w-4 h-4" />
                 </a>
               </div>
             </div>
@@ -1276,6 +1602,7 @@ export default function Landing() {
                   { label: "Pricing", href: "#pricing" },
                   { label: "FAQ", href: "#faq" },
                   { label: "Auction Gallery", href: "#gallery" },
+                  { label: "Blog & Guides", href: "/blog" },
                   { label: "Contact Us", href: "/contact" },
                 ].map(l => (
                   <a key={l.label} href={l.href} className="block text-xs text-muted-foreground hover:text-white transition-colors">{l.label}</a>
@@ -1288,6 +1615,7 @@ export default function Landing() {
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Legal</p>
               <div className="space-y-2">
                 {[
+                  { label: "Legal Hub", href: "/legal" },
                   { label: "Terms & Conditions", href: "/legal/terms" },
                   { label: "Privacy Policy", href: "/legal/privacy" },
                   { label: "Acceptable Use", href: "/legal/acceptable-use" },
@@ -1311,9 +1639,9 @@ export default function Landing() {
                   <Phone className="w-3.5 h-3.5 flex-shrink-0 text-green-400" />
                   +91 8707488250
                 </a>
-                <a href="https://www.bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
+                <a href="https://bidwar.in" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-white transition-colors">
                   <Globe className="w-3.5 h-3.5 flex-shrink-0" />
-                  www.bidwar.in
+                  bidwar.in
                 </a>
               </div>
             </div>

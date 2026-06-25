@@ -11,6 +11,8 @@ export interface AuthClaims {
   isAdmin?: boolean;
   adminLevel?: "master" | "data_entry";
   organizer?: Record<string, true>;
+  /** Tournament Director role — per-tournament match administration. */
+  tournamentDirector?: Record<string, true>;
   organizerAccountId?: number;
 }
 

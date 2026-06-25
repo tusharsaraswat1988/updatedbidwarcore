@@ -4,12 +4,11 @@ import {
   useGetAuctionState,
   useGetTournament,
   useSetBreakTimer,
-  useSetPreAuctionCountdown,
   getGetAuctionStateQueryKey,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import { Coffee, AlarmClock, Play, StopCircle, PlusCircle, Timer, ShieldAlert } from "lucide-react";
+import { Coffee, Play, StopCircle, PlusCircle, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 function useRemainingTime(endsAt: string | null | undefined) {
@@ -33,6 +32,10 @@ function useRemainingTime(endsAt: string | null | undefined) {
   return { mins, secs, expired, totalSecs };
 }
 
+function isCountdownActive(dc: { type?: string; endsAt?: string } | null): boolean {
+  return !!dc?.endsAt && (dc.type === "break" || dc.type === "pre-auction");
+}
+
 export default function BreakTimerPage() {
   const [, params] = useRoute("/tournament/:id/break-timer");
   const tournamentId = parseInt(params?.id || "0");
@@ -49,7 +52,6 @@ export default function BreakTimerPage() {
   });
 
   const setBreakTimerMut = useSetBreakTimer();
-  const setPreAuctionMut = useSetPreAuctionCountdown();
 
   const [breakMinutes, setBreakMinutes] = useState("5");
   const [breakSeconds, setBreakSeconds] = useState("0");
@@ -57,7 +59,7 @@ export default function BreakTimerPage() {
   const [error, setError] = useState<string | null>(null);
 
   const dc = (state as { displayCountdown?: { type?: string; endsAt?: string; message?: string | null } | null } | undefined)?.displayCountdown ?? null;
-  const { mins, secs, expired } = useRemainingTime(dc?.endsAt ?? null);
+  const { mins, secs, expired } = useRemainingTime(isCountdownActive(dc) ? dc?.endsAt : null);
 
   async function handleStartBreak() {
     const mins = Math.max(0, parseInt(breakMinutes, 10) || 0);
@@ -75,7 +77,7 @@ export default function BreakTimerPage() {
       });
       await refetch();
     } catch (err: unknown) {
-      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Failed to start break timer.";
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Failed to start countdown.";
       setError(msg);
     }
   }
@@ -88,7 +90,7 @@ export default function BreakTimerPage() {
         data: { action: "extend", durationSeconds: 300 },
       });
       await refetch();
-    } catch { setError("Failed to extend break timer."); }
+    } catch { setError("Failed to extend countdown."); }
   }
 
   async function handleCancelBreak() {
@@ -96,39 +98,22 @@ export default function BreakTimerPage() {
     try {
       await setBreakTimerMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
       await refetch();
-    } catch { setError("Failed to cancel break timer."); }
-  }
-
-  async function handlePreAuction() {
-    setError(null);
-    try {
-      await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "start" } });
-      await refetch();
-    } catch { setError("Failed to start pre-auction countdown."); }
-  }
-
-  async function handleCancelPreAuction() {
-    setError(null);
-    try {
-      await setPreAuctionMut.mutateAsync({ tournamentId, data: { action: "cancel" } });
-      await refetch();
     } catch { setError("Failed to cancel countdown."); }
   }
 
-  const isBreakActive = dc?.type === "break" && !expired;
-  const isPreAuctionActive = dc?.type === "pre-auction" && !expired;
+  const countdownActive = isCountdownActive(dc) && !expired;
   const auctionIsLive = state?.status === "active";
 
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="max-w-lg mx-auto space-y-6 pt-2">
         <div>
-          <h1 className="text-2xl font-display font-black text-foreground">Break Timer</h1>
+          <h1 className="text-2xl font-display font-black text-foreground">Pre Auction & Break Timer</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Put a countdown on the big screen during breaks so the audience knows when bidding resumes.
+            Put a countdown on the big screen before the auction starts or during breaks.
           </p>
           <div className="mt-3 rounded-lg border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-1">
-            <p><strong className="text-foreground">How it works:</strong> Set a duration and a label (e.g. "Lunch Break — 15 min"), then press Start. The countdown appears on the LED display screen. When time is up, the screen switches back to the auction automatically.</p>
+            <p><strong className="text-foreground">How it works:</strong> Set a duration and a label (e.g. &quot;Pre Auction&quot; or &quot;Lunch Break — 15 min&quot;), then press Start. The countdown appears on all displays. When time is up, screens switch back automatically.</p>
             <p>You can extend the timer or cancel it at any time from this page.</p>
           </div>
         </div>
@@ -141,26 +126,18 @@ export default function BreakTimerPage() {
 
         {/* Active countdown status */}
         <AnimatePresence>
-          {dc && (
+          {dc && isCountdownActive(dc) && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className={`rounded-xl border p-4 ${
-                dc.type === "break"
-                  ? "border-amber-500/30 bg-amber-500/10"
-                  : "border-primary/30 bg-primary/10"
-              }`}
+              className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4"
             >
               <div className="flex items-center gap-3">
-                {dc.type === "break" ? (
-                  <Coffee className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                ) : (
-                  <AlarmClock className="w-5 h-5 text-primary flex-shrink-0" />
-                )}
+                <Coffee className="w-5 h-5 text-amber-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">
-                    {dc.type === "break" ? "Break Timer" : "Pre-Auction Countdown"} — Active
+                    Countdown — Active
                   </p>
                   {dc.message && (
                     <p className="text-xs text-muted-foreground mt-0.5">{dc.message}</p>
@@ -170,7 +147,7 @@ export default function BreakTimerPage() {
                   {expired ? (
                     <span className="text-green-400 text-base font-bold">Expired</span>
                   ) : (
-                    <span className={dc.type === "break" ? "text-amber-400" : "text-primary"}>
+                    <span className="text-amber-400">
                       {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
                     </span>
                   )}
@@ -178,7 +155,7 @@ export default function BreakTimerPage() {
               </div>
 
               <div className="mt-3 flex gap-2">
-                {dc.type === "break" && !expired && (
+                {!expired && (
                   <button
                     onClick={handleExtend}
                     disabled={setBreakTimerMut.isPending}
@@ -189,8 +166,8 @@ export default function BreakTimerPage() {
                   </button>
                 )}
                 <button
-                  onClick={dc.type === "break" ? handleCancelBreak : handleCancelPreAuction}
-                  disabled={setBreakTimerMut.isPending || setPreAuctionMut.isPending}
+                  onClick={handleCancelBreak}
+                  disabled={setBreakTimerMut.isPending}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 text-xs font-semibold transition-colors disabled:opacity-40 ml-auto"
                 >
                   <StopCircle className="w-3.5 h-3.5" />
@@ -201,11 +178,11 @@ export default function BreakTimerPage() {
           )}
         </AnimatePresence>
 
-        {/* Break Timer setup */}
+        {/* Countdown setup */}
         <div className="rounded-xl border border-border bg-card/40 p-5 space-y-4">
           <div className="flex items-center gap-2">
             <Coffee className="w-4 h-4 text-amber-400" />
-            <h2 className="font-semibold text-foreground">Break Timer</h2>
+            <h2 className="font-semibold text-foreground">Start Countdown</h2>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -244,7 +221,7 @@ export default function BreakTimerPage() {
                 maxLength={60}
                 value={breakLabel}
                 onChange={(e) => setBreakLabel(e.target.value)}
-                placeholder="e.g. Lunch Break"
+                placeholder="e.g. Pre Auction"
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -260,13 +237,13 @@ export default function BreakTimerPage() {
           <div className="flex gap-2">
             <button
               onClick={handleStartBreak}
-              disabled={setBreakTimerMut.isPending || isBreakActive}
+              disabled={setBreakTimerMut.isPending || countdownActive}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-amber-500/50 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 font-semibold text-sm transition-colors disabled:opacity-40"
             >
               <Play className="w-4 h-4" />
-              {isBreakActive ? "Break Active" : "Start Break"}
+              {countdownActive ? "Countdown Active" : "Start Countdown"}
             </button>
-            {isBreakActive && (
+            {countdownActive && (
               <button
                 onClick={handleExtend}
                 disabled={setBreakTimerMut.isPending}
@@ -292,38 +269,6 @@ export default function BreakTimerPage() {
                 {m} min
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Pre-Auction Countdown */}
-        <div className="rounded-xl border border-border bg-card/40 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Timer className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-foreground">Pre-Auction Countdown</h2>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Triggers a fixed 10-second countdown on the LED display, ending with an
-            "{tournament?.name || "Auction"} has now officially started!" banner.
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={handlePreAuction}
-              disabled={setPreAuctionMut.isPending || isPreAuctionActive || !!dc}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-sm transition-colors disabled:opacity-40"
-            >
-              <Play className="w-4 h-4" />
-              {isPreAuctionActive ? "Countdown Active" : "Fire 10s Countdown"}
-            </button>
-            {isPreAuctionActive && (
-              <button
-                onClick={handleCancelPreAuction}
-                disabled={setPreAuctionMut.isPending}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold text-sm transition-colors disabled:opacity-40"
-              >
-                <StopCircle className="w-4 h-4" />
-                Cancel
-              </button>
-            )}
           </div>
         </div>
       </div>

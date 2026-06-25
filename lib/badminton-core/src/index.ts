@@ -5,3 +5,8 @@ export * from "./events/badminton";
 export * from "./reducer/reducer";
 export * from "./reducer/state";
 export * from "./commands";
+export * from "./scoring";
+export * from "./replay/undo-targets";
+export * from "./sync-snapshot";
+export * from "./match-state-guard";
+export * from "./match-director";

@@ -55,6 +55,11 @@ export class AuctionAudioManager {
   private soldKeyPlayed = "";
   private breakEndKeyPlayed = "";
 
+  /** Mark a sold event as already handled (e.g. page load) without playing audio. */
+  ackSoldKey(key: string): void {
+    if (key) this.soldKeyPlayed = key;
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async unlock(): Promise<void> {

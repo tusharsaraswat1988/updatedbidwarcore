@@ -8,6 +8,7 @@ import {
   getListTeamsQueryKey,
 } from "@workspace/api-client-react";
 import { ScorerShell } from "@/components/scoring/scorer-shell";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ import {
   listFixtures,
   listVenues,
 } from "@/lib/scoring-foundation-api";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { scoringPath, cricketPublicPath } from "@/lib/tournament-navigation";
 import { Calendar, ChevronRight, MapPin, Plus, Trophy } from "lucide-react";
 
@@ -44,7 +46,7 @@ export default function ScoringSchedulePage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
   const { data: draws, isLoading: drawsLoading } = useQuery({
     queryKey: ["scoring-draws", tournamentId],
@@ -206,11 +208,12 @@ export default function ScoringSchedulePage() {
               onChange={(e) => setNewVenueName(e.target.value)}
               className="h-9"
             />
-            <Input
-              placeholder="City"
+            <CityAutocomplete
               value={newVenueCity}
-              onChange={(e) => setNewVenueCity(e.target.value)}
-              className="h-9 w-28"
+              onChange={setNewVenueCity}
+              placeholder="City"
+              className="h-9 min-w-[7rem] flex-1"
+              showHint={false}
             />
             <Button size="sm" variant="secondary" onClick={handleAddVenue}>
               Add

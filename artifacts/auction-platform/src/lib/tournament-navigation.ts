@@ -37,6 +37,32 @@ export function setupAreaPath(tournamentId: number): string {
   return `/tournament/${tournamentId}`;
 }
 
+/** BidWar Media Center — organizer Buzz Studio hub (requires features.buzzStudio). */
+export function mediaCenterPath(tournamentId: number): string {
+  return `/organizer/media-center/${tournamentId}`;
+}
+
+/** Template Studio — organizer route for a specific template. */
+export function templateStudioPath(
+  tournamentId: number,
+  templateId: string,
+): string {
+  return `/organizer/media-center/${tournamentId}/${templateId}`;
+}
+
+/** Canonical tournament-scoped path (alias). */
+export function mediaCenterTournamentPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/media-center`;
+}
+
+/** Template Studio — tournament-scoped route for a specific template. */
+export function templateStudioTournamentPath(
+  tournamentId: number,
+  templateId: string,
+): string {
+  return `/tournament/${tournamentId}/media-center/${templateId}`;
+}
+
 /** LED big-screen display path (optional auction code for public gate). */
 export function displayScreenPath(
   tournamentId: number,
@@ -45,6 +71,21 @@ export function displayScreenPath(
   const base = `/tournament/${tournamentId}/display`;
   if (!auctionCode?.trim()) return base;
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
+}
+
+export type SideLedPanelMode = "sponsors" | "player";
+
+/** Side LED panel — sponsors carousel or live player profile (ignores operator overlays). */
+export function sideDisplayPath(
+  tournamentId: number,
+  panel: SideLedPanelMode = "player",
+  auctionCode?: string | null,
+): string {
+  const params = new URLSearchParams({ panel });
+  if (auctionCode?.trim()) {
+    params.set("code", auctionCode.trim());
+  }
+  return `/tournament/${tournamentId}/side-display?${params.toString()}`;
 }
 
 /** Public live auction viewer — shareable, no auction code required. */
@@ -123,6 +164,18 @@ export function openDisplayScreen(
 ): void {
   window.open(
     displayScreenPath(tournamentId, auctionCode),
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+export function openSideDisplayScreen(
+  tournamentId: number,
+  panel: SideLedPanelMode = "player",
+  auctionCode?: string | null,
+): void {
+  window.open(
+    sideDisplayPath(tournamentId, panel, auctionCode),
     "_blank",
     "noopener,noreferrer",
   );

@@ -13,9 +13,7 @@ export type AuctionReadinessCheckId =
   | "bidTimer"
   | "playerOrder"
   | "bidTiers"
-  | "minSquad"
-  | "maxSquad"
-  | "squadRange";
+  | "minSquad";
 
 export type AuctionReadinessIssue = {
   id: AuctionReadinessCheckId;
@@ -38,7 +36,6 @@ export type AuctionReadinessInput = {
   bidTier2Increment?: number;
   bidTier3Increment?: number;
   minimumSquadSize: number;
-  maximumSquadSize: number;
 };
 
 export type TournamentReadinessSource = {
@@ -53,7 +50,6 @@ export type TournamentReadinessSource = {
   bidTier2Increment?: number | null;
   bidTier3Increment?: number | null;
   minimumSquadSize?: number | null;
-  maximumSquadSize?: number | null;
 };
 
 /** Default bid tiers JSON for newly created tournaments — one open-ended tier, blank raise-by. */
@@ -74,8 +70,6 @@ export const READINESS_CHECK_ORDER: AuctionReadinessCheckId[] = [
   "playerOrder",
   "bidTiers",
   "minSquad",
-  "maxSquad",
-  "squadRange",
 ];
 
 const CHECK_LABELS: Record<AuctionReadinessCheckId, string> = {
@@ -87,8 +81,6 @@ const CHECK_LABELS: Record<AuctionReadinessCheckId, string> = {
   playerOrder: "Select Player Order",
   bidTiers: "Configure Bid Increment Rules",
   minSquad: "Set Minimum Players per Team",
-  maxSquad: "Set Maximum Players per Team",
-  squadRange: "Maximum Players per Team must be at least Minimum Players per Team",
 };
 
 export function tournamentToReadinessInput(
@@ -110,7 +102,6 @@ export function tournamentToReadinessInput(
     bidTier2Increment: tournament.bidTier2Increment ?? undefined,
     bidTier3Increment: tournament.bidTier3Increment ?? undefined,
     minimumSquadSize: tournament.minimumSquadSize ?? 0,
-    maximumSquadSize: tournament.maximumSquadSize ?? 0,
   };
 }
 
@@ -202,18 +193,6 @@ export function validateAuctionReadiness(
     issues.push({ id: "minSquad", message: CHECK_LABELS.minSquad });
   }
 
-  if (input.maximumSquadSize <= 0) {
-    issues.push({ id: "maxSquad", message: CHECK_LABELS.maxSquad });
-  }
-
-  if (
-    input.minimumSquadSize > 0 &&
-    input.maximumSquadSize > 0 &&
-    input.maximumSquadSize < input.minimumSquadSize
-  ) {
-    issues.push({ id: "squadRange", message: CHECK_LABELS.squadRange });
-  }
-
   return issues;
 }
 
@@ -232,12 +211,17 @@ export function getReadinessChecklistItems(
   mode: AuctionReadinessMode,
   links?: Partial<Record<AuctionReadinessCheckId, string>>,
 ): ReadinessChecklistItem[] {
-  const failing = new Set(validateAuctionReadiness(input, mode).map((i) => i.id));
+  const issues = validateAuctionReadiness(input, mode);
+  const failing = new Set(issues.map((i) => i.id));
+  const issueMessages = new Map(issues.map((i) => [i.id, i.message]));
 
   return READINESS_CHECK_ORDER.map((id) => {
     let label = CHECK_LABELS[id];
     if (id === "players") {
       label = playersIssueMessage(mode);
+    }
+    if (failing.has(id)) {
+      label = issueMessages.get(id) ?? label;
     }
     return {
       id,

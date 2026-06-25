@@ -2,14 +2,11 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { ImageOff } from "lucide-react";
 import { cldUrl } from "@/lib/cloudinary";
+import { bannerImageStyle } from "@/components/display/banner-frame";
 
 /**
  * BannerOverlay — full-screen broadcast banner for felicitation moments,
  * announcements, chief guest welcome, winner reveals, etc.
- *
- * Covers the entire LED screen (absolute inset-0, z-50) so all auction UI
- * disappears while the banner is active. Smooth fade-in/out via
- * AnimatePresence in OverlayManager.
  *
  * fit modes:
  *  "cover"   — image fills the entire screen (Crop to Fill, default)
@@ -36,10 +33,7 @@ export const BannerOverlay = memo(function BannerOverlay({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="absolute inset-0 w-full h-full"
-          style={{
-            objectFit: isCover ? "cover" : "contain",
-            objectPosition: "center",
-          }}
+          style={bannerImageStyle(fit)}
           draggable={false}
         />
       ) : (

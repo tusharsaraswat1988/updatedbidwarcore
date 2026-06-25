@@ -17,6 +17,15 @@ export function ownerDashboardAppPath(tournamentId: number, teamId: number): str
   return `/tournament/${tournamentId}/owner/${teamId}`;
 }
 
+/** Wouter-relative join path (same query shape as {@link ownerJoinPath}). */
+export function ownerJoinAppPath(tournamentId?: number, teamId?: number): string {
+  const params = new URLSearchParams();
+  if (tournamentId != null) params.set("tournamentId", String(tournamentId));
+  if (teamId != null) params.set("teamId", String(teamId));
+  const q = params.toString();
+  return `/join${q ? `?${q}` : ""}`;
+}
+
 /** Absolute URL for SMS / copy links. */
 export function ownerJoinPublicUrl(
   origin: string,

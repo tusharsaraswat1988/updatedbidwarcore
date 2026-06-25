@@ -40,6 +40,20 @@ export const tournamentsTable = pgTable("tournaments", {
   // Player registration link controls
   registrationDeadline: text("registration_deadline"),
   registrationLimit: integer("registration_limit"),
+  // Registration payment verification (isolated from auction workflows)
+  enableRegistrationPayment: boolean("enable_registration_payment").notNull().default(false),
+  registrationFee: integer("registration_fee"),
+  upiId: text("upi_id"),
+  paymentVerificationMethod: text("payment_verification_method"), // utr | screenshot | utr_and_screenshot
+  paymentCollectionMode: text("payment_collection_mode").notNull().default("manual_verification"),
+  /** When enabled, public registration requires accepting organizer declaration points */
+  enableRegistrationDeclaration: boolean("enable_registration_declaration").notNull().default(false),
+  /** Newline-separated declaration/consent points shown on player registration form */
+  registrationDeclarationText: text("registration_declaration_text"),
+  /** Bid value assignment mode: system (default) or player self-selection at registration */
+  bidValueMode: text("bid_value_mode").notNull().default("system"),
+  /** JSON array of allowed bid values when bid_value_mode = player, e.g. [500,1000,1500] */
+  bidValueOptions: text("bid_value_options"),
   // Super admin controls
   licenseStatus: text("license_status").notNull().default("trial"),
   licenseGrantedAt: timestamp("license_granted_at", { withTimezone: true }),
@@ -66,7 +80,7 @@ export const tournamentsTable = pgTable("tournaments", {
   // Cheer messages (live viewer interactive reactions)
   cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
-  cheerCooldownSeconds: integer("cheer_cooldown_seconds").notNull().default(8),
+  cheerCooldownSeconds: integer("cheer_cooldown_seconds").notNull().default(2),
   cheerHeatMeterEnabled: boolean("cheer_heat_meter_enabled").notNull().default(false),
   cheerFanBattleEnabled: boolean("cheer_fan_battle_enabled").notNull().default(false),
   // Main Banner — full-screen broadcast overlay for felicitation/announcements
@@ -92,6 +106,8 @@ export const tournamentsTable = pgTable("tournaments", {
   /** Optional delegate PIN for scoring without organizer JWT (V1). */
   scoringPin: text("scoring_pin"),
   scoringSettingsJson: jsonb("scoring_settings_json").$type<Record<string, unknown>>(),
+  /** Per-tournament module feature flags — see @workspace/api-base/tournament-features */
+  featuresJson: jsonb("features_json").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 },

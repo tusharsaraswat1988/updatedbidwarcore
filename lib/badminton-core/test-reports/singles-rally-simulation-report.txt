@@ -1,0 +1,12 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║           SINGLES RALLY SIMULATION — LIVE vs REPLAY AUDIT             ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Summary:
+  Sequences run:       452
+  Sequences passed:    452
+  Sequences failed:    0
+  Total rally checks:  3559
+  Mismatch checkpoints: 0
+
+All live vs replay checkpoints matched.

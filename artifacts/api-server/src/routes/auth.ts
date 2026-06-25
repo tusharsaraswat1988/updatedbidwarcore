@@ -16,7 +16,7 @@ import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie } from
 import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
-import { buildPublicUrl } from "../lib/runtime-env";
+import { buildPublicUrl, getAdminDataPassword, getAdminPassword } from "../lib/runtime-env";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
   DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
@@ -25,9 +25,11 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
+import { resolveSportIdBySlug } from "./sports";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
 
@@ -148,13 +150,8 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
 // ─── Admin Login ──────────────────────────────────────────────────────────────
 
 router.post("/auth/admin/login", authLimiter, (req, res) => {
-  const masterPw = process.env.ADMIN_PASSWORD;
-  const dataPw = process.env.ADMIN_DATA_PASSWORD;
-
-  if (!masterPw && !dataPw) {
-    res.status(503).json({ error: "Admin login not configured. Set ADMIN_PASSWORD or ADMIN_DATA_PASSWORD." });
-    return;
-  }
+  const masterPw = getAdminPassword();
+  const dataPw = getAdminDataPassword();
 
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
@@ -234,8 +231,8 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   const body = z.object({ password: z.string() }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
-  const masterPw = process.env.ADMIN_PASSWORD;
-  const dataPw = process.env.ADMIN_DATA_PASSWORD;
+  const masterPw = getAdminPassword();
+  const dataPw = getAdminDataPassword();
 
   if (masterPw && safeCompare(body.data.password, masterPw)) {
     const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
@@ -428,6 +425,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const [t] = await db.insert(tournamentsTable).values({
     name: d.name,
     sport: d.sport,
+    sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
     venue: d.venue,
     auctionDate: d.auctionDate,
@@ -469,23 +467,19 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const { teamsTable, playersTable, bidsTable, auctionSessionsTable, categoriesTable } = await import("@workspace/db");
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
-  await db.delete(auctionSessionsTable).where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.delete(playersTable).where(eq(playersTable.tournamentId, tid));
-  await db.delete(teamsTable).where(eq(teamsTable.tournamentId, tid));
-  await db.delete(categoriesTable).where(eq(categoriesTable.tournamentId, tid));
-  const [deleted] = await db.delete(tournamentsTable).where(eq(tournamentsTable.id, tid)).returning();
+  if (!beforeTournament) { res.status(404).json({ error: "Not found" }); return; }
+  const { adminDeleteTournamentCascade } = await import("../lib/admin-delete-tournament");
+  const deleted = await adminDeleteTournamentCascade(tid);
   if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
   auditLog(req, {
     category: "admin",
     action: "tournament.admin_deleted",
-    summary: `Admin deleted tournament "${deleted.name}" and all related data`,
+    summary: `Admin deleted tournament "${beforeTournament.name}" and all tournament-scoped data`,
     severity: "critical",
     tournamentId: tid,
     resource: { type: "tournament", id: tid },
-    before: beforeTournament ? snapshotTournament(beforeTournament) : snapshotTournament(deleted),
+    before: snapshotTournament(beforeTournament),
     alertKey: "tournament_admin_deleted",
   });
   res.json({ success: true });
@@ -664,6 +658,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       cheerMessagePresets: tournament.cheerMessagePresets ?? null,
       localModeEnabled: tournament.localModeEnabled ?? false,
       scoringEnabled: tournament.scoringEnabled ?? false,
+      features: resolveTournamentFeatures(tournament.featuresJson),
       createdAt: tournament.createdAt.toISOString(),
     },
     teams: teams.map(t => ({
@@ -727,6 +722,16 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
+    features: z.object({
+      buzzStudio: z.boolean().optional(),
+      allowCreativeDownloads: z.boolean().optional(),
+      allowPlayerDownloads: z.boolean().optional(),
+      watermarkRequired: z.boolean().optional(),
+      ownerApp: z.boolean().optional(),
+      scoring: z.boolean().optional(),
+      sponsorshipHub: z.boolean().optional(),
+      analytics: z.boolean().optional(),
+    }).optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -740,7 +745,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
-  if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.sport !== undefined) {
+    updates.sport = d.sport;
+    updates.sportId = await resolveSportIdBySlug(d.sport);
+  }
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) {
@@ -768,6 +776,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.scoringEnabled !== undefined) {
     updates.scoringEnabled = d.scoringEnabled;
     updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
+  }
+  if (d.features !== undefined) {
+    updates.featuresJson = mergeTournamentFeatures(beforeTournament?.featuresJson, d.features);
   }
 
   // Auto-link organizer account by mobile or email when those fields are set
@@ -1157,7 +1168,23 @@ router.post("/auth/organizer-account/login", async (req, res) => {
     summary: `Organizer "${organizer.name}" logged in`,
     actor: { type: "organizer_account", id: String(organizer.id), label: organizer.name },
   });
-  res.json({ success: true, organizer: organizerToJson(organizer) });
+  // Include tournaments in the login response so the frontend can skip the
+  // extra GET /me round-trip after login (which is the slow Neon cold-start call).
+  res.json({
+    success: true,
+    organizer: organizerToJson(organizer),
+    tournaments: myTournaments.map(t => ({
+      id: t.id,
+      name: t.name,
+      sport: t.sport,
+      status: t.status,
+      licenseStatus: t.licenseStatus,
+      venue: t.venue ?? null,
+      auctionDate: t.auctionDate ?? null,
+      auctionTime: t.auctionTime ?? null,
+      createdAt: t.createdAt.toISOString(),
+    })),
+  });
 });
 
 router.get("/auth/organizer-account/me", async (req, res) => {
@@ -1249,18 +1276,16 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     venue: z.string().optional(),
     auctionDate: z.string().optional(),
     auctionTime: z.string().optional(),
-    basePurse: z.number().int().optional(),
-    minBid: z.number().int().min(1).optional(),
-    bidIncrement: z.number().int().min(1).optional(),
+    basePurse: z.number().int().min(1),
+    minBid: z.number().int().min(1),
+    bidIncrement: z.number().int().min(1),
     minimumSquadSize: z.number().int().min(1).max(100).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
-  const bidTiersJson = d.bidIncrement != null
-    ? JSON.stringify([{ increment: d.bidIncrement }])
-    : DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON;
+  const bidTiersJson = JSON.stringify([{ increment: d.bidIncrement }]);
 
   // Generate unique auction code (TT+NN+DDMM format)
   function buildOrgCode(name: string, auctionDate?: string | null): string {
@@ -1290,8 +1315,8 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerName: organizer.name,
     organizerMobile: organizer.mobile,
     organizerEmail: organizer.email ?? null,
-    basePurse: d.basePurse ?? 10000000,
-    minBid: d.minBid ?? 100000,
+    basePurse: d.basePurse,
+    minBid: d.minBid,
     bidTiers: bidTiersJson,
     timerSeconds: DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
     bidTimerSeconds: DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,

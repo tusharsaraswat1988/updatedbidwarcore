@@ -5,12 +5,15 @@ import {
   DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
-import { randomBytes } from "crypto";
-import { isOrganizerOrAdmin, isAccountOrAdmin } from "../middleware/require-organizer";
+import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
+import { randomBytes, randomInt } from "crypto";
+import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
-import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable } from "@workspace/db";
+import { resolveSportIdBySlug } from "./sports";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
@@ -20,6 +23,19 @@ import { notifyAsync } from "../lib/notifications";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament } from "../lib/audit-snapshots";
+import {
+  PAYMENT_COLLECTION_MODES,
+  PAYMENT_VERIFICATION_METHODS,
+} from "@workspace/api-base/registration-payment";
+import { validateTournamentPaymentSettings } from "../lib/registration-payment";
+import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
+import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
+import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import { brandingService } from "../lib/branding-service.js";
+import {
+  resolveBroadcastAudioUrl,
+  type PlatformAudioDefaults,
+} from "@workspace/api-base/platform-audio";
 
 // ─── Auction Code Generation ──────────────────────────────────────────────────
 // Format: TT + NN + DDMM
@@ -62,71 +78,13 @@ const cloudinaryLogoUrl = z
 
 const router = Router();
 
-const tournamentToJson = (
-  t: typeof tournamentsTable.$inferSelect,
-  options?: { includeScoringPin?: boolean },
-) => ({
-  id: t.id,
-  name: t.name,
-  sport: t.sport,
-  sportId: t.sportId ?? null,
-  auctionCode: t.auctionCode ?? null,
-  venue: t.venue,
-  auctionDate: t.auctionDate,
-  auctionTime: t.auctionTime ?? null,
-  organizerName: t.organizerName,
-  organizerMobile: t.organizerMobile,
-  organizerEmail: t.organizerEmail,
-  logoUrl: t.logoUrl,
-  sponsorLogos: t.sponsorLogos,
-  basePurse: t.basePurse,
-  minBid: t.minBid,
-  bidIncrement: t.bidIncrement,
-  bidTier1UpTo: t.bidTier1UpTo,
-  bidTier1Increment: t.bidTier1Increment,
-  bidTier2UpTo: t.bidTier2UpTo,
-  bidTier2Increment: t.bidTier2Increment,
-  bidTier3Increment: t.bidTier3Increment,
-  bidTiers: t.bidTiers,
-  timerSeconds: t.timerSeconds,
-  bidTimerSeconds: t.bidTimerSeconds,
-  bidExtensionEnabled: t.bidExtensionEnabled ?? false,
-  bidExtensionThresholdSeconds: t.bidExtensionThresholdSeconds ?? 3,
-  bidExtensionSeconds: t.bidExtensionSeconds ?? 5,
-  playerSelectionMode: t.playerSelectionMode,
-  status: t.status,
-  registrationDeadline: t.registrationDeadline ?? null,
-  registrationLimit: t.registrationLimit ?? null,
-  resetCount: t.resetCount ?? 0,
-  lastResetAt: t.lastResetAt ? t.lastResetAt.toISOString() : null,
-  lastResetBy: t.lastResetBy ?? null,
-  minimumSquadSize: t.minimumSquadSize ?? 0,
-  maximumSquadSize: t.maximumSquadSize ?? 0,
-  audioEnabled: t.audioEnabled ?? true,
-  masterVolume: t.masterVolume ?? 80,
-  countdownSoundEnabled: t.countdownSoundEnabled ?? true,
-  countdownSoundUrl: t.countdownSoundUrl ?? null,
-  countdownSoundVolume: t.countdownSoundVolume ?? 70,
-  soldSoundEnabled: t.soldSoundEnabled ?? true,
-  soldSoundUrl: t.soldSoundUrl ?? null,
-  soldSoundVolume: t.soldSoundVolume ?? 80,
-  cheerMessagesEnabled: t.cheerMessagesEnabled ?? true,
-  cheerMessagePresets: t.cheerMessagePresets ?? null,
-  breakEndMusicEnabled: t.breakEndMusicEnabled ?? false,
-  breakEndMusicUrl: t.breakEndMusicUrl ?? null,
-  breakEndMusicVolume: t.breakEndMusicVolume ?? 80,
-  mainBannerUrl: t.mainBannerUrl ?? null,
-  mainBannerEnabled: t.mainBannerEnabled ?? false,
-  mainBannerFit: t.mainBannerFit ?? "cover",
-  localModeEnabled: t.localModeEnabled ?? false,
-  licenseStatus: t.licenseStatus ?? "trial",
-  adminLocked: t.adminLocked ?? false,
-  matchDates: t.matchDates ?? null,
-  scoringEnabled: t.scoringEnabled ?? false,
-  scoringPhase: t.scoringPhase ?? "disabled",
-  hasScoringPin: !!t.scoringPin,
-  scoringPin: options?.includeScoringPin ? (t.scoringPin ?? null) : undefined,
-  createdAt: t.createdAt.toISOString(),
+const tournamentToJson = privateTournamentSerializer;
+const tournamentToPublicJson = publicTournamentSerializer;
+
+router.get("/tournaments", async (req, res) => {
+  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
+  const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
+  res.json(tournaments.map((t) => (isPrivate ? tournamentToJson(t) : tournamentToPublicJson(t))));
 });
 
 const tournamentInputSchema = z.object({
@@ -163,16 +121,22 @@ const tournamentInputSchema = z.object({
   matchDates: z.string().nullable().optional(),
 });
 
-router.get("/tournaments", async (_req, res) => {
-  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
-  res.json(tournaments.map((t) => tournamentToJson(t)));
-});
-
 router.post("/tournaments", async (req, res) => {
   if (!isAccountOrAdmin(req)) { res.status(401).json({ error: "Authentication required" }); return; }
   const parsed = tournamentInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  let validatedSponsorLogos: string | null | undefined;
+  if (d.sponsorLogos !== undefined) {
+    const sponsorCheck = parseValidatedSponsorLogos(d.sponsorLogos);
+    if (!sponsorCheck.ok) {
+      res.status(400).json({ error: sponsorCheck.error });
+      return;
+    }
+    validatedSponsorLogos = sponsorCheck.value ?? null;
+  }
+
   const auctionCode = await generateUniqueAuctionCode(d.name, d.auctionDate);
 
   let organizerId: number | null = null;
@@ -202,6 +166,7 @@ router.post("/tournaments", async (req, res) => {
     .values({
       name: d.name,
       sport: d.sport,
+      sportId: await resolveSportIdBySlug(d.sport),
       auctionCode,
       venue: d.venue ?? null,
       auctionDate: d.auctionDate ?? null,
@@ -211,7 +176,7 @@ router.post("/tournaments", async (req, res) => {
       organizerMobile,
       organizerEmail,
       logoUrl: d.logoUrl ?? null,
-      sponsorLogos: d.sponsorLogos ?? null,
+      sponsorLogos: validatedSponsorLogos ?? null,
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,
@@ -248,13 +213,19 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(tournamentToJson(tournament, { includeScoringPin: isOrganizerOrAdmin(req, id) }));
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  const isOrganizer = await canAccessPrivateTournamentData(req, id);
+  const serializer = isOrganizer ? tournamentToJson : tournamentToPublicJson;
+  res.json(serializer(tournament, {
+    includeScoringPin: isOrganizer,
+    platformDefaults,
+  }));
 });
 
 router.patch("/tournaments/:tournamentId", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, id)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, id))) return;
   const schema = z.object({
     name: z.string().optional(),
     sport: z.string().optional(),
@@ -284,6 +255,15 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     status: z.string().optional(),
     registrationDeadline: z.string().nullable().optional(),
     registrationLimit: z.number().int().nullable().optional(),
+    enableRegistrationPayment: z.boolean().optional(),
+    registrationFee: z.number().int().min(1).nullable().optional(),
+    upiId: z.string().nullable().optional(),
+    paymentVerificationMethod: z.enum(PAYMENT_VERIFICATION_METHODS).nullable().optional(),
+    paymentCollectionMode: z.enum(PAYMENT_COLLECTION_MODES).optional(),
+    enableRegistrationDeclaration: z.boolean().optional(),
+    registrationDeclarationText: z.string().nullable().optional(),
+    bidValueMode: z.enum(["system", "player"]).optional(),
+    bidValueOptions: z.array(z.number().int().positive()).optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
     audioEnabled: z.boolean().optional(),
@@ -315,9 +295,41 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  const nextMinimumSquadSize = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : beforeTournament.minimumSquadSize;
+  const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
+  if (nextMinimumSquadSize > 0 && nextMaximumSquadSize > 0 && nextMaximumSquadSize < nextMinimumSquadSize) {
+    res.status(400).json({ error: "Maximum players cannot be less than minimum players." });
+    return;
+  }
+
+  const nextBidValueMode = d.bidValueMode ?? beforeTournament.bidValueMode ?? "system";
+  const nextBidValueOptionsRaw = d.bidValueOptions !== undefined
+    ? serializeBidValueOptions(d.bidValueOptions)
+    : beforeTournament.bidValueOptions;
+  if (nextBidValueMode === "player" && parseBidValueOptions(nextBidValueOptionsRaw).length === 0) {
+    res.status(400).json({ error: "Add at least one allowed bid value when using Player Selected mode." });
+    return;
+  }
+
+  if (d.sport !== undefined && d.sport !== beforeTournament.sport) {
+    const [playerCountRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, id));
+    if ((playerCountRow?.count ?? 0) > 0) {
+      res.status(400).json({ error: "Sport cannot be changed while players exist in the pool." });
+      return;
+    }
+  }
+
   const updates: Record<string, unknown> = {};
   if (d.name !== undefined) updates.name = d.name;
-  if (d.sport !== undefined) updates.sport = d.sport;
+  if (d.sport !== undefined) {
+    updates.sport = d.sport;
+    updates.sportId = await resolveSportIdBySlug(d.sport);
+  }
   if (d.venue !== undefined) updates.venue = d.venue;
   if (d.auctionDate !== undefined) updates.auctionDate = d.auctionDate;
   if (d.auctionTime !== undefined) updates.auctionTime = d.auctionTime;
@@ -325,7 +337,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
   if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
-  if (d.sponsorLogos !== undefined) updates.sponsorLogos = d.sponsorLogos;
+  if (d.sponsorLogos !== undefined) {
+    const sponsorCheck = parseValidatedSponsorLogos(d.sponsorLogos);
+    if (!sponsorCheck.ok) {
+      res.status(400).json({ error: sponsorCheck.error });
+      return;
+    }
+    updates.sponsorLogos = sponsorCheck.value ?? null;
+  }
   if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
   if (d.minBid !== undefined) updates.minBid = d.minBid;
   if (d.bidIncrement !== undefined) updates.bidIncrement = d.bidIncrement;
@@ -345,18 +364,31 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.registrationDeadline !== undefined)
     updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
+  if (d.enableRegistrationPayment !== undefined) updates.enableRegistrationPayment = d.enableRegistrationPayment;
+  if (d.registrationFee !== undefined) updates.registrationFee = d.registrationFee;
+  if (d.upiId !== undefined) updates.upiId = d.upiId === "" ? null : d.upiId;
+  if (d.paymentVerificationMethod !== undefined) updates.paymentVerificationMethod = d.paymentVerificationMethod;
+  if (d.paymentCollectionMode !== undefined) updates.paymentCollectionMode = d.paymentCollectionMode;
+  if (d.enableRegistrationDeclaration !== undefined) updates.enableRegistrationDeclaration = d.enableRegistrationDeclaration;
+  if (d.registrationDeclarationText !== undefined) {
+    updates.registrationDeclarationText = d.registrationDeclarationText === "" ? null : d.registrationDeclarationText;
+  }
+  if (d.bidValueMode !== undefined) updates.bidValueMode = d.bidValueMode;
+  if (d.bidValueOptions !== undefined) {
+    updates.bidValueOptions = serializeBidValueOptions(d.bidValueOptions);
+  }
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;
   if (d.audioEnabled !== undefined) updates.audioEnabled = d.audioEnabled;
   if (d.masterVolume !== undefined) updates.masterVolume = d.masterVolume;
   if (d.countdownSoundEnabled !== undefined) updates.countdownSoundEnabled = d.countdownSoundEnabled;
-  if (d.countdownSoundUrl !== undefined) updates.countdownSoundUrl = d.countdownSoundUrl;
+  if (d.countdownSoundUrl !== undefined) updates.countdownSoundUrl = d.countdownSoundUrl === "" ? null : d.countdownSoundUrl;
   if (d.countdownSoundVolume !== undefined) updates.countdownSoundVolume = d.countdownSoundVolume;
   if (d.soldSoundEnabled !== undefined) updates.soldSoundEnabled = d.soldSoundEnabled;
-  if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl;
+  if (d.soldSoundUrl !== undefined) updates.soldSoundUrl = d.soldSoundUrl === "" ? null : d.soldSoundUrl;
   if (d.soldSoundVolume !== undefined) updates.soldSoundVolume = d.soldSoundVolume;
   if (d.breakEndMusicEnabled !== undefined) updates.breakEndMusicEnabled = d.breakEndMusicEnabled;
-  if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl;
+  if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl === "" ? null : d.breakEndMusicUrl;
   if (d.breakEndMusicVolume !== undefined) updates.breakEndMusicVolume = d.breakEndMusicVolume;
   if (d.mainBannerUrl !== undefined) updates.mainBannerUrl = d.mainBannerUrl;
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
@@ -375,6 +407,22 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     }
     if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
     if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
+  }
+  const mergedPaymentSettings = {
+    enableRegistrationPayment:
+      d.enableRegistrationPayment ?? beforeTournament?.enableRegistrationPayment ?? false,
+    registrationFee:
+      d.registrationFee !== undefined ? d.registrationFee : (beforeTournament?.registrationFee ?? null),
+    upiId: d.upiId !== undefined ? d.upiId : (beforeTournament?.upiId ?? null),
+    paymentVerificationMethod:
+      d.paymentVerificationMethod !== undefined
+        ? d.paymentVerificationMethod
+        : (beforeTournament?.paymentVerificationMethod ?? null),
+  };
+  const paymentSettingsValidation = validateTournamentPaymentSettings(mergedPaymentSettings);
+  if (!paymentSettingsValidation.ok) {
+    res.status(400).json({ error: paymentSettingsValidation.error, field: paymentSettingsValidation.field });
+    return;
   }
   const [tournament] = await db
     .update(tournamentsTable)
@@ -398,13 +446,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
-  res.json(tournamentToJson(tournament, { includeScoringPin: true }));
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  res.json(tournamentToJson(tournament, { includeScoringPin: true, platformDefaults }));
 });
 
 router.delete("/tournaments/:tournamentId", async (req, res) => {
   const id = parseInt(req.params.tournamentId);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, id)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, id))) return;
   const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   await db.delete(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (before) {
@@ -420,6 +469,71 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
     });
   }
   res.status(204).send();
+});
+
+// Venue auction guard — used by BidWar Local before starting a LAN auction.
+router.get("/tournaments/:tournamentId/venue-auction-guard", async (req, res) => {
+  const id = parseInt(String(req.params.tournamentId));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error });
+    return;
+  }
+
+  const [session] = await db
+    .select({ status: auctionSessionsTable.status })
+    .from(auctionSessionsTable)
+    .where(eq(auctionSessionsTable.tournamentId, id));
+
+  const guard = evaluateVenueAuctionGuard({
+    localModeEnabled: !!tournament.localModeEnabled,
+    cloudSessionStatus: session?.status ?? "idle",
+    lastMirrorAt: tournament.exportTokenLastMirrorAt,
+  });
+
+  res.json({
+    blockLocalStart: guard.blockLocalStart,
+    blockLocalStartReason: guard.blockLocalStartReason,
+    blockCloudStart: guard.blockCloudStart,
+    blockCloudStartReason: guard.blockCloudStartReason,
+    recentMirror: guard.recentMirror,
+    cloudLive: guard.cloudLive,
+  });
+});
+
+// Clear venue mirror heartbeat after local auction concludes.
+router.post("/tournaments/:tournamentId/venue-auction-release", async (req, res) => {
+  const id = parseInt(String(req.params.tournamentId));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error });
+    return;
+  }
+
+  await db
+    .update(tournamentsTable)
+    .set({ exportTokenLastMirrorAt: null })
+    .where(eq(tournamentsTable.id, id));
+
+  res.json({ ok: true });
 });
 
 // GET export full tournament snapshot for local/offline mode
@@ -446,9 +560,10 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
     return;
   }
 
-  // Generate a fresh 48-hour export token for this download
+  // Generate a fresh 48-hour export token and venue operator PIN for this download
   const exportToken = randomBytes(32).toString("hex");
   const exportTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const operatorPin = String(randomInt(1000, 10000));
   await db.update(tournamentsTable).set({ exportToken, exportTokenExpiresAt }).where(eq(tournamentsTable.id, id));
 
   // Derive the cloud base URL so the local app knows where to mirror back
@@ -457,6 +572,20 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
   const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, id));
+
+  const [brandingRow] = await db.select().from(brandingSettingsTable).limit(1);
+  const assetsMap = await brandingService.getAssetsMap();
+  const brandingPayload = brandingService.mergeLegacyAssetFields(
+    brandingRow ? { ...brandingRow, createdAt: brandingRow.createdAt.toISOString(), updatedAt: brandingRow.updatedAt.toISOString() } : {},
+    assetsMap,
+  );
+  const brandingAssets: Record<string, string> = {};
+  for (const [type, asset] of Object.entries(assetsMap)) {
+    if (asset?.fileUrl) brandingAssets[type] = asset.fileUrl;
+  }
+  if (Object.keys(brandingAssets).length > 0) {
+    (brandingPayload as Record<string, unknown>).assets = brandingAssets;
+  }
 
   const playerToJson = (p: typeof playersTable.$inferSelect) => ({
     id: p.id, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
@@ -472,8 +601,13 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
     version: 1,
     exportedAt: new Date().toISOString(),
     exportToken,
+    operatorPin,
     cloudBaseUrl,
-    tournament: tournamentToJson(tournament),
+    tournament: {
+      ...tournamentToJson(tournament),
+      // Offline venue login only — included in local export snapshot, not public tournament APIs.
+      organizerPassword: tournament.organizerPassword ?? null,
+    },
     teams: teams.map(t => ({
       id: t.id, tournamentId: t.tournamentId, name: t.name, shortCode: t.shortCode,
       ownerName: t.ownerName, ownerMobile: t.ownerMobile, color: t.color,
@@ -487,6 +621,7 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
       bidIncrement: c.bidIncrement, maxPlayers: c.maxPlayers, colorCode: c.colorCode,
       sortOrder: c.sortOrder, createdAt: c.createdAt.toISOString(),
     })),
+    branding: brandingPayload,
   });
 });
 

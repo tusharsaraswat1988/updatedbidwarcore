@@ -19,6 +19,7 @@ export type RuntimeConfig = {
   publicOrigin: string;
   corsOrigins: string[];
   serveStatic: boolean;
+  redisUrl: string | undefined;
 };
 
 let cached: RuntimeConfig | null = null;
@@ -96,6 +97,7 @@ function buildCachedConfig(): RuntimeConfig {
     publicOrigin,
     corsOrigins: buildCorsOrigins(appHosts, publicScheme, isProduction),
     serveStatic,
+    redisUrl: process.env.REDIS_URL?.trim() || undefined,
   };
 }
 
@@ -154,7 +156,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
   const appDomainRaw = process.env.APP_DOMAIN?.trim();
   if (!appDomainRaw) {
     errors.push(
-      "APP_DOMAIN is required (comma-separated hostnames, e.g. bidwar.in,www.bidwar.in)",
+      "APP_DOMAIN is required (comma-separated hostnames, e.g. bidwar.in,bidwar.in)",
     );
   } else {
     const hosts = parseCommaList(appDomainRaw);
@@ -193,7 +195,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
       console.error(`  • ${err}`);
     }
     console.error(
-      "[bidwar] Copy .env.example to .env and set all required values before starting.",
+      "[bidwar] Copy .env.example to .env (development) or .env.production.example to .env.production (local production) before starting.",
     );
     process.exit(1);
   }
@@ -234,6 +236,16 @@ export function isCorsOriginAllowed(origin: string | undefined): boolean {
 
 export function getSessionSecret(): string {
   return getRuntimeConfig().sessionSecret;
+}
+
+/** Super-admin password from ADMIN_PASSWORD (trimmed, cached at startup). */
+export function getAdminPassword(): string {
+  return getRuntimeConfig().adminPassword;
+}
+
+/** Optional data-entry admin password from ADMIN_DATA_PASSWORD. */
+export function getAdminDataPassword(): string | undefined {
+  return getRuntimeConfig().adminDataPassword;
 }
 
 /**

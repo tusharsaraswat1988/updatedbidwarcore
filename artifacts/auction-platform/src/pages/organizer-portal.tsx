@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
+import { SportSelect } from "@/components/sport-select";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
   signupEmail,
@@ -29,15 +30,21 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LogOut, Trophy, ExternalLink, RefreshCw, ShieldCheck, Search,
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail,
 } from "lucide-react";
-import { HintLabel } from "@/components/ui/hint-label";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { HintLabel } from "@/components/ui/hint-label";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const authLoginPreset = getBrandSurfacePreset("auth-login");
+const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
 
 type OrganizerInfo = {
   id: number; name: string; email: string | null; mobile: string | null;
@@ -70,7 +77,7 @@ function TournamentLicenseBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Indian number words helper ───────────────────────────────────────────────
+type TimePeriod = "AM" | "PM";
 
 function toIndianWords(raw: string): string {
   const n = parseInt(raw, 10);
@@ -86,8 +93,6 @@ function toIndianWords(raw: string): string {
   if (rest) parts.push(String(rest));
   return parts.join(" ");
 }
-
-type TimePeriod = "AM" | "PM";
 
 function to24HourTime(hour12: number, minute: number, period: TimePeriod): string {
   let h = hour12 % 12;
@@ -139,7 +144,6 @@ function CreateTournamentModal({
     timeMinute: "00",
     timePeriod: "PM" as TimePeriod,
     basePurse: "",
-    minimumSquadSize: "",
     minBid: "",
     bidIncrement: "",
   });
@@ -149,22 +153,6 @@ function CreateTournamentModal({
   const [createdTournamentId, setCreatedTournamentId] = useState<number | null>(null);
   const [wizardStep, setWizardStep] = useState<1 | 2>(1);
 
-  const CRICKET_DEFAULTS = {
-    basePurse: "10000000",
-    minimumSquadSize: "11",
-    minBid: "10000",
-    bidIncrement: "5000",
-  };
-
-  // Load sports from master table
-  const [sports, setSports] = useState<{ slug: string; name: string }[]>([]);
-  useEffect(() => {
-    fetch("/api/sports")
-      .then(r => r.json())
-      .then((d: { slug: string; name: string }[]) => setSports(d))
-      .catch(() => {});
-  }, []);
-
   function handleClose() {
     setCreatedCode(null);
     setCreatedTournamentId(null);
@@ -172,7 +160,7 @@ function CreateTournamentModal({
     setForm({
       name: "", sport: "cricket", venue: "", auctionDate: "",
       timeHour: "", timeMinute: "00", timePeriod: "PM",
-      basePurse: "", minimumSquadSize: "", minBid: "", bidIncrement: "",
+      basePurse: "", minBid: "", bidIncrement: "",
     });
     setError("");
     onClose();
@@ -195,13 +183,8 @@ function CreateTournamentModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Tournament name is required."); return; }
-    if (!form.basePurse || parseInt(form.basePurse) <= 0) {
+    if (!form.basePurse || parseInt(form.basePurse, 10) <= 0) {
       setError("Team budget (purse) is required.");
-      return;
-    }
-    const minSquad = parseInt(form.minimumSquadSize, 10);
-    if (!form.minimumSquadSize || Number.isNaN(minSquad) || minSquad < 1) {
-      setError("Minimum players per team is required (at least 1).");
       return;
     }
     const minBid = parseInt(form.minBid, 10);
@@ -222,8 +205,7 @@ function CreateTournamentModal({
       venue: form.venue.trim() || undefined,
       auctionDate: form.auctionDate || undefined,
       auctionTime: auctionTime || undefined,
-      basePurse: parseInt(form.basePurse),
-      minimumSquadSize: minSquad,
+      basePurse: parseInt(form.basePurse, 10),
       minBid,
       bidIncrement,
     });
@@ -277,7 +259,7 @@ function CreateTournamentModal({
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <AuthStepIndicator step={wizardStep} total={2} />
             <p className="text-xs text-center text-muted-foreground -mt-2">
-              {wizardStep === 1 ? "Basic details" : "Budget & auction rules"}
+              {wizardStep === 1 ? "Basic details" : "Budget & pricing (required)"}
             </p>
 
             {wizardStep === 1 ? (
@@ -294,23 +276,10 @@ function CreateTournamentModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Sport</Label>
-                    <Select value={form.sport} onValueChange={v => setForm(f => ({ ...f, sport: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {sports.length > 0
-                          ? sports.map(s => <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>)
-                          : (
-                            <>
-                              <SelectItem value="cricket">Cricket</SelectItem>
-                              <SelectItem value="football">Football</SelectItem>
-                              <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                              <SelectItem value="volleyball">Volleyball</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </>
-                          )
-                        }
-                      </SelectContent>
-                    </Select>
+                    <SportSelect
+                      value={form.sport}
+                      onValueChange={(v) => setForm((f) => ({ ...f, sport: v }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Venue</Label>
@@ -323,10 +292,11 @@ function CreateTournamentModal({
                 </div>
                 <div className="space-y-2">
                   <Label>Auction Date</Label>
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={form.auctionDate}
-                    onChange={e => setForm(f => ({ ...f, auctionDate: e.target.value }))}
+                    onChange={auctionDate => setForm(f => ({ ...f, auctionDate }))}
+                    placeholder="Select auction date"
+                    disablePastDates
                   />
                 </div>
                 <div className="space-y-2">
@@ -374,9 +344,9 @@ function CreateTournamentModal({
             ) : (
               <>
                 <p className="text-xs text-muted-foreground rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
-                  Standard cricket values are pre-filled. You can change them later in Settings.
+                  Enter your auction budget and bid rules below. These fields are required — nothing is pre-filled.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>
                       <HintLabel hint="Har team ke paas kitna paisa kharch karne ko milega — jaise 1 crore">
@@ -391,20 +361,9 @@ function CreateTournamentModal({
                       min={1}
                       required
                     />
-                    {purseWords && (
+                    {purseWords ? (
                       <p className="text-xs text-amber-400/80 font-medium">{purseWords}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Minimum Players per Team *</Label>
-                    <Input
-                      type="number"
-                      value={form.minimumSquadSize}
-                      onChange={e => setForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                      placeholder="e.g. 11"
-                      min={1}
-                      required
-                    />
+                    ) : null}
                   </div>
                   <div className="space-y-2">
                     <Label>
@@ -454,13 +413,6 @@ function CreateTournamentModal({
                     onClick={() => {
                       if (!form.name.trim()) { setError("Tournament name is required."); return; }
                       setError("");
-                      setForm(f => ({
-                        ...f,
-                        basePurse: f.basePurse || CRICKET_DEFAULTS.basePurse,
-                        minimumSquadSize: f.minimumSquadSize || CRICKET_DEFAULTS.minimumSquadSize,
-                        minBid: f.minBid || CRICKET_DEFAULTS.minBid,
-                        bidIncrement: f.bidIncrement || CRICKET_DEFAULTS.bidIncrement,
-                      }));
                       setWizardStep(2);
                     }}
                   >
@@ -778,6 +730,8 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
   const [showSignupConfirm, setShowSignupConfirm] = useState(false);
   const [, navigate] = useLocation();
   const { logos, brandName } = useBranding();
+  const logoSrc = getBrandLogoSrc(logos, authLoginPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [signupForm, setSignupForm] = useState({ name: "", email: "", mobile: "", password: "", confirmPassword: "" });
@@ -847,6 +801,10 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
       if (next && next.startsWith("/")) navigate(next);
       return true;
     }
+    if (me.serverError) {
+      setError("Sign-in succeeded but the server is slow to respond. Please wait a moment and try again.");
+      return false;
+    }
     setError(SESSION_SAVE_ERROR);
     return false;
   }
@@ -872,6 +830,14 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
       }
       setLoginGuard(null);
       setCooldownSec(0);
+      // Use organizer + tournaments from the login response directly — avoids a
+      // second slow GET /me round-trip which is the main cause of the long spinner.
+      if (r.organizer) {
+        onSuccess(r.organizer, r.tournaments ?? []);
+        if (next && next.startsWith("/")) navigate(next);
+        return;
+      }
+      // Fallback: login response didn't include organizer data (older server)
       await finishAccountSession();
     } finally {
       setLoading(false);
@@ -957,8 +923,7 @@ function AuthForm({ onSuccess, initialError, next }: { onSuccess: (o: OrganizerI
         </button>
 
         <div className="text-center space-y-3">
-          <img src={logos.main || "/bidwar-logo-transparent.png"} alt={brandName} className="h-20 w-auto mx-auto" />
-          <h1 className="font-display font-black text-3xl text-white">{brandName.toUpperCase()}</h1>
+          <img src={logoSrc} alt={logoAlt} className={authLoginPreset.sizeClass} />
           <p className="text-muted-foreground text-sm">My Tournaments</p>
         </div>
 
@@ -1414,6 +1379,7 @@ function OrganizerDashboard({
 }) {
   const [, navigate] = useLocation();
   const { logos, brandName, miniBrandText, poweredByText } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -1489,17 +1455,17 @@ function OrganizerDashboard({
       <div className="border-b border-border/40 bg-[#09090b]/80 sticky top-0 backdrop-blur-xl z-10">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* BidWar brand logo */}
-            {logos.mini ? (
-              <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
-            ) : logos.main ? (
-              <img src={logos.main} alt={brandName} className="h-8 w-auto" />
-            ) : (
-              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
-                {miniBrandText}
-              </div>
-            )}
-            <span className="font-display font-black text-lg text-white tracking-wide hidden sm:inline">{brandName}</span>
+            {/* BidWar brand mark */}
+            {(() => {
+              const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
+              return headerLogoSrc ? (
+                <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary">
+                  {miniBrandText}
+                </div>
+              );
+            })()}
             <div className="w-px h-6 bg-border/60 hidden sm:block" />
             <div>
               <p className="font-display font-bold text-base leading-none text-white">{organizer.name}</p>
@@ -1823,6 +1789,13 @@ export default function OrganizerPortal() {
       setChecking(false);
       return true;
     }
+    // Transient server error (DB cold start, 500, network blip) — do NOT log the
+    // user out. Keep the existing session state. Only clear on an explicit "not
+    // logged in" response (serverError is false and loggedIn is false).
+    if (me.serverError) {
+      setChecking(false);
+      return false;
+    }
     setOrganizer(null);
     setTournaments([]);
     setNeedsMobile(false);
@@ -1853,6 +1826,15 @@ export default function OrganizerPortal() {
           setGoogleError(
             "Google sign-in succeeded but your browser did not save the session. Clear cookies for this site and try again.",
           );
+        }
+      }
+      // If already logged in and there's a ?next= param, navigate there immediately
+      // (handles the case where OrganizerGuard redirected the user here while they
+      // already had a valid session, e.g. after a page refresh on a protected route)
+      if (loggedIn) {
+        const next = new URLSearchParams(window.location.search).get("next") ?? "";
+        if (next && next.startsWith("/")) {
+          navigate(next);
         }
       }
     });
@@ -1891,7 +1873,9 @@ export default function OrganizerPortal() {
     setOrganizer(org);
     setTournaments(tours);
     setNeedsMobile(!!org.needsMobile);
-    if (nextParam && nextParam.startsWith("/")) navigate(nextParam);
+    // Navigation to nextParam is handled by finishAccountSession in AuthForm
+    // to avoid double-navigate. Only navigate here if no nextParam (stay on /organizer,
+    // show dashboard).
   }
 
   function handleProfileComplete(org: OrganizerInfo) {

@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 
 type CountdownState = {
-  type: "break" | "pre-auction";
   endsAt: string;
   message: string | null;
 } | null;
+
+function isCountdownType(type: string | undefined): boolean {
+  return type === "break" || type === "pre-auction";
+}
 
 /**
  * Keeps the last seen countdown alive on the client even after the server
  * clears it (which happens immediately on read once the countdown expires).
  *
- * - Break / pre-auction: holds for 5 s after endsAt so the post-expiry
- *   notification banner can complete before the overlay unmounts.
+ * Holds for 5 s after endsAt so the post-expiry notification banner can
+ * complete before the overlay unmounts.
  */
 export function useStickyCountdown(
   serverDc:
@@ -24,9 +27,8 @@ export function useStickyCountdown(
   localRef.current = local;
 
   useEffect(() => {
-    if (serverDc?.type && serverDc?.endsAt) {
+    if (serverDc?.type && serverDc?.endsAt && isCountdownType(serverDc.type)) {
       setLocal({
-        type: serverDc.type as "break" | "pre-auction",
         endsAt: serverDc.endsAt,
         message: serverDc.message ?? null,
       });

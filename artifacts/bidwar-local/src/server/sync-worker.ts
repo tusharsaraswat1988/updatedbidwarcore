@@ -1,35 +1,48 @@
 import type { LocalDb } from "@workspace/db-local";
 import { syncQueueTable } from "@workspace/db-local";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
-const CHECK_INTERVAL_MS = 30_000; // Check every 30 seconds
+const CHECK_INTERVAL_MS = 30_000;
+const FAILED_RETRY_BASE_MS = 60_000;
+const FAILED_RETRY_MAX_MS = 15 * 60_000;
+const MAX_FAILED_RETRIES = 8;
+
+function parseRetryCount(error: string | null): number {
+  if (!error) return 0;
+  const match = /^retries:(\d+)\|/.exec(error);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+function failedRetryDelayMs(retryCount: number): number {
+  const delay = FAILED_RETRY_BASE_MS * 2 ** Math.min(retryCount, 4);
+  return Math.min(delay, FAILED_RETRY_MAX_MS);
+}
+
+function shouldRetryFailed(entry: { failed: boolean; createdAt: string; error: string | null }): boolean {
+  if (!entry.failed) return true;
+  const retries = parseRetryCount(entry.error);
+  if (retries >= MAX_FAILED_RETRIES) return false;
+  const ageMs = Date.now() - new Date(entry.createdAt).getTime();
+  return ageMs >= failedRetryDelayMs(retries);
+}
 
 export function createSyncWorker(db: LocalDb, cloudBaseUrl = "") {
   async function checkAndSync() {
-    // Always try to drain even without a global cloudBaseUrl — entries with
-    // payload.url are self-contained and don't need the global base URL.
-    // Check connectivity first (skip if no entry-level URL and no global URL).
-    const hasPending = await db.select().from(syncQueueTable)
-      .where(and(eq(syncQueueTable.failed, false), isNull(syncQueueTable.syncedAt)))
-      .then(rows => rows.length > 0);
-    if (!hasPending) return;
+    const pending = await db
+      .select()
+      .from(syncQueueTable)
+      .where(isNull(syncQueueTable.syncedAt))
+      .then((rows) => rows.filter((e) => shouldRetryFailed(e)));
 
-    // Check internet connectivity before attempting any drain
+    if (pending.length === 0) return;
+
     try {
       await fetch("https://clients1.google.com/generate_204", {
         signal: AbortSignal.timeout(3000),
       });
     } catch {
-      return; // No internet, skip
+      return;
     }
-
-    // Re-fetch unsynced entries (after connectivity check)
-    const pending = await db
-      .select()
-      .from(syncQueueTable)
-      .where(and(eq(syncQueueTable.failed, false), isNull(syncQueueTable.syncedAt)));
-
-    if (pending.length === 0) return;
 
     for (const entry of pending) {
       try {
@@ -50,24 +63,25 @@ export function createSyncWorker(db: LocalDb, cloudBaseUrl = "") {
         if (res.ok) {
           await db
             .update(syncQueueTable)
-            .set({ syncedAt: new Date().toISOString() })
+            .set({ syncedAt: new Date().toISOString(), failed: false, error: null })
             .where(eq(syncQueueTable.id, entry.id));
         } else {
+          const retries = entry.failed ? parseRetryCount(entry.error) + 1 : 1;
           await db
             .update(syncQueueTable)
-            .set({ failed: true, error: `HTTP ${res.status}` })
+            .set({ failed: true, error: `retries:${retries}|HTTP ${res.status}` })
             .where(eq(syncQueueTable.id, entry.id));
         }
       } catch (err) {
+        const retries = entry.failed ? parseRetryCount(entry.error) + 1 : 1;
         await db
           .update(syncQueueTable)
-          .set({ failed: true, error: String(err) })
+          .set({ failed: true, error: `retries:${retries}|${String(err)}` })
           .where(eq(syncQueueTable.id, entry.id));
       }
     }
   }
 
-  // Run immediately and then on interval
   checkAndSync().catch(console.error);
   setInterval(() => checkAndSync().catch(console.error), CHECK_INTERVAL_MS);
 }

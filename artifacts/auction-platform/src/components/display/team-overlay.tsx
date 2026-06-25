@@ -5,6 +5,10 @@ import { formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import type { PurseRow } from "./types";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getObsBrandMarkSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const teamOverlayPreset = getBrandSurfacePreset("led-team-overlay");
 
 /**
  * Overlay 1 — IPL-style TEAM PURSE STATUS table.
@@ -23,6 +27,8 @@ export const TeamOverlay = memo(function TeamOverlay({
   tournamentName?: string;
 }) {
   const { logos, brandName } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
+  const brandLogoSrc = getObsBrandMarkSrc(logos);
   return (
     <div
       className="absolute inset-0 z-40 flex flex-col select-none overflow-hidden"
@@ -63,17 +69,14 @@ export const TeamOverlay = memo(function TeamOverlay({
         </div>
 
         {/* BidWar brand mark — top right */}
-        <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center">
           <img
-            src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.webp"}
-            alt={brandName}
-            className="h-10 md:h-14 w-auto flex-shrink-0"
+            src={brandLogoSrc}
+            alt={logoAlt}
+            className={teamOverlayPreset.sizeClass}
             loading="eager"
             decoding="async"
           />
-          <span className="font-display font-black text-lg md:text-2xl tracking-tight text-white leading-none">
-            {brandName.toUpperCase()}
-          </span>
         </div>
       </div>
 

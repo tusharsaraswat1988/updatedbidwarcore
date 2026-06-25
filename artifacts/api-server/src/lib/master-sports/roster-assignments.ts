@@ -1,5 +1,5 @@
 /**
- * Shared roster assignment persistence (cricket franchise roster history).
+ * Shared roster assignment persistence (sport-scoped franchise roster history).
  */
 
 import { eq, and } from "drizzle-orm";
@@ -17,9 +17,12 @@ export type RosterAssignmentType =
 export async function endActiveRosterAssignment(
   masterPlayerId: string,
   tournamentId: number,
+  sport: string,
   endedAt: Date = new Date(),
 ): Promise<void> {
   if (!masterPlayerId) return;
+
+  const sportSlug = sport.trim().toLowerCase() || "cricket";
 
   await db
     .update(playerTeamAssignmentsTable)
@@ -28,7 +31,7 @@ export async function endActiveRosterAssignment(
       and(
         eq(playerTeamAssignmentsTable.playerId, masterPlayerId),
         eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
-        eq(playerTeamAssignmentsTable.sport, "cricket"),
+        eq(playerTeamAssignmentsTable.sport, sportSlug),
         eq(playerTeamAssignmentsTable.isActive, true),
       ),
     );
@@ -41,14 +44,17 @@ export async function assignPlayerToFranchiseRoster(input: {
   auctionPlayerId: number;
   auctionTeamId: number;
   assignmentType: RosterAssignmentType;
+  sport: string;
 }): Promise<void> {
-  await endActiveRosterAssignment(input.masterPlayerId, input.tournamentId);
+  const sportSlug = input.sport.trim().toLowerCase() || "cricket";
+
+  await endActiveRosterAssignment(input.masterPlayerId, input.tournamentId, sportSlug);
 
   await db.insert(playerTeamAssignmentsTable).values({
     playerId: input.masterPlayerId,
     teamId: input.masterTeamId,
     tournamentId: input.tournamentId,
-    sport: "cricket",
+    sport: sportSlug,
     auctionPlayerId: input.auctionPlayerId,
     auctionTeamId: input.auctionTeamId,
     assignmentType: input.assignmentType,
@@ -58,13 +64,14 @@ export async function assignPlayerToFranchiseRoster(input: {
 
   await logSync(
     "roster_assignment_created",
-    "cricket_roster",
+    `${sportSlug}_roster`,
     String(input.auctionPlayerId),
     input.masterPlayerId,
     input.masterTeamId,
     {
       tournamentId: input.tournamentId,
       assignmentType: input.assignmentType,
+      sport: sportSlug,
     },
   );
 }

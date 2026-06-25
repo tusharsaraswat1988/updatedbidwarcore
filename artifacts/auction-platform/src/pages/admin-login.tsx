@@ -8,6 +8,10 @@ import { ShieldCheck, Eye, EyeOff, LogIn, ShieldAlert, Trophy } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const authLoginPreset = getBrandSurfacePreset("auth-login");
 
 export default function AdminLogin() {
   const [, navigate] = useLocation();
@@ -17,6 +21,8 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { logos, brandName } = useBranding();
+  const logoSrc = getBrandLogoSrc(logos, authLoginPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,9 +53,8 @@ export default function AdminLogin() {
               <ShieldCheck className="w-10 h-10 text-amber-400" />
             </div>
             <div>
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <img src={logos.mini || "/bidwar-logo-transparent.png"} alt={brandName} className="h-10 w-auto" />
-                <span className="font-display font-black text-xl text-white">{brandName.toUpperCase()}</span>
+              <div className="flex items-center justify-center mb-1">
+                <img src={logoSrc} alt={logoAlt} className={authLoginPreset.sizeClass} />
               </div>
               <p className="text-muted-foreground text-sm">Super Admin Login</p>
             </div>

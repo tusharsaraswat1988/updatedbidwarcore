@@ -6,15 +6,22 @@
  * Optimized for mobile phones and tablets.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearch, useRoute } from "wouter";
 import { ScorerPanel } from "@/components/badminton/scorer-panel";
+import { UmpireAssistanceShell } from "@/components/badminton/umpire-assistance-shell";
+import {
+  DoublesPreMatchSetup,
+  SinglesPreMatchSetup,
+  isDoublesMatchType,
+} from "@/components/badminton/doubles-pre-match-setup";
 import { useBadmintonMatch, useBadmintonScorer } from "@/hooks/use-badminton-match";
+import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { verifyBadmintonScorerPin } from "@/lib/badminton-api";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { STANDARD_FORMAT } from "@workspace/badminton-core";
-import { sideJsonToStartSide } from "@/components/badminton/pair-side-picker";
-import { SidePlayerNames } from "@/components/badminton/side-players";
 import { FullscreenLayout } from "@/components/layout";
+import { BadmintonPublicBrandMark } from "@/components/badminton/bidwar-badminton-branding";
+import { ScorerConsoleHeader } from "@/components/badminton/scorer-console-header";
 
 export default function BadmintonScorerPage() {
   const [, params] = useRoute("/badminton/:matchId/score");
@@ -26,8 +33,40 @@ export default function BadmintonScorerPage() {
   const pin = searchParams.get("pin") ?? undefined;
 
   const [pinInput, setPinInput] = useState(pin ?? "");
-  const [pinAccepted, setPinAccepted] = useState(!!pin);
+  const [pinAccepted, setPinAccepted] = useState(false);
   const [pinError, setPinError] = useState("");
+  const [verifyingPin, setVerifyingPin] = useState(false);
+
+  async function submitPin(candidate: string) {
+    if (candidate.length < 4) {
+      setPinError("PIN must be at least 4 digits");
+      return;
+    }
+    if (!tournamentId || !matchId) {
+      setPinError("Invalid match link");
+      return;
+    }
+    setVerifyingPin(true);
+    setPinError("");
+    try {
+      const ok = await verifyBadmintonScorerPin(tournamentId, matchId, candidate);
+      if (!ok) {
+        setPinError("Incorrect PIN for this match");
+        return;
+      }
+      setPinInput(candidate);
+      setPinAccepted(true);
+    } finally {
+      setVerifyingPin(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!pin || !tournamentId || !matchId || pinAccepted || verifyingPin) return;
+    void submitPin(pin);
+    // Only attempt URL pin once on initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data, isLoading, error } = useBadmintonMatch(
     pinAccepted ? tournamentId : 0,
@@ -35,17 +74,21 @@ export default function BadmintonScorerPage() {
   );
 
   const scorer = useBadmintonScorer(tournamentId, matchId, pinInput);
+  const { data: branding } = useBadmintonBranding(tournamentId);
+
+  const tournamentName =
+    branding?.displayName ?? (tournamentId ? `Tournament #${tournamentId}` : "Badminton");
+  const matchDetail = data?.detail as Record<string, unknown> | null | undefined;
+  const courtNumber = matchDetail?.courtNumber ? String(matchDetail.courtNumber) : undefined;
 
   if (!pinAccepted) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="w-full max-w-sm">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-[#4fc3f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
+              <div className="flex justify-center mb-6">
+                <BadmintonPublicBrandMark variant="scorer-bar" />
               </div>
               <h1 className="text-white text-2xl font-black">Scorer Access</h1>
               <p className="text-white/40 text-sm mt-2">Enter your scorer PIN to continue</p>
@@ -58,11 +101,7 @@ export default function BadmintonScorerPage() {
                 onChange={(e) => setPinInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    if (pinInput.length >= 4) {
-                      setPinAccepted(true);
-                    } else {
-                      setPinError("PIN must be at least 4 digits");
-                    }
+                    void submitPin(pinInput);
                   }
                 }}
                 placeholder="Enter PIN"
@@ -73,17 +112,12 @@ export default function BadmintonScorerPage() {
                 <p className="text-red-400 text-sm text-center">{pinError}</p>
               )}
               <button
-                onClick={() => {
-                  if (pinInput.length >= 4) {
-                    setPinAccepted(true);
-                    setPinError("");
-                  } else {
-                    setPinError("PIN must be at least 4 digits");
-                  }
-                }}
-                className="w-full h-16 rounded-2xl bg-[#0070f3] hover:bg-[#0060d3] text-white font-black text-lg transition-colors"
+                type="button"
+                disabled={verifyingPin}
+                onClick={() => void submitPin(pinInput)}
+                className="w-full h-16 rounded-lg bg-primary text-primary-foreground font-display font-bold text-lg shadow-[var(--shadow-glow)] hover-elevate transition-colors disabled:opacity-50"
               >
-                Access Scorer
+                {verifyingPin ? "Checking PIN…" : "Access Scorer"}
               </button>
             </div>
           </div>
@@ -95,7 +129,7 @@ export default function BadmintonScorerPage() {
   if (isLoading) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-2 border-[#4fc3f7]/30 border-t-[#4fc3f7] rounded-full animate-spin" />
             <p className="text-white/40 text-sm">Loading match…</p>
@@ -108,7 +142,7 @@ export default function BadmintonScorerPage() {
   if (error || !data?.state) {
     return (
       <FullscreenLayout>
-        <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="text-center">
             <p className="text-white/60 text-lg font-semibold">Match not found</p>
             <p className="text-white/30 text-sm mt-2">Check the match ID and tournament ID</p>
@@ -128,170 +162,68 @@ export default function BadmintonScorerPage() {
 
   // If match is scheduled (not started), show pre-match setup
   if (state.matchStatus === "scheduled") {
+    const matchType = ((data.detail as Record<string, unknown> | null)?.matchType as string) ?? state.matchKind;
+    const isDoubles = isDoublesMatchType(matchType);
+
     return (
       <FullscreenLayout>
-        <PreMatchSetup
-          matchId={matchId}
-          tournamentId={tournamentId}
-          state={state}
-          detail={data.detail}
-          onStart={scorer.startMatch}
-        />
+        <div className="relative flex flex-col min-h-[100dvh] bg-background">
+          <ScorerConsoleHeader
+            tournamentName={tournamentName}
+            courtNumber={courtNumber}
+            voiceEnabled={false}
+            onToggleVoice={() => {}}
+            showVoiceToggle={false}
+            showBrandMark={false}
+            className="relative z-10"
+          />
+          <div className="flex-1 flex flex-col min-h-0">
+            {isDoubles ? (
+              <DoublesPreMatchSetup
+                state={state}
+                detail={data.detail}
+                onStart={scorer.startMatch}
+              />
+            ) : (
+              <SinglesPreMatchSetup detail={data.detail} onStart={scorer.startMatch} />
+            )}
+          </div>
+          <footer className="shrink-0 border-t border-border bg-card/90 px-4 py-3 flex justify-center">
+            <BadmintonPublicBrandMark variant="footer" />
+          </footer>
+        </div>
       </FullscreenLayout>
     );
   }
 
   return (
     <FullscreenLayout>
-      <div className="relative h-screen overflow-hidden">
-        <ScorerPanel
-          tournamentId={tournamentId}
-          matchId={matchId}
+      <div className="h-[100dvh] overflow-hidden">
+        <UmpireAssistanceShell
           state={state}
+          tournamentName={tournamentName}
+          courtNumber={courtNumber}
           onAwardPoint={scorer.awardPoint}
-          onUndo={scorer.undo}
-          onStartTimeout={scorer.startTimeout}
-          onEndTimeout={scorer.endTimeout}
-          onRetirement={scorer.retirement}
-          onWalkover={scorer.walkover}
-        />
+          onStartInterval={scorer.startInterval}
+          onEndInterval={scorer.endInterval}
+          onAcknowledgeCourtChange={scorer.acknowledgeCourtChange}
+        >
+          {({ scoringBlocked, onAwardPoint }) => (
+            <ScorerPanel
+              tournamentId={tournamentId}
+              matchId={matchId}
+              state={state}
+              onAwardPoint={onAwardPoint}
+              onUndo={scorer.undo}
+              onStartTimeout={scorer.startTimeout}
+              onEndTimeout={scorer.endTimeout}
+              onRetirement={scorer.retirement}
+              onWalkover={scorer.walkover}
+              scoringBlocked={scoringBlocked}
+            />
+          )}
+        </UmpireAssistanceShell>
       </div>
     </FullscreenLayout>
-  );
-}
-
-// ── Pre-match setup ────────────────────────────────────────────────────────────
-
-function PreMatchSetup({
-  matchId,
-  tournamentId,
-  state,
-  detail,
-  onStart,
-}: {
-  matchId: number;
-  tournamentId: number;
-  state: BadmintonMatchState;
-  detail: unknown;
-  onStart: (payload: unknown) => Promise<BadmintonMatchState>;
-}) {
-  const d = detail as Record<string, unknown> | null;
-  const leftSideJson = (d?.leftSideJson ?? {}) as Record<string, unknown>;
-  const rightSideJson = (d?.rightSideJson ?? {}) as Record<string, unknown>;
-  const matchType = (d?.matchType as string) ?? "singles";
-
-  const [firstServer, setFirstServer] = useState<"left" | "right">("left");
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleStart() {
-    setStarting(true);
-    setError("");
-    try {
-      await onStart({
-        matchKind: matchType,
-        format: STANDARD_FORMAT,
-        leftSide: sideJsonToStartSide(leftSideJson),
-        rightSide: sideJsonToStartSide(rightSideJson),
-        firstServer,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start match");
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  const leftSide = sideJsonToStartSide(leftSideJson);
-  const rightSide = sideJsonToStartSide(rightSideJson);
-
-  return (
-    <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/25 rounded-full px-4 py-1.5 mb-4">
-            <div className="w-2 h-2 rounded-full bg-amber-400" />
-            <span className="text-amber-300 text-xs font-bold uppercase tracking-widest">Pre-Match</span>
-          </div>
-          <h1 className="text-white text-2xl font-black">Ready to Start</h1>
-          <p className="text-white/40 text-sm mt-1">Select who serves first</p>
-        </div>
-
-        {/* Match info */}
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/8">
-          <div className="flex items-center justify-center gap-4">
-            <div className="text-right flex-1">
-              <SidePlayerNames info={leftSide} matchKind={matchType} side="left" stacked className="text-lg" />
-            </div>
-            <span className="text-white/30 text-sm font-light">vs</span>
-            <div className="flex-1">
-              <SidePlayerNames info={rightSide} matchKind={matchType} side="right" stacked className="text-lg" />
-            </div>
-          </div>
-          <p className="text-center text-white/30 text-xs mt-2 uppercase tracking-widest">
-            {matchType.replace("_", " ")} • Best of 3
-          </p>
-        </div>
-
-        {/* First server selection */}
-        <div>
-          <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
-            Who serves first?
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setFirstServer("left")}
-              className={`h-20 rounded-2xl font-bold text-sm flex flex-col items-center justify-center gap-1 transition-all border ${
-                firstServer === "left"
-                  ? "bg-[#0070f3]/20 border-[#0070f3]/50 text-white"
-                  : "bg-white/5 border-white/10 text-white/50"
-              }`}
-            >
-              {firstServer === "left" && (
-                <div className="w-3 h-3 rounded-full bg-[#ffd700] mb-1 animate-pulse" />
-              )}
-              <span className="truncate max-w-[120px] px-2 text-center">{leftSide.shortLabel}</span>
-            </button>
-            <button
-              onClick={() => setFirstServer("right")}
-              className={`h-20 rounded-2xl font-bold text-sm flex flex-col items-center justify-center gap-1 transition-all border ${
-                firstServer === "right"
-                  ? "bg-[#7c3aed]/20 border-[#7c3aed]/50 text-white"
-                  : "bg-white/5 border-white/10 text-white/50"
-              }`}
-            >
-              {firstServer === "right" && (
-                <div className="w-3 h-3 rounded-full bg-[#ffd700] mb-1 animate-pulse" />
-              )}
-              <span className="truncate max-w-[120px] px-2 text-center">{rightSide.shortLabel}</span>
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <p className="text-red-400 text-sm text-center">{error}</p>
-        )}
-
-        <button
-          onClick={handleStart}
-          disabled={starting}
-          className="w-full h-16 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-black text-lg transition-colors flex items-center justify-center gap-3"
-        >
-          {starting ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Starting…
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-              </svg>
-              Start Match
-            </>
-          )}
-        </button>
-      </div>
-    </div>
   );
 }

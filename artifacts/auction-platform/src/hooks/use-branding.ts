@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 
 export interface BrandingSettings {
   id?: number;
@@ -7,6 +8,7 @@ export interface BrandingSettings {
   poweredByText: string;
   miniBrandText: string;
   mainLogoUrl: string | null;
+  mainLogoReverseUrl: string | null;
   miniLogoUrl: string | null;
   appIconUrl: string | null;
   splashScreenUrl: string | null;
@@ -28,6 +30,7 @@ export interface BrandingSettings {
   watermarkOpacity: number;
   watermarkPosition: string;
   logoAnimationUrl: string | null;
+  assets?: Partial<Record<BrandingAssetType, string>>;
 }
 
 export const BRANDING_DEFAULTS: BrandingSettings = {
@@ -36,6 +39,7 @@ export const BRANDING_DEFAULTS: BrandingSettings = {
   poweredByText: "Powered by BidWar",
   miniBrandText: "BW",
   mainLogoUrl: null,
+  mainLogoReverseUrl: null,
   miniLogoUrl: null,
   appIconUrl: null,
   splashScreenUrl: null,
@@ -59,6 +63,14 @@ export const BRANDING_DEFAULTS: BrandingSettings = {
   logoAnimationUrl: null,
 };
 
+function resolveAsset(
+  assets: Partial<Record<BrandingAssetType, string>> | undefined,
+  type: BrandingAssetType,
+  legacy: string | null | undefined,
+): string | null {
+  return assets?.[type] ?? legacy ?? null;
+}
+
 /**
  * useBranding — reads global BidWar branding from /api/branding.
  * Falls back to BRANDING_DEFAULTS when the row has not been customised yet.
@@ -78,6 +90,8 @@ export function useBranding() {
       .finally(() => setLoading(false));
   }, []);
 
+  const assets = settings.assets;
+
   return {
     loading,
     raw: settings,
@@ -86,10 +100,17 @@ export function useBranding() {
     poweredByText: settings.poweredByText,
     miniBrandText: settings.miniBrandText,
     logos: {
-      main: settings.mainLogoUrl,
-      mini: settings.miniLogoUrl,
-      appIcon: settings.appIconUrl,
-      splash: settings.splashScreenUrl,
+      main: resolveAsset(assets, "PRIMARY_LOGO", settings.mainLogoUrl),
+      mainReverse: resolveAsset(assets, "REVERSE_LOGO", settings.mainLogoReverseUrl),
+      mini: resolveAsset(assets, "SYMBOL_LOGO", settings.miniLogoUrl),
+      appIcon: resolveAsset(assets, "PWA_ICON", settings.appIconUrl),
+      favicon: resolveAsset(assets, "FAVICON", settings.appIconUrl),
+      pwaIcon: resolveAsset(assets, "PWA_ICON", settings.appIconUrl),
+      appleTouchIcon: resolveAsset(assets, "APPLE_TOUCH_ICON", settings.appIconUrl),
+      splash: resolveAsset(assets, "SPLASH_LOGO", settings.splashScreenUrl),
+      openGraph: resolveAsset(assets, "OPEN_GRAPH_IMAGE", null),
+      obsWatermark: resolveAsset(assets, "OBS_WATERMARK", null),
+      pdfWatermark: resolveAsset(assets, "PDF_WATERMARK", null),
       animation: settings.logoAnimationUrl,
     },
     colors: {

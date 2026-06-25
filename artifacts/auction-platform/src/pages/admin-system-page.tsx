@@ -10,6 +10,7 @@ import {
   SmsSettingsPanel,
 } from "@/pages/admin";
 import { SystemLogsPanel } from "@/components/admin/system-logs-panel";
+import { DefaultAudioSettingsPanel } from "@/components/admin/default-audio-panel";
 
 const systemTabs = [
   { id: "audit-logs", label: "Audit Logs", href: "/admin/settings/system/audit-logs" },
@@ -17,6 +18,7 @@ const systemTabs = [
   { id: "session-lock", label: "Session Lock", href: "/admin/settings/system/session-lock" },
   { id: "installer", label: "Local App Installer", href: "/admin/settings/system/installer" },
   { id: "builds", label: "Windows Build Pipeline", href: "/admin/settings/system/builds" },
+  { id: "default-audio", label: "Default Audio", href: "/admin/settings/system/default-audio" },
   { id: "upcoming-display", label: "Upcoming Display", href: "/admin/settings/system/upcoming-display" },
   { id: "showcase", label: "Showcase Events", href: "/admin/settings/system/showcase" },
 ] as const;
@@ -26,6 +28,7 @@ function getSection(pathname: string) {
   if (pathname.includes("/session-lock")) return "session-lock";
   if (pathname.includes("/installer")) return "installer";
   if (pathname.includes("/builds")) return "builds";
+  if (pathname.includes("/default-audio")) return "default-audio";
   if (pathname.includes("/upcoming-display")) return "upcoming-display";
   if (pathname.includes("/showcase")) return "showcase";
   return "sms";
@@ -63,6 +66,7 @@ export default function AdminSystemPage() {
           {section === "session-lock" && <AdminSessionLockPanel />}
           {section === "installer" && <InstallerSettingsPanel />}
           {section === "builds" && <BuildTriggerPanel />}
+          {section === "default-audio" && <DefaultAudioSettingsPanel />}
           {section === "upcoming-display" && <DisplayAuctionsPanel />}
           {section === "showcase" && <ShowcasePanel />}
         </div>

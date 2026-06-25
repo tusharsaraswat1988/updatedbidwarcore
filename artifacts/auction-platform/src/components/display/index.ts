@@ -3,6 +3,7 @@
 // DisplayShell only; individual leaves are re-exported for future
 // composition (livestream graphics, multi-screen broadcasts, etc.).
 export { DisplayShell } from "./display-shell";
+export { SideDisplayShell } from "./side-display-shell";
 export { StaticBackground } from "./static-background";
 export { AuctionHeader } from "./auction-header";
 export { PlayerCard } from "./player-card";
@@ -23,11 +24,11 @@ export { DisplayConnectionBanner } from "./display-connection-banner";
 export { OutcomeResultPanel } from "./outcome-result-panel";
 export type { OutcomeResultData } from "./outcome-result-panel";
 export { FortuneWheelOverlay } from "./fortune-wheel-overlay";
-export { useSoldAnimation } from "./use-sold-animation";
-export { playSoldAudio } from "./sold-audio";
 export type {
   WheelItem,
   SoldRecord,
+  SoldPhase,
+  UnsoldRecord,
   PurseRow,
   PlayerLite,
   CategoryLite,

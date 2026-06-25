@@ -97,9 +97,8 @@ export const PlayerCard = memo(function PlayerCard({
           <span style={{
             fontSize: "clamp(11px, 1.2vw, 15px)",
             fontWeight: 800,
-            letterSpacing: "0.18em",
+            letterSpacing: "0.06em",
             color: tag.color,
-            textTransform: "uppercase",
           }}>
             {tag.label}
           </span>

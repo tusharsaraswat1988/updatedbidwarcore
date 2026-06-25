@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +7,8 @@ export const playersTable = pgTable(
   {
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
+    /** Tournament-scoped display serial (1..N per tournament). Not the global DB id. */
+    serialNo: integer("serial_no").notNull(),
     categoryId: integer("category_id"),
     teamId: integer("team_id"),
     name: text("name").notNull(),
@@ -15,12 +17,18 @@ export const playersTable = pgTable(
     battingStyle: text("batting_style"),
     bowlingStyle: text("bowling_style"),
     age: integer("age"),
+    gender: text("gender"),
     photoUrl: text("photo_url"),
     basePrice: integer("base_price").notNull().default(100000),
+    /** Player-selected bid value when bid_value_mode = player; mirrors base_price at registration time */
+    selectedBidValue: integer("selected_bid_value"),
+    /** 'system' | 'player' — null treated as system for backward compatibility */
+    bidValueSource: text("bid_value_source"),
     soldPrice: integer("sold_price"),
     retainedPrice: integer("retained_price"),
     status: text("status").notNull().default("available"), // available | sold | unsold | retained
     jerseyNumber: text("jersey_number"),
+    jerseySize: text("jersey_size"),
     achievements: text("achievements"),
     mobileNumber: text("mobile_number").notNull().default(""),
     email: text("email"),
@@ -42,11 +50,17 @@ export const playersTable = pgTable(
     whatsappConsentMethod: text("whatsapp_consent_method"), // "whatsapp_otp_verified"|"web_checkbox"|"organizer_declaration"|"web_fallback"
     whatsappConsentIp: text("whatsapp_consent_ip"),
     whatsappConsentOrgId: integer("whatsapp_consent_org_id"),
+    // Registration payment verification (isolated from auction status / purse / bidding)
+    registrationPaymentStatus: text("registration_payment_status"), // pending | approved | rejected
+    utrNumber: text("utr_number"),
+    paymentScreenshotUrl: text("payment_screenshot_url"),
+    paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (t) => [
     index("ix_players_tournament_id").on(t.tournamentId),
+    uniqueIndex("uq_players_tournament_serial_no").on(t.tournamentId, t.serialNo),
     index("ix_players_mobile_number").on(t.mobileNumber),
     index("ix_players_name").on(t.name),
     index("ix_players_global_player_id").on(t.globalPlayerId),
@@ -55,6 +69,7 @@ export const playersTable = pgTable(
 
 export const insertPlayerSchema = createInsertSchema(playersTable).omit({
   id: true,
+  serialNo: true,
   createdAt: true,
   updatedAt: true,
 });

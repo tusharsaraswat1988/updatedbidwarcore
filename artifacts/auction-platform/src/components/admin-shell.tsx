@@ -11,6 +11,10 @@ import { useBranding } from "@/hooks/use-branding";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
 import { cldUrl } from "@/lib/cloudinary";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+
+const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import {
@@ -33,19 +37,18 @@ type AdminShellProps = {
 };
 
 function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { mini?: string | null }; brandName: string }) {
+  const shellLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
   return (
     <div className="flex h-16 items-center gap-3 border-b border-border px-4">
       {!loading && (
         <img
-          src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"}
-          alt={brandName}
-          className="h-9 w-9 object-contain"
+          src={cldUrl(logos.mini, "headerLogo") || shellLogoSrc}
+          alt={logoAlt}
+          className={sidebarPreset.sizeClass}
         />
       )}
       <div className="min-w-0">
-        <div className="truncate font-display text-lg font-black uppercase tracking-wide text-white">
-          {brandName || "BidWar"}
-        </div>
         <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Super Admin</div>
       </div>
     </div>
@@ -60,14 +63,18 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [lockMinutes, setLockMinutes] = useState(10);
+  const [warningSeconds, setWarningSeconds] = useState(90);
 
   useEffect(() => {
     if (!isLoggedIn) return;
     fetch("/api/auth/admin/settings/session-lock", { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { lockMinutes?: number }) => {
+      .then((d: { lockMinutes?: number; warningSeconds?: number }) => {
         if (typeof d.lockMinutes === "number" && d.lockMinutes >= 10) {
           setLockMinutes(d.lockMinutes);
+        }
+        if (typeof d.warningSeconds === "number" && d.warningSeconds > 0) {
+          setWarningSeconds(d.warningSeconds);
         }
       })
       .catch(() => {});
@@ -81,6 +88,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   } = useInactivityLock({
     enabled: isLoggedIn,
     timeoutMs: lockMinutes * 60 * 1000,
+    warningMs: warningSeconds * 1000,
   });
 
   useEffect(() => {

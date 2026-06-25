@@ -1,12 +1,33 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { resolveDatabaseUrl } from "./database-url";
+import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
 
 const { Pool } = pg;
 
-export const pool = new Pool({ connectionString: resolveDatabaseUrl() });
+export { ensureCoreSchema } from "./ensure-schema";
+
+export const pool = new Pool({
+  connectionString: resolveDatabaseUrl(),
+  // Fail fast if a new connection can't be established in 20s (Neon cold start
+  // can take up to ~15s; beyond that it's likely a connectivity problem).
+  connectionTimeoutMillis: 20_000,
+  // Release idle connections after 30s to avoid stale TCP issues on Neon.
+  idleTimeoutMillis: 30_000,
+  max: 10,
+});
 export const db = drizzle(pool, { schema });
+
+// Keep Neon database alive with a lightweight ping every 4 minutes.
+// Neon suspends the compute after ~5 minutes of inactivity, causing cold-start
+// latency (5-60s) on the next query. This ping prevents the suspension.
+const KEEP_ALIVE_INTERVAL_MS = 4 * 60 * 1000;
+setInterval(() => {
+  pool.query("SELECT 1").catch(() => {
+    // Ignore errors — this is best-effort, the pool will reconnect automatically.
+  });
+}, KEEP_ALIVE_INTERVAL_MS);
 
 /** Idempotent column adds so new fields persist without a manual migrate step. */
 void pool
@@ -16,15 +37,146 @@ void pool
   });
 
 void pool
+  .query(`ALTER TABLE branding_settings ADD COLUMN IF NOT EXISTS main_logo_reverse_url text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure branding_settings.main_logo_reverse_url column:", err);
+  });
+
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS branding_assets (
+      id SERIAL PRIMARY KEY,
+      asset_type TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_name TEXT,
+      mime_type TEXT,
+      width INTEGER,
+      height INTEGER,
+      file_size INTEGER,
+      version INTEGER NOT NULL DEFAULT 1,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS branding_assets_asset_type_active_idx
+      ON branding_assets (asset_type);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure branding_assets table:", err);
+  });
+
+void pool
   .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email text`)
   .catch((err) => {
     console.error("[db] failed to ensure players.email column:", err);
   });
 
 void pool
+  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gender text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.gender column:", err);
+  });
+
+void pool
+  .query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_size text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.jersey_size column:", err);
+  });
+
+void pool
   .query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
   .catch((err) => {
     console.error("[db] failed to ensure teams.owner_email column:", err);
+  });
+
+void pool
+  .query(`
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_payment boolean NOT NULL DEFAULT false;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee integer;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS upi_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_verification_method text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_collection_mode text NOT NULL DEFAULT 'manual_verification';
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS registration_payment_status text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS utr_number text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_screenshot_url text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_submitted_at timestamptz;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS enable_registration_declaration boolean NOT NULL DEFAULT false;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_declaration_text text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_mode text NOT NULL DEFAULT 'system';
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_options text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS selected_bid_value integer;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS bid_value_source text;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure registration payment columns:", err);
+  });
+
+/** Tournament-scoped player serial numbers (display Serial # — not global players.id). */
+void pool
+  .query(`
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS serial_no integer;
+
+    WITH ranked AS (
+      SELECT id,
+        ROW_NUMBER() OVER (PARTITION BY tournament_id ORDER BY created_at ASC, id ASC) AS rn
+      FROM players
+      WHERE serial_no IS NULL
+    )
+    UPDATE players p
+    SET serial_no = ranked.rn
+    FROM ranked
+    WHERE p.id = ranked.id;
+
+    UPDATE players SET serial_no = id WHERE serial_no IS NULL;
+
+    ALTER TABLE players ALTER COLUMN serial_no SET NOT NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_players_tournament_serial_no
+      ON players (tournament_id, serial_no);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.serial_no:", err);
+  });
+
+/** Normalized player specification values (multi-sport Sprint 1). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS player_spec_values (
+      id SERIAL PRIMARY KEY,
+      player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      spec_group_id INTEGER NOT NULL REFERENCES role_spec_groups(id),
+      value_text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_psv_player_spec_group
+      ON player_spec_values (player_id, spec_group_id);
+    CREATE INDEX IF NOT EXISTS ix_psv_player_id ON player_spec_values (player_id);
+    CREATE INDEX IF NOT EXISTS ix_psv_spec_group_id ON player_spec_values (spec_group_id);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure player_spec_values table:", err);
+  });
+
+/** Per-sport profiles for global player identities (multi-sport Sprint 2). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS player_sport_profiles (
+      id SERIAL PRIMARY KEY,
+      global_player_id TEXT NOT NULL REFERENCES global_players(id) ON DELETE CASCADE,
+      sport_slug TEXT NOT NULL REFERENCES sports(slug),
+      default_role TEXT,
+      profile_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_psp_global_player_sport
+      ON player_sport_profiles (global_player_id, sport_slug);
+    CREATE INDEX IF NOT EXISTS ix_psp_global_player_id ON player_sport_profiles (global_player_id);
+    CREATE INDEX IF NOT EXISTS ix_psp_sport_slug ON player_sport_profiles (sport_slug);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure player_sport_profiles table:", err);
   });
 
 /** Ensure platform audit table exists (append-only investigation trail). */
@@ -106,6 +258,36 @@ void pool
   `)
   .catch((err) => {
     console.error("[db] failed to ensure purse_boosters table:", err);
+  });
+
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS creative_jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tournament_id INTEGER NOT NULL,
+      template_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      contract_json JSONB NOT NULL,
+      aspect_ratio TEXT NOT NULL,
+      requested_by_user_id INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      error_message TEXT,
+      result_url TEXT,
+      download_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_id
+      ON creative_jobs (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_creative_jobs_status
+      ON creative_jobs (status);
+    CREATE INDEX IF NOT EXISTS ix_creative_jobs_created_at
+      ON creative_jobs (created_at);
+    CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_created
+      ON creative_jobs (tournament_id, created_at DESC);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure creative_jobs table:", err);
   });
 
 /** Badminton tournament management tables */
@@ -266,7 +448,6 @@ void pool
       right_side_json JSONB,
       scorer_pin TEXT,
       scorer_name TEXT,
-      referee_name TEXT,
       umpire_name TEXT,
       service_judge_name TEXT,
       state_snapshot_json JSONB,
@@ -296,6 +477,29 @@ void pool
   `)
   .catch((err) => {
     console.error("[db] failed to ensure badminton tables:", err);
+  });
+
+/** Migrate legacy referee_name → umpire_name, then drop referee_name. */
+void pool
+  .query(`
+    UPDATE badminton_match_details
+    SET umpire_name = referee_name
+    WHERE umpire_name IS NULL AND referee_name IS NOT NULL;
+    ALTER TABLE badminton_match_details DROP COLUMN IF EXISTS referee_name;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to migrate badminton_match_details referee_name:", err);
+  });
+
+/** Backfill missing per-match scorer PINs (legacy rows). */
+void pool
+  .query(`
+    UPDATE badminton_match_details
+    SET scorer_pin = LPAD((1000 + floor(random() * 9000))::int::text, 4, '0')
+    WHERE scorer_pin IS NULL OR btrim(scorer_pin) = '';
+  `)
+  .catch((err) => {
+    console.error("[db] failed to backfill badminton_match_details scorer_pin:", err);
   });
 
 /** Master Sports Core — shared player/team/sponsor identity */
@@ -328,10 +532,18 @@ void pool
       logo_url TEXT,
       website TEXT,
       description TEXT,
+      is_title_sponsor BOOLEAN NOT NULL DEFAULT false,
+      is_co_sponsor BOOLEAN NOT NULL DEFAULT false,
+      sponsor_priority INTEGER NOT NULL DEFAULT 0,
+      priority_type TEXT NOT NULL DEFAULT 'NORMAL',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_ms_name ON master_sponsors (name);
+    ALTER TABLE master_sponsors ADD COLUMN IF NOT EXISTS is_title_sponsor BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE master_sponsors ADD COLUMN IF NOT EXISTS is_co_sponsor BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE master_sponsors ADD COLUMN IF NOT EXISTS sponsor_priority INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE master_sponsors ADD COLUMN IF NOT EXISTS priority_type TEXT NOT NULL DEFAULT 'NORMAL';
 
     CREATE TABLE IF NOT EXISTS master_teams (
       id TEXT PRIMARY KEY,
@@ -362,8 +574,7 @@ void pool
     CREATE INDEX IF NOT EXISTS ix_pta_player_id ON player_team_assignments (player_id);
     CREATE INDEX IF NOT EXISTS ix_pta_team_id ON player_team_assignments (team_id);
     CREATE INDEX IF NOT EXISTS ix_pta_tournament_id ON player_team_assignments (tournament_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_player_team_tournament
-      ON player_team_assignments (player_id, team_id, tournament_id);
+    DROP INDEX IF EXISTS uq_pta_player_team_tournament;
 
     CREATE TABLE IF NOT EXISTS player_statistics (
       id SERIAL PRIMARY KEY,
@@ -411,7 +622,28 @@ void pool
     ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE player_team_assignments ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
     CREATE INDEX IF NOT EXISTS ix_pta_active ON player_team_assignments (tournament_id, is_active);
-    DROP INDEX IF EXISTS uq_pta_player_team_tournament;
+
+    DELETE FROM player_team_assignments a
+    USING player_team_assignments b
+    WHERE a.id > b.id
+      AND a.player_id = b.player_id
+      AND a.team_id = b.team_id
+      AND COALESCE(a.tournament_id, -1) = COALESCE(b.tournament_id, -1);
+
+    UPDATE player_team_assignments SET is_active = false, ended_at = NOW()
+    WHERE id IN (
+      SELECT id FROM (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY player_id, tournament_id
+            ORDER BY assigned_at DESC, id DESC
+          ) AS rn
+        FROM player_team_assignments
+        WHERE is_active = true AND sport = 'cricket' AND tournament_id IS NOT NULL
+      ) ranked
+      WHERE rn > 1
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS uq_pta_active_roster
       ON player_team_assignments (player_id, tournament_id)
       WHERE is_active = true AND sport = 'cricket';
@@ -576,6 +808,30 @@ void pool
   `)
   .catch((err) => {
     console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);
+  });
+
+/** Website contact form submissions (public lead inbox). */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS contact_inquiries (
+      id SERIAL PRIMARY KEY,
+      full_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      inquiry_type TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      consent TEXT NOT NULL DEFAULT 'granted',
+      status TEXT NOT NULL DEFAULT 'new',
+      source TEXT NOT NULL DEFAULT 'website_contact_page',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_created_at ON contact_inquiries (created_at DESC);
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_status ON contact_inquiries (status);
+    CREATE INDEX IF NOT EXISTS ix_contact_inquiries_email ON contact_inquiries (email);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure contact_inquiries table:", err);
   });
 
 export * from "./schema";

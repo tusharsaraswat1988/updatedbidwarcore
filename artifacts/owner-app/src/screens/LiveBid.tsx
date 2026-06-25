@@ -1,18 +1,21 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Trophy, User, Wifi, WifiOff, WifiLow, LogOut, ShieldAlert,
+  Trophy, User, LogOut, ShieldAlert,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser,
 } from "lucide-react";
 import { useOrientation } from "@/hooks/useOrientation";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useTimerExpired } from "@/hooks/useTimerExpired";
+import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
+import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Toast } from "@/components/Toast";
+import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
 import { isPlayerOnAuctionStage } from "@/lib/auction-stage";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -73,6 +76,7 @@ interface AuctionState {
     newCapacity: number;
     appliedAt: string;
   } | null;
+  lastAuctionActivityAt?: string | null;
 }
 
 interface Team {
@@ -108,7 +112,8 @@ interface Props {
   tournament: Tournament | null;
   teamPurse: TeamPurse | null;
   teamId: number;
-  isFetching?: boolean;
+  tournamentId: number;
+  connectionStatus: ConnectionStatus;
   bidErrorMsg?: string;
   onBid: (amount: number) => Promise<"success" | "leading" | "error">;
   onViewSquad: () => void;
@@ -118,29 +123,6 @@ interface Props {
   onSignOut: () => void;
   onSync: () => void;
   isSyncError?: boolean;
-}
-
-// ── Network quality ──────────────────────────────────────────────────────────
-type NetworkQuality = "good" | "weak" | "poor";
-
-function useNetworkQuality(state: AuctionState | null, isFetching?: boolean): NetworkQuality {
-  const lastUpdateRef = useRef<number>(Date.now());
-  const [quality, setQuality] = useState<NetworkQuality>("good");
-
-  useEffect(() => { if (state) lastUpdateRef.current = Date.now(); }, [state]);
-  useEffect(() => { lastUpdateRef.current = Date.now(); }, [isFetching]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const staleSec = (Date.now() - lastUpdateRef.current) / 1000;
-      if (staleSec > 12) setQuality("poor");
-      else if (staleSec > 5) setQuality("weak");
-      else setQuality("good");
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
-
-  return quality;
 }
 
 // ── Anti-double-tap ──────────────────────────────────────────────────────────
@@ -155,12 +137,6 @@ function useDebounce(ms = 600) {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
-
-function NetworkDot({ quality }: { quality: NetworkQuality }) {
-  if (quality === "good")  return <Wifi className="w-6 h-6 text-green-400" />;
-  if (quality === "weak")  return <WifiLow className="w-6 h-6 text-yellow-400" />;
-  return <WifiOff className="w-6 h-6 text-red-400 animate-pulse" />;
-}
 
 function TimerBar({
   timerEndsAt, teamColor, timerExpired,
@@ -218,7 +194,10 @@ function PlayerCard({ player, teamColor }: {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="font-mono text-sm text-[#71717a] shrink-0">#{player.serialNo ?? player.id}</span>
+          <h2 className="font-display font-black text-3xl leading-tight text-white truncate">{player.name}</h2>
+        </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
           {player.role && (
             <span className="text-base text-[#a1a1aa] capitalize font-semibold">{player.role}</span>
@@ -457,12 +436,13 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
 
 // ── Brand mini logo ───────────────────────────────────────────────────────────
 function BrandMini({ logos, brandName, miniBrandText }: {
-  logos: { mini?: string | null };
+  logos: { mainReverse?: string | null; mini?: string | null };
   brandName: string;
   miniBrandText: string;
 }) {
-  if (logos.mini) {
-    return <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-60" />;
+  const src = logos.mainReverse ?? logos.mini;
+  if (src) {
+    return <img src={src} alt={brandName} className="h-6 w-auto opacity-60" />;
   }
   return (
     <span className="font-display font-black text-sm text-amber-400/50 tracking-wide">
@@ -473,13 +453,17 @@ function BrandMini({ logos, brandName, miniBrandText }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function LiveBid({
-  state, team, tournament, teamPurse, teamId,
-  isFetching, bidErrorMsg, onBid, onViewSquad, onViewScout,
+  state, team, tournament, teamPurse, teamId, tournamentId,
+  connectionStatus, bidErrorMsg, onBid, onViewSquad, onViewScout,
   navToast, onNavToastDismiss, onSignOut, onSync, isSyncError,
 }: Props) {
   const orientation = useOrientation();
   const landscape   = orientation === "landscape";
-  const networkQ    = useNetworkQuality(state, isFetching);
+  const feed        = useAuctionConnectionState(
+    connectionStatus,
+    tournamentId,
+    state?.lastAuctionActivityAt,
+  );
   const mayTap      = useDebounce(600);
   const { brandName, logos, poweredByText, miniBrandText, showPoweredBy } = useBranding();
 
@@ -580,7 +564,9 @@ export function LiveBid({
     state?.status               ? state.status.toUpperCase() : "IDLE";
 
   // Break countdown
-  const breakEndsAt  = state?.displayCountdown?.type === "break" ? (state.displayCountdown.endsAt ?? null) : null;
+  const breakEndsAt  = (state?.displayCountdown?.type === "break" || state?.displayCountdown?.type === "pre-auction")
+    ? (state.displayCountdown.endsAt ?? null)
+    : null;
   const { secondsLeft: breakSecsLeft } = useCountdown(breakEndsAt);
   const breakMins    = Math.floor(breakSecsLeft / 60);
   const breakSecs    = breakSecsLeft % 60;
@@ -639,23 +625,28 @@ export function LiveBid({
   const showUnsoldResult = !hasPlayer && resolvedOutcome?.type === "unsold";
   const showLastSoldResult = !hasPlayer && !showUnsoldResult && !!state?.lastSoldPlayer;
 
-  useEffect(() => {
-    if (!resolvedOutcome) return;
-
-    const key = resolvedOutcome.type === "sold"
+  const outcomeBannerKey = useMemo(() => {
+    if (!resolvedOutcome) return null;
+    return resolvedOutcome.type === "sold"
       ? `sold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.teamId ?? ""}:${resolvedOutcome.amount ?? 0}:${resolvedOutcome.action}`
       : `unsold:${resolvedOutcome.playerId ?? resolvedOutcome.playerName ?? ""}:${resolvedOutcome.action}`;
-    if (!key || key === lastOutcomeKeyRef.current) return;
-    lastOutcomeKeyRef.current = key;
+  }, [resolvedOutcome]);
 
-    if (resolvedOutcome.type === "unsold") {
+  const purseBoosterBannerKey =
+    state?.lastPurseBooster?.teamId === teamId ? state.lastPurseBooster.id : null;
+
+  useEffect(() => {
+    if (!outcomeBannerKey || outcomeBannerKey === lastOutcomeKeyRef.current) return;
+    lastOutcomeKeyRef.current = outcomeBannerKey;
+
+    if (resolvedOutcome?.type === "unsold") {
       const name = resolvedOutcome.playerName ?? "Player";
       setUnsoldBanner({ name });
       const t = setTimeout(() => setUnsoldBanner(null), 4000);
       return () => clearTimeout(t);
     }
 
-    if (resolvedOutcome.teamId === teamId) {
+    if (resolvedOutcome?.type === "sold" && resolvedOutcome.teamId === teamId) {
       const name = resolvedOutcome.playerName ?? state?.lastSoldPlayer?.name ?? "Player";
       setWonBanner({ name, soldAmount: resolvedOutcome.amount });
       const t = setTimeout(() => setWonBanner(null), 5500);
@@ -663,22 +654,16 @@ export function LiveBid({
     }
 
     return undefined;
-  }, [
-    state?.outcome?.type,
-    state?.outcome?.playerId,
-    state?.outcome?.playerName,
-    state?.outcome?.teamId,
-    state?.outcome?.amount,
-    state?.lastAction,
-    state?.lastSoldPlayer?.name,
-    teamId,
-  ]);
+  }, [outcomeBannerKey, teamId]);
 
   useEffect(() => {
+    if (purseBoosterBannerKey == null) return;
+    if (prevBoosterRef.current === purseBoosterBannerKey) return;
+
     const boost = state?.lastPurseBooster;
-    if (!boost || boost.teamId !== teamId) return;
-    if (prevBoosterRef.current === boost.id) return;
-    prevBoosterRef.current = boost.id;
+    if (!boost || boost.teamId !== teamId || boost.id !== purseBoosterBannerKey) return;
+
+    prevBoosterRef.current = purseBoosterBannerKey;
     setPurseBoosterBanner({
       amount: boost.amount,
       previousCapacity: boost.previousCapacity,
@@ -686,7 +671,7 @@ export function LiveBid({
     });
     const t = setTimeout(() => setPurseBoosterBanner(null), 5500);
     return () => clearTimeout(t);
-  }, [state?.lastPurseBooster, teamId]);
+  }, [purseBoosterBannerKey, teamId]);
 
   const navBtnClass = (blocked: boolean) =>
     `p-2 transition-colors rounded-xl active:scale-90 ${
@@ -736,7 +721,10 @@ export function LiveBid({
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            <NetworkDot quality={networkQ} />
+            <AuctionFeedIndicator
+              feedState={feed.state}
+              secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            />
             <span
               className={`text-xs font-black px-2.5 py-1.5 rounded-full ${
                 isActive
@@ -974,8 +962,11 @@ export function LiveBid({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 px-8 cursor-pointer"
               style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+              onClick={() => setPurseBoosterBanner(null)}
+              role="button"
+              aria-label="Dismiss purse update"
             >
               <div className="text-center">
                 <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
@@ -984,6 +975,7 @@ export function LiveBid({
                 <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
                 <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
                 <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+                <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
               </div>
             </motion.div>
           )}
@@ -1015,25 +1007,10 @@ export function LiveBid({
           )}
         </AnimatePresence>
 
-        {/* ── Reconnect overlay ── */}
-        <AnimatePresence>
-          {networkQ === "poor" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-5 z-50"
-            >
-              <WifiOff className="w-16 h-16 text-red-400 animate-pulse" />
-              <div className="text-center">
-                <p className="font-display font-bold text-2xl text-white">Connection lost</p>
-                <p className="text-base text-[#71717a] mt-2">Reconnecting to auction room...</p>
-              </div>
-              <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-              <p className="text-sm text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <AuctionConnectionBanner
+          feedState={feed.state}
+          secondsSinceLastActivity={feed.secondsSinceLastActivity}
+        />
 
         {/* ── Sign-out confirmation ── */}
         <AnimatePresence>
@@ -1102,7 +1079,10 @@ export function LiveBid({
             <p className="font-display font-bold text-base truncate" style={{ color: teamColor }}>{team.name}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <NetworkDot quality={networkQ} />
+            <AuctionFeedIndicator
+              feedState={feed.state}
+              secondsSinceLastActivity={feed.secondsSinceLastActivity}
+            />
             <span className={`text-xs font-black px-2 py-1 rounded-full ${
               isActive ? "bg-green-500/20 text-green-400" : isPaused ? "bg-amber-500/20 text-amber-400" : "bg-[#27272a] text-[#71717a]"
             }`}>
@@ -1262,8 +1242,11 @@ export function LiveBid({
         {purseBoosterBanner && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-40 cursor-pointer"
             style={{ backgroundColor: "rgba(9,9,11,0.88)", backdropFilter: "blur(8px)" }}
+            onClick={() => setPurseBoosterBanner(null)}
+            role="button"
+            aria-label="Dismiss purse update"
           >
             <div className="text-center">
               <p className="font-display font-black text-4xl text-emerald-400">💰 Purse Updated</p>
@@ -1272,6 +1255,7 @@ export function LiveBid({
               <p className="text-xl font-mono text-white">{formatIndianRupee(purseBoosterBanner.previousCapacity)}</p>
               <p className="text-base text-[#a1a1aa] mt-3">New Capacity</p>
               <p className="text-xl font-mono text-emerald-300">{formatIndianRupee(purseBoosterBanner.newCapacity)}</p>
+              <p className="text-sm text-[#52525b] mt-6">Tap anywhere to continue</p>
             </div>
           </motion.div>
         )}
@@ -1297,22 +1281,10 @@ export function LiveBid({
         )}
       </AnimatePresence>
 
-      {/* ── Reconnect overlay ── */}
-      <AnimatePresence>
-        {networkQ === "poor" && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#09090b]/90 flex flex-col items-center justify-center gap-4 z-50"
-          >
-            <WifiOff className="w-14 h-14 text-red-400 animate-pulse" />
-            <div className="text-center">
-              <p className="font-display font-bold text-2xl text-white">Connection lost</p>
-              <p className="text-base text-[#71717a] mt-1">Reconnecting to auction room...</p>
-            </div>
-            <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AuctionConnectionBanner
+        feedState={feed.state}
+        secondsSinceLastActivity={feed.secondsSinceLastActivity}
+      />
 
       {/* ── Sign-out confirmation ── */}
       <AnimatePresence>

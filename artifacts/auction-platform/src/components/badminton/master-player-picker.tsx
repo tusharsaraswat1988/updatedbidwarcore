@@ -4,19 +4,26 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import {
+  AsyncLoadingPanel,
+  FormModal,
+  SearchInput,
+  PickerTrigger,
+  labelClass,
+} from "@/components/badminton/form-ui";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export type MasterPlayerOption = {
-  id: string;
+  badmintonPlayerId: number;
+  masterPlayerId: string | null;
   displayName: string;
   photoUrl: string | null;
   franchiseName: string | null;
   franchiseLogoUrl: string | null;
   /** @deprecated use franchiseLogoUrl */
   teamLogoUrl?: string | null;
-  alreadyImported: boolean;
-  badmintonPlayerId: number | null;
 };
 
 export type SidePreview = {
@@ -51,12 +58,12 @@ function PlayerAvatar({
         <img
           src={photoUrl}
           alt=""
-          className={`${dim} rounded-lg object-cover`}
+          className={`${dim} rounded-xl object-cover ring-1 ring-white/10`}
           loading="lazy"
         />
       ) : (
         <div
-          className={`${dim} rounded-lg bg-white/10 flex items-center justify-center font-bold text-white/40`}
+          className={`${dim} rounded-xl bg-[#1a2847] flex items-center justify-center font-bold text-white/50 ring-1 ring-white/10`}
         >
           {displayName.charAt(0).toUpperCase()}
         </div>
@@ -65,7 +72,7 @@ function PlayerAvatar({
         <img
           src={franchiseLogoUrl}
           alt=""
-          className={`absolute -bottom-0.5 -right-0.5 ${badgeDim} rounded-full object-cover border border-[#0d1529] bg-white/90`}
+          className={`absolute -bottom-0.5 -right-0.5 ${badgeDim} rounded-full object-cover border-2 border-[#0a1224] bg-[#121c34]`}
           loading="lazy"
         />
       ) : null}
@@ -85,7 +92,7 @@ function SelectedPlayerRow({
   onChange: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 py-1">
+    <div className="flex items-center gap-3 rounded-xl border border-[#4fc3f7]/20 bg-[#121c34] px-3 py-2.5">
       <PlayerAvatar
         photoUrl={photoUrl || null}
         displayName={displayName}
@@ -96,7 +103,7 @@ function SelectedPlayerRow({
       <button
         type="button"
         onClick={onChange}
-        className="text-[#4fc3f7] text-xs font-semibold hover:text-[#7dd3fc] shrink-0"
+        className="text-[#4fc3f7] text-xs font-semibold hover:text-[#7dd3fc] shrink-0 px-2 py-1 rounded-lg hover:bg-[#4fc3f7]/10 transition-colors"
       >
         Change
       </button>
@@ -125,29 +132,31 @@ export function MasterPlayerPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [pickingId, setPickingId] = useState<string | null>(null);
 
-  const { data: players = [] } = useQuery<MasterPlayerOption[]>({
-    queryKey: ["master-players", tournamentId],
+  const { data: players = [], isLoading, isFetching } = useQuery<MasterPlayerOption[]>({
+    queryKey: ["badminton-match-roster", tournamentId],
     queryFn: async () => {
       const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players`,
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/match-roster`,
         { credentials: "include" },
       );
       if (!res.ok) return [];
       const rows = (await res.json()) as Array<Record<string, unknown>>;
       return rows.map((p) => ({
-        id: String(p.id),
+        badmintonPlayerId: Number(p.badmintonPlayerId),
+        masterPlayerId: (p.masterPlayerId as string | null) ?? null,
         displayName: String(p.displayName ?? ""),
         photoUrl: (p.photoUrl as string | null) ?? null,
         franchiseName: (p.franchiseName ?? p.teamName ?? null) as string | null,
         franchiseLogoUrl: (p.franchiseLogoUrl ?? p.teamLogoUrl ?? null) as string | null,
         teamLogoUrl: (p.teamLogoUrl as string | null) ?? null,
-        alreadyImported: Boolean(p.alreadyImported),
-        badmintonPlayerId: (p.badmintonPlayerId as number | null) ?? null,
       }));
     },
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && open,
   });
+
+  const listLoading = isLoading || (isFetching && players.length === 0);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -156,82 +165,98 @@ export function MasterPlayerPicker({
   }, [players, query]);
 
   async function pick(player: MasterPlayerOption) {
-    const res = await fetch(
-      `${API_BASE}/api/tournaments/${tournamentId}/badminton/master-players/${player.id}/side-json${
-        player.badmintonPlayerId ? `?badmintonPlayerId=${player.badmintonPlayerId}` : ""
-      }`,
-      { credentials: "include" },
-    );
-    const sideJson = res.ok ? ((await res.json()) as SidePreview) : null;
-    if (sideJson) {
-      onSelect(player, sideJson);
+    const pickKey = String(player.badmintonPlayerId);
+    setPickingId(pickKey);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/players/${player.badmintonPlayerId}/side-json`,
+        { credentials: "include" },
+      );
+      const sideJson = res.ok ? ((await res.json()) as SidePreview) : null;
+      if (sideJson) {
+        onSelect(player, sideJson);
+      }
+      setOpen(false);
+      setQuery("");
+    } finally {
+      setPickingId(null);
     }
-    setOpen(false);
-    setQuery("");
   }
 
   function closeModal() {
+    if (pickingId) return;
     setOpen(false);
     setQuery("");
   }
 
-  function pickerModal() {
-    return (
-      <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-        <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col">
-          <div className="p-4 border-b border-white/8 flex items-center justify-between gap-3">
-            <h3 className="font-bold text-white truncate">{label}</h3>
-            <button type="button" onClick={closeModal} className="text-white/40 hover:text-white text-2xl leading-none">
-              ×
+  const pickerModal = open ? (
+    <FormModal title={label} subtitle="Choose from players registered in this tournament" onClose={closeModal} size="md">
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Search by name…"
+      />
+      <div className="max-h-[45vh] overflow-y-auto space-y-1 -mx-1 px-1">
+        {pickingId ? (
+          <AsyncLoadingPanel
+            tone="inverse"
+            compact
+            message="Loading player details for this side…"
+          />
+        ) : listLoading ? (
+          <AsyncLoadingPanel
+            tone="inverse"
+            compact
+            message="Loading players from your tournament roster…"
+          />
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-10 px-4 space-y-2">
+            <p className="text-white/35 text-sm">
+              {query.trim() ? "No players match your search" : "No players registered in this tournament yet"}
+            </p>
+            {!query.trim() ? (
+              <p className="text-white/25 text-xs">
+                Add players under Badminton → Players, or import from your auction roster first.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          filtered.map((p) => (
+            <button
+              key={p.badmintonPlayerId}
+              type="button"
+              onClick={() => pick(p)}
+              disabled={!!pickingId}
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/[0.04] text-left transition-colors disabled:opacity-50"
+            >
+              <PlayerAvatar
+                photoUrl={p.photoUrl}
+                displayName={p.displayName}
+                franchiseLogoUrl={p.franchiseLogoUrl ?? p.teamLogoUrl}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <span className="text-white font-medium text-sm truncate block">{p.displayName}</span>
+                {p.franchiseName ? (
+                  <span className="text-white/35 text-[10px] truncate block uppercase tracking-wide">
+                    {p.franchiseName}
+                  </span>
+                ) : null}
+              </div>
+              {pickingId === String(p.badmintonPlayerId) ? (
+                <Loader2 className="w-4 h-4 text-[#4fc3f7] animate-spin shrink-0" />
+              ) : null}
             </button>
-          </div>
-          <div className="p-3">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name…"
-              className="w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/30"
-              autoFocus
-            />
-          </div>
-          <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-            {filtered.length === 0 ? (
-              <p className="text-white/30 text-sm text-center py-8">No players found</p>
-            ) : (
-              filtered.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => pick(p)}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 text-left"
-                >
-                  <PlayerAvatar
-                    photoUrl={p.photoUrl}
-                    displayName={p.displayName}
-                    franchiseLogoUrl={p.franchiseLogoUrl ?? p.teamLogoUrl}
-                    size="md"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <span className="text-white font-medium text-sm truncate block">{p.displayName}</span>
-                    {p.franchiseName ? (
-                      <span className="text-white/35 text-[10px] truncate block">
-                        Franchise: {p.franchiseName}
-                      </span>
-                    ) : null}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
+          ))
+        )}
       </div>
-    );
-  }
+    </FormModal>
+  ) : null;
 
   if (value && selectedDisplayName) {
     return (
-      <div className="space-y-1">
-        <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wide">{label}</p>
+      <div className="space-y-2">
+        <p className={labelClass}>{label}</p>
         <SelectedPlayerRow
           displayName={selectedDisplayName}
           photoUrl={selectedPhotoUrl ?? ""}
@@ -241,23 +266,15 @@ export function MasterPlayerPicker({
             setOpen(true);
           }}
         />
-        {open ? pickerModal() : null}
+        {pickerModal}
       </div>
     );
   }
 
   return (
-    <div className="space-y-1">
-      <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wide">{label}</p>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full h-11 px-3 rounded-xl bg-white/5 border border-dashed border-white/15 text-white/40 text-sm hover:border-[#4fc3f7]/40 hover:text-white/60 transition-colors"
-      >
-        + Select player
-      </button>
-      {open ? pickerModal() : null}
-    </div>
+    <>
+      <PickerTrigger label={label} onClick={() => setOpen(true)} />
+      {pickerModal}
+    </>
   );
 }
-

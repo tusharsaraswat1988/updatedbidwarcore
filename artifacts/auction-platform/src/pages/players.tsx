@@ -7,11 +7,13 @@ import {
   useListTeams,
   useGetTournament,
   useGetRegistrationStatus,
-  useUpdateTournament,
   useCreatePlayer,
   useUpdatePlayer,
   useDeletePlayer,
   useBulkCreatePlayers,
+  useApproveRegistrationPayment,
+  useRejectRegistrationPayment,
+  useResetRegistrationPaymentPending,
   useSearchGlobalPlayers,
   getSearchGlobalPlayersQueryKey,
   useListImportSources,
@@ -24,8 +26,10 @@ import {
   getListTeamsQueryKey,
   getGetTournamentQueryKey,
   getGetRegistrationStatusQueryKey,
+  type SearchGlobalPlayersParams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { playerRegistrationPublicUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +52,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RegistrationPaymentReview } from "@/components/registration-payment/registration-payment-review";
+import type { RegistrationPaymentStatus } from "@workspace/api-base/registration-payment";
 import {
   Table,
   TableBody,
@@ -56,17 +62,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, FileSpreadsheet } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
-import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES } from "@/lib/tag-theme";
+import {
+  buildCsvTemplateExampleRow,
+  buildCsvTemplateHeaders,
+  fetchSportSpecCatalog,
+  parsePlayerCsv,
+  type SportSpecCatalog,
+} from "@/lib/csv-player-import";
+import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIONS, playerTagLabel } from "@/lib/tag-theme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
-import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
+import { CityAutocomplete } from "@/components/city-autocomplete";
+import { JerseySizeSelect } from "@/components/jersey-size-select";
+import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import {
+  applySpecificationsToSelections,
+  buildSpecificationsPayload,
+} from "@/lib/player-specifications";
+import { PlayerGenderSelect, formatPlayerGender } from "@/components/player-gender-select";
+import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
+import { settingsPath } from "@/lib/settings-navigation";
+import {
+  bidValueSourceLabel,
+  canEditPlayerBidValue,
+  getOrganizerBidOptions,
+  shouldShowPlayerBidValueSelector,
+} from "@workspace/api-base/bid-value";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -76,6 +104,7 @@ type SuggestionProfile = {
   mobileNumber?: string | null;
   city?: string | null;
   age?: number | null;
+  gender?: string | null;
   role?: string | null;
   photoUrl?: string | null;
   battingStyle?: string | null;
@@ -83,16 +112,19 @@ type SuggestionProfile = {
   specialization?: string | null;
   achievements?: string | null;
   jerseyNumber?: string | null;
+  jerseySize?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   basePrice?: number;
+  specifications?: { specGroupId: number; groupName?: string; value: string }[];
   appearanceCount: number;
 };
 
-function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
+function GlobalPlayerSearch({ value, onChange, onFillFromProfile, sportSlug }: {
   value: string;
   onChange: (v: string) => void;
   onFillFromProfile: (p: SuggestionProfile) => void;
+  sportSlug?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -103,9 +135,9 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
     return () => clearTimeout(t);
   }, [value]);
 
-  const { data: suggestions } = useSearchGlobalPlayers(
-    { q: debouncedQ, limit: 8 },
-    { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ }), enabled: debouncedQ.length >= 2 } },
+  const { data: suggestions, isLoading, isFetching } = useSearchGlobalPlayers(
+    { q: debouncedQ, limit: 8, ...(sportSlug ? { sport: sportSlug } : {}) } as SearchGlobalPlayersParams & { sport?: string },
+    { query: { queryKey: getSearchGlobalPlayersQueryKey({ q: debouncedQ, ...(sportSlug ? { sport: sportSlug } : {}) }), enabled: debouncedQ.length >= 2 } },
   );
 
   useEffect(() => {
@@ -118,7 +150,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  const showDropdown = open && debouncedQ.length >= 2 && (suggestions?.length ?? 0) > 0;
+  const searching = open && debouncedQ.length >= 2 && (isLoading || isFetching);
+  const showDropdown = open && debouncedQ.length >= 2 && (searching || (suggestions?.length ?? 0) > 0);
 
   return (
     <div ref={containerRef} className="relative">
@@ -132,7 +165,15 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
       />
       {showDropdown && (
         <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
-          {suggestions!.map(p => (
+          {searching ? (
+            <div className="flex items-center gap-2.5 px-3 py-3 text-sm text-muted-foreground" role="status" aria-live="polite">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-primary" />
+              Searching player database…
+            </div>
+          ) : (suggestions?.length ?? 0) === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">No matching players found</p>
+          ) : (
+          suggestions!.map(p => (
             <button
               key={p.id}
               type="button"
@@ -162,7 +203,8 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile }: {
                 </div>
               </div>
             </button>
-          ))}
+          ))
+          )}
         </div>
       )}
     </div>
@@ -394,23 +436,14 @@ function TournamentImportDialog({ tournamentId, onClose }: {
 
 // ─── Player Form ───────────────────────────────────────────────────────────────
 
-const PLAYER_TAGS = [
-  { value: "captain",      label: "Captain" },
-  { value: "vice_captain", label: "Vice Captain" },
-  { value: "owner",        label: "Owner" },
-  { value: "co_owner",     label: "Co-Owner" },
-  { value: "booster",      label: "Booster" },
-  { value: "icon",         label: "Icon" },
-  { value: "star_player",  label: "Star Player" },
-] as const;
+const PLAYER_TAGS = PLAYER_TAG_OPTIONS;
 
-export function playerTagLabel(tag: string | null | undefined) {
-  return PLAYER_TAGS.find(t => t.value === tag)?.label ?? null;
-}
+export { playerTagLabel };
 
-function PlayerForm({ tournamentId, player, categories, teams, tournament, onClose }: {
+function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams, tournament, onClose }: {
   tournamentId: number;
   player?: any;
+  tournamentPlayers?: any[];
   categories: any[];
   teams: any[];
   tournament?: any;
@@ -427,10 +460,16 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
   const [mobileLookupLoading, setMobileLookupLoading] = useState(false);
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
   const [pendingMobileProfile, setPendingMobileProfile] = useState<SuggestionProfile | null>(null);
+  const [matchedTournamentPlayer, setMatchedTournamentPlayer] = useState<any | null>(null);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [extraSpecSelections, setExtraSpecSelections] = useState<Record<number, string>>({});
-  const [auditReason, setAuditReason] = useState("");
   const isEdit = !!player;
+  const showPlayerBidSelector = shouldShowPlayerBidValueSelector(tournament ?? {});
+  const organizerBidOptions = getOrganizerBidOptions(tournament ?? {});
+  const bidValueEditable = canEditPlayerBidValue(tournament?.status);
+  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
+  const lockedBidDisplayAmount =
+    player?.selectedBidValue ?? player?.basePrice ?? tournament?.minBid ?? 100000;
 
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
@@ -464,9 +503,12 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     bowlingStyle: player?.bowlingStyle || "",
     specialization: player?.specialization || "",
     age: player?.age ? String(player.age) : "",
+    gender: player?.gender ?? "",
     photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
+    selectedBidValue: player?.selectedBidValue ? String(player.selectedBidValue) : "",
     jerseyNumber: player?.jerseyNumber || "",
+    jerseySize: (player?.jerseySize as JerseySize | null) || "",
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
     email: player?.email || "",
@@ -481,6 +523,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
     playerTag: player?.playerTag || "",
     playerTagTeamId: player?.playerTagTeamId ? String(player.playerTagTeamId) : "",
     isNonPlayingMember: player?.isNonPlayingMember ?? false,
+    markPaymentCompleted: false,
   });
 
   const [submitError, setSubmitError] = useState("");
@@ -503,23 +546,66 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
 
   const sortedSpecGroups = [...specGroups].sort((a, b) => a.displayOrder - b.displayOrder);
 
+  useEffect(() => {
+    if (!player || sortedSpecGroups.length === 0) return;
+    const playerSpecs = (player as { specifications?: { specGroupId: number; value: string }[] })
+      .specifications;
+    const { legacyForm, extraSelections } = applySpecificationsToSelections(
+      sortedSpecGroups,
+      playerSpecs,
+      {
+        battingStyle: player.battingStyle ?? "",
+        bowlingStyle: player.bowlingStyle ?? "",
+        specialization: player.specialization ?? "",
+      },
+    );
+    setForm((prev) => ({
+      ...prev,
+      battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+      bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+      specialization: legacyForm.specialization ?? prev.specialization,
+    }));
+    setExtraSpecSelections(extraSelections);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player?.id, sortedSpecGroups.length]);
+
+  function findTournamentPlayerByMobile(mobile: string) {
+    const parsed = parseIndianMobile(mobile);
+    if (!parsed.ok || !tournamentPlayers?.length) return null;
+    return tournamentPlayers.find(
+      (p) => p.mobileNumber && mobilesMatch(p.mobileNumber, parsed.normalized),
+    ) ?? null;
+  }
+
   function handleMobileChange(val: string) {
     const sanitized = sanitizeMobileInput(val);
     f("mobileNumber", sanitized);
     if (mobileError) setMobileError("");
     setMobileLookedUp(false);
     setPendingMobileProfile(null);
+    setMatchedTournamentPlayer(null);
     if (player) return;
+    if (sanitized.length >= 10) {
+      const tournamentMatch = findTournamentPlayerByMobile(sanitized);
+      if (tournamentMatch) {
+        setMatchedTournamentPlayer(tournamentMatch);
+        setMobileLookedUp(true);
+        return;
+      }
+    }
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
     const digits = sanitized;
     if (digits.length >= 10) {
       mobileDebounceRef.current = setTimeout(async () => {
         setMobileLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5`);
+          const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
+          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5${sportQ}`, {
+            credentials: "include",
+          });
           const data: SuggestionProfile[] = await res.json();
-          const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === digits)
+          const match = Array.isArray(data) && data.length > 0
+            ? (digits.length >= 10 ? data[0] : data.find(p => p.name))
             : undefined;
           if (match) setPendingMobileProfile(match);
         } catch {
@@ -553,6 +639,15 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       setEmailError(emailResult.error);
       return;
     }
+    const specifications = buildSpecificationsPayload(
+      sortedSpecGroups,
+      {
+        battingStyle: form.battingStyle,
+        bowlingStyle: form.bowlingStyle,
+        specialization: form.specialization,
+      },
+      extraSpecSelections,
+    );
     const data = {
       name: form.name,
       city: form.city || undefined,
@@ -560,14 +655,26 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
+      specifications: specifications.length > 0 ? specifications : undefined,
       age: form.age ? parseInt(form.age) : undefined,
+      gender:
+        form.gender === "M" || form.gender === "F"
+          ? form.gender
+          : isEdit
+            ? null
+            : undefined,
       photoUrl: form.photoUrl || undefined,
-      basePrice: parseInt(String(form.basePrice)) || 0,
+      ...(bidValueEditable
+        ? showPlayerBidSelector
+          ? { selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined }
+          : { basePrice: parseInt(String(form.basePrice)) || tournament?.minBid || 100000 }
+        : {}),
       jerseyNumber: form.jerseyNumber || undefined,
+      jerseySize: form.jerseySize || undefined,
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,
-      cricheroUrl: form.cricheroUrl || undefined,
+      cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
       availabilityDates: form.availabilityDates || undefined,
       retainedPrice: form.retainedPrice ? parseInt(form.retainedPrice) : undefined,
       teamId: form.status === "retained" && form.retainedTeamId ? parseInt(form.retainedTeamId) : undefined,
@@ -576,17 +683,15 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       playerTag: (form.playerTag || undefined) as any,
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
+      markPaymentCompleted: !player && tournament?.enableRegistrationPayment ? form.markPaymentCompleted : undefined,
     };
-    if (isEdit && !isAuditReasonValid(auditReason)) {
-      setSubmitError("A reason is required when editing a player (minimum 10 characters).");
-      return;
-    }
     try {
-      if (player) {
+      const saveTarget = player ?? matchedTournamentPlayer;
+      if (saveTarget) {
         await updatePlayer.mutateAsync({
           tournamentId,
-          playerId: player.id,
-          data: { ...data, reason: auditReason.trim() },
+          playerId: saveTarget.id,
+          data,
         });
       } else {
         await createPlayer.mutateAsync({ tournamentId, data });
@@ -608,6 +713,32 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
 
   const f = (key: string, val: string | number | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
+  function clearProfileFill(newName: string) {
+    setForm(prev => ({
+      ...prev,
+      name: newName,
+      city: "",
+      role: "",
+      battingStyle: "",
+      bowlingStyle: "",
+      specialization: "",
+      age: "",
+      gender: "",
+      photoUrl: "",
+      achievements: "",
+      jerseyNumber: "",
+      jerseySize: "",
+      cricheroUrl: "",
+      mobileNumber: "",
+      basePrice: basePriceTouched ? prev.basePrice : (tournament?.minBid || 100000),
+    }));
+    setFilledFromProfile(false);
+    setMobileLookedUp(false);
+    setPendingMobileProfile(null);
+    setMatchedTournamentPlayer(null);
+    setExtraSpecSelections({});
+  }
+
   function fillFromProfile(p: SuggestionProfile) {
     setForm(prev => ({
       ...prev,
@@ -615,22 +746,48 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       city: p.city || prev.city,
       role: p.role || prev.role,
       age: p.age != null ? String(p.age) : prev.age,
+      gender: p.gender || prev.gender,
       photoUrl: p.photoUrl || prev.photoUrl,
-      battingStyle: p.battingStyle || prev.battingStyle,
-      bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
-      specialization: p.specialization || prev.specialization,
       achievements: p.achievements || prev.achievements,
       jerseyNumber: p.jerseyNumber || prev.jerseyNumber,
+      jerseySize: (p.jerseySize as JerseySize | null) || prev.jerseySize,
       cricheroUrl: p.cricheroUrl || prev.cricheroUrl,
       mobileNumber: p.mobileNumber || prev.mobileNumber,
       basePrice: p.basePrice || prev.basePrice,
     }));
+
+    if (p.specifications?.length && sortedSpecGroups.length > 0) {
+      const { legacyForm, extraSelections } = applySpecificationsToSelections(
+        sortedSpecGroups,
+        p.specifications,
+        {
+          battingStyle: p.battingStyle ?? "",
+          bowlingStyle: p.bowlingStyle ?? "",
+          specialization: p.specialization ?? "",
+        },
+      );
+      setForm((prev) => ({
+        ...prev,
+        battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+        bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+        specialization: legacyForm.specialization ?? prev.specialization,
+      }));
+      setExtraSpecSelections(extraSelections);
+    } else {
+      setForm(prev => ({
+        ...prev,
+        battingStyle: p.battingStyle || prev.battingStyle,
+        bowlingStyle: p.bowlingStyle || prev.bowlingStyle,
+        specialization: p.specialization || prev.specialization,
+      }));
+    }
+
     setFilledFromProfile(true);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Player Name <span className="text-destructive">*</span></Label>
           {player ? (
@@ -639,8 +796,12 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             <>
               <GlobalPlayerSearch
                 value={form.name}
-                onChange={v => { f("name", v); setFilledFromProfile(false); }}
+                onChange={v => {
+                  if (filledFromProfile) clearProfileFill(v);
+                  else f("name", v);
+                }}
                 onFillFromProfile={fillFromProfile}
+                sportSlug={tournament?.sport ?? undefined}
               />
               {filledFromProfile && (
                 <p className="text-xs text-primary flex items-center gap-1">
@@ -649,7 +810,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
                   <button
                     type="button"
                     className="ml-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => setFilledFromProfile(false)}
+                    onClick={() => clearProfileFill(form.name)}
                   >
                     · clear
                   </button>
@@ -658,6 +819,7 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             </>
           )}
         </div>
+        {categories.length > 0 && (
         <div className="space-y-2">
           <Label>Category</Label>
           <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
@@ -667,9 +829,10 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
             </SelectContent>
           </Select>
         </div>
+        )}
       </div>
       {/* Row 2: Mobile (required) | Role */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Mobile Number <span className="text-destructive">*</span></Label>
           <div className="relative">
@@ -690,8 +853,19 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
               <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${pendingMobileProfile ? "text-green-500" : "text-muted-foreground"}`} />
             )}
           </div>
+          {!player && mobileLookupLoading && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              Looking up mobile number in player database…
+            </p>
+          )}
           {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
-          {!player && pendingMobileProfile && (
+          {!player && matchedTournamentPlayer && (
+            <p className="text-xs text-amber-400 mt-1">
+              This mobile is already registered as <span className="font-semibold">{matchedTournamentPlayer.name}</span>.
+              Saving will update that player — no duplicate will be created.
+            </p>
+          )}
+          {!player && pendingMobileProfile && !matchedTournamentPlayer && (
             <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 space-y-3">
               <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Existing profile found</p>
               <div className="flex items-center gap-3">
@@ -748,27 +922,83 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
         onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
         error={emailError || undefined}
       />
-      {/* Row 3: City | Age */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Row 3: City | Age | Gender */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
           <Label>City</Label>
-          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" />
+          <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
         </div>
         <div className="space-y-2">
           <Label>Age</Label>
-          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" />
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} />
         </div>
+        <PlayerGenderSelect
+          value={form.gender}
+          onChange={(v) => f("gender", v)}
+        />
       </div>
-      {/* Row 4: Base Price | Jersey No */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
-          <Input type="number" value={form.basePrice} onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }} required />
-        </div>
+      {/* Row 4: Jersey No | Jersey Size */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Jersey No.</Label>
-          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" />
+          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} />
         </div>
+        <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
+      </div>
+      {/* Row 5: Base Price / Selected Bid Value */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {showPlayerBidSelector && bidValueEditable ? (
+          <div className="space-y-2 col-span-2">
+            <Label>Selected Bid Value (₹) <span className="text-destructive">*</span></Label>
+            <Select
+              value={form.selectedBidValue}
+              onValueChange={(v) => {
+                setBasePriceTouched(true);
+                f("selectedBidValue", v);
+                f("basePrice", v);
+              }}
+              required
+            >
+              <SelectTrigger><SelectValue placeholder="Select bid value" /></SelectTrigger>
+              <SelectContent className="dark">
+                {organizerBidOptions.map((amount) => (
+                  <SelectItem key={amount} value={String(amount)}>
+                    {formatIndianRupee(amount)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : showPlayerBidSelector && !bidValueEditable ? (
+          <div className="space-y-2 col-span-2">
+            <Label>Selected Bid Value (₹)</Label>
+            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
+              {formatIndianRupee(lockedBidDisplayAmount)}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Bid value is locked after the auction starts.</p>
+          </div>
+        ) : bidValueEditable ? (
+          <div className="space-y-2">
+            <Label>Base Price (₹) <span className="text-destructive">*</span></Label>
+            <Input
+              type="number"
+              value={form.basePrice}
+              onChange={e => { setBasePriceTouched(true); f("basePrice", e.target.value); }}
+              required
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Uses tournament minimum bid ({formatIndianRupee(tournament?.minBid ?? 100000)}).
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Base Price (₹)</Label>
+            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
+              {formatIndianRupee(lockedBidDisplayAmount)}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Base price is locked after the auction starts.</p>
+          </div>
+        )}
       </div>
       {/* Dynamic spec groups: loaded from sport master per selected role */}
       {sortedSpecGroups.length > 0 ? (
@@ -807,18 +1037,18 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
         </div>
       ) : (["cricket", "other", ""].includes(tournament?.sport ?? "cricket") ? (
         /* Fallback free-text spec fields — only shown for cricket/other/unknown sport */
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Batting Style</Label>
-            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand" />
+            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Bowling Style</Label>
-            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" />
+            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Specialization</Label>
-            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." />
+            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} />
           </div>
         </div>
       ) : null)}
@@ -914,21 +1144,29 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           </div>
         );
       })()}
-      <div className="space-y-2">
-        <Label>Crichero URL</Label>
-        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." />
-      </div>
+      {isCricket && (
+        <div className="space-y-2">
+          <Label>Crichero URL</Label>
+          <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} />
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Achievements</Label>
-        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of the Season 2024..." />
+        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} />
       </div>
 
       {/* Retained player section */}
-      <div className="pt-2 border-t border-border space-y-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Retained Player (Optional)</p>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
+        <div className="space-y-1">
+          <Label>
+            Retained Player <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Choose whether this player is available for auction or already pre-sold to a team.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Status</Label>
             <Select value={form.status} onValueChange={v => f("status", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent className="dark">
@@ -960,11 +1198,17 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
       </div>
 
       {/* Player tag section */}
-      <div className="pt-2 border-t border-border space-y-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Player Tag (Optional — display only)</p>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-4">
+        <div className="space-y-1">
+          <Label>
+            Player Tag <span className="text-xs font-normal text-muted-foreground">(Optional — display only)</span>
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Add a visual badge on the auction screen. Does not affect bidding rules.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Tag</Label>
             <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="No tag" /></SelectTrigger>
               <SelectContent className="dark">
@@ -992,6 +1236,26 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
         </div>
       </div>
 
+      {!player && tournament?.enableRegistrationPayment && (
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-3">Payment Completed</p>
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={form.markPaymentCompleted}
+              onChange={e => f("markPaymentCompleted", e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
+            />
+            <div>
+              <p className="text-sm font-semibold group-hover:text-foreground transition-colors">Mark as Paid</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Check if payment was collected offline. Skips UTR and screenshot requirements.
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
+
       {/* Non-playing member toggle */}
       <div className="pt-2 border-t border-border">
         <label className="flex items-start gap-3 cursor-pointer group">
@@ -1014,18 +1278,11 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
           {submitError}
         </div>
       )}
-      {isEdit && (
-        <AuditReasonField
-          value={auditReason}
-          onChange={setAuditReason}
-          placeholder="Explain why this player record is being changed…"
-        />
-      )}
       <div className="flex gap-3 pt-4">
         <Button
           type="submit"
           className="flex-1"
-          disabled={createPlayer.isPending || updatePlayer.isPending || (isEdit && !isAuditReasonValid(auditReason))}
+          disabled={createPlayer.isPending || updatePlayer.isPending}
         >
           {player ? "Update Player" : "Add Player"}
         </Button>
@@ -1037,26 +1294,39 @@ function PlayerForm({ tournamentId, player, categories, teams, tournament, onClo
 
 // ─── Bulk Upload Dialog ────────────────────────────────────────────────────────
 
-function BulkUploadDialog({ tournamentId, categories, onClose }: {
+function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
   tournamentId: number;
+  sportSlug: string;
   categories: any[];
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const bulkCreate = useBulkCreatePlayers();
   const [csv, setCsv] = useState("");
+  const [catalog, setCatalog] = useState<SportSpecCatalog | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const TEMPLATE_HEADERS = "name,basePrice,role,city,age,battingStyle,bowlingStyle,specialization,jerseyNumber,achievements,mobileNumber,email,availabilityDates,cricheroUrl";
+  useEffect(() => {
+    let cancelled = false;
+    fetchSportSpecCatalog(sportSlug)
+      .then((c) => { if (!cancelled) setCatalog(c); })
+      .catch((err) => {
+        if (!cancelled) setCatalogError(err instanceof Error ? err.message : String(err));
+      });
+    return () => { cancelled = true; };
+  }, [sportSlug]);
+
+  const templateHeaders = buildCsvTemplateHeaders(catalog);
 
   function downloadTemplate() {
-    const content = TEMPLATE_HEADERS + "\nRohit Sharma,1000000,batsman,Mumbai,36,Right-hand bat,Right-arm medium,,45,IPL Winner 2024,9876543210,rohit@example.com,18-20 March,https://crichero.com/rohit";
+    const content = `${templateHeaders}\n${buildCsvTemplateExampleRow(catalog)}`;
     const blob = new Blob([content], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "players_template.csv";
+    a.download = `players_template_${sportSlug}.csv`;
     a.click();
   }
 
@@ -1068,53 +1338,27 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
     reader.readAsText(file);
   }
 
-  function parseCsv(raw: string): any[] {
-    const lines = raw.trim().split("\n").map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) return [];
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    return lines.slice(1).map(line => {
-      const vals = line.split(",").map(v => v.trim());
-      const row: Record<string, any> = {};
-      headers.forEach((h, i) => { row[h] = vals[i] || ""; });
-      return {
-        name: row["name"] || "Unknown",
-        basePrice: parseInt(row["baseprice"] || row["base_price"] || "100000") || 100000,
-        role: row["role"] || undefined,
-        city: row["city"] || undefined,
-        age: row["age"] ? parseInt(row["age"]) : undefined,
-        battingStyle: row["battingstyle"] || row["batting_style"] || undefined,
-        bowlingStyle: row["bowlingstyle"] || row["bowling_style"] || undefined,
-        specialization: row["specialization"] || undefined,
-        jerseyNumber: row["jerseynumber"] || row["jersey_number"] || undefined,
-        achievements: row["achievements"] || undefined,
-        mobileNumber: (() => {
-          const raw = row["mobilenumber"] || row["mobile_number"] || row["mobile"] || "";
-          if (!raw) return undefined;
-          const parsed = parseIndianMobile(raw);
-          return parsed.ok ? parsed.normalized : raw;
-        })(),
-        email: row["email"] || undefined,
-        availabilityDates: row["availabilitydates"] || row["availability_dates"] || row["availability"] || undefined,
-        cricheroUrl: row["cricherourl"] || row["crichero_url"] || row["crichero"] || undefined,
-      };
-    });
-  }
-
   async function handleUpload() {
-    const players = parseCsv(csv);
+    const players = parsePlayerCsv(csv, catalog);
     if (!players.length) return;
     const res = await bulkCreate.mutateAsync({ tournamentId, data: { players } });
     setResult({ created: res.created, failed: res.failed, errors: res.errors ?? [] });
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
   }
 
-  const parsed = csv ? parseCsv(csv) : [];
+  const parsed = csv ? parsePlayerCsv(csv, catalog) : [];
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Upload a CSV file with player details. One player per row.</p>
+          <p className="text-sm text-muted-foreground">
+            Upload a CSV with sport-specific specification columns for{" "}
+            <span className="font-medium capitalize">{sportSlug}</span>.
+          </p>
+          {catalogError && (
+            <p className="text-xs text-amber-500 mt-1">Spec catalog unavailable — legacy columns used as fallback.</p>
+          )}
         </div>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
           <Download className="w-3.5 h-3.5" /> Template
@@ -1134,7 +1378,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
           </div>
           <textarea
             className="w-full h-36 bg-card border border-border rounded-lg p-3 text-xs font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder={`Paste CSV here:\n${TEMPLATE_HEADERS}\nPlayer Name,100000,batsman,...`}
+            placeholder={`Paste CSV here:\n${templateHeaders}\n...`}
             value={csv}
             onChange={e => setCsv(e.target.value)}
           />
@@ -1153,7 +1397,7 @@ function BulkUploadDialog({ tournamentId, categories, onClose }: {
             <Button
               className="flex-1"
               disabled={parsed.length === 0 || bulkCreate.isPending}
-              onClick={handleUpload}
+              onClick={() => void handleUpload()}
             >
               <Upload className="w-4 h-4 mr-2" />
               {bulkCreate.isPending ? "Uploading..." : `Upload ${parsed.length} Players`}
@@ -1201,6 +1445,7 @@ const statusLabels: Record<string, string> = {
 
 function formatPlayerAmount(player: {
   status?: string | null;
+  basePrice?: number | null;
   soldPrice?: number | null;
   retainedPrice?: number | null;
 }): { text: string; className: string } {
@@ -1210,19 +1455,34 @@ function formatPlayerAmount(player: {
   if (player.status === "retained" && player.retainedPrice) {
     return { text: formatIndianRupee(player.retainedPrice), className: "text-purple-400 font-mono font-semibold" };
   }
+  if (player.basePrice != null && player.basePrice > 0) {
+    return { text: formatIndianRupee(player.basePrice), className: "text-primary font-mono font-semibold" };
+  }
   return { text: "—", className: "text-muted-foreground" };
 }
 
+function playerAmountForSort(player: {
+  status?: string | null;
+  basePrice?: number | null;
+  soldPrice?: number | null;
+  retainedPrice?: number | null;
+}) {
+  if (player.status === "sold") return player.soldPrice ?? 0;
+  if (player.status === "retained") return player.retainedPrice ?? 0;
+  return player.basePrice ?? 0;
+}
+
 function playerMatchesSearch(
-  player: { id: number; name: string; mobileNumber?: string | null },
+  player: { id: number; serialNo?: number; name: string; mobileNumber?: string | null },
   rawQuery: string,
 ): boolean {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return true;
 
-  // Numeric: exact serial first; partial mobile only for 4+ digits (avoids "3" matching names/mobiles loosely)
+  // Numeric: exact tournament serial first; partial mobile only for 4+ digits (avoids "3" matching names/mobiles loosely)
   if (/^\d+$/.test(query)) {
-    if (String(player.id) === query) return true;
+    const serial = player.serialNo ?? player.id;
+    if (String(serial) === query) return true;
     if (query.length >= 4 && (player.mobileNumber || "").includes(query)) return true;
     return false;
   }
@@ -1241,12 +1501,12 @@ type PlayersFilterPersist = {
   categoryIds: number[];
   teamIds: number[];
   tagFilters: string[];
-  missingMobileOnly: boolean;
+  genderFilters: string[];
   sortKey: PlayerSortKey;
   sortDir: SortDir;
 };
 
-const FILTER_STORAGE_VERSION = "v1";
+const FILTER_STORAGE_VERSION = "v3";
 function filterStorageKey(tournamentId: number) {
   return `players-filters:${FILTER_STORAGE_VERSION}:${tournamentId}`;
 }
@@ -1276,12 +1536,6 @@ const STATUS_SORT_ORDER: Record<string, number> = {
   unsold: 3,
 };
 
-function playerAmountForSort(player: { status?: string | null; soldPrice?: number | null; retainedPrice?: number | null }) {
-  if (player.status === "sold") return player.soldPrice ?? 0;
-  if (player.status === "retained") return player.retainedPrice ?? 0;
-  return 0;
-}
-
 function sortPlayers(
   list: any[],
   sortKey: PlayerSortKey,
@@ -1294,7 +1548,7 @@ function sortPlayers(
     let cmp = 0;
     switch (sortKey) {
       case "id":
-        cmp = a.id - b.id;
+        cmp = (a.serialNo ?? a.id) - (b.serialNo ?? b.id);
         break;
       case "name":
         cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -1322,8 +1576,12 @@ function sortPlayers(
       }
     }
     if (cmp !== 0) return cmp * dir;
-    return a.id - b.id;
+    return (a.serialNo ?? a.id) - (b.serialNo ?? b.id);
   });
+}
+
+function playerGenderFilterKey(gender: string | null | undefined): string {
+  return gender === "M" || gender === "F" ? gender : "_unset";
 }
 
 function playerPassesAdvancedFilters(
@@ -1332,7 +1590,7 @@ function playerPassesAdvancedFilters(
     categoryIds: Set<number>;
     teamIds: Set<number>;
     tagFilters: Set<string>;
-    missingMobileOnly: boolean;
+    genderFilters: Set<string>;
     teamFilterActive: boolean;
   },
 ) {
@@ -1345,7 +1603,7 @@ function playerPassesAdvancedFilters(
   if (opts.tagFilters.size > 0 && (!player.playerTag || !opts.tagFilters.has(player.playerTag))) {
     return false;
   }
-  if (opts.missingMobileOnly && player.mobileNumber) {
+  if (opts.genderFilters.size > 0 && !opts.genderFilters.has(playerGenderFilterKey(player.gender))) {
     return false;
   }
   return true;
@@ -1370,8 +1628,8 @@ function MultiFilterPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 gap-1.5" disabled={disabled}>
-          <Filter className="w-3.5 h-3.5" />
+        <Button variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-xs" disabled={disabled}>
+          <Filter className="w-3 h-3 shrink-0" />
           {label}
           {activeCount > 0 && (
             <Badge variant="secondary" className="h-5 min-w-5 px-1 text-[10px] font-bold">
@@ -1418,7 +1676,7 @@ function MultiFilterPopover({
 type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold";
 
 const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass: string; activeClass: string }[] = [
-  { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-foreground text-background border-foreground" },
+  { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-muted/60 text-foreground border-border" },
   { value: "available", label: "Available", idleClass: "text-blue-300/80", activeClass: "bg-blue-500/20 text-blue-200 border-blue-500/40" },
   { value: "retained", label: "Retained", idleClass: "text-purple-300/80", activeClass: "bg-purple-500/20 text-purple-200 border-purple-500/40" },
   { value: "sold", label: "Sold", idleClass: "text-green-300/80", activeClass: "bg-green-500/20 text-green-200 border-green-500/40" },
@@ -1444,7 +1702,7 @@ function StatusFilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
         active ? activeClass : `bg-card border-border hover:bg-accent/50 ${idleClass}`
       }`}
     >
@@ -1495,9 +1753,10 @@ const statusBorderAccent: Record<string, string> = {
   retained: "border-l-purple-500",
 };
 
-function PlayerPhoto({ photoUrl, name, size = "sm" }: { photoUrl?: string | null; name: string; size?: "sm" | "lg" }) {
+function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: string | null; name: string; gender?: string | null; size?: "sm" | "lg" }) {
   const dim = size === "lg" ? "w-16 h-16" : "w-9 h-9";
   const iconDim = size === "lg" ? "w-7 h-7" : "w-4 h-4";
+  const portraitGender = mapStoredGenderToPortrait(gender);
   return (
     <div className={`${dim} rounded-full bg-card border border-border flex items-center justify-center overflow-hidden shrink-0`}>
       {photoUrl ? (
@@ -1508,8 +1767,10 @@ function PlayerPhoto({ photoUrl, name, size = "sm" }: { photoUrl?: string | null
           loading="lazy"
           decoding="async"
         />
+      ) : portraitGender === "female" ? (
+        <UserRound className={`${iconDim} text-muted-foreground/50`} aria-hidden />
       ) : (
-        <User className={`${iconDim} text-muted-foreground/50`} />
+        <User className={`${iconDim} text-muted-foreground/50`} aria-hidden />
       )}
     </div>
   );
@@ -1537,6 +1798,8 @@ function PlayerDetailPanel({
   tagTeam,
   roleSpecGroups,
   tournamentId,
+  tournament,
+  categories,
   onEdit,
   onDelete,
 }: {
@@ -1546,20 +1809,23 @@ function PlayerDetailPanel({
   tagTeam: { name: string; color?: string | null } | null;
   roleSpecGroups: { groupName: string }[];
   tournamentId: number;
+  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null; sport?: string | null };
+  categories?: CategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const tagTheme = getTagTheme(player.playerTag);
+  const isCricket = (tournament?.sport ?? "cricket") === "cricket";
   const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
   const operatorUrl = `/tournament/${tournamentId}/auction`;
 
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-4">
-        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} size="lg" />
+        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">#{player.id}</span>
+            <span className="font-mono text-xs text-muted-foreground">#{player.serialNo ?? player.id}</span>
             <h3 className="font-bold text-lg truncate">{player.name}</h3>
             {tagTheme && (
               <span
@@ -1568,8 +1834,7 @@ function PlayerDetailPanel({
                   borderRadius: 999,
                   fontSize: "10px",
                   fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
                   background: tagTheme.bg,
                   border: `1px solid ${tagTheme.border}`,
                   color: tagTheme.color,
@@ -1589,7 +1854,14 @@ function PlayerDetailPanel({
             <Badge variant="outline" className={`text-[10px] font-semibold capitalize ${statusColors[player.status] || ""}`}>
               {statusLabels[player.status] || player.status}
             </Badge>
-            {cat && (
+            {categories && categories.length > 0 ? (
+              <PlayerCategorySelect
+                tournamentId={tournamentId}
+                playerId={player.id}
+                categoryId={player.categoryId}
+                categories={categories}
+              />
+            ) : cat ? (
               <Badge
                 variant="outline"
                 className="text-[10px] font-medium"
@@ -1597,7 +1869,7 @@ function PlayerDetailPanel({
               >
                 {cat.name}
               </Badge>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -1639,16 +1911,38 @@ function PlayerDetailPanel({
             <p>{player.age}</p>
           </div>
         )}
+        {formatPlayerGender(player.gender) && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Gender</p>
+            <p>{formatPlayerGender(player.gender)}</p>
+          </div>
+        )}
         {player.jerseyNumber && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey #</p>
             <p className="font-mono">#{player.jerseyNumber}</p>
           </div>
         )}
+        {player.jerseySize && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey Size</p>
+            <p>{player.jerseySize}</p>
+          </div>
+        )}
         {player.basePrice != null && player.basePrice > 0 && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Base Price</p>
             <p className="font-mono text-primary">{formatIndianRupee(player.basePrice)}</p>
+          </div>
+        )}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Bid Value Source</p>
+          <p>{bidValueSourceLabel(player.bidValueSource)}</p>
+        </div>
+        {player.bidValueSource === "player" && player.selectedBidValue != null && player.selectedBidValue > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Selected Bid Value</p>
+            <p className="font-mono text-primary">{formatIndianRupee(player.selectedBidValue)}</p>
           </div>
         )}
         {specValues.map((val, i) => {
@@ -1697,7 +1991,7 @@ function PlayerDetailPanel({
             <p className="text-muted-foreground">{player.achievements}</p>
           </div>
         )}
-        {player.cricheroUrl && (
+        {isCricket && player.cricheroUrl && (
           <div className="col-span-2 sm:col-span-3">
             <a
               href={player.cricheroUrl}
@@ -1710,6 +2004,18 @@ function PlayerDetailPanel({
           </div>
         )}
       </div>
+
+      {tournament?.enableRegistrationPayment && (
+        <RegistrationPaymentReview
+          tournamentId={tournamentId}
+          playerId={player.id}
+          playerName={player.name}
+          registrationFee={tournament.registrationFee}
+          utrNumber={player.utrNumber}
+          paymentScreenshotUrl={player.paymentScreenshotUrl}
+          registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+        />
+      )}
 
       <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
@@ -1731,6 +2037,158 @@ function PlayerDetailPanel({
   );
 }
 
+// ─── Inline category assign (organizer list) ───────────────────────────────────
+
+type CategoryOption = { id: number; name: string; colorCode?: string | null };
+
+function PlayerCategorySelect({
+  tournamentId,
+  playerId,
+  categoryId,
+  categories,
+}: {
+  tournamentId: number;
+  playerId: number;
+  categoryId: number | null | undefined;
+  categories: CategoryOption[];
+}) {
+  const updatePlayer = useUpdatePlayer();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+
+  async function handleChange(value: string) {
+    const nextId = value === "none" ? null : parseInt(value, 10);
+    if (nextId === (categoryId ?? null)) return;
+    setSaving(true);
+    try {
+      await updatePlayer.mutateAsync({
+        tournamentId,
+        playerId,
+        data: { categoryId: nextId } as Parameters<typeof updatePlayer.mutateAsync>[0]["data"],
+      });
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error
+        || (err as { message?: string })?.message
+        || "Please try again";
+      toast({ title: "Could not save category", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectedCat = categoryId ? categories.find(c => c.id === categoryId) : null;
+
+  return (
+    <Select
+      value={categoryId ? String(categoryId) : "none"}
+      onValueChange={handleChange}
+      disabled={saving}
+    >
+      <SelectTrigger
+        className="h-8 min-w-[120px] max-w-[168px] text-xs border-border/60"
+        style={selectedCat?.colorCode ? { borderColor: `${selectedCat.colorCode}66` } : undefined}
+        onClick={e => e.stopPropagation()}
+      >
+        {saving ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          <SelectValue placeholder="Select…" />
+        )}
+      </SelectTrigger>
+      <SelectContent className="dark" onClick={e => e.stopPropagation()}>
+        <SelectItem value="none">—</SelectItem>
+        {categories.map(c => (
+          <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+const PAYMENT_STATUS_OPTIONS: { value: RegistrationPaymentStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+
+function PlayerPaymentStatusSelect({
+  tournamentId,
+  playerId,
+  status,
+}: {
+  tournamentId: number;
+  playerId: number;
+  status: RegistrationPaymentStatus | null | undefined;
+}) {
+  const approve = useApproveRegistrationPayment();
+  const reject = useRejectRegistrationPayment();
+  const resetPending = useResetRegistrationPaymentPending();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const current = status ?? "pending";
+
+  async function handleChange(value: string) {
+    const next = value as RegistrationPaymentStatus;
+    if (next === current) return;
+    setSaving(true);
+    try {
+      if (next === "approved") {
+        await approve.mutateAsync({ tournamentId, playerId });
+      } else if (next === "rejected") {
+        await reject.mutateAsync({ tournamentId, playerId });
+      } else {
+        await resetPending.mutateAsync({ tournamentId, playerId });
+      }
+      await qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } }; data?: { error?: string }; message?: string })?.response?.data?.error
+        || (err as { data?: { error?: string } })?.data?.error
+        || (err as { message?: string })?.message
+        || "Please try again";
+      toast({ title: "Could not update payment status", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusTone: Record<RegistrationPaymentStatus, string> = {
+    approved: "text-green-400 border-green-500/30",
+    pending: "text-amber-400 border-amber-500/30",
+    rejected: "text-red-400 border-red-500/30",
+  };
+
+  return (
+    <Select value={current} onValueChange={handleChange} disabled={saving}>
+      <SelectTrigger
+        className={`h-8 min-w-[108px] max-w-[132px] text-xs ${statusTone[current]}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {saving ? (
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          <SelectValue />
+        )}
+      </SelectTrigger>
+      <SelectContent className="dark" onClick={e => e.stopPropagation()}>
+        {PAYMENT_STATUS_OPTIONS.map(opt => (
+          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ─── Players Page ──────────────────────────────────────────────────────────────
 
 export default function Players() {
@@ -1741,7 +2199,7 @@ export default function Players() {
   const { data: players, isLoading } = useListPlayers(tournamentId, {
     query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: categories } = useListCategories(tournamentId, {
+  const { data: categories, isFetched: categoriesFetched } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: teams } = useListTeams(tournamentId, {
@@ -1757,11 +2215,8 @@ export default function Players() {
       refetchInterval: 15000,
     },
   });
-  const updateTournament = useUpdateTournament();
-  const { toast } = useToast();
   const deletePlayer = useDeletePlayer();
-  const [regDeadline, setRegDeadline] = useState("");
-  const [regLimit, setRegLimit] = useState("");
+  const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -1771,15 +2226,15 @@ export default function Players() {
   const [categoryIds, setCategoryIds] = useState<Set<number>>(new Set());
   const [teamIds, setTeamIds] = useState<Set<number>>(new Set());
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
-  const [missingMobileOnly, setMissingMobileOnly] = useState(false);
+  const [genderFilters, setGenderFilters] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<PlayerSortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [drawerPlayer, setDrawerPlayer] = useState<any | null>(null);
-
-  const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setFiltersHydrated(false);
@@ -1790,7 +2245,7 @@ export default function Players() {
       setCategoryIds(new Set(saved.categoryIds ?? []));
       setTeamIds(new Set(saved.teamIds ?? []));
       setTagFilters(new Set(saved.tagFilters ?? []));
-      setMissingMobileOnly(saved.missingMobileOnly ?? false);
+      setGenderFilters(new Set(saved.genderFilters ?? []));
       setSortKey(saved.sortKey ?? "id");
       setSortDir(saved.sortDir ?? "asc");
     } else {
@@ -1799,7 +2254,7 @@ export default function Players() {
       setCategoryIds(new Set());
       setTeamIds(new Set());
       setTagFilters(new Set());
-      setMissingMobileOnly(false);
+      setGenderFilters(new Set());
       setSortKey("id");
       setSortDir("asc");
     }
@@ -1816,11 +2271,11 @@ export default function Players() {
       categoryIds: [...categoryIds],
       teamIds: [...teamIds],
       tagFilters: [...tagFilters],
-      missingMobileOnly,
+      genderFilters: [...genderFilters],
       sortKey,
       sortDir,
     });
-  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, missingMobileOnly, sortKey, sortDir]);
+  }, [filtersHydrated, tournamentId, tab, search, categoryIds, teamIds, tagFilters, genderFilters, sortKey, sortDir]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -1866,7 +2321,7 @@ export default function Players() {
     setCategoryIds(new Set());
     setTeamIds(new Set());
     setTagFilters(new Set());
-    setMissingMobileOnly(false);
+    setGenderFilters(new Set());
   }
 
   const catMap = useMemo(
@@ -1877,6 +2332,23 @@ export default function Players() {
     () => Object.fromEntries((teams || []).map(t => [t.id, t])) as Record<number, { name: string; color?: string | null }>,
     [teams],
   );
+
+  const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
+
+  async function handleExportExcel() {
+    if (!players?.length) return;
+    setExportingExcel(true);
+    try {
+      const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
+      await exportPlayersToExcel(players, catMap, teamMap, `${fileStem}_Players_Master`);
+      toast({ title: "Excel exported", description: `${players.length} players downloaded.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not export players.";
+      toast({ title: "Export failed", description: message, variant: "destructive" });
+    } finally {
+      setExportingExcel(false);
+    }
+  }
 
   const statusCounts = useMemo(() => {
     const list = players || [];
@@ -1890,8 +2362,30 @@ export default function Players() {
   }, [players]);
 
   const teamFilterEnabled = tab === "all" || tab === "sold" || tab === "retained";
+
+  const categoryOptions = (categories || []).map(c => ({
+    value: c.id,
+    label: c.name,
+    color: c.colorCode,
+  }));
+  const hasCategories = categoriesFetched && categoryOptions.length > 0;
+
+  useEffect(() => {
+    if (!categoriesFetched || hasCategories) return;
+    if (categoryIds.size > 0) setCategoryIds(new Set());
+    if (sortKey === "category") {
+      setSortKey("id");
+      setSortDir("asc");
+    }
+  }, [categoriesFetched, hasCategories, categoryIds.size, sortKey]);
+
   const hasAdvancedFilters =
-    categoryIds.size > 0 || (teamFilterEnabled && teamIds.size > 0) || tagFilters.size > 0 || missingMobileOnly;
+    (hasCategories && categoryIds.size > 0)
+    || (teamFilterEnabled && teamIds.size > 0)
+    || tagFilters.size > 0
+    || genderFilters.size > 0;
+
+  const paymentEnabled = tournament?.enableRegistrationPayment === true;
 
   const filtered = useMemo(() => {
     const list = (players || []).filter(p => {
@@ -1901,48 +2395,35 @@ export default function Players() {
         categoryIds,
         teamIds,
         tagFilters,
-        missingMobileOnly,
+        genderFilters,
         teamFilterActive: teamFilterEnabled,
       });
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
-  }, [players, tab, search, categoryIds, teamIds, tagFilters, missingMobileOnly, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
+  }, [players, tab, search, categoryIds, teamIds, tagFilters, genderFilters, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
 
-  const categoryOptions = (categories || []).map(c => ({
-    value: c.id,
-    label: c.name,
-    color: c.colorCode,
-  }));
+  const tableColCount = 8 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
     color: t.color,
   }));
   const tagOptions = PLAYER_TAGS.map(t => ({ value: t.value, label: t.label }));
+  const genderOptions = [
+    { value: "M", label: "Male" },
+    { value: "F", label: "Female" },
+    { value: "_unset", label: "Not specified" },
+  ];
 
-  const regUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/register` : "";
-
-  useEffect(() => {
-    if (!tournament) return;
-    setRegDeadline(tournament.registrationDeadline || "");
-    setRegLimit(tournament.registrationLimit != null ? String(tournament.registrationLimit) : "");
-  }, [tournament?.registrationDeadline, tournament?.registrationLimit, tournament]);
-
-  async function saveRegistrationLimits() {
-    await updateTournament.mutateAsync({
-      tournamentId,
-      data: {
-        registrationDeadline: regDeadline || null,
-        registrationLimit: regLimit !== "" ? Number(regLimit) || null : null,
-      },
-    });
-    qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-    qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-    toast({ title: "Registration limits saved" });
-  }
+  const regUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const code = tournament?.auctionCode;
+    if (!code) return "";
+    return playerRegistrationPublicUrl(window.location.origin, code);
+  }, [tournament?.auctionCode]);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -1967,7 +2448,7 @@ export default function Players() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <button
             type="button"
             onClick={() => { setEditing(null); setOpen(true); }}
@@ -1996,7 +2477,7 @@ export default function Players() {
           </button>
           <button
             type="button"
-            onClick={() => window.open(`/tournament/${tournamentId}/register`, "_blank")}
+            onClick={() => setRegSettingsOpen(true)}
             className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -2007,68 +2488,83 @@ export default function Players() {
             </div>
             <p className="text-xs text-muted-foreground">Players fill their own details — entries appear here automatically.</p>
           </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="text-left rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Download className="w-5 h-5 text-primary" />
+              </div>
+              <p className="font-semibold">Import from tournament</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Copy players from a past auction — skip re-entering names and details.</p>
+          </button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4 max-w-2xl">
-          <div>
-            <p className="font-semibold text-sm">Player registration link</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Share early in setup — players register before auction day.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
-            <CopyTextButton text={regUrl} label="Copy link" />
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
-              <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="w-3 h-3" /> WhatsApp
-              </a>
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
-              <ExternalLink className="w-3 h-3" /> Open
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
-            <div className="space-y-2">
-              <Label className="text-xs">Last date to register</Label>
-              <Input type="date" value={regDeadline} onChange={e => setRegDeadline(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Max registrations</Label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="e.g. 100"
-                value={regLimit}
-                onChange={e => setRegLimit(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" onClick={() => void saveRegistrationLimits()} disabled={updateTournament.isPending}>
-              {updateTournament.isPending ? "Saving…" : "Save limits"}
-            </Button>
+        <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
+          <DialogContent className="max-w-lg dark">
+            <DialogHeader>
+              <DialogTitle>Share registration link</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground -mt-2">
+              Share this link before auction day. Players register themselves and appear in your list automatically.
+            </p>
             {regStatus && (
-              regStatus.open ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
-                  <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
-                </span>
-              ) : regStatus.reason === "deadline_passed" ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                  <CalendarX className="w-3 h-3" /> Closed — deadline passed
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
-                  <Lock className="w-3 h-3" /> Closed — limit reached
-                </span>
-              )
+              <div className="pt-1">
+                {regStatus.open ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-400 bg-green-500/10 border border-green-500/30 rounded-full px-2.5 py-0.5">
+                    <CheckCircle2 className="w-3 h-3" /> Open — {regStatus.currentCount}{regStatus.limit != null ? ` / ${regStatus.limit}` : ""} registered
+                  </span>
+                ) : regStatus.reason === "deadline_passed" ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <CalendarX className="w-3 h-3" /> Closed — deadline passed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive bg-destructive/10 border border-destructive/30 rounded-full px-2.5 py-0.5">
+                    <Lock className="w-3 h-3" /> Closed — limit reached
+                  </span>
+                )}
+              </div>
             )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 h-8 text-xs text-muted-foreground" onClick={() => setImportOpen(true)}>
-            <Upload className="w-3.5 h-3.5" /> Import from another tournament
-          </Button>
-        </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3">
+              {regUrl ? (
+                <>
+                  <p className="text-xs font-mono text-primary truncate flex-1 min-w-0">{regUrl}</p>
+                  <CopyTextButton text={regUrl} label="Copy link" />
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" asChild>
+                    <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our auction: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="w-3 h-3" /> WhatsApp
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => window.open(regUrl, "_blank")}>
+                    <ExternalLink className="w-3 h-3" /> Open
+                  </Button>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Registration link is unavailable until this tournament has an auction code.
+                </p>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground border-t border-border/50 pt-3">
+              Configure registration deadline, payment, and declaration in{" "}
+              <a
+                href={settingsPath(tournamentId, "playerRegistration")}
+                className="text-primary font-medium hover:underline"
+              >
+                Tournament Settings → Player Registration
+              </a>
+              .
+            </p>
+            <DialogFooter>
+              <Button type="button" onClick={() => setRegSettingsOpen(false)}>
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
           <DialogContent
@@ -2083,6 +2579,7 @@ export default function Players() {
               key={editing?.id ?? "new"}
               tournamentId={tournamentId}
               player={editing}
+              tournamentPlayers={players || []}
               categories={categories || []}
               teams={teams || []}
               tournament={tournament}
@@ -2091,69 +2588,81 @@ export default function Players() {
           </DialogContent>
         </Dialog>
 
-        <div className="space-y-3">
-          <Input
-            placeholder="Search by serial, name, or mobile..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="max-w-sm"
-          />
-
-          <div className="flex flex-wrap items-center gap-2">
-            {STATUS_FILTER_CHIPS.map(chip => (
-              <StatusFilterChip
-                key={chip.value}
-                label={chip.label}
-                count={statusCounts[chip.value]}
-                active={tab === chip.value}
-                onClick={() => setTab(chip.value)}
-                idleClass={chip.idleClass}
-                activeClass={chip.activeClass}
+        <div className="rounded-xl border border-border/60 bg-card/25 px-2.5 py-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+            <div className="relative shrink-0 w-full sm:w-[220px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search serial, name, mobile…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="h-8 pl-8 text-sm"
               />
-            ))}
-            {filtered.length !== statusCounts.all && (
-              <span className="ml-auto text-[11px] text-muted-foreground/80 whitespace-nowrap">
-                Showing {filtered.length} of {statusCounts.all}
-              </span>
-            )}
-          </div>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <MultiFilterPopover
-              label="Category"
-              options={categoryOptions}
-              selected={categoryIds}
-              onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
-              onClear={() => setCategoryIds(new Set())}
-            />
-            <MultiFilterPopover
-              label="Team"
-              options={teamOptions}
-              selected={teamIds}
-              onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
-              onClear={() => setTeamIds(new Set())}
-              disabled={!teamFilterEnabled}
-            />
-            <MultiFilterPopover
-              label="Tag"
-              options={tagOptions}
-              selected={tagFilters}
-              onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
-              onClear={() => setTagFilters(new Set())}
-            />
-            <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-sm cursor-pointer hover:bg-accent/50">
-              <Checkbox
-                checked={missingMobileOnly}
-                onCheckedChange={v => setMissingMobileOnly(v === true)}
+            <div className="hidden sm:block w-px h-5 bg-border shrink-0" aria-hidden />
+
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none min-w-0 flex-1">
+              {STATUS_FILTER_CHIPS.map(chip => (
+                <StatusFilterChip
+                  key={chip.value}
+                  label={chip.label}
+                  count={statusCounts[chip.value]}
+                  active={tab === chip.value}
+                  onClick={() => setTab(chip.value)}
+                  idleClass={chip.idleClass}
+                  activeClass={chip.activeClass}
+                />
+              ))}
+              {filtered.length !== statusCounts.all && (
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap px-1">
+                  {filtered.length}/{statusCounts.all}
+                </span>
+              )}
+            </div>
+
+            <div className="hidden lg:block w-px h-5 bg-border shrink-0" aria-hidden />
+
+            <div className="flex items-center gap-1 shrink-0">
+              {hasCategories && (
+                <MultiFilterPopover
+                  label="Category"
+                  options={categoryOptions}
+                  selected={categoryIds}
+                  onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
+                  onClear={() => setCategoryIds(new Set())}
+                />
+              )}
+              <MultiFilterPopover
+                label="Team"
+                options={teamOptions}
+                selected={teamIds}
+                onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
+                onClear={() => setTeamIds(new Set())}
+                disabled={!teamFilterEnabled}
               />
-              <span className="text-xs sm:text-sm whitespace-nowrap">Missing mobile</span>
-            </label>
-            {hasAdvancedFilters && (
-              <Button type="button" variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={clearAdvancedFilters}>
-                <X className="w-3.5 h-3.5" /> Clear filters
-              </Button>
-            )}
-            <div className="lg:hidden ml-auto min-w-[140px]">
+              <MultiFilterPopover
+                label="Tag"
+                options={tagOptions}
+                selected={tagFilters}
+                onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
+                onClear={() => setTagFilters(new Set())}
+              />
+              <MultiFilterPopover
+                label="Gender"
+                options={genderOptions}
+                selected={genderFilters}
+                onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
+                onClear={() => setGenderFilters(new Set())}
+              />
+              {hasAdvancedFilters && (
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={clearAdvancedFilters}>
+                  <X className="w-3 h-3" /> Clear
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0 sm:ml-auto">
               <Select
                 value={`${sortKey}:${sortDir}`}
                 onValueChange={v => {
@@ -2162,8 +2671,8 @@ export default function Players() {
                   setSortDir(d);
                 }}
               >
-                <SelectTrigger className="h-9 text-xs">
-                  <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                <SelectTrigger className="h-8 w-[128px] text-xs gap-1">
+                  <SlidersHorizontal className="w-3 h-3 shrink-0" />
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2172,11 +2681,26 @@ export default function Players() {
                   <SelectItem value="name:asc">Name A–Z</SelectItem>
                   <SelectItem value="name:desc">Name Z–A</SelectItem>
                   <SelectItem value="status:asc">Status</SelectItem>
-                  <SelectItem value="category:asc">Category</SelectItem>
+                  {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
                   <SelectItem value="amount:desc">Sold amount ↓</SelectItem>
                   <SelectItem value="team:asc">Team → Name</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs shrink-0"
+                disabled={!players?.length || exportingExcel}
+                onClick={() => void handleExportExcel()}
+              >
+                {exportingExcel ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden md:inline">{exportingExcel ? "Exporting…" : "Export"}</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -2220,7 +2744,7 @@ export default function Players() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/60">
                     <SortableTableHead
-                      label="#"
+                      label="Serial #"
                       sortKey="id"
                       activeKey={sortKey}
                       sortDir={sortDir}
@@ -2237,14 +2761,16 @@ export default function Players() {
                       className="min-w-[160px]"
                     />
                     <TableHead className="min-w-[120px]">Mobile</TableHead>
+                    {hasCategories && (
                     <SortableTableHead
                       label="Category"
                       sortKey="category"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px]"
+                      className="min-w-[140px]"
                     />
+                    )}
                     <SortableTableHead
                       label="Status"
                       sortKey="status"
@@ -2253,6 +2779,9 @@ export default function Players() {
                       onSort={handleSort}
                       className="min-w-[100px]"
                     />
+                    {paymentEnabled && (
+                      <TableHead className="min-w-[120px]">Payment</TableHead>
+                    )}
                     <SortableTableHead
                       label="Team"
                       sortKey="team"
@@ -2262,7 +2791,7 @@ export default function Players() {
                       className="min-w-[120px]"
                     />
                     <SortableTableHead
-                      label="Amount"
+                      label="Base Value"
                       sortKey="amount"
                       activeKey={sortKey}
                       sortDir={sortDir}
@@ -2289,46 +2818,44 @@ export default function Players() {
                           onClick={() => toggleExpand(player.id)}
                         >
                           <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
-                            {player.id}
+                            {player.serialNo ?? player.id}
                           </TableCell>
                           <TableCell>
-                            <PlayerPhoto photoUrl={player.photoUrl} name={player.name} />
+                            <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold truncate">{player.name}</span>
-                              {tagTheme && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] font-bold tracking-wider shrink-0"
-                                  style={{
-                                    color: tagTheme.color,
-                                    borderColor: tagTheme.border,
-                                    background: tagTheme.bg,
-                                  }}
-                                  title={tagTheme.label}
-                                >
-                                  {tagTheme.abbrev}
-                                </Badge>
-                              )}
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-semibold truncate">{player.name}</span>
+                                {tagTheme && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] font-bold tracking-wider shrink-0"
+                                    style={{
+                                      color: tagTheme.color,
+                                      borderColor: tagTheme.border,
+                                      background: tagTheme.bg,
+                                    }}
+                                  >
+                                    {tagTheme.label}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">
                             {player.mobileNumber || "—"}
                           </TableCell>
-                          <TableCell>
-                            {cat ? (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] font-medium"
-                                style={{ color: cat.colorCode || "#F59E0B", borderColor: `${cat.colorCode || "#F59E0B"}44` }}
-                              >
-                                {cat.name}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
+                          {hasCategories && (
+                          <TableCell onClick={e => e.stopPropagation()}>
+                            <PlayerCategorySelect
+                              tournamentId={tournamentId}
+                              playerId={player.id}
+                              categoryId={player.categoryId}
+                              categories={categories || []}
+                            />
                           </TableCell>
+                          )}
                           <TableCell>
                             <Badge
                               variant="outline"
@@ -2337,6 +2864,15 @@ export default function Players() {
                               {statusLabels[player.status] || player.status}
                             </Badge>
                           </TableCell>
+                          {paymentEnabled && (
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <PlayerPaymentStatusSelect
+                                tournamentId={tournamentId}
+                                playerId={player.id}
+                                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell>
                             {showTeam && team ? (
                               <span className="text-sm font-medium truncate block" style={{ color: team.color || undefined }}>
@@ -2383,7 +2919,7 @@ export default function Players() {
                         </TableRow>
                         {isExpanded && (
                           <TableRow key={`${player.id}-detail`} className="border-border/40 bg-muted/10 hover:bg-muted/10">
-                            <TableCell colSpan={9} className="py-3 px-4">
+                            <TableCell colSpan={tableColCount} className="py-3 px-4">
                               <PlayerDetailPanel
                                 player={player}
                                 cat={cat}
@@ -2391,6 +2927,8 @@ export default function Players() {
                                 tagTeam={tagTeam}
                                 roleSpecGroups={roleSpecGroups}
                                 tournamentId={tournamentId}
+                                tournament={tournament}
+                                categories={hasCategories ? categories || [] : undefined}
                                 onEdit={() => openEdit(player)}
                                 onDelete={() => openDelete({ id: player.id, name: player.name })}
                               />
@@ -2413,16 +2951,18 @@ export default function Players() {
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
                 return (
-                  <button
+                  <div
                     key={player.id}
-                    type="button"
                     className={`w-full text-left rounded-xl border border-border/60 bg-card/30 p-3 transition-colors hover:bg-card/50 border-l-[3px] ${statusBorderAccent[player.status] || ""}`}
                     style={{ contentVisibility: "auto", containIntrinsicSize: "0 72px" }}
-                    onClick={() => setDrawerPlayer(player)}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.id}</span>
-                      <PlayerPhoto photoUrl={player.photoUrl} name={player.name} />
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3"
+                      onClick={() => setDrawerPlayer(player)}
+                    >
+                      <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.serialNo ?? player.id}</span>
+                      <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold truncate">{player.name}</span>
@@ -2432,23 +2972,37 @@ export default function Players() {
                               className="text-[9px] font-bold shrink-0"
                               style={{ color: tagTheme.color, borderColor: tagTheme.border, background: tagTheme.bg }}
                             >
-                              {tagTheme.abbrev}
+                              {tagTheme.label}
                             </Badge>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {[player.mobileNumber, cat?.name, statusLabels[player.status] || player.status]
+                          {[
+                            player.mobileNumber,
+                            hasCategories ? cat?.name : null,
+                            statusLabels[player.status] || player.status,
+                          ]
                             .filter(Boolean)
                             .join(" · ")}
                           {showTeam && team ? ` · ${team.name}` : ""}
                         </p>
-                        {(player.status === "sold" || player.status === "retained") && amount.text !== "—" && (
-                          <p className={`text-xs font-mono mt-0.5 ${amount.className}`}>{amount.text}</p>
-                        )}
                       </div>
+                      {amount.text !== "—" && (
+                        <p className={`text-sm font-mono shrink-0 ${amount.className}`}>{amount.text}</p>
+                      )}
                       <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </div>
-                  </button>
+                    </button>
+                    {paymentEnabled && (
+                      <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between gap-2" onClick={e => e.stopPropagation()}>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment</span>
+                        <PlayerPaymentStatusSelect
+                          tournamentId={tournamentId}
+                          playerId={player.id}
+                          status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                        />
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -2466,6 +3020,7 @@ export default function Players() {
           </DialogHeader>
           <BulkUploadDialog
             tournamentId={tournamentId}
+            sportSlug={tournament?.sport ?? "cricket"}
             categories={categories || []}
             onClose={() => setBulkOpen(false)}
           />
@@ -2506,6 +3061,8 @@ export default function Players() {
                   tagTeam={tagTeam}
                   roleSpecGroups={roleSpecGroups}
                   tournamentId={tournamentId}
+                  tournament={tournament}
+                  categories={hasCategories ? categories || [] : undefined}
                   onEdit={() => openEdit(drawerPlayer)}
                   onDelete={() => openDelete({ id: drawerPlayer.id, name: drawerPlayer.name })}
                 />

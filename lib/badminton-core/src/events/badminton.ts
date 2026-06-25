@@ -15,6 +15,9 @@ export const BadmintonEventType = {
   RETIREMENT_DECLARED: "badminton.retirement.declared",
   WALKOVER_DECLARED: "badminton.walkover.declared",
   DISQUALIFICATION_DECLARED: "badminton.disqualification.declared",
+  MATCH_PAUSED: "badminton.match.paused",
+  MATCH_RESUMED: "badminton.match.resumed",
+  MATCH_NOTE_ADDED: "badminton.match.note.added",
 } as const;
 
 export type BadmintonEventTypeValue = (typeof BadmintonEventType)[keyof typeof BadmintonEventType];
@@ -67,13 +70,44 @@ const formatSchema = z.object({
 
 // ── Payload types ────────────────────────────────────────────────────────────
 
+const doublesSetupSchema = z.object({
+  tossWinnerSide: z.enum(["left", "right"]),
+  tossDecision: z.enum(["serve", "receive"]),
+  firstServingSide: z.enum(["left", "right"]),
+  firstServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  firstReceivingSide: z.enum(["left", "right"]),
+  firstReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+});
+
+const courtPositionsSchema = z.object({
+  left: z.object({ rightCourtPlayerIndex: z.union([z.literal(0), z.literal(1)]) }),
+  right: z.object({ rightCourtPlayerIndex: z.union([z.literal(0), z.literal(1)]) }),
+});
+
+const doublesServeSnapshotSchema = z.object({
+  servingSide: z.enum(["left", "right"]),
+  servingPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  receivingSide: z.enum(["left", "right"]),
+  receivingPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  courtPositions: courtPositionsSchema,
+});
+
 export type BadmintonMatchStartedPayload = {
   matchKind: BadmintonMatchKind;
   format: BadmintonMatchFormat;
   leftSide: BadmintonSideInfo;
   rightSide: BadmintonSideInfo;
-  /** Which side serves first. */
+  /** Which side serves first (singles) or initial serving pair side (doubles). */
   firstServer: BadmintonSide;
+  /** Doubles / mixed doubles — toss + first server/receiver selection. */
+  doublesSetup?: {
+    tossWinnerSide: BadmintonSide;
+    tossDecision: "serve" | "receive";
+    firstServingSide: BadmintonSide;
+    firstServerPlayerIndex: 0 | 1;
+    firstReceivingSide: BadmintonSide;
+    firstReceiverPlayerIndex: 0 | 1;
+  };
   courtNumber?: string;
   matchLabel?: string;
 };
@@ -93,11 +127,26 @@ export type BadmintonPointWonPayload = {
   isGamePoint: boolean;
   /** Is this point the match winner? */
   isMatchPoint: boolean;
+  /** Side serving after this point (singles: rally winner). */
+  servingSide?: BadmintonSide;
+  /** Doubles — full post-rally serve/receive/court state. */
+  doublesServe?: {
+    servingSide: BadmintonSide;
+    servingPlayerIndex: 0 | 1;
+    receivingSide: BadmintonSide;
+    receivingPlayerIndex: 0 | 1;
+    courtPositions: {
+      left: { rightCourtPlayerIndex: 0 | 1 };
+      right: { rightCourtPlayerIndex: 0 | 1 };
+    };
+  };
 };
 
 export type BadmintonPointUndonePayload = {
-  /** Sequence of the event being undone. */
+  /** Primary sequence undone (last POINT_WON) — kept for backward compatibility. */
   undoneSequence: number;
+  /** All sequences removed by this undo (point + game/match boundary events). */
+  undoneSequences?: number[];
 };
 
 export type BadmintonGameEndedPayload = {
@@ -107,6 +156,19 @@ export type BadmintonGameEndedPayload = {
   rightScore: number;
   /** Next game's initial serving side. */
   nextServingSide?: BadmintonSide;
+  /** Doubles — next game server/receiver and court layout. */
+  doublesServe?: {
+    nextServingSide: BadmintonSide;
+    nextServerPlayerIndex: 0 | 1;
+    nextReceiverPlayerIndex: 0 | 1;
+    courtPositions: {
+      left: { rightCourtPlayerIndex: 0 | 1 };
+      right: { rightCourtPlayerIndex: 0 | 1 };
+    };
+    lastServingSide: BadmintonSide;
+    lastServerPlayerIndex: 0 | 1;
+    lastRallyWinningSide: BadmintonSide;
+  };
 };
 
 export type BadmintonMatchEndedPayload = {
@@ -160,7 +222,20 @@ export type BadmintonWalkoverPayload = {
 export type BadmintonDisqualificationPayload = {
   disqualifiedSide: BadmintonSide;
   winningSide: BadmintonSide;
+  reason: string;
+};
+
+export type BadmintonMatchPausedPayload = {
+  reason: "medical" | "technical_issue" | "weather" | "court_issue" | "other";
+  detail?: string;
+};
+
+export type BadmintonMatchResumedPayload = {
   reason?: string;
+};
+
+export type BadmintonMatchNoteAddedPayload = {
+  text: string;
 };
 
 // ── Payload parse helpers ────────────────────────────────────────────────────
@@ -171,6 +246,7 @@ const matchStartedSchema = z.object({
   leftSide: sideInfoSchema,
   rightSide: sideInfoSchema,
   firstServer: z.enum(["left", "right"]),
+  doublesSetup: doublesSetupSchema.optional(),
   courtNumber: z.string().optional(),
   matchLabel: z.string().optional(),
 });
@@ -183,10 +259,23 @@ const pointWonSchema = z.object({
   rallyLength: z.number().optional(),
   isGamePoint: z.boolean(),
   isMatchPoint: z.boolean(),
+  servingSide: z.enum(["left", "right"]).optional(),
+  doublesServe: doublesServeSnapshotSchema.optional(),
 });
 
 const pointUndoneSchema = z.object({
   undoneSequence: z.number(),
+  undoneSequences: z.array(z.number()).optional(),
+});
+
+const gameEndedDoublesServeSchema = z.object({
+  nextServingSide: z.enum(["left", "right"]),
+  nextServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  nextReceiverPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  courtPositions: courtPositionsSchema,
+  lastServingSide: z.enum(["left", "right"]),
+  lastServerPlayerIndex: z.union([z.literal(0), z.literal(1)]),
+  lastRallyWinningSide: z.enum(["left", "right"]),
 });
 
 const gameEndedSchema = z.object({
@@ -195,6 +284,7 @@ const gameEndedSchema = z.object({
   leftScore: z.number(),
   rightScore: z.number(),
   nextServingSide: z.enum(["left", "right"]).optional(),
+  doublesServe: gameEndedDoublesServeSchema.optional(),
 });
 
 const matchEndedSchema = z.object({
@@ -238,7 +328,20 @@ const walkoverSchema = z.object({
 const disqualificationSchema = z.object({
   disqualifiedSide: z.enum(["left", "right"]),
   winningSide: z.enum(["left", "right"]),
+  reason: z.string().min(1),
+});
+
+const matchPausedSchema = z.object({
+  reason: z.enum(["medical", "technical_issue", "weather", "court_issue", "other"]),
+  detail: z.string().optional(),
+});
+
+const matchResumedSchema = z.object({
   reason: z.string().optional(),
+});
+
+const matchNoteAddedSchema = z.object({
+  text: z.string().min(1),
 });
 
 const sideChangedSchema = z.object({
@@ -294,6 +397,12 @@ export function parseBadmintonEventPayload(
       return parseWith(walkoverSchema, eventType, data);
     case BadmintonEventType.DISQUALIFICATION_DECLARED:
       return parseWith(disqualificationSchema, eventType, data);
+    case BadmintonEventType.MATCH_PAUSED:
+      return parseWith(matchPausedSchema, eventType, data);
+    case BadmintonEventType.MATCH_RESUMED:
+      return parseWith(matchResumedSchema, eventType, data);
+    case BadmintonEventType.MATCH_NOTE_ADDED:
+      return parseWith(matchNoteAddedSchema, eventType, data);
     default:
       return { ok: false, error: `Unknown event type: ${eventType}` };
   }

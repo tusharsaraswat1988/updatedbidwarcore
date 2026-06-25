@@ -4,9 +4,43 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BadmintonMatchState } from "@workspace/badminton-core";
+import {
+  cmdAwardPoint,
+  mergeMatchStateCache,
+  reduceBadminton,
+  type BadmintonMatchState,
+  type CommandEvent,
+} from "@workspace/badminton-core";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+type MatchCache = { state: BadmintonMatchState; detail: unknown };
+
+function applyOptimisticCommandEvents(
+  state: BadmintonMatchState,
+  events: CommandEvent[],
+  matchId: number,
+  tournamentId: number,
+): BadmintonMatchState {
+  let next = state;
+  let seq = state.lastSequence ?? 0;
+
+  for (const event of events) {
+    seq += 1;
+    next = reduceBadminton(next, {
+      matchId,
+      tournamentId,
+      sportSlug: "badminton",
+      eventType: event.eventType,
+      eventVersion: 1,
+      sequence: seq,
+      actorType: "scorer",
+      payload: event.payload,
+    });
+  }
+
+  return next;
+}
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
@@ -49,10 +83,9 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "match_state" && msg.data) {
-          queryClient.setQueryData(queryKey, (prev: { state: BadmintonMatchState; detail: unknown } | null) => ({
-            state: msg.data as BadmintonMatchState,
-            detail: prev?.detail ?? null,
-          }));
+          queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
+            mergeMatchStateCache(prev, msg.data as BadmintonMatchState),
+          );
         }
       } catch {
         // ignore malformed events
@@ -81,6 +114,8 @@ export function useBadmintonScorer(
 ) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
+  const pointQueueRef = useRef<Array<{ side: "left" | "right" }>>([]);
+  const drainPromiseRef = useRef<Promise<void> | null>(null);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -103,17 +138,64 @@ export function useBadmintonScorer(
     }
     const data = await res.json();
     if (data.state) {
-      queryClient.setQueryData(queryKey, (prev: { state: BadmintonMatchState; detail: unknown } | null) => ({
-        state: data.state as BadmintonMatchState,
-        detail: prev?.detail ?? null,
-      }));
+      queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
+        mergeMatchStateCache(prev, data.state as BadmintonMatchState),
+      );
     }
     return data.state as BadmintonMatchState;
   }
 
+  const drainPointQueue = useCallback(() => {
+    if (drainPromiseRef.current) {
+      return drainPromiseRef.current;
+    }
+
+    drainPromiseRef.current = (async () => {
+      while (pointQueueRef.current.length > 0) {
+        const item = pointQueueRef.current[0];
+        try {
+          await postAction("point", { side: item.side });
+          pointQueueRef.current.shift();
+        } catch {
+          pointQueueRef.current = [];
+          await queryClient.invalidateQueries({ queryKey });
+          throw new Error("Failed to score point");
+        }
+      }
+    })().finally(() => {
+      drainPromiseRef.current = null;
+    });
+
+    return drainPromiseRef.current;
+  }, [matchId, queryClient, tournamentId]);
+
   const awardPoint = useCallback(
-    (side: "left" | "right") => postAction("point", { side }),
-    [matchId],
+    (side: "left" | "right") => {
+      const cached = queryClient.getQueryData<MatchCache>(queryKey);
+      if (!cached?.state) {
+        return postAction("point", { side });
+      }
+
+      const result = cmdAwardPoint(cached.state, side);
+      if (!result.ok) {
+        return Promise.reject(new Error(result.error));
+      }
+
+      const optimistic = applyOptimisticCommandEvents(
+        cached.state,
+        result.events,
+        matchId,
+        tournamentId,
+      );
+      queryClient.setQueryData(queryKey, {
+        state: optimistic,
+        detail: cached.detail,
+      });
+
+      pointQueueRef.current.push({ side });
+      return drainPointQueue();
+    },
+    [drainPointQueue, matchId, queryClient, tournamentId],
   );
 
   const undo = useCallback(() => postAction("undo", {}), [matchId]);
@@ -126,24 +208,71 @@ export function useBadmintonScorer(
 
   const endTimeout = useCallback(() => postAction("timeout", { action: "end" }), [matchId]);
 
-  const retirement = useCallback(
-    (retiringSide: "left" | "right", reason?: string) =>
-      postAction("retirement", { retiringSide, reason }),
-    [matchId],
-  );
-
-  const walkover = useCallback(
-    (winningSide: "left" | "right", reason?: string) =>
-      postAction("walkover", { winningSide, reason }),
-    [matchId],
-  );
-
   const startMatch = useCallback(
     (payload: unknown) => postAction("start", payload),
     [matchId],
   );
 
-  return { awardPoint, undo, startTimeout, endTimeout, retirement, walkover, startMatch };
+  const startInterval = useCallback(() => postAction("interval", { action: "start" }), [matchId]);
+
+  const endInterval = useCallback(() => postAction("interval", { action: "end" }), [matchId]);
+
+  const acknowledgeCourtChange = useCallback(() => postAction("court-change", {}), [matchId]);
+
+  return {
+    awardPoint,
+    undo,
+    startTimeout,
+    endTimeout,
+    startInterval,
+    endInterval,
+    acknowledgeCourtChange,
+    startMatch,
+  };
+}
+
+// ── Tournament Director actions hook ─────────────────────────────────────────
+
+export function useBadmintonDirector(tournamentId: number, matchId: number) {
+  const queryClient = useQueryClient();
+  const queryKey = ["badminton-match", tournamentId, matchId];
+
+  async function postDirector(endpoint: string, body: unknown) {
+    const res = await fetch(
+      `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}/${endpoint}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "unknown error" }));
+      throw new Error(err.error ?? "Request failed");
+    }
+    const data = await res.json();
+    if (data.state) {
+      queryClient.setQueryData(queryKey, (prev: MatchCache | null) =>
+        mergeMatchStateCache(prev, data.state as BadmintonMatchState),
+      );
+    }
+    void queryClient.invalidateQueries({ queryKey: ["badminton-incidents", tournamentId, matchId] });
+    return data.state as BadmintonMatchState;
+  }
+
+  return {
+    pause: (reason: string, detail?: string) => postDirector("pause", { reason, detail }),
+    resume: () => postDirector("resume", {}),
+    addNote: (text: string) => postDirector("note", { text }),
+    retirement: (retiringSide: "left" | "right", reason?: string) =>
+      postDirector("retirement", { retiringSide, reason }),
+    walkover: (winningSide: "left" | "right", reason?: string) =>
+      postDirector("walkover", { winningSide, reason }),
+    disqualification: (disqualifiedSide: "left" | "right", reason: string) =>
+      postDirector("disqualification", { disqualifiedSide, reason }),
+    forceEnd: (reason: string) => postDirector("force-end", { reason }),
+  };
 }
 
 // ── Tournament live matches hook ──────────────────────────────────────────────

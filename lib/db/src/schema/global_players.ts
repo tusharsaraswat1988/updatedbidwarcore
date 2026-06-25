@@ -34,13 +34,26 @@ export const globalPlayersTable = pgTable(
     state: text("state"),
     city: text("city"),
     academy: text("academy"),
+    /**
+     * @deprecated Sprint 2 — sport-specific; belongs in player_sport_profiles.profile_json.
+     */
     handedness: text("handedness"),
     worldRanking: integer("world_ranking"),
     nationalRanking: integer("national_ranking"),
     sponsorId: text("sponsor_id"),
-    /** Direct link to auction players.id for sync dedup. */
+    /**
+     * @deprecated Sprint 2 — use player_sport_profiles. Not updated when PLAYER_SPORT_PROFILES_ENABLED=true.
+     * Last-synced auction player id; last sync wins when legacy sync is active.
+     */
     auctionPlayerId: integer("auction_player_id"),
+    /**
+     * @deprecated Sprint 2 — use player_sport_profiles.sport_slug.
+     * Legacy single-sport column; not authoritative when profiles are enabled.
+     */
     sport: text("sport").notNull().default("cricket"),
+    /**
+     * @deprecated Sprint 2 — use player_sport_profiles.default_role.
+     */
     defaultRole: text("default_role"),
     age: integer("age"),
     photoUrl: text("photo_url"),

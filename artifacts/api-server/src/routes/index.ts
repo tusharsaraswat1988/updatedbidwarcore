@@ -30,6 +30,8 @@ import badmintonRouter from "./badminton";
 import masterSportsRouter from "./master-sports";
 import cricketMasterSportsRouter from "./cricket-master-sports";
 import scoringFoundationRouter from "./scoring-foundation";
+import creativeJobsRouter from "./creative-jobs";
+import contactRouter from "./contact";
 
 const router: IRouter = Router();
 
@@ -59,7 +61,9 @@ router.use(ownerOnboardingRouter);
 router.use(notificationsRouter);
 router.use(auditRouter);
 router.use(purseBoostersRouter);
+router.use(creativeJobsRouter);
 router.use(scoringRouter);
+router.use(contactRouter);
 router.use("/tournaments/:id/badminton", badmintonRouter);
 router.use("/tournaments/:id/badminton", masterSportsRouter);
 router.use("/tournaments/:id/scoring", cricketMasterSportsRouter);

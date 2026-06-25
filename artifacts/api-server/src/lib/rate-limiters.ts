@@ -194,3 +194,20 @@ export const ownerLookupLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   },
 });
+
+/**
+ * Public Contact Us form limiter (8 submits / 15 min per IP).
+ * Keeps inquiry inbox usable and blocks automated spam bursts.
+ */
+export const contactFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.RATE_LIMIT_CONTACT_MAX ?? 8),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many contact requests, please try again later." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "contact-form");
+    res.status(options.statusCode).json(options.message);
+  },
+});

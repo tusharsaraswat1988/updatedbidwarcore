@@ -1,12 +1,15 @@
-import { config as loadEnv } from "dotenv";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-loadEnv({
-  path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env"),
-});
+import { loadAppEnv } from "@workspace/db/load-app-env";
 import pg from "pg";
 import { resolveDatabaseUrl } from "@workspace/db/database-url";
+
+const env = loadAppEnv();
+if (!env.loaded) {
+  console.error(
+    `[migrate] Missing ${env.file} at ${env.path} (NODE_ENV=${env.nodeEnv}).`,
+  );
+  process.exit(1);
+}
+console.log(`[migrate] using ${env.file} (${env.nodeEnv})`);
 
 const { Client } = pg;
 
@@ -269,6 +272,162 @@ const migrations: Array<{ label: string; sql: string }> = [
     label: "auction_sessions_random_draw_queue",
     sql: `
       ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
+    `,
+  },
+  {
+    label: "tournaments_features_json",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS features_json jsonb;
+    `,
+  },
+  {
+    label: "create_creative_jobs",
+    sql: `
+      CREATE TABLE IF NOT EXISTS creative_jobs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tournament_id INTEGER NOT NULL,
+        template_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        contract_json JSONB NOT NULL,
+        aspect_ratio TEXT NOT NULL,
+        requested_by_user_id INTEGER,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        started_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        error_message TEXT,
+        result_url TEXT,
+        download_enabled BOOLEAN NOT NULL DEFAULT FALSE
+      );
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_id
+        ON creative_jobs (tournament_id);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_status
+        ON creative_jobs (status);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_created_at
+        ON creative_jobs (created_at);
+      CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_created
+        ON creative_jobs (tournament_id, created_at DESC);
+    `,
+  },
+  {
+    label: "tournaments_and_organizers_core_v2",
+    sql: `
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_threshold_seconds integer NOT NULL DEFAULT 3;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_seconds integer NOT NULL DEFAULT 5;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS cheer_heat_meter_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS cheer_fan_battle_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS local_mode_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token text;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_expires_at timestamptz;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_synced_at timestamptz;
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_last_mirror_at timestamptz;
+
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent boolean NOT NULL DEFAULT false;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_at timestamptz;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_method text;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS whatsapp_consent_ip text;
+      ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_url text;
+    `,
+  },
+  {
+    label: "create_intelligence_archives",
+    sql: `
+      CREATE TABLE IF NOT EXISTS intelligence_archives (
+        id SERIAL PRIMARY KEY,
+        source_tournament_id INTEGER NOT NULL,
+        tournament_name TEXT NOT NULL,
+        tournament_sport TEXT NOT NULL DEFAULT 'cricket',
+        organizer_id INTEGER,
+        archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        bid_event_count INTEGER NOT NULL DEFAULT 0,
+        player_event_count INTEGER NOT NULL DEFAULT 0,
+        timer_event_count INTEGER NOT NULL DEFAULT 0,
+        metadata_json JSONB
+      );
+      CREATE INDEX IF NOT EXISTS ix_intel_archives_source_tid
+        ON intelligence_archives (source_tournament_id);
+      CREATE INDEX IF NOT EXISTS ix_intel_archives_sport
+        ON intelligence_archives (tournament_sport, archived_at DESC);
+
+      CREATE TABLE IF NOT EXISTS intelligence_archive_bid_events (
+        id SERIAL PRIMARY KEY,
+        archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+        source_tournament_id INTEGER NOT NULL,
+        source_event_id INTEGER,
+        tournament_name TEXT NOT NULL,
+        tournament_sport TEXT NOT NULL,
+        player_id INTEGER NOT NULL,
+        global_player_id TEXT,
+        team_id INTEGER NOT NULL,
+        team_name TEXT,
+        team_short_code TEXT,
+        sport TEXT NOT NULL,
+        bid_amount INTEGER NOT NULL,
+        previous_bid_amount INTEGER,
+        bid_increment INTEGER NOT NULL,
+        bid_sequence_number INTEGER NOT NULL,
+        milliseconds_since_last_bid INTEGER,
+        timer_remaining_seconds INTEGER,
+        is_manual_bid BOOLEAN NOT NULL DEFAULT false,
+        became_leader BOOLEAN NOT NULL DEFAULT true,
+        timestamp TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_intel_archive_bids_archive
+        ON intelligence_archive_bid_events (archive_id);
+      CREATE INDEX IF NOT EXISTS ix_intel_archive_bids_sport
+        ON intelligence_archive_bid_events (tournament_sport);
+
+      CREATE TABLE IF NOT EXISTS intelligence_archive_player_events (
+        id SERIAL PRIMARY KEY,
+        archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+        source_tournament_id INTEGER NOT NULL,
+        source_event_id INTEGER,
+        tournament_name TEXT NOT NULL,
+        tournament_sport TEXT NOT NULL,
+        player_id INTEGER NOT NULL,
+        global_player_id TEXT,
+        category_id INTEGER,
+        category_name TEXT,
+        sport TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        player_role TEXT,
+        player_age INTEGER,
+        player_city TEXT,
+        player_snapshot_json TEXT,
+        base_price INTEGER,
+        outcome TEXT NOT NULL,
+        auction_started_at TIMESTAMPTZ,
+        auction_ended_at TIMESTAMPTZ,
+        final_amount INTEGER,
+        sold_to_team_id INTEGER,
+        sold_to_team_name TEXT,
+        total_bids_received INTEGER,
+        interested_teams_count INTEGER,
+        auction_duration_seconds INTEGER,
+        average_secs_between_bids INTEGER,
+        timestamp TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_intel_archive_players_archive
+        ON intelligence_archive_player_events (archive_id);
+      CREATE INDEX IF NOT EXISTS ix_intel_archive_players_sport
+        ON intelligence_archive_player_events (tournament_sport);
+
+      CREATE TABLE IF NOT EXISTS intelligence_archive_timer_events (
+        id SERIAL PRIMARY KEY,
+        archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+        source_tournament_id INTEGER NOT NULL,
+        source_event_id INTEGER,
+        tournament_name TEXT NOT NULL,
+        tournament_sport TEXT NOT NULL,
+        player_id INTEGER,
+        action TEXT NOT NULL,
+        timer_type TEXT,
+        timer_seconds INTEGER,
+        triggered_by TEXT NOT NULL,
+        timestamp TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_intel_archive_timers_archive
+        ON intelligence_archive_timer_events (archive_id);
     `,
   },
 ];

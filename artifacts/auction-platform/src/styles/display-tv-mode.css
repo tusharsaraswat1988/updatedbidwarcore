@@ -78,3 +78,208 @@
     font-size: clamp(1.35rem, 2.4vw, 2rem);
   }
 }
+
+/* ── Badminton LED scoreboard — inherits --accent from StageFrame; never reset here ── */
+.badminton-led-surface {
+  --stage-opponent: #ff6b6b;
+  --stage-opponent-glow: rgba(255, 107, 107, 0.45);
+  --stage-opponent-muted: #ce93d8;
+  /* Responsive score zone — scales with 16:9 stage width */
+  --score-digit-size: clamp(5.5rem, 16vw, 13rem);
+  --score-colon-size: clamp(2.25rem, 6.5vw, 5rem);
+  --score-player-photo: clamp(6.5rem, 14vw, 11rem);
+  --score-player-photo-pair: clamp(5rem, 10vw, 8rem);
+  --score-player-name: clamp(1.4rem, 3.2vw, 3rem);
+  --score-player-meta: clamp(0.75rem, 1.35vw, 1.1rem);
+  --score-game-dot: clamp(1rem, 1.9vw, 1.5rem);
+  --score-game-count: clamp(1.25rem, 2.4vw, 2rem);
+  --score-panel-gap: clamp(0.65rem, 1.6vh, 1.35rem);
+  --score-serve-diamond: clamp(0.65rem, 1.2vw, 1rem);
+  --score-game-pill: clamp(0.7rem, 1.25vw, 1rem);
+  --score-zone-px: clamp(3%, 5vw, 6%);
+}
+
+@media (min-width: 2560px) {
+  .badminton-led-surface {
+    --score-digit-size: clamp(8rem, 12vw, 15rem);
+    --score-player-photo: clamp(9rem, 11vw, 13rem);
+    --score-player-name: clamp(2rem, 2.8vw, 3.5rem);
+  }
+}
+
+.badminton-score-digit {
+  font-size: var(--score-digit-size);
+}
+
+.badminton-score-player-photo {
+  width: var(--score-player-photo);
+  height: var(--score-player-photo);
+}
+
+.badminton-score-player-photo-pair {
+  width: var(--score-player-photo-pair);
+  height: var(--score-player-photo-pair);
+}
+
+.badminton-score-player-name {
+  font-size: var(--score-player-name);
+}
+
+.badminton-score-photo-initial {
+  font-size: calc(var(--score-player-photo) * 0.35);
+}
+
+/* ── V1 LED stage — theme tokens + broadcast animations ───────────── */
+.auction-stage {
+  --accent: #ffc400;
+  --accent-strong: #ffd633;
+  --accent-glow: rgba(255, 196, 0, 0.35);
+  --accent-on: #0a0a0a;
+  --stage-bg: #070708;
+  --stage-surface: #101013;
+  --stage-text: #ffffff;
+}
+
+@keyframes auction-bid-flash {
+  0% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  30% {
+    background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+    box-shadow: 0 0 60px 8px var(--accent-glow);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes auction-urgency-pulse {
+  0%, 100% {
+    color: #fb7373;
+    text-shadow: 0 0 0 transparent;
+    transform: scale(1);
+  }
+  50% {
+    color: #ef4444;
+    text-shadow: 0 0 32px rgba(239, 68, 68, 0.8);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes auction-sold-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.4) rotate(-12deg);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.92) rotate(-4deg);
+    filter: blur(0);
+  }
+  80% {
+    transform: scale(1.04) rotate(-6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-6deg);
+  }
+}
+
+@keyframes auction-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes auction-bidder-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes auction-mega-glow {
+  0%, 100% {
+    text-shadow: 0 0 40px var(--accent-glow), 0 0 80px transparent;
+  }
+  50% {
+    text-shadow: 0 0 60px var(--accent-glow), 0 0 120px var(--accent-glow);
+  }
+}
+
+@keyframes auction-red-wash {
+  from { background-color: transparent; }
+  to { background-color: rgba(239, 68, 68, 0.08); }
+}
+
+@keyframes auction-team-sweep {
+  0% { transform: translateX(-110%) skewX(-12deg); opacity: 0; }
+  40% { opacity: 0.55; }
+  100% { transform: translateX(110%) skewX(-12deg); opacity: 0; }
+}
+
+@keyframes auction-wheel-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes auction-wheel-settle {
+  0% { transform: rotate(720deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes auction-toast-drop {
+  0% { transform: translate(-50%, -120%); opacity: 0; }
+  60% { transform: translate(-50%, 6%); opacity: 1; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/** Center-safe enter — no horizontal translate (for full-bleed screens). */
+@keyframes auction-standby-enter {
+  0% { transform: translateY(12px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes auction-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+@keyframes auction-standby-loading {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+/* Badminton overlay — serving side highlight */
+@keyframes badmintonServeGlow {
+  0%, 100% {
+    background-color: rgba(255, 215, 0, 0.07);
+    box-shadow: inset 0 0 22px rgba(255, 215, 0, 0.1);
+  }
+  50% {
+    background-color: rgba(255, 215, 0, 0.13);
+    box-shadow: inset 0 0 34px rgba(255, 215, 0, 0.18);
+  }
+}
+
+@keyframes badmintonServeSwitch {
+  0% {
+    background-color: rgba(255, 215, 0, 0.34);
+    box-shadow:
+      inset 0 0 52px rgba(255, 215, 0, 0.28),
+      0 0 28px rgba(255, 215, 0, 0.22);
+  }
+  100% {
+    background-color: rgba(255, 215, 0, 0.1);
+    box-shadow: inset 0 0 26px rgba(255, 215, 0, 0.14);
+  }
+}
+
+.badminton-serve-side--active {
+  animation: badmintonServeGlow 2.6s ease-in-out infinite;
+}
+
+.badminton-serve-side--flash {
+  animation: badmintonServeSwitch 0.65s ease-out forwards;
+}

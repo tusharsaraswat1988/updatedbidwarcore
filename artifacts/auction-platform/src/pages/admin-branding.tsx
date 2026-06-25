@@ -7,6 +7,8 @@ import {
   Image, Shield, Play, Eye, Zap, Globe, FileText,
   Monitor, Smartphone, CheckCircle2, AlertTriangle,
 } from "lucide-react";
+import { AdminBrandingAssets } from "@/components/admin/admin-branding-assets";
+import type { BrandingAssetRecord, BrandingAssetType } from "@workspace/api-base/branding-assets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,10 +27,6 @@ interface BrandingForm {
   tagline: string;
   poweredByText: string;
   miniBrandText: string;
-  mainLogoUrl: string;
-  miniLogoUrl: string;
-  appIconUrl: string;
-  splashScreenUrl: string;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -49,15 +47,13 @@ interface BrandingForm {
   logoAnimationUrl: string;
 }
 
+type PreviewAssets = Partial<Record<BrandingAssetType, string>>;
+
 const DEFAULTS: BrandingForm = {
   brandName: "BidWar",
   tagline: "Powered by Intelligent Bidding",
   poweredByText: "Powered by BidWar",
   miniBrandText: "BW",
-  mainLogoUrl: "",
-  miniLogoUrl: "",
-  appIconUrl: "",
-  splashScreenUrl: "",
   primaryColor: "#F59E0B",
   secondaryColor: "#1E293B",
   accentColor: "#3B82F6",
@@ -244,7 +240,8 @@ function AssetUpload({ label, value, onChange, accept, hint, aspectHint, mediaMo
 
 // ─── Live Preview Frames ──────────────────────────────────────────────────────
 
-function PreviewLoginHeader({ form }: { form: BrandingForm }) {
+function PreviewLoginHeader({ form, assets }: { form: BrandingForm; assets: PreviewAssets }) {
+  const symbolLogo = assets.SYMBOL_LOGO;
   return (
     <div className="rounded-xl overflow-hidden border border-border/50">
       <div className="text-[10px] text-muted-foreground/60 px-3 py-1.5 border-b border-border/30 bg-muted/10">
@@ -258,8 +255,8 @@ function PreviewLoginHeader({ form }: { form: BrandingForm }) {
           className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
           style={{ backgroundColor: form.primaryColor + "22", color: form.primaryColor, fontFamily: form.headingFont }}
         >
-          {form.miniLogoUrl
-            ? <img src={form.miniLogoUrl} className="w-6 h-6 object-contain" />
+          {symbolLogo
+            ? <img src={symbolLogo} className="w-6 h-6 object-contain" alt="" />
             : form.miniBrandText
           }
         </div>
@@ -303,7 +300,8 @@ function PreviewAuctionBar({ form }: { form: BrandingForm }) {
   );
 }
 
-function PreviewViewerBar({ form }: { form: BrandingForm }) {
+function PreviewViewerBar({ form, assets }: { form: BrandingForm; assets: PreviewAssets }) {
+  const primaryLogo = assets.PRIMARY_LOGO;
   return (
     <div className="rounded-xl overflow-hidden border border-border/50">
       <div className="text-[10px] text-muted-foreground/60 px-3 py-1.5 border-b border-border/30 bg-muted/10">
@@ -313,8 +311,8 @@ function PreviewViewerBar({ form }: { form: BrandingForm }) {
         className="px-4 py-4 flex flex-col items-center gap-1"
         style={{ backgroundColor: form.backgroundColor }}
       >
-        {form.mainLogoUrl
-          ? <img src={form.mainLogoUrl} className="h-8 object-contain" />
+        {primaryLogo
+          ? <img src={primaryLogo} className="h-8 object-contain" alt="" />
           : <p className="text-lg font-black" style={{ color: form.primaryColor, fontFamily: form.headingFont }}>{form.brandName}</p>
         }
         {form.showPoweredByViewer && (
@@ -352,7 +350,8 @@ function PreviewOwnerApp({ form }: { form: BrandingForm }) {
   );
 }
 
-function PreviewPdf({ form }: { form: BrandingForm }) {
+function PreviewPdf({ form, assets }: { form: BrandingForm; assets: PreviewAssets }) {
+  const primaryLogo = assets.PRIMARY_LOGO;
   return (
     <div className="rounded-xl overflow-hidden border border-border/50">
       <div className="text-[10px] text-muted-foreground/60 px-3 py-1.5 border-b border-border/30 bg-muted/10">
@@ -360,8 +359,8 @@ function PreviewPdf({ form }: { form: BrandingForm }) {
       </div>
       <div className="px-4 py-3 bg-white flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {form.mainLogoUrl
-            ? <img src={form.mainLogoUrl} className="h-6 object-contain" />
+          {primaryLogo
+            ? <img src={primaryLogo} className="h-6 object-contain" alt="" />
             : <span className="text-sm font-black" style={{ color: form.primaryColor, fontFamily: form.headingFont }}>{form.brandName}</span>
           }
         </div>
@@ -379,6 +378,7 @@ export default function AdminBranding() {
   const { isLoggedIn } = useAdminAuth();
   const [, navigate] = useLocation();
   const [form, setForm] = useState<BrandingForm>(DEFAULTS);
+  const [previewAssets, setPreviewAssets] = useState<PreviewAssets>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -392,14 +392,25 @@ export default function AdminBranding() {
   useEffect(() => {
     fetch("/api/auth/admin/branding", { credentials: "include" })
       .then(r => (r.ok ? r.json() : null))
-      .then((data: Partial<BrandingForm> | null) => {
+      .then((data: Partial<BrandingForm> & {
+        assets?: Partial<Record<BrandingAssetType, BrandingAssetRecord>>;
+      } | null) => {
         if (data) {
+          const { assets, assetCategories: _ac, assetMeta: _am, ...settings } = data as Record<string, unknown>;
           setForm({
             ...DEFAULTS,
             ...Object.fromEntries(
-              Object.entries(data).map(([k, v]) => [k, v === null || v === undefined ? DEFAULTS[k as keyof BrandingForm] : v])
+              Object.entries(settings).map(([k, v]) => [k, v === null || v === undefined ? DEFAULTS[k as keyof BrandingForm] : v])
             ),
           });
+          if (assets && typeof assets === "object") {
+            const urls: PreviewAssets = {};
+            for (const [type, record] of Object.entries(assets)) {
+              const r = record as BrandingAssetRecord;
+              if (r?.fileUrl) urls[type as BrandingAssetType] = r.fileUrl;
+            }
+            setPreviewAssets(urls);
+          }
         }
       })
       .catch(() => {})
@@ -416,10 +427,6 @@ export default function AdminBranding() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          mainLogoUrl: form.mainLogoUrl || null,
-          miniLogoUrl: form.miniLogoUrl || null,
-          appIconUrl: form.appIconUrl || null,
-          splashScreenUrl: form.splashScreenUrl || null,
           logoAnimationUrl: form.logoAnimationUrl || null,
           tagline: form.tagline || null,
         }),
@@ -539,45 +546,7 @@ export default function AdminBranding() {
 
               {/* ── Visual Assets ────────────────────────── */}
               <TabsContent value="assets" className="mt-0 p-6">
-                <SectionHeader
-                  icon={Image}
-                  title="Visual Assets"
-                  description="Upload logos and icons used across the platform. Transparent backgrounds (PNG/SVG/WebP) are preferred."
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl">
-                  <AssetUpload
-                    label="Main Brand Logo"
-                    value={form.mainLogoUrl}
-                    onChange={v => set("mainLogoUrl", v)}
-                    accept="image/png,image/svg+xml,image/webp,image/jpeg"
-                    aspectHint="Any ratio"
-                    hint="Used on viewer screens, login page, and PDFs. Transparent background preferred."
-                  />
-                  <AssetUpload
-                    label="Mini Logo"
-                    value={form.miniLogoUrl}
-                    onChange={v => set("miniLogoUrl", v)}
-                    accept="image/png,image/svg+xml,image/webp"
-                    aspectHint="Square"
-                    hint="Used in sidebar, mobile topbar, and compact areas."
-                  />
-                  <AssetUpload
-                    label="App Icon"
-                    value={form.appIconUrl}
-                    onChange={v => set("appIconUrl", v)}
-                    accept="image/png,image/webp"
-                    aspectHint="512×512 px"
-                    hint="For PWA, browser icon, and future mobile app."
-                  />
-                  <AssetUpload
-                    label="Splash Screen"
-                    value={form.splashScreenUrl}
-                    onChange={v => set("splashScreenUrl", v)}
-                    accept="image/png,image/webp,image/jpeg"
-                    aspectHint="16:9 or 9:16"
-                    hint="Loading screen for mobile / PWA / Electron app."
-                  />
-                </div>
+                <AdminBrandingAssets />
               </TabsContent>
 
               {/* ── Colors & Typography ──────────────────── */}
@@ -784,16 +753,16 @@ export default function AdminBranding() {
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
                       <Monitor className="w-3.5 h-3.5" /> Desktop
                     </p>
-                    <PreviewLoginHeader form={form} />
+                    <PreviewLoginHeader form={form} assets={previewAssets} />
                     <PreviewAuctionBar form={form} />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
                       <Smartphone className="w-3.5 h-3.5" /> Mobile & Documents
                     </p>
-                    <PreviewViewerBar form={form} />
+                    <PreviewViewerBar form={form} assets={previewAssets} />
                     <PreviewOwnerApp form={form} />
-                    <PreviewPdf form={form} />
+                    <PreviewPdf form={form} assets={previewAssets} />
                   </div>
                 </div>
                 {form.enableWatermark && (

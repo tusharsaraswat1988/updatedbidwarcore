@@ -3,11 +3,18 @@
 Configure these under **Environment** in the Render Web Service dashboard.
 Render injects `PORT` automatically; you do not need to set it unless overriding.
 
-Build command:
+Build command (copy exactly into Render **Settings → Build Command**):
 
 ```bash
-pnpm install --frozen-lockfile && pnpm run build
+NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy
 ```
+
+Why two parts:
+
+1. **`NODE_ENV=development` during install** — Render sets `NODE_ENV=production` in your env vars, which makes `pnpm install` skip devDependencies (`esbuild`, `vite`, etc.). Overriding to `development` for install only fixes that.
+2. **`build:deploy`** — compiles the app (API + frontends) **without** `tsc --build` typecheck, which needs `@types/node` / `@types/pg` and fails on hosts when dev deps are omitted.
+
+Do **not** use `pnpm run build` on Render — it runs typecheck first and will fail with the same `@types/node` / `pg` errors you saw.
 
 Start command:
 
@@ -21,14 +28,14 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 | Name | Required | Example format | Source | What breaks if missing |
 |------|----------|----------------|--------|------------------------|
-| `NODE_ENV` | Yes | `production` | Dashboard / secret | API exits at startup: "NODE_ENV is required" |
+| `NODE_ENV` | Yes | `production` | Dashboard / secret | API exits at startup: "NODE_ENV is required". Safe to set on Render; use `--prod=false` in the **build command** (see above) so devDependencies still install at build time. |
 | `DATABASE_URL` | Yes* | `postgresql://user:pass@host/db?sslmode=require` | Secret (Neon/Render Postgres) | API exits: "DATABASE_URL or NEON_DATABASE_URL is required" |
 | `APP_DOMAIN` | Yes | `your-app.onrender.com` or `bidwar.in,www.bidwar.in` | Dashboard | API exits: "APP_DOMAIN is required"; CORS and public URLs break |
 | `APP_PUBLIC_SCHEME` | Yes (prod) | `https` | Dashboard | Defaults to `https` in production; must not be `http` in prod |
 | `SESSION_SECRET` | Yes | 64-char hex (`openssl rand -hex 32`) | Secret | API exits: session secret missing or &lt; 32 chars; auth breaks |
 | `ADMIN_PASSWORD` | Yes | Strong password string | Secret | API exits: "ADMIN_PASSWORD is required"; admin login disabled |
 | `SERVE_STATIC` | Yes | `true` | Dashboard | Without build + static serving, UI returns 404; defaults to `true` in prod |
-| `PORT` | Yes | `10000` (Render-assigned) | **Injected by Render** | API exits: "PORT is required" if not injected |
+| `PORT` | No | *(leave unset on Render)* | **Injected by Render** | Render assigns the port automatically. **Do not set `PORT=3000`** in the dashboard — it can cause "no open ports detected". The app reads `process.env.PORT` at startup. |
 
 \* `NEON_DATABASE_URL` is an accepted alias for `DATABASE_URL` (takes priority when both are set).
 
@@ -75,7 +82,8 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 | `RATE_LIMIT_CHEER_MAX` | No | `30` | Dashboard | Defaults to 30 |
 | `RATE_LIMIT_PUSH_SUBSCRIBE_MAX` | No | `5` | Dashboard | Defaults to 5 |
 | `RATE_LIMIT_OWNER_LOOKUP_MAX` | No | `15` | Dashboard | Defaults to 15 |
-| `ENABLE_BADMINTON` | No | `true` | Dashboard | When unset/false, badminton API routes return 404 and UI hides badminton hub; cricket/auction unchanged. Set `true` on deployments that host badminton tournaments. |
+| `SCORING` | No | `true` | Dashboard | When unset/false, all sport scoring modules are hidden (cricket + badminton APIs return 404, UI gated). Set `true` on deployments that host live scoring. Legacy alias: `ENABLE_BADMINTON=true` when `SCORING` is unset. |
+| `ENABLE_BADMINTON` | No | `true` | Dashboard | **Deprecated** — use `SCORING=true` instead. Still honored when `SCORING` is not set. |
 
 ---
 
@@ -83,6 +91,7 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 | Name | Why |
 |------|-----|
+| `PORT=3000` (manual override) | Let Render inject `PORT` — overriding it often causes port scan timeout |
 | `BYPASS_OTP=true` | Startup fails in production |
 | `EXTRA_CORS_ORIGINS` | Development-only CORS helper |
 | `API_PORT`, `FRONTEND_PORT`, `WEB_PORT`, `OWNER_APP_PORT` | Split-dev Vite ports only |

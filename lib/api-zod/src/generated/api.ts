@@ -32,6 +32,9 @@ export const UploadImageResponse = zod.object({
 /**
  * @summary List all tournaments
  */
+export const listTournamentsResponsePaymentCollectionModeDefault = `manual_verification`;
+export const listTournamentsResponseBidValueModeDefault = `system`;
+
 export const ListTournamentsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -66,6 +69,51 @@ export const ListTournamentsResponseItem = zod.object({
   status: zod.enum(["setup", "active", "paused", "completed"]),
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
+  enableRegistrationPayment: zod
+    .boolean()
+    .optional()
+    .describe("When true, public registration requires payment proof"),
+  registrationFee: zod
+    .number()
+    .nullish()
+    .describe("Registration fee in INR (whole rupees)"),
+  upiId: zod
+    .string()
+    .nullish()
+    .describe("UPI VPA for manual payment collection"),
+  paymentVerificationMethod: zod
+    .union([
+      zod.literal("utr"),
+      zod.literal("screenshot"),
+      zod.literal("utr_and_screenshot"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  paymentCollectionMode: zod
+    .enum(["manual_verification", "cashfree", "razorpay"])
+    .default(listTournamentsResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(listTournamentsResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -205,6 +253,9 @@ export const GetTournamentParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const getTournamentResponsePaymentCollectionModeDefault = `manual_verification`;
+export const getTournamentResponseBidValueModeDefault = `system`;
+
 export const GetTournamentResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -239,6 +290,51 @@ export const GetTournamentResponse = zod.object({
   status: zod.enum(["setup", "active", "paused", "completed"]),
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
+  enableRegistrationPayment: zod
+    .boolean()
+    .optional()
+    .describe("When true, public registration requires payment proof"),
+  registrationFee: zod
+    .number()
+    .nullish()
+    .describe("Registration fee in INR (whole rupees)"),
+  upiId: zod
+    .string()
+    .nullish()
+    .describe("UPI VPA for manual payment collection"),
+  paymentVerificationMethod: zod
+    .union([
+      zod.literal("utr"),
+      zod.literal("screenshot"),
+      zod.literal("utr_and_screenshot"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  paymentCollectionMode: zod
+    .enum(["manual_verification", "cashfree", "razorpay"])
+    .default(getTournamentResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(getTournamentResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -357,6 +453,24 @@ export const UpdateTournamentBody = zod.object({
   status: zod.string().optional(),
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
+  enableRegistrationPayment: zod.boolean().optional(),
+  registrationFee: zod.number().nullish(),
+  upiId: zod.string().nullish(),
+  paymentVerificationMethod: zod
+    .union([
+      zod.literal("utr"),
+      zod.literal("screenshot"),
+      zod.literal("utr_and_screenshot"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  paymentCollectionMode: zod
+    .enum(["manual_verification", "cashfree", "razorpay"])
+    .optional(),
+  enableRegistrationDeclaration: zod.boolean().optional(),
+  registrationDeclarationText: zod.string().nullish(),
+  bidValueMode: zod.enum(["system", "player"]).optional(),
+  bidValueOptions: zod.array(zod.number()).optional(),
   minimumSquadSize: zod.number().optional(),
   maximumSquadSize: zod.number().optional(),
   audioEnabled: zod.boolean().optional(),
@@ -395,6 +509,9 @@ export const UpdateTournamentBody = zod.object({
     ),
 });
 
+export const updateTournamentResponsePaymentCollectionModeDefault = `manual_verification`;
+export const updateTournamentResponseBidValueModeDefault = `system`;
+
 export const UpdateTournamentResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -429,6 +546,51 @@ export const UpdateTournamentResponse = zod.object({
   status: zod.enum(["setup", "active", "paused", "completed"]),
   registrationDeadline: zod.string().nullish(),
   registrationLimit: zod.number().nullish(),
+  enableRegistrationPayment: zod
+    .boolean()
+    .optional()
+    .describe("When true, public registration requires payment proof"),
+  registrationFee: zod
+    .number()
+    .nullish()
+    .describe("Registration fee in INR (whole rupees)"),
+  upiId: zod
+    .string()
+    .nullish()
+    .describe("UPI VPA for manual payment collection"),
+  paymentVerificationMethod: zod
+    .union([
+      zod.literal("utr"),
+      zod.literal("screenshot"),
+      zod.literal("utr_and_screenshot"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  paymentCollectionMode: zod
+    .enum(["manual_verification", "cashfree", "razorpay"])
+    .default(updateTournamentResponsePaymentCollectionModeDefault),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When true, players must accept organizer declaration points during registration",
+    ),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe(
+      "Newline-separated declaration\/consent points for player registration",
+    ),
+  bidValueMode: zod
+    .enum(["system", "player"])
+    .default(updateTournamentResponseBidValueModeDefault)
+    .describe(
+      "Whether base bid values are system-assigned or player-selected at registration",
+    ),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
   resetCount: zod.number().optional(),
   lastResetAt: zod.string().nullish(),
   lastResetBy: zod.string().nullish(),
@@ -526,6 +688,9 @@ export const ExportTournamentForLocalParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const exportTournamentForLocalResponseTournamentPaymentCollectionModeDefault = `manual_verification`;
+export const exportTournamentForLocalResponseTournamentBidValueModeDefault = `system`;
+
 export const ExportTournamentForLocalResponse = zod.object({
   version: zod.number(),
   exportedAt: zod.string(),
@@ -573,6 +738,53 @@ export const ExportTournamentForLocalResponse = zod.object({
     status: zod.enum(["setup", "active", "paused", "completed"]),
     registrationDeadline: zod.string().nullish(),
     registrationLimit: zod.number().nullish(),
+    enableRegistrationPayment: zod
+      .boolean()
+      .optional()
+      .describe("When true, public registration requires payment proof"),
+    registrationFee: zod
+      .number()
+      .nullish()
+      .describe("Registration fee in INR (whole rupees)"),
+    upiId: zod
+      .string()
+      .nullish()
+      .describe("UPI VPA for manual payment collection"),
+    paymentVerificationMethod: zod
+      .union([
+        zod.literal("utr"),
+        zod.literal("screenshot"),
+        zod.literal("utr_and_screenshot"),
+        zod.literal(null),
+      ])
+      .nullish(),
+    paymentCollectionMode: zod
+      .enum(["manual_verification", "cashfree", "razorpay"])
+      .default(
+        exportTournamentForLocalResponseTournamentPaymentCollectionModeDefault,
+      ),
+    enableRegistrationDeclaration: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When true, players must accept organizer declaration points during registration",
+      ),
+    registrationDeclarationText: zod
+      .string()
+      .nullish()
+      .describe(
+        "Newline-separated declaration\/consent points for player registration",
+      ),
+    bidValueMode: zod
+      .enum(["system", "player"])
+      .default(exportTournamentForLocalResponseTournamentBidValueModeDefault)
+      .describe(
+        "Whether base bid values are system-assigned or player-selected at registration",
+      ),
+    bidValueOptions: zod
+      .array(zod.number())
+      .optional()
+      .describe("Allowed bid values when bidValueMode is player"),
     resetCount: zod.number().optional(),
     lastResetAt: zod.string().nullish(),
     lastResetBy: zod.string().nullish(),
@@ -689,12 +901,43 @@ export const ExportTournamentForLocalResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -721,6 +964,17 @@ export const ExportTournamentForLocalResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     }),
   ),
@@ -1190,12 +1444,37 @@ export const ListPlayersResponseItem = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1219,6 +1498,17 @@ export const ListPlayersResponseItem = zod.object({
     .boolean()
     .optional()
     .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const ListPlayersResponse = zod.array(ListPlayersResponseItem);
@@ -1239,9 +1529,17 @@ export const CreatePlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
-  basePrice: zod.number(),
+  basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .optional()
+    .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1269,6 +1567,26 @@ export const CreatePlayerBody = zod.object({
     .optional(),
   playerTagTeamId: zod.number().optional(),
   isNonPlayingMember: zod.boolean().optional(),
+  utrNumber: zod
+    .string()
+    .optional()
+    .describe(
+      "UPI transaction reference (public registration when payment enabled)",
+    ),
+  paymentScreenshotUrl: zod
+    .string()
+    .optional()
+    .describe("HTTPS URL of uploaded payment screenshot"),
+  markPaymentCompleted: zod
+    .boolean()
+    .optional()
+    .describe("Organizer manual entry — mark offline payment as completed"),
+  registrationDeclarationAccepted: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Player accepts organizer registration declaration (required when enabled)",
+    ),
 });
 
 /**
@@ -1289,6 +1607,43 @@ export const GetRegistrationStatusResponse = zod.object({
   currentCount: zod.number(),
   limit: zod.number().nullish(),
   deadline: zod.string().nullish(),
+  enableRegistrationPayment: zod
+    .boolean()
+    .optional()
+    .describe("Whether registration fee collection is enabled"),
+  registrationFee: zod
+    .number()
+    .nullish()
+    .describe("Registration fee in INR when payment collection is enabled"),
+  upiId: zod
+    .string()
+    .nullish()
+    .describe("UPI VPA for player registration payments"),
+  paymentVerificationMethod: zod
+    .union([
+      zod.literal("utr"),
+      zod.literal("screenshot"),
+      zod.literal("utr_and_screenshot"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  enableRegistrationDeclaration: zod
+    .boolean()
+    .optional()
+    .describe("Whether registration declaration acceptance is required"),
+  registrationDeclarationText: zod
+    .string()
+    .nullish()
+    .describe("Raw declaration text (organizer-defined, newline-separated)"),
+  registrationDeclarationPoints: zod
+    .array(zod.string())
+    .optional()
+    .describe("Parsed declaration points shown on the registration form"),
+  bidValueMode: zod.enum(["system", "player"]).optional(),
+  bidValueOptions: zod
+    .array(zod.number())
+    .optional()
+    .describe("Allowed bid values when bidValueMode is player"),
 });
 
 /**
@@ -1307,9 +1662,17 @@ export const RegisterPlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).optional(),
   photoUrl: zod.string().optional(),
-  basePrice: zod.number(),
+  basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .optional()
+    .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1337,6 +1700,26 @@ export const RegisterPlayerBody = zod.object({
     .optional(),
   playerTagTeamId: zod.number().optional(),
   isNonPlayingMember: zod.boolean().optional(),
+  utrNumber: zod
+    .string()
+    .optional()
+    .describe(
+      "UPI transaction reference (public registration when payment enabled)",
+    ),
+  paymentScreenshotUrl: zod
+    .string()
+    .optional()
+    .describe("HTTPS URL of uploaded payment screenshot"),
+  markPaymentCompleted: zod
+    .boolean()
+    .optional()
+    .describe("Organizer manual entry — mark offline payment as completed"),
+  registrationDeclarationAccepted: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Player accepts organizer registration declaration (required when enabled)",
+    ),
 });
 
 /**
@@ -1357,9 +1740,17 @@ export const BulkCreatePlayersBody = zod.object({
       bowlingStyle: zod.string().optional(),
       specialization: zod.string().optional(),
       age: zod.number().optional(),
+      gender: zod.enum(["M", "F"]).optional(),
       photoUrl: zod.string().optional(),
-      basePrice: zod.number(),
+      basePrice: zod.number().optional(),
+      selectedBidValue: zod
+        .number()
+        .optional()
+        .describe("Required when tournament bidValueMode is player"),
       jerseyNumber: zod.string().optional(),
+      jerseySize: zod
+        .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+        .optional(),
       achievements: zod.string().optional(),
       mobileNumber: zod.string().optional(),
       email: zod.string().optional(),
@@ -1387,6 +1778,26 @@ export const BulkCreatePlayersBody = zod.object({
         .optional(),
       playerTagTeamId: zod.number().optional(),
       isNonPlayingMember: zod.boolean().optional(),
+      utrNumber: zod
+        .string()
+        .optional()
+        .describe(
+          "UPI transaction reference (public registration when payment enabled)",
+        ),
+      paymentScreenshotUrl: zod
+        .string()
+        .optional()
+        .describe("HTTPS URL of uploaded payment screenshot"),
+      markPaymentCompleted: zod
+        .boolean()
+        .optional()
+        .describe("Organizer manual entry — mark offline payment as completed"),
+      registrationDeclarationAccepted: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Player accepts organizer registration declaration (required when enabled)",
+        ),
     }),
   ),
 });
@@ -1417,12 +1828,37 @@ export const GetPlayerResponse = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1446,6 +1882,17 @@ export const GetPlayerResponse = zod.object({
     .boolean()
     .optional()
     .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -1466,9 +1913,17 @@ export const UpdatePlayerBody = zod.object({
   bowlingStyle: zod.string().optional(),
   specialization: zod.string().optional(),
   age: zod.number().optional(),
+  gender: zod.enum(["M", "F"]).nullish(),
   photoUrl: zod.string().optional(),
   basePrice: zod.number().optional(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected bid value when tournament uses player mode"),
   jerseyNumber: zod.string().optional(),
+  jerseySize: zod
+    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
   email: zod.string().optional(),
@@ -1496,6 +1951,10 @@ export const UpdatePlayerBody = zod.object({
     .describe(
       "Mandatory audit reason for critical player changes (min 10 characters)",
     ),
+  registrationPaymentStatus: zod
+    .enum(["pending", "approved", "rejected"])
+    .optional()
+    .describe("Organizer updates registration payment verification status"),
 });
 
 export const UpdatePlayerResponse = zod.object({
@@ -1510,12 +1969,37 @@ export const UpdatePlayerResponse = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
   photoUrl: zod.string().nullish(),
   basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
   soldPrice: zod.number().nullish(),
   retainedPrice: zod.number().nullish(),
   status: zod.enum(["available", "sold", "unsold", "retained"]),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   achievements: zod.string().nullish(),
   mobileNumber: zod.string().nullish(),
   email: zod.string().nullish(),
@@ -1539,6 +2023,17 @@ export const UpdatePlayerResponse = zod.object({
     .boolean()
     .optional()
     .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -1548,6 +2043,270 @@ export const UpdatePlayerResponse = zod.object({
 export const DeletePlayerParams = zod.object({
   tournamentId: zod.coerce.number(),
   playerId: zod.coerce.number(),
+});
+
+/**
+ * @summary Approve a player's registration payment (organizer only)
+ */
+export const ApproveRegistrationPaymentParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const ApproveRegistrationPaymentResponse = zod.object({
+  id: zod.number(),
+  tournamentId: zod.number(),
+  categoryId: zod.number().nullish(),
+  teamId: zod.number().nullish(),
+  name: zod.string(),
+  city: zod.string().nullish(),
+  role: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
+  photoUrl: zod.string().nullish(),
+  basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
+  soldPrice: zod.number().nullish(),
+  retainedPrice: zod.number().nullish(),
+  status: zod.enum(["available", "sold", "unsold", "retained"]),
+  jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  achievements: zod.string().nullish(),
+  mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  cricheroUrl: zod.string().nullish(),
+  availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Reject a player's registration payment (organizer only)
+ */
+export const RejectRegistrationPaymentParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const RejectRegistrationPaymentResponse = zod.object({
+  id: zod.number(),
+  tournamentId: zod.number(),
+  categoryId: zod.number().nullish(),
+  teamId: zod.number().nullish(),
+  name: zod.string(),
+  city: zod.string().nullish(),
+  role: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
+  photoUrl: zod.string().nullish(),
+  basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
+  soldPrice: zod.number().nullish(),
+  retainedPrice: zod.number().nullish(),
+  status: zod.enum(["available", "sold", "unsold", "retained"]),
+  jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  achievements: zod.string().nullish(),
+  mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  cricheroUrl: zod.string().nullish(),
+  availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Reset a player's registration payment to pending (organizer only)
+ */
+export const ResetRegistrationPaymentPendingParams = zod.object({
+  tournamentId: zod.coerce.number(),
+  playerId: zod.coerce.number(),
+});
+
+export const ResetRegistrationPaymentPendingResponse = zod.object({
+  id: zod.number(),
+  tournamentId: zod.number(),
+  categoryId: zod.number().nullish(),
+  teamId: zod.number().nullish(),
+  name: zod.string(),
+  city: zod.string().nullish(),
+  role: zod.string().nullish(),
+  battingStyle: zod.string().nullish(),
+  bowlingStyle: zod.string().nullish(),
+  specialization: zod.string().nullish(),
+  age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish()
+    .describe("Player gender — M (Male) or F (Female)"),
+  photoUrl: zod.string().nullish(),
+  basePrice: zod.number(),
+  selectedBidValue: zod
+    .number()
+    .nullish()
+    .describe("Player-selected base bid value when bidValueSource is player"),
+  bidValueSource: zod
+    .union([zod.literal("system"), zod.literal("player"), zod.literal(null)])
+    .nullish()
+    .describe("Whether base price was system-assigned or player-selected"),
+  soldPrice: zod.number().nullish(),
+  retainedPrice: zod.number().nullish(),
+  status: zod.enum(["available", "sold", "unsold", "retained"]),
+  jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  achievements: zod.string().nullish(),
+  mobileNumber: zod.string().nullish(),
+  email: zod.string().nullish(),
+  cricheroUrl: zod.string().nullish(),
+  availabilityDates: zod.string().nullish(),
+  playerTag: zod
+    .union([
+      zod.literal("captain"),
+      zod.literal("vice_captain"),
+      zod.literal("owner"),
+      zod.literal("co_owner"),
+      zod.literal("booster"),
+      zod.literal("icon"),
+      zod.literal("star_player"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe("Cosmetic tag — no calculation impact"),
+  playerTagTeamId: zod.number().nullish().describe("Team this tag applies to"),
+  isNonPlayingMember: zod
+    .boolean()
+    .optional()
+    .describe("Excluded from squad-slot counts but visible in team roster"),
+  registrationPaymentStatus: zod
+    .union([
+      zod.literal("pending"),
+      zod.literal("approved"),
+      zod.literal("rejected"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  utrNumber: zod.string().nullish(),
+  paymentScreenshotUrl: zod.string().nullish(),
+  paymentSubmittedAt: zod.string().nullish(),
+  createdAt: zod.string(),
 });
 
 /**
@@ -1573,12 +2332,43 @@ export const GetAuctionStateResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -1605,6 +2395,17 @@ export const GetAuctionStateResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1711,7 +2512,7 @@ export const GetAuctionStateResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -1738,6 +2539,43 @@ export const GetAuctionStateResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -1763,12 +2601,43 @@ export const StartAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -1795,6 +2664,17 @@ export const StartAuctionResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -1901,7 +2781,7 @@ export const StartAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -1928,6 +2808,43 @@ export const StartAuctionResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -1953,12 +2870,43 @@ export const PauseAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -1985,6 +2933,17 @@ export const PauseAuctionResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2091,7 +3050,7 @@ export const PauseAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2118,6 +3077,43 @@ export const PauseAuctionResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -2148,12 +3144,43 @@ export const NextPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2180,6 +3207,17 @@ export const NextPlayerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2286,7 +3324,7 @@ export const NextPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2313,6 +3351,43 @@ export const NextPlayerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -2347,12 +3422,43 @@ export const PlaceBidResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2379,6 +3485,17 @@ export const PlaceBidResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2485,7 +3602,7 @@ export const PlaceBidResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2512,6 +3629,43 @@ export const PlaceBidResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -2537,12 +3691,43 @@ export const SellPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2569,6 +3754,17 @@ export const SellPlayerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2675,7 +3871,7 @@ export const SellPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2702,6 +3898,43 @@ export const SellPlayerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -2736,12 +3969,43 @@ export const ManualSellResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2768,6 +4032,17 @@ export const ManualSellResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -2874,7 +4149,7 @@ export const ManualSellResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -2901,6 +4176,43 @@ export const ManualSellResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -2926,12 +4238,43 @@ export const MarkUnsoldResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -2958,6 +4301,17 @@ export const MarkUnsoldResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3064,7 +4418,7 @@ export const MarkUnsoldResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3091,6 +4445,43 @@ export const MarkUnsoldResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -3125,12 +4516,43 @@ export const ReAuctionPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3157,6 +4579,17 @@ export const ReAuctionPlayerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3263,7 +4696,7 @@ export const ReAuctionPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3290,6 +4723,43 @@ export const ReAuctionPlayerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -3322,12 +4792,43 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3354,6 +4855,17 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3460,7 +4972,7 @@ export const ReAuctionAllUnsoldResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3487,6 +4999,43 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -3519,12 +5068,43 @@ export const ConcludeAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3551,6 +5131,17 @@ export const ConcludeAuctionResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3657,7 +5248,7 @@ export const ConcludeAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3684,6 +5275,43 @@ export const ConcludeAuctionResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -3709,12 +5337,43 @@ export const UndoLastActionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3741,6 +5400,17 @@ export const UndoLastActionResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -3847,7 +5517,7 @@ export const UndoLastActionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -3874,22 +5544,68 @@ export const UndoLastActionResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
- * @summary Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+ * @summary Reset all players back to available (clears bids). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
  */
 export const ResetTrialAuctionParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
 export const ResetTrialAuctionBody = zod.object({
-  password: zod.string(),
+  password: zod
+    .string()
+    .optional()
+    .describe(
+      "Tournament organizer password. Optional when the caller already has an organizer session for this tournament.",
+    ),
   reason: zod
     .string()
     .describe(
       "Mandatory audit reason for clearing practice auction data (min 10 characters)",
     ),
+  resetContext: zod
+    .enum(["organizer", "admin"])
+    .optional()
+    .describe("organizer for operator panel; admin for super admin panel"),
 });
 
 export const ResetTrialAuctionResponse = zod.object({
@@ -3908,12 +5624,43 @@ export const ResetTrialAuctionResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -3940,6 +5687,17 @@ export const ResetTrialAuctionResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4046,7 +5804,7 @@ export const ResetTrialAuctionResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4073,6 +5831,43 @@ export const ResetTrialAuctionResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -4102,12 +5897,43 @@ export const SetDisplayOverlayResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4134,6 +5960,17 @@ export const SetDisplayOverlayResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4240,7 +6077,7 @@ export const SetDisplayOverlayResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4267,6 +6104,43 @@ export const SetDisplayOverlayResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -4298,12 +6172,43 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4330,6 +6235,17 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4436,7 +6352,7 @@ export const SetDisplayPlayerFilterResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4463,6 +6379,43 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -4550,12 +6503,43 @@ export const SyncFortuneWheelResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4582,6 +6566,17 @@ export const SyncFortuneWheelResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4688,7 +6683,7 @@ export const SyncFortuneWheelResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4715,6 +6710,43 @@ export const SyncFortuneWheelResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -4744,12 +6776,43 @@ export const SetCategoryFilterResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4776,6 +6839,17 @@ export const SetCategoryFilterResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -4882,7 +6956,7 @@ export const SetCategoryFilterResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -4909,6 +6983,43 @@ export const SetCategoryFilterResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -4950,12 +7061,43 @@ export const SetBreakTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -4982,6 +7124,17 @@ export const SetBreakTimerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -5088,7 +7241,7 @@ export const SetBreakTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5115,205 +7268,43 @@ export const SetBreakTimerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
-});
-
-/**
- * @summary Trigger a fixed 10-second pre-auction countdown on the LED display
- */
-export const SetPreAuctionCountdownParams = zod.object({
-  tournamentId: zod.coerce.number(),
-});
-
-export const setPreAuctionCountdownBodyActionDefault = `start`;
-
-export const SetPreAuctionCountdownBody = zod.object({
-  action: zod
-    .enum(["start", "cancel"])
-    .default(setPreAuctionCountdownBodyActionDefault),
-  message: zod.string().optional(),
-});
-
-export const SetPreAuctionCountdownResponse = zod.object({
-  tournamentId: zod.number(),
-  status: zod.enum(["idle", "active", "paused", "completed"]),
-  currentPlayer: zod
-    .object({
-      id: zod.number(),
-      tournamentId: zod.number(),
-      categoryId: zod.number().nullish(),
-      teamId: zod.number().nullish(),
-      name: zod.string(),
-      city: zod.string().nullish(),
-      role: zod.string().nullish(),
-      battingStyle: zod.string().nullish(),
-      bowlingStyle: zod.string().nullish(),
-      specialization: zod.string().nullish(),
-      age: zod.number().nullish(),
-      photoUrl: zod.string().nullish(),
-      basePrice: zod.number(),
-      soldPrice: zod.number().nullish(),
-      retainedPrice: zod.number().nullish(),
-      status: zod.enum(["available", "sold", "unsold", "retained"]),
-      jerseyNumber: zod.string().nullish(),
-      achievements: zod.string().nullish(),
-      mobileNumber: zod.string().nullish(),
-      email: zod.string().nullish(),
-      cricheroUrl: zod.string().nullish(),
-      availabilityDates: zod.string().nullish(),
-      playerTag: zod
-        .union([
-          zod.literal("captain"),
-          zod.literal("vice_captain"),
-          zod.literal("owner"),
-          zod.literal("co_owner"),
-          zod.literal("booster"),
-          zod.literal("icon"),
-          zod.literal("star_player"),
-          zod.literal(null),
-        ])
-        .nullish()
-        .describe("Cosmetic tag — no calculation impact"),
-      playerTagTeamId: zod
-        .number()
-        .nullish()
-        .describe("Team this tag applies to"),
-      isNonPlayingMember: zod
-        .boolean()
-        .optional()
-        .describe("Excluded from squad-slot counts but visible in team roster"),
-      createdAt: zod.string(),
-    })
-    .nullish(),
-  currentBid: zod.number().nullish(),
-  currentBidTeamId: zod.number().nullish(),
-  currentBidTeamName: zod.string().nullish(),
-  currentBidTeamColor: zod.string().nullish(),
-  currentBidTeamLogoUrl: zod.string().nullish(),
-  bidIncrement: zod.number().optional(),
-  timerSeconds: zod.number().nullish(),
-  bidTimerSeconds: zod.number().nullish(),
-  timerEndsAt: zod.string().nullish(),
-  timerType: zod
-    .union([zod.literal("start"), zod.literal("bid"), zod.literal(null)])
-    .nullish()
-    .describe(
-      "Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.",
-    ),
-  lastAction: zod.string().nullish(),
-  outcome: zod
-    .object({
-      type: zod.enum(["sold", "unsold"]),
-      playerId: zod.number().nullish(),
-      playerName: zod.string(),
-      photoUrl: zod.string().nullish(),
-      teamId: zod.number().nullish(),
-      teamName: zod.string().nullish(),
-      teamColor: zod.string().nullish(),
-      teamLogoUrl: zod.string().nullish(),
-      amount: zod.number().nullish(),
-      isManual: zod.boolean().optional(),
-    })
-    .describe(
-      "Structured sold\/unsold result between player transitions (from auction_sessions.lastOutcome).",
-    )
-    .nullish(),
-  soldPlayersCount: zod.number().optional(),
-  unsoldPlayersCount: zod.number().optional(),
-  remainingPlayersCount: zod.number().optional(),
-  mainRoundExhausted: zod
-    .boolean()
-    .optional()
-    .describe("True when no available players remain but unsold players exist"),
-  bidExtensionEnabled: zod.boolean().optional(),
-  bidExtensionThresholdSeconds: zod.number().optional(),
-  bidExtensionSeconds: zod.number().optional(),
-  fortuneWheelActive: zod.boolean().optional(),
-  wheelSpinning: zod.boolean().optional(),
-  wheelItems: zod
+  teamPurses: zod
     .array(
       zod.object({
-        label: zod.string(),
-        color: zod.string(),
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
       }),
     )
-    .optional(),
-  wheelWinner: zod.string().nullish(),
-  teamPurseViewActive: zod.boolean().optional(),
-  displayOverlay: zod
-    .union([
-      zod.literal("team"),
-      zod.literal("player"),
-      zod.literal("top5"),
-      zod.literal("banner"),
-      zod.literal(null),
-    ])
-    .nullish()
-    .describe("Active LED overlay mode. null\/absent means no overlay."),
-  displayPlayerFilter: zod
-    .object({
-      status: zod.enum(["all", "sold", "unsold", "available", "retained"]),
-      categoryId: zod.number().nullish(),
-      teamId: zod.number().nullish(),
-    })
-    .optional(),
-  activeCategoryIds: zod.array(zod.number()).nullish(),
-  playerSelectionMode: zod.enum(["sequential", "random", "manual"]).optional(),
-  licenseStatus: zod.enum(["trial", "live", "completed"]).optional(),
-  trialTeamIds: zod
-    .array(zod.number())
-    .nullish()
-    .describe("First 2 team IDs eligible to bid in trial mode"),
-  deferredPlayerIds: zod
-    .array(zod.number())
-    .nullish()
-    .describe("Player IDs deferred to the back of the queue"),
-  currentCategoryMaxPlayers: zod
-    .number()
-    .nullish()
+    .optional()
     .describe(
-      "Max players per team allowed in the current player's category. Null if no limit is set.",
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
     ),
-  currentCategoryName: zod
-    .string()
-    .nullish()
-    .describe(
-      "Name of the current player's category. Null if player has no category or category has no max.",
-    ),
-  teamCategoryPlayerCounts: zod
-    .record(zod.string(), zod.number())
-    .nullish()
-    .describe(
-      "Map of teamId (string key) to number of players already bought by that team in the current player's category. Only populated when currentCategoryMaxPlayers is set.",
-    ),
-  displayCountdown: zod
-    .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
-      endsAt: zod
-        .string()
-        .optional()
-        .describe("ISO timestamp when the countdown ends"),
-      message: zod
-        .string()
-        .nullish()
-        .describe("Optional display message override"),
-    })
-    .nullish(),
-  lastPurseBooster: zod
-    .object({
-      id: zod.number(),
-      teamId: zod.number(),
-      teamName: zod.string(),
-      amount: zod.number(),
-      previousCapacity: zod.number(),
-      newCapacity: zod.number(),
-      appliedAt: zod.coerce.date(),
-    })
-    .nullish(),
-  ledPurseToast: zod
-    .object({
-      teamName: zod.string(),
-    })
-    .nullish(),
 });
 
 /**
@@ -5349,12 +7340,43 @@ export const StartTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5381,6 +7403,17 @@ export const StartTimerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -5487,7 +7520,7 @@ export const StartTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5514,6 +7547,43 @@ export const StartTimerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -5539,12 +7609,43 @@ export const StopTimerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5571,6 +7672,17 @@ export const StopTimerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -5677,7 +7789,7 @@ export const StopTimerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5704,6 +7816,43 @@ export const StopTimerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -5729,12 +7878,43 @@ export const DeferPlayerResponse = zod.object({
       bowlingStyle: zod.string().nullish(),
       specialization: zod.string().nullish(),
       age: zod.number().nullish(),
+      gender: zod
+        .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+        .nullish()
+        .describe("Player gender — M (Male) or F (Female)"),
       photoUrl: zod.string().nullish(),
       basePrice: zod.number(),
+      selectedBidValue: zod
+        .number()
+        .nullish()
+        .describe(
+          "Player-selected base bid value when bidValueSource is player",
+        ),
+      bidValueSource: zod
+        .union([
+          zod.literal("system"),
+          zod.literal("player"),
+          zod.literal(null),
+        ])
+        .nullish()
+        .describe("Whether base price was system-assigned or player-selected"),
       soldPrice: zod.number().nullish(),
       retainedPrice: zod.number().nullish(),
       status: zod.enum(["available", "sold", "unsold", "retained"]),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       achievements: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       email: zod.string().nullish(),
@@ -5761,6 +7941,17 @@ export const DeferPlayerResponse = zod.object({
         .boolean()
         .optional()
         .describe("Excluded from squad-slot counts but visible in team roster"),
+      registrationPaymentStatus: zod
+        .union([
+          zod.literal("pending"),
+          zod.literal("approved"),
+          zod.literal("rejected"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      utrNumber: zod.string().nullish(),
+      paymentScreenshotUrl: zod.string().nullish(),
+      paymentSubmittedAt: zod.string().nullish(),
       createdAt: zod.string(),
     })
     .nullish(),
@@ -5867,7 +8058,7 @@ export const DeferPlayerResponse = zod.object({
     ),
   displayCountdown: zod
     .object({
-      type: zod.enum(["break", "pre-auction"]).optional(),
+      type: zod.enum(["break"]).optional(),
       endsAt: zod
         .string()
         .optional()
@@ -5894,6 +8085,43 @@ export const DeferPlayerResponse = zod.object({
       teamName: zod.string(),
     })
     .nullish(),
+  teamPurses: zod
+    .array(
+      zod.object({
+        teamId: zod.number(),
+        teamName: zod.string(),
+        shortCode: zod.string(),
+        ownerName: zod.string(),
+        color: zod.string().nullable(),
+        logoUrl: zod.string().nullish(),
+        originalPurse: zod
+          .number()
+          .describe("Immutable baseline purse from team setup"),
+        boosterTotal: zod.number().describe("Sum of active purse boosters"),
+        effectiveCapacity: zod
+          .number()
+          .describe("originalPurse + boosterTotal"),
+        purse: zod
+          .number()
+          .describe("Alias for effectiveCapacity (backward compatible)"),
+        purseUsed: zod.number(),
+        purseRemaining: zod.number(),
+        playersBought: zod.number(),
+        reservePurse: zod.number(),
+        spendablePurse: zod.number(),
+        slotsRequired: zod.number(),
+        lowestBasePrice: zod.number(),
+        minimumSquadSize: zod.number(),
+        maximumSquadSize: zod.number(),
+        retainedCount: zod.number(),
+        topPlayerName: zod.string().nullish(),
+        topPlayerAmount: zod.number().nullish(),
+      }),
+    )
+    .optional()
+    .describe(
+      "Live team purse snapshot embedded for realtime sync without separate HTTP refetch",
+    ),
 });
 
 /**
@@ -6164,6 +8392,9 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   mobileNumber: zod.string().nullish(),
   city: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish(),
   role: zod.string().nullish(),
   photoUrl: zod.string().nullish(),
   battingStyle: zod.string().nullish(),
@@ -6171,6 +8402,19 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   specialization: zod.string().nullish(),
   achievements: zod.string().nullish(),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   cricheroUrl: zod.string().nullish(),
   availabilityDates: zod.string().nullish(),
   basePrice: zod.number().optional(),
@@ -6217,6 +8461,9 @@ export const ListImportCandidatesResponseItem = zod.object({
   role: zod.string().nullish(),
   city: zod.string().nullish(),
   age: zod.number().nullish(),
+  gender: zod
+    .union([zod.literal("M"), zod.literal("F"), zod.literal(null)])
+    .nullish(),
   mobileNumber: zod.string().nullish(),
   photoUrl: zod.string().nullish(),
   categoryId: zod.number().nullish(),
@@ -6226,6 +8473,19 @@ export const ListImportCandidatesResponseItem = zod.object({
   bowlingStyle: zod.string().nullish(),
   specialization: zod.string().nullish(),
   jerseyNumber: zod.string().nullish(),
+  jerseySize: zod
+    .union([
+      zod.literal("S"),
+      zod.literal("M"),
+      zod.literal("L"),
+      zod.literal("XL"),
+      zod.literal("2XL"),
+      zod.literal("3XL"),
+      zod.literal("4XL"),
+      zod.literal("5XL"),
+      zod.literal(null),
+    ])
+    .nullish(),
   isDuplicate: zod.boolean(),
 });
 export const ListImportCandidatesResponse = zod.array(
@@ -6321,6 +8581,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
@@ -6340,6 +8613,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),
@@ -6359,6 +8645,19 @@ export const GetTeamReportResponse = zod.object({
       photoUrl: zod.string().nullish(),
       mobileNumber: zod.string().nullish(),
       jerseyNumber: zod.string().nullish(),
+      jerseySize: zod
+        .union([
+          zod.literal("S"),
+          zod.literal("M"),
+          zod.literal("L"),
+          zod.literal("XL"),
+          zod.literal("2XL"),
+          zod.literal("3XL"),
+          zod.literal("4XL"),
+          zod.literal("5XL"),
+          zod.literal(null),
+        ])
+        .nullish(),
       categoryId: zod.number().nullish(),
       categoryName: zod.string().nullish(),
       categoryColor: zod.string().nullish(),

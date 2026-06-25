@@ -17,6 +17,13 @@ import {
   getRuntimeConfig,
   isCorsOriginAllowed,
 } from "./lib/runtime-env";
+import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
+import { BLOG_POSTS_META } from "@workspace/blog-data";
+import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
+import {
+  buildAuctionPlatformManifest,
+  buildOwnerAppManifest,
+} from "./lib/branding-manifest.js";
 
 const app: Express = express();
 
@@ -26,6 +33,34 @@ const { isProduction: isProd, serveStatic } = getRuntimeConfig();
 // This tells Express to trust the X-Forwarded-For header so that
 // rate limiting and secure cookies work correctly.
 app.set("trust proxy", 1);
+
+// ── Canonical hostname redirect (opt-in) ───────────────────────────────────
+// IMPORTANT:
+// Host redirects are often also configured at Cloudflare/Render edge.
+// If both edge and app perform opposite redirects (www→non-www at edge, and
+// non-www→www in app), a production redirect loop occurs.
+//
+// Therefore app-level host redirect is disabled by default and can be enabled
+// explicitly with ENABLE_APP_HOST_REDIRECT=true once edge rules are aligned.
+const CANONICAL_HOST = "bidwar.in";
+const NON_CANONICAL_HOST = "bidwar.in";
+const ENABLE_APP_HOST_REDIRECT = process.env.ENABLE_APP_HOST_REDIRECT === "true";
+
+if (isProd && ENABLE_APP_HOST_REDIRECT) {
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const xfh = req.headers["x-forwarded-host"];
+    const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
+    const host = (rawXfh.split(",")[0].trim() || req.headers["host"] || "")
+      .split(":")[0]
+      .toLowerCase()
+      .trim();
+
+    if (host === NON_CANONICAL_HOST) {
+      return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+    }
+    next();
+  });
+}
 
 // Gzip compression for all API JSON responses (level 6, skip payloads < 1 KB).
 // SSE streams are excluded: gzip buffers internally and holds events instead of
@@ -92,6 +127,31 @@ app.use(globalLimiter);
 
 app.use("/api", router);
 
+// ── Dynamic PWA manifests (BrandingService → install icons) ───────────────────
+app.get("/site.webmanifest", async (_req, res) => {
+  try {
+    const manifest = await buildAuctionPlatformManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build auction-platform manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
+app.get("/owner-app/manifest.webmanifest", async (_req, res) => {
+  try {
+    const manifest = await buildOwnerAppManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build owner-app manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
 // ── Optional single-process static file serving ───────────────────────────────
 // Enabled when SERVE_STATIC=true (or automatically in production when not
 // explicitly disabled). Serves pre-built Vite frontends from the same Node
@@ -112,30 +172,158 @@ if (serveStatic) {
       serveStatic: {
         setHeaders(res: express.Response, filePath: string) {
           const base = path.basename(filePath).replace(/\.(br|gz)$/, "");
-          if (base === "index.html" || base.endsWith(".webmanifest")) {
-            // HTML and manifests must not be cached so SW updates propagate
+          // Never apply immutable cache to files that are not content-hashed.
+          // robots.txt, sitemap.xml, site.webmanifest, and index.html must
+          // always be re-fetched so crawlers pick up changes promptly.
+          const noCacheFiles = new Set(["index.html", "robots.txt", "sitemap.xml"]);
+          if (noCacheFiles.has(base) || base.endsWith(".webmanifest")) {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
           } else {
-            // Vite content-hashes every asset filename — safe to cache forever
+            // Vite content-hashes every JS/CSS asset — safe to cache forever
             res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
           }
         },
       },
     };
 
+    // Load the built index.html into memory once for meta injection.
+    loadIndexHtml(auctionDist);
+    logger.info("SEO: page-meta injector loaded");
+
+    // ── Server-side meta injection for marketing pages ────────────────────────
+    // For every known public marketing URL, we replace the PAGE_META_START/END
+    // and PAGE_SCHEMA_START/END blocks in index.html with route-specific
+    // <title>, <meta>, canonical, OG/Twitter tags, and JSON-LD schemas.
+    // This ensures social crawlers and bots that don't run JavaScript see the
+    // correct metadata for each page.
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.method !== "GET") return next();
+      const meta = getPageMeta(req.path);
+      if (!meta) return next();
+
+      const html = injectPageMeta(meta);
+      if (!html) return next();
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      return res.send(html);
+    });
+
+    // Dynamic robots.txt
+    // Served as an explicit Express route BEFORE the static file middleware so
+    // it always returns correct content regardless of build state. Cache-Control
+    // is 1 hour — short enough for Googlebot to pick up changes quickly, long
+    // enough to avoid hammering the server on every crawl.
+    app.get("/robots.txt", (_req: express.Request, res: express.Response) => {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      // Keep robots unambiguous for crawlers:
+      // - no-store avoids stale intermediary cache responses during re-crawls
+      // - must-revalidate forces fresh validation at each fetch
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      res.send([
+        "User-agent: *",
+        "Allow: /",
+        "",
+        "# Block authenticated/private app pages",
+        "Disallow: /tournament/",
+        "Disallow: /admin/",
+        "Disallow: /admin",
+        "Disallow: /organizer",
+        "Disallow: /organizer/",
+        "Disallow: /complete-profile",
+        "Disallow: /wa-consent/",
+        "Disallow: /api/",
+        "Disallow: /live/",
+        "",
+        "# Core marketing pages",
+        "Allow: /upcoming-auctions",
+        "Allow: /contact",
+        "Allow: /legal/",
+        "Allow: /blog",
+        "Allow: /blog/",
+        "",
+        "# Commercial SEO landing pages",
+        "Allow: /sports-auction-software",
+        "Allow: /cricket-auction-software",
+        "Allow: /badminton-scoring-software",
+        "Allow: /franchise-auction-software",
+        "Allow: /player-auction-software",
+        "Allow: /sports-league-management-software",
+        "Allow: /football-player-auction",
+        "Allow: /kabaddi-auction-platform",
+        "Allow: /tournament-auction-platform",
+        "Allow: /basketball-auction-software",
+        "Allow: /badminton-auction-platform",
+        "Allow: /volleyball-player-auction",
+        "Allow: /esports-auction-system",
+        "Allow: /business-league-auction",
+        "Allow: /live-player-bidding",
+        "",
+        `Sitemap: https://${CANONICAL_HOST}/sitemap.xml`,
+      ].join("\n"));
+    });
+
+    // ── Dynamic sitemap ───────────────────────────────────────────────────────
+    // Dynamically generated XML sitemap that includes marketing pages AND all
+    // blog posts, category pages, and author pages from @workspace/blog-data.
+    app.get("/sitemap.xml", (_req: express.Request, res: express.Response) => {
+      const today = new Date().toISOString().slice(0, 10);
+
+      type SitemapEntry = { loc: string; changefreq: string; priority: string; lastmod?: string };
+
+      const urls: SitemapEntry[] = [
+        // ── Core marketing pages
+        { loc: "https://bidwar.in/",                   changefreq: "weekly",  priority: "1.0", lastmod: today },
+        { loc: "https://bidwar.in/upcoming-auctions",  changefreq: "daily",   priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/contact",            changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/legal/terms",        changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://bidwar.in/legal/privacy",      changefreq: "yearly",  priority: "0.3" },
+        { loc: "https://bidwar.in/legal/acceptable-use", changefreq: "yearly", priority: "0.3" },
+        // ── SEO landing pages — primary commercial pages (highest priority)
+        { loc: "https://bidwar.in/sports-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/cricket-auction-software",     changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/badminton-scoring-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/franchise-auction-software",   changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/player-auction-software",      changefreq: "monthly", priority: "0.9", lastmod: today },
+        { loc: "https://bidwar.in/sports-league-management-software", changefreq: "monthly", priority: "0.9", lastmod: today },
+        // ── SEO landing pages — secondary sport-specific pages
+        { loc: "https://bidwar.in/football-player-auction",      changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/kabaddi-auction-platform",     changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/tournament-auction-platform",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/basketball-auction-software",  changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/badminton-auction-platform",   changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/volleyball-player-auction",    changefreq: "monthly", priority: "0.8", lastmod: today },
+        { loc: "https://bidwar.in/esports-auction-system",       changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/business-league-auction",      changefreq: "monthly", priority: "0.7", lastmod: today },
+        { loc: "https://bidwar.in/live-player-bidding",          changefreq: "monthly", priority: "0.7", lastmod: today },
+        // ── Blog index
+        { loc: "https://bidwar.in/blog", changefreq: "weekly", priority: "0.8", lastmod: today },
+        // ── Blog posts — use actual publishedAt / updatedAt for accuracy
+        ...BLOG_POSTS_META.map((p) => ({
+          loc: p.canonical,
+          changefreq: "monthly",
+          priority: "0.7",
+          lastmod: p.updatedAt ?? p.publishedAt,
+        })),
+        // ── Blog category pages
+        ...getAllBlogUrls()
+          .filter((u) => u.includes("/blog/category/") || u.includes("/blog/author/"))
+          .map((u) => ({ loc: u, changefreq: "weekly" as const, priority: "0.6", lastmod: today })),
+      ];
+
+      const urlXml = urls.map((u) =>
+        `  <url>\n    <loc>${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ""}\n  </url>`
+      ).join("\n");
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n${urlXml}\n\n</urlset>`;
+
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(xml);
+    });
+
     // Legacy owner URLs → canonical onboarding entry (full page loads only).
     app.get("/tournament/:tournamentId/owner/:teamId", (req, res) => {
-      const tid = parseInt(req.params.tournamentId, 10);
-      const teamId = parseInt(req.params.teamId, 10);
-      res.redirect(
-        302,
-        ownerJoinPath(
-          Number.isFinite(tid) ? tid : undefined,
-          Number.isFinite(teamId) ? teamId : undefined,
-        ),
-      );
-    });
-    app.get("/owner-app/tournament/:tournamentId/owner/:teamId", (req, res) => {
       const tid = parseInt(req.params.tournamentId, 10);
       const teamId = parseInt(req.params.teamId, 10);
       res.redirect(

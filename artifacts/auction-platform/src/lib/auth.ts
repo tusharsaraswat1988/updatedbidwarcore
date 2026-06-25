@@ -9,6 +9,16 @@ export async function checkOrganizerAuth(tournamentId: number): Promise<boolean>
   } catch { return false; }
 }
 
+/** Grant local organizer session for an imported tournament (LAN / offline). */
+export async function bootstrapLocalOrganizer(tournamentId: number): Promise<boolean> {
+  try {
+    const r = await apiFetch(`/auth/organizer/${tournamentId}/bootstrap`, { method: "POST" });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function loginOrganizer(tournamentId: number, password: string): Promise<{ success: boolean; error?: string }> {
   try {
     const r = await apiFetch(`/auth/organizer/${tournamentId}/login`, {
@@ -96,7 +106,7 @@ export async function resetTournamentAsAdmin(
     const r = await apiFetch(`/tournaments/${tournamentId}/auction/reset-trial`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, reason }),
+      body: JSON.stringify({ password, reason, resetContext: "admin" }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
@@ -123,6 +133,7 @@ export async function updateAdminTournament(
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
     localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
+    features: Partial<{ buzzStudio: boolean; ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
@@ -213,8 +224,8 @@ export type AdminTournamentDetail = {
     bidTiers: string | null; hasPassword: boolean; organizerPassword: string | null;
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
-    localModeEnabled: boolean;
-    scoringEnabled: boolean;
+    localModeEnabled: boolean; scoringEnabled: boolean;
+    features: { buzzStudio: boolean; ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
     createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
@@ -349,6 +360,7 @@ export async function loginOrganizerAccount(
   success: boolean;
   error?: string;
   organizer?: OrganizerInfo;
+  tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
   loginGuard?: LoginGuardStatus;
 }> {
   try {
@@ -364,20 +376,24 @@ export async function loginOrganizerAccount(
         loginGuard: d.loginGuard,
       };
     }
-    return { success: true, organizer: d.organizer };
+    return { success: true, organizer: d.organizer, tournaments: d.tournaments };
   } catch { return { success: false, error: "Network error" }; }
 }
 
 export async function checkOrganizerAccountAuth(): Promise<{
   loggedIn: boolean;
+  serverError?: boolean;
   organizer?: OrganizerInfo;
   tournaments?: Array<{ id: number; name: string; sport: string; status: string; licenseStatus: string; venue: string | null; auctionDate: string | null; createdAt: string }>;
 }> {
   try {
     const r = await apiFetch("/auth/organizer-account/me");
-    if (!r.ok) return { loggedIn: false };
+    // 401/403 = cookie invalid/expired → truly logged out
+    // 5xx = DB/server error → don't treat as logged out (avoid session flash)
+    if (r.status === 401 || r.status === 403) return { loggedIn: false };
+    if (!r.ok) return { loggedIn: false, serverError: true };
     return r.json();
-  } catch { return { loggedIn: false }; }
+  } catch { return { loggedIn: false, serverError: true }; }
 }
 
 export async function logoutOrganizerAccount(): Promise<void> {

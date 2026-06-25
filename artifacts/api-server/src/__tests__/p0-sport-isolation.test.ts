@@ -73,7 +73,7 @@ describe("P0 — badminton tournament sport guard", () => {
   });
 
   it("rejects non-badminton tournaments", async () => {
-    mockLimit.mockResolvedValueOnce([{ sport: "cricket" }]);
+    mockLimit.mockResolvedValueOnce([{ sport: "cricket", scoringEnabled: true }]);
 
     await expect(ensureBadmintonTournament(42)).rejects.toMatchObject({
       code: "BADMINTON_SPORT_REQUIRED",
@@ -81,8 +81,17 @@ describe("P0 — badminton tournament sport guard", () => {
     });
   });
 
-  it("allows badminton tournaments", async () => {
-    mockLimit.mockResolvedValueOnce([{ sport: "badminton" }]);
+  it("rejects badminton tournaments when scoring is disabled", async () => {
+    mockLimit.mockResolvedValueOnce([{ sport: "badminton", scoringEnabled: false }]);
+
+    await expect(ensureBadmintonTournament(42)).rejects.toMatchObject({
+      code: "SCORING_DISABLED",
+      status: 403,
+    });
+  });
+
+  it("allows badminton tournaments when scoring is enabled", async () => {
+    mockLimit.mockResolvedValueOnce([{ sport: "badminton", scoringEnabled: true }]);
 
     await expect(ensureBadmintonTournament(42)).resolves.toBeUndefined();
   });

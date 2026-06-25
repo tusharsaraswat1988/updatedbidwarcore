@@ -3,40 +3,49 @@ import { useRoute, useLocation } from "wouter";
 import {
   useGetTournament,
   useUpdateTournament,
+  useListPlayers,
   getGetTournamentQueryKey,
+  getGetRegistrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { BannerFrame } from "@/components/display/banner-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
 import { settingsPath } from "@/lib/settings-navigation";
 import { auctionResetPath } from "@/lib/tournament-navigation";
-import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Settings, UserPlus,
-  Building2, Timer, Trash2,
+  Building2, Timer, Trash2, ArrowUp, ArrowDown,
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
-  Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays,
+  Volume2, VolumeX, Play, Coffee,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { type SponsorLogo, normalizeSponsorLogos } from "@/lib/sponsor-logo";
+import { type SponsorLogo, normalizeSponsorLogos, validateSponsorList } from "@/lib/sponsor-logo";
 import { SettingsCard } from "@/components/settings/settings-card";
-import { DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
+import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { SportSelect } from "@/components/sport-select";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
+import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
 export default function TournamentSettings() {
   const [, params] = useRoute("/tournament/:id/settings");
@@ -56,34 +65,46 @@ export default function TournamentSettings() {
   const [bidTiers, setBidTiers] = useState<Array<{ upTo?: number; increment: number }>>([
     { increment: 0 },
   ]);
+  const [bidValueOptions, setBidValueOptions] = useState<number[]>([]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
-  const [showAdvancedAuction, setShowAdvancedAuction] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
-  const [mainBannerUploading, setMainBannerUploading] = useState(false);
+  const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
+  const [bannerEditorInitial, setBannerEditorInitial] = useState<string | undefined>();
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
-  const [hubSports, setHubSports] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
-
-  const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
-    try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
-    catch { return "default"; }
-  });
-
-  useEffect(() => {
-    fetch("/api/sports").then(r => r.json()).then((d: { id: number; name: string; slug: string }[]) => setHubSports(d)).catch(() => {});
-  }, []);
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: players = [] } = useListPlayers(tournamentId, {
+    query: { enabled: !!tournamentId, staleTime: 30_000 },
+  });
   const updateTournament = useUpdateTournament();
+  const sportLocked = players.length > 0;
+
+  const notifySportLocked = useCallback(() => {
+    toast({
+      title: "Sport is locked",
+      description: "Players already exist in this tournament. Remove all players from the pool before changing the sport.",
+    });
+  }, [toast]);
+
+  const handleSportChange = useCallback((value: string) => {
+    if (sportLocked) {
+      notifySportLocked();
+      return;
+    }
+    setEditForm((f) => ({ ...f, sport: value }));
+  }, [notifySportLocked, sportLocked]);
 
   const buildSnapshot = useCallback((
     form: Record<string, string | number | boolean>,
     tiers: Array<{ upTo?: number; increment: number }>,
     logos: SponsorLogo[],
-  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()) }), []);
+    bidOptions: number[],
+  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions }), []);
 
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
@@ -93,8 +114,8 @@ export default function TournamentSettings() {
       auctionDate: t.auctionDate || "",
       auctionTime: t.auctionTime || "",
       logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
-      basePurse: String(t.basePurse ?? ""),
-      minBid: String(t.minBid ?? ""),
+      basePurse: t.basePurse ? String(t.basePurse) : "",
+      minBid: t.minBid ? String(t.minBid) : "",
       timerSeconds: String(t.timerSeconds ?? "30"),
       bidTimerSeconds: String(t.bidTimerSeconds ?? "15"),
       bidExtensionEnabled: t.bidExtensionEnabled ?? false,
@@ -103,6 +124,13 @@ export default function TournamentSettings() {
       playerSelectionMode: t.playerSelectionMode || "sequential",
       registrationDeadline: t.registrationDeadline || "",
       registrationLimit: t.registrationLimit != null ? String(t.registrationLimit) : "",
+      enableRegistrationPayment: t.enableRegistrationPayment ?? false,
+      registrationFee: t.registrationFee != null ? String(t.registrationFee) : "",
+      upiId: t.upiId || "",
+      paymentVerificationMethod: t.paymentVerificationMethod || "utr",
+      enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,
+      registrationDeclarationText: t.registrationDeclarationText || "",
+      bidValueMode: (t as { bidValueMode?: string }).bidValueMode || "system",
       minimumSquadSize: String(t.minimumSquadSize ?? 0),
       maximumSquadSize: String(t.maximumSquadSize ?? 0),
       audioEnabled: t.audioEnabled ?? true,
@@ -123,9 +151,27 @@ export default function TournamentSettings() {
     };
     setEditForm(initialForm);
 
-    setCountdownFileName(t.countdownSoundUrl ? "Custom file uploaded" : "");
-    setSoldFileName(t.soldSoundUrl ? "Custom file uploaded" : "");
-    setBreakEndFileName(t.breakEndMusicUrl ? "Custom file uploaded" : "");
+    setCountdownFileName(
+      t.countdownSoundUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { countdownSoundUrl?: string | null } }).platformAudioDefaults?.countdownSoundUrl
+          ? "Platform default"
+          : "",
+    );
+    setSoldFileName(
+      t.soldSoundUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { soldSoundUrl?: string | null } }).platformAudioDefaults?.soldSoundUrl
+          ? "Platform default"
+          : "",
+    );
+    setBreakEndFileName(
+      t.breakEndMusicUrl
+        ? "Custom file uploaded"
+        : (t as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } }).platformAudioDefaults?.breakEndMusicUrl
+          ? "Platform default"
+          : "",
+    );
 
     let initialTiers: Array<{ upTo?: number; increment: number }>;
     try {
@@ -147,13 +193,19 @@ export default function TournamentSettings() {
     }
     setBidTiers(initialTiers);
 
+    const rawBidOptions = (t as { bidValueOptions?: number[] | string | null }).bidValueOptions;
+    const initialBidOptions = Array.isArray(rawBidOptions)
+      ? [...new Set(rawBidOptions.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b)
+      : parseBidValueOptions(rawBidOptions as string | null);
+    setBidValueOptions(initialBidOptions);
+
     let initialSponsors: SponsorLogo[];
     try {
       const parsed = t.sponsorLogos ? JSON.parse(t.sponsorLogos) : [];
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
-    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors));
+    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions));
   }, [buildSnapshot]);
 
   useEffect(() => {
@@ -166,13 +218,12 @@ export default function TournamentSettings() {
     if (!initialized) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
+    if (tab === "identity" || tab === "playerRegistration" || tab === "auction" || tab === "sponsors" || tab === "broadcast" || tab === "recovery") {
       setActiveSection(tab);
     }
     const focus = params.get("focus") as SettingsFocusField | null;
     if (!focus) return;
-    if (focus === "registration") setActiveSection("identity");
-    if (focus === "bidTiers") setShowAdvancedAuction(true);
+    if (focus === "registration") setActiveSection("playerRegistration");
     setHighlightField(focus);
     const scrollTimer = window.setTimeout(() => {
       document.getElementById(`settings-field-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -192,7 +243,6 @@ export default function TournamentSettings() {
 
   function applyCricketPreset() {
     setActiveSection("auction");
-    setShowAdvancedAuction(true);
     const increment = Number(editForm.minBid) > 0 ? Math.max(5000, Math.round(Number(editForm.minBid) / 2)) : 5000;
     setEditForm(f => ({
       ...f,
@@ -204,33 +254,38 @@ export default function TournamentSettings() {
       minBid: Number(f.minBid) > 0 ? f.minBid : "10000",
     }));
     setBidTiers([{ increment }]);
-    toast({ title: "Cricket preset applied", description: "Review values and click Save Changes." });
+    toast({ title: "Cricket preset applied", description: "Changes will save automatically." });
   }
 
-  function handleDisplayThemeChange(t: DisplayThemeName) {
-    setDisplayTheme(t);
-    try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
-    try {
-      const ch = new BroadcastChannel("bidwar_display_theme");
-      ch.postMessage({ tournamentId, theme: t });
-      ch.close();
-    } catch { /* ignore */ }
+  function closeBannerEditor() {
+    if (bannerEditorInitial?.startsWith("blob:")) {
+      URL.revokeObjectURL(bannerEditorInitial);
+    }
+    setBannerEditorOpen(false);
+    setBannerEditorInitial(undefined);
   }
 
-  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function openBannerAdjust() {
+    const url = (editForm.mainBannerUrl as string) || undefined;
+    setBannerEditorInitial(url);
+    setBannerEditorOpen(true);
+  }
+
+  function handleBannerFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5 MB"); e.target.value = ""; return; }
-    setMainBannerUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!r.ok) throw new Error("Upload failed");
-      const data = await r.json() as { url?: string };
-      if (data.url) setEditForm(f => ({ ...f, mainBannerUrl: data.url as string }));
-    } catch { alert("Image upload failed. Please try again."); }
-    finally { setMainBannerUploading(false); e.target.value = ""; }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be under 5 MB");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose JPG, PNG, or WEBP");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setBannerEditorInitial(objectUrl);
+    setBannerEditorOpen(true);
   }
 
   async function handleSponsorLogoUpload(file: File, idx: number | "new") {
@@ -269,14 +324,27 @@ export default function TournamentSettings() {
     e.target.value = "";
   }
 
+  function clearAudioField(
+    field: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
+    setFileName: (n: string) => void,
+    platformKey: "countdownSoundUrl" | "soldSoundUrl" | "breakEndMusicUrl",
+  ) {
+    setEditForm((f) => ({ ...f, [field]: "" }));
+    const platform = (tournament as { platformAudioDefaults?: Record<string, string | null> } | undefined)
+      ?.platformAudioDefaults?.[platformKey];
+    setFileName(platform ? "Platform default" : "");
+  }
+
   async function previewCountdownSound() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { countdownSoundUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.countdownSoundUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: true,
-      countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+      countdownSoundUrl: resolveBroadcastAudioUrl((editForm.countdownSoundUrl as string).trim() || null, platform),
       countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
       soldSoundEnabled: false, soldSoundUrl: null, soldSoundVolume: 0,
       breakEndMusicEnabled: false, breakEndMusicUrl: null, breakEndMusicVolume: 80,
@@ -288,11 +356,13 @@ export default function TournamentSettings() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { soldSoundUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.soldSoundUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: true,
-      soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+      soldSoundUrl: resolveBroadcastAudioUrl((editForm.soldSoundUrl as string).trim() || null, platform),
       soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
       breakEndMusicEnabled: false, breakEndMusicUrl: null, breakEndMusicVolume: 80,
     });
@@ -303,21 +373,196 @@ export default function TournamentSettings() {
     if (!audioPreviewRef.current) audioPreviewRef.current = new AuctionAudioManager();
     const mgr = audioPreviewRef.current;
     await mgr.unlock();
+    const platform = (tournament as { platformAudioDefaults?: { breakEndMusicUrl?: string | null } } | undefined)
+      ?.platformAudioDefaults?.breakEndMusicUrl ?? null;
     mgr.setSettings({
       audioEnabled: true, masterVolume: 80,
       countdownSoundEnabled: false, countdownSoundUrl: null, countdownSoundVolume: 0,
       soldSoundEnabled: false, soldSoundUrl: null, soldSoundVolume: 0,
       breakEndMusicEnabled: true,
-      breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+      breakEndMusicUrl: resolveBroadcastAudioUrl((editForm.breakEndMusicUrl as string).trim() || null, platform),
       breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
     });
     mgr.previewBreakEnd();
   }
 
   const isDirty = useMemo(
-    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos) !== baselineSnapshot,
-    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos],
+    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions) !== baselineSnapshot,
+    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
   );
+
+  const saveKey = useMemo(
+    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions),
+    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
+  );
+
+  const squadSizeError = useMemo(() => {
+    const min = Number(editForm.minimumSquadSize) || 0;
+    const max = Number(editForm.maximumSquadSize) || 0;
+    if (min > 0 && max > 0 && max < min) {
+      return "Maximum players cannot be less than minimum players.";
+    }
+    return null;
+  }, [editForm.minimumSquadSize, editForm.maximumSquadSize]);
+
+  const getSaveBlockReason = useCallback((): string | null => {
+    if (!(editForm.name as string)?.trim()) {
+      return "Tournament name is required";
+    }
+    if (!Number(editForm.basePurse) || Number(editForm.basePurse) <= 0) {
+      return "Team budget is required";
+    }
+    if (!Number(editForm.minBid) || Number(editForm.minBid) <= 0) {
+      return "Minimum player value is required";
+    }
+    if (!bidTiers.some(t => t.increment > 0)) {
+      return "Bid increase amount is required";
+    }
+    if (squadSizeError) {
+      return squadSizeError;
+    }
+    if (sportLocked && tournament && (editForm.sport as string) !== tournament.sport) {
+      return "Sport cannot be changed while players exist in the pool.";
+    }
+    if (editForm.enableRegistrationPayment === true) {
+      const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
+      const upi = (editForm.upiId as string).trim();
+      if (!Number.isFinite(fee) || fee <= 0) {
+        return "Complete registration fee to save";
+      }
+      if (!upi) {
+        return "Enter UPI ID to save payment settings";
+      }
+      if (!editForm.paymentVerificationMethod) {
+        return "Choose a verification method to save";
+      }
+    }
+    if (editForm.enableRegistrationDeclaration === true) {
+      const points = parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string);
+      if (points.length === 0) {
+        return "Add at least one declaration point or turn off the declaration";
+      }
+    }
+    if (editForm.bidValueMode === "player" && bidValueOptions.filter((n) => n > 0).length === 0) {
+      return "Add at least one allowed bid value for Player Selected mode";
+    }
+    const sponsorValidation = validateSponsorList(sponsorLogos.filter((l) => l.url.trim()));
+    if (!sponsorValidation.ok) {
+      return sponsorValidation.error;
+    }
+    return null;
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos]);
+
+  const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
+    const blockReason = getSaveBlockReason();
+    if (blockReason) {
+      if (options?.notify) {
+        toast({ title: "Cannot save yet", description: blockReason, variant: "destructive" });
+      }
+      return false;
+    }
+
+    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
+    try {
+      await updateTournament.mutateAsync({
+        tournamentId,
+        data: {
+          reason: DEFAULT_SETTINGS_AUDIT_REASON,
+          name: editForm.name as string,
+          sport: editForm.sport as string,
+          venue: editForm.venue as string || undefined,
+          auctionDate: editForm.auctionDate as string || undefined,
+          auctionTime: editForm.auctionTime as string || undefined,
+          logoUrl: editForm.logoUrl as string || undefined,
+          sponsorLogos: JSON.stringify(filteredLogos),
+          basePurse: Number(editForm.basePurse) || undefined,
+          minBid: Number(editForm.minBid) || undefined,
+          bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
+          timerSeconds: Number(editForm.timerSeconds) || undefined,
+          bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
+          bidExtensionEnabled: editForm.bidExtensionEnabled === true,
+          bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
+          bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
+          playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
+          minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
+          maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
+          registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
+          registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
+            ? Number(editForm.registrationLimit) || null
+            : null,
+          enableRegistrationPayment: editForm.enableRegistrationPayment === true,
+          registrationFee:
+            editForm.enableRegistrationPayment === true && editForm.registrationFee !== ""
+              ? Number(editForm.registrationFee)
+              : null,
+          upiId: editForm.enableRegistrationPayment === true ? ((editForm.upiId as string).trim() || null) : null,
+          paymentVerificationMethod: editForm.enableRegistrationPayment === true
+            ? (editForm.paymentVerificationMethod as import("@workspace/api-client-react").TournamentUpdatePaymentVerificationMethod)
+            : null,
+          paymentCollectionMode: "manual_verification",
+          enableRegistrationDeclaration: editForm.enableRegistrationDeclaration === true,
+          registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
+          bidValueMode: (editForm.bidValueMode as "system" | "player") || "system",
+          bidValueOptions: bidValueOptions.filter((n) => n > 0),
+          audioEnabled: editForm.audioEnabled === true,
+          masterVolume: Number(editForm.masterVolume) || 80,
+          countdownSoundEnabled: editForm.countdownSoundEnabled === true,
+          countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
+          countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
+          soldSoundEnabled: editForm.soldSoundEnabled === true,
+          soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
+          soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
+          breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
+          breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
+          breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
+          mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
+          mainBannerEnabled: editForm.mainBannerEnabled === true,
+          mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
+          matchDates: (editForm.matchDates as string).trim() || null,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0)));
+      if (options?.notify) {
+        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+      }
+      return true;
+    } catch (err: unknown) {
+      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not save settings. Please try again.";
+      if (options?.notify) {
+        toast({ title: "Save failed", description: msg, variant: "destructive" });
+      }
+      return false;
+    }
+  }, [
+    bidTiers,
+    bidValueOptions,
+    buildSnapshot,
+    editForm,
+    getSaveBlockReason,
+    qc,
+    sponsorLogos,
+    toast,
+    tournamentId,
+    updateTournament,
+  ]);
+
+  const saveBlockReason = getSaveBlockReason();
+
+  const { phase: autoSavePhase, saveNow } = useDebouncedAutoSave({
+    isDirty,
+    saveKey,
+    enabled: initialized,
+    canSave: getSaveBlockReason,
+    onSave: () => performSave(),
+    onSaved: () => {
+      toast({ title: "Saved", description: "Settings updated automatically." });
+    },
+    onError: (message) => {
+      toast({ title: "Save failed", description: message, variant: "destructive" });
+    },
+  });
 
   function handleDiscard() {
     if (!tournament) return;
@@ -325,59 +570,21 @@ export default function TournamentSettings() {
     toast({ title: "Changes discarded", description: "Settings restored to last saved state." });
   }
 
-  async function handleSave() {
-    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
-    await updateTournament.mutateAsync({
-      tournamentId,
-      data: {
-        reason: DEFAULT_SETTINGS_AUDIT_REASON,
-        name: editForm.name as string,
-        sport: editForm.sport as string,
-        venue: editForm.venue as string || undefined,
-        auctionDate: editForm.auctionDate as string || undefined,
-        auctionTime: editForm.auctionTime as string || undefined,
-        logoUrl: editForm.logoUrl as string || undefined,
-        sponsorLogos: JSON.stringify(filteredLogos),
-        basePurse: Number(editForm.basePurse) || undefined,
-        minBid: Number(editForm.minBid) || undefined,
-        bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
-        timerSeconds: Number(editForm.timerSeconds) || undefined,
-        bidTimerSeconds: Number(editForm.bidTimerSeconds) || undefined,
-        bidExtensionEnabled: editForm.bidExtensionEnabled === true,
-        bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
-        bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
-        playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
-        minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
-        maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
-        registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
-        registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
-          ? Number(editForm.registrationLimit) || null
-          : null,
-        audioEnabled: editForm.audioEnabled === true,
-        masterVolume: Number(editForm.masterVolume) || 80,
-        countdownSoundEnabled: editForm.countdownSoundEnabled === true,
-        countdownSoundUrl: (editForm.countdownSoundUrl as string).trim() || null,
-        countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
-        soldSoundEnabled: editForm.soldSoundEnabled === true,
-        soldSoundUrl: (editForm.soldSoundUrl as string).trim() || null,
-        soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-        breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
-        breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
-        breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
-        mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
-        mainBannerEnabled: editForm.mainBannerEnabled === true,
-        mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
-        matchDates: (editForm.matchDates as string).trim() || null,
-      },
+  function handleSave() {
+    void saveNow().then((ok) => {
+      if (!ok && saveBlockReason) {
+        toast({ title: "Cannot save yet", description: saveBlockReason, variant: "destructive" });
+      } else if (ok) {
+        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+      }
     });
-    qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-    toast({ title: "Settings saved", description: "Your auction rules have been updated." });
-    navigate(`/tournament/${tournamentId}`);
   }
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: "identity", label: "Basic Info", icon: Building2 },
+    { id: "playerRegistration", label: "Player Registration", icon: UserPlus },
     { id: "auction", label: "Auction Rules", icon: Gavel },
+    { id: "sponsors", label: "Sponsors", icon: Handshake },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
     { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
@@ -414,7 +621,7 @@ export default function TournamentSettings() {
               Tournament Settings
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {tournament?.name} — changes apply when you save.
+              {tournament?.name} — changes save automatically.
             </p>
           </div>
         </div>
@@ -423,15 +630,18 @@ export default function TournamentSettings() {
           isSaving={updateTournament.isPending}
           onSave={handleSave}
           onDiscard={handleDiscard}
+          autoSave
+          autoSavePhase={autoSavePhase}
+          blockReason={saveBlockReason}
         />
       </div>
 
-      {isDirty ? (
-        <p className="sm:hidden text-xs text-amber-500 mb-3 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
-          Unsaved changes
-        </p>
-      ) : null}
+      <AutoSaveStatusPill
+        phase={autoSavePhase}
+        isDirty={isDirty}
+        isSaving={updateTournament.isPending}
+        blockReason={saveBlockReason}
+      />
 
       {/* Sticky tab strip */}
       <div className="flex border-b border-border mb-5 overflow-x-auto sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-1 -mx-1 px-1">
@@ -498,19 +708,27 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Sport</Label>
-                  <Select value={editForm.sport as string || "cricket"} onValueChange={v => setEditForm(f => ({ ...f, sport: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent className="dark">
-                      {(hubSports.length > 0 ? hubSports : [
-                        { slug: "cricket", name: "Cricket" }, { slug: "football", name: "Football" },
-                        { slug: "kabaddi", name: "Kabaddi" }, { slug: "badminton", name: "Badminton" },
-                        { slug: "volleyball", name: "Volleyball" }, { slug: "esports", name: "E-Sports" },
-                        { slug: "other", name: "Other" },
-                      ]).map(s => (
-                        <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    {sportLocked ? (
+                      <button
+                        type="button"
+                        className="absolute inset-0 z-10 cursor-not-allowed rounded-md"
+                        aria-label="Sport locked while players exist in the pool"
+                        onClick={notifySportLocked}
+                      />
+                    ) : null}
+                    <SportSelect
+                      value={(editForm.sport as string) || "cricket"}
+                      currentSlug={tournament?.sport}
+                      disabled={sportLocked}
+                      onValueChange={handleSportChange}
+                    />
+                  </div>
+                  {sportLocked ? (
+                    <p className="text-[10px] text-muted-foreground">
+                      Locked while players exist in the pool.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </SettingsCard>
@@ -527,34 +745,17 @@ export default function TournamentSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Date</Label>
-                  <Input value={editForm.auctionDate as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionDate: e.target.value }))} placeholder="15 March 2025" />
+                  <DatePicker
+                    value={editForm.auctionDate as string || ""}
+                    onChange={auctionDate => setEditForm(f => ({ ...f, auctionDate }))}
+                    placeholder="Select auction date"
+                    disablePastDates
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5"><CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Auction Time</Label>
                   <Input type="time" value={editForm.auctionTime as string || ""} onChange={e => setEditForm(f => ({ ...f, auctionTime: e.target.value }))} placeholder="14:00" />
                   <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Registration"
-              description="Control the public self-registration form. Leave blank for no limit."
-              icon={<UserPlus className="w-4 h-4 text-muted-foreground" />}
-              className={fieldWrapClass("registration")}
-            >
-              <div id="settings-field-registration" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1.5">
-                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last Registration Date
-                  </Label>
-                  <Input type="date" value={editForm.registrationDeadline as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))} />
-                  <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Max Registrations</Label>
-                  <Input type="number" min={1} value={editForm.registrationLimit as string || ""} onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))} placeholder="e.g. 100" />
-                  <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
                 </div>
               </div>
             </SettingsCard>
@@ -575,21 +776,17 @@ export default function TournamentSettings() {
                 return (
                   <>
                     <div className="flex gap-2">
-                      <Input
-                        type="date"
+                      <DatePicker
                         value={datePickerVal}
-                        onChange={e => setDatePickerVal(e.target.value)}
-                        className="w-auto"
-                        onKeyDown={e => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
-                            setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
-                            setDatePickerVal("");
-                          }
-                        }}
+                        onChange={setDatePickerVal}
+                        placeholder="Select match date"
+                        className="w-auto min-w-[11rem]"
                       />
-                      <Button type="button" variant="outline" size="sm" disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)} onClick={() => {
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!datePickerVal || settingsMatchDates.includes(datePickerVal)}
+                        onClick={() => {
                         if (!datePickerVal || settingsMatchDates.includes(datePickerVal)) return;
                         setEditForm(f => ({ ...f, matchDates: [...settingsMatchDates, datePickerVal].sort().join(",") }));
                         setDatePickerVal("");
@@ -623,6 +820,279 @@ export default function TournamentSettings() {
           </div>
         )}
 
+        {/* ── PLAYER REGISTRATION ── */}
+        {activeSection === "playerRegistration" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="text-xs font-normal">All settings optional</Badge>
+              <p className="text-[11px] text-muted-foreground">
+                Configure the public player registration link. Changes save automatically.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SettingsCard
+                title="Registration Limits"
+                description="Close the form after a date or player count. Leave blank for no limit."
+                icon={<CalendarIcon className="w-4 h-4 text-muted-foreground" />}
+                className={fieldWrapClass("registration")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                </div>
+                <div id="settings-field-registration" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" /> Last date to register
+                    </Label>
+                    <Input
+                      type="date"
+                      value={editForm.registrationDeadline as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationDeadline: e.target.value }))}
+                    />
+                    <p className="text-[10px] text-muted-foreground">After this date the form auto-closes.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Max registrations</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editForm.registrationLimit as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
+                      placeholder="e.g. 100"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Form auto-closes once this many players have registered.</p>
+                  </div>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Bid Value Mode"
+                description="Choose whether base values are set by the organizer or selected by players during registration."
+                icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
+                className="lg:col-span-2"
+              >
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Assignment mode</Label>
+                    <Select
+                      value={(editForm.bidValueMode as string) || "system"}
+                      onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="system">System Assigned (default)</SelectItem>
+                        <SelectItem value="player">Player Selected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      System Assigned uses your tournament minimum player value. Player Selected shows a dropdown of allowed values on the registration form.
+                    </p>
+                  </div>
+
+                  {editForm.bidValueMode === "player" && (
+                    <div className="space-y-2 pt-1 border-t border-border/50">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs">Allowed bid values (₹)</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setBidValueOptions((opts) => [...opts, 0])}
+                        >
+                          + Add value
+                        </Button>
+                      </div>
+                      {bidValueOptions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Add at least one value players can choose from.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {bidValueOptions.map((value, i) => (
+                            <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-muted-foreground">Value {i + 1}</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={value || ""}
+                                  onChange={(e) => {
+                                    const next = Number(e.target.value) || 0;
+                                    setBidValueOptions((opts) => opts.map((v, j) => (j === i ? next : v)));
+                                  }}
+                                  placeholder="e.g. 1500"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9"
+                                disabled={i === 0}
+                                onClick={() => setBidValueOptions((opts) => {
+                                  if (i === 0) return opts;
+                                  const next = [...opts];
+                                  [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                  return next;
+                                })}
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9"
+                                disabled={i === bidValueOptions.length - 1}
+                                onClick={() => setBidValueOptions((opts) => {
+                                  if (i >= opts.length - 1) return opts;
+                                  const next = [...opts];
+                                  [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                  return next;
+                                })}
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Registration Payments"
+                description="Collect a registration fee with manual UPI payment verification."
+                icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
+                className={fieldWrapClass("registration")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                </div>
+                <div id="settings-field-registration-payments" className="space-y-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">Collect Registration Fee</p>
+                      <p className="text-[10px] text-muted-foreground">Players pay via UPI and submit proof during registration.</p>
+                    </div>
+                    <Switch
+                      checked={editForm.enableRegistrationPayment === true}
+                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
+                    />
+                  </div>
+
+                  <Collapsible open={editForm.enableRegistrationPayment === true}>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Registration Fee (₹) <span className="text-destructive">*</span></Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={editForm.registrationFee as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
+                            placeholder="e.g. 500"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">UPI ID <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={editForm.upiId as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
+                            placeholder="yourname@upi"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs">Verification Method <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={(editForm.paymentVerificationMethod as string) || "utr"}
+                            onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent className="dark">
+                              <SelectItem value="utr">UTR Number only</SelectItem>
+                              <SelectItem value="screenshot">Payment screenshot only</SelectItem>
+                              <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Payment gateway integration (Cashfree, Razorpay) coming soon. Manual verification is active.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Declaration & Consent"
+                description="Point-wise declaration shown on the registration form. Players must accept before submitting."
+                icon={<ClipboardList className="w-4 h-4 text-muted-foreground" />}
+                className="lg:col-span-2"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-xs font-normal">Optional</Badge>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Info className="w-3 h-3 text-blue-400" /> Enter one declaration point per line.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-medium">Require declaration acceptance</p>
+                      <p className="text-[10px] text-muted-foreground">Players must accept your declaration before the form can be submitted.</p>
+                    </div>
+                    <Switch
+                      checked={editForm.enableRegistrationDeclaration === true}
+                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationDeclaration: v }))}
+                    />
+                  </div>
+
+                  <Collapsible open={editForm.enableRegistrationDeclaration === true}>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Declaration points</Label>
+                        <Textarea
+                          value={editForm.registrationDeclarationText as string || ""}
+                          onChange={e => setEditForm(f => ({ ...f, registrationDeclarationText: e.target.value }))}
+                          placeholder={"I consent to be present for all the matches on 4 & 5 July 2026.\nI agree to abide by the league's rules, regulations, and code of conduct.\nI declare that I am physically and medically fit to participate in the league."}
+                          rows={12}
+                          className="text-sm font-normal leading-relaxed"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Each line becomes a numbered point on the registration form. Add as many points as your tournament requires.
+                        </p>
+                      </div>
+                      {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length > 0 ? (
+                        <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Preview</p>
+                          <ol className="list-decimal list-inside space-y-1.5 text-sm text-muted-foreground">
+                            {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).map((point, i) => (
+                              <li key={i} className="leading-relaxed">{point}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : null}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </SettingsCard>
+            </div>
+          </div>
+        )}
+
         {/* ── AUCTION RULES ── */}
         {activeSection === "auction" && (
           <div className="space-y-4">
@@ -636,38 +1106,73 @@ export default function TournamentSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <SettingsCard
                 title="Budget & Pricing"
-                description="Team purse, minimum player value, and bid increment."
+                description="Team purse, minimum player value, bid increment, and optional tiered raise rules."
                 icon={<Gavel className="w-4 h-4 text-muted-foreground" />}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="flex items-center gap-1">
-                      Team Budget (₹)
+                      Team Budget (₹) *
                       <FieldTooltip text="How many rupees each team can spend in total. Every team starts with this amount. Set this to your league's purse size, e.g. ₹1,00,00,000 for IPL-style." />
                     </Label>
-                    <Input type="number" value={editForm.basePurse as number || 0} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} />
+                    <Input type="number" value={editForm.basePurse as string || ""} onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))} placeholder="e.g. 10000000" />
                   </div>
                   <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
                     <Label className="flex items-center gap-1">
-                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹)</HintLabel>
+                      <HintLabel hint="Sabse kam daam jahan se bidding shuru hogi">Minimum Player Value (₹) *</HintLabel>
                       <FieldTooltip text="The lowest amount any player can be sold for. Bidding for a player starts at this value unless the player's category overrides it." />
                     </Label>
-                    <Input type="number" value={editForm.minBid as number || 0} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} />
+                    <Input type="number" value={editForm.minBid as string || ""} onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))} placeholder="e.g. 10000" />
                   </div>
                 </div>
-                <div id="settings-field-bidTiers" className={`space-y-1.5 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
-                  <Label className="flex items-center gap-1">
-                    Bid Increase Amount (₹)
-                    <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use the Advanced section below if you want the increment to change as bids get higher." />
-                  </Label>
+                <div id="settings-field-bidTiers" className={`space-y-2 pt-1 border-t border-border/50 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="flex items-center gap-1">
+                      Bid Increase Amount (₹) *
+                      <FieldTooltip text="How much the bid goes up each time a team raises. For example, if set to ₹10,000 and the current bid is ₹50,000 — the next bid will be ₹60,000. Use + Add Tier for different increments at higher price points." />
+                    </Label>
+                    <Button type="button" size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
+                      + Add Tier
+                    </Button>
+                  </div>
                   {bidTiers.length === 1 ? (
                     <div className="flex items-center gap-3">
                       <Input type="number" className="max-w-[200px]" value={bidTiers[0]?.increment || ""} onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])} placeholder="e.g. 10000" />
                       <span className="text-xs text-muted-foreground">per raise</span>
                     </div>
                   ) : (
-                    <div className="px-3 py-2 rounded-lg bg-muted/20 border border-border/50 text-xs text-muted-foreground">
-                      Tiered increments enabled — adjust in Advanced Settings below.
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Tiered bid increase rules — set different raise amounts at different price points.
+                      </p>
+                      {bidTiers.map((tier, i) => {
+                        const isLast = i === bidTiers.length - 1;
+                        return (
+                          <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">{isLast ? "Any amount above — Raise by (₹)" : `Up to (₹) — Tier ${i + 1}`}</Label>
+                              {isLast ? (
+                                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
+                              ) : (
+                                <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
+                              <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
+                            </div>
+                            <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
+                              const next = t.filter((_, j) => j !== i);
+                              if (next.length === 0) return t;
+                              const last = { ...next[next.length - 1] };
+                              delete last.upTo;
+                              return [...next.slice(0, -1), last];
+                            })}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -753,71 +1258,42 @@ export default function TournamentSettings() {
                     </Label>
                     <Input type="number" min={0} max={100} value={editForm.minimumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))} />
                   </div>
-                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", Number(editForm.maximumSquadSize) <= 0)}`}>
+                  <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", !!squadSizeError)}`}>
                     <Label className="text-xs flex items-center gap-1">
                       Maximum Players
                       <FieldTooltip text="Teams cannot bid once they reach this count." />
                     </Label>
-                    <Input type="number" min={0} max={100} value={editForm.maximumSquadSize as string ?? "0"} onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))} />
+                    <Input
+                      type="number"
+                      min={Number(editForm.minimumSquadSize) > 0 ? Number(editForm.minimumSquadSize) : 0}
+                      max={100}
+                      value={editForm.maximumSquadSize as string ?? "0"}
+                      onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
+                    />
+                    {squadSizeError ? (
+                      <p className="text-[11px] text-destructive">{squadSizeError}</p>
+                    ) : null}
                   </div>
                 </div>
               </SettingsCard>
             </div>
+          </div>
+        )}
 
-            <Collapsible open={showAdvancedAuction} onOpenChange={setShowAdvancedAuction}>
-              <SettingsCard className="border-dashed" contentClassName="p-0">
-                <CollapsibleTrigger asChild>
-                  <button type="button" className="flex items-center gap-2 w-full text-left px-4 sm:px-5 py-4 hover:bg-muted/30 transition-colors rounded-xl">
-                    {showAdvancedAuction ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">Advanced Settings</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Contains tiered bid increments and advanced auction controls.</p>
-                    </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 border-t border-border/50 pt-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-sm font-semibold flex items-center gap-1">
-                        Tiered Bid Increase Rules
-                        <FieldTooltip text="For advanced leagues: set different bid increments at different price points. For example, bids under ₹1L go up by ₹10K, bids over ₹1L go up by ₹25K. Most organisers don't need this — leave it as one tier." />
-                      </Label>
-                      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => setBidTiers(t => [...t.slice(0, -1), { upTo: 0, increment: 0 }, { increment: t[t.length - 1]?.increment ?? 100000 }])}>
-                        + Add Tier
-                      </Button>
-                    </div>
-                    {bidTiers.map((tier, i) => {
-                      const isLast = i === bidTiers.length - 1;
-                      return (
-                        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">{isLast ? "Any amount above — Raise by (₹)" : `Up to (₹) — Tier ${i + 1}`}</Label>
-                            {isLast ? (
-                              <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-sm">No upper limit</div>
-                            ) : (
-                              <Input type="number" value={tier.upTo ?? ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))} placeholder="e.g. 100000" />
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground">Raise by (₹)</Label>
-                            <Input type="number" value={tier.increment || ""} onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))} placeholder="e.g. 25000" />
-                          </div>
-                          <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" disabled={bidTiers.length <= 1} onClick={() => setBidTiers(t => {
-                            const next = t.filter((_, j) => j !== i);
-                            if (next.length === 0) return t;
-                            const last = { ...next[next.length - 1] };
-                            delete last.upTo;
-                            return [...next.slice(0, -1), last];
-                          })}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </SettingsCard>
-            </Collapsible>
+        {/* ── SPONSORS ── */}
+        {activeSection === "sponsors" && (
+          <div className="max-w-3xl">
+            <SettingsCard
+              title="Sponsor Logos"
+              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 2 seconds on the big screen."
+              icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Logo required; name and type optional.</span>
+                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
+              </div>
+              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
+            </SettingsCard>
           </div>
         )}
 
@@ -826,7 +1302,7 @@ export default function TournamentSettings() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <SettingsCard
               title="LED Display"
-              description="Main banner, display mode, and colour theme for the big screen."
+              description="Main banner and display mode for the big screen. Pick the LED colour theme on the live display."
               icon={<Monitor className="w-4 h-4 text-muted-foreground" />}
             >
               <div className="flex items-center justify-between gap-3">
@@ -834,79 +1310,89 @@ export default function TournamentSettings() {
                 <Switch checked={editForm.mainBannerEnabled === true} onCheckedChange={(v) => setEditForm(f => ({ ...f, mainBannerEnabled: v }))} />
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/5 p-3 space-y-3">
+                <input
+                  ref={bannerFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleBannerFilePick}
+                />
                 {editForm.mainBannerUrl ? (
                   <div className="space-y-2">
-                    <div className="relative rounded-md overflow-hidden border border-border/40 bg-black" style={{ aspectRatio: "16/7" }}>
-                      <img
-                        src={editForm.mainBannerUrl as string}
-                        alt="Banner preview"
-                        className="w-full h-full object-cover object-center"
+                    <div className="relative rounded-md overflow-hidden border border-border/40">
+                      <BannerFrame
+                        url={editForm.mainBannerUrl as string}
+                        fit={(editForm.mainBannerFit as string) || "cover"}
                       />
                       <button
                         type="button"
-                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors"
+                        className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors z-10"
                         onClick={() => setEditForm(f => ({ ...f, mainBannerUrl: "" }))}
                         title="Remove banner"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <label className="cursor-pointer">
-                      <div className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ${mainBannerUploading ? "cursor-wait opacity-60" : ""}`}>
-                        {mainBannerUploading
-                          ? <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</>
-                          : <><Upload className="w-3 h-3" /> Replace image</>
-                        }
-                      </div>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerUpload} disabled={mainBannerUploading} />
-                    </label>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      LED preview (16:9) — matches the big screen
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={openBannerAdjust}
+                      >
+                        <Crop className="w-3 h-3" />
+                        Adjust crop &amp; zoom
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => bannerFileInputRef.current?.click()}
+                      >
+                        <Upload className="w-3 h-3" />
+                        Replace image
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <label className="cursor-pointer block">
-                    <div className={`flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 py-7 transition-colors ${mainBannerUploading ? "cursor-wait bg-muted/10" : "hover:bg-muted/10 bg-muted/5"}`}>
-                      {mainBannerUploading
-                        ? <><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground">Uploading...</span></>
-                        : <><Upload className="w-5 h-5 text-muted-foreground" /><span className="text-xs font-medium text-muted-foreground">Click to upload banner image</span><span className="text-[10px] text-muted-foreground">JPG, PNG or WEBP &mdash; max 5 MB</span></>
-                      }
+                  <button
+                    type="button"
+                    className="cursor-pointer block w-full text-left"
+                    onClick={() => bannerFileInputRef.current?.click()}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/60 py-7 transition-colors hover:bg-muted/10 bg-muted/5">
+                      <Upload className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Click to upload banner image</span>
+                      <span className="text-[10px] text-muted-foreground">JPG, PNG or WEBP — max 5 MB — crop for 16:9 LED</span>
                     </div>
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerUpload} disabled={mainBannerUploading} />
-                  </label>
+                  </button>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs text-muted-foreground">Display mode</Label>
-                  <div className="flex gap-1.5">
-                    {(["cover", "contain"] as const).map(fit => (
-                      <button key={fit} type="button" onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))} className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${editForm.mainBannerFit === fit ? "bg-amber-500/20 border border-amber-500/40 text-amber-300" : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"}`}>
-                        {fit === "cover" ? "Crop to Fill" : "Fit to Screen"}
-                      </button>
-                    ))}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Display mode</Label>
+                    <div className="flex gap-1.5">
+                      {(["cover", "contain"] as const).map(fit => (
+                        <button key={fit} type="button" onClick={() => setEditForm(f => ({ ...f, mainBannerFit: fit }))} className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${editForm.mainBannerFit === fit ? "bg-amber-500/20 border border-amber-500/40 text-amber-300" : "bg-muted/20 border border-border/40 text-muted-foreground hover:text-foreground"}`}>
+                          {fit === "cover" ? "Crop to Fill" : "Fit to Screen"}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Use <span className="font-medium text-foreground/80">Adjust crop &amp; zoom</span> to frame the banner for the LED.
+                    {" "}
+                    {editForm.mainBannerFit === "contain"
+                      ? "Fit to Screen keeps the full image visible with bars if needed."
+                      : "Crop to Fill stretches edge-to-edge — best after cropping to 16:9."}
+                  </p>
                 </div>
               </div>
-              <div className="space-y-1.5 pt-1 border-t border-border/50">
-                <Label className="text-xs text-muted-foreground">Theme</Label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {DISPLAY_THEMES_LIST.map(t => (
-                    <button key={t.id} title={t.label} onClick={() => handleDisplayThemeChange(t.id)} className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${displayTheme === t.id ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300" : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Sponsors"
-              description="Logos rotate on the LED display every 2 seconds."
-              icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}
-            >
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Logo required; name and type optional.</span>
-                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
-              </div>
-              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
             </SettingsCard>
 
             <SettingsCard
@@ -968,13 +1454,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.countdownSoundUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, countdownSoundUrl: "" })); setCountdownFileName(""); }}>
+                                onClick={() => clearAudioField("countdownSoundUrl", setCountdownFileName, "countdownSoundUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.countdownSoundUrl ? "Custom file loaded — will replace built-in tick" : "No file selected — built-in digital tick will play"}
+                            {editForm.countdownSoundUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : countdownFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in digital tick will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1023,13 +1513,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.soldSoundUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, soldSoundUrl: "" })); setSoldFileName(""); }}>
+                                onClick={() => clearAudioField("soldSoundUrl", setSoldFileName, "soldSoundUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.soldSoundUrl ? "Custom file loaded — will replace built-in fanfare" : "No file selected — built-in fanfare will play"}
+                            {editForm.soldSoundUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : soldFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in fanfare will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1078,13 +1572,17 @@ export default function TournamentSettings() {
                             </label>
                             {editForm.breakEndMusicUrl && (
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => { setEditForm(f => ({ ...f, breakEndMusicUrl: "" })); setBreakEndFileName(""); }}>
+                                onClick={() => clearAudioField("breakEndMusicUrl", setBreakEndFileName, "breakEndMusicUrl")}>
                                 <X className="w-3 h-3" />
                               </Button>
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {editForm.breakEndMusicUrl ? "Custom file loaded — will replace built-in chime" : "No file selected — built-in chime will play"}
+                            {editForm.breakEndMusicUrl
+                              ? "Custom file loaded — overrides platform default"
+                              : breakEndFileName === "Platform default"
+                                ? "Using platform default — upload to override for this tournament"
+                                : "No file selected — built-in chime will play"}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1131,19 +1629,24 @@ export default function TournamentSettings() {
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3"
+                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3 disabled:opacity-50 disabled:pointer-events-none"
+                  disabled={tournament?.status === "completed"}
                   onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
                 >
                   <ShieldAlert className="w-4 h-4 flex-shrink-0" />
                   <div className="flex flex-col items-start text-left">
                     <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                    <span className="text-[11px] text-muted-foreground font-normal">Password-protected — requires organizer password and audit reason.</span>
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      {tournament?.status === "completed"
+                        ? "Unavailable after the tournament is marked completed."
+                        : "Requires an active organizer session."}
+                    </span>
                   </div>
                 </Button>
               </div>
               <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-3">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">Coming soon:</span> Auto-save snapshots, crash recovery, lock team bidding, and re-auction queue management.
+                  <span className="font-medium text-foreground/80">Coming soon:</span> Crash recovery snapshots, lock team bidding, and re-auction queue management.
                 </p>
               </div>
             </SettingsCard>
@@ -1158,6 +1661,17 @@ export default function TournamentSettings() {
         aspect={1}
         title="Tournament Logo"
         onSave={url => setEditForm(f => ({ ...f, logoUrl: url }))}
+      />
+      <ImageEditorDialog
+        open={bannerEditorOpen}
+        onClose={closeBannerEditor}
+        initialUrl={bannerEditorInitial}
+        aspect={16 / 9}
+        title="Main Banner — LED crop"
+        exportMaxWidthOrHeight={1920}
+        exportMaxSizeMB={4.5}
+        exportHint="Drag to reposition, use the zoom slider to scale. Output is saved at 16:9 (up to 1920px) — the preview above matches the LED screen."
+        onSave={url => setEditForm(f => ({ ...f, mainBannerUrl: url }))}
       />
       </div>
     </AppLayout>

@@ -11,8 +11,7 @@
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "strictNullChecks": true,
-    "noEmitOnError": true,
-    "outDir": "dist-electron",
+    "noEmit": true,
     "rootDir": "electron",
     "types": ["node"]
   },

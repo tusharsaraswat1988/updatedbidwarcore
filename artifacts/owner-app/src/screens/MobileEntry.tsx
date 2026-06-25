@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, ArrowLeft } from "lucide-react";
+import { Phone } from "lucide-react";
 import { useBranding } from "@/hooks/useBranding";
+import { OWNER_AUTH_LOGIN } from "@/lib/brand-usage";
 import { parseOwnerDeepLink, submitOwnerMobile } from "@/lib/owner-flow";
 
 export function MobileEntry() {
@@ -43,33 +44,25 @@ export function MobileEntry() {
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] safe-top safe-bottom">
-      <div className="px-5 pt-5 pb-3 flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => setLocation("/")}
-          className="flex items-center gap-2 text-[#71717a] hover:text-[#a1a1aa] text-sm font-semibold transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 pt-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-sm space-y-8"
         >
           <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              {logos.mini ? (
-                <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+            <div className="flex items-center justify-center -mt-4">
+              {logos.mainReverse ? (
+                <img src={logos.mainReverse} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
+              ) : logos.main ? (
+                <img src={logos.main} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
+              ) : logos.mini ? (
+                <img src={logos.mini} alt={brandName} className="h-16 w-auto mx-auto" />
               ) : (
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                <div className="w-[8.4rem] h-[8.4rem] rounded-2xl flex items-center justify-center font-display font-black text-3xl bg-amber-400/20 text-amber-400 border border-amber-400/30">
                   {miniBrandText}
                 </div>
               )}
-              <span className="font-display font-black text-lg text-white">{brandName}</span>
             </div>
             <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-amber-400/15 border border-amber-400/30">
               <Phone className="w-8 h-8 text-amber-400" />

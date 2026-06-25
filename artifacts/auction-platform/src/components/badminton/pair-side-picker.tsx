@@ -64,8 +64,8 @@ export function PairSidePicker({
   const player2Label = "Player 2";
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3 space-y-3">
-      <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{sideLabel}</p>
+    <div className="rounded-xl border border-white/10 bg-[#121c34]/60 p-4 space-y-3">
+      <p className="text-[#4fc3f7] text-[11px] font-bold uppercase tracking-[0.16em]">{sideLabel}</p>
       <MasterPlayerPicker
         tournamentId={tournamentId}
         label={player1Label}
@@ -90,6 +90,40 @@ export function PairSidePicker({
       )}
     </div>
   );
+}
+
+export function sideJsonToPlayerForm(
+  json: Record<string, unknown>,
+  playerIndex = 0,
+): SidePlayerForm {
+  const players = Array.isArray(json.players)
+    ? (json.players as Record<string, unknown>[])
+    : null;
+
+  if (players && players.length > playerIndex) {
+    const player = players[playerIndex]!;
+    return {
+      masterId: (player.masterPlayerId as string | undefined) ?? null,
+      name: (player.label as string | undefined) ?? "",
+      short: (player.shortLabel as string | undefined) ?? "",
+      photoUrl: (player.photoUrl as string | undefined) ?? "",
+      franchiseLogo:
+        ((player.franchiseLogoUrl ?? player.teamLogoUrl) as string | undefined) ?? "",
+      playerIds: (player.playerIds as number[] | undefined) ?? [],
+    };
+  }
+
+  if (playerIndex > 0) return emptySidePlayer();
+
+  return {
+    masterId: (json.masterPlayerId as string | undefined) ?? null,
+    name: (json.label as string | undefined) ?? "",
+    short: (json.shortLabel as string | undefined) ?? "",
+    photoUrl: (json.photoUrl as string | undefined) ?? "",
+    franchiseLogo:
+      ((json.franchiseLogoUrl ?? json.teamLogoUrl) as string | undefined) ?? "",
+    playerIds: (json.playerIds as number[] | undefined) ?? [],
+  };
 }
 
 export function sidePlayerFormToJson(player: SidePlayerForm) {

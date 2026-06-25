@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
+
 const GA_ID = "G-5Q39TEZJX2";
 const CLARITY_ID = "wu86zkys2f";
 
@@ -44,6 +46,7 @@ export function PageTracking(): null {
   const [pathname] = useLocation();
 
   useEffect(() => {
+    if (isBidWarLocalHost()) return;
     const blocked = BLOCKED_PREFIXES.some((p) => pathname.startsWith(p));
     if (!blocked) {
       loadTracking();

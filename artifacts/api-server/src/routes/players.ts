@@ -1,22 +1,78 @@
 import { Router } from "express";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
+import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
+import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
-import { eq, and, or, ne, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
-import { parseAuditReason, isCriticalPlayerPatch } from "../lib/audit-reason";
+import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotPlayer } from "../lib/audit-snapshots";
 import { syncAuctionPlayerToMasterAsync } from "../lib/master-sports/sync";
 import { onAuctionPlayerRosterChangedAsync } from "../lib/master-sports/cricket-roster";
+import {
+  PAYMENT_COLLECTION_MODES,
+  PAYMENT_VERIFICATION_METHODS,
+  REGISTRATION_PAYMENT_STATUSES,
+} from "@workspace/api-base/registration-payment";
+import {
+  resolveOrganizerPaymentStatus,
+  resolvePublicPaymentStatus,
+  tournamentPaymentSettingsFromRow,
+  validatePlayerPaymentProof,
+} from "../lib/registration-payment";
+import { notifyAsync } from "../lib/notifications";
+import { allocateNextPlayerSerialNo } from "../lib/player-serial";
+import {
+  canEditPlayerBidValue,
+  parseBidValueOptions,
+  resolvePlayerBidFields,
+  serializeBidValueOptions,
+} from "@workspace/api-base/bid-value";
+import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
+import { publicTournamentSerializer } from "../lib/serializers/tournament";
+import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import {
+  persistPlayerSpecificationsDualWrite,
+  resolveLegacyFieldsForInsert,
+  serializePlayerWithSpecifications,
+  serializePlayersWithSpecifications,
+} from "../lib/player-spec-response";
+import { copyPlayerSpecifications } from "../lib/player-specification-service";
+import type { Request, Response } from "express";
+
+async function fetchTournamentBidConfig(tid: number) {
+  const [tournament] = await db
+    .select({
+      bidValueMode: tournamentsTable.bidValueMode,
+      minBid: tournamentsTable.minBid,
+      bidValueOptions: tournamentsTable.bidValueOptions,
+      status: tournamentsTable.status,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  return tournament ?? null;
+}
 
 async function computeRegistrationStatus(tid: number) {
   const [tournament] = await db
     .select({
       deadline: tournamentsTable.registrationDeadline,
       limit: tournamentsTable.registrationLimit,
+      enableRegistrationPayment: tournamentsTable.enableRegistrationPayment,
+      registrationFee: tournamentsTable.registrationFee,
+      upiId: tournamentsTable.upiId,
+      paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
+      enableRegistrationDeclaration: tournamentsTable.enableRegistrationDeclaration,
+      registrationDeclarationText: tournamentsTable.registrationDeclarationText,
+      bidValueMode: tournamentsTable.bidValueMode,
+      bidValueOptions: tournamentsTable.bidValueOptions,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -40,7 +96,25 @@ async function computeRegistrationStatus(tid: number) {
     open = false;
     reason = "limit_reached";
   }
-  return { open, reason, currentCount: count, limit, deadline };
+  return {
+    open,
+    reason,
+    currentCount: count,
+    limit,
+    deadline,
+    enableRegistrationPayment: tournament.enableRegistrationPayment ?? false,
+    registrationFee: tournament.registrationFee ?? null,
+    upiId: tournament.upiId ?? null,
+    paymentVerificationMethod: tournament.paymentVerificationMethod ?? null,
+    enableRegistrationDeclaration: tournament.enableRegistrationDeclaration ?? false,
+    registrationDeclarationText: tournament.registrationDeclarationText ?? null,
+    registrationDeclarationPoints:
+      tournament.enableRegistrationDeclaration && tournament.registrationDeclarationText
+        ? parseRegistrationDeclarationPoints(tournament.registrationDeclarationText)
+        : [],
+    bidValueMode: tournament.bidValueMode ?? "system",
+    bidValueOptions: parseBidValueOptions(tournament.bidValueOptions),
+  };
 }
 
 const router = Router();
@@ -64,6 +138,48 @@ async function findDuplicatePlayerMobile(
   return null;
 }
 
+/** Profile-only fields players may update via public self-registration when mobile already exists. */
+function buildPublicRegistrationProfileUpdates(
+  d: z.infer<typeof playerInputSchema>,
+  email: string | null,
+  paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
+  paymentFields: ReturnType<typeof buildPaymentInsertFields>,
+  existing: typeof playersTable.$inferSelect,
+) {
+  const updates: Record<string, unknown> = {
+    name: d.name,
+    city: d.city ?? null,
+    role: d.role ?? null,
+    battingStyle: d.battingStyle ?? null,
+    bowlingStyle: d.bowlingStyle ?? null,
+    specialization: d.specialization ?? null,
+    age: d.age ?? null,
+    gender: d.gender ?? null,
+    photoUrl: d.photoUrl ?? null,
+    jerseyNumber: d.jerseyNumber ?? null,
+    jerseySize: d.jerseySize ?? null,
+    achievements: d.achievements ?? null,
+    email,
+    cricheroUrl: d.cricheroUrl ?? null,
+    availabilityDates: d.availabilityDates ?? null,
+  };
+
+  if (d.whatsappConsent && !existing.whatsappConsent) {
+    updates.whatsappConsent = true;
+    updates.whatsappConsentAt = new Date();
+    updates.whatsappConsentMethod = "web_checkbox";
+  }
+
+  if (
+    paymentConfig?.enableRegistrationPayment &&
+    existing.registrationPaymentStatus !== "approved"
+  ) {
+    Object.assign(updates, paymentFields);
+  }
+
+  return updates;
+}
+
 /**
  * Recalculate and persist team.purseUsed from the current player records.
  * Called whenever a player's retained status or teamId changes so that the
@@ -84,62 +200,49 @@ async function recalcTeamPurseUsed(tournamentId: number, teamId: number): Promis
   await db.update(teamsTable).set({ purseUsed }).where(eq(teamsTable.id, teamId));
 }
 
-const playerToJson = (p: typeof playersTable.$inferSelect) => ({
-  id: p.id,
-  tournamentId: p.tournamentId,
-  categoryId: p.categoryId,
-  teamId: p.teamId,
-  name: p.name,
-  city: p.city,
-  role: p.role,
-  battingStyle: p.battingStyle,
-  bowlingStyle: p.bowlingStyle,
-  specialization: p.specialization,
-  age: p.age,
-  photoUrl: p.photoUrl,
-  basePrice: p.basePrice,
-  soldPrice: p.soldPrice,
-  retainedPrice: p.retainedPrice,
-  status: p.status,
-  jerseyNumber: p.jerseyNumber,
-  achievements: p.achievements,
-  mobileNumber: p.mobileNumber,
-  email: p.email ?? null,
-  cricheroUrl: p.cricheroUrl,
-  availabilityDates: p.availabilityDates,
-  playerTag: p.playerTag ?? null,
-  playerTagTeamId: p.playerTagTeamId ?? null,
-  isNonPlayingMember: p.isNonPlayingMember ?? false,
-  createdAt: p.createdAt.toISOString(),
-});
+async function fetchTournamentPaymentConfig(tid: number) {
+  const [row] = await db
+    .select({
+      enableRegistrationPayment: tournamentsTable.enableRegistrationPayment,
+      registrationFee: tournamentsTable.registrationFee,
+      upiId: tournamentsTable.upiId,
+      paymentVerificationMethod: tournamentsTable.paymentVerificationMethod,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  return row ? tournamentPaymentSettingsFromRow(row) : null;
+}
 
-// Public serializer: omits mobileNumber entirely (not set to null)
-const playerToPublicJson = (p: typeof playersTable.$inferSelect) => ({
-  id: p.id,
-  tournamentId: p.tournamentId,
-  categoryId: p.categoryId,
-  teamId: p.teamId,
-  name: p.name,
-  city: p.city,
-  role: p.role,
-  battingStyle: p.battingStyle,
-  bowlingStyle: p.bowlingStyle,
-  specialization: p.specialization,
-  age: p.age,
-  photoUrl: p.photoUrl,
-  basePrice: p.basePrice,
-  soldPrice: p.soldPrice,
-  retainedPrice: p.retainedPrice,
-  status: p.status,
-  jerseyNumber: p.jerseyNumber,
-  achievements: p.achievements,
-  cricheroUrl: p.cricheroUrl,
-  availabilityDates: p.availabilityDates,
-  playerTag: p.playerTag ?? null,
-  playerTagTeamId: p.playerTagTeamId ?? null,
-  isNonPlayingMember: p.isNonPlayingMember ?? false,
-  createdAt: p.createdAt.toISOString(),
-});
+function buildPaymentInsertFields(
+  paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
+  input: { utrNumber?: string; paymentScreenshotUrl?: string; markPaymentCompleted?: boolean },
+  mode: "organizer" | "public",
+) {
+  const enabled = paymentConfig?.enableRegistrationPayment ?? false;
+  if (!enabled) {
+    return {
+      registrationPaymentStatus: null as string | null,
+      utrNumber: null as string | null,
+      paymentScreenshotUrl: null as string | null,
+      paymentSubmittedAt: null as Date | null,
+    };
+  }
+
+  const status =
+    mode === "organizer"
+      ? resolveOrganizerPaymentStatus(true, input.markPaymentCompleted)
+      : resolvePublicPaymentStatus(true);
+
+  return {
+    registrationPaymentStatus: status,
+    utrNumber: input.utrNumber?.trim() || null,
+    paymentScreenshotUrl: input.paymentScreenshotUrl?.trim() || null,
+    paymentSubmittedAt: new Date(),
+  };
+}
+
+const playerToJson = privatePlayerSerializer;
+const playerToPublicJson = publicPlayerSerializer;
 
 const cloudinaryImageUrl = z
   .string()
@@ -150,6 +253,12 @@ const cloudinaryImageUrl = z
   );
 
 const PLAYER_TAG_VALUES = ["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"] as const;
+const jerseySizeSchema = z.enum(JERSEY_SIZE_VALUES);
+
+const playerSpecificationInputSchema = z.object({
+  specGroupId: z.number().int().positive(),
+  value: z.string().min(1),
+});
 
 const playerInputSchema = z.object({
   categoryId: z.number().int().optional(),
@@ -161,9 +270,12 @@ const playerInputSchema = z.object({
   bowlingStyle: z.string().optional(),
   specialization: z.string().optional(),
   age: z.number().int().optional(),
+  gender: playerGenderSchema.nullable().optional(),
   photoUrl: cloudinaryImageUrl,
-  basePrice: z.number().int(),
+  basePrice: z.number().int().optional(),
+  selectedBidValue: z.number().int().optional(),
   jerseyNumber: z.string().optional(),
+  jerseySize: jerseySizeSchema.optional(),
   achievements: z.string().optional(),
   mobileNumber: z.string().min(1, "Mobile number is required for communication features"),
   email: z.string().optional(),
@@ -175,26 +287,29 @@ const playerInputSchema = z.object({
   playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
   playerTagTeamId: z.number().int().nullable().optional(),
   isNonPlayingMember: z.boolean().optional(),
+  utrNumber: z.string().optional(),
+  paymentScreenshotUrl: cloudinaryImageUrl,
+  markPaymentCompleted: z.boolean().optional(),
+  registrationDeclarationAccepted: z.boolean().optional(),
+  specifications: z.array(playerSpecificationInputSchema).optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const players = await db
     .select()
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid))
-    .orderBy(playersTable.createdAt);
-  res.json(players.map(serializer));
+    .orderBy(asc(playersTable.serialNo));
+  res.json(await serializePlayersWithSpecifications(players, isOrganizer ? "private" : "public"));
 });
 
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
@@ -237,21 +352,47 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     }
   }
 
+  if (d.teamId != null) {
+    const teamCheck = await validateTeamBelongsToTournament(tid, d.teamId);
+    if (!teamCheck.ok) {
+      res.status(teamCheck.status).json({ error: teamCheck.error });
+      return;
+    }
+  }
+
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  const paymentFields = buildPaymentInsertFields(paymentConfig, d, "organizer");
+
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  if (!bidResolved.ok) {
+    res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+    return;
+  }
+
+  const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
+      serialNo: await allocateNextPlayerSerialNo(tid),
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
-      battingStyle: d.battingStyle ?? null,
-      bowlingStyle: d.bowlingStyle ?? null,
-      specialization: d.specialization ?? null,
+      battingStyle: legacySpecFields.battingStyle,
+      bowlingStyle: legacySpecFields.bowlingStyle,
+      specialization: legacySpecFields.specialization,
       age: d.age ?? null,
+      gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
-      basePrice: d.basePrice,
+      basePrice: bidResolved.fields.basePrice,
+      selectedBidValue: bidResolved.fields.selectedBidValue,
+      bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
+      jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -263,6 +404,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       playerTag: (d.playerTag ?? null) as string | null,
       playerTagTeamId: d.playerTagTeamId ?? null,
       isNonPlayingMember: d.isNonPlayingMember ?? false,
+      ...paymentFields,
     })
     .returning();
 
@@ -283,7 +425,9 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
 
-  res.status(201).json(playerToJson(player));
+  await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
+
+  res.status(201).json(await serializePlayerWithSpecifications(player, "private"));
 });
 
 router.get("/tournaments/:tournamentId/registration-status", async (req, res) => {
@@ -294,12 +438,96 @@ router.get("/tournaments/:tournamentId/registration-status", async (req, res) =>
   res.json(status);
 });
 
-router.post("/tournaments/:tournamentId/register", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
-  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+async function handleRegisterLookup(tid: number, mobileRaw: string, res: Response) {
+  const mobileParsed = parseIndianMobile(mobileRaw);
+  if (!mobileParsed.ok) {
+    res.status(400).json({ error: mobileParsed.error, field: "mobileNumber" });
+    return;
+  }
+
+  const dup = await findDuplicatePlayerMobile(tid, mobileParsed.normalized);
+  if (!dup) {
+    res.json({ registered: false });
+    return;
+  }
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, dup.id), eq(playersTable.tournamentId, tid)));
+  if (!player) {
+    res.json({ registered: false });
+    return;
+  }
+
+  res.json({
+    registered: true,
+    player: await serializePlayerWithSpecifications(player, "public"),
+  });
+}
+
+router.get("/register/:code/context", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const status = await computeRegistrationStatus(tid);
+  if (!status) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const platformDefaults = await getPlatformDefaultAudioCached();
+  res.json({
+    tournament: publicTournamentSerializer(tournament, { platformDefaults }),
+    registration: status,
+  });
+});
+
+router.get("/register/:code/lookup", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+
+  const mobileRaw = String(req.query.mobile || "").trim();
+  await handleRegisterLookup(tid, mobileRaw, res);
+});
+
+router.get("/tournaments/:tournamentId/register/lookup", async (_req, res) => {
+  res.status(410).json({
+    error: "This registration URL is no longer valid. Use the link shared by your organizer (contains the tournament code).",
+  });
+});
+
+router.post("/register/:code", async (req, res) => {
+  const tid = await findTournamentIdByRegistrationCode(req.params.code);
+  if (!tid) {
+    res.status(404).json({ error: "Registration link not found" });
+    return;
+  }
+  await handlePublicPlayerRegistration(req, res, tid);
+});
+
+router.post("/tournaments/:tournamentId/register", async (_req, res) => {
+  res.status(410).json({
+    error: "This registration URL is no longer valid. Use the link shared by your organizer (contains the tournament code).",
+  });
+});
+
+async function handlePublicPlayerRegistration(req: Request, res: Response, tid: number) {
   const status = await computeRegistrationStatus(tid);
   if (!status) { res.status(404).json({ error: "Not found" }); return; }
-  if (!status.open) { res.status(403).json(status); return; }
+
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
@@ -317,21 +545,119 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
     return;
   }
 
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  if (paymentConfig?.enableRegistrationPayment) {
+    const method = paymentConfig.paymentVerificationMethod;
+    if (!method) {
+      res.status(400).json({ error: "Tournament payment settings are incomplete. Contact the organizer." });
+      return;
+    }
+    const proofResult = validatePlayerPaymentProof(method as typeof PAYMENT_VERIFICATION_METHODS[number], {
+      utrNumber: d.utrNumber,
+      paymentScreenshotUrl: d.paymentScreenshotUrl,
+    });
+    if (!proofResult.ok) {
+      res.status(400).json({ error: proofResult.error, field: proofResult.field });
+      return;
+    }
+  }
+
+  const paymentFields = buildPaymentInsertFields(paymentConfig, d, "public");
+
+  const declarationRequired =
+    status.enableRegistrationDeclaration === true
+    && parseRegistrationDeclarationPoints(status.registrationDeclarationText).length > 0;
+  if (declarationRequired && d.registrationDeclarationAccepted !== true) {
+    res.status(400).json({
+      error: "You must accept the registration declaration to continue.",
+      field: "registrationDeclarationAccepted",
+    });
+    return;
+  }
+
+  const existingDup = await findDuplicatePlayerMobile(tid, mobileNumber);
+  if (existingDup) {
+    const [existing] = await db
+      .select()
+      .from(playersTable)
+      .where(and(eq(playersTable.id, existingDup.id), eq(playersTable.tournamentId, tid)));
+    if (!existing) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+    const updates = {
+      ...buildPublicRegistrationProfileUpdates(
+        d,
+        emailParsed.email,
+        paymentConfig,
+        paymentFields,
+        existing,
+      ),
+      battingStyle: legacySpecFields.battingStyle,
+      bowlingStyle: legacySpecFields.bowlingStyle,
+      specialization: legacySpecFields.specialization,
+    };
+
+    const [player] = await db
+      .update(playersTable)
+      .set(updates)
+      .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
+      .returning();
+
+    if (d.whatsappConsent && mobileNumber && !existing.whatsappConsent) {
+      await db.insert(waConsentEventsTable).values({
+        mobile: mobileNumber,
+        recipientType: "player",
+        recipientId: player.id,
+        tournamentId: tid,
+        eventType: "web_checkbox",
+      });
+    }
+
+    syncAuctionPlayerToMasterAsync(player.id, tid);
+    await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
+
+    res.status(200).json({
+      ...(await serializePlayerWithSpecifications(player, "public")),
+      updated: true,
+    });
+    return;
+  }
+
+  if (!status.open) { res.status(403).json(status); return; }
+
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+  const bidResolved = resolvePlayerBidFields(bidConfig, d);
+  if (!bidResolved.ok) {
+    res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+    return;
+  }
+
+  const publicLegacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role, d);
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
+      serialNo: await allocateNextPlayerSerialNo(tid),
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
       role: d.role ?? null,
-      battingStyle: d.battingStyle ?? null,
-      bowlingStyle: d.bowlingStyle ?? null,
-      specialization: d.specialization ?? null,
+      battingStyle: publicLegacySpecFields.battingStyle,
+      bowlingStyle: publicLegacySpecFields.bowlingStyle,
+      specialization: publicLegacySpecFields.specialization,
       age: d.age ?? null,
+      gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
-      basePrice: d.basePrice,
+      basePrice: bidResolved.fields.basePrice,
+      selectedBidValue: bidResolved.fields.selectedBidValue,
+      bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
+      jerseySize: d.jerseySize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -339,15 +665,13 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
       availabilityDates: d.availabilityDates ?? null,
       retainedPrice: d.retainedPrice ?? null,
       status: "available" as const,
-      // Persist web-checkbox consent so the audit trail records method + timestamp
       whatsappConsent: d.whatsappConsent ?? false,
       whatsappConsentAt: d.whatsappConsent ? new Date() : null,
       whatsappConsentMethod: d.whatsappConsent ? "web_checkbox" : null,
+      ...paymentFields,
     })
     .returning();
 
-  // Record an explicit consent event for the web checkbox so audit queries
-  // can distinguish web-form consent from WhatsApp-OTP consent.
   if (d.whatsappConsent && mobileNumber) {
     await db.insert(waConsentEventsTable).values({
       mobile: mobileNumber,
@@ -359,14 +683,40 @@ router.post("/tournaments/:tournamentId/register", async (req, res) => {
   }
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
+  await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
-  res.status(201).json(playerToPublicJson(player));
-});
+  if (emailParsed.email) {
+    const [tournamentInfo] = await db
+      .select({
+        name: tournamentsTable.name,
+        logoUrl: tournamentsTable.logoUrl,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+
+    notifyAsync("PLAYER_REGISTERED", {
+      playerId: player.id,
+      playerName: player.name,
+      email: emailParsed.email,
+      photoUrl: player.photoUrl,
+      tournamentId: tid,
+      tournamentName: tournamentInfo?.name ?? "Tournament",
+      tournamentLogoUrl: tournamentInfo?.logoUrl ?? null,
+      paymentPending: paymentConfig?.enableRegistrationPayment === true,
+    });
+  }
+
+  res.status(201).json({
+    ...(await serializePlayerWithSpecifications(player, "public")),
+    updated: false,
+  });
+}
 
 router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const schema = z.object({
     players: z.array(playerInputSchema).min(1).max(500),
@@ -374,10 +724,14 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
 
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+
   let created = 0;
   let failed = 0;
   const errors: string[] = [];
   const batchMobiles = new Set<string>();
+  let nextSerial = await allocateNextPlayerSerialNo(tid);
 
   for (const pd of parsed.data.players) {
     try {
@@ -405,19 +759,31 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         errors.push(`${pd.name}: Mobile number ${bulkMobile} is already registered for player "${dupMobile.name}".`);
         continue;
       }
-      await db.insert(playersTable).values({
+      const bidResolved = resolvePlayerBidFields(bidConfig, pd);
+      if (!bidResolved.ok) {
+        failed++;
+        errors.push(`${pd.name}: ${bidResolved.error}`);
+        continue;
+      }
+      const bulkLegacySpecFields = await resolveLegacyFieldsForInsert(tid, pd.role, pd);
+      const [inserted] = await db.insert(playersTable).values({
         tournamentId: tid,
+        serialNo: nextSerial++,
         categoryId: pd.categoryId ?? null,
         name: pd.name,
         city: pd.city ?? null,
         role: pd.role ?? null,
-        battingStyle: pd.battingStyle ?? null,
-        bowlingStyle: pd.bowlingStyle ?? null,
-        specialization: pd.specialization ?? null,
+        battingStyle: bulkLegacySpecFields.battingStyle,
+        bowlingStyle: bulkLegacySpecFields.bowlingStyle,
+        specialization: bulkLegacySpecFields.specialization,
         age: pd.age ?? null,
+        gender: pd.gender ?? null,
         photoUrl: pd.photoUrl ?? null,
-        basePrice: pd.basePrice,
+        basePrice: bidResolved.fields.basePrice,
+        selectedBidValue: bidResolved.fields.selectedBidValue,
+        bidValueSource: bidResolved.fields.bidValueSource,
         jerseyNumber: pd.jerseyNumber ?? null,
+        jerseySize: pd.jerseySize ?? null,
         achievements: pd.achievements ?? null,
         mobileNumber: bulkMobile,
         email: bulkEmailParsed.email,
@@ -425,7 +791,10 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
-      });
+      }).returning({ id: playersTable.id });
+      if (inserted) {
+        await persistPlayerSpecificationsDualWrite(tid, inserted.id, pd.role, pd);
+      }
       batchMobiles.add(bulkMobile);
       created++;
     } catch (err) {
@@ -441,23 +810,22 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const [player] = await db
     .select()
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(isOrganizer ? playerToJson(player) : playerToPublicJson(player));
+  res.json(await serializePlayerWithSpecifications(player, isOrganizer ? "private" : "public"));
 });
 
 router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
-    categoryId: z.number().int().optional(),
+    categoryId: z.number().int().nullable().optional(),
     name: z.string().optional(),
     city: z.string().optional(),
     role: z.string().optional(),
@@ -465,9 +833,12 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     bowlingStyle: z.string().optional(),
     specialization: z.string().optional(),
     age: z.number().int().optional(),
+    gender: playerGenderSchema.nullable().optional(),
     photoUrl: cloudinaryImageUrl,
     basePrice: z.number().int().optional(),
+    selectedBidValue: z.number().int().nullable().optional(),
     jerseyNumber: z.string().optional(),
+    jerseySize: jerseySizeSchema.nullable().optional(),
     achievements: z.string().optional(),
     mobileNumber: z.string().min(1).optional(),
     email: z.string().optional(),
@@ -480,21 +851,32 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     playerTagTeamId: z.number().int().nullable().optional(),
     isNonPlayingMember: z.boolean().optional(),
     reason: z.string().optional(),
+    registrationPaymentStatus: z.enum(REGISTRATION_PAYMENT_STATUSES).optional(),
+    specifications: z.array(playerSpecificationInputSchema).optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const d = parsed.data;
-
-  if (isCriticalPlayerPatch(d)) {
-    const reasonResult = parseAuditReason(req.body, true);
-    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
   }
+  const d = parsed.data;
 
   const [existing] = await db
     .select()
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const bidConfig = await fetchTournamentBidConfig(tid);
+  if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (
+    (d.basePrice !== undefined || d.selectedBidValue !== undefined)
+    && !canEditPlayerBidValue(bidConfig.status)
+  ) {
+    res.status(409).json({ error: "Bid value cannot be changed after the auction has started." });
+    return;
+  }
 
   let normalizedMobile: string | undefined;
   if (d.mobileNumber !== undefined) {
@@ -530,6 +912,13 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (newStatus === "retained") {
     if (!newTeamId) { res.status(400).json({ error: "A retained player must be assigned to a team" }); return; }
   }
+  if (newTeamId != null) {
+    const teamCheck = await validateTeamBelongsToTournament(tid, newTeamId);
+    if (!teamCheck.ok) {
+      res.status(teamCheck.status).json({ error: teamCheck.error });
+      return;
+    }
+  }
 
   const updates: Record<string, unknown> = {};
   if (d.categoryId !== undefined) updates.categoryId = d.categoryId;
@@ -539,10 +928,46 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.battingStyle !== undefined) updates.battingStyle = d.battingStyle;
   if (d.bowlingStyle !== undefined) updates.bowlingStyle = d.bowlingStyle;
   if (d.specialization !== undefined) updates.specialization = d.specialization;
+
+  const specFieldsChanged =
+    d.battingStyle !== undefined
+    || d.bowlingStyle !== undefined
+    || d.specialization !== undefined
+    || d.specifications !== undefined
+    || d.role !== undefined;
+
+  if (specFieldsChanged) {
+    const legacySpecFields = await resolveLegacyFieldsForInsert(tid, d.role ?? existing.role, {
+      battingStyle: d.battingStyle ?? existing.battingStyle,
+      bowlingStyle: d.bowlingStyle ?? existing.bowlingStyle,
+      specialization: d.specialization ?? existing.specialization,
+      specifications: d.specifications,
+    });
+    updates.battingStyle = legacySpecFields.battingStyle;
+    updates.bowlingStyle = legacySpecFields.bowlingStyle;
+    updates.specialization = legacySpecFields.specialization;
+  }
+
   if (d.age !== undefined) updates.age = d.age;
+  if (d.gender !== undefined) updates.gender = d.gender;
   if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
-  if (d.basePrice !== undefined) updates.basePrice = d.basePrice;
+
+  if (d.selectedBidValue !== undefined || d.basePrice !== undefined) {
+    const bidResolved = resolvePlayerBidFields(bidConfig, {
+      basePrice: d.basePrice ?? existing.basePrice,
+      selectedBidValue: d.selectedBidValue ?? undefined,
+    });
+    if (!bidResolved.ok) {
+      res.status(400).json({ error: bidResolved.error, field: bidResolved.field });
+      return;
+    }
+    updates.basePrice = bidResolved.fields.basePrice;
+    updates.selectedBidValue = bidResolved.fields.selectedBidValue;
+    updates.bidValueSource = bidResolved.fields.bidValueSource;
+  }
+
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
+  if (d.jerseySize !== undefined) updates.jerseySize = d.jerseySize;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
   if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
@@ -554,6 +979,20 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
   if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
   if (d.isNonPlayingMember !== undefined) updates.isNonPlayingMember = d.isNonPlayingMember;
+
+  if (d.registrationPaymentStatus !== undefined) {
+    const paymentConfig = await fetchTournamentPaymentConfig(tid);
+    if (!paymentConfig?.enableRegistrationPayment) {
+      res.status(400).json({ error: "Registration payment is not enabled for this tournament." });
+      return;
+    }
+    updates.registrationPaymentStatus = d.registrationPaymentStatus;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
 
   const [player] = await db
     .update(playersTable)
@@ -573,7 +1012,14 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     await recalcTeamPurseUsed(tid, tid2);
   }
 
-  const reasonResult = parseAuditReason(req.body, isCriticalPlayerPatch(d));
+  const reasonResult = resolveAuditReasonWithDefault(
+    req.body,
+    defaultPlayerPatchReason(d, existing),
+  );
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
   let action = "player.updated";
   if (d.status === "retained" || (d.teamId !== undefined && d.retainedPrice !== undefined)) {
     action = "player.retained_set";
@@ -583,7 +1029,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     action,
     summary: `Player "${player.name}" updated`,
     severity: isCriticalPlayerPatch(d) ? "critical" : "info",
-    reason: reasonResult.ok ? reasonResult.reason : null,
+    reason: reasonResult.reason,
     tournamentId: tid,
     playerId: player.id,
     teamId: player.teamId ?? undefined,
@@ -594,6 +1040,15 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   });
 
   syncAuctionPlayerToMasterAsync(player.id, tid);
+
+  if (specFieldsChanged) {
+    await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, {
+      battingStyle: player.battingStyle,
+      bowlingStyle: player.bowlingStyle,
+      specialization: player.specialization,
+      specifications: d.specifications,
+    });
+  }
 
   if (d.teamId !== undefined || d.status !== undefined) {
     const assignmentType =
@@ -610,14 +1065,14 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     );
   }
 
-  res.json(playerToJson(player));
+  res.json(await serializePlayerWithSpecifications(player, "private"));
 });
 
 router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const [before] = await db
     .select()
     .from(playersTable)
@@ -687,9 +1142,12 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid));
 
-  const mobileSet = new Set(
-    existingInTarget.map((p) => p.mobile).filter((m): m is string => !!m),
-  );
+  const mobileSet = new Set<string>();
+  for (const p of existingInTarget) {
+    if (!p.mobile) continue;
+    const parsed = parseIndianMobile(p.mobile);
+    if (parsed.ok) mobileSet.add(parsed.normalized);
+  }
   const nameSet = new Set(
     existingInTarget.map((p) => p.name.toLowerCase().trim()),
   );
@@ -710,16 +1168,27 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
     .where(and(...conditions))
     .orderBy(playersTable.name);
 
-  const tidStr = String(tid);
-  const isOrganizer = !!(req.jwtUser?.isAdmin || req.jwtUser?.organizerAccountId || req.jwtUser?.organizer?.[tidStr]);
-  const serializer = isOrganizer ? playerToJson : playerToPublicJson;
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
 
-  const result = sourcePlayers.map((p) => ({
-    ...serializer(p),
-    isDuplicate:
-      (!!p.mobileNumber && mobileSet.has(p.mobileNumber)) ||
-      nameSet.has(p.name.toLowerCase().trim()),
-  }));
+  const result = await Promise.all(
+    sourcePlayers.map(async (p) => {
+      let mobileDuplicate = false;
+      if (p.mobileNumber) {
+        const parsed = parseIndianMobile(p.mobileNumber);
+        mobileDuplicate = parsed.ok && mobileSet.has(parsed.normalized);
+      }
+      const serialized = await serializePlayerWithSpecifications(
+        p,
+        isOrganizer ? "private" : "public",
+      );
+      return {
+        ...serialized,
+        isDuplicate:
+          mobileDuplicate
+          || nameSet.has(p.name.toLowerCase().trim()),
+      };
+    }),
+  );
 
   res.json(result);
 });
@@ -727,7 +1196,7 @@ router.get("/tournaments/:tournamentId/import-candidates", async (req, res) => {
 router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const schema = z.object({
     sourceTournamentId: z.number().int(),
@@ -739,18 +1208,10 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   const { sourceTournamentId, playerIds } = parsed.data;
 
   const [tournament] = await db
-    .select({ minBid: tournamentsTable.minBid })
+    .select({ minBid: tournamentsTable.minBid, bidValueMode: tournamentsTable.bidValueMode })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   const defaultBasePrice = tournament?.minBid ?? 100000;
-
-  const existingMobiles = await db
-    .select({ mobile: playersTable.mobileNumber })
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.mobileNumber} IS NOT NULL`));
-  const mobileSet = new Set(
-    existingMobiles.map((m) => m.mobile).filter((m): m is string => !!m),
-  );
 
   const sourcePlayers = await db
     .select()
@@ -764,15 +1225,25 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 
   let imported = 0;
   let skipped = 0;
+  let nextImportSerial = await allocateNextPlayerSerialNo(tid);
 
   for (const p of sourcePlayers) {
-    if (p.mobileNumber && mobileSet.has(p.mobileNumber)) {
-      skipped++;
-      continue;
+    let normalizedMobile: string | null = p.mobileNumber;
+    if (p.mobileNumber) {
+      const parsed = parseIndianMobile(p.mobileNumber);
+      if (parsed.ok) {
+        const dup = await findDuplicatePlayerMobile(tid, parsed.normalized);
+        if (dup) {
+          skipped++;
+          continue;
+        }
+        normalizedMobile = parsed.normalized;
+      }
     }
 
-    await db.insert(playersTable).values({
+    const [importedPlayer] = await db.insert(playersTable).values({
       tournamentId: tid,
+      serialNo: nextImportSerial++,
       categoryId: null,
       name: p.name,
       city: p.city,
@@ -781,19 +1252,26 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       bowlingStyle: p.bowlingStyle,
       specialization: p.specialization,
       age: p.age,
+      gender: p.gender,
       photoUrl: p.photoUrl,
       basePrice: defaultBasePrice,
+      selectedBidValue: null,
+      bidValueSource: "system",
       jerseyNumber: p.jerseyNumber,
+      jerseySize: p.jerseySize,
       achievements: p.achievements,
-      mobileNumber: p.mobileNumber,
+      mobileNumber: normalizedMobile,
       cricheroUrl: p.cricheroUrl,
       availabilityDates: p.availabilityDates,
       globalPlayerId: p.globalPlayerId,
       status: "available" as const,
       teamId: null,
-    });
+    }).returning({ id: playersTable.id });
 
-    if (p.mobileNumber) mobileSet.add(p.mobileNumber);
+    if (importedPlayer) {
+      await copyPlayerSpecifications(p.id, importedPlayer.id);
+    }
+
     imported++;
   }
 
@@ -819,6 +1297,85 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
   });
 
   res.json({ imported, skipped, total: sourcePlayers.length });
+});
+
+async function updateRegistrationPaymentStatus(
+  req: import("express").Request,
+  res: import("express").Response,
+  tid: number,
+  playerId: number,
+  status: (typeof REGISTRATION_PAYMENT_STATUSES)[number],
+) {
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [player] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+
+  if (!player) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+
+  const paymentConfig = await fetchTournamentPaymentConfig(tid);
+  if (!paymentConfig?.enableRegistrationPayment) {
+    res.status(400).json({ error: "Registration payment is not enabled for this tournament." });
+    return;
+  }
+
+  const [updated] = await db
+    .update(playersTable)
+    .set({ registrationPaymentStatus: status })
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
+    .returning();
+
+  auditLog(req, {
+    category: "player",
+    action:
+      status === "approved"
+        ? "registration_payment.approved"
+        : status === "rejected"
+          ? "registration_payment.rejected"
+          : "registration_payment.pending",
+    summary: `Registration payment ${status} for "${player.name}"`,
+    tournamentId: tid,
+    playerId,
+    resource: { type: "player", id: playerId },
+    metadata: { registrationPaymentStatus: status },
+  });
+
+  res.json(playerToJson(updated));
+}
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/approve", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "approved");
+});
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/reject", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "rejected");
+});
+
+router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/pending", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  await updateRegistrationPaymentStatus(req, res, tid, playerId, "pending");
 });
 
 export default router;

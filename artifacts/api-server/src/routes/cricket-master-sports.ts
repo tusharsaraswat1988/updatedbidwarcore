@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
   listCricketMasterTeams,
   listCricketMasterPlayers,
@@ -66,10 +66,7 @@ router.post("/sync-roster", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament id" });
     return;
   }
-  if (!isOrganizerOrAdmin(req, tournamentId)) {
-    res.status(403).json({ error: "forbidden" });
-    return;
-  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const schema = z.object({
     tournamentId: z.number().int().optional(),

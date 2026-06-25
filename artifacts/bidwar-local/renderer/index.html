@@ -113,6 +113,50 @@
     .message-ok { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
     .message-err { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
     #file-input { display: none; }
+    .kit-row {
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: #09090b;
+    }
+    .kit-row-header { display: flex; gap: 12px; align-items: flex-start; }
+    .kit-row-body { flex: 1; min-width: 0; }
+    .kit-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .kit-desc { font-size: 11px; color: #71717a; margin-bottom: 8px; }
+    .kit-url {
+      font-size: 11px;
+      font-family: monospace;
+      color: #eab308;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .kit-qr {
+      width: 88px;
+      height: 88px;
+      border-radius: 8px;
+      border: 1px solid #27272a;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .kit-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .kit-actions .btn { padding: 6px 12px; font-size: 12px; }
+    .kit-pin {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #eab30811;
+      border: 1px solid #eab30833;
+      font-size: 11px;
+      color: #eab308;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+    }
+    .kit-empty { font-size: 13px; color: #71717a; text-align: center; padding: 20px 0; }
+    .section-hint { font-size: 12px; color: #71717a; margin-bottom: 14px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -135,18 +179,6 @@
       </p>
     </div>
 
-    <!-- QR Launcher -->
-    <div class="card">
-      <h2>QR Code — Team Owner Launcher</h2>
-      <p style="font-size:12px;color:#71717a;margin-bottom:14px;">
-        Team owners: scan this QR code with any phone on the same WiFi to open the bidding panel instantly.
-      </p>
-      <div style="display:flex;justify-content:center;">
-        <img id="qr-img" src="" alt="QR Code" style="width:180px;height:180px;border-radius:8px;border:1px solid #27272a;display:none;" />
-        <div id="qr-placeholder" style="width:180px;height:180px;border-radius:8px;border:1px solid #27272a;background:#18181b;display:flex;align-items:center;justify-content:center;color:#52525b;font-size:12px;">Loading...</div>
-      </div>
-    </div>
-
     <!-- Import Tournament -->
     <div class="card">
       <h2>Import Tournament</h2>
@@ -157,6 +189,27 @@
       </div>
       <input type="file" id="file-input" accept=".json" onchange="handleFileImport(event)" />
       <div id="import-msg"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-outline" onclick="rebundleMedia()">Download offline images</button>
+        <span class="section-hint" style="margin:0;flex:1;min-width:200px;">
+          Needs internet once — saves sponsor logos and player photos for the LED display.
+        </span>
+      </div>
+    </div>
+
+    <!-- Connection Kit -->
+    <div class="card">
+      <h2>Connection Kit</h2>
+      <p class="section-hint">
+        After import, scan a QR code or copy a link — no typing URLs. All devices must be on the same Wi-Fi as this computer.
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="loadConnectionKit()">Refresh links</button>
+        <button class="btn btn-primary" onclick="openConnectionKitInBrowser()">Open in browser</button>
+      </div>
+      <div id="connection-kit">
+        <div class="kit-empty">Import a tournament to see operator, display, and team owner links.</div>
+      </div>
     </div>
 
     <!-- Tournament Selector -->
@@ -171,19 +224,19 @@
     <div class="card">
       <h2>Quick Access</h2>
       <div class="grid">
-        <button class="action-btn" onclick="openPath('/tournament/1/auction')">
+        <button class="action-btn" onclick="openPath('/tournament/' + tournamentId + '/auction')">
           <div class="title">Operator Panel</div>
           <div class="desc">Control the live auction</div>
         </button>
-        <button class="action-btn" onclick="openPath('/tournament/1/display')">
+        <button class="action-btn" onclick="openPath('/tournament/' + tournamentId + '/display')">
           <div class="title">LED Display</div>
           <div class="desc">Big screen broadcast view</div>
         </button>
-        <button class="action-btn" onclick="openPath('/tournament/1/teams')">
-          <div class="title">Team Owner Panels</div>
-          <div class="desc">Individual team bidding</div>
+        <button class="action-btn" onclick="openPath('/tournament/' + tournamentId + '/local-mode')">
+          <div class="title">Connection Kit (browser)</div>
+          <div class="desc">Same links in the web app</div>
         </button>
-        <button class="action-btn" onclick="openPath('/tournament/1/reports')">
+        <button class="action-btn" onclick="openPath('/tournament/' + tournamentId + '/reports')">
           <div class="title">Reports</div>
           <div class="desc">Auction results & charts</div>
         </button>
@@ -206,7 +259,18 @@
           <span class="status-label">Pending changes</span>
           <span class="status-value" id="pending-changes">-</span>
         </div>
+        <div class="status-row">
+          <span class="status-label">Failed (retrying)</span>
+          <span class="status-value" id="failed-changes">-</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Cloud URL</span>
+          <span class="status-value" id="cloud-url-status" style="font-size:11px;max-width:55%;text-align:right;word-break:break-all;">-</span>
+        </div>
       </div>
+      <p class="section-hint" style="margin-top:10px;">
+        Live mirror updates the cloud display while you auction. After the auction, use Sync to push final results (players, bids, purses).
+      </p>
       <div style="margin-top:14px;display:flex;gap:8px;">
         <button class="btn btn-outline" onclick="manualSync()">Sync to Cloud Now</button>
       </div>
@@ -216,8 +280,10 @@
   <script>
     let localIP = "127.0.0.1";
     let serverPort = 3741;
-    let tournamentId = parseInt(localStorage.getItem("activeTournamentId") || "1") || 1;
+    let tournamentId = parseInt(localStorage.getItem("activeTournamentId") || "0") || 0;
     let storedCloudBaseUrl = localStorage.getItem("cloudBaseUrl") || "";
+    let storedOperatorPin = "";
+    let connectionKitCacheBust = Date.now();
 
     function setStatusEl(id, dotClass, label) {
       const el = document.getElementById(id);
@@ -242,8 +308,9 @@
         serverPort = await window.bidwar.getServerPort();
         document.getElementById("local-ip").textContent = localIP;
         document.getElementById("local-port").textContent = `http://${localIP}:${serverPort}`;
-        loadQR();
-        loadTournaments();
+        await refreshNetworkInfo();
+        await loadTournaments();
+        loadConnectionKit();
         checkInternet();
         setInterval(checkInternet, 10000);
         loadSyncStatus();
@@ -256,13 +323,23 @@
 
     async function loadTournaments() {
       try {
-        const res = await fetch(`http://localhost:${serverPort}/api/tournaments`);
-        if (!res.ok) return;
+        const res = await fetch(`http://localhost:${serverPort}/api/tournaments`, {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const tournaments = await res.json();
         const el = document.getElementById("tournament-list");
         if (!tournaments.length) {
+          tournamentId = 0;
+          localStorage.removeItem("activeTournamentId");
           el.innerHTML = '<div style="color:#71717a;font-size:13px;">No tournaments imported yet. Import a tournament export file to get started.</div>';
+          loadConnectionKit();
+          await loadTournamentMeta();
           return;
+        }
+        if (!tournamentId || !tournaments.some(t => t.id === tournamentId)) {
+          tournamentId = tournaments[0].id;
+          localStorage.setItem("activeTournamentId", String(tournamentId));
         }
         el.innerHTML = "";
         tournaments.forEach(t => {
@@ -281,6 +358,7 @@
           }
           el.appendChild(row);
         });
+        await loadTournamentMeta();
       } catch {
         const el = document.getElementById("tournament-list");
         if (el) el.innerHTML = '<div style="color:#71717a;font-size:13px;">Could not load tournaments.</div>';
@@ -291,26 +369,193 @@
       tournamentId = id;
       localStorage.setItem("activeTournamentId", String(id));
       loadTournaments();
-      // Reload QR for new tournament context (same LAN URL, just update active)
-      loadQR();
+      loadConnectionKit();
+      loadTournamentMeta();
       alert(`Active tournament set to: ${name}`);
     }
 
-    function loadQR() {
-      const url = `http://localhost:${serverPort}/local/qr.png`;
-      const img = document.getElementById("qr-img");
-      const placeholder = document.getElementById("qr-placeholder");
-      // Pass local IP and port as headers via a fetch → blob URL so the server
-      // can embed the correct LAN address into the QR code
-      fetch(url, {
-        headers: { "X-Local-IP": localIP, "X-Local-Port": String(serverPort) },
-      }).then(r => r.blob()).then(blob => {
-        img.src = URL.createObjectURL(blob);
-        img.style.display = "block";
-        placeholder.style.display = "none";
-      }).catch(() => {
-        placeholder.textContent = "QR unavailable";
+    function localHeaders() {
+      return { "X-Local-IP": localIP, "X-Local-Port": String(serverPort) };
+    }
+
+    async function refreshNetworkInfo() {
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/network-info`, {
+          headers: localHeaders(),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ip) {
+          localIP = data.ip;
+          document.getElementById("local-ip").textContent = localIP;
+          document.getElementById("local-port").textContent = data.baseUrl || `http://${localIP}:${serverPort}`;
+        }
+      } catch {}
+    }
+
+    function qrImageUrl(targetUrl) {
+      return `http://localhost:${serverPort}/local/qr.png?url=${encodeURIComponent(targetUrl)}&_=${connectionKitCacheBust}`;
+    }
+
+    async function copyText(text, label) {
+      try {
+        await navigator.clipboard.writeText(text);
+        alert(label || "Copied!");
+      } catch {
+        prompt("Copy this text:", text);
+      }
+    }
+
+    function whatsappShare(text) {
+      window.bidwar.openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    }
+
+    function renderKitLinkRow(label, desc, url, shareText) {
+      const row = document.createElement("div");
+      row.className = "kit-row";
+      row.innerHTML = `
+        <div class="kit-row-header">
+          <div class="kit-row-body">
+            <div class="kit-title">${label}</div>
+            <div class="kit-desc">${desc}</div>
+            <div class="kit-url">${url}</div>
+          </div>
+          <img class="kit-qr" src="${qrImageUrl(url)}" alt="${label} QR" />
+        </div>
+        <div class="kit-actions">
+          <button class="btn btn-outline" data-copy="${encodeURIComponent(url)}">Copy</button>
+          <button class="btn btn-outline" data-share="${encodeURIComponent(shareText || label + ": " + url)}">Share</button>
+          <button class="btn btn-outline" data-open="${encodeURIComponent(url)}">Open</button>
+        </div>
+      `;
+      row.querySelectorAll("[data-copy]").forEach(btn => {
+        btn.addEventListener("click", () => copyText(decodeURIComponent(btn.getAttribute("data-copy")), label + " link copied"));
       });
+      row.querySelectorAll("[data-share]").forEach(btn => {
+        btn.addEventListener("click", () => whatsappShare(decodeURIComponent(btn.getAttribute("data-share"))));
+      });
+      row.querySelectorAll("[data-open]").forEach(btn => {
+        btn.addEventListener("click", () => window.bidwar.openExternal(decodeURIComponent(btn.getAttribute("data-open"))));
+      });
+      return row;
+    }
+
+    function renderKitTeamRow(team, tournamentName) {
+      const shareLines = [
+        `${tournamentName} — ${team.name}`,
+        team.ownerName ? `Owner: ${team.ownerName}` : null,
+        team.accessCode ? `Access code: ${team.accessCode}` : null,
+        `Bidding link: ${team.ownerUrl}`,
+      ].filter(Boolean).join("\n");
+
+      const row = document.createElement("div");
+      row.className = "kit-row";
+      const pinHtml = team.accessCode
+        ? `<div class="kit-pin">PIN ${team.accessCode}</div>`
+        : "";
+      row.innerHTML = `
+        <div class="kit-row-header">
+          <div class="kit-row-body">
+            <div class="kit-title">${team.name}${team.ownerName ? ` · ${team.ownerName}` : ""}</div>
+            <div class="kit-desc">Team owner — scan to open bidding on phone</div>
+            ${pinHtml}
+            <div class="kit-url">${team.ownerUrl}</div>
+          </div>
+          <img class="kit-qr" src="${qrImageUrl(team.ownerUrl)}" alt="${team.name} QR" />
+        </div>
+        <div class="kit-actions">
+          ${team.accessCode ? `<button class="btn btn-outline" data-copy-pin="${team.accessCode}">Copy PIN</button>` : ""}
+          <button class="btn btn-outline" data-copy="${encodeURIComponent(team.ownerUrl)}">Copy link</button>
+          <button class="btn btn-outline" data-share="${encodeURIComponent(shareLines)}">Share</button>
+          <button class="btn btn-outline" data-open="${encodeURIComponent(team.ownerUrl)}">Open</button>
+        </div>
+      `;
+      row.querySelectorAll("[data-copy]").forEach(btn => {
+        btn.addEventListener("click", () => copyText(decodeURIComponent(btn.getAttribute("data-copy")), "Owner link copied"));
+      });
+      row.querySelectorAll("[data-copy-pin]").forEach(btn => {
+        btn.addEventListener("click", () => copyText(btn.getAttribute("data-copy-pin"), "Access code copied"));
+      });
+      row.querySelectorAll("[data-share]").forEach(btn => {
+        btn.addEventListener("click", () => whatsappShare(decodeURIComponent(btn.getAttribute("data-share"))));
+      });
+      row.querySelectorAll("[data-open]").forEach(btn => {
+        btn.addEventListener("click", () => window.bidwar.openExternal(decodeURIComponent(btn.getAttribute("data-open"))));
+      });
+      return row;
+    }
+
+    async function loadConnectionKit() {
+      const el = document.getElementById("connection-kit");
+      if (!el) return;
+      if (!tournamentId) {
+        el.innerHTML = '<div class="kit-empty">Import a tournament to see operator, display, and team owner links.</div>';
+        return;
+      }
+      el.innerHTML = '<div class="kit-empty">Loading connection kit…</div>';
+      await refreshNetworkInfo();
+      connectionKitCacheBust = Date.now();
+      try {
+        const res = await fetch(
+          `http://localhost:${serverPort}/local/connection-kit?tournamentId=${tournamentId}`,
+          { headers: localHeaders(), credentials: "include" },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          el.innerHTML = `<div class="kit-empty">Could not load links: ${String(err.error || res.status)}</div>`;
+          return;
+        }
+        const kit = await res.json();
+        el.textContent = "";
+        const baseNote = document.createElement("p");
+        baseNote.className = "section-hint";
+        baseNote.style.marginBottom = "12px";
+        baseNote.textContent = `Venue server: ${kit.baseUrl}`;
+        el.appendChild(baseNote);
+        el.appendChild(renderKitLinkRow(
+          "Operator Panel",
+          "Auction computer — control the live auction",
+          kit.operator.url,
+          `Operator panel: ${kit.operator.url}`,
+        ));
+        if (kit.operator.pin) {
+          const pinRow = document.createElement("div");
+          pinRow.className = "kit-pin";
+          pinRow.style.marginBottom = "12px";
+          pinRow.textContent = `Operator PIN ${kit.operator.pin}`;
+          el.appendChild(pinRow);
+          storedOperatorPin = kit.operator.pin;
+        }
+        el.appendChild(renderKitLinkRow(
+          "LED Display",
+          "Big screen — open in browser and go full-screen",
+          kit.display.url,
+          `Display screen: ${kit.display.url}`,
+        ));
+        const teamsTitle = document.createElement("div");
+        teamsTitle.className = "kit-title";
+        teamsTitle.style.margin = "16px 0 8px";
+        teamsTitle.textContent = "Team Owners";
+        el.appendChild(teamsTitle);
+        if (!kit.teams.length) {
+          const empty = document.createElement("div");
+          empty.className = "kit-empty";
+          empty.textContent = "No teams in this tournament.";
+          el.appendChild(empty);
+        } else {
+          kit.teams.forEach(team => el.appendChild(renderKitTeamRow(team, kit.tournamentName)));
+        }
+      } catch (e) {
+        el.innerHTML = `<div class="kit-empty">Connection kit unavailable: ${String(e.message || e)}</div>`;
+      }
+    }
+
+    async function openConnectionKitInBrowser() {
+      if (!tournamentId) {
+        alert("Import a tournament first.");
+        return;
+      }
+      await window.bidwar.openBrowser(`/tournament/${tournamentId}/local-mode`);
     }
 
     async function checkInternet() {
@@ -322,12 +567,48 @@
       }
     }
 
+    async function loadTournamentMeta() {
+      const cloudEl = document.getElementById("cloud-url-status");
+      if (!tournamentId) {
+        if (cloudEl) cloudEl.textContent = "Import a tournament first";
+        return;
+      }
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/tournament-meta?tournamentId=${tournamentId}`);
+        if (!res.ok) {
+          if (cloudEl) cloudEl.textContent = "Could not load cloud link";
+          return;
+        }
+        const data = await res.json();
+        if (data.cloudBaseUrl) {
+          storedCloudBaseUrl = String(data.cloudBaseUrl);
+          localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
+        }
+        if (data.operatorPin) storedOperatorPin = String(data.operatorPin);
+        if (cloudEl) {
+          if (!data.hasCloudLink) {
+            cloudEl.textContent = "Not linked — re-export from cloud";
+          } else if (!data.hasExportToken) {
+            cloudEl.textContent = (data.cloudBaseUrl || "Linked") + " (re-import for sync token)";
+          } else if (data.syncReady) {
+            cloudEl.textContent = data.cloudBaseUrl || "Ready to sync";
+          } else {
+            cloudEl.textContent = data.cloudBaseUrl || "Linked";
+          }
+        }
+      } catch {
+        if (cloudEl) cloudEl.textContent = "Cloud link unavailable";
+      }
+    }
+
     async function loadSyncStatus() {
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/sync-status`);
         if (res.ok) {
           const data = await res.json();
-          document.getElementById("pending-changes").textContent = data.pending || "0";
+          document.getElementById("pending-changes").textContent = String(data.pending ?? "0");
+          const failedEl = document.getElementById("failed-changes");
+          if (failedEl) failedEl.textContent = String(data.failed ?? "0");
           document.getElementById("last-sync").textContent = data.lastSync ? new Date(data.lastSync).toLocaleString() : "Never";
         }
       } catch {}
@@ -338,8 +619,7 @@
     }
 
     async function openPath(p) {
-      const path = p.replace("/tournament/1/", `/tournament/${tournamentId}/`);
-      await window.bidwar.openBrowser(path);
+      await window.bidwar.openBrowser(p);
     }
 
     async function copyIP() {
@@ -362,7 +642,8 @@
         const json = JSON.parse(text);
         const res = await fetch(`http://localhost:${serverPort}/local/import`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...localHeaders() },
+          credentials: "include",
           body: JSON.stringify(json),
         });
         const data = await res.json();
@@ -374,10 +655,24 @@
             storedCloudBaseUrl = String(json.cloudBaseUrl);
             localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
           }
+          if (json.operatorPin) storedOperatorPin = String(json.operatorPin);
+          if (data.operatorPin) storedOperatorPin = String(data.operatorPin);
           const name = String(json.tournament?.name || "tournament");
           const playerCount = Number(json.players?.length || 0);
           const teamCount = Number(json.teams?.length || 0);
-          showMsg(msgEl, `Imported: ${name} (${playerCount} players, ${teamCount} teams)`, "ok");
+          let importText = `Imported: ${name} (${playerCount} players, ${teamCount} teams)`;
+          if (typeof data.mediaBundled === "number") {
+            importText += ` — ${data.mediaBundled} images saved offline`;
+          }
+          if (data.mediaFailed > 0) {
+            importText += `. ${data.mediaFailed} images failed — click Download offline images when online.`;
+            showMsg(msgEl, importText, "err");
+          } else {
+            showMsg(msgEl, importText, "ok");
+          }
+          loadTournaments();
+          loadConnectionKit();
+          loadTournamentMeta();
         } else {
           showMsg(msgEl, `Import failed: ${String(data.error || "Unknown error")}`, "err");
         }
@@ -387,30 +682,68 @@
       event.target.value = "";
     }
 
+    async function rebundleMedia() {
+      if (!tournamentId) {
+        alert("Import a tournament first.");
+        return;
+      }
+      const msgEl = document.getElementById("import-msg");
+      showMsg(msgEl, "Downloading images for offline display…", "ok");
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/rebundle-media`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...localHeaders() },
+          credentials: "include",
+          body: JSON.stringify({ tournamentId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showMsg(msgEl, data.message || "Images downloaded.", data.failed > 0 ? "err" : "ok");
+        } else {
+          showMsg(msgEl, `Download failed: ${data.error || "Unknown error"}`, "err");
+        }
+      } catch (e) {
+        showMsg(msgEl, `Download failed: ${String(e.message || e)}`, "err");
+      }
+    }
+
     async function manualSync() {
-      // Pre-fill from the cloudBaseUrl stored during import; user can override
-      const defaultUrl = storedCloudBaseUrl || "";
-      const cloudUrl = prompt(
-        "BidWar cloud URL (pre-filled from your last import — edit if needed):",
-        defaultUrl
-      );
-      if (!cloudUrl) return;
-      const trimmedUrl = cloudUrl.trim().replace(/\/$/, "");
-      // Persist the (possibly corrected) URL for next time
-      storedCloudBaseUrl = trimmedUrl;
-      localStorage.setItem("cloudBaseUrl", trimmedUrl);
+      if (!tournamentId) {
+        alert("Import a tournament first.");
+        return;
+      }
+      await loadTournamentMeta();
+      const cloudUrl = (storedCloudBaseUrl || "").trim().replace(/\/$/, "");
+      if (!cloudUrl) {
+        alert("No cloud URL on file. Re-export this tournament from BidWar cloud and import the JSON again.");
+        return;
+      }
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/sync-to-cloud`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cloudBaseUrl: trimmedUrl, tournamentId }),
+          headers: {
+            "Content-Type": "application/json",
+            ...(storedOperatorPin ? { "X-Operator-Pin": storedOperatorPin } : {}),
+          },
+          body: JSON.stringify({ cloudBaseUrl: cloudUrl, tournamentId }),
         });
         const data = await res.json();
         if (res.ok) {
           alert(`Sync complete! Players updated: ${data.playersUpdated}, Bids synced: ${data.bidsInserted}`);
           loadSyncStatus();
+          loadTournamentMeta();
         } else {
-          alert("Sync failed: " + (data.error || "Unknown error"));
+          let msg = data.error || "Unknown error";
+          if (data.cloudStatus) msg += ` (HTTP ${data.cloudStatus})`;
+          if (data.detail && !msg.includes(data.detail.slice(0, 40))) {
+            try {
+              const inner = JSON.parse(data.detail);
+              if (inner.error && inner.error !== msg) msg += "\n\n" + inner.error;
+            } catch {
+              if (data.detail.length < 200) msg += "\n\n" + data.detail;
+            }
+          }
+          alert("Sync failed:\n\n" + msg + "\n\nIf the export token expired or was already used, re-export from BidWar cloud and import the JSON again.");
         }
       } catch (e) {
         alert("Sync error: " + e.message);

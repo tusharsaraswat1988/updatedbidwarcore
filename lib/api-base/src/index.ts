@@ -20,11 +20,43 @@ export {
 export { parseOptionalEmail } from "./email.ts";
 
 export {
+  type BidValueMode,
+  type BidValueSource,
+  parseBidValueOptions,
+  serializeBidValueOptions,
+  isPlayerBidValueMode,
+  getOrganizerBidOptions,
+  shouldShowPlayerBidValueSelector,
+  bidValueSourceLabel,
+  resolvePlayerBidFields,
+  canEditPlayerBidValue,
+} from "./bid-value.ts";
+
+export { isPlayerSpecsV2Enabled } from "./player-specs-v2.ts";
+export { isPlayerSportProfilesEnabled } from "./player-sport-profiles.ts";
+
+export {
+  getIstTodayDateString,
+  validateAuctionDate,
+  parseAuctionDateString,
+  AUCTION_DATE_PAST_ERROR,
+  type AuctionDateValidationResult,
+} from "./auction-date.ts";
+
+export {
   OWNER_APP_BASE,
   ownerJoinPath,
+  ownerJoinAppPath,
   ownerDashboardAppPath,
   ownerJoinPublicUrl,
 } from "./owner-urls.ts";
+
+export {
+  VENUE_MIRROR_TTL_MS,
+  evaluateVenueAuctionGuard,
+  type VenueAuctionGuardInput,
+  type VenueAuctionGuardResult,
+} from "./venue-auction-guard.ts";
 
 export const API_PREFIX = "/api";
 

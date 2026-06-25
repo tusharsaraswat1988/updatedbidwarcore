@@ -8,6 +8,8 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
+export type OperatorPinGetter = () => string | null;
+
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
@@ -17,6 +19,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _operatorPinGetter: OperatorPinGetter | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +45,14 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies the venue operator PIN for BidWar Local.
+ * When set, mutating requests include `X-Operator-Pin` unless already provided.
+ */
+export function setOperatorPinGetter(getter: OperatorPinGetter | null): void {
+  _operatorPinGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -355,6 +366,18 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  if (
+    _operatorPinGetter &&
+    !headers.has("x-operator-pin") &&
+    method !== "GET" &&
+    method !== "HEAD"
+  ) {
+    const pin = _operatorPinGetter();
+    if (pin) {
+      headers.set("x-operator-pin", pin);
     }
   }
 

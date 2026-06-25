@@ -1,27 +1,35 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useRoute } from "wouter";
 import { useBranding } from "@/hooks/use-branding";
-import {
-  useGetTournament,
-  useListCategories,
-  useRegisterPlayer,
-  useGetRegistrationStatus,
-  getGetTournamentQueryKey,
-  getListCategoriesQueryKey,
-  getGetRegistrationStatusQueryKey,
-} from "@workspace/api-client-react";
+import type { RegistrationStatus, Tournament } from "@workspace/api-client-react";
+import { normalizeRegistrationCode } from "@workspace/api-base/registration-url";
 import { FullscreenLayout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X } from "lucide-react";
+import { CheckCircle2, User, Lock, CalendarX, Users, MessageSquare, Search, Loader2, CalendarDays, Upload, Pencil, X, ExternalLink } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { motion, AnimatePresence } from "framer-motion";
-import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
+import { CityAutocomplete } from "@/components/city-autocomplete";
+import { JerseySizeSelect } from "@/components/jersey-size-select";
+import { PlayerGenderSelect } from "@/components/player-gender-select";
+import type { JerseySize } from "@workspace/api-base/jersey-size";
+import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
+import { RegistrationPageHeader } from "@/components/registration-page-header";
+import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
+import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
+import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import { formatIndianRupee } from "@/lib/format";
+import {
+  applySpecificationsToSelections,
+  buildSpecificationsFromSelections,
+} from "@/lib/player-specifications";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SportRole { id: number; sportId: number; roleName: string; displayOrder: number; }
@@ -33,12 +41,15 @@ interface GlobalPlayerLookup {
   mobileNumber: string | null;
   city: string | null;
   age: number | null;
+  gender?: string | null;
   role: string | null;
   photoUrl: string | null;
   battingStyle: string | null;
   bowlingStyle: string | null;
   specialization: string | null;
+  specifications?: { specGroupId: number; groupName?: string; value: string }[];
   jerseyNumber?: string | null;
+  jerseySize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
   appearanceCount?: number;
@@ -70,11 +81,17 @@ function useRoleSpecs(roleId: number | undefined) {
 }
 
 export default function PlayerRegister() {
-  const [, params] = useRoute("/tournament/:id/register");
-  const tournamentId = parseInt(params?.id || "0");
-  const { brandName, poweredByText, logos } = useBranding();
+  const [, params] = useRoute("/register/:code");
+  const registrationCode = params?.code ? normalizeRegistrationCode(params.code) : "";
+  const { brandName } = useBranding();
+  const [contextLoading, setContextLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [status, setStatus] = useState<RegistrationStatus | null>(null);
+  const [registerPending, setRegisterPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [waConsent, setWaConsent] = useState(false);
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
@@ -83,6 +100,8 @@ export default function PlayerRegister() {
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [foundProfile, setFoundProfile] = useState<GlobalPlayerLookup | null>(null);
+  const [existingRegistration, setExistingRegistration] = useState<GlobalPlayerLookup | null>(null);
+  const [registrationUpdated, setRegistrationUpdated] = useState(false);
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -93,11 +112,12 @@ export default function PlayerRegister() {
     city: "",
     role: "",
     age: "",
+    gender: "",
     jerseyNumber: "",
+    jerseySize: "" as JerseySize | "",
     achievements: "",
     availabilityDates: "",
     cricheroUrl: "",
-    categoryId: "",
     photoUrl: "",
     battingStyle: "",
     bowlingStyle: "",
@@ -106,24 +126,49 @@ export default function PlayerRegister() {
 
   // Spec group selections: groupId → chosen optionName
   const [specSelections, setSpecSelections] = useState<Record<number, string>>({});
+  const [utrNumber, setUtrNumber] = useState("");
+  const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
+  const [selectedBidValue, setSelectedBidValue] = useState("");
 
-  const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-  const { data: categories } = useListCategories(tournamentId, {
-    query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-  const { data: status, refetch: refetchStatus } = useGetRegistrationStatus(tournamentId, {
-    query: {
-      queryKey: getGetRegistrationStatusQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: 30000,
-    },
-  });
-  const registerPlayer = useRegisterPlayer();
+  const loadContext = useCallback(async () => {
+    if (!registrationCode) {
+      setContextError("Invalid registration link.");
+      setTournament(null);
+      setStatus(null);
+      setContextLoading(false);
+      return;
+    }
+    setContextLoading(true);
+    setContextError(null);
+    try {
+      const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}/context`);
+      if (!res.ok) {
+        setContextError("Registration link not found. Ask your organizer for the correct link.");
+        setTournament(null);
+        setStatus(null);
+        return;
+      }
+      const data = await res.json() as { tournament: Tournament; registration: RegistrationStatus };
+      setTournament(data.tournament);
+      setStatus(data.registration);
+    } catch {
+      setContextError("Could not load registration form. Please try again.");
+      setTournament(null);
+      setStatus(null);
+    } finally {
+      setContextLoading(false);
+    }
+  }, [registrationCode]);
+
+  useEffect(() => {
+    void loadContext();
+  }, [loadContext]);
+
+  const refetchStatus = loadContext;
 
   // Dynamic roles from sport master table
   const sportSlug = (tournament as { sport?: string } | undefined)?.sport;
+  const isCricket = (sportSlug ?? "cricket") === "cricket";
   const roles = useSportRoles(sportSlug);
 
   // Set default role once roles load
@@ -151,38 +196,84 @@ export default function PlayerRegister() {
   // Reset spec selections when role changes
   useEffect(() => { setSpecSelections({}); }, [form.role]);
 
-  // Pre-fill dynamic spec group selections from previously-stored values
-  // Maps battingStyle→group[0], bowlingStyle→group[1], specialization→group[2]
+  // Pre-fill dynamic spec group selections from normalized or legacy values
   useEffect(() => {
-    if (!foundProfile || specs.length === 0) return;
-    const previousValues = [
-      foundProfile.battingStyle,
-      foundProfile.bowlingStyle,
-      foundProfile.specialization,
-    ];
-    const sortedGroups = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
-    setSpecSelections(prev => {
+    if (specs.length === 0) return;
+    const source = existingRegistration ?? foundProfile;
+    if (!source) return;
+    const { legacyForm, extraSelections } = applySpecificationsToSelections(
+      specs,
+      source.specifications?.map((s) => ({ specGroupId: s.specGroupId, value: s.value })),
+      {
+        battingStyle: source.battingStyle ?? "",
+        bowlingStyle: source.bowlingStyle ?? "",
+        specialization: source.specialization ?? "",
+      },
+    );
+    setForm((prev) => ({
+      ...prev,
+      battingStyle: legacyForm.battingStyle ?? prev.battingStyle,
+      bowlingStyle: legacyForm.bowlingStyle ?? prev.bowlingStyle,
+      specialization: legacyForm.specialization ?? prev.specialization,
+    }));
+    setSpecSelections((prev) => {
       const next = { ...prev };
-      sortedGroups.forEach((group, idx) => {
-        if (idx >= previousValues.length) return;
-        const prev_val = previousValues[idx];
-        if (!prev_val) return;
-        // Only pre-fill if not already chosen and the option exists in this group
-        if (next[group.id]) return;
-        const matchingOption = group.options.find(
-          opt => opt.optionName.toLowerCase() === prev_val.toLowerCase(),
-        );
-        if (matchingOption) {
-          next[group.id] = matchingOption.optionName;
-        }
-      });
+      for (const [groupId, value] of Object.entries(extraSelections)) {
+        next[Number(groupId)] = value;
+      }
+      for (const group of specs) {
+        const legacyKeyIdx = specs
+          .slice()
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .findIndex((g) => g.id === group.id);
+        const legacyVal =
+          legacyKeyIdx === 0 ? legacyForm.battingStyle
+          : legacyKeyIdx === 1 ? legacyForm.bowlingStyle
+          : legacyKeyIdx === 2 ? legacyForm.specialization
+          : undefined;
+        if (legacyVal && !next[group.id]) next[group.id] = legacyVal;
+      }
       return next;
     });
-  }, [specs, foundProfile]);
+  }, [specs, foundProfile, existingRegistration]);
 
-  const isClosed = status && !status.open;
+  const canUpdateExisting = !!existingRegistration;
+  const isClosed = status && !status.open && !canUpdateExisting;
   const closedReason = status?.reason;
   const remaining = status?.limit != null ? Math.max(0, status.limit - status.currentCount) : null;
+
+  const paymentEnabled =
+    status?.enableRegistrationPayment === true || tournament?.enableRegistrationPayment === true;
+  const registrationFee = status?.registrationFee ?? tournament?.registrationFee ?? 0;
+  const upiId = status?.upiId ?? tournament?.upiId ?? "";
+  const verificationMethod = (
+    status?.paymentVerificationMethod ?? tournament?.paymentVerificationMethod ?? "utr"
+  ) as PaymentVerificationMethod;
+  const paymentConfigured = paymentEnabled && registrationFee > 0 && !!upiId.trim() && !!verificationMethod;
+
+  const playerBidValueMode =
+    (status as { bidValueMode?: string } | undefined)?.bidValueMode === "player"
+    || (tournament as { bidValueMode?: string } | undefined)?.bidValueMode === "player";
+  const bidValueOptions = (
+    (status as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
+    ?? (tournament as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
+    ?? []
+  ).filter((n) => Number.isFinite(n) && n > 0);
+
+  const declarationPoints = useMemo(() => {
+    const fromStatus = status?.registrationDeclarationPoints;
+    if (fromStatus?.length) return fromStatus;
+    const tournamentEnabled = (tournament as { enableRegistrationDeclaration?: boolean } | undefined)?.enableRegistrationDeclaration;
+    const tournamentText = (tournament as { registrationDeclarationText?: string | null } | undefined)?.registrationDeclarationText;
+    if (status?.enableRegistrationDeclaration || tournamentEnabled) {
+      return parseRegistrationDeclarationPoints(
+        status?.registrationDeclarationText ?? tournamentText,
+      );
+    }
+    return [];
+  }, [status, tournament]);
+
+  const declarationRequired = declarationPoints.length > 0;
 
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
@@ -205,29 +296,62 @@ export default function PlayerRegister() {
     f("mobileNumber", sanitized);
     setMobileLookedUp(false);
     setFoundProfile(null);
+    setExistingRegistration(null);
     if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
     if (sanitized.length >= 10) {
       mobileDebounceRef.current = setTimeout(async () => {
+        if (!registrationCode) return;
         setLookupLoading(true);
         try {
-          const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1`);
-          const data: GlobalPlayerLookup[] = await res.json();
-          const match = Array.isArray(data)
-            ? data.find(p => p.mobileNumber && p.mobileNumber.replace(/\D/g, "") === sanitized)
+          const sportQ = tournament?.sport ? `&sport=${encodeURIComponent(tournament.sport)}` : "";
+          const [globalRes, tournamentRes] = await Promise.all([
+            fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=1${sportQ}`),
+            fetch(`/api/register/${encodeURIComponent(registrationCode)}/lookup?mobile=${encodeURIComponent(sanitized)}`),
+          ]);
+          const data: GlobalPlayerLookup[] = await globalRes.json();
+          const match = Array.isArray(data) && data.length > 0
+            ? (sanitized.length >= 10 ? data[0] : data.find(p => p.name && sanitized.length >= 2))
             : undefined;
-          if (match) {
-            setFoundProfile(match);
+          if (match) setFoundProfile(match);
+
+          const tournamentLookup = await tournamentRes.json() as {
+            registered?: boolean;
+            player?: GlobalPlayerLookup;
+          };
+          if (tournamentLookup.registered && tournamentLookup.player) {
+            setExistingRegistration(tournamentLookup.player);
+            const tp = tournamentLookup.player;
+            setForm(prev => ({
+              ...prev,
+              name: tp.name || prev.name,
+              city: tp.city ?? prev.city,
+              age: tp.age != null ? String(tp.age) : prev.age,
+              gender: tp.gender ?? prev.gender,
+              role: tp.role ?? prev.role,
+              photoUrl: tp.photoUrl ?? prev.photoUrl,
+              battingStyle: tp.battingStyle ?? prev.battingStyle,
+              bowlingStyle: tp.bowlingStyle ?? prev.bowlingStyle,
+              specialization: tp.specialization ?? prev.specialization,
+              jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
+              jerseySize: (tp.jerseySize as JerseySize | null) ?? prev.jerseySize,
+              achievements: tp.achievements ?? prev.achievements,
+              cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
+              availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
+            }));
+          } else if (match) {
             setForm(prev => ({
               ...prev,
               name: prev.name || match.name,
               city: prev.city || (match.city ?? ""),
               age: prev.age || (match.age ? String(match.age) : ""),
+              gender: prev.gender || (match.gender ?? ""),
               role: prev.role || (match.role ?? ""),
               photoUrl: prev.photoUrl || (match.photoUrl ?? ""),
               battingStyle: prev.battingStyle || (match.battingStyle ?? ""),
               bowlingStyle: prev.bowlingStyle || (match.bowlingStyle ?? ""),
               specialization: prev.specialization || (match.specialization ?? ""),
               jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
+              jerseySize: prev.jerseySize || ((match.jerseySize as JerseySize | null) ?? ""),
               achievements: prev.achievements || (match.achievements ?? ""),
               cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
             }));
@@ -256,16 +380,44 @@ export default function PlayerRegister() {
       return;
     }
 
-    // Serialize spec selections into existing style fields (up to 3 groups)
     const sortedSpecs = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+    const specifications = buildSpecificationsFromSelections(sortedSpecs, specSelections);
     const battingStyle = sortedSpecs[0] ? (specSelections[sortedSpecs[0].id] || undefined) : (form.battingStyle || undefined);
     const bowlingStyle = sortedSpecs[1] ? (specSelections[sortedSpecs[1].id] || undefined) : (form.bowlingStyle || undefined);
     const specialization = sortedSpecs[2] ? (specSelections[sortedSpecs[2].id] || undefined) : (form.specialization || undefined);
 
+    if (paymentConfigured) {
+      const needsUtr = verificationMethod === "utr" || verificationMethod === "utr_and_screenshot";
+      const needsScreenshot = verificationMethod === "screenshot" || verificationMethod === "utr_and_screenshot";
+      if (needsUtr && !utrNumber.trim()) {
+        setErrorMsg("Please enter your UTR number after completing payment.");
+        return;
+      }
+      if (needsScreenshot && !paymentScreenshotUrl.trim()) {
+        setErrorMsg("Please upload your payment screenshot.");
+        return;
+      }
+    }
+
+    if (declarationRequired && !declarationAccepted) {
+      setErrorMsg("Please accept the declaration to continue.");
+      return;
+    }
+
+    if (playerBidValueMode && !existingRegistration) {
+      const parsedBid = parseInt(selectedBidValue, 10);
+      if (!Number.isFinite(parsedBid) || !bidValueOptions.includes(parsedBid)) {
+        setErrorMsg("Please select your bid value.");
+        return;
+      }
+    }
+
     try {
-      await registerPlayer.mutateAsync({
-        tournamentId,
-        data: {
+      setRegisterPending(true);
+      const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: form.name,
           mobileNumber: mobileResult.normalized,
           email: emailResult.email || undefined,
@@ -274,61 +426,104 @@ export default function PlayerRegister() {
           battingStyle: battingStyle || undefined,
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,
+          specifications: specifications.length > 0 ? specifications : undefined,
           age: form.age ? parseInt(form.age) : undefined,
+          gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
           jerseyNumber: form.jerseyNumber || undefined,
+          jerseySize: form.jerseySize || undefined,
           achievements: form.achievements || undefined,
           availabilityDates: form.availabilityDates || undefined,
-          cricheroUrl: form.cricheroUrl || undefined,
-          categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
+          cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
           photoUrl: form.photoUrl || undefined,
-          basePrice: 100000,
+          basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
+          selectedBidValue: playerBidValueMode && !existingRegistration
+            ? parseInt(selectedBidValue, 10)
+            : undefined,
           whatsappConsent: waConsent,
-        },
+          registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
+          utrNumber: utrNumber.trim() || undefined,
+          paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
+        }),
       });
-      setSubmitted(true);
-      refetchStatus();
-    } catch (err: any) {
-      const data = err?.data ?? err?.response?.data;
-      if (data?.field === "email") {
-        setEmailError(data.error || "Please enter a valid email address");
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (result?.field === "email") {
+          setEmailError(result.error || "Please enter a valid email address");
+          return;
+        }
+        if (result?.field === "registrationDeclarationAccepted") {
+          setErrorMsg(result.error || "Please accept the declaration to continue.");
+          return;
+        }
+        if (result && typeof result === "object" && result.reason) {
+          setErrorMsg(
+            result.reason === "deadline_passed"
+              ? "Registration closed: the deadline has passed."
+              : "Registration closed: the player limit has been reached.",
+          );
+          void refetchStatus();
+          return;
+        }
+        setErrorMsg(result?.error || "Submission failed. Please try again.");
         return;
       }
-      if (data && typeof data === "object" && data.reason) {
-        setErrorMsg(
-          data.reason === "deadline_passed"
-            ? "Registration closed: the deadline has passed."
-            : "Registration closed: the player limit has been reached.",
-        );
-        refetchStatus();
-      } else {
-        setErrorMsg(err?.message || "Submission failed. Please try again.");
-      }
+      setRegistrationUpdated(!!result.updated);
+      setSubmitted(true);
+      if (!result.updated) void refetchStatus();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Submission failed. Please try again.");
+    } finally {
+      setRegisterPending(false);
     }
   }
 
   const f = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
+  if (contextLoading) {
+    return (
+      <FullscreenLayout>
+        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground mt-3">Loading registration form…</p>
+          <footer className="absolute bottom-6 left-0 right-0 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
+  if (contextError || !tournament || !status) {
+    return (
+      <FullscreenLayout>
+        <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center px-4 py-8">
+          <Card className="w-full max-w-md border-destructive/40">
+            <CardContent className="p-8 text-center space-y-3">
+              <Lock className="w-12 h-12 text-destructive mx-auto" />
+              <h1 className="text-xl font-semibold">Registration unavailable</h1>
+              <p className="text-sm text-muted-foreground">
+                {contextError ?? "Registration link not found. Ask your organizer for the correct link."}
+              </p>
+            </CardContent>
+          </Card>
+          <footer className="mt-8 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
+        </div>
+      </FullscreenLayout>
+    );
+  }
+
   return (
     <FullscreenLayout>
       <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-4">
         <div className="w-full max-w-lg">
-          {/* Header */}
-          <div className="text-center mb-6 sm:mb-8">
-            {(tournament as { logoUrl?: string | null } | undefined)?.logoUrl ? (
-              <img src={(tournament as { logoUrl?: string | null }).logoUrl!} alt={tournament?.name} className="h-16 w-16 object-contain mx-auto mb-4 rounded-xl" />
-            ) : (
-              <Trophy className="w-12 h-12 text-primary mx-auto mb-4" />
-            )}
-            <h1 className="text-2xl sm:text-3xl font-display font-black text-white leading-tight px-1">
-              {tournament?.name || brandName}
-            </h1>
-            <p className="text-muted-foreground mt-1">Player Registration</p>
-            {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
-              <p className="text-xs font-mono text-amber-400 mt-1">
-                Code: {(tournament as { auctionCode?: string | null }).auctionCode}
-              </p>
-            )}
-          </div>
+          <RegistrationPageHeader
+            tournamentName={tournament?.name}
+            tournamentLogoUrl={(tournament as { logoUrl?: string | null } | undefined)?.logoUrl}
+            sponsorLogosJson={(tournament as { sponsorLogos?: string | null } | undefined)?.sponsorLogos}
+            brandNameFallback={brandName}
+          />
 
           <AnimatePresence mode="wait">
             {isClosed ? (
@@ -361,11 +556,35 @@ export default function PlayerRegister() {
               >
                 <Card className="border-green-500/40 bg-green-500/10">
                   <CardContent className="p-10">
-                    <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-green-400 mb-2">Registration Successful!</h2>
-                    <p className="text-muted-foreground">
-                      Your registration has been received. The organizer will contact you with further details.
-                    </p>
+                    {registrationUpdated ? (
+                      <>
+                        <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-green-400 mb-2">Registration Updated</h2>
+                        <p className="text-muted-foreground">
+                          Your profile details have been saved. Your auction status was not changed.
+                        </p>
+                      </>
+                    ) : paymentConfigured ? (
+                      <>
+                        <CheckCircle2 className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-white mb-1">Registration Submitted</h2>
+                        <p className="text-lg font-semibold text-amber-300 mb-3">Payment Verification Pending</p>
+                        <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+                          🟡 Pending Verification
+                        </Badge>
+                        <p className="text-muted-foreground text-sm mt-4">
+                          Your registration has been received. The organizer will verify your payment and contact you with further details.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-green-400 mb-2">Registration Successful!</h2>
+                        <p className="text-muted-foreground">
+                          Your registration has been received. The organizer will contact you with further details.
+                        </p>
+                      </>
+                    )}
                     {waConsent && waLink && (
                       <div className="mt-6 p-4 rounded-xl border border-green-500/30 bg-green-500/8 text-sm space-y-3">
                         <p className="font-semibold text-green-300">WhatsApp updates activate karein</p>
@@ -384,12 +603,13 @@ export default function PlayerRegister() {
                       className="mt-4"
                       variant="outline"
                       onClick={() => {
-                        setSubmitted(false); setWaConsent(false); setErrorMsg(null); setEmailError("");
+                        setSubmitted(false); setWaConsent(false); setDeclarationAccepted(false); setErrorMsg(null); setEmailError("");
+                        setUtrNumber(""); setPaymentScreenshotUrl("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
-                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", jerseyNumber: "",
+                          name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
-                          cricheroUrl: "", categoryId: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
+                          cricheroUrl: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
                         });
                         setSpecSelections({});
                       }}
@@ -432,8 +652,17 @@ export default function PlayerRegister() {
                       )}
 
                       {/* Mobile first — triggers global player lookup */}
-                      <div className="space-y-2">
-                        <Label>Mobile Number *</Label>
+                      <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 sm:p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Search className="w-4 h-4 text-primary shrink-0" />
+                          <Label className="text-primary font-semibold">Mobile Number *</Label>
+                          <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                            Start here
+                          </span>
+                        </div>
+                        <p className="text-xs text-primary/70 -mt-0.5">
+                          We&apos;ll look up your profile from past registrations using this number.
+                        </p>
                         <div className="relative">
                           <Input
                             required
@@ -441,23 +670,32 @@ export default function PlayerRegister() {
                             onChange={e => handleMobileChange(e.target.value)}
                             placeholder="10-digit mobile (e.g. 9876543210)"
                             type="tel"
-                            className="pr-8 h-11 sm:h-9 text-base"
+                            className="pr-8 h-11 sm:h-9 text-base border-primary/30 bg-background/60 focus-visible:border-primary focus-visible:ring-primary/25"
                             inputMode="numeric"
                             autoComplete="tel"
                             maxLength={10}
                           />
                           {lookupLoading && (
-                            <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
+                            <Loader2 className="absolute right-2.5 top-2.5 w-4 h-4 animate-spin text-primary" />
                           )}
                           {!lookupLoading && mobileLookedUp && (
-                            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile ? "text-green-500" : "text-muted-foreground"}`} />
+                            <Search className={`absolute right-2.5 top-2.5 w-4 h-4 ${foundProfile ? "text-green-500" : "text-primary/60"}`} />
                           )}
                         </div>
-                        {foundProfile && (
+                        {lookupLoading && (
+                          <p className="text-xs text-primary/70 flex items-center gap-1.5">
+                            Checking your mobile number in our player database…
+                          </p>
+                        )}
+                        {existingRegistration ? (
+                          <p className="text-xs text-amber-300">
+                            You&apos;re already registered in this tournament. Update your profile below — auction status and team assignment won&apos;t change.
+                          </p>
+                        ) : foundProfile ? (
                           <p className="text-xs text-green-400">
                             Profile found — details pre-filled from your previous registration.
                           </p>
-                        )}
+                        ) : null}
                       </div>
 
                       <OptionalEmailField
@@ -468,23 +706,33 @@ export default function PlayerRegister() {
                         inputClassName="h-11 sm:h-9 text-base"
                       />
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2 sm:col-span-2">
-                          <Label>Full Name *</Label>
-                          <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Full Name *</Label>
+                        <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label>City</Label>
-                          <Input value={form.city} onChange={e => f("city", e.target.value)} placeholder="Mumbai" className="h-11 sm:h-9" autoComplete="address-level2" />
+                          <CityAutocomplete
+                            value={form.city}
+                            onChange={v => f("city", v)}
+                            className="h-11 sm:h-9"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Age</Label>
-                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} placeholder="25" className="h-11 sm:h-9" />
+                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} className="h-11 sm:h-9" />
                         </div>
+                        <PlayerGenderSelect
+                          value={form.gender}
+                          onChange={(v) => f("gender", v)}
+                          triggerClassName="h-11 sm:h-9"
+                        />
                       </div>
 
-                      {/* Dynamic role dropdown */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Role + role-specific specifications */}
+                      <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
                         <div className="space-y-2">
                           <Label>Role *</Label>
                           <Select value={form.role} onValueChange={v => f("role", v)}>
@@ -495,7 +743,6 @@ export default function PlayerRegister() {
                                     <SelectItem key={r.id} value={r.roleName}>{r.roleName}</SelectItem>
                                   ))
                                 : (
-                                  // Fallback while loading
                                   ["Batsman","Bowler","All-Rounder","Wicketkeeper","Player"].map(r => (
                                     <SelectItem key={r} value={r}>{r}</SelectItem>
                                   ))
@@ -504,19 +751,9 @@ export default function PlayerRegister() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Jersey Number</Label>
-                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} placeholder="7" inputMode="numeric" className="h-11 sm:h-9" />
-                        </div>
-                      </div>
 
-                      {/* Dynamic spec groups — same logic as admin form */}
-                      {specs.length > 0 ? (
-                        <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                            {form.role} Specifications
-                          </p>
-                          {specs.map(group => (
+                        {specs.length > 0 ? (
+                          specs.map(group => (
                             <div key={group.id} className="space-y-1.5">
                               <Label className="text-sm">
                                 {group.groupName}
@@ -538,25 +775,57 @@ export default function PlayerRegister() {
                                 </SelectContent>
                               </Select>
                             </div>
-                          ))}
+                          ))
+                        ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Batting Style</Label>
+                              <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} className="h-11 sm:h-9" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Bowling Style</Label>
+                              <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} className="h-11 sm:h-9" />
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
+                              <Label>Specialization</Label>
+                              <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} className="h-11 sm:h-9" />
+                            </div>
+                          </div>
+                        ) : null)}
+                      </div>
+
+                      {playerBidValueMode && !existingRegistration && bidValueOptions.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Select Your Bid Value *</Label>
+                          <Select value={selectedBidValue} onValueChange={setSelectedBidValue} required>
+                            <SelectTrigger className="h-11 sm:h-9">
+                              <SelectValue placeholder="Choose your bid value" />
+                            </SelectTrigger>
+                            <SelectContent className="dark">
+                              {bidValueOptions.map((amount) => (
+                                <SelectItem key={amount} value={String(amount)}>
+                                  {formatIndianRupee(amount)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Choose one of the organizer-approved base values for this auction.
+                          </p>
                         </div>
-                      ) : (["cricket", "other", ""].includes(sportSlug ?? "cricket") ? (
-                        /* Fallback free-text fields for cricket / other / unknown sports */
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Batting Style</Label>
-                            <Input value={form.battingStyle} onChange={e => f("battingStyle", e.target.value)} placeholder="Right-hand bat" className="h-11 sm:h-9" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Bowling Style</Label>
-                            <Input value={form.bowlingStyle} onChange={e => f("bowlingStyle", e.target.value)} placeholder="Right-arm fast" className="h-11 sm:h-9" />
-                          </div>
-                          <div className="space-y-2 sm:col-span-2">
-                            <Label>Specialization</Label>
-                            <Input value={form.specialization} onChange={e => f("specialization", e.target.value)} placeholder="Power hitter, Death bowler..." className="h-11 sm:h-9" />
-                          </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Jersey Number</Label>
+                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} inputMode="numeric" className="h-11 sm:h-9" />
                         </div>
-                      ) : null)}
+                        <JerseySizeSelect
+                          value={form.jerseySize}
+                          onChange={v => f("jerseySize", v)}
+                          triggerClassName="h-11 sm:h-9"
+                        />
+                      </div>
 
                       {(() => {
                         const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);
@@ -603,13 +872,30 @@ export default function PlayerRegister() {
 
                       <div className="space-y-2">
                         <Label>Achievements / Bio</Label>
-                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="Player of Season 2024, 500+ runs..." className="h-11 sm:h-9" />
+                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-11 sm:h-9" />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Crichero Profile URL</Label>
-                        <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="https://crichero.com/player/..." type="url" inputMode="url" className="h-11 sm:h-9" />
-                      </div>
+                      {isCricket && (
+                        <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 sm:p-4 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <ExternalLink className="w-4 h-4 text-primary shrink-0" />
+                            <Label className="text-primary font-semibold">Crichero Profile URL</Label>
+                            <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+                              Cricket
+                            </span>
+                          </div>
+                          <p className="text-xs text-primary/70 -mt-0.5">
+                            Add your CricHero profile link so organisers can view your match stats.
+                          </p>
+                          <Input
+                            value={form.cricheroUrl}
+                            onChange={e => f("cricheroUrl", e.target.value)}
+                            type="url"
+                            inputMode="url"
+                            className="h-11 sm:h-9 border-primary/30 bg-background/60 focus-visible:border-primary focus-visible:ring-primary/25"
+                          />
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label>Player Photo (optional)</Label>
@@ -662,17 +948,25 @@ export default function PlayerRegister() {
                         />
                       </div>
 
-                      {categories && categories.length > 0 && (
-                        <div className="space-y-2">
-                          <Label>Preferred Category</Label>
-                          <Select value={form.categoryId} onValueChange={v => f("categoryId", v)}>
-                            <SelectTrigger className="h-11 sm:h-9"><SelectValue placeholder="Select category (optional)" /></SelectTrigger>
-                            <SelectContent className="dark max-h-[min(50dvh,320px)]">
-                              {categories.map(c => (
-                                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                      {declarationRequired && (
+                        <div className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-4">
+                          <p className="text-sm font-semibold text-foreground">Declaration & Consent</p>
+                          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                            {declarationPoints.map((point, i) => (
+                              <li key={i} className="leading-relaxed">{point}</li>
+                            ))}
+                          </ol>
+                          <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1 border-t border-border/50 pt-3">
+                            <input
+                              type="checkbox"
+                              checked={declarationAccepted}
+                              onChange={e => setDeclarationAccepted(e.target.checked)}
+                              className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
+                            />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-relaxed">
+                              I have read and accept all of the above declarations
+                            </span>
+                          </label>
                         </div>
                       )}
 
@@ -701,13 +995,33 @@ export default function PlayerRegister() {
                         )}
                       </div>
 
+                      {paymentEnabled && paymentConfigured && (
+                        <RegistrationPaymentFormSection
+                          registrationFee={registrationFee}
+                          upiId={upiId}
+                          verificationMethod={verificationMethod}
+                          utrNumber={utrNumber}
+                          paymentScreenshotUrl={paymentScreenshotUrl}
+                          onUtrChange={setUtrNumber}
+                          onScreenshotChange={setPaymentScreenshotUrl}
+                          tournamentName={tournament?.name}
+                          disabled={registerPending}
+                        />
+                      )}
+
                       <Button
                         type="submit"
                         size="lg"
                         className="w-full h-12 sm:h-12 text-base font-bold sticky bottom-0 sm:static"
-                        disabled={registerPlayer.isPending}
+                        disabled={registerPending || (declarationRequired && !declarationAccepted)}
                       >
-                        {registerPlayer.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : "Submit Registration"}
+                        {registerPending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>
+                        ) : existingRegistration ? (
+                          "Update Registration"
+                        ) : (
+                          "Submit Registration"
+                        )}
                       </Button>
                     </form>
                   </CardContent>
@@ -716,10 +1030,9 @@ export default function PlayerRegister() {
             )}
           </AnimatePresence>
 
-          <div className="mt-6 sm:mt-8 flex flex-col items-center gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-30" />}
-            <p className="text-[11px] text-muted-foreground/40 uppercase tracking-widest">{poweredByText}</p>
-          </div>
+          <footer className="mt-8 pb-2 flex justify-center">
+            <PoweredByBidWarLink variant="footer" />
+          </footer>
         </div>
       </div>
     </FullscreenLayout>

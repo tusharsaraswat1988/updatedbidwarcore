@@ -5,6 +5,7 @@ import {
   Building2,
   Gauge,
   Gavel,
+  Image,
   LifeBuoy,
   Monitor,
   Settings,
@@ -22,6 +23,10 @@ const tournamentItems: NavItem[] = [
   { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
   { label: "Organisers", href: "/admin/organisers", icon: Building2 },
   { label: "Sports & Specs", href: "/admin/tournaments/sports", icon: Gavel },
+];
+
+const creativeItems: NavItem[] = [
+  { label: "Creative Assets", href: "/admin/creative-assets", icon: Image },
 ];
 
 const settingItems: NavItem[] = [
@@ -108,6 +113,7 @@ export function AdminSidebarNav({
         onNavigate={onNavigate}
       />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
+      <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Platform Settings" items={settingItems} location={location} onNavigate={onNavigate} />
     </nav>
   );

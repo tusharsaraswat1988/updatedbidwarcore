@@ -149,3 +149,52 @@ export async function waitForApiHealth(apiPort, timeoutMs = 45000) {
     `API did not become healthy at ${url} within ${timeoutMs / 1000}s`,
   );
 }
+
+/**
+ * @param {{ api: number; frontend: number; ownerApp: number }} ports
+ * @returns {Promise<{ api: boolean; web: boolean; owner: boolean }>}
+ */
+export async function getDevStackStatus(ports) {
+  /** @type {{ api: boolean; web: boolean; owner: boolean }} */
+  const status = { api: false, web: false, owner: false };
+
+  async function probe(url, check) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      try {
+        return await check(res);
+      } finally {
+        if (!res.bodyUsed) {
+          await res.arrayBuffer().catch(() => {});
+        }
+      }
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  status.api = await probe(
+    `http://127.0.0.1:${ports.api}/api/healthz`,
+    (res) => res.ok,
+  );
+
+  status.web = await probe(
+    `http://127.0.0.1:${ports.frontend}/admin/login`,
+    (res) => res.ok,
+  );
+
+  status.owner = await probe(
+    `http://127.0.0.1:${ports.ownerApp}/owner-app/`,
+    async (res) => {
+      if (!res.ok) return false;
+      const text = await res.text();
+      return text.includes('id="root"') || text.includes("BidWar Owner");
+    },
+  );
+
+  return status;
+}

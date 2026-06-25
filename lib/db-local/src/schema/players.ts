@@ -3,6 +3,8 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 export const playersTable = sqliteTable("players", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   tournamentId: integer("tournament_id").notNull(),
+  /** Tournament-scoped display serial (1..N per tournament). Not the global DB id. */
+  serialNo: integer("serial_no").notNull(),
   categoryId: integer("category_id"),
   teamId: integer("team_id"),
   name: text("name").notNull(),
@@ -11,12 +13,14 @@ export const playersTable = sqliteTable("players", {
   battingStyle: text("batting_style"),
   bowlingStyle: text("bowling_style"),
   age: integer("age"),
+  gender: text("gender"),
   photoUrl: text("photo_url"),
   basePrice: integer("base_price").notNull().default(100000),
   soldPrice: integer("sold_price"),
   retainedPrice: integer("retained_price"),
   status: text("status").notNull().default("available"),
   jerseyNumber: text("jersey_number"),
+  jerseySize: text("jersey_size"),
   achievements: text("achievements"),
   mobileNumber: text("mobile_number"),
   email: text("email"),

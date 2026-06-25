@@ -37,17 +37,27 @@ const PRESETS = {
   teamLogo: "w_200,h_200,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * 112×112 px — tournament header / identity logo (40-56 px rendered size
-   * with retina headroom).
+   * 112×112 px — compact square slots (sidebar icon, mini avatar contexts).
+   * Do not use for horizontal main/reverse wordmarks — use brandWordmark instead.
    */
   headerLogo: "w_112,h_112,c_pad,b_transparent,f_auto,q_auto",
 
   /**
-   * 1920×1080 px — full-screen broadcast banner.
-   * q_auto:good gives excellent quality for a large hero image without
-   * the file size cost of q_auto:best.
+   * Full wordmark — trim empty margins, preserve aspect ratio (no square letterbox).
    */
-  banner: "w_1920,h_1080,c_fill,f_auto,q_auto:good",
+  brandWordmark: "w_960,c_limit,f_auto,q_auto",
+
+  /**
+   * 512×512 px — app icon / favicon source.
+   * Uses PNG explicitly for broad favicon compatibility.
+   */
+  appIcon: "w_512,h_512,c_pad,b_transparent,f_png,q_auto",
+
+  /**
+   * Full-screen broadcast banner — scale to max width, never crop server-side.
+   * Browser object-fit (cover/contain) matches the settings preview and LED display.
+   */
+  banner: "w_1920,c_limit,f_auto,q_auto:good",
 } as const;
 
 export type CldPreset = keyof typeof PRESETS;

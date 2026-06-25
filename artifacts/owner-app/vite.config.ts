@@ -4,18 +4,18 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
-import { ownerJoinPath } from "@workspace/api-base/owner-urls";
-import { createViteApiProxy } from "@workspace/api-base/vite-proxy";
-import type { Plugin } from "vite";
+import { createViteApiProxy } from "../../lib/api-base/src/vite-proxy.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
   return {
     "@workspace/api-base/auction-bid": path.join(src, "auction-bid.ts"),
+    "@workspace/api-base/auction-connection-state": path.join(src, "auction-connection-state.ts"),
     "@workspace/api-base/auction-readiness": path.join(src, "auction-readiness.ts"),
     "@workspace/api-base/dev-cors": path.join(src, "dev-cors.ts"),
     "@workspace/api-base/owner-auth": path.join(src, "owner-auth.ts"),
     "@workspace/api-base/owner-urls": path.join(src, "owner-urls.ts"),
+    "@workspace/api-base/branding-assets": path.join(src, "branding-assets.ts"),
     "@workspace/api-base/vite-proxy": path.join(src, "vite-proxy.ts"),
     "@workspace/api-base": path.join(src, "index.ts"),
   };
@@ -36,41 +36,9 @@ if (Number.isNaN(port) || port <= 0) {
 /** Always /owner-app/ — do not use process.env.BASE_PATH (auction-platform sets "/"). */
 const basePath = "/owner-app/";
 
-/** Full-page legacy share URLs → canonical join entry (matches production api-server redirect). */
-function ownerLegacyShareRedirect(): Plugin {
-  return {
-    name: "owner-legacy-share-redirect",
-    apply: "serve",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const pathname = (req.url ?? "/").split("?")[0] ?? "/";
-        const match = pathname.match(
-          /^\/owner-app\/tournament\/(\d+)\/owner\/(\d+)\/?$/,
-        );
-        if (!match || !req.headers.accept?.includes("text/html")) {
-          next();
-          return;
-        }
-        const tid = parseInt(match[1], 10);
-        const teamId = parseInt(match[2], 10);
-        res.statusCode = 302;
-        res.setHeader(
-          "Location",
-          ownerJoinPath(
-            Number.isFinite(tid) ? tid : undefined,
-            Number.isFinite(teamId) ? teamId : undefined,
-          ),
-        );
-        res.end();
-      });
-    },
-  };
-}
-
 export default defineConfig({
   base: basePath,
   plugins: [
-    ownerLegacyShareRedirect(),
     react(),
     tailwindcss(),
     VitePWA({

@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAdminAuth } from "@/hooks/use-auth";
 import { useInactivityLock } from "@/hooks/use-inactivity-lock";
+import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import {
   listAdminTournaments,
   lockTournament,
@@ -89,6 +92,7 @@ import {
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,6 +113,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SportSelect } from "@/components/sport-select";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Switch } from "@/components/ui/switch";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { DEFAULT_CHEER_PRESETS } from "@/lib/cheer-constants";
@@ -256,28 +262,10 @@ export function CreateTournamentModal({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Sport</Label>
-                <Select
+                <SportSelect
                   value={form.sport}
                   onValueChange={(v) => setForm((p) => ({ ...p, sport: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "cricket",
-                      "football",
-                      "kabaddi",
-                      "basketball",
-                      "hockey",
-                      "other",
-                    ].map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Venue</Label>
@@ -291,10 +279,11 @@ export function CreateTournamentModal({
                 <Label className="text-xs text-muted-foreground">
                   Auction Date
                 </Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={form.auctionDate}
-                  onChange={f("auctionDate")}
+                  onChange={auctionDate => setForm(p => ({ ...p, auctionDate }))}
+                  placeholder="Select auction date"
+                  disablePastDates
                 />
               </div>
               <div className="space-y-1.5">
@@ -466,7 +455,7 @@ function DetailPanel({
   // Cheer settings
   const [cheerEnabled, setCheerEnabled] = useState(true);
   const [cheerPresets, setCheerPresets] = useState<string[]>([]);
-  const [cheerCooldownSeconds, setCheerCooldownSeconds] = useState(8);
+  const [cheerCooldownSeconds, setCheerCooldownSeconds] = useState(2);
   const [cheerHeatMeterEnabled, setCheerHeatMeterEnabled] = useState(false);
   const [cheerFanBattleEnabled, setCheerFanBattleEnabled] = useState(false);
   const [savingCheer, setSavingCheer] = useState(false);
@@ -522,7 +511,7 @@ function DetailPanel({
       );
       // Initialize cheer settings
       setCheerEnabled(d.tournament.cheerMessagesEnabled ?? true);
-      setCheerCooldownSeconds((d.tournament as { cheerCooldownSeconds?: number }).cheerCooldownSeconds ?? 8);
+      setCheerCooldownSeconds((d.tournament as { cheerCooldownSeconds?: number }).cheerCooldownSeconds ?? 2);
       setCheerHeatMeterEnabled((d.tournament as { cheerHeatMeterEnabled?: boolean }).cheerHeatMeterEnabled ?? false);
       setCheerFanBattleEnabled((d.tournament as { cheerFanBattleEnabled?: boolean }).cheerFanBattleEnabled ?? false);
       if (d.tournament.cheerMessagePresets) {
@@ -807,7 +796,7 @@ function DetailPanel({
             Local Mode: {t.localModeEnabled ? "ON" : "OFF"}
           </Button>
         )}
-        {t.sport === "cricket" && (
+        {(t.sport === "cricket" || t.sport === "badminton") && (
           <Button
             size="sm"
             variant="outline"
@@ -820,7 +809,7 @@ function DetailPanel({
                 updateAdminTournament(tournamentId, { scoringEnabled: !t.scoringEnabled }),
               )
             }
-            title={t.scoringEnabled ? "Disable match scoring for this tournament" : "Enable match scoring for internal testing"}
+            title={t.scoringEnabled ? "Disable match scoring for this tournament" : "Enable match scoring for this tournament"}
           >
             {actionLoading === "Toggle Match Scoring"
               ? <RefreshCw className="w-3 h-3 animate-spin" />
@@ -920,30 +909,14 @@ function DetailPanel({
                     <Label className="text-xs text-muted-foreground">
                       Sport
                     </Label>
-                    <Select
+                    <SportSelect
                       value={(editForm.sport as string) || "cricket"}
+                      currentSlug={data?.tournament.sport}
                       onValueChange={(v) =>
                         setEditForm((f) => ({ ...f, sport: v }))
                       }
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          "cricket",
-                          "football",
-                          "kabaddi",
-                          "basketball",
-                          "hockey",
-                          "other",
-                        ].map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      triggerClassName="h-8 text-sm"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">
@@ -961,16 +934,14 @@ function DetailPanel({
                     <Label className="text-xs text-muted-foreground">
                       Auction Date
                     </Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       className="h-8 text-sm"
                       value={(editForm.auctionDate as string) || ""}
-                      onChange={(e) =>
-                        setEditForm((f) => ({
-                          ...f,
-                          auctionDate: e.target.value,
-                        }))
+                      onChange={auctionDate =>
+                        setEditForm(f => ({ ...f, auctionDate }))
                       }
+                      placeholder="Select auction date"
+                      disablePastDates
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1661,7 +1632,8 @@ function DetailPanel({
                       Every sold / unsold result — all players reset to
                       "Available"
                     </li>
-                    <li>All bid records for this tournament</li>
+                    <li>All bid records and live bid feed history for this tournament</li>
+                    <li>All AI intelligence data (replay, behavior, demand, and briefing reports)</li>
                     <li>All purse usage for every team (back to full purse)</li>
                   </ul>
                 </div>
@@ -2123,286 +2095,7 @@ function OrganizerDetailPanel({
   );
 }
 
-// ─── Types for Sports hierarchy ───────────────────────────────────────────────
-type AdminSpecOption = { id: number; optionName: string; active: boolean };
-type AdminSpecGroup = { id: number; groupName: string; displayOrder: number; optional: boolean; active: boolean; options: AdminSpecOption[] };
-type AdminSportRole = { id: number; roleName: string; displayOrder: number; active: boolean; specGroups: AdminSpecGroup[] };
-type AdminSport = { id: number; name: string; slug: string; active: boolean; roles: AdminSportRole[] };
-
-export function SportsPanel() {
-  const [sports, setSports] = useState<AdminSport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSportId, setSelectedSportId] = useState<number | null>(null);
-  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [addingRole, setAddingRole] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [addingGroup, setAddingGroup] = useState(false);
-  const [newOptions, setNewOptions] = useState<Record<number, string>>({});
-  const [savingOption, setSavingOption] = useState<number | null>(null);
-  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-
-  const flash = (text: string, ok = true) => {
-    setMsg({ text, ok });
-    setTimeout(() => setMsg(null), 3000);
-  };
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch("/api/auth/admin/sports-full", { credentials: "include" });
-      if (r.ok) setSports(await r.json());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const selectedSport = sports.find(s => s.id === selectedSportId) ?? null;
-  const selectedRole = selectedSport?.roles.find(r => r.id === selectedRoleId) ?? null;
-
-  async function addRole() {
-    if (!selectedSportId || !newRoleName.trim()) return;
-    setAddingRole(true);
-    try {
-      const r = await fetch(`/api/auth/admin/sports/${selectedSportId}/roles`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roleName: newRoleName.trim() }),
-      });
-      if (r.ok) { setNewRoleName(""); flash("Role added"); await load(); }
-      else flash("Failed to add role", false);
-    } finally { setAddingRole(false); }
-  }
-
-  async function removeRole(roleId: number) {
-    const r = await fetch(`/api/auth/admin/sport-roles/${roleId}`, { method: "DELETE", credentials: "include" });
-    if (r.ok) { if (selectedRoleId === roleId) setSelectedRoleId(null); flash("Role removed"); await load(); }
-    else flash("Failed", false);
-  }
-
-  async function addGroup() {
-    if (!selectedRoleId || !newGroupName.trim()) return;
-    setAddingGroup(true);
-    try {
-      const r = await fetch(`/api/auth/admin/sport-roles/${selectedRoleId}/spec-groups`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupName: newGroupName.trim() }),
-      });
-      if (r.ok) { setNewGroupName(""); flash("Spec group added"); await load(); }
-      else flash("Failed to add spec group", false);
-    } finally { setAddingGroup(false); }
-  }
-
-  async function addOption(groupId: number) {
-    const name = (newOptions[groupId] || "").trim();
-    if (!name) return;
-    setSavingOption(groupId);
-    try {
-      const r = await fetch(`/api/auth/admin/spec-groups/${groupId}/options`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optionName: name }),
-      });
-      if (r.ok) { setNewOptions(p => ({ ...p, [groupId]: "" })); flash("Option added"); await load(); }
-      else flash("Failed to add option", false);
-    } finally { setSavingOption(null); }
-  }
-
-  async function removeOption(optionId: number) {
-    const r = await fetch(`/api/auth/admin/spec-options/${optionId}`, { method: "DELETE", credentials: "include" });
-    if (r.ok) { flash("Option removed"); await load(); }
-    else flash("Failed", false);
-  }
-
-  async function removeGroup(groupId: number) {
-    const r = await fetch(`/api/auth/admin/spec-groups/${groupId}`, { method: "DELETE", credentials: "include" });
-    if (r.ok) { flash("Spec group removed"); await load(); }
-    else flash("Failed", false);
-  }
-
-  return (
-    <div className="flex-1 flex min-h-0">
-      {/* Flash */}
-      <AnimatePresence>
-        {msg && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded px-4 py-2 text-sm font-medium shadow-lg ${msg.ok ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-destructive/20 text-destructive border border-destructive/30"}`}
-          >
-            {msg.text}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Col 1: Sports */}
-      <div className="w-52 flex-shrink-0 border-r border-border/40 flex flex-col min-h-0">
-        <div className="px-3 py-2.5 border-b border-border/40 flex-shrink-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sports</p>
-        </div>
-        <ScrollArea className="flex-1">
-          {loading ? (
-            <div className="p-3 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-          ) : (
-            <div className="p-2 space-y-0.5">
-              {sports.map(sport => (
-                <button
-                  key={sport.id}
-                  onClick={() => { setSelectedSportId(sport.id); setSelectedRoleId(null); }}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-sm text-left transition-colors ${selectedSportId === sport.id ? "bg-primary/15 text-primary" : "hover:bg-muted/40"}`}
-                >
-                  <span className="capitalize font-medium">{sport.name}</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-muted-foreground">{sport.roles.filter(r => r.active).length} roles</span>
-                    <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </div>
-
-      {/* Col 2: Roles for selected sport */}
-      <div className="w-56 flex-shrink-0 border-r border-border/40 flex flex-col min-h-0">
-        <div className="px-3 py-2.5 border-b border-border/40 flex-shrink-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {selectedSport ? `${selectedSport.name} — Roles` : "Roles"}
-          </p>
-        </div>
-        {!selectedSport ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">Select a sport</div>
-        ) : (
-          <ScrollArea className="flex-1">
-            <div className="p-2 space-y-0.5">
-              {selectedSport.roles.filter(r => r.active).map(role => (
-                <div
-                  key={role.id}
-                  className={`flex items-center gap-1 rounded-md transition-colors ${selectedRoleId === role.id ? "bg-primary/15" : "hover:bg-muted/40"}`}
-                >
-                  <button
-                    onClick={() => setSelectedRoleId(role.id)}
-                    className="flex-1 flex items-center justify-between px-2.5 py-2 text-sm text-left"
-                  >
-                    <span className={selectedRoleId === role.id ? "text-primary font-medium" : ""}>{role.roleName}</span>
-                    <span className="text-[10px] text-muted-foreground">{role.specGroups.filter(g => g.active).length} specs</span>
-                  </button>
-                  <button
-                    onClick={() => removeRole(role.id)}
-                    className="pr-2 text-muted-foreground/40 hover:text-destructive transition-colors"
-                    title="Remove role"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              {/* Add role */}
-              <div className="flex items-center gap-1 pt-1">
-                <Input
-                  value={newRoleName}
-                  onChange={e => setNewRoleName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addRole()}
-                  placeholder="New role..."
-                  className="h-7 text-xs flex-1"
-                />
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={addRole} disabled={addingRole || !newRoleName.trim()}>
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          </ScrollArea>
-        )}
-      </div>
-
-      {/* Col 3: Spec groups + options for selected role */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 py-2.5 border-b border-border/40 flex items-center justify-between flex-shrink-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {selectedRole ? `${selectedRole.roleName} — Spec Groups & Options` : "Spec Groups"}
-          </p>
-        </div>
-        {!selectedRole ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">Select a role to see its spec groups</div>
-        ) : (
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-4">
-              {selectedRole.specGroups.filter(g => g.active).map(group => (
-                <div key={group.id} className="rounded-lg border border-border/40 bg-muted/5 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border/30 bg-muted/10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{group.groupName}</span>
-                      {group.optional && <Badge variant="outline" className="text-[9px] h-3.5 px-1 text-muted-foreground border-muted-foreground/30">optional</Badge>}
-                    </div>
-                    <button onClick={() => removeGroup(group.id)} className="text-muted-foreground/30 hover:text-destructive transition-colors" title="Remove group">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                  <div className="p-3 space-y-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {group.options.filter(o => o.active).map(opt => (
-                        <div key={opt.id} className="flex items-center gap-0.5 bg-muted/30 border border-border/30 rounded px-2 py-0.5 text-xs group">
-                          <span>{opt.optionName}</span>
-                          <button
-                            onClick={() => removeOption(opt.id)}
-                            className="ml-1 text-muted-foreground/0 group-hover:text-muted-foreground/60 hover:!text-destructive transition-colors"
-                            title="Remove"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Add option inline */}
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        value={newOptions[group.id] || ""}
-                        onChange={e => setNewOptions(p => ({ ...p, [group.id]: e.target.value }))}
-                        onKeyDown={e => e.key === "Enter" && addOption(group.id)}
-                        placeholder="Add option..."
-                        className="h-7 text-xs flex-1"
-                      />
-                      <Button
-                        size="sm" variant="outline" className="h-7 text-xs gap-1"
-                        onClick={() => addOption(group.id)}
-                        disabled={savingOption === group.id || !newOptions[group.id]?.trim()}
-                      >
-                        {savingOption === group.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* Add spec group */}
-              <div className="rounded-lg border border-dashed border-border/40 p-3">
-                <p className="text-xs text-muted-foreground mb-2">Add Spec Group</p>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    value={newGroupName}
-                    onChange={e => setNewGroupName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && addGroup()}
-                    placeholder="e.g. Batting Style, Bowling Style..."
-                    className="h-7 text-xs flex-1"
-                  />
-                  <Button
-                    size="sm" className="h-7 text-xs gap-1"
-                    onClick={addGroup}
-                    disabled={addingGroup || !newGroupName.trim()}
-                  >
-                    {addingGroup ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                    Add Group
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-        )}
-      </div>
-    </div>
-  );
-}
+export { SportsPanel } from "@/components/admin/sports-panel";
 
 function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
   const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
@@ -3249,21 +2942,22 @@ function DisplayAuctionForm({
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Sport</Label>
-                <Select value={form.sport} onValueChange={v => f("sport", v)}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cricket">Cricket</SelectItem>
-                    <SelectItem value="football">Football</SelectItem>
-                    <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                    <SelectItem value="basketball">Basketball</SelectItem>
-                    <SelectItem value="volleyball">Volleyball</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SportSelect
+                  value={form.sport}
+                  currentSlug={initial?.sport}
+                  onValueChange={(v) => f("sport", v)}
+                  triggerClassName="h-8 text-xs"
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">City</Label>
-                <Input className="h-8 text-xs" value={form.city} onChange={e => f("city", e.target.value)} placeholder="Lucknow" />
+                <CityAutocomplete
+                  value={form.city}
+                  onChange={v => f("city", v)}
+                  placeholder="Lucknow"
+                  className="h-8 text-xs"
+                  showHint={false}
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">State</Label>
@@ -3992,11 +3686,38 @@ export default function AdminDashboard() {
     isLoading: authLoading,
     logout,
   } = useAdminAuth();
-  const { locked } = useInactivityLock({
+  const [lockMinutes, setLockMinutes] = useState(10);
+  const [warningSeconds, setWarningSeconds] = useState(90);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch("/api/auth/admin/settings/session-lock", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { lockMinutes?: number; warningSeconds?: number }) => {
+        if (typeof d.lockMinutes === "number" && d.lockMinutes >= 10) {
+          setLockMinutes(d.lockMinutes);
+        }
+        if (typeof d.warningSeconds === "number" && d.warningSeconds > 0) {
+          setWarningSeconds(d.warningSeconds);
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn]);
+
+  const {
+    locked,
+    warningVisible,
+    warningSecondsLeft,
+    continueSession,
+  } = useInactivityLock({
     enabled: isLoggedIn,
-    timeoutMs: 10 * 60 * 1000,
+    timeoutMs: lockMinutes * 60 * 1000,
+    warningMs: warningSeconds * 1000,
   });
   const { logos, brandName, miniBrandText } = useBranding();
+  const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
+  const headerLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -4085,17 +3806,14 @@ export default function AdminDashboard() {
         {/* Top header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card/50 flex-shrink-0">
           <div className="flex items-center gap-3">
-            {/* BidWar brand logo */}
-            {logos.mini ? (
-              <img src={logos.mini} alt={brandName} className="h-9 w-auto" />
-            ) : logos.main ? (
-              <img src={logos.main} alt={brandName} className="h-9 w-auto" />
+            {/* BidWar brand mark */}
+            {headerLogoSrc ? (
+              <img src={headerLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />
             ) : (
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-display font-black text-sm text-primary">
                 {miniBrandText}
               </div>
             )}
-            <span className="font-display font-black text-xl text-white tracking-wide hidden sm:inline">{brandName}</span>
             <div className="w-px h-6 bg-border/60" />
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-amber-400" />
@@ -4426,6 +4144,14 @@ export default function AdminDashboard() {
           />
         )}
       </AnimatePresence>
+
+      {warningVisible && !locked && (
+        <AdminLockWarning
+          secondsLeft={warningSecondsLeft}
+          lockMinutes={lockMinutes}
+          onContinue={continueSession}
+        />
+      )}
 
     </FullscreenLayout>
   );

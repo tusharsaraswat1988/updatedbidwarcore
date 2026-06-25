@@ -2,6 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt } from "@/lib/brand-assets";
+
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 function sessionKey(tid: number) {
   return `tournament_verified_${tid}`;
@@ -23,6 +26,7 @@ export function TournamentCodeGate({
   children: ReactNode;
 }) {
   const { logos, brandName, poweredByText } = useBranding();
+  const logoAlt = getBrandLogoAlt(brandName);
   const [status, setStatus] = useState<"loading" | "locked" | "unlocked" | "error">("loading");
   const [auctionCode, setAuctionCode] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState("");
@@ -33,6 +37,11 @@ export function TournamentCodeGate({
 
   function loadTournament() {
     if (!tournamentId) return;
+
+    if (isBidWarLocalHost()) {
+      setStatus("unlocked");
+      return;
+    }
 
     setStatus("loading");
 
@@ -210,7 +219,7 @@ export function TournamentCodeGate({
         </form>
 
         <div className="flex flex-col items-center gap-2">
-          {logos.mini && <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-40" />}
+          {logos.mini && <img src={logos.mini} alt={logoAlt} className="h-6 w-auto opacity-40" />}
           <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
         </div>
       </motion.div>

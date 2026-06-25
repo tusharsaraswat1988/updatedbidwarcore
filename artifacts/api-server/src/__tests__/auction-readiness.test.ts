@@ -16,7 +16,6 @@ const readyBase: AuctionReadinessInput = {
   playerSelectionMode: "random",
   bidTiers: JSON.stringify([{ increment: 5_000 }]),
   minimumSquadSize: 11,
-  maximumSquadSize: 15,
 };
 
 describe("parseBidTiers", () => {
@@ -93,10 +92,11 @@ describe("getReadinessChecklistItems", () => {
 
   it("marks failing checks as not done", () => {
     const items = getReadinessChecklistItems(
-      { ...readyBase, maximumSquadSize: 0 },
+      { ...readyBase, minimumSquadSize: 0 },
       "live",
     );
-    const maxSquad = items.find((i) => i.id === "maxSquad");
-    expect(maxSquad?.done).toBe(false);
+    const minSquad = items.find((i) => i.id === "minSquad");
+    expect(minSquad?.done).toBe(false);
+    expect(items.some((i) => String(i.id) === "maxSquad")).toBe(false);
   });
 });

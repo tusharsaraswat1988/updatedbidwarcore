@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
-import { liveViewerPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 
 function DisplayEndpointRow({
   label,
@@ -119,7 +119,9 @@ export function LiveDisplaysPanel({
         <div className="divide-y divide-border">
           <DisplayEndpointRow label="Live viewer" href={liveViewerPath(t.id)} tournamentId={t.id} />
           <DisplayEndpointRow label="Broadcast Overlay" href={`${base}/obs`} tournamentId={t.id} />
-          <DisplayEndpointRow label="Break timer display" href={`${base}/break-timer`} tournamentId={t.id} />
+          <DisplayEndpointRow label="Pre Auction & Break Timer display" href={`${base}/break-timer`} tournamentId={t.id} />
+          <DisplayEndpointRow label="Side LED — Sponsors" href={sideDisplayPath(t.id, "sponsors")} tournamentId={t.id} />
+          <DisplayEndpointRow label="Side LED — Player Profile" href={sideDisplayPath(t.id, "player")} tournamentId={t.id} />
         </div>
       </div>
     </div>

@@ -3,13 +3,22 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { inArray, eq } from "drizzle-orm";
 import { z } from "zod";
-import { isBadmintonFeatureEnabled } from "../lib/badminton-feature";
+import { isScoringFeatureEnabled } from "../lib/scoring-feature";
+import {
+  getPlatformDefaultAudioCached,
+  readPlatformDefaultAudio,
+  writePlatformDefaultAudio,
+} from "../lib/platform-audio-defaults";
 
 const router = Router();
 
 router.get("/settings/features", (_req, res) => {
+  const scoring = isScoringFeatureEnabled();
   res.json({
-    badminton: isBadmintonFeatureEnabled(),
+    scoring,
+    /** Same platform gate — kept for older clients */
+    badminton: scoring,
+    cricket: scoring,
   });
 });
 
@@ -259,7 +268,7 @@ router.get("/auth/admin/builds/status", async (req, res) => {
 
 const SESSION_LOCK_KEY = "admin_session_lock_minutes";
 const DEFAULT_LOCK_MINUTES = 10;
-const WARNING_SECONDS = 60;
+const WARNING_SECONDS = 90;
 
 async function readSessionLockSettings() {
   const [row] = await db
@@ -306,6 +315,171 @@ router.patch("/auth/admin/settings/session-lock", async (req, res) => {
 
   await upsertKey(SESSION_LOCK_KEY, String(parsed.data.lockMinutes));
   res.json(await readSessionLockSettings());
+});
+
+// ─── Platform default broadcast audio ────────────────────────────────────────
+
+const audioUrlField = z.string().nullable().optional();
+
+const updatePlatformAudioSchema = z.object({
+  countdownSoundUrl: audioUrlField,
+  soldSoundUrl: audioUrlField,
+  breakEndMusicUrl: audioUrlField,
+});
+
+router.get("/settings/default-audio", async (_req, res) => {
+  res.json(await getPlatformDefaultAudioCached());
+});
+
+router.get("/auth/admin/settings/default-audio", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  res.json(await readPlatformDefaultAudio());
+});
+
+router.patch("/auth/admin/settings/default-audio", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updatePlatformAudioSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = await writePlatformDefaultAudio(parsed.data);
+  res.json(data);
+});
+
+// ─── Buzz Studio Creative Assets ──────────────────────────────────────────────
+//
+// Global poster background images, keyed by aspect ratio.
+// Stored in settingsTable as: buzz_studio_bg_1:1, buzz_studio_bg_4:5, etc.
+// Admin-only write. Public read (backgrounds are embedded in poster exports).
+
+const BUZZ_BG_KEYS = {
+  "1:1":  "buzz_studio_bg_1:1",
+  "4:5":  "buzz_studio_bg_4:5",
+  "9:16": "buzz_studio_bg_9:16",
+  "16:9": "buzz_studio_bg_16:9",
+} as const;
+
+type BuzzAspectRatioKey = keyof typeof BUZZ_BG_KEYS;
+
+/** Returns a flat map of aspect ratio → background URL (or null). */
+async function readBuzzStudioAssets(): Promise<Record<BuzzAspectRatioKey, string | null>> {
+  const keys = Object.values(BUZZ_BG_KEYS);
+  const rows = await db
+    .select()
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, keys));
+
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value ?? null]));
+  return {
+    "1:1":  map[BUZZ_BG_KEYS["1:1"]]  ?? null,
+    "4:5":  map[BUZZ_BG_KEYS["4:5"]]  ?? null,
+    "9:16": map[BUZZ_BG_KEYS["9:16"]] ?? null,
+    "16:9": map[BUZZ_BG_KEYS["16:9"]] ?? null,
+  };
+}
+
+// GET /settings/buzz-studio-assets — public read (needed by preview & export)
+router.get("/settings/buzz-studio-assets", async (_req, res) => {
+  res.json(await readBuzzStudioAssets());
+});
+
+// GET /auth/admin/settings/buzz-studio-assets — admin read
+router.get("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  res.json(await readBuzzStudioAssets());
+});
+
+const updateBuzzStudioAssetsSchema = z.object({
+  "1:1":  z.string().url().nullable().optional(),
+  "4:5":  z.string().url().nullable().optional(),
+  "9:16": z.string().url().nullable().optional(),
+  "16:9": z.string().url().nullable().optional(),
+});
+
+// PATCH /auth/admin/settings/buzz-studio-assets — admin write
+router.patch("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updateBuzzStudioAssetsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = parsed.data;
+  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
+  for (const ratio of ratios) {
+    if (data[ratio] !== undefined) {
+      await upsertKey(BUZZ_BG_KEYS[ratio], data[ratio] ?? null);
+    }
+  }
+
+  res.json(await readBuzzStudioAssets());
+});
+
+// ─── Top Buys template backgrounds (separate from global) ───────────────────
+
+const updateTopBuysTemplateAssetsSchema = z.object({
+  "1:1":  z.string().url().nullable().optional(),
+  "4:5":  z.string().url().nullable().optional(),
+  "9:16": z.string().url().nullable().optional(),
+  "16:9": z.string().url().nullable().optional(),
+});
+
+// GET /settings/buzz-studio-template-assets/top-buys — public read
+router.get("/settings/buzz-studio-template-assets/top-buys", async (_req, res) => {
+  const { readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  res.json(await readTopBuysTemplateAssets());
+});
+
+// GET /auth/admin/settings/buzz-studio-template-assets/top-buys
+router.get("/auth/admin/settings/buzz-studio-template-assets/top-buys", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+  const { readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  res.json(await readTopBuysTemplateAssets());
+});
+
+// PATCH /auth/admin/settings/buzz-studio-template-assets/top-buys
+router.patch("/auth/admin/settings/buzz-studio-template-assets/top-buys", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const parsed = updateTopBuysTemplateAssetsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const { TOP_BUYS_TEMPLATE_BG_KEYS, readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  const data = parsed.data;
+  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
+  for (const ratio of ratios) {
+    if (data[ratio] !== undefined) {
+      await upsertKey(TOP_BUYS_TEMPLATE_BG_KEYS[ratio], data[ratio] ?? null);
+    }
+  }
+
+  res.json(await readTopBuysTemplateAssets());
 });
 
 export default router;

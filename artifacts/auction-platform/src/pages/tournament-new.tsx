@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ArrowLeft, Loader2, Hash, Info, X, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useToast } from "@/hooks/use-toast";
+import { SportSelect } from "@/components/sport-select";
 
 const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -50,23 +52,10 @@ function previewAuctionCode(name: string, date: string): string {
   return `${tt}${nn}${dd}${mm}`;
 }
 
-// Fetch sports list from API for the dropdown
-function useSportsList() {
-  const [sports, setSports] = useState<{ id: number; name: string; slug: string }[]>([]);
-  useEffect(() => {
-    fetch("/api/sports")
-      .then(r => r.json())
-      .then((data: { id: number; name: string; slug: string }[]) => setSports(data))
-      .catch(() => {});
-  }, []);
-  return sports;
-}
-
 export default function NewTournament() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createTournament = useCreateTournament();
-  const sports = useSportsList();
   const [matchDatesArr, setMatchDatesArr] = useState<string[]>([]);
   const [datePickerVal, setDatePickerVal] = useState("");
 
@@ -179,31 +168,12 @@ export default function NewTournament() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Sport</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a sport" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {sports.length > 0
-                                ? sports.map(s => (
-                                    <SelectItem key={s.slug} value={s.slug}>{s.name}</SelectItem>
-                                  ))
-                                : (
-                                  <>
-                                    <SelectItem value="cricket">Cricket</SelectItem>
-                                    <SelectItem value="football">Football</SelectItem>
-                                    <SelectItem value="kabaddi">Kabaddi</SelectItem>
-                                    <SelectItem value="badminton">Badminton</SelectItem>
-                                    <SelectItem value="volleyball">Volleyball</SelectItem>
-                                    <SelectItem value="esports">E-Sports</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
-                                  </>
-                                )
-                              }
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SportSelect
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -216,7 +186,12 @@ export default function NewTournament() {
                         <FormItem>
                           <FormLabel>Auction Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <DatePicker
+                              value={field.value ?? ""}
+                              onChange={field.onChange}
+                              placeholder="Select auction date"
+                              disablePastDates
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

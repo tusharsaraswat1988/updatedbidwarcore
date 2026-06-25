@@ -3,23 +3,29 @@ import { Link, useLocation } from "wouter";
 import { 
   Trophy, LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Calendar, Globe,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Calendar, Globe, Sparkles,
 } from "lucide-react";
 import {
   auctionRoomPath,
   auctionResetPath,
   cricketPublicPath,
   displayScreenPath,
+  mediaCenterPath,
   scoringPath,
   scoringSchedulePath,
 } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
-import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
-import { logoutOrganizerAccount } from "@/lib/auth";
 import { useBranding } from "@/hooks/use-branding";
+import { logoutOrganizerAccount } from "@/lib/auth";
+import { useBadmintonScoringActive, useCricketScoringActive } from "@/hooks/use-platform-features";
+import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
-import { AdminLockWarning } from "@/components/admin-lock-warning";
+import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
+
+const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,8 +40,10 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 
   async function handleLogout() {
     await logout();
-    await logoutOrganizerAccount();
-    navigate("/organizer");
+    if (!isBidWarLocalHost()) {
+      await logoutOrganizerAccount();
+      navigate("/organizer");
+    }
   }
 
   if (iconOnly) {
@@ -64,19 +72,18 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
+  const sidebarLogoSrc =
+    cldUrl(logos.appIcon, "appIcon") ||
+    cldUrl(logos.mini, "headerLogo") ||
+    getBrandLogoSrc(logos, sidebarPreset.logoOrder);
+  const logoAlt = getBrandLogoAlt(brandName);
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
-
-  const {
-    warningVisible,
-    warningSecondsLeft,
-    continueSession,
-    lockMinutes,
-  } = useOrganizerInactivityLogout({
-    enabled: !!tournamentId,
-    tournamentId,
-  });
+  const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
+  const localVenue = isBidWarLocalHost();
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -115,7 +122,10 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
   // Helper: nav link class
   function navCls(path: string) {
-    const active = location === path;
+    let active = location === path;
+    if (!active && tournamentId && path === mediaCenterPath(tournamentId)) {
+      active = location === mediaCenterTournamentPath(tournamentId);
+    }
     return `flex items-center rounded-md transition-colors ${
       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
     } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`;
@@ -142,8 +152,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             <>
               {brandingLoading
                 ? <div className="h-9 w-9 flex-shrink-0" />
-                : <img src={cldUrl(logos.mini, "headerLogo") || "/bidwar-logo-transparent.png"} alt={brandName} className="h-9 w-9 object-contain flex-shrink-0" />}
-              <span className="font-display font-bold text-xl tracking-tight text-white uppercase truncate">{brandName.toUpperCase()}</span>
+                : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"
@@ -163,10 +172,17 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             </div>
           )}
           <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-            <Link href="/organizer" title="All Tournaments" className={navCls("/organizer")}>
-              <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="font-medium">All Tournaments</span>}
-            </Link>
+            {!localVenue ? (
+              <Link href="/organizer" title="All Tournaments" className={navCls("/organizer")}>
+                <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span className="font-medium">All Tournaments</span>}
+              </Link>
+            ) : tournamentId ? (
+              <Link href={`/tournament/${tournamentId}/auction`} title="Auction Control" className={navCls(`/tournament/${tournamentId}/auction`)}>
+                <Gavel className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Auction Control</span>}
+              </Link>
+            ) : null}
           </nav>
 
           {tournamentId && (
@@ -203,7 +219,13 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
-                {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
+                {buzzStudioActive && !localVenue ? (
+                  <Link href={mediaCenterPath(tournamentId)} title="Media Center" className={navCls(mediaCenterPath(tournamentId))}>
+                    <Sparkles className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Media Center</span>}
+                  </Link>
+                ) : null}
+                {cricketScoringActive && !localVenue ? (
                   <>
                     <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/score`)}>
                       <CircleDot className="w-5 h-5 flex-shrink-0" />
@@ -234,6 +256,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     </Link>
                   </>
                 ) : null}
+                {badmintonScoringActive && !localVenue ? (
+                  <Link href={`/tournament/${tournamentId}/badminton`} title="Badminton Scoring" className={navCls(`/tournament/${tournamentId}/badminton`)}>
+                    <Trophy className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="font-medium">Badminton Scoring</span>}
+                  </Link>
+                ) : null}
                 {tournament?.status === "completed" ? (
                   <Link href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={navCls(`/tournament/${tournamentId}/reports`)}>
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />
@@ -241,28 +269,33 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   </Link>
                 ) : (
                   <div
-                    title="Available after auction is marked completed"
+                    title="Opens after auction is marked completed"
                     className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
                     }`}
                   >
                     <BarChart3 className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && (
-                      <>
-                        <span className="font-medium">Reports & Analytics</span>
-                        <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Locked</span>
-                      </>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Reports & Analytics</span>
+                          <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto shrink-0">Locked</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                          Opens after auction is marked completed
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
                 {tournament?.licenseStatus === "active" ? (
-                  <Link href={`/tournament/${tournamentId}/team-reports`} title="Team Reports" className={navCls(`/tournament/${tournamentId}/team-reports`)}>
+                  <Link href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={navCls(`/tournament/${tournamentId}/team-reports`)}>
                     <FileText className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="font-medium">Team Reports</span>}
+                    {!collapsed && <span className="font-medium">Pre-Auction Reports</span>}
                   </Link>
                 ) : (
                   <div
-                    title="Team Reports available only for licensed tournaments"
+                    title="Pre-Auction Reports available only for licensed tournaments"
                     className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
                       collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
                     }`}
@@ -270,7 +303,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <FileText className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && (
                       <>
-                        <span className="font-medium">Team Reports</span>
+                        <span className="font-medium">Pre-Auction Reports</span>
                         <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Practice</span>
                       </>
                     )}
@@ -329,27 +362,19 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <span>Clear Practice Data</span>
                   </Link>
                 )}
-                <div
-                  title="Local Mode — coming soon"
-                  className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                    collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                  }`}
-                >
-                  <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="font-medium">Local Mode</span>
-                      <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Coming Soon</span>
-                    </>
-                  )}
-                </div>
+                {tournament?.localModeEnabled && !localVenue ? (
+                  <Link href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={navCls(`/tournament/${tournamentId}/local-mode`)}>
+                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span>Local Mode</span>}
+                  </Link>
+                ) : null}
               </nav>
             </>
           )}
         </div>
 
-        {/* Sign out */}
-        {tournamentId && (
+        {/* Sign out — cloud only; local uses auto venue session */}
+        {tournamentId && !localVenue && (
           <div className="border-t border-border p-3 flex-shrink-0">
             <LogoutButton tournamentId={tournamentId} iconOnly={collapsed} />
           </div>
@@ -372,13 +397,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
         )}
       </main>
 
-      {warningVisible && (
-        <AdminLockWarning
-          secondsLeft={warningSecondsLeft}
-          lockMinutes={lockMinutes}
-          onContinue={continueSession}
-        />
-      )}
     </div>
   );
 }

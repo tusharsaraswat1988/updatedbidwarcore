@@ -3,6 +3,7 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { ScoreDisplayShell } from "@/components/scoring/score-display-shell";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { FullscreenLayout } from "@/components/layout";
@@ -16,7 +17,7 @@ export default function ScoreDisplayPage() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
   if (isLoading) {
     return (

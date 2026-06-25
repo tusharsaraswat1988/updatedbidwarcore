@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import { Clock, Pause, X, Zap, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBranding } from "@/hooks/useBranding";
+import { resolveSplashLogoUrl } from "@/lib/brand-assets";
+import { OWNER_AUTH_LOGIN, OWNER_COMPACT_MARK, OWNER_SPLASH } from "@/lib/brand-usage";
 import { TeamLogo } from "@/components/TeamLogo";
 
 export interface SavedAuction {
@@ -213,28 +215,33 @@ export function Launcher() {
 
   const liveAuctions = visible.filter(s => isLive(states[`${s.tournamentId}-${s.teamId}`]));
 
-  const BrandLogo = () => (
-    <div className="flex items-center justify-center gap-3">
-      {logos.main ? (
-        <img src={logos.main} alt={brandName} className="h-14 w-auto" />
-      ) : logos.mini ? (
-        <img src={logos.mini} alt={brandName} className="h-10 w-auto" />
-      ) : (
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-display font-black text-xl bg-amber-400/20 text-amber-400 border-2 border-amber-400/40">
-          {miniBrandText}
-        </div>
-      )}
-      {!logos.main && (
-        <span className="font-display font-black text-4xl text-white tracking-wide">{brandName}</span>
-      )}
-    </div>
-  );
+  const BrandLogo = ({ splashSize = "default" }: { splashSize?: "default" | "splash" }) => {
+    const splashSrc = resolveSplashLogoUrl(logos);
+    const useSplash = splashSize === "splash" && splashSrc;
+    const wordmarkSrc = logos.mainReverse ?? logos.main;
+
+    return (
+      <div className="flex items-center justify-center">
+        {useSplash ? (
+          <img src={splashSrc} alt={brandName} className={OWNER_SPLASH.sizeClass} />
+        ) : wordmarkSrc ? (
+          <img src={wordmarkSrc} alt={brandName} className={OWNER_AUTH_LOGIN.sizeClass} />
+        ) : logos.mini ? (
+          <img src={logos.mini} alt={brandName} className={OWNER_COMPACT_MARK.sizeClass} />
+        ) : (
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-display font-black text-xl bg-amber-400/20 text-amber-400 border-2 border-amber-400/40">
+            {miniBrandText}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Loading spinner
   if (loading) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-[#09090b] gap-8">
-        <BrandLogo />
+        <BrandLogo splashSize="splash" />
         <div className="w-10 h-10 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
       </div>
     );
@@ -249,7 +256,7 @@ export function Launcher() {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center space-y-8"
         >
-          <BrandLogo />
+          <BrandLogo splashSize="splash" />
           <div className="space-y-3">
             <p className="text-xl text-[#a1a1aa] leading-relaxed">
               Open your owner link to join an auction.
@@ -281,13 +288,12 @@ export function Launcher() {
       <div className="px-5 pt-6 pb-4 flex-shrink-0 border-b border-[#27272a]">
         <div className="flex items-center gap-3 mb-3">
           {logos.mini ? (
-            <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
+            <img src={logos.mini} alt={brandName} className="h-8 w-auto object-contain" />
           ) : (
             <div className="w-9 h-9 rounded-xl flex items-center justify-center font-display font-black text-sm bg-amber-400/20 text-amber-400 border border-amber-400/30">
               {miniBrandText}
             </div>
           )}
-          <span className="font-display font-black text-xl text-white">{brandName}</span>
         </div>
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-display font-black text-3xl text-white">Your Auctions</h1>

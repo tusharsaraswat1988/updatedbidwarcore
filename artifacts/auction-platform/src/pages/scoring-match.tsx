@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
 import { Monitor } from "lucide-react";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 export default function ScoringMatchPage() {
@@ -34,7 +35,7 @@ export default function ScoringMatchPage() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const { data, isLoading, refetch, isFetching } = useScoringMatch(tournamentId, matchId, scoringActive);
 
   useEffect(() => {

@@ -8,7 +8,8 @@ import {
 } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { isOrganizerOrAdmin } from "../middleware/require-organizer";
+import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import { parseAuditReason } from "../lib/audit-reason";
 import { auditLog, resolveActor } from "../lib/audit-service";
 import {
@@ -66,7 +67,7 @@ function capacitySnapshot(originalPurse: number, boosterTotal: number, purseUsed
 router.get("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const teamIdParam = req.query.teamId;
   const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
@@ -74,7 +75,14 @@ router.get("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
   const conditions = [eq(purseBoostersTable.tournamentId, tid)];
   if (teamIdParam != null && teamIdParam !== "") {
     const parsedTeamId = parseInt(String(teamIdParam));
-    if (!isNaN(parsedTeamId)) conditions.push(eq(purseBoostersTable.teamId, parsedTeamId));
+    if (!isNaN(parsedTeamId)) {
+      const teamCheck = await validateTeamBelongsToTournament(tid, parsedTeamId);
+      if (!teamCheck.ok) {
+        res.status(teamCheck.status).json({ error: teamCheck.error });
+        return;
+      }
+      conditions.push(eq(purseBoostersTable.teamId, parsedTeamId));
+    }
   }
   if (statusParam) conditions.push(eq(purseBoostersTable.status, statusParam));
 
@@ -105,7 +113,7 @@ router.get("/tournaments/:tournamentId/teams/:teamId/purse-boosters", async (req
     .where(and(eq(purseBoostersTable.tournamentId, tid), eq(purseBoostersTable.teamId, teamId)))
     .orderBy(desc(purseBoostersTable.createdAt));
 
-  const isOrganizer = isOrganizerOrAdmin(req, tid);
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   res.json(isOrganizer ? rows.map(boosterToOrganizerJson) : rows.map(boosterToPublicJson));
 });
 
@@ -113,7 +121,7 @@ router.get("/tournaments/:tournamentId/teams/:teamId/purse-boosters", async (req
 router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const schema = z.object({
     target: z.enum(["single", "all"]),
@@ -263,7 +271,7 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
     })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
-  await broadcastState(tid, ["purses", "auction_state"]);
+  await broadcastState(tid);
 
   res.status(201).json({ applied, totalTeamsAffected: applied.length });
 });
@@ -273,7 +281,7 @@ router.post("/tournaments/:tournamentId/purse-boosters/:boosterId/cancel", async
   const tid = parseInt(req.params.tournamentId);
   const boosterId = parseInt(req.params.boosterId);
   if (isNaN(tid) || isNaN(boosterId)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!isOrganizerOrAdmin(req, tid)) { res.status(401).json({ error: "Authentication required" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const cancelReasonResult = parseAuditReason(req.body, true);
   if (!cancelReasonResult.ok) {
@@ -344,7 +352,7 @@ router.post("/tournaments/:tournamentId/purse-boosters/:boosterId/cancel", async
     alertKey: "purse_booster",
   });
 
-  await broadcastState(tid, ["purses"]);
+  await broadcastState(tid);
 
   res.json(boosterToOrganizerJson(updated));
 });

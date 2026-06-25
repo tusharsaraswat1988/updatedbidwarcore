@@ -25,6 +25,8 @@ export async function setupTables(client: Client): Promise<void> {
       timer_seconds INTEGER NOT NULL DEFAULT 10,
       bid_timer_seconds INTEGER NOT NULL DEFAULT 10,
       player_selection_mode TEXT NOT NULL DEFAULT 'random',
+      minimum_squad_size INTEGER NOT NULL DEFAULT 0,
+      maximum_squad_size INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'setup',
       cloud_id INTEGER,
       cloud_base_url TEXT,
@@ -52,6 +54,7 @@ export async function setupTables(client: Client): Promise<void> {
     CREATE TABLE IF NOT EXISTS players (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tournament_id INTEGER NOT NULL,
+      serial_no INTEGER NOT NULL DEFAULT 0,
       category_id INTEGER,
       team_id INTEGER,
       name TEXT NOT NULL,
@@ -60,12 +63,14 @@ export async function setupTables(client: Client): Promise<void> {
       batting_style TEXT,
       bowling_style TEXT,
       age INTEGER,
+      gender TEXT,
       photo_url TEXT,
       base_price INTEGER NOT NULL DEFAULT 100000,
       sold_price INTEGER,
       retained_price INTEGER,
       status TEXT NOT NULL DEFAULT 'available',
       jersey_number TEXT,
+      jersey_size TEXT,
       achievements TEXT,
       mobile_number TEXT,
       crichero_url TEXT,
@@ -163,13 +168,44 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE tournaments ADD COLUMN export_token TEXT",
     "ALTER TABLE tournaments ADD COLUMN local_mode_enabled INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tournaments ADD COLUMN operator_pin TEXT",
+    "ALTER TABLE tournaments ADD COLUMN organizer_password TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN wheel_spinning INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE auction_sessions ADD COLUMN display_overlay TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN display_countdown TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN last_purse_booster_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN last_led_toast_json TEXT",
     "ALTER TABLE auction_sessions ADD COLUMN random_draw_queue TEXT",
+    "ALTER TABLE auction_sessions ADD COLUMN display_player_filter TEXT",
+    "ALTER TABLE teams ADD COLUMN owner_email TEXT",
+    "ALTER TABLE teams ADD COLUMN owner_photo_url TEXT",
+    "ALTER TABLE players ADD COLUMN email TEXT",
+    "ALTER TABLE players ADD COLUMN gender TEXT",
+    "ALTER TABLE players ADD COLUMN jersey_size TEXT",
+    "ALTER TABLE tournaments ADD COLUMN minimum_squad_size INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN maximum_squad_size INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN enable_registration_payment INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN registration_fee INTEGER",
+    "ALTER TABLE tournaments ADD COLUMN upi_id TEXT",
+    "ALTER TABLE tournaments ADD COLUMN payment_verification_method TEXT",
+    "ALTER TABLE tournaments ADD COLUMN payment_collection_mode TEXT NOT NULL DEFAULT 'manual_verification'",
+    "ALTER TABLE players ADD COLUMN registration_payment_status TEXT",
+    "ALTER TABLE players ADD COLUMN utr_number TEXT",
+    "ALTER TABLE players ADD COLUMN payment_screenshot_url TEXT",
+    "ALTER TABLE players ADD COLUMN payment_submitted_at TEXT",
+    "ALTER TABLE players ADD COLUMN serial_no INTEGER",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_players_tournament_serial_no ON players (tournament_id, serial_no)",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
+    "ALTER TABLE auction_sessions ADD COLUMN deferred_player_ids TEXT",
+    "ALTER TABLE tournaments ADD COLUMN cheer_messages_enabled INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE tournaments ADD COLUMN cheer_message_presets TEXT",
+    "ALTER TABLE tournaments ADD COLUMN cheer_cooldown_seconds INTEGER NOT NULL DEFAULT 2",
+    "ALTER TABLE tournaments ADD COLUMN cheer_heat_meter_enabled INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN cheer_fan_battle_enabled INTEGER NOT NULL DEFAULT 0",
+    `CREATE TABLE IF NOT EXISTS venue_snapshots (
+      key TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
   ];
   for (const sql of migrations) {
     try {
@@ -177,5 +213,29 @@ export async function setupTables(client: Client): Promise<void> {
     } catch {
       // Column already exists — expected for existing databases
     }
+  }
+
+  // Backfill tournament-scoped serial numbers for existing player rows
+  try {
+    const nullRows = await client.execute("SELECT COUNT(*) AS c FROM players WHERE serial_no IS NULL OR serial_no = 0");
+    const needsBackfill = Number(nullRows.rows[0]?.c ?? 0) > 0;
+    if (needsBackfill) {
+      const tourneys = await client.execute("SELECT DISTINCT tournament_id FROM players");
+      for (const row of tourneys.rows) {
+        const tid = row.tournament_id as number;
+        const players = await client.execute({
+          sql: "SELECT id FROM players WHERE tournament_id = ? ORDER BY created_at ASC, id ASC",
+          args: [tid],
+        });
+        for (let i = 0; i < players.rows.length; i++) {
+          await client.execute({
+            sql: "UPDATE players SET serial_no = ? WHERE id = ?",
+            args: [i + 1, players.rows[i]!.id],
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — local DB may be empty or mid-migration
   }
 }

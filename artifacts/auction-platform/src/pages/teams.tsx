@@ -21,16 +21,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Wallet, ExternalLink, Copy, Check, KeyRound, RefreshCw, Wand2, AlertTriangle, Upload, Image as ImageIcon, X, ShieldAlert, Star, TrendingDown, LockOpen } from "lucide-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
+import { resetOwnerAccessLockout } from "@workspace/api-base/owner-auth";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
-import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
-import { teamEditNeedsReason } from "@/lib/audit-reason";
-import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 
 function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -109,8 +107,6 @@ function TeamForm({
   const [ownerPhotoEditorOpen, setOwnerPhotoEditorOpen] = useState(false);
   const [error, setError] = useState("");
   const [ownerEmailError, setOwnerEmailError] = useState("");
-  const [auditReason, setAuditReason] = useState("");
-  const needsReason = !!team && teamEditNeedsReason(team, form);
 
   const takenCodes = new Set(
     existingShortCodes.filter(c => !team || c !== team.shortCode)
@@ -161,10 +157,6 @@ function TeamForm({
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
     }
-    if (needsReason && !isAuditReasonValid(auditReason)) {
-      setError("A reason is required for purse or owner changes (minimum 10 characters).");
-      return;
-    }
     const payload = {
       name: form.name.trim(),
       shortCode: form.shortCode.trim().toUpperCase(),
@@ -175,7 +167,6 @@ function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       ...(team ? { purse: form.purse } : {}),
-      ...(needsReason ? { reason: auditReason.trim() } : {}),
     };
     try {
       if (team) {
@@ -260,7 +251,7 @@ function TeamForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Owner Name <span className="text-destructive">*</span></Label>
           <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required placeholder="Ravi Mehta" />
@@ -283,7 +274,7 @@ function TeamForm({
 
       <OptionalEmailField
         id="owner-email"
-        label="Owner Email Address"
+        label="Owner Email Address (Optional)"
         value={form.ownerEmail}
         onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
         error={ownerEmailError || undefined}
@@ -340,7 +331,7 @@ function TeamForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Team Color</Label>
           <div className="flex items-center gap-3">
@@ -416,19 +407,11 @@ function TeamForm({
         />
       </div>
 
-      {needsReason && (
-        <AuditReasonField
-          value={auditReason}
-          onChange={setAuditReason}
-          placeholder="Explain why purse or owner details are being changed…"
-        />
-      )}
-
       <div className="flex gap-3 pt-4">
         <Button
           type="submit"
           className="flex-1"
-          disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate || (needsReason && !isAuditReasonValid(auditReason))}
+          disabled={createTeam.isPending || updateTeam.isPending || shortCodeDuplicate}
         >
           {team ? "Update Team" : "Add Team"}
         </Button>
@@ -478,32 +461,72 @@ export default function Teams() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [regenerateTarget, setRegenerateTarget] = useState<number | null>(null);
+  const [unlockTarget, setUnlockTarget] = useState<{ id: number; name: string } | null>(null);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
 
   const existingShortCodes = (teams || []).map(t => t.shortCode);
   const existingTeamColors = useMemo(() => (teams || []).map(t => t.color), [teams]);
   const basePurse = tournament?.basePurse ?? 10000000;
+  const hasLockedTeam = (teams ?? []).some(
+    (t) => (t as { ownerAccessLocked?: boolean }).ownerAccessLocked,
+  );
+
+  useEffect(() => {
+    if (!hasLockedTeam || !tournamentId) return;
+    const interval = window.setInterval(() => {
+      void qc.refetchQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+    }, 10_000);
+    return () => window.clearInterval(interval);
+  }, [hasLockedTeam, tournamentId, qc]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    await deleteTeam.mutateAsync({ tournamentId, teamId: deleteTarget.id });
-    qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
-    setDeleteTarget(null);
+    setDeleteError("");
+    try {
+      await deleteTeam.mutateAsync({ tournamentId, teamId: deleteTarget.id });
+      qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete team.";
+      setDeleteError(message);
+    }
   }
 
   function handleRegenerateCode(teamId: number) {
     setRegenerateTarget(teamId);
   }
 
-  async function confirmRegenerateCode(reason: string) {
+  async function confirmRegenerateCode() {
     if (!regenerateTarget) return;
     await updateTeam.mutateAsync({
       tournamentId,
       teamId: regenerateTarget,
-      data: { regenerateCode: true, reason },
+      data: { regenerateCode: true },
     });
     qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
     setRegenerateTarget(null);
+  }
+
+  async function confirmUnlockAccess() {
+    if (!unlockTarget) return;
+    setUnlockLoading(true);
+    setUnlockError("");
+    try {
+      const result = await resetOwnerAccessLockout(tournamentId, unlockTarget.id);
+      if (result.success) {
+        await qc.refetchQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+        setUnlockTarget(null);
+      } else {
+        setUnlockError(result.message ?? "Could not unlock owner access.");
+      }
+    } catch {
+      setUnlockError("Could not unlock owner access. Please try again.");
+    } finally {
+      setUnlockLoading(false);
+    }
   }
 
   function getOwnerLink(teamId: number) {
@@ -632,7 +655,7 @@ export default function Teams() {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget({ id: team.id, name: team.name })}
+                          onClick={() => { setDeleteError(""); setDeleteTarget({ id: team.id, name: team.name }); }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -782,23 +805,44 @@ export default function Teams() {
 
                     {/* Access Code */}
                     {team.accessCode && (
-                      <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
-                        <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Access Code</p>
-                          <p className="text-sm font-display font-black tracking-[0.2em] text-primary">{team.accessCode}</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                          <KeyRound className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Owner Access Code</p>
+                            <p className="text-sm font-display font-black tracking-[0.2em] text-primary">{team.accessCode}</p>
+                          </div>
+                          <CopyButton text={team.accessCode} />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
+                            title="Regenerate access code"
+                            disabled={updateTeam.isPending}
+                            onClick={() => handleRegenerateCode(team.id)}
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
                         </div>
-                        <CopyButton text={team.accessCode} />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
-                          title="Regenerate access code"
-                          disabled={updateTeam.isPending}
-                          onClick={() => handleRegenerateCode(team.id)}
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                        </Button>
+                        {(team as { ownerAccessLocked?: boolean }).ownerAccessLocked && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="destructive" className="text-[10px] uppercase tracking-wider">
+                              Owner Access Locked
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1.5"
+                              onClick={() => {
+                                setUnlockError("");
+                                setUnlockTarget({ id: team.id, name: team.name });
+                              }}
+                            >
+                              <LockOpen className="w-3 h-3" />
+                              Unlock Owner Access
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -845,7 +889,7 @@ export default function Teams() {
         )}
       </div>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+      <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) { setDeleteTarget(null); setDeleteError(""); } }}>
         <DialogContent className="max-w-sm dark">
           <DialogHeader>
             <DialogTitle>Are you sure?</DialogTitle>
@@ -853,6 +897,9 @@ export default function Teams() {
           <p className="text-sm text-muted-foreground">
             Remove <strong className="text-foreground">{deleteTarget?.name}</strong> from this tournament? This cannot be undone.
           </p>
+          {deleteError ? (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteTeam.isPending}>
               Cancel
@@ -872,15 +919,61 @@ export default function Teams() {
         </DialogContent>
       </Dialog>
 
-      <AuditReasonDialog
-        open={regenerateTarget !== null}
-        onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}
-        title="Regenerate owner access code"
-        description="The old code will stop working immediately. Explain why you are regenerating it."
-        confirmLabel="Regenerate code"
-        loading={updateTeam.isPending}
-        onConfirm={confirmRegenerateCode}
-      />
+      <Dialog open={regenerateTarget !== null} onOpenChange={(open) => { if (!open) setRegenerateTarget(null); }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle>Regenerate owner access code?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The old code will stop working immediately. Team owners will need the new code to bid.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateTarget(null)} disabled={updateTeam.isPending}>
+              Cancel
+            </Button>
+            <Button disabled={updateTeam.isPending} onClick={() => void confirmRegenerateCode()}>
+              {updateTeam.isPending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Regenerating…
+                </>
+              ) : (
+                "Regenerate code"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unlockTarget !== null} onOpenChange={(open) => { if (!open) { setUnlockTarget(null); setUnlockError(""); } }}>
+        <DialogContent className="max-w-sm dark">
+          <DialogHeader>
+            <DialogTitle>Unlock owner access?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Clear the access-code lockout for <strong className="text-foreground">{unlockTarget?.name}</strong>?
+            The team owner will be able to try their code again immediately.
+          </p>
+          {unlockError && (
+            <p className="text-sm text-red-400 font-medium">{unlockError}</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnlockTarget(null)} disabled={unlockLoading}>
+              Cancel
+            </Button>
+            <Button disabled={unlockLoading} onClick={() => void confirmUnlockAccess()}>
+              {unlockLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Unlocking…
+                </>
+              ) : (
+                <>
+                  <LockOpen className="w-3.5 h-3.5 mr-1.5" /> Unlock access
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

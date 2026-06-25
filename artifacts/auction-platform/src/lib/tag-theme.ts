@@ -5,79 +5,91 @@
  */
 
 export type TagTheme = {
-  color:  string;  // primary text/border colour
-  glow:   string;  // rgba for box-shadow glow
-  bg:     string;  // badge background (rgba, low opacity)
-  border: string;  // badge border (rgba)
-  label:  string;  // full display label, uppercase
-  abbrev: string;  // compact abbreviation for tight UI spaces
+  color: string;
+  glow: string;
+  bg: string;
+  border: string;
+  /** Full display label (always shown in UI). */
+  label: string;
+  /** @deprecated Legacy compact code — do not render in UI. */
+  abbrev: string;
 };
+
+export const PLAYER_TAG_OPTIONS = [
+  { value: "captain", label: "Captain" },
+  { value: "vice_captain", label: "Vice Captain" },
+  { value: "owner", label: "Owner" },
+  { value: "co_owner", label: "Co-Owner" },
+  { value: "booster", label: "Booster" },
+  { value: "icon", label: "Icon" },
+  { value: "star_player", label: "Star Player" },
+] as const;
 
 const TAG_MAP: Record<string, TagTheme> = {
   icon: {
-    color:  "#fbbf24",
-    glow:   "rgba(251,191,36,0.45)",
-    bg:     "rgba(251,191,36,0.14)",
+    color: "#fbbf24",
+    glow: "rgba(251,191,36,0.45)",
+    bg: "rgba(251,191,36,0.14)",
     border: "rgba(251,191,36,0.40)",
-    label:  "ICON",
+    label: "Icon",
     abbrev: "ICON",
   },
   star_player: {
-    color:  "#a855f7",
-    glow:   "rgba(168,85,247,0.40)",
-    bg:     "rgba(168,85,247,0.14)",
+    color: "#a855f7",
+    glow: "rgba(168,85,247,0.40)",
+    bg: "rgba(168,85,247,0.14)",
     border: "rgba(168,85,247,0.40)",
-    label:  "STAR PLAYER",
+    label: "Star Player",
     abbrev: "STAR",
   },
   captain: {
-    color:  "#22c55e",
-    glow:   "rgba(34,197,94,0.35)",
-    bg:     "rgba(34,197,94,0.14)",
+    color: "#22c55e",
+    glow: "rgba(34,197,94,0.35)",
+    bg: "rgba(34,197,94,0.14)",
     border: "rgba(34,197,94,0.35)",
-    label:  "CAPTAIN",
+    label: "Captain",
     abbrev: "CAPT",
   },
   vice_captain: {
-    color:  "#06b6d4",
-    glow:   "rgba(6,182,212,0.35)",
-    bg:     "rgba(6,182,212,0.14)",
+    color: "#06b6d4",
+    glow: "rgba(6,182,212,0.35)",
+    bg: "rgba(6,182,212,0.14)",
     border: "rgba(6,182,212,0.35)",
-    label:  "VICE CAPTAIN",
+    label: "Vice Captain",
     abbrev: "VC",
   },
   booster: {
-    color:  "#ef4444",
-    glow:   "rgba(239,68,68,0.35)",
-    bg:     "rgba(239,68,68,0.14)",
+    color: "#ef4444",
+    glow: "rgba(239,68,68,0.35)",
+    bg: "rgba(239,68,68,0.14)",
     border: "rgba(239,68,68,0.35)",
-    label:  "BOOSTER",
+    label: "Booster",
     abbrev: "BSTR",
   },
   owner: {
-    color:  "#3b82f6",
-    glow:   "rgba(59,130,246,0.35)",
-    bg:     "rgba(59,130,246,0.14)",
+    color: "#3b82f6",
+    glow: "rgba(59,130,246,0.35)",
+    bg: "rgba(59,130,246,0.14)",
     border: "rgba(59,130,246,0.35)",
-    label:  "OWNER",
+    label: "Owner",
     abbrev: "OWN",
   },
   co_owner: {
-    color:  "#f97316",
-    glow:   "rgba(249,115,22,0.35)",
-    bg:     "rgba(249,115,22,0.14)",
+    color: "#f97316",
+    glow: "rgba(249,115,22,0.35)",
+    bg: "rgba(249,115,22,0.14)",
     border: "rgba(249,115,22,0.35)",
-    label:  "CO-OWNER",
+    label: "Co-Owner",
     abbrev: "CO-OWN",
   },
 };
 
 const FALLBACK: TagTheme = {
-  color:  "#eab308",
-  glow:   "rgba(234,179,8,0.35)",
-  bg:     "rgba(234,179,8,0.14)",
+  color: "#eab308",
+  glow: "rgba(234,179,8,0.35)",
+  bg: "rgba(234,179,8,0.14)",
   border: "rgba(234,179,8,0.35)",
-  label:  "TAGGED",
+  label: "Tagged",
   abbrev: "TAG",
 };
 
@@ -85,6 +97,10 @@ const FALLBACK: TagTheme = {
 export function getTagTheme(tag: string | null | undefined): TagTheme | null {
   if (!tag) return null;
   return TAG_MAP[tag] ?? FALLBACK;
+}
+
+export function playerTagLabel(tag: string | null | undefined): string | null {
+  return getTagTheme(tag)?.label ?? null;
 }
 
 /**

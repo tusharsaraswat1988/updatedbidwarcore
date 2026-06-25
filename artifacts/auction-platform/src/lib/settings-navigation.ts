@@ -1,6 +1,6 @@
 import type { AuctionReadinessCheckId } from "@workspace/api-base/auction-readiness";
 
-export type SettingsTab = "identity" | "auction" | "broadcast" | "recovery";
+export type SettingsTab = "identity" | "playerRegistration" | "auction" | "sponsors" | "broadcast" | "recovery";
 
 export type SettingsFocusField =
   | "minBid"
@@ -32,8 +32,6 @@ const READINESS_TO_SETTINGS: Partial<Record<AuctionReadinessCheckId, SettingsFoc
   playerOrder: "playerOrder",
   bidTiers: "bidTiers",
   minSquad: "minSquad",
-  maxSquad: "maxSquad",
-  squadRange: "maxSquad",
 };
 
 export function readinessFixPath(tournamentId: number, checkId: AuctionReadinessCheckId): string {

@@ -38,12 +38,17 @@ describe("cricket roster assignments", () => {
   });
 
   it("endActiveRosterAssignment skips empty master id", async () => {
-    await endActiveRosterAssignment("", 1);
+    await endActiveRosterAssignment("", 1, "cricket");
     expect(mockUpdateWhere).not.toHaveBeenCalled();
   });
 
-  it("endActiveRosterAssignment deactivates active cricket rows", async () => {
-    await endActiveRosterAssignment("gp_1", 42);
+  it("endActiveRosterAssignment deactivates active rows for the given sport", async () => {
+    await endActiveRosterAssignment("gp_1", 42, "cricket");
+    expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it("endActiveRosterAssignment scopes by sport so badminton rows are untouched", async () => {
+    await endActiveRosterAssignment("gp_1", 42, "badminton");
     expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
   });
 
@@ -55,6 +60,7 @@ describe("cricket roster assignments", () => {
       auctionPlayerId: 5,
       auctionTeamId: 2,
       assignmentType: "auction_sale",
+      sport: "cricket",
     });
 
     expect(mockUpdateWhere).toHaveBeenCalledTimes(1);
@@ -86,6 +92,7 @@ describe("cricket roster assignments", () => {
       auctionPlayerId: 8,
       auctionTeamId: 4,
       assignmentType: "transfer",
+      sport: "badminton",
     });
 
     expect(mockInsertValues).toHaveBeenCalledWith(

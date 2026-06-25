@@ -29,6 +29,39 @@ export const TournamentStatus = {
 } as const;
 
 /**
+ * @nullable
+ */
+export type TournamentPaymentVerificationMethod =
+  | (typeof TournamentPaymentVerificationMethod)[keyof typeof TournamentPaymentVerificationMethod]
+  | null;
+
+export const TournamentPaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
+export type TournamentPaymentCollectionMode =
+  (typeof TournamentPaymentCollectionMode)[keyof typeof TournamentPaymentCollectionMode];
+
+export const TournamentPaymentCollectionMode = {
+  manual_verification: "manual_verification",
+  cashfree: "cashfree",
+  razorpay: "razorpay",
+} as const;
+
+/**
+ * Whether base bid values are system-assigned or player-selected at registration
+ */
+export type TournamentBidValueMode =
+  (typeof TournamentBidValueMode)[keyof typeof TournamentBidValueMode];
+
+export const TournamentBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
+/**
  * Image fit mode for the banner on the LED screen
  */
 export type TournamentMainBannerFit =
@@ -61,6 +94,18 @@ export const TournamentScoringPhase = {
   active: "active",
   completed: "completed",
 } as const;
+
+/** Per-tournament module feature flags (Buzz Studio, future modules). */
+export interface TournamentFeatures {
+  buzzStudio?: boolean;
+  allowCreativeDownloads?: boolean;
+  allowPlayerDownloads?: boolean;
+  watermarkRequired?: boolean;
+  ownerApp?: boolean;
+  scoring?: boolean;
+  sponsorshipHub?: boolean;
+  analytics?: boolean;
+}
 
 export interface Tournament {
   id: number;
@@ -108,6 +153,32 @@ export interface Tournament {
   registrationDeadline?: string | null;
   /** @nullable */
   registrationLimit?: number | null;
+  /** When true, public registration requires payment proof */
+  enableRegistrationPayment?: boolean;
+  /**
+   * Registration fee in INR (whole rupees)
+   * @nullable
+   */
+  registrationFee?: number | null;
+  /**
+   * UPI VPA for manual payment collection
+   * @nullable
+   */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: TournamentPaymentVerificationMethod;
+  paymentCollectionMode?: TournamentPaymentCollectionMode;
+  /** When true, players must accept organizer declaration points during registration */
+  enableRegistrationDeclaration?: boolean;
+  /**
+   * Newline-separated declaration/consent points for player registration
+   * @nullable
+   */
+  registrationDeclarationText?: string | null;
+  /** Whether base bid values are system-assigned or player-selected at registration */
+  bidValueMode?: TournamentBidValueMode;
+  /** Allowed bid values when bidValueMode is player */
+  bidValueOptions?: number[];
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -169,6 +240,8 @@ export interface Tournament {
    * @nullable
    */
   scoringPin?: string | null;
+  /** Per-tournament module feature flags */
+  features?: TournamentFeatures;
   createdAt: string;
 }
 
@@ -250,6 +323,36 @@ export const TournamentUpdatePlayerSelectionMode = {
   manual: "manual",
 } as const;
 
+/**
+ * @nullable
+ */
+export type TournamentUpdatePaymentVerificationMethod =
+  | (typeof TournamentUpdatePaymentVerificationMethod)[keyof typeof TournamentUpdatePaymentVerificationMethod]
+  | null;
+
+export const TournamentUpdatePaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
+export type TournamentUpdatePaymentCollectionMode =
+  (typeof TournamentUpdatePaymentCollectionMode)[keyof typeof TournamentUpdatePaymentCollectionMode];
+
+export const TournamentUpdatePaymentCollectionMode = {
+  manual_verification: "manual_verification",
+  cashfree: "cashfree",
+  razorpay: "razorpay",
+} as const;
+
+export type TournamentUpdateBidValueMode =
+  (typeof TournamentUpdateBidValueMode)[keyof typeof TournamentUpdateBidValueMode];
+
+export const TournamentUpdateBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
 export type TournamentUpdateMainBannerFit =
   (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
 
@@ -297,6 +400,19 @@ export interface TournamentUpdate {
   registrationDeadline?: string | null;
   /** @nullable */
   registrationLimit?: number | null;
+  enableRegistrationPayment?: boolean;
+  /** @nullable */
+  registrationFee?: number | null;
+  /** @nullable */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: TournamentUpdatePaymentVerificationMethod;
+  paymentCollectionMode?: TournamentUpdatePaymentCollectionMode;
+  enableRegistrationDeclaration?: boolean;
+  /** @nullable */
+  registrationDeclarationText?: string | null;
+  bidValueMode?: TournamentUpdateBidValueMode;
+  bidValueOptions?: number[];
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -517,6 +633,45 @@ export interface CategoryUpdate {
   sortOrder?: number;
 }
 
+export type JerseySize = (typeof JerseySize)[keyof typeof JerseySize];
+
+export const JerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
+/**
+ * Player gender — M (Male) or F (Female)
+ * @nullable
+ */
+export type PlayerGender =
+  | (typeof PlayerGender)[keyof typeof PlayerGender]
+  | null;
+
+export const PlayerGender = {
+  M: "M",
+  F: "F",
+} as const;
+
+/**
+ * Whether base price was system-assigned or player-selected
+ * @nullable
+ */
+export type PlayerBidValueSource =
+  | (typeof PlayerBidValueSource)[keyof typeof PlayerBidValueSource]
+  | null;
+
+export const PlayerBidValueSource = {
+  system: "system",
+  player: "player",
+} as const;
+
 export type PlayerStatus = (typeof PlayerStatus)[keyof typeof PlayerStatus];
 
 export const PlayerStatus = {
@@ -524,6 +679,24 @@ export const PlayerStatus = {
   sold: "sold",
   unsold: "unsold",
   retained: "retained",
+} as const;
+
+/**
+ * @nullable
+ */
+export type PlayerJerseySize =
+  | (typeof PlayerJerseySize)[keyof typeof PlayerJerseySize]
+  | null;
+
+export const PlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
 } as const;
 
 /**
@@ -544,8 +717,23 @@ export const PlayerPlayerTag = {
   star_player: "star_player",
 } as const;
 
+/**
+ * @nullable
+ */
+export type PlayerRegistrationPaymentStatus =
+  | (typeof PlayerRegistrationPaymentStatus)[keyof typeof PlayerRegistrationPaymentStatus]
+  | null;
+
+export const PlayerRegistrationPaymentStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
 export interface Player {
   id: number;
+  /** Tournament-scoped display serial (1..N). Use for auction Serial # — not global id. */
+  serialNo: number;
   tournamentId: number;
   /** @nullable */
   categoryId?: number | null;
@@ -562,11 +750,32 @@ export interface Player {
   bowlingStyle?: string | null;
   /** @nullable */
   specialization?: string | null;
+  /** Normalized sport specifications (when PLAYER_SPECS_V2_ENABLED). */
+  specifications?: {
+    specGroupId: number;
+    groupName: string;
+    value: string;
+  }[];
   /** @nullable */
   age?: number | null;
+  /**
+   * Player gender — M (Male) or F (Female)
+   * @nullable
+   */
+  gender?: PlayerGender;
   /** @nullable */
   photoUrl?: string | null;
   basePrice: number;
+  /**
+   * Player-selected base bid value when bidValueSource is player
+   * @nullable
+   */
+  selectedBidValue?: number | null;
+  /**
+   * Whether base price was system-assigned or player-selected
+   * @nullable
+   */
+  bidValueSource?: PlayerBidValueSource;
   /** @nullable */
   soldPrice?: number | null;
   /** @nullable */
@@ -574,6 +783,8 @@ export interface Player {
   status: PlayerStatus;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: PlayerJerseySize;
   /** @nullable */
   achievements?: string | null;
   /** @nullable */
@@ -596,8 +807,24 @@ export interface Player {
   playerTagTeamId?: number | null;
   /** Excluded from squad-slot counts but visible in team roster */
   isNonPlayingMember?: boolean;
+  /** @nullable */
+  registrationPaymentStatus?: PlayerRegistrationPaymentStatus;
+  /** @nullable */
+  utrNumber?: string | null;
+  /** @nullable */
+  paymentScreenshotUrl?: string | null;
+  /** @nullable */
+  paymentSubmittedAt?: string | null;
   createdAt: string;
 }
+
+export type PlayerInputGender =
+  (typeof PlayerInputGender)[keyof typeof PlayerInputGender];
+
+export const PlayerInputGender = {
+  M: "M",
+  F: "F",
+} as const;
 
 export type PlayerInputPlayerTag =
   (typeof PlayerInputPlayerTag)[keyof typeof PlayerInputPlayerTag];
@@ -612,6 +839,11 @@ export const PlayerInputPlayerTag = {
   star_player: "star_player",
 } as const;
 
+export interface PlayerSpecificationInput {
+  specGroupId: number;
+  value: string;
+}
+
 export interface PlayerInput {
   categoryId?: number;
   name: string;
@@ -621,9 +853,13 @@ export interface PlayerInput {
   bowlingStyle?: string;
   specialization?: string;
   age?: number;
+  gender?: PlayerInputGender;
   photoUrl?: string;
-  basePrice: number;
+  basePrice?: number;
+  /** Required when tournament bidValueMode is player */
+  selectedBidValue?: number;
   jerseyNumber?: string;
+  jerseySize?: JerseySize;
   achievements?: string;
   mobileNumber?: string;
   email?: string;
@@ -638,7 +874,26 @@ export interface PlayerInput {
   playerTag?: PlayerInputPlayerTag;
   playerTagTeamId?: number;
   isNonPlayingMember?: boolean;
+  /** UPI transaction reference (public registration when payment enabled) */
+  utrNumber?: string;
+  /** HTTPS URL of uploaded payment screenshot */
+  paymentScreenshotUrl?: string;
+  /** Organizer manual entry — mark offline payment as completed */
+  markPaymentCompleted?: boolean;
+  /** Player accepts organizer registration declaration (required when enabled) */
+  registrationDeclarationAccepted?: boolean;
+  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
+  specifications?: PlayerSpecificationInput[];
 }
+
+export type PlayerUpdateGender =
+  | (typeof PlayerUpdateGender)[keyof typeof PlayerUpdateGender]
+  | null;
+
+export const PlayerUpdateGender = {
+  M: "M",
+  F: "F",
+} as const;
 
 export type PlayerUpdatePlayerTag =
   (typeof PlayerUpdatePlayerTag)[keyof typeof PlayerUpdatePlayerTag];
@@ -653,6 +908,18 @@ export const PlayerUpdatePlayerTag = {
   star_player: "star_player",
 } as const;
 
+/**
+ * Organizer updates registration payment verification status
+ */
+export type PlayerUpdateRegistrationPaymentStatus =
+  (typeof PlayerUpdateRegistrationPaymentStatus)[keyof typeof PlayerUpdateRegistrationPaymentStatus];
+
+export const PlayerUpdateRegistrationPaymentStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
 export interface PlayerUpdate {
   categoryId?: number;
   name?: string;
@@ -662,9 +929,16 @@ export interface PlayerUpdate {
   bowlingStyle?: string;
   specialization?: string;
   age?: number;
+  gender?: PlayerUpdateGender;
   photoUrl?: string;
   basePrice?: number;
+  /**
+   * Player-selected bid value when tournament uses player mode
+   * @nullable
+   */
+  selectedBidValue?: number | null;
   jerseyNumber?: string;
+  jerseySize?: JerseySize;
   achievements?: string;
   mobileNumber?: string;
   email?: string;
@@ -679,6 +953,10 @@ export interface PlayerUpdate {
   isNonPlayingMember?: boolean;
   /** Mandatory audit reason for critical player changes (min 10 characters) */
   reason?: string;
+  /** Organizer updates registration payment verification status */
+  registrationPaymentStatus?: PlayerUpdateRegistrationPaymentStatus;
+  /** Normalized sport-specific specification values (4+ spec groups e.g. badminton Court Preference) */
+  specifications?: PlayerSpecificationInput[];
 }
 
 export interface BulkPlayerInput {
@@ -722,10 +1000,24 @@ export interface ConcludeAuctionInput {
   force?: boolean;
 }
 
+/**
+ * organizer for operator panel; admin for super admin panel
+ */
+export type ResetTrialAuctionBodyResetContext =
+  (typeof ResetTrialAuctionBodyResetContext)[keyof typeof ResetTrialAuctionBodyResetContext];
+
+export const ResetTrialAuctionBodyResetContext = {
+  organizer: "organizer",
+  admin: "admin",
+} as const;
+
 export interface ResetTrialAuctionBody {
-  password: string;
+  /** Tournament organizer password. Optional when the caller already has an organizer session for this tournament. */
+  password?: string;
   /** Mandatory audit reason for clearing practice auction data (min 10 characters) */
   reason: string;
+  /** organizer for operator panel; admin for super admin panel */
+  resetContext?: ResetTrialAuctionBodyResetContext;
 }
 
 export interface Bid {
@@ -888,7 +1180,6 @@ export type DisplayCountdownType =
 
 export const DisplayCountdownType = {
   break: "break",
-  "pre-auction": "pre-auction",
 } as const;
 
 export interface DisplayCountdown {
@@ -914,6 +1205,39 @@ export interface LastPurseBooster {
 
 export interface LedPurseToast {
   teamName: string;
+}
+
+export interface TeamPurse {
+  teamId: number;
+  teamName: string;
+  shortCode: string;
+  ownerName: string;
+  /** @nullable */
+  color: string | null;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** Immutable baseline purse from team setup */
+  originalPurse: number;
+  /** Sum of active purse boosters */
+  boosterTotal: number;
+  /** originalPurse + boosterTotal */
+  effectiveCapacity: number;
+  /** Alias for effectiveCapacity (backward compatible) */
+  purse: number;
+  purseUsed: number;
+  purseRemaining: number;
+  playersBought: number;
+  reservePurse: number;
+  spendablePurse: number;
+  slotsRequired: number;
+  lowestBasePrice: number;
+  minimumSquadSize: number;
+  maximumSquadSize: number;
+  retainedCount: number;
+  /** @nullable */
+  topPlayerName?: string | null;
+  /** @nullable */
+  topPlayerAmount?: number | null;
 }
 
 export interface AuctionState {
@@ -987,6 +1311,8 @@ export interface AuctionState {
   displayCountdown?: DisplayCountdown | null;
   lastPurseBooster?: LastPurseBooster | null;
   ledPurseToast?: LedPurseToast | null;
+  /** Live team purse snapshot embedded for realtime sync without separate HTTP refetch */
+  teamPurses?: TeamPurse[];
 }
 
 export type ApplyPurseBoosterRequestTarget =
@@ -1054,6 +1380,27 @@ export interface CancelPurseBoosterRequest {
   reason: string;
 }
 
+/**
+ * @nullable
+ */
+export type RegistrationStatusPaymentVerificationMethod =
+  | (typeof RegistrationStatusPaymentVerificationMethod)[keyof typeof RegistrationStatusPaymentVerificationMethod]
+  | null;
+
+export const RegistrationStatusPaymentVerificationMethod = {
+  utr: "utr",
+  screenshot: "screenshot",
+  utr_and_screenshot: "utr_and_screenshot",
+} as const;
+
+export type RegistrationStatusBidValueMode =
+  (typeof RegistrationStatusBidValueMode)[keyof typeof RegistrationStatusBidValueMode];
+
+export const RegistrationStatusBidValueMode = {
+  system: "system",
+  player: "player",
+} as const;
+
 export interface RegistrationStatus {
   open: boolean;
   /**
@@ -1066,6 +1413,32 @@ export interface RegistrationStatus {
   limit?: number | null;
   /** @nullable */
   deadline?: string | null;
+  /** Whether registration fee collection is enabled */
+  enableRegistrationPayment?: boolean;
+  /**
+   * Registration fee in INR when payment collection is enabled
+   * @nullable
+   */
+  registrationFee?: number | null;
+  /**
+   * UPI VPA for player registration payments
+   * @nullable
+   */
+  upiId?: string | null;
+  /** @nullable */
+  paymentVerificationMethod?: RegistrationStatusPaymentVerificationMethod;
+  /** Whether registration declaration acceptance is required */
+  enableRegistrationDeclaration?: boolean;
+  /**
+   * Raw declaration text (organizer-defined, newline-separated)
+   * @nullable
+   */
+  registrationDeclarationText?: string | null;
+  /** Parsed declaration points shown on the registration form */
+  registrationDeclarationPoints?: string[];
+  bidValueMode?: RegistrationStatusBidValueMode;
+  /** Allowed bid values when bidValueMode is player */
+  bidValueOptions?: number[];
 }
 
 export interface TournamentSummary {
@@ -1080,39 +1453,6 @@ export interface TournamentSummary {
   highestBid?: number;
   /** @nullable */
   mostActiveTeam?: string | null;
-}
-
-export interface TeamPurse {
-  teamId: number;
-  teamName: string;
-  shortCode: string;
-  ownerName: string;
-  /** @nullable */
-  color: string | null;
-  /** @nullable */
-  logoUrl?: string | null;
-  /** Immutable baseline purse from team setup */
-  originalPurse: number;
-  /** Sum of active purse boosters */
-  boosterTotal: number;
-  /** originalPurse + boosterTotal */
-  effectiveCapacity: number;
-  /** Alias for effectiveCapacity (backward compatible) */
-  purse: number;
-  purseUsed: number;
-  purseRemaining: number;
-  playersBought: number;
-  reservePurse: number;
-  spendablePurse: number;
-  slotsRequired: number;
-  lowestBasePrice: number;
-  minimumSquadSize: number;
-  maximumSquadSize: number;
-  retainedCount: number;
-  /** @nullable */
-  topPlayerName?: string | null;
-  /** @nullable */
-  topPlayerAmount?: number | null;
 }
 
 export interface TopBidEntry {
@@ -1222,6 +1562,36 @@ export interface CategoryBreakdown {
   totalSpent?: number;
 }
 
+/**
+ * @nullable
+ */
+export type GlobalPlayerSuggestionGender =
+  | (typeof GlobalPlayerSuggestionGender)[keyof typeof GlobalPlayerSuggestionGender]
+  | null;
+
+export const GlobalPlayerSuggestionGender = {
+  M: "M",
+  F: "F",
+} as const;
+
+/**
+ * @nullable
+ */
+export type GlobalPlayerSuggestionJerseySize =
+  | (typeof GlobalPlayerSuggestionJerseySize)[keyof typeof GlobalPlayerSuggestionJerseySize]
+  | null;
+
+export const GlobalPlayerSuggestionJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 export interface GlobalPlayerSuggestion {
   id: number;
   /** @nullable */
@@ -1233,6 +1603,8 @@ export interface GlobalPlayerSuggestion {
   city?: string | null;
   /** @nullable */
   age?: number | null;
+  /** @nullable */
+  gender?: GlobalPlayerSuggestionGender;
   /** @nullable */
   role?: string | null;
   /** @nullable */
@@ -1247,6 +1619,8 @@ export interface GlobalPlayerSuggestion {
   achievements?: string | null;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: GlobalPlayerSuggestionJerseySize;
   /** @nullable */
   cricheroUrl?: string | null;
   /** @nullable */
@@ -1264,6 +1638,36 @@ export interface ImportSource {
   playerCount: number;
 }
 
+/**
+ * @nullable
+ */
+export type ImportCandidatePlayerGender =
+  | (typeof ImportCandidatePlayerGender)[keyof typeof ImportCandidatePlayerGender]
+  | null;
+
+export const ImportCandidatePlayerGender = {
+  M: "M",
+  F: "F",
+} as const;
+
+/**
+ * @nullable
+ */
+export type ImportCandidatePlayerJerseySize =
+  | (typeof ImportCandidatePlayerJerseySize)[keyof typeof ImportCandidatePlayerJerseySize]
+  | null;
+
+export const ImportCandidatePlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 export interface ImportCandidatePlayer {
   id: number;
   tournamentId: number;
@@ -1274,6 +1678,8 @@ export interface ImportCandidatePlayer {
   city?: string | null;
   /** @nullable */
   age?: number | null;
+  /** @nullable */
+  gender?: ImportCandidatePlayerGender;
   /** @nullable */
   mobileNumber?: string | null;
   /** @nullable */
@@ -1291,6 +1697,8 @@ export interface ImportCandidatePlayer {
   specialization?: string | null;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: ImportCandidatePlayerJerseySize;
   isDuplicate: boolean;
 }
 
@@ -1355,6 +1763,24 @@ export interface TeamReportListItem {
   nonPlayingCount: number;
 }
 
+/**
+ * @nullable
+ */
+export type TeamReportPlayerJerseySize =
+  | (typeof TeamReportPlayerJerseySize)[keyof typeof TeamReportPlayerJerseySize]
+  | null;
+
+export const TeamReportPlayerJerseySize = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  "2XL": "2XL",
+  "3XL": "3XL",
+  "4XL": "4XL",
+  "5XL": "5XL",
+} as const;
+
 export interface TeamReportPlayer {
   id: number;
   name: string;
@@ -1370,6 +1796,8 @@ export interface TeamReportPlayer {
   mobileNumber?: string | null;
   /** @nullable */
   jerseyNumber?: string | null;
+  /** @nullable */
+  jerseySize?: TeamReportPlayerJerseySize;
   /** @nullable */
   categoryId?: number | null;
   /** @nullable */
@@ -1542,19 +1970,6 @@ export type SetBreakTimerBody = {
   message?: string;
 };
 
-export type SetPreAuctionCountdownBodyAction =
-  (typeof SetPreAuctionCountdownBodyAction)[keyof typeof SetPreAuctionCountdownBodyAction];
-
-export const SetPreAuctionCountdownBodyAction = {
-  start: "start",
-  cancel: "cancel",
-} as const;
-
-export type SetPreAuctionCountdownBody = {
-  action?: SetPreAuctionCountdownBodyAction;
-  message?: string;
-};
-
 export type ListPurseBoostersParams = {
   teamId?: number;
   status?: ListPurseBoostersStatus;
@@ -1574,6 +1989,8 @@ export type SearchGlobalPlayersParams = {
    */
   q: string;
   limit?: number;
+  /** When set, prefer tournament rows for this sport (prevents cross-sport spec bleed). */
+  sport?: string;
 };
 
 export type ListImportCandidatesParams = {

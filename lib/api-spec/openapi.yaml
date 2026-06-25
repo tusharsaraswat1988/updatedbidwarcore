@@ -481,6 +481,21 @@ paths:
       responses:
         "204":
           description: Deleted
+        "409":
+          description: Category has assigned players
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, code]
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [CATEGORY_HAS_PLAYERS]
+                  playerCount:
+                    type: integer
 
   # ─── PLAYERS ────────────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/players:
@@ -671,6 +686,78 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/approve:
+    post:
+      operationId: approveRegistrationPayment
+      tags: [players]
+      summary: Approve a player's registration payment (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/reject:
+    post:
+      operationId: rejectRegistrationPayment
+      tags: [players]
+      summary: Reject a player's registration payment (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /tournaments/{tournamentId}/players/{playerId}/registration-payment/pending:
+    post:
+      operationId: resetRegistrationPaymentPending
+      tags: [players]
+      summary: Reset a player's registration payment to pending (organizer only)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment reset to pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
 
   # ─── AUCTION SESSION ─────────────────────────────────────────────────────────
   /tournaments/{tournamentId}/auction:
@@ -945,7 +1032,7 @@ paths:
     post:
       operationId: resetTrialAuction
       tags: [auction]
-      summary: Reset all players back to available (clears bids). Operator panel requires the tournament organizer password; admin panel requires the super admin password.
+      summary: Reset all players back to available (clears bids, bid feed history, and AI intelligence logs). Organizer panel accepts an active organizer session or the tournament organizer password; admin panel requires the super admin password.
       parameters:
         - name: tournamentId
           in: path
@@ -1218,39 +1305,6 @@ paths:
       responses:
         "200":
           description: Countdown started, extended, or cancelled
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuctionState"
-
-  /tournaments/{tournamentId}/auction/pre-auction-countdown:
-    post:
-      operationId: setPreAuctionCountdown
-      tags: [auction]
-      summary: Trigger a fixed 10-second pre-auction countdown on the LED display
-      parameters:
-        - name: tournamentId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: false
-        description: Optional. Omitting the body or sending action=start triggers the countdown. Send action=cancel to clear it.
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                action:
-                  type: string
-                  enum: [start, cancel]
-                  default: start
-                message:
-                  type: string
-      responses:
-        "200":
-          description: Countdown started or cancelled
           content:
             application/json:
               schema:
@@ -1577,6 +1631,11 @@ paths:
           schema:
             type: integer
             default: 10
+        - name: sport
+          in: query
+          schema:
+            type: string
+          description: Filter suggestions to a sport slug (e.g. badminton). Used when PLAYER_SPORT_PROFILES_ENABLED=true.
       responses:
         "200":
           description: Matching player suggestions
@@ -1945,6 +2004,38 @@ components:
           type: ["string", "null"]
         registrationLimit:
           type: ["integer", "null"]
+        enableRegistrationPayment:
+          type: boolean
+          description: When true, public registration requires payment proof
+        registrationFee:
+          type: ["integer", "null"]
+          description: Registration fee in INR (whole rupees)
+        upiId:
+          type: ["string", "null"]
+          description: UPI VPA for manual payment collection
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
+        paymentCollectionMode:
+          type: string
+          enum: [manual_verification, cashfree, razorpay]
+          default: manual_verification
+        enableRegistrationDeclaration:
+          type: boolean
+          description: When true, players must accept organizer declaration points during registration
+        registrationDeclarationText:
+          type: ["string", "null"]
+          description: Newline-separated declaration/consent points for player registration
+        bidValueMode:
+          type: string
+          enum: [system, player]
+          default: system
+          description: Whether base bid values are system-assigned or player-selected at registration
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
+          description: Allowed bid values when bidValueMode is player
         resetCount:
           type: integer
         lastResetAt:
@@ -1983,7 +2074,7 @@ components:
           type: ["string", "null"]
         cheerCooldownSeconds:
           type: integer
-          description: "Per-viewer cheer cooldown in seconds (3–60)"
+          description: "Per-viewer cheer cooldown in seconds (2–60)"
         cheerHeatMeterEnabled:
           type: boolean
           description: "Show heat level indicator on the live viewer"
@@ -2183,6 +2274,29 @@ components:
           type: ["string", "null"]
         registrationLimit:
           type: ["integer", "null"]
+        enableRegistrationPayment:
+          type: boolean
+        registrationFee:
+          type: ["integer", "null"]
+        upiId:
+          type: ["string", "null"]
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
+        paymentCollectionMode:
+          type: string
+          enum: [manual_verification, cashfree, razorpay]
+        enableRegistrationDeclaration:
+          type: boolean
+        registrationDeclarationText:
+          type: ["string", "null"]
+        bidValueMode:
+          type: string
+          enum: [system, player]
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2480,12 +2594,39 @@ components:
           type: integer
 
     # Player schemas
+    JerseySize:
+      type: string
+      enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
+
+    PlayerSpecification:
+      type: object
+      required: [specGroupId, groupName, value]
+      properties:
+        specGroupId:
+          type: integer
+        groupName:
+          type: string
+        value:
+          type: string
+
+    PlayerSpecificationInput:
+      type: object
+      required: [specGroupId, value]
+      properties:
+        specGroupId:
+          type: integer
+        value:
+          type: string
+
     Player:
       type: object
-      required: [id, tournamentId, name, basePrice, status, createdAt]
+      required: [id, serialNo, tournamentId, name, basePrice, status, createdAt]
       properties:
         id:
           type: integer
+        serialNo:
+          type: integer
+          description: Tournament-scoped display serial (1..N within the tournament). Use this for auction Serial # — not the global id.
         tournamentId:
           type: integer
         categoryId:
@@ -2504,12 +2645,28 @@ components:
           type: ["string", "null"]
         specialization:
           type: ["string", "null"]
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (PLAYER_SPECS_V2_ENABLED)
+          items:
+            $ref: "#/components/schemas/PlayerSpecification"
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
+          description: Player gender — M (Male) or F (Female)
         photoUrl:
           type: ["string", "null"]
         basePrice:
           type: integer
+        selectedBidValue:
+          type: ["integer", "null"]
+          description: Player-selected base bid value when bidValueSource is player
+        bidValueSource:
+          type: ["string", "null"]
+          enum: [system, player, null]
+          description: Whether base price was system-assigned or player-selected
         soldPrice:
           type: ["integer", "null"]
         retainedPrice:
@@ -2519,6 +2676,9 @@ components:
           enum: [available, sold, unsold, retained]
         jerseyNumber:
           type: ["string", "null"]
+        jerseySize:
+          type: ["string", "null"]
+          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         achievements:
           type: ["string", "null"]
         mobileNumber:
@@ -2539,12 +2699,21 @@ components:
         isNonPlayingMember:
           type: boolean
           description: Excluded from squad-slot counts but visible in team roster
+        registrationPaymentStatus:
+          type: ["string", "null"]
+          enum: [pending, approved, rejected, null]
+        utrNumber:
+          type: ["string", "null"]
+        paymentScreenshotUrl:
+          type: ["string", "null"]
+        paymentSubmittedAt:
+          type: ["string", "null"]
         createdAt:
           type: string
 
     PlayerInput:
       type: object
-      required: [name, basePrice]
+      required: [name]
       properties:
         categoryId:
           type: integer
@@ -2562,12 +2731,20 @@ components:
           type: string
         age:
           type: integer
+        gender:
+          type: string
+          enum: [M, F]
         photoUrl:
           type: string
         basePrice:
           type: integer
+        selectedBidValue:
+          type: integer
+          description: Required when tournament bidValueMode is player
         jerseyNumber:
           type: string
+        jerseySize:
+          $ref: '#/components/schemas/JerseySize'
         achievements:
           type: string
         mobileNumber:
@@ -2594,6 +2771,23 @@ components:
           type: integer
         isNonPlayingMember:
           type: boolean
+        utrNumber:
+          type: string
+          description: UPI transaction reference (public registration when payment enabled)
+        paymentScreenshotUrl:
+          type: string
+          description: HTTPS URL of uploaded payment screenshot
+        markPaymentCompleted:
+          type: boolean
+          description: Organizer manual entry — mark offline payment as completed
+        registrationDeclarationAccepted:
+          type: boolean
+          description: Player accepts organizer registration declaration (required when enabled)
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)
+          items:
+            $ref: "#/components/schemas/PlayerSpecificationInput"
 
     PlayerUpdate:
       type: object
@@ -2612,14 +2806,28 @@ components:
           type: string
         specialization:
           type: string
+        specifications:
+          type: array
+          description: Normalized sport-specific specification values (required for 4+ spec groups e.g. badminton Court Preference)
+          items:
+            $ref: "#/components/schemas/PlayerSpecificationInput"
         age:
           type: integer
+        gender:
+          type: string
+          enum: [M, F]
+          nullable: true
         photoUrl:
           type: string
         basePrice:
           type: integer
+        selectedBidValue:
+          type: ["integer", "null"]
+          description: Player-selected bid value when tournament uses player mode
         jerseyNumber:
           type: string
+        jerseySize:
+          $ref: '#/components/schemas/JerseySize'
         achievements:
           type: string
         mobileNumber:
@@ -2646,6 +2854,10 @@ components:
         reason:
           type: string
           description: Mandatory audit reason for critical player changes (min 10 characters)
+        registrationPaymentStatus:
+          type: string
+          enum: [pending, approved, rejected]
+          description: Organizer updates registration payment verification status
 
     BulkPlayerInput:
       type: object
@@ -2722,13 +2934,18 @@ components:
 
     ResetTrialAuctionBody:
       type: object
-      required: [password, reason]
+      required: [reason]
       properties:
         password:
           type: string
+          description: Tournament organizer password. Optional when the caller already has an organizer session for this tournament.
         reason:
           type: string
           description: Mandatory audit reason for clearing practice auction data (min 10 characters)
+        resetContext:
+          type: string
+          enum: [organizer, admin]
+          description: organizer for operator panel; admin for super admin panel
 
     Bid:
       type: object
@@ -2917,6 +3134,11 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/LedPurseToast"
+        teamPurses:
+          type: array
+          description: Live team purse snapshot embedded for realtime sync without separate HTTP refetch
+          items:
+            $ref: "#/components/schemas/TeamPurse"
 
     LastPurseBooster:
       type: object
@@ -3066,7 +3288,7 @@ components:
       properties:
         type:
           type: string
-          enum: [break, pre-auction]
+          enum: [break]
         endsAt:
           type: string
           description: ISO timestamp when the countdown ends
@@ -3089,6 +3311,37 @@ components:
           type: ["integer", "null"]
         deadline:
           type: ["string", "null"]
+        enableRegistrationPayment:
+          type: boolean
+          description: Whether registration fee collection is enabled
+        registrationFee:
+          type: ["integer", "null"]
+          description: Registration fee in INR when payment collection is enabled
+        upiId:
+          type: ["string", "null"]
+          description: UPI VPA for player registration payments
+        paymentVerificationMethod:
+          type: ["string", "null"]
+          enum: [utr, screenshot, utr_and_screenshot, null]
+        enableRegistrationDeclaration:
+          type: boolean
+          description: Whether registration declaration acceptance is required
+        registrationDeclarationText:
+          type: ["string", "null"]
+          description: Raw declaration text (organizer-defined, newline-separated)
+        registrationDeclarationPoints:
+          type: array
+          items:
+            type: string
+          description: Parsed declaration points shown on the registration form
+        bidValueMode:
+          type: string
+          enum: [system, player]
+        bidValueOptions:
+          type: array
+          items:
+            type: integer
+          description: Allowed bid values when bidValueMode is player
 
     TournamentSummary:
       type: object
@@ -3338,6 +3591,15 @@ components:
           type: integer
 
     # ─── Global Player Database schemas ───────────────────────────────────────
+    GlobalPlayerSportProfile:
+      type: object
+      required: [sport, defaultRole]
+      properties:
+        sport:
+          type: string
+        defaultRole:
+          type: ["string", "null"]
+
     GlobalPlayerSuggestion:
       type: object
       required: [id, name, appearanceCount]
@@ -3354,6 +3616,9 @@ components:
           type: ["string", "null"]
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
         role:
           type: ["string", "null"]
         photoUrl:
@@ -3368,6 +3633,9 @@ components:
           type: ["string", "null"]
         jerseyNumber:
           type: ["string", "null"]
+        jerseySize:
+          type: ["string", "null"]
+          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         cricheroUrl:
           type: ["string", "null"]
         availabilityDates:
@@ -3376,6 +3644,14 @@ components:
           type: integer
         appearanceCount:
           type: integer
+        sport:
+          type: ["string", "null"]
+          description: Tournament sport for this suggestion row (when PLAYER_SPORT_PROFILES_ENABLED=true)
+        sportProfiles:
+          type: array
+          description: Per-sport roles on global player GET responses (PLAYER_SPORT_PROFILES_ENABLED)
+          items:
+            $ref: "#/components/schemas/GlobalPlayerSportProfile"
 
     ImportSource:
       type: object
@@ -3408,6 +3684,9 @@ components:
           type: ["string", "null"]
         age:
           type: ["integer", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [M, F, null]
         mobileNumber:
           type: ["string", "null"]
         photoUrl:
@@ -3426,6 +3705,9 @@ components:
           type: ["string", "null"]
         jerseyNumber:
           type: ["string", "null"]
+        jerseySize:
+          type: ["string", "null"]
+          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         isDuplicate:
           type: boolean
 
@@ -3540,6 +3822,9 @@ components:
           type: ["string", "null"]
         jerseyNumber:
           type: ["string", "null"]
+        jerseySize:
+          type: ["string", "null"]
+          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         categoryId:
           type: ["integer", "null"]
         categoryName:

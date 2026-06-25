@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRoute } from "wouter";
 import {
   useListCategories,
+  useListPlayers,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
   getListCategoriesQueryKey,
+  getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout";
@@ -14,10 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Pencil, Trash2, Tag, Filter } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
+import { useToast } from "@/hooks/use-toast";
 
 type TierFields = {
   tier1UpTo: number;
@@ -274,17 +278,47 @@ export default function Categories() {
   const [, params] = useRoute("/tournament/:id/categories");
   const tournamentId = parseInt(params?.id || "0");
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { data: categories, isLoading } = useListCategories(tournamentId, {
     query: { queryKey: getListCategoriesQueryKey(tournamentId), enabled: !!tournamentId },
   });
+  const { data: players } = useListPlayers(tournamentId, {
+    query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+  const playersByCategory = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const player of players ?? []) {
+      if (player.categoryId) {
+        counts.set(player.categoryId, (counts.get(player.categoryId) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [players]);
   const deleteCat = useDeleteCategory();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
-  async function handleDelete(categoryId: number) {
-    if (!confirm("Delete this category?")) return;
-    await deleteCat.mutateAsync({ tournamentId, categoryId });
-    qc.invalidateQueries({ queryKey: getListCategoriesQueryKey(tournamentId) });
+  async function handleDelete(categoryId: number, categoryName: string) {
+    const assignedCount = playersByCategory.get(categoryId) ?? 0;
+    if (assignedCount > 0) {
+      toast({
+        title: "Cannot delete category",
+        description: `${categoryName} is assigned to ${assignedCount} player${assignedCount === 1 ? "" : "s"}. Reassign or remove them first.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!confirm(`Delete ${categoryName}?`)) return;
+    try {
+      await deleteCat.mutateAsync({ tournamentId, categoryId });
+      qc.invalidateQueries({ queryKey: getListCategoriesQueryKey(tournamentId) });
+    } catch (err: unknown) {
+      const message =
+        (err as { data?: { error?: string } })?.data?.error
+        || (err as { message?: string })?.message
+        || "Please try again";
+      toast({ title: "Could not delete category", description: message, variant: "destructive" });
+    }
   }
 
   return (
@@ -336,9 +370,12 @@ export default function Categories() {
             </Button>
           </div>
         ) : (
+          <TooltipProvider>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories?.map(cat => {
               const isFilterOnly = cat.minBid == null && cat.bidIncrement == null && !cat.bidTiers;
+              const assignedCount = playersByCategory.get(cat.id) ?? 0;
+              const deleteBlocked = assignedCount > 0;
               return (
                 <Card key={cat.id} className="overflow-hidden border-border hover:border-primary/30 transition-all">
                   <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
@@ -357,6 +394,9 @@ export default function Categories() {
                         <div>
                           <h3 className="font-bold text-xl leading-tight">{cat.name}</h3>
                           {cat.maxPlayers && <p className="text-xs text-muted-foreground">Max {cat.maxPlayers} players/team</p>}
+                          {assignedCount > 0 && (
+                            <p className="text-xs text-amber-500/90">{assignedCount} player{assignedCount === 1 ? "" : "s"} assigned</p>
+                          )}
                           {isFilterOnly && <p className="text-xs text-muted-foreground italic">Filter/grouping only</p>}
                         </div>
                       </div>
@@ -364,9 +404,26 @@ export default function Categories() {
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(cat); setOpen(true); }}>
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(cat.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-40"
+                                disabled={deleteBlocked || deleteCat.isPending}
+                                onClick={() => handleDelete(cat.id, cat.name)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {deleteBlocked && (
+                            <TooltipContent>
+                              Assigned to {assignedCount} player{assignedCount === 1 ? "" : "s"} — reassign or remove them before deleting
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       </div>
                     </div>
                     {!isFilterOnly && (
@@ -394,6 +451,7 @@ export default function Categories() {
               );
             })}
           </div>
+          </TooltipProvider>
         )}
       </div>
     </AppLayout>

@@ -3,8 +3,9 @@
  * Route: /tournament/:id/badminton/matches
  */
 
-import { useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useRoute, Link, useSearch } from "wouter";
+import { Target, X, Pencil } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -13,8 +14,40 @@ import {
   PairSidePicker,
   emptySidePlayer,
   sidePlayerFormToJson,
+  sideJsonToPlayerForm,
   type SidePlayerForm,
 } from "@/components/badminton/pair-side-picker";
+import { CourtAutocomplete } from "@/components/badminton/court-autocomplete";
+import {
+  BtnPrimary,
+  DarkSelect,
+  FormActions,
+  FormError,
+  FormField,
+  FormModal,
+  HubPageShell,
+  inputClass,
+  PageHeader,
+  EmptyState,
+  HubFilterTabs,
+  hubCardClass,
+} from "@/components/badminton/page-chrome";
+import { badmintonBroadcastPath } from "@/lib/badminton-broadcast-urls";
+import { badmintonMatchControlPath, badmintonUmpireScorerPath } from "@/lib/badminton-routes";
+import { suggestScorerPin } from "@/lib/badminton-scorer-pin";
+import { badmintonFetch } from "@/lib/badminton-api";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -26,11 +59,84 @@ interface MatchRow {
   state: BadmintonMatchState | null;
 }
 
+interface FixtureOption {
+  id: number;
+  categoryId: number;
+  slotNumber?: number | null;
+  registrationAId?: number | null;
+  registrationBId?: number | null;
+  scoringMatchId?: number | null;
+  status: string;
+}
+
+interface CategoryOption {
+  id: number;
+  name: string;
+  matchType: string;
+}
+
+interface BadmintonPlayerRecord {
+  id: number;
+  masterPlayerId?: string | null;
+  firstName: string;
+  lastName: string;
+  displayName?: string | null;
+  shortName?: string | null;
+  photoUrl?: string | null;
+  flagUrl?: string | null;
+}
+
+interface RegistrationRecord {
+  registration: {
+    id: number;
+    player1Id: number;
+    player2Id?: number | null;
+    status: string;
+  };
+  player1: BadmintonPlayerRecord | null;
+}
+
+function formatPlayerName(p: BadmintonPlayerRecord) {
+  return p.displayName?.trim() || `${p.firstName} ${p.lastName}`.trim();
+}
+
+function playerToSideForm(p: BadmintonPlayerRecord): SidePlayerForm {
+  const name = formatPlayerName(p);
+  return {
+    masterId: p.masterPlayerId ?? null,
+    name,
+    short: p.shortName?.trim() || name.slice(0, 2).toUpperCase(),
+    photoUrl: p.photoUrl ?? "",
+    franchiseLogo: p.flagUrl ?? "",
+    playerIds: [p.id],
+  };
+}
+
+function registrationSidePlayers(
+  reg: RegistrationRecord["registration"],
+  playersById: Map<number, BadmintonPlayerRecord>,
+  isPair: boolean,
+): { player1: SidePlayerForm; player2: SidePlayerForm } {
+  const p1 = playersById.get(reg.player1Id);
+  const p2 = reg.player2Id ? playersById.get(reg.player2Id) : undefined;
+  return {
+    player1: p1 ? playerToSideForm(p1) : emptySidePlayer(),
+    player2: isPair && p2 ? playerToSideForm(p2) : emptySidePlayer(),
+  };
+}
+
 export default function BadmintonMatchesPage() {
   const [, params] = useRoute("/tournament/:id/badminton/matches");
+  const search = useSearch();
   const tournamentId = parseInt(params?.id ?? "0");
   const qc = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
+  const initialFixtureId = useMemo(() => {
+    const raw = new URLSearchParams(search).get("fixture");
+    if (!raw) return undefined;
+    const id = parseInt(raw, 10);
+    return Number.isFinite(id) ? id : undefined;
+  }, [search]);
+  const [showCreate, setShowCreate] = useState(!!initialFixtureId);
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "completed">("all");
 
   const { data: matches = [], isLoading } = useQuery<MatchRow[]>({
@@ -58,67 +164,55 @@ export default function BadmintonMatchesPage() {
     completed: matches.filter((m) => m.status === "completed").length,
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      const res = await fetch(
+        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${matchId}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Delete failed" }));
+        throw new Error(typeof err.error === "string" ? err.error : "Delete failed");
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+      qc.invalidateQueries({ queryKey: ["badminton-dashboard", tournamentId] });
+    },
+  });
+
   return (
-    <div className="min-h-screen bg-[#060c1a] text-white">
-      <div className="bg-gradient-to-b from-[#0d1529] to-transparent border-b border-white/5 px-6 py-5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-black text-white">Matches</h1>
-            <p className="text-white/40 text-sm">{matches.length} total</p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-[#0070f3] hover:bg-[#0060d3] rounded-xl px-4 py-2.5 font-semibold text-sm text-white transition-colors"
-          >
-            + Create Match
-          </button>
-        </div>
-      </div>
+    <HubPageShell tournamentId={tournamentId}>
+      <PageHeader
+        title="Matches"
+        subtitle="Match Control = tournament director · Umpire Scorer = court scoring (PIN)"
+        actions={
+          <BtnPrimary onClick={() => setShowCreate(true)}>+ Create Match</BtnPrimary>
+        }
+      />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* Filter tabs */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
-          {(["all", "live", "scheduled", "completed"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all",
-                filter === tab
-                  ? "bg-[#0070f3] text-white"
-                  : "bg-white/5 border border-white/8 text-white/50 hover:bg-white/8",
-              )}
-            >
-              {tab === "live" && <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
-              <span className="capitalize">{tab}</span>
-              <span className={cn(
-                "text-[10px] font-black px-1.5 py-0.5 rounded-full",
-                filter === tab ? "bg-white/20" : "bg-white/10",
-              )}>
-                {counts[tab]}
-              </span>
-            </button>
-          ))}
-        </div>
+        <HubFilterTabs
+          tabs={["all", "live", "scheduled", "completed"] as const}
+          active={filter}
+          onChange={setFilter}
+          counts={counts}
+          liveTab="live"
+        />
 
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-white/4 animate-pulse" />
+              <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-5xl mb-4">🎯</div>
-            <h3 className="text-white font-bold text-lg">No matches yet</h3>
-            <p className="text-white/40 text-sm mt-1">Create your first match to get started</p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-6 px-6 py-3 rounded-xl bg-[#0070f3] text-white font-semibold text-sm"
-            >
-              Create Match
-            </button>
-          </div>
+          <EmptyState
+            icon={Target}
+            title="No matches yet"
+            desc="Create your first match to get started"
+            action={{ label: "Create Match", onClick: () => setShowCreate(true) }}
+          />
         ) : (
           <div className="space-y-3">
             {filtered.map((match) => (
@@ -126,6 +220,12 @@ export default function BadmintonMatchesPage() {
                 key={match.id}
                 match={match}
                 tournamentId={tournamentId}
+                onDelete={() => {
+                  deleteMutation.mutate(match.id, {
+                    onError: (e) => window.alert(e.message),
+                  });
+                }}
+                deleting={deleteMutation.isPending && deleteMutation.variables === match.id}
               />
             ))}
           </div>
@@ -133,140 +233,359 @@ export default function BadmintonMatchesPage() {
       </div>
 
       {showCreate && (
-        <CreateMatchModal
+        <MatchFormModal
           tournamentId={tournamentId}
+          initialFixtureId={initialFixtureId}
           onClose={() => setShowCreate(false)}
-          onCreated={() => {
+          onSaved={() => {
             qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            qc.invalidateQueries({ queryKey: ["badminton-fixtures-all", tournamentId] });
             setShowCreate(false);
           }}
         />
       )}
-    </div>
+    </HubPageShell>
   );
 }
 
 function MatchRow({
   match,
   tournamentId,
+  onDelete,
+  deleting,
 }: {
   match: MatchRow;
   tournamentId: number;
+  onDelete: () => void;
+  deleting?: boolean;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const qc = useQueryClient();
   const state = match.state;
   const detail = match.detail ?? {};
   const isLive = match.status === "live";
   const isCompleted = match.status === "completed";
+  const matchLabel = state
+    ? `${state.leftSide.shortLabel} vs ${state.rightSide.shortLabel}`
+    : ((detail.matchLabel as string | undefined) ?? `Match #${match.id}`);
+
+  function handleConfirmDelete() {
+    onDelete();
+    setConfirmOpen(false);
+  }
 
   return (
     <div className={cn(
-      "bg-[#0d1529] rounded-2xl border overflow-hidden transition-colors",
-      isLive ? "border-red-500/20" : "border-white/8 hover:border-white/15",
+      hubCardClass,
+      "overflow-hidden transition-colors",
+      isLive && "border-red-500/30",
+      !isLive && "hover:border-primary/25",
     )}>
       <div className="flex items-center gap-4 px-4 py-3">
-        {/* Status indicator */}
         <div className="flex-none">
           {isLive ? (
-            <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500/25 flex items-center justify-center">
               <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
             </div>
           ) : isCompleted ? (
-            <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-lg">✓</div>
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 border border-green-500/25 flex items-center justify-center">
+              <span className="text-green-400 text-sm font-bold">✓</span>
+            </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <span className="text-white/30 text-xs font-bold">#{match.id}</span>
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center">
+              <span className="text-muted-foreground text-xs font-mono font-bold">#{match.id}</span>
             </div>
           )}
         </div>
 
-        {/* Match info */}
         <div className="flex-1 min-w-0">
           {state ? (
-            <div className="flex items-center gap-3">
-              <span className="text-white font-bold text-sm">{state.leftSide.shortLabel}</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-foreground font-semibold text-sm">{state.leftSide.shortLabel}</span>
               <div className="flex items-center gap-1">
                 <span className={cn(
-                  "text-xl font-black tabular-nums",
-                  isLive ? "text-[#00e5ff]" : "text-white/60",
+                  "text-xl font-display font-bold tabular-nums",
+                  isLive ? "text-primary" : "text-muted-foreground",
                 )}>
                   {state.leftScore}
                 </span>
-                <span className="text-white/20 text-sm mx-0.5">—</span>
+                <span className="text-muted-foreground text-sm mx-0.5">—</span>
                 <span className={cn(
-                  "text-xl font-black tabular-nums",
-                  isLive ? "text-[#ff6b6b]" : "text-white/60",
+                  "text-xl font-display font-bold tabular-nums",
+                  isLive ? "text-red-400" : "text-muted-foreground",
                 )}>
                   {state.rightScore}
                 </span>
               </div>
-              <span className="text-white font-bold text-sm">{state.rightSide.shortLabel}</span>
-              <span className="text-white/30 text-xs">G{state.currentGame}</span>
+              <span className="text-foreground font-semibold text-sm">{state.rightSide.shortLabel}</span>
+              <span className="text-muted-foreground text-xs font-mono">G{state.currentGame}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-sm">
+              <span className="text-foreground font-semibold text-sm">
                 {(detail.matchLabel as string | undefined) ?? `Match #${match.id}`}
               </span>
               {detail.roundName ? (
-                <span className="text-white/30 text-xs">{String(detail.roundName)}</span>
+                <span className="text-muted-foreground text-xs">{String(detail.roundName)}</span>
               ) : null}
             </div>
           )}
           <div className="flex items-center gap-2 mt-1">
             {detail.courtNumber ? (
-              <span className="text-white/30 text-xs">Court {String(detail.courtNumber)}</span>
+              <span className="text-muted-foreground text-xs font-mono">Court {String(detail.courtNumber)}</span>
             ) : null}
             {detail.matchType ? (
-              <span className="text-white/20 text-xs capitalize">
+              <Badge variant="outline" className="text-[10px] capitalize">
                 {(detail.matchType as string).replace("_", " ")}
+              </Badge>
+            ) : null}
+            {detail.scorerPin ? (
+              <span className="text-muted-foreground text-xs font-mono" title="Share with court umpire">
+                PIN {String(detail.scorerPin)}
               </span>
             ) : null}
           </div>
         </div>
 
-        {/* Quick actions */}
         <div className="flex items-center gap-2 flex-none">
-          <Link
-            href={`/badminton/${match.id}/score?tid=${tournamentId}`}
-            className="h-9 px-3 rounded-xl bg-white/8 hover:bg-[#0070f3]/20 border border-white/10 hover:border-[#0070f3]/30 text-white/60 hover:text-[#4fc3f7] text-xs font-semibold flex items-center transition-all"
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <a
+              href={badmintonMatchControlPath(tournamentId, match.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-9 px-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-200 text-xs font-semibold flex items-center transition-all"
+              title="Tournament director — pause, retirement, walkover"
+            >
+              Match Control
+            </a>
+            <a
+              href={badmintonUmpireScorerPath(match.id, tournamentId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-9 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center transition-colors"
+              title="Court umpire — scoring with PIN"
+            >
+              Umpire Scorer
+            </a>
+            <Link
+              href={badmintonBroadcastPath(tournamentId, match.id)}
+              className="h-9 px-3 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-xs font-semibold flex items-center transition-colors"
+            >
+              Broadcast
+            </Link>
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="h-9 px-3 rounded-lg bg-secondary hover:bg-accent border border-border text-muted-foreground hover:text-foreground text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="Edit match details"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit
+            </button>
+          </div>
+
+          <div className="h-8 w-px bg-border/70 shrink-0" aria-hidden="true" />
+
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            disabled={deleting || isLive}
+            title={
+              isLive
+                ? "End the match before deleting"
+                : "Delete match"
+            }
+            aria-label="Delete match"
+            className="h-7 w-7 shrink-0 rounded-md border border-white/20 bg-white/10 text-white/90 hover:bg-white/20 hover:text-white flex items-center justify-center transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
           >
-            Score
-          </Link>
-          <Link
-            href={`/badminton/${match.id}/display?tid=${tournamentId}`}
-            className="h-9 px-3 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white/50 text-xs font-medium flex items-center transition-colors"
-          >
-            Display
-          </Link>
+            {deleting ? (
+              <span className="text-[10px] font-bold">…</span>
+            ) : (
+              <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+            )}
+          </button>
         </div>
       </div>
+
+      {editOpen ? (
+        <MatchFormModal
+          tournamentId={tournamentId}
+          match={match}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["badminton-matches", tournamentId] });
+            setEditOpen(false);
+          }}
+        />
+      ) : null}
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Delete match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isCompleted
+                ? `Delete ${matchLabel}? All scores and history will be permanently removed.`
+                : `Delete ${matchLabel}? This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="gap-1.5">
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete match"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function CreateMatchModal({
+function buildMatchFormState(match?: MatchRow, initialFixtureId?: number) {
+  const detail = match?.detail ?? {};
+  const left = (detail.leftSideJson as Record<string, unknown> | undefined) ?? {};
+  const right = (detail.rightSideJson as Record<string, unknown> | undefined) ?? {};
+  return {
+    fixtureId: initialFixtureId ? String(initialFixtureId) : "",
+    categoryId: null as number | null,
+    matchType: (detail.matchType as string | undefined) ?? "singles",
+    courtNumber: (detail.courtNumber as string | undefined) ?? "",
+    courtId: (detail.courtId as number | null | undefined) ?? null,
+    matchLabel: (detail.matchLabel as string | undefined) ?? "",
+    scorerPin: (detail.scorerPin as string | undefined) ?? suggestScorerPin(),
+    umpireName: (detail.umpireName as string | undefined) ?? "",
+    leftPlayer1: sideJsonToPlayerForm(left, 0),
+    leftPlayer2: sideJsonToPlayerForm(left, 1),
+    rightPlayer1: sideJsonToPlayerForm(right, 0),
+    rightPlayer2: sideJsonToPlayerForm(right, 1),
+  };
+}
+
+function MatchFormModal({
   tournamentId,
+  match,
+  initialFixtureId,
   onClose,
-  onCreated,
+  onSaved,
 }: {
   tournamentId: number;
+  match?: MatchRow;
+  initialFixtureId?: number;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
-  const [form, setForm] = useState({
-    matchType: "singles",
-    courtNumber: "",
-    matchNumber: "",
-    scorerPin: "",
-    refereeName: "",
-    leftPlayer1: emptySidePlayer(),
-    leftPlayer2: emptySidePlayer(),
-    rightPlayer1: emptySidePlayer(),
-    rightPlayer2: emptySidePlayer(),
-  });
+  const { toast } = useToast();
+  const isEdit = !!match;
+  const rosterLocked = isEdit && match.status !== "scheduled";
+  const [form, setForm] = useState(() => buildMatchFormState(match, initialFixtureId));
   const isPair = isPairMatchKind(form.matchType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fixturePrefillId, setFixturePrefillId] = useState<number | null>(null);
+
+  const { data: fixtures = [] } = useQuery<FixtureOption[]>({
+    queryKey: ["badminton-fixtures-all", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/fixtures"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const { data: categories = [] } = useQuery<CategoryOption[]>({
+    queryKey: ["badminton-categories", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/categories"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const { data: players = [] } = useQuery<BadmintonPlayerRecord[]>({
+    queryKey: ["badminton-players", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, "/players"),
+    enabled: !isEdit && !!tournamentId,
+  });
+
+  const selectedFixture = form.fixtureId
+    ? fixtures.find((f) => String(f.id) === form.fixtureId)
+    : undefined;
+
+  const { data: registrations = [] } = useQuery<RegistrationRecord[]>({
+    queryKey: ["badminton-registrations", tournamentId, selectedFixture?.categoryId],
+    queryFn: () =>
+      badmintonFetch(tournamentId, `/categories/${selectedFixture!.categoryId}/registrations`),
+    enabled: !isEdit && !!selectedFixture?.categoryId,
+  });
+
+  const availableFixtures = fixtures.filter((f) => !f.scoringMatchId);
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  );
+  const playersById = useMemo(
+    () => new Map(players.map((p) => [p.id, p])),
+    [players],
+  );
+  const registrationById = useMemo(
+    () => new Map(registrations.map((r) => [r.registration.id, r.registration])),
+    [registrations],
+  );
+
+  useEffect(() => {
+    if (isEdit || !form.fixtureId) return;
+    const fixtureId = parseInt(form.fixtureId, 10);
+    if (!Number.isFinite(fixtureId) || fixturePrefillId === fixtureId) return;
+
+    const fixture = fixtures.find((f) => f.id === fixtureId);
+    if (!fixture) return;
+
+    const category = categoryById.get(fixture.categoryId);
+    if (!category) return;
+
+    const needsRegs = !!(fixture.registrationAId || fixture.registrationBId);
+    if (needsRegs && registrations.length === 0) return;
+
+    const matchType = category.matchType;
+    const pair = isPairMatchKind(matchType);
+    const regA = fixture.registrationAId
+      ? registrationById.get(fixture.registrationAId)
+      : undefined;
+    const regB = fixture.registrationBId
+      ? registrationById.get(fixture.registrationBId)
+      : undefined;
+    const left = regA
+      ? registrationSidePlayers(regA, playersById, pair)
+      : { player1: emptySidePlayer(), player2: emptySidePlayer() };
+    const right = regB
+      ? registrationSidePlayers(regB, playersById, pair)
+      : { player1: emptySidePlayer(), player2: emptySidePlayer() };
+
+    setForm((prev) => ({
+      ...prev,
+      categoryId: fixture.categoryId,
+      matchType,
+      matchLabel:
+        prev.matchLabel.trim() ||
+        `${category.name} · Match ${fixture.slotNumber ?? fixture.id}`,
+      leftPlayer1: left.player1,
+      leftPlayer2: left.player2,
+      rightPlayer1: right.player1,
+      rightPlayer2: right.player2,
+    }));
+    setFixturePrefillId(fixtureId);
+  }, [
+    isEdit,
+    form.fixtureId,
+    fixtures,
+    categoryById,
+    playersById,
+    registrationById,
+    registrations.length,
+    fixturePrefillId,
+  ]);
 
   type StringFormField = Exclude<
     keyof typeof form,
@@ -286,37 +605,63 @@ function CreateMatchModal({
     return mergeDoublesSideJson(side1, side2);
   }
 
-  async function handleCreate() {
-    if (!form.leftPlayer1.masterId || !form.rightPlayer1.masterId) {
-      setError("Select a player for each side");
-      return;
+  async function handleSubmit() {
+    if (!rosterLocked) {
+      if (!form.leftPlayer1.masterId || !form.rightPlayer1.masterId) {
+        setError("Select a player for each side");
+        return;
+      }
+      if (isPair && (!form.leftPlayer2.masterId || !form.rightPlayer2.masterId)) {
+        setError("Select 2 players per side for doubles");
+        return;
+      }
     }
-    if (isPair && (!form.leftPlayer2.masterId || !form.rightPlayer2.masterId)) {
-      setError("Select 2 players per side for doubles");
+    if (form.scorerPin.trim().length < 4) {
+      setError("Scorer PIN must be at least 4 digits");
       return;
     }
     setSaving(true);
     setError("");
     try {
+      const payload = {
+        courtId: form.courtId ?? undefined,
+        courtNumber: form.courtNumber || undefined,
+        matchLabel: form.matchLabel.trim() || undefined,
+        scorerPin: form.scorerPin.trim(),
+        umpireName: form.umpireName || undefined,
+        ...(rosterLocked
+          ? {}
+          : {
+              fixtureId: form.fixtureId ? parseInt(form.fixtureId, 10) : undefined,
+              categoryId: form.categoryId ?? undefined,
+              matchType: form.matchType,
+              leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
+              rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
+            }),
+      };
+
       const res = await fetch(
-        `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
+        isEdit
+          ? `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches/${match.id}`
+          : `${API_BASE}/api/tournaments/${tournamentId}/badminton/matches`,
         {
-          method: "POST",
+          method: isEdit ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            matchType: form.matchType,
-            courtNumber: form.courtNumber || undefined,
-            matchNumber: form.matchNumber || undefined,
-            scorerPin: form.scorerPin || undefined,
-            refereeName: form.refereeName || undefined,
-            leftSideJson: buildSideJson(form.leftPlayer1, form.leftPlayer2),
-            rightSideJson: buildSideJson(form.rightPlayer1, form.rightPlayer2),
-          }),
+          body: JSON.stringify(payload),
         },
       );
-      if (!res.ok) throw new Error("Failed to create match");
-      onCreated();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: isEdit ? "Update failed" : "Create failed" }));
+        throw new Error(typeof err.error === "string" ? err.error : isEdit ? "Update failed" : "Create failed");
+      }
+      const saved = (await res.json()) as { detail?: { scorerPin?: string } };
+      const pin = saved.detail?.scorerPin ?? form.scorerPin;
+      toast({
+        title: isEdit ? "Match updated" : "Match created",
+        description: isEdit ? undefined : `Scorer PIN for this match: ${pin}`,
+      });
+      onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -325,95 +670,147 @@ function CreateMatchModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0d1529] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-[#0d1529] border-b border-white/8 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-black text-lg">Create Match</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">×</button>
-        </div>
+    <FormModal
+      title={isEdit ? "Edit Match" : "Create Match"}
+      subtitle={
+        isEdit
+          ? rosterLocked
+            ? "Update match name, court, umpire, or scorer PIN"
+            : "Update match setup before it goes live"
+          : "Create a match yourself, or optionally link one to a generated draw slot"
+      }
+      onClose={onClose}
+      size="lg"
+    >
+      {!isEdit ? (
+        <FormField label="Draw fixture">
+          <DarkSelect
+            value={form.fixtureId || "none"}
+            onValueChange={(fixtureId) => {
+              setFixturePrefillId(null);
+              setForm((prev) => ({
+                ...prev,
+                fixtureId: fixtureId === "none" ? "" : fixtureId,
+                categoryId: null,
+              }));
+            }}
+            placeholder="Link to a draw slot (optional)"
+            options={[
+              { value: "none", label: "None — manual match" },
+              ...availableFixtures.map((fix) => {
+                const category = categoryById.get(fix.categoryId);
+                return {
+                  value: String(fix.id),
+                  label: `${category?.name ?? "Category"} · Match ${fix.slotNumber ?? fix.id}`,
+                };
+              }),
+            ]}
+          />
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Optional. Leave on <span className="text-foreground/80">None — manual match</span> to pick your own players and skip the draw entirely.
+          </p>
+        </FormField>
+      ) : null}
 
-        <div className="p-6 space-y-5">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelClass}>Match Type</label>
-              <select
-                value={form.matchType}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    matchType: e.target.value,
-                    leftPlayer2: emptySidePlayer(),
-                    rightPlayer2: emptySidePlayer(),
-                  }))
-                }
-                className={inputClass}
-              >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-                <option value="mixed_doubles">Mixed</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Match #</label>
-              <input {...f("matchNumber")} placeholder="M01" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Court</label>
-              <input {...f("courtNumber")} placeholder="Court 1" className={inputClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <PairSidePicker
-              tournamentId={tournamentId}
-              sideLabel="Left"
-              isPair={isPair}
-              player1={form.leftPlayer1}
-              player2={form.leftPlayer2}
-              onPlayer1Change={(leftPlayer1) => setForm((p) => ({ ...p, leftPlayer1 }))}
-              onPlayer2Change={(leftPlayer2) => setForm((p) => ({ ...p, leftPlayer2 }))}
-            />
-            <PairSidePicker
-              tournamentId={tournamentId}
-              sideLabel="Right"
-              isPair={isPair}
-              player1={form.rightPlayer1}
-              player2={form.rightPlayer2}
-              onPlayer1Change={(rightPlayer1) => setForm((p) => ({ ...p, rightPlayer1 }))}
-              onPlayer2Change={(rightPlayer2) => setForm((p) => ({ ...p, rightPlayer2 }))}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Referee</label>
-              <input {...f("refereeName")} placeholder="Optional" className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Scorer PIN</label>
-              <input {...f("scorerPin")} placeholder="Optional" type="tel" className={inputClass} />
-            </div>
-          </div>
-
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 h-12 rounded-xl bg-white/8 border border-white/10 text-white/60 font-semibold hover:bg-white/12">
-              Cancel
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-[#0070f3] hover:bg-[#0060d3] disabled:opacity-60 text-white font-bold"
-            >
-              {saving ? "Creating…" : "Create Match"}
-            </button>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <FormField label="Match Type">
+          <DarkSelect
+            value={form.matchType}
+            disabled={rosterLocked}
+            onValueChange={(matchType) =>
+              setForm((prev) => ({
+                ...prev,
+                matchType,
+                leftPlayer2: emptySidePlayer(),
+                rightPlayer2: emptySidePlayer(),
+              }))
+            }
+            options={[
+              { value: "singles", label: "Singles" },
+              { value: "doubles", label: "Doubles" },
+              { value: "mixed_doubles", label: "Mixed Doubles" },
+            ]}
+          />
+        </FormField>
+        <FormField label="Match Name">
+          <input {...f("matchLabel")} placeholder="League Match 1" className={inputClass} />
+        </FormField>
+        <FormField label="Court">
+          <CourtAutocomplete
+            tournamentId={tournamentId}
+            value={form.courtNumber}
+            courtId={form.courtId}
+            onChange={({ courtNumber, courtId }) =>
+              setForm((prev) => ({ ...prev, courtNumber, courtId }))
+            }
+            placeholder="Search courts…"
+          />
+        </FormField>
       </div>
-    </div>
+
+      {!rosterLocked ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <PairSidePicker
+            tournamentId={tournamentId}
+            sideLabel="Left"
+            isPair={isPair}
+            player1={form.leftPlayer1}
+            player2={form.leftPlayer2}
+            onPlayer1Change={(leftPlayer1) => setForm((p) => ({ ...p, leftPlayer1 }))}
+            onPlayer2Change={(leftPlayer2) => setForm((p) => ({ ...p, leftPlayer2 }))}
+          />
+          <PairSidePicker
+            tournamentId={tournamentId}
+            sideLabel="Right"
+            isPair={isPair}
+            player1={form.rightPlayer1}
+            player2={form.rightPlayer2}
+            onPlayer1Change={(rightPlayer1) => setForm((p) => ({ ...p, rightPlayer1 }))}
+            onPlayer2Change={(rightPlayer2) => setForm((p) => ({ ...p, rightPlayer2 }))}
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
+          Player lineup is locked while the match is live or completed. You can still update match name, court, umpire, and scorer PIN.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField label="Umpire's Name">
+          <input {...f("umpireName")} placeholder="Optional" className={inputClass} />
+        </FormField>
+        <FormField label="Scorer PIN">
+          <div className="flex gap-2">
+            <input
+              {...f("scorerPin")}
+              placeholder="4-digit PIN"
+              type="tel"
+              inputMode="numeric"
+              maxLength={8}
+              className={inputClass}
+            />
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, scorerPin: suggestScorerPin() }))}
+              className="h-11 px-3 rounded-lg border border-border bg-secondary text-secondary-foreground text-xs font-semibold shrink-0 hover-elevate"
+            >
+              New PIN
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Unique per match — share with the court umpire only.
+          </p>
+        </FormField>
+      </div>
+
+      <FormError message={error} />
+
+      <FormActions
+        onCancel={onClose}
+        onSubmit={handleSubmit}
+        submitLabel={isEdit ? "Save Changes" : "Create Match"}
+        saving={saving}
+      />
+    </FormModal>
   );
 }
-
-const inputClass = "w-full h-10 px-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#4fc3f7]/40";
-const labelClass = "block text-white/40 text-xs font-semibold mb-1.5 uppercase tracking-wide";

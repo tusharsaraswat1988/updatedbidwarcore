@@ -4,11 +4,13 @@ import { heavyLimiter, exportLimiter } from "../lib/rate-limiters";
 import {
   tournamentsTable, teamsTable, categoriesTable, playersTable,
 } from "@workspace/db";
-import { brandingSettingsTable } from "@workspace/db/schema";
+import { brandingService } from "../lib/branding-service.js";
+import { drawPdfPageWatermark } from "../lib/pdf-branding.js";
 import { and, eq, inArray, gte, lte, ilike, desc } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import { z } from "zod";
+import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
 
 const filtersSchema = z.object({
   categoryIds: z.array(z.number().int()).optional(),
@@ -16,6 +18,7 @@ const filtersSchema = z.object({
   statuses: z.array(z.enum(["available", "sold", "unsold", "retained"])).optional(),
   roles: z.array(z.string()).optional(),
   cities: z.array(z.string()).optional(),
+  jerseySizes: z.array(z.enum(JERSEY_SIZE_VALUES)).optional(),
   search: z.string().optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
@@ -49,6 +52,7 @@ type Filters = {
   statuses?: string[];        // available | sold | unsold | retained
   roles?: string[];
   cities?: string[];
+  jerseySizes?: string[];
   search?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -90,6 +94,7 @@ const REPORT_TYPES: ReportType[] = [
   { id: "master_catalogue", title: "Master Player Catalogue", description: "Full player registry with role, base price and status.", category: "pre" },
   { id: "category_wise", title: "Category-Wise Player List", description: "Players grouped by category (Platinum, Gold, Silver, etc.).", category: "pre" },
   { id: "city_wise", title: "City-Wise Player List", description: "Players grouped by city of origin.", category: "pre" },
+  { id: "jersey_sizing", title: "Jersey Sizing Report", description: "Players grouped by jersey size with jersey number.", category: "pre" },
   { id: "contact_directory", title: "Player Contact Directory", description: "Player names, mobile numbers, role and city.", category: "directory" },
   { id: "sold_players", title: "Sold Player Report", description: "All sold players with team, price and category.", category: "live" },
   { id: "unsold_players", title: "Unsold Player Report", description: "Players that did not get sold (re-auction candidates).", category: "live" },
@@ -135,6 +140,7 @@ function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, stri
   if (f.statuses?.length) out.push(`Status: ${f.statuses.join(", ")}`);
   if (f.roles?.length) out.push(`Role: ${f.roles.join(", ")}`);
   if (f.cities?.length) out.push(`Cities: ${f.cities.join(", ")}`);
+  if (f.jerseySizes?.length) out.push(`Jersey sizes: ${f.jerseySizes.join(", ")}`);
   if (f.search) out.push(`Name contains: ${f.search}`);
   if (f.minPrice !== undefined) out.push(`Min price: ${fmtRupee(f.minPrice)}`);
   if (f.maxPrice !== undefined) out.push(`Max price: ${fmtRupee(f.maxPrice)}`);
@@ -159,18 +165,22 @@ async function loadFilteredPlayers(tournamentId: number, f: Filters) {
   if (f.statuses?.length) conditions.push(inArray(playersTable.status, f.statuses));
   if (f.roles?.length) conditions.push(inArray(playersTable.role, f.roles));
   if (f.cities?.length) conditions.push(inArray(playersTable.city, f.cities));
+  if (f.jerseySizes?.length) conditions.push(inArray(playersTable.jerseySize, f.jerseySizes));
   if (f.search) conditions.push(ilike(playersTable.name, `%${f.search}%`));
   if (f.minPrice !== undefined) conditions.push(gte(playersTable.soldPrice, f.minPrice));
   if (f.maxPrice !== undefined) conditions.push(lte(playersTable.soldPrice, f.maxPrice));
-  return await db.select().from(playersTable).where(and(...conditions)).orderBy(playersTable.name);
+  return await db.select().from(playersTable).where(and(...conditions)).orderBy(playersTable.serialNo);
 }
 
 // ─── Report builders ──────────────────────────────────────────────────────────
 
 const PLAYER_COLUMNS: Column[] = [
+  { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
   { key: "name", label: "Name", width: 1.6 },
   { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
   { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+  { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
+  { key: "jerseySize", label: "Jersey Size", width: 0.7, format: v => fmtText(v) },
   { key: "categoryName", label: "Category", width: 1, format: v => fmtText(v) },
   { key: "basePrice", label: "Base Price", width: 1.1, format: v => fmtShortRupee(v as number) },
   { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
@@ -183,6 +193,8 @@ const CONTACT_COLUMNS: Column[] = [
   { key: "mobileNumber", label: "Mobile", width: 1.3, format: v => fmtText(v) },
   { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
   { key: "city", label: "City", width: 1.2, format: v => fmtText(v) },
+  { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
+  { key: "jerseySize", label: "Jersey Size", width: 0.7, format: v => fmtText(v) },
   { key: "teamName", label: "Team", width: 1.2, format: v => fmtText(v) },
   { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
 ];
@@ -259,6 +271,40 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       .sort((a, b) => b[1].length - a[1].length)
       .map(([city, rows]) => ({ heading: `${city} (${rows.length})`, columns: PLAYER_COLUMNS, rows: rows as unknown as Record<string, unknown>[] }));
     return { ...baseHeader, summary: [{ label: "Cities", value: String(groups.size) }, { label: "Players", value: String(players.length) }], sections };
+  }
+
+  if (typeId === "jersey_sizing") {
+    const players = (await loadFilteredPlayers(tournamentId, filters)).map(enrich);
+    const sizeOrder = [...JERSEY_SIZE_VALUES, "Unspecified"];
+    const groups = new Map<string, typeof players>();
+    for (const p of players) {
+      const key = p.jerseySize?.trim() || "Unspecified";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+    const sections = sizeOrder
+      .filter(size => groups.has(size))
+      .map(size => ({
+        heading: `${size} (${groups.get(size)!.length})`,
+        columns: [
+          { key: "name", label: "Name", width: 1.6 },
+          { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
+          { key: "jerseySize", label: "Size", width: 0.7, format: v => fmtText(v) },
+          { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
+          { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+          { key: "mobileNumber", label: "Mobile", width: 1.2, format: v => fmtText(v) },
+        ],
+        rows: groups.get(size)! as unknown as Record<string, unknown>[],
+      }));
+    return {
+      ...baseHeader,
+      summary: [
+        { label: "Sizes", value: String(sections.length) },
+        { label: "Players", value: String(players.length) },
+        { label: "With Size", value: String(players.filter(p => p.jerseySize).length) },
+      ],
+      sections,
+    };
   }
 
   if (typeId === "contact_directory") {
@@ -404,16 +450,18 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
 
 type BrandingData = {
   brandName: string;
+  watermarkImageBuffer: Buffer | null;
   watermarkText: string;
   watermarkOpacity: number;
 };
 
 async function fetchBranding(): Promise<BrandingData> {
-  const [row] = await db.select().from(brandingSettingsTable).limit(1);
+  const branding = await brandingService.resolvePdfWatermarkBranding();
   return {
-    brandName: row?.brandName ?? "BidWar",
-    watermarkText: row?.watermarkText || (row?.brandName ?? "BidWar"),
-    watermarkOpacity: row?.watermarkOpacity ?? 0.04,
+    brandName: branding.brandName,
+    watermarkImageBuffer: branding.watermarkImageBuffer,
+    watermarkText: branding.watermarkText,
+    watermarkOpacity: branding.watermarkOpacity,
   };
 }
 
@@ -523,10 +571,7 @@ function renderPdf(report: ReportData, res: Response, branding: BrandingData): v
     const w = doc.page.width;
     const h = doc.page.height;
     // watermark
-    doc.save();
-    doc.rotate(-25, { origin: [w / 2, h / 2] });
-    doc.fillColor("#000000", branding.watermarkOpacity).font("Helvetica-Bold").fontSize(120).text(branding.watermarkText, 0, h / 2 - 60, { width: w, align: "center" });
-    doc.restore();
+    drawPdfPageWatermark(doc, branding);
     // footer
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7)
       .text(`Page ${i + 1} of ${range.count}  ·  ${branding.brandName} Report Center  ·  Confidential`, doc.page.margins.left, h - doc.page.margins.bottom + 6, { width: w - doc.page.margins.left - doc.page.margins.right, align: "center" });
@@ -661,12 +706,20 @@ router.get("/auth/admin/reports/:tournamentId/context", requireMasterAdmin, heav
   const allPlayers = await db.select().from(playersTable).where(eq(playersTable.tournamentId, tournamentId));
   const roles = [...new Set(allPlayers.map(p => p.role).filter((r): r is string => !!r))].sort();
   const cities = [...new Set(allPlayers.map(p => p.city).filter((c): c is string => !!c))].sort();
+  const jerseySizes = [...new Set(allPlayers.map(p => p.jerseySize).filter((s): s is string => !!s))]
+    .sort((a, b) => {
+      const ai = JERSEY_SIZE_VALUES.indexOf(a as typeof JERSEY_SIZE_VALUES[number]);
+      const bi = JERSEY_SIZE_VALUES.indexOf(b as typeof JERSEY_SIZE_VALUES[number]);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
   res.json({
     tournament: { id: ctx.tournament.id, name: ctx.tournament.name, sport: ctx.tournament.sport },
     teams: ctx.teams.map(t => ({ id: t.id, name: t.name, shortCode: t.shortCode, color: t.color })),
     categories: ctx.categories.map(c => ({ id: c.id, name: c.name, colorCode: c.colorCode })),
     roles,
     cities,
+    jerseySizes,
+    jerseySizeOptions: [...JERSEY_SIZE_VALUES],
     playerCount: allPlayers.length,
   });
 });
@@ -714,7 +767,7 @@ router.patch("/auth/admin/tournaments/:tournamentId/cheer-settings", requireMast
   const schema = z.object({
     cheerMessagesEnabled: z.boolean().optional(),
     cheerMessagePresets: z.array(z.string().max(120)).min(8).max(10).optional(),
-    cheerCooldownSeconds: z.number().int().min(3).max(60).optional(),
+    cheerCooldownSeconds: z.number().int().min(2).max(60).optional(),
     cheerHeatMeterEnabled: z.boolean().optional(),
     cheerFanBattleEnabled: z.boolean().optional(),
   });

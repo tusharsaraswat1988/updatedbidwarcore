@@ -91,7 +91,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
 
 1. **New Web Service → Connect Git repository**.
 2. Set:
-   - **Build command**: `pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy`
    - **Start command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
    - **Environment**: `Node`
 3. Add environment variables under **Environment**:
@@ -102,7 +102,9 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
    APP_DOMAIN=<your-app>.onrender.com
    SESSION_SECRET=<openssl rand -hex 32>
    ADMIN_PASSWORD=<strong password>
+   SCORING=true
    ```
+   `SCORING=true` enables cricket and badminton scoring in the UI and API. Without it, scoring menus stay hidden and scoring routes return 404. Legacy alias: `ENABLE_BADMINTON=true` when `SCORING` is unset.
 4. Deploy. Render assigns a `.onrender.com` domain automatically.
 
 ---
@@ -112,7 +114,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
 1. **Create App → GitHub** → select the repo.
 2. Component type: **Web Service**.
 3. Set:
-   - **Build command**: `pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `NODE_ENV=development pnpm install --frozen-lockfile && pnpm run build:deploy`
    - **Run command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
 4. Add environment variables (same as Render above, use your DO app domain).
 5. Deploy.

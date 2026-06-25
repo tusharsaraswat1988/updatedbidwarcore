@@ -8,15 +8,18 @@
     "type": "git",
     "url": "https://github.com/tusharsaraswat1988/updatedbidwarcore.git"
   },
-  "main": "dist-electron/main.js",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "electron .",
     "build:icons": "node ./scripts/generate-icons.mjs",
     "build:frontend": "node ./scripts/copy-frontend.mjs",
     "build:server": "node ./build-server.mjs",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:electron": "node ./build-electron.mjs",
     "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke:p0": "node ./scripts/smoke-p0.mjs",
+    "smoke:p1": "node ./scripts/smoke-p1.mjs",
     "package:win": "electron-builder --win --publish never",
     "package:win:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
     "package:mac": "electron-builder --mac",
@@ -25,16 +28,21 @@
   "dependencies": {
     "@libsql/client": "^0.17.3",
     "@workspace/api-base": "workspace:*",
+    "@workspace/cheer-presets": "workspace:*",
     "@workspace/db-local": "workspace:*",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "drizzle-orm": "catalog:",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
     "qrcode": "^1.5.4",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.6",
     "electron": "^36.3.2",
@@ -53,7 +61,9 @@
       "dist-electron/**",
       "dist-server/**",
       "frontend-dist/**",
+      "owner-app-dist/**",
       "renderer/**",
+      "static/**",
       "node_modules/**"
     ],
     "win": {

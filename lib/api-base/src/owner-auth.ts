@@ -40,14 +40,19 @@ export function teamNeedsAccessCode(team: {
   return team.requiresAccessCode ?? !!team.accessCode;
 }
 
+export type VerifyOwnerAccessResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid" }
+  | { ok: false; reason: "lockout"; lockoutRemainingSec: number };
+
 /** POST /api/tournaments/:tid/teams/:teamId/verify-access — server is the only verifier. */
 export async function verifyOwnerAccessCode(
   tournamentId: number,
   teamId: number,
   code: string,
-): Promise<boolean> {
+): Promise<VerifyOwnerAccessResult> {
   const normalized = code.trim().toUpperCase();
-  if (!normalized) return false;
+  if (!normalized) return { ok: false, reason: "invalid" };
 
   const res = await fetch(
     `/api/tournaments/${tournamentId}/teams/${teamId}/verify-access`,
@@ -58,7 +63,70 @@ export async function verifyOwnerAccessCode(
     },
   );
 
-  if (!res.ok) return false;
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as { lockoutRemainingSec?: number };
+    return {
+      ok: false,
+      reason: "lockout",
+      lockoutRemainingSec: body.lockoutRemainingSec ?? 0,
+    };
+  }
+
+  if (!res.ok) return { ok: false, reason: "invalid" };
   const body = (await res.json()) as { valid?: boolean };
-  return body.valid === true;
+  return body.valid === true ? { ok: true } : { ok: false, reason: "invalid" };
+}
+
+/** GET owner-access-lockout — current IP lockout status (owner-app polling). */
+export async function fetchOwnerAccessLockoutStatus(
+  tournamentId: number,
+  teamId: number,
+): Promise<{ locked: boolean; lockoutRemainingSec: number }> {
+  try {
+    const res = await fetch(
+      `/api/tournaments/${tournamentId}/teams/${teamId}/owner-access-lockout`,
+    );
+    if (!res.ok) return { locked: false, lockoutRemainingSec: 0 };
+    const body = (await res.json()) as { locked?: boolean; lockoutRemainingSec?: number };
+    return {
+      locked: body.locked === true,
+      lockoutRemainingSec: body.lockoutRemainingSec ?? 0,
+    };
+  } catch {
+    return { locked: false, lockoutRemainingSec: 0 };
+  }
+}
+
+/** POST reset-access-lockout — tournament organiser or admin only. */
+export async function resetOwnerAccessLockout(
+  tournamentId: number,
+  teamId: number,
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const res = await fetch(
+      `/api/tournaments/${tournamentId}/teams/${teamId}/reset-access-lockout`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      },
+    );
+    const body = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    };
+    if (!res.ok) {
+      return {
+        success: false,
+        message: body.error ?? `Unlock failed (${res.status})`,
+      };
+    }
+    return {
+      success: body.success === true,
+      message: body.message ?? "Owner access lockout cleared",
+    };
+  } catch {
+    return { success: false, message: "Network error — could not reach server" };
+  }
 }

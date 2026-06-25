@@ -81,7 +81,7 @@ export async function computeTeamPurseProtection(
     (await db
       .select({ purse: teamsTable.purse, purseUsed: teamsTable.purseUsed })
       .from(teamsTable)
-      .where(eq(teamsTable.id, teamId))
+      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tournamentId)))
       .then(([t]) => t));
 
   if (!teamRow) {
@@ -174,7 +174,8 @@ export async function computeTeamPurseProtection(
  */
 export async function computeAllTeamPurseProtections(
   tournamentId: number,
-  teams: Array<{ id: number; purse: number; purseUsed: number }>
+  teams: Array<{ id: number; purse: number; purseUsed: number }>,
+  playersOverride?: Array<{ id: number; status: string; teamId: number | null; basePrice: number; isNonPlayingMember?: boolean }>,
 ): Promise<Map<number, PurseProtection>> {
   const [tournamentRow] = await db
     .select({
@@ -189,10 +190,12 @@ export async function computeAllTeamPurseProtections(
   const maximumSquadSize = tournamentRow?.maximumSquadSize ?? 0;
   const minBid = tournamentRow?.minBid ?? 0;
 
-  const allPlayers = await db
-    .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice, isNonPlayingMember: playersTable.isNonPlayingMember })
-    .from(playersTable)
-    .where(eq(playersTable.tournamentId, tournamentId));
+  const allPlayers =
+    playersOverride ??
+    (await db
+      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, basePrice: playersTable.basePrice, isNonPlayingMember: playersTable.isNonPlayingMember })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tournamentId)));
 
   const boosterTotals = await getActiveBoosterTotalsForTeams(
     tournamentId,

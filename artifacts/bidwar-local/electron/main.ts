@@ -56,7 +56,7 @@ function createWindow() {
     title: "BidWar Local",
     backgroundColor: "#09090b",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },

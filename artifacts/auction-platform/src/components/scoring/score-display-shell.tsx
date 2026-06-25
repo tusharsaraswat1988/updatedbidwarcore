@@ -9,6 +9,7 @@ import { FullscreenLayout } from "@/components/layout";
 import { useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import { getActiveInnings, oversText, requiredRate, runRate } from "@/lib/scoring-ball";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 
@@ -38,7 +39,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const scoringActive = tournament?.sport === "cricket" && tournament?.scoringEnabled === true;
+  const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
   const { connectionStatus } = useScoringSocket(tournamentId, scoringActive);
   const { data: live } = useScoringLive(tournamentId, scoringActive);

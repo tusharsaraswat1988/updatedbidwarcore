@@ -11,8 +11,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
-import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
-import { liveViewerPath } from "@/lib/tournament-navigation";
+import { broadcastOverlayUrl, broadcastOverlayPreviewUrl } from "@/lib/broadcast-overlay";
+import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
 
@@ -145,11 +146,16 @@ export default function LinksPage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
+  const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
+
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
+  const sideSponsorUrl = `${base}${sideDisplayPath(tournamentId, "sponsors", tournament?.auctionCode)}`;
+  const sidePlayerUrl = `${base}${sideDisplayPath(tournamentId, "player", tournament?.auctionCode)}`;
   const scoreDisplayUrl = `${base}/tournament/${tournamentId}/score-display`;
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
+  const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -177,10 +183,22 @@ export default function LinksPage() {
               }
               shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
             />
+            <LinkRow
+              label="Side LED — Sponsors (left / right screen)"
+              url={sideSponsorUrl}
+              description="Portrait or landscape flanking screen — professional sponsor carousel. Stays on sponsors even when operator switches main LED to team/player/top 5 views."
+              shareText={`Sponsor side screen for ${tournament?.name ?? "our auction"}: ${sideSponsorUrl}`}
+            />
+            <LinkRow
+              label="Side LED — Live Player Profile"
+              url={sidePlayerUrl}
+              description="Portrait or landscape flanking screen — full profile of the player on block with live bid and timer. Independent of operator LED overlay controls."
+              shareText={`Player profile side screen for ${tournament?.name ?? "our auction"}: ${sidePlayerUrl}`}
+            />
           </CardContent>
         </Card>
 
-        {tournament?.sport === "cricket" && tournament?.scoringEnabled ? (
+        {cricketScoringActive ? (
           <Card className="border-emerald-500/25 bg-emerald-500/5">
             <CardContent className="p-6">
               <h2 className="font-display font-bold text-lg mb-1">Cricket Scoreboard (LED)</h2>
@@ -214,6 +232,12 @@ export default function LinksPage() {
               url={broadcastOverlayUrlValue}
               description="Real-time player card, live bid, team ticker, and sponsor branding over your stream. Set browser source to 1920×1080 with a transparent background."
               shareText={`Broadcast Overlay for ${tournament?.name ?? "our auction"}: ${broadcastOverlayUrlValue}`}
+            />
+            <LinkRow
+              label="Camera preview (test without OBS)"
+              url={broadcastPreviewUrlValue}
+              description="See the live overlay on your laptop or phone camera — same layout as OBS, no streaming software needed."
+              shareText={`Overlay camera preview: ${broadcastPreviewUrlValue}`}
             />
             <div className="mt-6 pt-6 border-t border-border/50">
               <BroadcastOverlayInfo />
