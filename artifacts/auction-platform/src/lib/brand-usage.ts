@@ -171,7 +171,7 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
   "registration-header": {
     logoAsset: "SYMBOL_LOGO",
     logoOrder: ["mini", "appIcon", "mainReverse", "main"],
-    sizeClass: "h-5 sm:h-6 w-auto opacity-60",
+    sizeClass: "h-10 sm:h-12 w-auto opacity-60",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: true,
