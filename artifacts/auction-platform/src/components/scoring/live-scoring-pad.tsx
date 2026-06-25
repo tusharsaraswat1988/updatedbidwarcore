@@ -215,7 +215,7 @@ export function LiveScoringPad({
               Inn {state.currentInnings}
               {state.target ? ` · Target ${state.target}` : ""}
               {state.freeHitActive ? (
-                <span className="ml-2 text-amber-400 font-semibold">FREE HIT</span>
+                <span className="ml-2 text-primary font-semibold">FREE HIT</span>
               ) : null}
             </p>
             <p className="text-3xl font-bold tabular-nums tracking-tight">
@@ -265,8 +265,8 @@ export function LiveScoringPad({
       </div>
 
       {pendingNewBatsman ? (
-        <div className="p-4 border-b border-amber-500/30 bg-amber-500/5 space-y-2">
-          <p className="text-sm font-medium text-amber-200">New batter</p>
+        <div className="p-4 border-b border-primary/30 bg-primary/5 space-y-2">
+          <p className="text-sm font-medium text-primary">New batter</p>
           <div className="grid grid-cols-2 gap-2">
             {availableBatsmen.slice(0, 8).map((p) => (
               <Button

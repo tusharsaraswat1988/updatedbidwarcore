@@ -36,11 +36,11 @@ export function ShareButtons({ url, shareText, compact }: ShareButtonsProps) {
   if (compact) {
     return (
       <div className="flex gap-2">
-        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-white/15" onClick={() => void nativeShare()}>
+        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-border" onClick={() => void nativeShare()}>
           <Share2 className="h-3.5 w-3.5" />
           Share
         </Button>
-        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-white/15" asChild>
+        <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 border-border" asChild>
           <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
             <MessageCircle className="h-3.5 w-3.5" />
             WhatsApp
@@ -52,17 +52,17 @@ export function ShareButtons({ url, shareText, compact }: ShareButtonsProps) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-white/15" onClick={() => void copyLink()}>
+      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" onClick={() => void copyLink()}>
         <Copy className="h-3.5 w-3.5" />
         Copy link
       </Button>
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-white/15" asChild>
+      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" asChild>
         <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
           <MessageCircle className="h-3.5 w-3.5" />
           WhatsApp
         </a>
       </Button>
-      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-white/15" onClick={() => void nativeShare()}>
+      <Button type="button" size="sm" variant="outline" className="gap-1.5 border-border" onClick={() => void nativeShare()}>
         <Share2 className="h-3.5 w-3.5" />
         Share
       </Button>
