@@ -15,6 +15,7 @@ import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 
@@ -31,8 +32,10 @@ function LogoutButton({ tournamentId, iconOnly }: { tournamentId: number; iconOn
 
   async function handleLogout() {
     await logout();
-    await logoutOrganizerAccount();
-    navigate("/organizer");
+    if (!isBidWarLocalHost()) {
+      await logoutOrganizerAccount();
+      navigate("/organizer");
+    }
   }
 
   if (iconOnly) {
@@ -72,6 +75,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
+  const localVenue = isBidWarLocalHost();
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -160,10 +164,17 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
             </div>
           )}
           <nav className={`space-y-1 ${collapsed ? "px-1.5" : "px-2"}`}>
-            <Link href="/organizer" title="All Tournaments" className={navCls("/organizer")}>
-              <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="font-medium">All Tournaments</span>}
-            </Link>
+            {!localVenue ? (
+              <Link href="/organizer" title="All Tournaments" className={navCls("/organizer")}>
+                <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span className="font-medium">All Tournaments</span>}
+              </Link>
+            ) : tournamentId ? (
+              <Link href={`/tournament/${tournamentId}/auction`} title="Auction Control" className={navCls(`/tournament/${tournamentId}/auction`)}>
+                <Gavel className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Auction Control</span>}
+              </Link>
+            ) : null}
           </nav>
 
           {tournamentId && (
@@ -200,19 +211,19 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                   <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
                   {!collapsed && <span className="font-medium">Settings</span>}
                 </Link>
-                {buzzStudioActive ? (
+                {buzzStudioActive && !localVenue ? (
                   <Link href={mediaCenterPath(tournamentId)} title="Media Center" className={navCls(mediaCenterPath(tournamentId))}>
                     <Sparkles className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && <span className="font-medium">Media Center</span>}
                   </Link>
                 ) : null}
-                {cricketScoringActive ? (
+                {cricketScoringActive && !localVenue ? (
                   <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/scoring`)}>
                     <CircleDot className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && <span className="font-medium">Match Scoring</span>}
                   </Link>
                 ) : null}
-                {badmintonScoringActive ? (
+                {badmintonScoringActive && !localVenue ? (
                   <Link href={`/tournament/${tournamentId}/badminton`} title="Badminton Scoring" className={navCls(`/tournament/${tournamentId}/badminton`)}>
                     <Trophy className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && <span className="font-medium">Badminton Scoring</span>}
@@ -318,19 +329,19 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     <span>Clear Practice Data</span>
                   </Link>
                 )}
-                {tournament?.localModeEnabled && (
+                {tournament?.localModeEnabled && !localVenue ? (
                   <Link href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={navCls(`/tournament/${tournamentId}/local-mode`)}>
                     <MonitorDown className="w-5 h-5 flex-shrink-0" />
                     {!collapsed && <span>Local Mode</span>}
                   </Link>
-                )}
+                ) : null}
               </nav>
             </>
           )}
         </div>
 
-        {/* Sign out */}
-        {tournamentId && (
+        {/* Sign out — cloud only; local uses auto venue session */}
+        {tournamentId && !localVenue && (
           <div className="border-t border-border p-3 flex-shrink-0">
             <LogoutButton tournamentId={tournamentId} iconOnly={collapsed} />
           </div>

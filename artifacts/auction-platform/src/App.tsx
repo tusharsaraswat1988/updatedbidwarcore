@@ -14,6 +14,7 @@ import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
 import { setOperatorPinGetter } from "@workspace/api-client-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { resolveLocalOperatorPin } from "@/lib/local-operator-pin";
+import { LocalVenueGate } from "@/components/local-venue-gate";
 
 import Landing from "@/pages/landing";
 
@@ -572,7 +573,9 @@ function App() {
           <BrandingEffects />
           <LocalOperatorPinEffects />
           <PageTracking />
-          <Router />
+          <LocalVenueGate>
+            <Router />
+          </LocalVenueGate>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

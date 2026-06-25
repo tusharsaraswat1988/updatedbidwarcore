@@ -4,6 +4,8 @@ import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt } from "@/lib/brand-assets";
 
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
+
 function sessionKey(tid: number) {
   return `tournament_verified_${tid}`;
 }
@@ -35,6 +37,11 @@ export function TournamentCodeGate({
 
   function loadTournament() {
     if (!tournamentId) return;
+
+    if (isBidWarLocalHost()) {
+      setStatus("unlocked");
+      return;
+    }
 
     setStatus("loading");
 
