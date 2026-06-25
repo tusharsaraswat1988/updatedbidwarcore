@@ -300,6 +300,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       .select({
         cloudBaseUrl: tournamentsTable.cloudBaseUrl,
         cloudId: tournamentsTable.cloudId,
+        exportToken: tournamentsTable.exportToken,
         operatorPin: tournamentsTable.operatorPin,
       })
       .from(tournamentsTable)
@@ -311,8 +312,11 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     res.json({
       tournamentId,
       cloudBaseUrl: tournament.cloudBaseUrl,
+      cloudId: tournament.cloudId,
       hasCloudLink: !!(tournament.cloudId && tournament.cloudBaseUrl),
+      hasExportToken: !!tournament.exportToken,
       operatorPin: tournament.operatorPin,
+      syncReady: !!(tournament.cloudId && tournament.cloudBaseUrl && tournament.exportToken),
     });
   });
 
@@ -333,6 +337,18 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
 
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, localTid));
     if (!tournament?.cloudId) { res.status(400).json({ error: "Tournament has no cloud ID — import from cloud first" }); return; }
+
+    const resolvedCloudUrl = (cloudBaseUrl ?? tournament.cloudBaseUrl ?? "").trim().replace(/\/$/, "");
+    if (!resolvedCloudUrl) {
+      res.status(400).json({ error: "No cloud URL configured — re-export from BidWar cloud and import the JSON again" });
+      return;
+    }
+    if (!tournament.exportToken) {
+      res.status(400).json({
+        error: "No export token on file — re-export this tournament from BidWar cloud and import the fresh JSON file",
+      });
+      return;
+    }
 
     const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, localTid));
     const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, localTid));
@@ -378,24 +394,31 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       return { playerCloudId: player?.cloudId ?? 0, teamCloudId: team?.cloudId ?? 0, amount: b.amount, timestamp: b.timestamp };
     }).filter(b => b.playerCloudId > 0 && b.teamCloudId > 0);
 
-    const resolvedCloudUrl = cloudBaseUrl ?? tournament.cloudBaseUrl ?? "";
-    if (!resolvedCloudUrl) {
-      res.status(400).json({ error: "No cloud URL configured — provide cloudBaseUrl or re-import from cloud" });
-      return;
-    }
-
     const cloudRes = await fetch(`${resolvedCloudUrl}/api/tournaments/${tournament.cloudId}/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(tournament.exportToken ? { "X-Export-Token": tournament.exportToken } : {}),
+        "X-Export-Token": tournament.exportToken,
       },
       body: JSON.stringify({ playerResults, teamPurses, bids: bidPayload, purseBoosters }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!cloudRes.ok) {
-      const err = await cloudRes.text();
-      res.status(502).json({ error: "Cloud sync failed", detail: err });
+      const errText = await cloudRes.text();
+      let cloudError = "Cloud sync failed";
+      try {
+        const parsed = JSON.parse(errText) as { error?: string };
+        if (parsed.error) cloudError = parsed.error;
+      } catch {
+        const trimmed = errText.trim();
+        if (trimmed && trimmed.length < 300 && !trimmed.startsWith("<")) cloudError = trimmed;
+      }
+      res.status(502).json({
+        error: cloudError,
+        cloudStatus: cloudRes.status,
+        detail: errText.slice(0, 500),
+      });
       return;
     }
 

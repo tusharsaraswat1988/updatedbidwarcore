@@ -303,9 +303,8 @@
         document.getElementById("local-ip").textContent = localIP;
         document.getElementById("local-port").textContent = `http://${localIP}:${serverPort}`;
         await refreshNetworkInfo();
-        loadTournaments();
+        await loadTournaments();
         loadConnectionKit();
-        loadTournamentMeta();
         checkInternet();
         setInterval(checkInternet, 10000);
         loadSyncStatus();
@@ -329,6 +328,7 @@
           localStorage.removeItem("activeTournamentId");
           el.innerHTML = '<div style="color:#71717a;font-size:13px;">No tournaments imported yet. Import a tournament export file to get started.</div>';
           loadConnectionKit();
+          await loadTournamentMeta();
           return;
         }
         if (!tournamentId || !tournaments.some(t => t.id === tournamentId)) {
@@ -352,6 +352,7 @@
           }
           el.appendChild(row);
         });
+        await loadTournamentMeta();
       } catch {
         const el = document.getElementById("tournament-list");
         if (el) el.innerHTML = '<div style="color:#71717a;font-size:13px;">Could not load tournaments.</div>';
@@ -561,26 +562,37 @@
     }
 
     async function loadTournamentMeta() {
+      const cloudEl = document.getElementById("cloud-url-status");
       if (!tournamentId) {
-        document.getElementById("cloud-url-status").textContent = "Import a tournament first";
+        if (cloudEl) cloudEl.textContent = "Import a tournament first";
         return;
       }
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/tournament-meta?tournamentId=${tournamentId}`);
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (cloudEl) cloudEl.textContent = "Could not load cloud link";
+          return;
+        }
         const data = await res.json();
         if (data.cloudBaseUrl) {
           storedCloudBaseUrl = String(data.cloudBaseUrl);
           localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
         }
         if (data.operatorPin) storedOperatorPin = String(data.operatorPin);
-        const cloudEl = document.getElementById("cloud-url-status");
         if (cloudEl) {
-          cloudEl.textContent = data.hasCloudLink
-            ? (data.cloudBaseUrl || "Linked")
-            : "Not linked — re-export from cloud";
+          if (!data.hasCloudLink) {
+            cloudEl.textContent = "Not linked — re-export from cloud";
+          } else if (!data.hasExportToken) {
+            cloudEl.textContent = (data.cloudBaseUrl || "Linked") + " (re-import for sync token)";
+          } else if (data.syncReady) {
+            cloudEl.textContent = data.cloudBaseUrl || "Ready to sync";
+          } else {
+            cloudEl.textContent = data.cloudBaseUrl || "Linked";
+          }
         }
-      } catch {}
+      } catch {
+        if (cloudEl) cloudEl.textContent = "Cloud link unavailable";
+      }
     }
 
     async function loadSyncStatus() {
@@ -679,8 +691,19 @@
         if (res.ok) {
           alert(`Sync complete! Players updated: ${data.playersUpdated}, Bids synced: ${data.bidsInserted}`);
           loadSyncStatus();
+          loadTournamentMeta();
         } else {
-          alert("Sync failed: " + (data.error || "Unknown error"));
+          let msg = data.error || "Unknown error";
+          if (data.cloudStatus) msg += ` (HTTP ${data.cloudStatus})`;
+          if (data.detail && !msg.includes(data.detail.slice(0, 40))) {
+            try {
+              const inner = JSON.parse(data.detail);
+              if (inner.error && inner.error !== msg) msg += "\n\n" + inner.error;
+            } catch {
+              if (data.detail.length < 200) msg += "\n\n" + data.detail;
+            }
+          }
+          alert("Sync failed:\n\n" + msg + "\n\nIf the export token expired or was already used, re-export from BidWar cloud and import the JSON again.");
         }
       } catch (e) {
         alert("Sync error: " + e.message);
