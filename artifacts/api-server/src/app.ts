@@ -334,17 +334,6 @@ if (serveStatic) {
         ),
       );
     });
-    app.get("/owner-app/tournament/:tournamentId/owner/:teamId", (req, res) => {
-      const tid = parseInt(req.params.tournamentId, 10);
-      const teamId = parseInt(req.params.teamId, 10);
-      res.redirect(
-        302,
-        ownerJoinPath(
-          Number.isFinite(tid) ? tid : undefined,
-          Number.isFinite(teamId) ? teamId : undefined,
-        ),
-      );
-    });
 
     // Owner app at /owner-app/ — must be registered before the root catch-all
     if (existsSync(ownerDist)) {

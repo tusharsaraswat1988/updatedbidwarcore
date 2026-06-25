@@ -142,7 +142,9 @@ export function OwnerRoute() {
   useEffect(() => {
     if (!team) return;
     if (!teamNeedsAccessCode(team) || isOwnerSessionVerified(teamId)) {
-      if (screen === "loading") setScreen("warmup");
+      if (screen === "loading") {
+        setScreen(isOwnerSessionVerified(teamId) ? "live" : "warmup");
+      }
     } else {
       setScreen("gate");
     }

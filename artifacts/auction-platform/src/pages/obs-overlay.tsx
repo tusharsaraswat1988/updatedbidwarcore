@@ -15,7 +15,7 @@ import { SponsorCarousel } from "@/components/display/sponsor-carousel";
 import { BroadcastOverlayBrandMark } from "@/components/display/broadcast-overlay-brand-mark";
 import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
 import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
-import { getDisplayTheme } from "@/lib/display-theme";
+import { BIDWAR_BROADCAST_YELLOW } from "@/lib/bidwar-broadcast-colors";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
@@ -408,14 +408,7 @@ export default function ObsOverlay() {
     [tournament?.sponsorLogos],
   );
 
-  const themeAccent = useMemo(() => {
-    try {
-      const name = localStorage.getItem(`display_theme_${tournamentId}`);
-      return getDisplayTheme(name).accentColor;
-    } catch {
-      return "#a78bfa";
-    }
-  }, [tournamentId]);
+  const themeAccent = BIDWAR_BROADCAST_YELLOW;
 
   const hasPlayer = !!state?.currentPlayer;
   const isActive = displayMode.phase === "live";

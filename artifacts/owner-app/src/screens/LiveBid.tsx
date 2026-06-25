@@ -436,12 +436,13 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam }: {
 
 // ── Brand mini logo ───────────────────────────────────────────────────────────
 function BrandMini({ logos, brandName, miniBrandText }: {
-  logos: { mini?: string | null };
+  logos: { mainReverse?: string | null; mini?: string | null };
   brandName: string;
   miniBrandText: string;
 }) {
-  if (logos.mini) {
-    return <img src={logos.mini} alt={brandName} className="h-6 w-auto opacity-60" />;
+  const src = logos.mainReverse ?? logos.mini;
+  if (src) {
+    return <img src={src} alt={brandName} className="h-6 w-auto opacity-60" />;
   }
   return (
     <span className="font-display font-black text-sm text-amber-400/50 tracking-wide">

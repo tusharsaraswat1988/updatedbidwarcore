@@ -38,7 +38,7 @@ export function StageThemeProvider({
   const [themeId, setThemeId] = useState<ThemeId>(seeded.themeId);
   const [customAccent, setCustomAccent] = useState(seeded.customAccent);
 
-  // Operator panel / BroadcastChannel theme changes sync to the LED picker
+  // External initialTheme changes (e.g. branding accent) sync to the LED picker
   useEffect(() => {
     const next = displayThemeToPickerState(initialTheme);
     setThemeId(next.themeId);

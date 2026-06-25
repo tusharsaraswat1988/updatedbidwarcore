@@ -1,9 +1,6 @@
-import { useEffect, useState } from "react";
 import { useRoute, useSearch } from "wouter";
 import { SideDisplayShell } from "@/components/display/side-display-shell";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
-import { getDisplayTheme } from "@/lib/display-theme";
-import type { DisplayTheme } from "@/lib/display-theme";
 import type { SideLedPanelMode } from "@/components/display/side/SideLedStageContent";
 
 function parsePanelMode(raw: string | null): SideLedPanelMode {
@@ -18,6 +15,8 @@ function parsePanelMode(raw: string | null): SideLedPanelMode {
  *
  * Uses the same auction API as the main LED display but ignores operator
  * overlay switches (player list, team squads, top 5, banner, purse view).
+ *
+ * Colour theme is chosen on the live display via the bottom-left stage picker.
  */
 export default function SideDisplayView() {
   const [, params] = useRoute("/tournament/:id/side-display");
@@ -25,31 +24,9 @@ export default function SideDisplayView() {
   const search = useSearch();
   const panel = parsePanelMode(new URLSearchParams(search).get("panel"));
 
-  const [theme, setTheme] = useState<DisplayTheme>(() => {
-    const searchTheme = typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("theme")
-      : null;
-    return getDisplayTheme(searchTheme);
-  });
-
-  useEffect(() => {
-    if (typeof BroadcastChannel === "undefined") return;
-    const ch = new BroadcastChannel("bidwar_display_theme");
-    const handler = (ev: MessageEvent) => {
-      if (ev.data?.tournamentId === tournamentId && ev.data?.theme) {
-        setTheme(getDisplayTheme(ev.data.theme));
-      }
-    };
-    ch.addEventListener("message", handler);
-    return () => {
-      ch.removeEventListener("message", handler);
-      ch.close();
-    };
-  }, [tournamentId]);
-
   return (
     <TournamentCodeGate tournamentId={tournamentId}>
-      <SideDisplayShell tournamentId={tournamentId} theme={theme} panel={panel} />
+      <SideDisplayShell tournamentId={tournamentId} panel={panel} />
     </TournamentCodeGate>
   );
 }

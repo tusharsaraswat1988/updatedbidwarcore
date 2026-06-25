@@ -100,15 +100,6 @@ export const DISPLAY_THEMES: Record<DisplayThemeName, DisplayTheme> = {
   },
 };
 
-/** Primary picker list — Lovable presets first, then legacy/default */
-export const DISPLAY_THEMES_LIST: DisplayTheme[] = [
-  DISPLAY_THEMES["stadium-gold"],
-  DISPLAY_THEMES["royal-sapphire"],
-  DISPLAY_THEMES["emerald-cup"],
-  DISPLAY_THEMES["crimson-final"],
-  DISPLAY_THEMES.default,
-];
-
 const LEGACY_IDS = new Set<string>([
   "broadcast-gold",
   "ice-blue",

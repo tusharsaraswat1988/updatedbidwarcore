@@ -10,7 +10,7 @@ import {
   RefreshCw, BarChart2, Gavel, Eye, Timer, X,
   PlayCircle, Radio, Brain, Layers, Filter, Database,
   AlertTriangle, Info, CheckCircle, ChevronLeft, ChevronDown,
-  Radar, GitBranch, Tag,
+  Radar, GitBranch, Tag, Download, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,12 @@ interface ReplayEvent {
   team_id: number | null; team_name: string | null; team_color: string | null; short_code: string | null;
   bid_amount: number | null; bid_sequence_number: number | null; milliseconds_since_last_bid: number | null;
   outcome: string | null; category_name: string | null;
+  timer_type?: string | null; timer_seconds?: number | null; triggered_by?: string | null;
+}
+interface ReplayResponse {
+  events: ReplayEvent[];
+  nextAfter: string | null;
+  hasMore: boolean;
 }
 interface DemandRow {
   player_id: number; player_name: string; player_role: string | null;
@@ -60,20 +66,88 @@ interface EventRow {
   outcome: string | null; tournament_id: number;
 }
 interface PlayerRow {
+  identity_key: string;
+  global_player_id: string | null;
   player_id: number; player_name: string; player_role: string | null; sport: string;
   total_auctions: number; avg_sold_value: number | null; max_sold_value: number | null;
   total_bids_received: number | null; avg_bids_per_auction: number | null; tournament_count: number;
 }
 interface PlayerDetail {
+  globalPlayerId: string | null;
+  playerId: number | null;
   auctions: Array<{ id: number; tournament_id: number; tournament_name: string; outcome: string; final_amount: number | null; total_bids_received: number | null; base_price: number | null; sold_to_team_name: string | null; auction_duration_seconds: number | null; player_name: string }>;
-  bidTimeline: Array<{ bid_amount: number; bid_sequence_number: number; milliseconds_since_last_bid: number | null; timer_remaining_seconds: number | null; timestamp: string; tournament_id: number; team_name: string | null; team_color: string | null; short_code: string | null }>;
+  bidTimeline: Array<{ bid_amount: number; bid_sequence_number: number; milliseconds_since_last_bid: number | null; timer_remaining_seconds: number | null; timestamp: string; tournament_id: number; tournament_name?: string | null; team_name: string | null; team_color: string | null; short_code: string | null }>;
   interestedTeams: Array<{ team_name: string; team_color: string | null; bid_count: number }>;
+}
+interface IntelFilters {
+  tournamentId: string;
+  categoryId: string;
+  teamId: string;
+}
+interface FilterOptions {
+  categories: Array<{ id: number; name: string; color_code: string | null }>;
+  teams: Array<{ id: number; name: string; color: string | null; short_code: string | null }>;
+}
+interface IntensityPlayer {
+  player_id: number; player_name: string; total_bids: number; team_count: number;
+  escalation_curve: number[]; escalation_pct: number; intensity_score: number;
+  early_avg_ms: number | null; mid_avg_ms: number | null; late_avg_ms: number | null;
+  outcome: string | null; final_amount: number | null; base_price: number | null;
+  badges: string[];
+}
+interface IntensityResponse {
+  players: IntensityPlayer[];
+  maxIntensity: number;
+  spotlight: {
+    mostWanted: IntensityPlayer | null;
+    fastestEscalation: IntensityPlayer | null;
+    biggestSurprise: IntensityPlayer | null;
+  };
+}
+interface LiveIntel {
+  latestTimestamp: string | null;
+  windowMinutes: number;
+  bidsInWindow: number;
+  bidsLastMinute: number;
+  bidsPerMinute: number;
+  intensityLevel: "idle" | "low" | "warm" | "hot";
+  activeTeams: Array<{ team_id: number; team_name: string; team_color: string | null; short_code: string | null; recent_bids: number; avg_response_ms: number | null }>;
+  lastBid: { bid_amount: number; timestamp: string; player_name: string | null; team_name: string | null; team_color: string | null; short_code: string | null; milliseconds_since_last_bid: number | null } | null;
+  hottestPlayer: { player_id: number; player_name: string; recent_bids: number } | null;
+}
+interface IntelArchive {
+  id: number;
+  sourceTournamentId: number;
+  tournamentName: string;
+  tournamentSport: string;
+  archivedAt: string;
+  bidEventCount: number;
+  playerEventCount: number;
+  timerEventCount: number;
+}
+interface CrossSportRow {
+  sport: string;
+  totalBids: number;
+  tournaments: number;
+  avgResponseMs: number | null;
+  sold: number;
+  unsold: number;
+  avgSold: number | null;
+  avgBidsPerPlayer: number | null;
+  archivedTournaments: number;
+}
+interface IntelligenceBriefing {
+  summary: string;
+  sections: Array<{ title: string; body: string }>;
+  observations: ObservationNote[];
+  generatedBy: "template" | "llm";
+  disclaimer: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`);
+  const res = await fetch(`/api${path}`, { credentials: "include" });
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
 }
@@ -119,6 +193,33 @@ function obsColor(type: string): string {
   if (type === "strategy") return "#3b82f6";
   if (type === "pattern") return "#8b5cf6";
   return "#22d3ee";
+}
+function intelQueryParams(filters: IntelFilters): string {
+  const qs = new URLSearchParams();
+  if (filters.categoryId) qs.set("categoryId", filters.categoryId);
+  if (filters.teamId) qs.set("teamId", filters.teamId);
+  const s = qs.toString();
+  return s ? `?${s}` : "";
+}
+function liveIntensityColor(level: LiveIntel["intensityLevel"]): string {
+  if (level === "hot") return "#ef4444";
+  if (level === "warm") return "#f97316";
+  if (level === "low") return "#22c55e";
+  return "#64748b";
+}
+async function downloadCsv(path: string): Promise<void> {
+  const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`Export failed (${res.status})`);
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? "intelligence-export.csv";
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
@@ -207,6 +308,108 @@ function TournamentSelector({ tournaments, value, onChange, placeholder = "Selec
   );
 }
 
+function GlobalFilterBar({
+  tournaments,
+  filters,
+  filterOptions,
+  optionsLoading,
+  onChange,
+  onRefresh,
+  refreshing,
+  onExport,
+  exporting,
+}: {
+  tournaments: TournamentRow[];
+  filters: IntelFilters;
+  filterOptions: FilterOptions | null;
+  optionsLoading: boolean;
+  onChange: (next: Partial<IntelFilters>) => void;
+  onRefresh: () => void;
+  refreshing?: boolean;
+  onExport: (dataset: "all" | "bids" | "players" | "timers") => void;
+  exporting?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap rounded-xl border border-white/8 bg-card/40 px-4 py-3">
+      <Filter className="w-3.5 h-3.5 text-muted-foreground/50 flex-shrink-0" />
+      <TournamentSelector
+        tournaments={tournaments}
+        value={filters.tournamentId}
+        onChange={v => onChange({ tournamentId: v, categoryId: "", teamId: "" })}
+        placeholder="Select tournament..."
+      />
+      <Select
+        value={filters.categoryId || "all"}
+        onValueChange={v => onChange({ categoryId: v === "all" ? "" : v })}
+        disabled={!filters.tournamentId || optionsLoading}
+      >
+        <SelectTrigger className="w-44 h-9 text-sm">
+          <SelectValue placeholder="All categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All categories</SelectItem>
+          {(filterOptions?.categories ?? []).map(c => (
+            <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={filters.teamId || "all"}
+        onValueChange={v => onChange({ teamId: v === "all" ? "" : v })}
+        disabled={!filters.tournamentId || optionsLoading}
+      >
+        <SelectTrigger className="w-44 h-9 text-sm">
+          <SelectValue placeholder="All teams" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All teams</SelectItem>
+          {(filterOptions?.teams ?? []).map(t => (
+            <SelectItem key={t.id} value={String(t.id)}>{t.short_code ?? t.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {filters.tournamentId && (
+        <>
+          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={onRefresh}>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+          <Select onValueChange={v => onExport(v as "all" | "bids" | "players" | "timers")} disabled={exporting}>
+            <SelectTrigger className="w-36 h-9 text-sm">
+              <Download className="w-3.5 h-3.5 mr-1.5 opacity-60" />
+              <SelectValue placeholder="Export CSV" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All datasets</SelectItem>
+              <SelectItem value="bids">Bids only</SelectItem>
+              <SelectItem value="players">Players only</SelectItem>
+              <SelectItem value="timers">Timers only</SelectItem>
+            </SelectContent>
+          </Select>
+        </>
+      )}
+    </div>
+  );
+}
+
+function EscalationSparkline({ values, color = "#22d3ee" }: { values: number[]; color?: string }) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const w = 80;
+  const h = 24;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={w} height={h} className="overflow-visible flex-shrink-0">
+      <polyline fill="none" stroke={color} strokeWidth="1.5" points={pts} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function SkeletonRows({ n = 5 }: { n?: number }) {
   return <div className="flex flex-col gap-2">{Array.from({ length: n }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>;
 }
@@ -254,26 +457,22 @@ function HeatDot({ score, max }: { score: number; max: number }) {
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function OverviewTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [data, setData] = useState<TournamentIntel | null>(null);
   const [loading, setLoading] = useState(false);
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
+  const load = useCallback(async () => {
+    if (!tid) return;
     setLoading(true);
-    try { setData(await apiFetch(`/intelligence/tournament/${id}`)); }
+    try { setData(await apiFetch(`/intelligence/tournament/${tid}${intelQueryParams(filters)}`)); }
     catch { setData(null); }
     finally { setLoading(false); }
-  }, []);
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); load(v); }} />
-        {tid && <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => load(tid)}>
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>}
-      </div>
       {!tid && <EmptyState icon={BarChart2} msg="Select a tournament to load intelligence" />}
       {tid && loading && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>}
       {tid && !loading && data && (
@@ -345,6 +544,7 @@ type ReplayGroup =
   | { kind: "start"; ts: string; playerName: string; categoryName: string | null; playerId: number | null }
   | { kind: "bid"; ts: string; teamName: string | null; teamColor: string | null; shortCode: string | null; amount: number; seq: number; latencyMs: number | null }
   | { kind: "burst"; ts: string; bids: ReplayEvent[] }
+  | { kind: "timer"; ts: string; action: string; playerName: string | null; timerSeconds: number | null; timerType: string | null; triggeredBy: string | null }
   | { kind: "outcome"; ts: string; outcome: string; playerName: string; amount: number | null; teamName: string | null };
 
 function groupReplay(events: ReplayEvent[]): ReplayGroup[] {
@@ -354,6 +554,17 @@ function groupReplay(events: ReplayEvent[]): ReplayGroup[] {
     const ev = events[i]!;
     if (ev.event_type === "player_start") {
       groups.push({ kind: "start", ts: ev.timestamp, playerName: ev.player_name ?? "?", categoryName: ev.category_name, playerId: ev.player_id });
+      i++;
+    } else if (ev.event_type?.startsWith("timer_")) {
+      groups.push({
+        kind: "timer",
+        ts: ev.timestamp,
+        action: ev.event_type.replace("timer_", ""),
+        playerName: ev.player_name,
+        timerSeconds: ev.timer_seconds ?? null,
+        timerType: ev.timer_type ?? null,
+        triggeredBy: ev.triggered_by ?? null,
+      });
       i++;
     } else if (ev.event_type === "bid") {
       // Collect consecutive rapid bids (< 3s apart) on the same player
@@ -387,6 +598,7 @@ function groupReplay(events: ReplayEvent[]): ReplayGroup[] {
 function ReplayDot({ kind, outcome, color }: { kind: string; outcome?: string; color?: string | null }) {
   const c = kind === "start" ? "#22d3ee"
     : kind === "burst" ? "#f97316"
+    : kind === "timer" ? "#a855f7"
     : kind === "outcome" ? (outcome === "sold" ? "#22c55e" : outcome === "unsold" ? "#ef4444" : "#f59e0b")
     : color ?? "#64748b";
   return (
@@ -395,34 +607,47 @@ function ReplayDot({ kind, outcome, color }: { kind: string; outcome?: string; c
   );
 }
 
-function ReplayTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function ReplayTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [events, setEvents] = useState<ReplayEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextAfter, setNextAfter] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
-    setLoading(true);
-    try { setEvents(await apiFetch(`/intelligence/replay/${id}?limit=400`)); }
-    catch { setEvents([]); }
-    finally { setLoading(false); }
-  }, []);
+  const load = useCallback(async (after?: string | null) => {
+    if (!tid) return;
+    const isMore = !!after;
+    if (isMore) setLoadingMore(true);
+    else setLoading(true);
+    try {
+      const qs = new URLSearchParams({ limit: "400" });
+      if (after) qs.set("after", after);
+      const data = await apiFetch<ReplayResponse>(`/intelligence/replay/${tid}?${qs}`);
+      setEvents(prev => (isMore ? [...prev, ...data.events] : data.events));
+      setNextAfter(data.nextAfter);
+      setHasMore(data.hasMore);
+    } catch {
+      if (!isMore) setEvents([]);
+      setNextAfter(null);
+      setHasMore(false);
+    } finally {
+      if (isMore) setLoadingMore(false);
+      else setLoading(false);
+    }
+  }, [tid]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const groups = groupReplay(events);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); load(v); }} />
-        {tid && <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => load(tid)}>
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>}
-        {events.length > 0 && (
-          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-            {events.length} events · {groups.length} segments
-          </span>
-        )}
-      </div>
+      {events.length > 0 && (
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+          {events.length} events · {groups.length} segments
+        </span>
+      )}
 
       {!tid && <EmptyState icon={PlayCircle} msg="Select a tournament to replay the auction" />}
       {tid && loading && <SkeletonRows n={8} />}
@@ -484,6 +709,28 @@ function ReplayTab({ tournaments }: { tournaments: TournamentRow[] }) {
                     </div>
                   )}
 
+                  {g.kind === "timer" && (
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono text-muted-foreground/50 flex-shrink-0">{clockTime(g.ts)}</span>
+                      <Timer className="w-3 h-3 text-purple-400" />
+                      <span className="text-[10px] text-purple-400 font-bold uppercase tracking-widest">
+                        Timer {g.action.replace("_", " ")}
+                      </span>
+                      {g.timerSeconds != null && (
+                        <span className="text-[10px] font-mono text-white/80">{g.timerSeconds}s</span>
+                      )}
+                      {g.timerType && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground/60 uppercase">{g.timerType}</span>
+                      )}
+                      {g.playerName && g.playerName !== "?" && (
+                        <span className="text-[10px] text-muted-foreground">· {g.playerName}</span>
+                      )}
+                      {g.triggeredBy && (
+                        <span className="text-[9px] text-muted-foreground/40">({g.triggeredBy})</span>
+                      )}
+                    </div>
+                  )}
+
                   {g.kind === "outcome" && (
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] font-mono text-muted-foreground/50">{clockTime(g.ts)}</span>
@@ -505,6 +752,19 @@ function ReplayTab({ tournaments }: { tournaments: TournamentRow[] }) {
                 </div>
               </div>
             ))}
+            {hasMore && (
+              <div className="flex justify-center pt-4 pb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loadingMore}
+                  onClick={() => load(nextAfter)}
+                  className="text-xs"
+                >
+                  {loadingMore ? "Loading…" : "Load more events"}
+                </Button>
+              </div>
+            )}
           </div>
         </ScrollArea>
       )}
@@ -514,18 +774,20 @@ function ReplayTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
 // ─── DEMAND TAB ───────────────────────────────────────────────────────────────
 
-function DemandTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function DemandTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [rows, setRows] = useState<DemandRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
+  const load = useCallback(async () => {
+    if (!tid) return;
     setLoading(true);
-    try { setRows(await apiFetch(`/intelligence/demand/${id}`)); }
+    try { setRows(await apiFetch(`/intelligence/demand/${tid}${intelQueryParams(filters)}`)); }
     catch { setRows([]); }
     finally { setLoading(false); }
-  }, []);
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const maxScore = Math.max(...rows.map(r => r.demand_score), 1);
   const mostWanted = rows[0] ?? null;
@@ -535,13 +797,6 @@ function DemandTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); load(v); }} />
-        {tid && <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => load(tid)}>
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>}
-      </div>
-
       {!tid && <EmptyState icon={Radar} msg="Select a tournament to analyze player demand" />}
       {tid && loading && <SkeletonRows n={8} />}
       {tid && !loading && rows.length === 0 && <EmptyState msg="No concluded players yet — run an auction first." />}
@@ -613,32 +868,27 @@ function DemandTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
 // ─── BEHAVIOR TAB ─────────────────────────────────────────────────────────────
 
-function BehaviorTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function BehaviorTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [profiles, setProfiles] = useState<BehaviorRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<BehaviorRow | null>(null);
 
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
+  const load = useCallback(async () => {
+    if (!tid) return;
     setLoading(true);
     setSelected(null);
-    try { setProfiles(await apiFetch(`/intelligence/behavior/${id}`)); }
+    try { setProfiles(await apiFetch(`/intelligence/behavior/${tid}${intelQueryParams(filters)}`)); }
     catch { setProfiles([]); }
     finally { setLoading(false); }
-  }, []);
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   const maxBids = Math.max(...profiles.map(p => p.total_bids), 1);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); load(v); }} />
-        {tid && <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => load(tid)}>
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>}
-      </div>
-
       {!tid && <EmptyState icon={Brain} msg="Select a tournament to profile team behavior" />}
       {tid && loading && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>}
       {tid && !loading && profiles.length === 0 && <EmptyState msg="No team bidding activity recorded yet." />}
@@ -772,32 +1022,45 @@ function BehaviorTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
 // ─── OBSERVATIONS TAB ─────────────────────────────────────────────────────────
 
-function ObservationsTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function ObservationsTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [notes, setNotes] = useState<ObservationNote[]>([]);
+  const [briefing, setBriefing] = useState<IntelligenceBriefing | null>(null);
   const [loading, setLoading] = useState(false);
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
-  const load = useCallback(async (id: string) => {
-    if (!id) return;
+  const load = useCallback(async () => {
+    if (!tid) return;
     setLoading(true);
-    try { setNotes(await apiFetch(`/intelligence/observations/${id}`)); }
+    setBriefing(null);
+    try { setNotes(await apiFetch(`/intelligence/observations/${tid}${intelQueryParams(filters)}`)); }
     catch { setNotes([]); }
     finally { setLoading(false); }
-  }, []);
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  const loadBriefing = useCallback(async () => {
+    if (!tid) return;
+    setBriefingLoading(true);
+    try { setBriefing(await apiFetch(`/intelligence/briefing/${tid}${intelQueryParams(filters)}`)); }
+    catch { setBriefing(null); }
+    finally { setBriefingLoading(false); }
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); load(v); }} />
-        {tid && <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => load(tid)}>
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>}
-        {tid && !loading && (
+      {tid && (
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
             Observational · Rule-based · No AI predictions
           </span>
-        )}
-      </div>
+          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={briefingLoading || loading} onClick={loadBriefing}>
+            <FileText className="w-3.5 h-3.5 mr-1.5" />
+            {briefingLoading ? "Generating briefing…" : "Generate AI Briefing"}
+          </Button>
+        </div>
+      )}
 
       {!tid && <EmptyState icon={Brain} msg="Select a tournament to generate behavioral observations" />}
       {tid && loading && <SkeletonRows n={5} />}
@@ -805,6 +1068,19 @@ function ObservationsTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
       {tid && !loading && notes.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-3">
+          {briefing && (
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-purple-400" />
+                <span className="text-[10px] uppercase tracking-widest text-purple-400 font-medium">
+                  Executive Briefing · {briefing.generatedBy === "llm" ? "LLM narrative" : "Template summary"}
+                </span>
+              </div>
+              <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{briefing.summary}</p>
+              <p className="text-[10px] text-muted-foreground/50">{briefing.disclaimer}</p>
+            </div>
+          )}
+
           {/* Briefing header */}
           <div className="flex items-center gap-2 rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-4 py-2.5">
             <Radio className="w-3.5 h-3.5 text-cyan-400" />
@@ -854,8 +1130,8 @@ function ObservationsTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
 // ─── EVENTS TAB ───────────────────────────────────────────────────────────────
 
-function EventsTab({ tournaments }: { tournaments: TournamentRow[] }) {
-  const [tid, setTid] = useState("");
+function EventsTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
   const [eventType, setEventType] = useState("all");
   const [playerSearch, setPlayerSearch] = useState("");
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -867,11 +1143,12 @@ function EventsTab({ tournaments }: { tournaments: TournamentRow[] }) {
   const buildUrl = useCallback((off: number) => {
     const params = new URLSearchParams();
     if (tid) params.set("tournamentId", tid);
+    if (filters.teamId) params.set("teamId", filters.teamId);
     if (eventType !== "all") params.set("eventType", eventType);
     params.set("limit", String(LIMIT));
     params.set("offset", String(off));
     return `/intelligence/events?${params.toString()}`;
-  }, [tid, eventType]);
+  }, [tid, filters.teamId, eventType]);
 
   const load = useCallback(async (off: number) => {
     if (!tid) return;
@@ -885,7 +1162,7 @@ function EventsTab({ tournaments }: { tournaments: TournamentRow[] }) {
     finally { setLoading(false); }
   }, [buildUrl, tid]);
 
-  useEffect(() => { if (tid) load(0); }, [tid, eventType, load]);
+  useEffect(() => { if (tid) load(0); }, [tid, eventType, filters.teamId, refreshKey, load]);
 
   const filtered = playerSearch
     ? events.filter(e => e.player_name?.toLowerCase().includes(playerSearch.toLowerCase()))
@@ -902,9 +1179,7 @@ function EventsTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <TournamentSelector tournaments={tournaments} value={tid} onChange={v => { setTid(v); }} placeholder="Filter by tournament..." />
         <Select value={eventType} onValueChange={setEventType}>
           <SelectTrigger className="w-36 h-9 text-sm">
             <SelectValue placeholder="Event type" />
@@ -985,37 +1260,45 @@ function EventsTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
 // ─── PLAYERS TAB ──────────────────────────────────────────────────────────────
 
-function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
+function PlayersTab({ filters }: { filters: IntelFilters }) {
   const [q, setQ] = useState("");
-  const [tid, setTid] = useState("all");
   const [results, setResults] = useState<PlayerRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerRow | null>(null);
   const [detail, setDetail] = useState<PlayerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scopeTid = filters.tournamentId;
 
-  const search = useCallback(async (query: string, tournamentId: string) => {
+  const search = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      const tidParam = tournamentId !== "all" ? `&tournamentId=${tournamentId}` : "";
+      const tidParam = scopeTid ? `&tournamentId=${scopeTid}` : "";
       setResults(await apiFetch(`/intelligence/players/search?q=${encodeURIComponent(query)}${tidParam}`));
     } catch { setResults([]); }
     finally { setLoading(false); }
-  }, []);
+  }, [scopeTid]);
 
   const handleQ = (v: string) => {
     setQ(v);
     if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => search(v, tid), 350);
+    debounce.current = setTimeout(() => search(v), 350);
   };
+
+  useEffect(() => {
+    if (q) search(q);
+  }, [scopeTid, search]);
 
   const selectPlayer = async (row: PlayerRow) => {
     setSelectedPlayer(row);
     setDetail(null);
     setDetailLoading(true);
-    try { setDetail(await apiFetch(`/intelligence/players/${row.player_id}`)); }
-    catch { setDetail(null); }
+    try {
+      const qs = row.global_player_id
+        ? `globalPlayerId=${encodeURIComponent(row.global_player_id)}`
+        : `playerId=${row.player_id}`;
+      setDetail(await apiFetch(`/intelligence/players/detail?${qs}`));
+    } catch { setDetail(null); }
     finally { setDetailLoading(false); }
   };
 
@@ -1029,15 +1312,11 @@ function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
           <Input value={q} onChange={e => handleQ(e.target.value)} placeholder="Search players..."
             className="pl-9 h-9 text-sm" />
         </div>
-        <Select value={tid} onValueChange={v => { setTid(v); search(q, v); }}>
-          <SelectTrigger className="w-52 h-9 text-sm">
-            <SelectValue placeholder="All tournaments" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All tournaments</SelectItem>
-            {tournaments.map(t => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {scopeTid && (
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+            Scoped to selected tournament
+          </span>
+        )}
       </div>
 
       <div className="flex gap-4 min-h-0">
@@ -1047,15 +1326,18 @@ function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
             <EmptyState icon={Users} msg={q ? "No players found" : "Start typing to search players"} />
           )}
           {!loading && results.map(row => (
-            <motion.button key={row.player_id} onClick={() => selectPlayer(row)}
+            <motion.button key={row.identity_key} onClick={() => selectPlayer(row)}
               className={`w-full text-left rounded-xl border p-3 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/5 ${
-                selectedPlayer?.player_id === row.player_id ? "border-cyan-500/50 bg-cyan-500/8" : "border-white/6 bg-card/40"
+                selectedPlayer?.identity_key === row.identity_key ? "border-cyan-500/50 bg-cyan-500/8" : "border-white/6 bg-card/40"
               }`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-white truncate">{row.player_name}</p>
                     {row.player_role && <Badge variant="outline" className="text-[9px] h-4 px-1 flex-shrink-0">{row.player_role}</Badge>}
+                    {row.global_player_id && row.tournament_count > 1 && (
+                      <Badge className="text-[9px] h-4 px-1 bg-purple-500/15 text-purple-300 border-purple-500/30">Cross-tournament</Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-[10px] text-muted-foreground">{row.tournament_count} tournament{row.tournament_count !== 1 ? "s" : ""}</span>
@@ -1076,13 +1358,16 @@ function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
 
         <AnimatePresence>
           {selectedPlayer && (
-            <motion.div key={selectedPlayer.player_id}
+            <motion.div key={selectedPlayer.identity_key}
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
               className="flex-1 min-w-0 flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-black text-white">{selectedPlayer.player_name}</h3>
-                  <p className="text-xs text-muted-foreground">{selectedPlayer.player_role} · {selectedPlayer.sport}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedPlayer.player_role} · {selectedPlayer.sport}
+                    {detail?.globalPlayerId ? " · linked identity" : ""}
+                  </p>
                 </div>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedPlayer(null)}>
                   <X className="w-3.5 h-3.5" />
@@ -1146,7 +1431,10 @@ function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
                           <div key={i} className="flex items-center gap-2 py-1 border-b border-white/4 last:border-0">
                             <span className="text-[10px] font-mono text-muted-foreground/40 w-6">{b.bid_sequence_number}</span>
                             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: b.team_color ?? "#555" }} />
-                            <span className="text-[10px] text-muted-foreground flex-1 truncate">{b.short_code ?? b.team_name}</span>
+                            <span className="text-[10px] text-muted-foreground flex-1 truncate">
+                              {b.short_code ?? b.team_name}
+                              {b.tournament_name ? ` · ${b.tournament_name}` : ""}
+                            </span>
                             <span className="text-[10px] font-mono text-white">{fCr(b.bid_amount)}</span>
                             {b.milliseconds_since_last_bid != null && (
                               <span className={`text-[9px] font-mono ${b.milliseconds_since_last_bid < 2000 ? "text-red-400" : "text-muted-foreground/40"}`}>
@@ -1168,15 +1456,312 @@ function PlayersTab({ tournaments }: { tournaments: TournamentRow[] }) {
   );
 }
 
+// ─── LIVE TAB ─────────────────────────────────────────────────────────────────
+
+function LiveTab({ filters }: { filters: IntelFilters }) {
+  const tid = filters.tournamentId;
+  const [data, setData] = useState<LiveIntel | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const poll = useCallback(async () => {
+    if (!tid) return;
+    try {
+      const next = await apiFetch<LiveIntel>(`/intelligence/live/${tid}`);
+      setData(next);
+      setError(false);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [tid]);
+
+  useEffect(() => {
+    if (!tid) {
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [tid, poll]);
+
+  const levelColor = liveIntensityColor(data?.intensityLevel ?? "idle");
+
+  return (
+    <div className="flex flex-col gap-5">
+      {!tid && <EmptyState icon={Radio} msg="Select a tournament for live intel" />}
+      {tid && loading && !data && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>}
+      {tid && error && !data && <EmptyState msg="Could not load live intel." />}
+      {tid && data && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
+          <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5"
+            style={{ borderColor: `${levelColor}30`, background: `${levelColor}08` }}>
+            <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: levelColor }} />
+            <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: levelColor }}>
+              {data.intensityLevel} intensity · last {data.windowMinutes} min window
+            </span>
+            <span className="text-[10px] text-muted-foreground ml-auto">Auto-refresh 5s</span>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MetricCard label="Bids / min" value={data.bidsPerMinute} icon={Activity} accent="cyan" sub={`${data.bidsInWindow} in window`} />
+            <MetricCard label="Last minute" value={data.bidsLastMinute} icon={Zap} accent="amber" sub="recent pace" />
+            <MetricCard label="Active teams" value={data.activeTeams.length} icon={Users} accent="purple" sub="in window" />
+            <MetricCard label="Hottest player" value={data.hottestPlayer?.player_name?.split(" ")[0] ?? "—"} icon={Flame} accent="red" sub={data.hottestPlayer ? `${data.hottestPlayer.recent_bids} bids` : "none"} />
+          </div>
+
+          {data.lastBid && (
+            <SpotlightCard title="Latest Bid" icon={Gavel} accentColor="#22d3ee">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm font-bold text-white">{data.lastBid.player_name ?? "Unknown"}</span>
+                <ColorDot color={data.lastBid.team_color} />
+                <span className="text-xs text-muted-foreground">{data.lastBid.short_code ?? data.lastBid.team_name}</span>
+                <span className="text-sm font-mono text-green-400">{fCr(data.lastBid.bid_amount)}</span>
+                <span className="text-[10px] font-mono text-muted-foreground/50 ml-auto">{clockTime(data.lastBid.timestamp)}</span>
+              </div>
+            </SpotlightCard>
+          )}
+
+          {data.activeTeams.length > 0 && (
+            <div className="rounded-xl border border-white/8 bg-card/60 overflow-hidden">
+              <div className="px-4 py-2 border-b border-white/5 bg-white/2">
+                <span className="text-[9px] uppercase tracking-widest text-muted-foreground/50">Team activity (last 10 min)</span>
+              </div>
+              <div className="divide-y divide-white/4">
+                {data.activeTeams.map(t => (
+                  <div key={t.team_id} className="flex items-center gap-3 px-4 py-2.5">
+                    <ColorDot color={t.team_color} size={10} />
+                    <span className="text-xs font-semibold text-white flex-1 truncate">{t.team_name}</span>
+                    <span className="text-[10px] font-mono text-cyan-400">{t.recent_bids} bids</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/50 w-16 text-right">{fms(t.avg_response_ms)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ─── INTENSITY TAB ────────────────────────────────────────────────────────────
+
+function IntensityTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey: number }) {
+  const tid = filters.tournamentId;
+  const [data, setData] = useState<IntensityResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!tid) return;
+    setLoading(true);
+    try { setData(await apiFetch(`/intelligence/intensity/${tid}${intelQueryParams(filters)}`)); }
+    catch { setData(null); }
+    finally { setLoading(false); }
+  }, [tid, filters.categoryId, filters.teamId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
+
+  const maxIntensity = data?.maxIntensity ?? 1;
+
+  return (
+    <div className="flex flex-col gap-5">
+      {!tid && <EmptyState icon={Flame} msg="Select a tournament for bid intensity analysis" />}
+      {tid && loading && <SkeletonRows n={8} />}
+      {tid && !loading && !data?.players.length && <EmptyState msg="Need at least 2 bids per player for intensity curves." />}
+
+      {tid && !loading && data && data.players.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              { label: "Most Wanted", row: data.spotlight.mostWanted, icon: Trophy, color: "#f59e0b", sub: data.spotlight.mostWanted ? `${data.spotlight.mostWanted.total_bids} bids` : "—" },
+              { label: "Fastest Escalation", row: data.spotlight.fastestEscalation, icon: Zap, color: "#22d3ee", sub: data.spotlight.fastestEscalation ? `+${data.spotlight.fastestEscalation.escalation_pct}%` : "—" },
+              { label: "Biggest Surprise", row: data.spotlight.biggestSurprise, icon: TrendingUp, color: "#a855f7", sub: data.spotlight.biggestSurprise?.final_amount ? fCr(data.spotlight.biggestSurprise.final_amount) : "—" },
+            ].map(({ label, row, icon: Icon, color, sub }) => (
+              <div key={label} className="rounded-xl border p-3.5 flex flex-col gap-2"
+                style={{ borderColor: `${color}25`, background: `${color}08` }}>
+                <div className="flex items-center gap-1.5">
+                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                  <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color }}>{label}</span>
+                </div>
+                <p className="text-sm font-bold text-white truncate">{row?.player_name ?? "—"}</p>
+                <p className="text-[10px] text-muted-foreground">{sub}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-white/8 bg-card/60 overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-2 border-b border-white/5 bg-white/2">
+              <span className="col-span-3 text-[9px] uppercase tracking-widest text-muted-foreground/50">Player</span>
+              <span className="col-span-3 text-[9px] uppercase tracking-widest text-muted-foreground/50">Escalation</span>
+              <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50">Intensity</span>
+              <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right">Response</span>
+              <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50">Badges</span>
+            </div>
+            <ScrollArea className="h-[calc(100vh-380px)]">
+              <div className="divide-y divide-white/4">
+                {data.players.map(row => (
+                  <div key={row.player_id} className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-white/2">
+                    <div className="col-span-3 flex flex-col gap-0.5 min-w-0">
+                      <span className="text-xs font-semibold text-white truncate">{row.player_name}</span>
+                      <span className="text-[9px] text-muted-foreground/50">{row.total_bids} bids · {row.team_count} teams</span>
+                    </div>
+                    <div className="col-span-3 flex items-center gap-2">
+                      <EscalationSparkline values={row.escalation_curve.slice(0, 20)} color={row.escalation_pct > 100 ? "#ef4444" : "#22d3ee"} />
+                      <span className="text-[10px] font-mono text-muted-foreground">+{row.escalation_pct}%</span>
+                    </div>
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <span className="text-[10px] font-mono text-cyan-400 font-bold">{row.intensity_score}</span>
+                      <IntensityBar score={row.intensity_score} max={maxIntensity} />
+                    </div>
+                    <div className="col-span-2 text-right text-[9px] font-mono text-muted-foreground/60">
+                      <div>E {fms(row.early_avg_ms)}</div>
+                      <div>L {fms(row.late_avg_ms)}</div>
+                    </div>
+                    <div className="col-span-2 flex flex-wrap gap-1 justify-end">
+                      {row.badges.slice(0, 2).map(b => (
+                        <span key={b} className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-white/5 text-muted-foreground">{b}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ─── ARCHIVE TAB ──────────────────────────────────────────────────────────────
+
+function ArchiveTab() {
+  const [archives, setArchives] = useState<IntelArchive[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [exportingId, setExportingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiFetch<IntelArchive[]>("/intelligence/archives")
+      .then(setArchives)
+      .catch(() => setArchives([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleExport = async (archiveId: number, dataset: "all" | "bids" | "players" | "timers") => {
+    setExportingId(archiveId);
+    try {
+      await downloadCsv(`/intelligence/export/archive/${archiveId}?dataset=${dataset}`);
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+        Preserved when admin deletes a tournament · not shown in live tournament list
+      </p>
+      {loading && <SkeletonRows n={5} />}
+      {!loading && archives.length === 0 && (
+        <EmptyState icon={Layers} msg="No archived intelligence yet — data is preserved when tournaments are admin-deleted." />
+      )}
+      {!loading && archives.length > 0 && (
+        <div className="rounded-xl border border-white/8 bg-card/60 overflow-hidden divide-y divide-white/4">
+          {archives.map(a => (
+            <div key={a.id} className="flex items-center gap-4 px-4 py-3 flex-wrap hover:bg-white/2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{a.tournamentName}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {a.tournamentSport} · deleted tournament #{a.sourceTournamentId} · {new Date(a.archivedAt).toLocaleString("en-IN")}
+                </p>
+                <p className="text-[10px] text-muted-foreground/60 mt-1">
+                  {a.bidEventCount.toLocaleString("en-IN")} bids · {a.playerEventCount.toLocaleString("en-IN")} player events · {a.timerEventCount.toLocaleString("en-IN")} timer events
+                </p>
+              </div>
+              <Select onValueChange={v => handleExport(a.id, v as "all" | "bids" | "players" | "timers")} disabled={exportingId === a.id}>
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <Download className="w-3 h-3 mr-1 opacity-60" />
+                  <SelectValue placeholder="Export" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All CSV</SelectItem>
+                  <SelectItem value="bids">Bids</SelectItem>
+                  <SelectItem value="players">Players</SelectItem>
+                  <SelectItem value="timers">Timers</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CROSS-SPORT TAB ──────────────────────────────────────────────────────────
+
+function CrossSportTab() {
+  const [data, setData] = useState<{ sports: CrossSportRow[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<{ sports: CrossSportRow[] }>("/intelligence/cross-sport")
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const maxBids = Math.max(...(data?.sports.map(s => s.totalBids) ?? [1]), 1);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+        Live + archived intelligence aggregated by sport
+      </p>
+      {loading && <SkeletonRows n={4} />}
+      {!loading && !data?.sports.length && <EmptyState icon={Tag} msg="No cross-sport intelligence data yet." />}
+      {!loading && data && data.sports.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {data.sports.map(s => (
+            <div key={s.sport} className="rounded-xl border border-white/8 bg-card/60 p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-white uppercase tracking-wider">{s.sport}</span>
+                <Badge variant="outline" className="text-[9px] uppercase">{s.tournaments} tournaments</Badge>
+              </div>
+              <IntensityBar score={s.totalBids} max={maxBids} color="#22d3ee" />
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div><span className="text-muted-foreground/50">Total bids</span><p className="font-mono font-bold text-cyan-400">{s.totalBids.toLocaleString("en-IN")}</p></div>
+                <div><span className="text-muted-foreground/50">Avg response</span><p className="font-mono text-white">{fms(s.avgResponseMs)}</p></div>
+                <div><span className="text-muted-foreground/50">Sold / Unsold</span><p className="font-mono text-white">{s.sold} / {s.unsold}</p></div>
+                <div><span className="text-muted-foreground/50">Avg sold</span><p className="font-mono text-green-400">{fCr(s.avgSold)}</p></div>
+                <div><span className="text-muted-foreground/50">Avg bids/player</span><p className="font-mono text-white">{s.avgBidsPerPlayer?.toFixed(1) ?? "—"}</p></div>
+                <div><span className="text-muted-foreground/50">Archived</span><p className="font-mono text-purple-400">{s.archivedTournaments}</p></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: "overview", label: "Overview", icon: BarChart2 },
+  { id: "live", label: "Live", icon: Radio },
+  { id: "intensity", label: "Intensity", icon: Flame },
   { id: "replay", label: "Replay", icon: PlayCircle },
   { id: "demand", label: "Demand", icon: Radar },
   { id: "behavior", label: "Behavior", icon: Brain },
   { id: "players", label: "Players", icon: Users },
   { id: "observations", label: "Insights", icon: Eye },
+  { id: "crosssport", label: "Cross-Sport", icon: Tag },
+  { id: "archive", label: "Archive", icon: Layers },
   { id: "events", label: "Events", icon: Database },
 ] as const;
 
@@ -1190,6 +1775,21 @@ export default function AdminIntelligencePage() {
   const [tab, setTab] = useState<TabId>("overview");
   const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
+  const [filters, setFilters] = useState<IntelFilters>({ tournamentId: "", categoryId: "", teamId: "" });
+  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async (dataset: "all" | "bids" | "players" | "timers") => {
+    if (!filters.tournamentId) return;
+    setExporting(true);
+    try {
+      await downloadCsv(`/intelligence/export/live/${filters.tournamentId}?dataset=${dataset}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) navigate("/admin");
@@ -1201,6 +1801,24 @@ export default function AdminIntelligencePage() {
       .catch(() => setTournaments([]))
       .finally(() => setTournamentsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!filters.tournamentId) {
+      setFilterOptions(null);
+      return;
+    }
+    setOptionsLoading(true);
+    apiFetch<{ categories: FilterOptions["categories"]; teams: FilterOptions["teams"] }>(
+      `/intelligence/filters/${filters.tournamentId}`,
+    )
+      .then(d => setFilterOptions({ categories: d.categories, teams: d.teams }))
+      .catch(() => setFilterOptions(null))
+      .finally(() => setOptionsLoading(false));
+  }, [filters.tournamentId]);
+
+  const handleFilterChange = (next: Partial<IntelFilters>) => {
+    setFilters(prev => ({ ...prev, ...next }));
+  };
 
   if (authLoading) return null;
 
@@ -1242,19 +1860,35 @@ export default function AdminIntelligencePage() {
 
         {/* Content */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-[1400px] mx-auto px-5 py-5">
+          <div className="max-w-[1400px] mx-auto px-5 py-5 flex flex-col gap-4">
+            {!tournamentsLoading && (
+              <GlobalFilterBar
+                tournaments={tournaments}
+                filters={filters}
+                filterOptions={filterOptions}
+                optionsLoading={optionsLoading}
+                onChange={handleFilterChange}
+                onRefresh={() => setRefreshKey(k => k + 1)}
+                onExport={handleExport}
+                exporting={exporting}
+              />
+            )}
             {tournamentsLoading ? (
               <div className="flex flex-col gap-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
             ) : (
               <AnimatePresence mode="wait">
                 <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                  {tab === "overview" && <OverviewTab tournaments={tournaments} />}
-                  {tab === "replay" && <ReplayTab tournaments={tournaments} />}
-                  {tab === "demand" && <DemandTab tournaments={tournaments} />}
-                  {tab === "behavior" && <BehaviorTab tournaments={tournaments} />}
-                  {tab === "players" && <PlayersTab tournaments={tournaments} />}
-                  {tab === "observations" && <ObservationsTab tournaments={tournaments} />}
-                  {tab === "events" && <EventsTab tournaments={tournaments} />}
+                  {tab === "overview" && <OverviewTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "live" && <LiveTab filters={filters} />}
+                  {tab === "intensity" && <IntensityTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "replay" && <ReplayTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "demand" && <DemandTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "behavior" && <BehaviorTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "players" && <PlayersTab filters={filters} />}
+                  {tab === "observations" && <ObservationsTab filters={filters} refreshKey={refreshKey} />}
+                  {tab === "crosssport" && <CrossSportTab />}
+                  {tab === "archive" && <ArchiveTab />}
+                  {tab === "events" && <EventsTab filters={filters} refreshKey={refreshKey} />}
                 </motion.div>
               </AnimatePresence>
             )}

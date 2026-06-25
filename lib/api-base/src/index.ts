@@ -46,6 +46,7 @@ export {
 export {
   OWNER_APP_BASE,
   ownerJoinPath,
+  ownerJoinAppPath,
   ownerDashboardAppPath,
   ownerJoinPublicUrl,
 } from "./owner-urls.ts";

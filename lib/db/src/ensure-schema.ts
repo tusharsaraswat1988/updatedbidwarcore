@@ -56,4 +56,86 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS branding_assets_asset_type_active_idx
       ON branding_assets (asset_type);
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS intelligence_archives (
+      id SERIAL PRIMARY KEY,
+      source_tournament_id INTEGER NOT NULL,
+      tournament_name TEXT NOT NULL,
+      tournament_sport TEXT NOT NULL DEFAULT 'cricket',
+      organizer_id INTEGER,
+      archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      bid_event_count INTEGER NOT NULL DEFAULT 0,
+      player_event_count INTEGER NOT NULL DEFAULT 0,
+      timer_event_count INTEGER NOT NULL DEFAULT 0,
+      metadata_json JSONB
+    );
+    CREATE TABLE IF NOT EXISTS intelligence_archive_bid_events (
+      id SERIAL PRIMARY KEY,
+      archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+      source_tournament_id INTEGER NOT NULL,
+      source_event_id INTEGER,
+      tournament_name TEXT NOT NULL,
+      tournament_sport TEXT NOT NULL,
+      player_id INTEGER NOT NULL,
+      global_player_id TEXT,
+      team_id INTEGER NOT NULL,
+      team_name TEXT,
+      team_short_code TEXT,
+      sport TEXT NOT NULL,
+      bid_amount INTEGER NOT NULL,
+      previous_bid_amount INTEGER,
+      bid_increment INTEGER NOT NULL,
+      bid_sequence_number INTEGER NOT NULL,
+      milliseconds_since_last_bid INTEGER,
+      timer_remaining_seconds INTEGER,
+      is_manual_bid BOOLEAN NOT NULL DEFAULT false,
+      became_leader BOOLEAN NOT NULL DEFAULT true,
+      timestamp TIMESTAMPTZ NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS intelligence_archive_player_events (
+      id SERIAL PRIMARY KEY,
+      archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+      source_tournament_id INTEGER NOT NULL,
+      source_event_id INTEGER,
+      tournament_name TEXT NOT NULL,
+      tournament_sport TEXT NOT NULL,
+      player_id INTEGER NOT NULL,
+      global_player_id TEXT,
+      category_id INTEGER,
+      category_name TEXT,
+      sport TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      player_role TEXT,
+      player_age INTEGER,
+      player_city TEXT,
+      player_snapshot_json TEXT,
+      base_price INTEGER,
+      outcome TEXT NOT NULL,
+      auction_started_at TIMESTAMPTZ,
+      auction_ended_at TIMESTAMPTZ,
+      final_amount INTEGER,
+      sold_to_team_id INTEGER,
+      sold_to_team_name TEXT,
+      total_bids_received INTEGER,
+      interested_teams_count INTEGER,
+      auction_duration_seconds INTEGER,
+      average_secs_between_bids INTEGER,
+      timestamp TIMESTAMPTZ NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS intelligence_archive_timer_events (
+      id SERIAL PRIMARY KEY,
+      archive_id INTEGER NOT NULL REFERENCES intelligence_archives(id) ON DELETE CASCADE,
+      source_tournament_id INTEGER NOT NULL,
+      source_event_id INTEGER,
+      tournament_name TEXT NOT NULL,
+      tournament_sport TEXT NOT NULL,
+      player_id INTEGER,
+      action TEXT NOT NULL,
+      timer_type TEXT,
+      timer_seconds INTEGER,
+      triggered_by TEXT NOT NULL,
+      timestamp TIMESTAMPTZ NOT NULL
+    );
+  `);
 }

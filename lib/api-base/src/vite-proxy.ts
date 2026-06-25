@@ -2,7 +2,6 @@ import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT } from "./index.ts";
-import { ownerJoinPath } from "./owner-urls.ts";
 
 export type ViteApiProxyOptions = {
   target: string;
@@ -308,29 +307,6 @@ export function ownerAppDevProxyPlugin(): Plugin {
     name: "bidwar-owner-app-asset-proxy",
     apply: "serve",
     configureServer(server) {
-      // Legacy dashboard URLs → canonical join entry (must run before proxy).
-      server.middlewares.use((req, res, next) => {
-        const pathname = (req.url ?? "/").split("?")[0] ?? "/";
-        const match = pathname.match(
-          /^\/owner-app\/tournament\/(\d+)\/owner\/(\d+)\/?$/,
-        );
-        if (!match || !req.headers.accept?.includes("text/html")) {
-          next();
-          return;
-        }
-        const tid = parseInt(match[1]!, 10);
-        const teamId = parseInt(match[2]!, 10);
-        res.statusCode = 302;
-        res.setHeader(
-          "Location",
-          ownerJoinPath(
-            Number.isFinite(tid) ? tid : undefined,
-            Number.isFinite(teamId) ? teamId : undefined,
-          ),
-        );
-        res.end();
-      });
-
       server.middlewares.use((req, res, next) => {
         const raw = req.url ?? "/";
         const pathname = raw.split("?")[0] ?? "/";

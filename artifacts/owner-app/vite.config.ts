@@ -4,9 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
-import { ownerJoinPath } from "../../lib/api-base/src/owner-urls.ts";
 import { createViteApiProxy } from "../../lib/api-base/src/vite-proxy.ts";
-import type { Plugin } from "vite";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
@@ -38,41 +36,9 @@ if (Number.isNaN(port) || port <= 0) {
 /** Always /owner-app/ — do not use process.env.BASE_PATH (auction-platform sets "/"). */
 const basePath = "/owner-app/";
 
-/** Full-page legacy share URLs → canonical join entry (matches production api-server redirect). */
-function ownerLegacyShareRedirect(): Plugin {
-  return {
-    name: "owner-legacy-share-redirect",
-    apply: "serve",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const pathname = (req.url ?? "/").split("?")[0] ?? "/";
-        const match = pathname.match(
-          /^\/owner-app\/tournament\/(\d+)\/owner\/(\d+)\/?$/,
-        );
-        if (!match || !req.headers.accept?.includes("text/html")) {
-          next();
-          return;
-        }
-        const tid = parseInt(match[1], 10);
-        const teamId = parseInt(match[2], 10);
-        res.statusCode = 302;
-        res.setHeader(
-          "Location",
-          ownerJoinPath(
-            Number.isFinite(tid) ? tid : undefined,
-            Number.isFinite(teamId) ? teamId : undefined,
-          ),
-        );
-        res.end();
-      });
-    },
-  };
-}
-
 export default defineConfig({
   base: basePath,
   plugins: [
-    ownerLegacyShareRedirect(),
     react(),
     tailwindcss(),
     VitePWA({

@@ -467,23 +467,19 @@ router.delete("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const { teamsTable, playersTable, bidsTable, auctionSessionsTable, categoriesTable } = await import("@workspace/db");
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
-  await db.delete(auctionSessionsTable).where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.delete(playersTable).where(eq(playersTable.tournamentId, tid));
-  await db.delete(teamsTable).where(eq(teamsTable.tournamentId, tid));
-  await db.delete(categoriesTable).where(eq(categoriesTable.tournamentId, tid));
-  const [deleted] = await db.delete(tournamentsTable).where(eq(tournamentsTable.id, tid)).returning();
+  if (!beforeTournament) { res.status(404).json({ error: "Not found" }); return; }
+  const { adminDeleteTournamentCascade } = await import("../lib/admin-delete-tournament");
+  const deleted = await adminDeleteTournamentCascade(tid);
   if (!deleted) { res.status(404).json({ error: "Not found" }); return; }
   auditLog(req, {
     category: "admin",
     action: "tournament.admin_deleted",
-    summary: `Admin deleted tournament "${deleted.name}" and all related data`,
+    summary: `Admin deleted tournament "${beforeTournament.name}" and all tournament-scoped data`,
     severity: "critical",
     tournamentId: tid,
     resource: { type: "tournament", id: tid },
-    before: beforeTournament ? snapshotTournament(beforeTournament) : snapshotTournament(deleted),
+    before: snapshotTournament(beforeTournament),
     alertKey: "tournament_admin_deleted",
   });
   res.json({ success: true });

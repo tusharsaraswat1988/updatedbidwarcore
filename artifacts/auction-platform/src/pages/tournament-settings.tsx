@@ -24,7 +24,6 @@ import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
 import { settingsPath } from "@/lib/settings-navigation";
 import { auctionResetPath } from "@/lib/tournament-navigation";
-import { DISPLAY_THEMES_LIST, type DisplayThemeName } from "@/lib/display-theme";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -33,7 +32,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -75,11 +74,6 @@ export default function TournamentSettings() {
   const [sponsorUploadingIdx, setSponsorUploadingIdx] = useState<number | "new" | null>(null);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
-
-  const [displayTheme, setDisplayTheme] = useState<DisplayThemeName>(() => {
-    try { return (localStorage.getItem(`display_theme_${tournamentId}`) ?? "default") as DisplayThemeName; }
-    catch { return "default"; }
-  });
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -224,7 +218,7 @@ export default function TournamentSettings() {
     if (!initialized) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "playerRegistration" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
+    if (tab === "identity" || tab === "playerRegistration" || tab === "auction" || tab === "sponsors" || tab === "broadcast" || tab === "recovery") {
       setActiveSection(tab);
     }
     const focus = params.get("focus") as SettingsFocusField | null;
@@ -261,16 +255,6 @@ export default function TournamentSettings() {
     }));
     setBidTiers([{ increment }]);
     toast({ title: "Cricket preset applied", description: "Changes will save automatically." });
-  }
-
-  function handleDisplayThemeChange(t: DisplayThemeName) {
-    setDisplayTheme(t);
-    try { localStorage.setItem(`display_theme_${tournamentId}`, t); } catch { /* ignore */ }
-    try {
-      const ch = new BroadcastChannel("bidwar_display_theme");
-      ch.postMessage({ tournamentId, theme: t });
-      ch.close();
-    } catch { /* ignore */ }
   }
 
   function closeBannerEditor() {
@@ -600,6 +584,7 @@ export default function TournamentSettings() {
     { id: "identity", label: "Basic Info", icon: Building2 },
     { id: "playerRegistration", label: "Player Registration", icon: UserPlus },
     { id: "auction", label: "Auction Rules", icon: Gavel },
+    { id: "sponsors", label: "Sponsors", icon: Handshake },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
     { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
@@ -1295,12 +1280,29 @@ export default function TournamentSettings() {
           </div>
         )}
 
+        {/* ── SPONSORS ── */}
+        {activeSection === "sponsors" && (
+          <div className="max-w-3xl">
+            <SettingsCard
+              title="Sponsor Logos"
+              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 2 seconds on the big screen."
+              icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
+            >
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Logo required; name and type optional.</span>
+                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
+              </div>
+              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
+            </SettingsCard>
+          </div>
+        )}
+
         {/* ── BROADCAST ── */}
         {activeSection === "broadcast" && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <SettingsCard
               title="LED Display"
-              description="Main banner, display mode, and colour theme for the big screen."
+              description="Main banner and display mode for the big screen. Pick the LED colour theme on the live display."
               icon={<Monitor className="w-4 h-4 text-muted-foreground" />}
             >
               <div className="flex items-center justify-between gap-3">
@@ -1391,29 +1393,6 @@ export default function TournamentSettings() {
                   </p>
                 </div>
               </div>
-              <div className="space-y-1.5 pt-1 border-t border-border/50">
-                <Label className="text-xs text-muted-foreground">Theme</Label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {DISPLAY_THEMES_LIST.map(t => (
-                    <button key={t.id} title={t.label} onClick={() => handleDisplayThemeChange(t.id)} className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${displayTheme === t.id ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300" : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: t.dot }} />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </SettingsCard>
-
-            <SettingsCard
-              title="Sponsors"
-              description="Logos rotate on the LED display every 2 seconds."
-              icon={<ImageIcon className="w-4 h-4 text-muted-foreground" />}
-            >
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Logo required; name and type optional.</span>
-                <span>{sponsorLogos.length} logo{sponsorLogos.length === 1 ? "" : "s"}</span>
-              </div>
-              <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
             </SettingsCard>
 
             <SettingsCard
