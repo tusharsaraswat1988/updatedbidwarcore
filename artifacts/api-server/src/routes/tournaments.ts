@@ -62,7 +62,10 @@ const cloudinaryLogoUrl = z
 
 const router = Router();
 
-const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
+const tournamentToJson = (
+  t: typeof tournamentsTable.$inferSelect,
+  options?: { includeScoringPin?: boolean },
+) => ({
   id: t.id,
   name: t.name,
   sport: t.sport,
@@ -116,6 +119,10 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   licenseStatus: t.licenseStatus ?? "trial",
   adminLocked: t.adminLocked ?? false,
   matchDates: t.matchDates ?? null,
+  scoringEnabled: t.scoringEnabled ?? false,
+  scoringPhase: t.scoringPhase ?? "disabled",
+  hasScoringPin: !!t.scoringPin,
+  scoringPin: options?.includeScoringPin ? (t.scoringPin ?? null) : undefined,
   createdAt: t.createdAt.toISOString(),
 });
 
@@ -238,7 +245,7 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(tournamentToJson(tournament));
+  res.json(tournamentToJson(tournament, { includeScoringPin: isOrganizerOrAdmin(req, id) }));
 });
 
 router.patch("/tournaments/:tournamentId", async (req, res) => {
@@ -288,6 +295,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
     matchDates: z.string().nullable().optional(),
+    scoringEnabled: z.boolean().optional(),
+    scoringPhase: z.enum(["disabled", "active", "completed"]).optional(),
+    scoringPin: z.string().min(4).max(12).nullable().optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -343,6 +353,17 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
+  if (d.scoringEnabled !== undefined) {
+    updates.scoringEnabled = d.scoringEnabled;
+    if (d.scoringEnabled && d.scoringPhase === undefined) {
+      updates.scoringPhase = "active";
+    }
+    if (!d.scoringEnabled && d.scoringPhase === undefined) {
+      updates.scoringPhase = "disabled";
+    }
+  }
+  if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
+  if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
   const [tournament] = await db
     .update(tournamentsTable)
     .set(updates)
@@ -365,7 +386,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
-  res.json(tournamentToJson(tournament));
+  res.json(tournamentToJson(tournament, { includeScoringPin: true }));
 });
 
 router.delete("/tournaments/:tournamentId", async (req, res) => {

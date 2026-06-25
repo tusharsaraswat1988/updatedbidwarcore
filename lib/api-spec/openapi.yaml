@@ -1873,6 +1873,19 @@ components:
         matchDates:
           type: ["string", "null"]
           description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty/null hides availability everywhere."
+        scoringEnabled:
+          type: boolean
+          description: "Whether mobile cricket scoring is enabled for this tournament"
+        scoringPhase:
+          type: string
+          enum: [disabled, active, completed]
+          description: "Scoring lifecycle phase"
+        hasScoringPin:
+          type: boolean
+          description: "Whether a delegate scoring PIN is configured"
+        scoringPin:
+          type: ["string", "null"]
+          description: "Delegate PIN for ground scorers (organizer/admin only)"
         createdAt:
           type: string
 
@@ -2060,6 +2073,14 @@ components:
         matchDates:
           type: ["string", "null"]
           description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'"
+        scoringEnabled:
+          type: boolean
+        scoringPhase:
+          type: string
+          enum: [disabled, active, completed]
+        scoringPin:
+          type: ["string", "null"]
+          description: "Delegate PIN for ground scorers (4–12 chars); empty string clears"
         reason:
           type: string
           description: Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters)

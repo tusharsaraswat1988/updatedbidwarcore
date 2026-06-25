@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { useScoringMatches } from "@/hooks/use-scoring-match";
+import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
+import { settingsPath } from "@/lib/settings-navigation";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ChevronRight, CircleDot, Monitor } from "lucide-react";
@@ -50,14 +51,15 @@ export default function ScoringMatchListPage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId);
+  const isCricket = tournament?.sport === "cricket";
+  const scoringEnabled = tournament?.scoringEnabled === true;
+  const { data: squadData } = useSquadReadiness(tournamentId, isCricket && scoringEnabled);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
   const [overs, setOvers] = useState("20");
   const [creating, setCreating] = useState(false);
-
-  const isCricket = tournament?.sport === "cricket";
 
   async function handleCreate() {
     const home = parseInt(homeTeamId, 10);
@@ -99,6 +101,15 @@ export default function ScoringMatchListPage() {
         {!isCricket ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
             Scoring is only available for cricket tournaments.
+          </div>
+        ) : !scoringEnabled ? (
+          <div className="p-6 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Cricket scoring is not enabled for this tournament.
+            </p>
+            <Button variant="outline" onClick={() => navigate(settingsPath(tournamentId, "scoring"))}>
+              Enable in settings
+            </Button>
           </div>
         ) : (
           <div className="p-4 space-y-4">
@@ -170,11 +181,15 @@ export default function ScoringMatchListPage() {
                     <SelectValue placeholder="Select team" />
                   </SelectTrigger>
                   <SelectContent>
-                    {teams?.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
+                    {teams?.map((t) => {
+                      const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                      return (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name}
+                          {squad ? ` (${squad.eligibleCount} players)` : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -185,14 +200,23 @@ export default function ScoringMatchListPage() {
                     <SelectValue placeholder="Select team" />
                   </SelectTrigger>
                   <SelectContent>
-                    {teams?.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)} disabled={homeTeamId === String(t.id)}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
+                    {teams?.map((t) => {
+                      const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                      return (
+                        <SelectItem key={t.id} value={String(t.id)} disabled={homeTeamId === String(t.id)}>
+                          {t.name}
+                          {squad ? ` (${squad.eligibleCount} players)` : ""}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
+              {squadData?.squads.some((s) => !s.ready) ? (
+                <p className="text-xs text-amber-400/90">
+                  Some teams have fewer than {squadData.minPlayingXi} sold/retained players — playing XI may be incomplete.
+                </p>
+              ) : null}
               <div className="space-y-2">
                 <Label>Overs</Label>
                 <Input value={overs} onChange={(e) => setOvers(e.target.value)} inputMode="numeric" />

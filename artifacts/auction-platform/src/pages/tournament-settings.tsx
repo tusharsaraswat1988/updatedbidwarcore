@@ -26,7 +26,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Volume2, VolumeX, Play, Coffee, ChevronDown, ChevronRight as ChevronRightIcon,
-  Megaphone, Clapperboard, Loader2, Info, CalendarDays,
+  Megaphone, Clapperboard, Loader2, Info, CalendarDays, CircleDot,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -205,6 +205,8 @@ export default function TournamentSettings() {
       mainBannerEnabled: tournament.mainBannerEnabled ?? false,
       mainBannerFit: tournament.mainBannerFit ?? "cover",
       matchDates: tournament.matchDates ?? "",
+      scoringEnabled: tournament.scoringEnabled ?? false,
+      scoringPin: tournament.scoringPin ?? "",
     };
     setEditForm(initialForm);
 
@@ -246,7 +248,7 @@ export default function TournamentSettings() {
     if (!initialized) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as SettingsTab | null;
-    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "recovery") {
+    if (tab === "identity" || tab === "auction" || tab === "broadcast" || tab === "scoring" || tab === "recovery") {
       setActiveSection(tab);
     }
     const focus = params.get("focus") as SettingsFocusField | null;
@@ -438,6 +440,8 @@ export default function TournamentSettings() {
         mainBannerEnabled: editForm.mainBannerEnabled === true,
         mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
         matchDates: (editForm.matchDates as string).trim() || null,
+        scoringEnabled: editForm.scoringEnabled === true,
+        scoringPin: (editForm.scoringPin as string).trim() || null,
       },
     });
     qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -449,6 +453,9 @@ export default function TournamentSettings() {
     { id: "identity", label: "Basic Info", icon: Building2 },
     { id: "auction", label: "Auction Rules", icon: Gavel },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
+    ...(editForm.sport === "cricket"
+      ? [{ id: "scoring" as const, label: "Cricket Scoring", icon: CircleDot }]
+      : []),
     { id: "recovery", label: "Reset", icon: ShieldAlert },
   ];
 
@@ -1245,6 +1252,50 @@ export default function TournamentSettings() {
                     )}
                   </div>
                 </>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── CRICKET SCORING ── */}
+        {activeSection === "scoring" && editForm.sport === "cricket" && (
+          <>
+            <div className="rounded-lg border border-border/60 bg-card/50 p-5 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <CircleDot className="w-4 h-4 text-primary" />
+                  Mobile Scorer & LED
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Uses sold and retained players from your auction as playing squads. Points table updates automatically when matches finish.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/10 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">Enable cricket scoring</p>
+                  <p className="text-xs text-muted-foreground">Shows scorer, LED board, and points table on the tournament hub.</p>
+                </div>
+                <Switch
+                  checked={editForm.scoringEnabled === true}
+                  onCheckedChange={(v) => setEditForm((f) => ({ ...f, scoringEnabled: v }))}
+                />
+              </div>
+
+              {editForm.scoringEnabled === true && (
+                <div className="space-y-2">
+                  <Label htmlFor="scoring-pin">Delegate scorer PIN (optional)</Label>
+                  <Input
+                    id="scoring-pin"
+                    value={editForm.scoringPin as string}
+                    onChange={(e) => setEditForm((f) => ({ ...f, scoringPin: e.target.value }))}
+                    placeholder="4–12 characters for ground staff"
+                    maxLength={12}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ground staff can score without your organizer login when they enter this PIN on the scorer screen.
+                  </p>
+                </div>
               )}
             </div>
           </>

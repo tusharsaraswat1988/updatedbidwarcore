@@ -19,6 +19,7 @@ import { buildCricketMatchSummary } from "@workspace/scoring-core";
 import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
 
 const router = Router();
 
@@ -107,6 +108,50 @@ function liveDisplayJson(result: Awaited<ReturnType<typeof getLiveScoringDisplay
     summary: result.summary,
   };
 }
+
+/** Public points table (no auth). */
+router.get("/tournaments/:tournamentId/scoring/standings", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  try {
+    const standings = await getScoringStandings(tournamentId);
+    res.json({ standings });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Squad readiness from auction sold/retained players (organizer). */
+router.get("/tournaments/:tournamentId/scoring/squads", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!isOrganizerOrAdmin(req, tournamentId)) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  try {
+    const squads = await getSquadReadiness(tournamentId);
+    res.json({ squads, minPlayingXi: 11 });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
 
 /** Public snapshot for LED display (no auth). */
 router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
