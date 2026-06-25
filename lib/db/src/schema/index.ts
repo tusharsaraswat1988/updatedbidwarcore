@@ -34,6 +34,7 @@ export * from "./scoring_events";
 export * from "./scoring_standings";
 export * from "./scoring_match_player_stats";
 export * from "./scoring_leaderboard_snapshots";
+export * from "./scoring_player_awards";
 export * from "./badminton";
 export * from "./master-sports";
 export * from "./tournament-player-profiles";

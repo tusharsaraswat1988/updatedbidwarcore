@@ -25,6 +25,7 @@ import { broadcastScoringState } from "./scoring-broadcast";
 import { rebuildTournamentStandings } from "./scoring-standings";
 import {
   projectMatchPlayerStats,
+  projectMatchAwards,
   rebuildTournamentLeaderboards,
 } from "./scoring-stats-service";
 
@@ -409,6 +410,7 @@ export async function appendScoringEvent(
     await rebuildTournamentStandings(tournamentId);
     if (matchStatus === "completed") {
       await projectMatchPlayerStats(matchId);
+      await projectMatchAwards(matchId);
       await rebuildTournamentLeaderboards(tournamentId);
     }
   }

@@ -126,6 +126,21 @@ export function cricketMatchPublicPath(tournamentId: number, matchId: number): s
   return `/tournament/${tournamentId}/cricket/match/${matchId}`;
 }
 
+/** Public tournament player profile. */
+export function cricketPlayerPublicPath(tournamentId: number, playerId: number): string {
+  return `/tournament/${tournamentId}/cricket/player/${playerId}`;
+}
+
+/** Public tournament team profile. */
+export function cricketTeamPublicPath(tournamentId: number, teamId: number): string {
+  return `/tournament/${tournamentId}/cricket/team/${teamId}`;
+}
+
+/** Global cricket player career profile. */
+export function globalCricketPlayerPath(globalPlayerId: string): string {
+  return `/player/${globalPlayerId}`;
+}
+
 /** LED cricket scoreboard (public, optional auction code). */
 export function scoreDisplayPath(
   tournamentId: number,

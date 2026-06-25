@@ -5,6 +5,7 @@ import {
   scoringLeaderboardSnapshotsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
+  scoringPlayerAwardsTable,
   teamsTable,
 } from "@workspace/db";
 import {
@@ -12,6 +13,7 @@ import {
   buildLeaderboard,
   scorecardToPlayerStats,
   aggregateTournamentPlayerStats,
+  pickManOfTheMatch,
   type BattingCardRow,
   type BowlingCardRow,
   type CricketFullScorecard,
@@ -124,6 +126,80 @@ export async function projectMatchPlayerStats(matchId: number): Promise<void> {
       fieldingJson: row.fielding,
     })),
   );
+}
+
+/** Project Man of the Match award for a completed match. */
+export async function projectMatchAwards(matchId: number): Promise<void> {
+  const [match] = await db
+    .select()
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.id, matchId))
+    .limit(1);
+
+  if (!match || match.status !== "completed") return;
+
+  const statRows = await db
+    .select()
+    .from(scoringMatchPlayerStatsTable)
+    .where(eq(scoringMatchPlayerStatsTable.matchId, matchId));
+
+  const playerStats: PlayerMatchStatsInput[] = statRows.map((row) => {
+    const batting: BattingCardRow | null = row.battingJson
+      ? {
+          playerId: row.playerId,
+          runs: row.battingJson.runs,
+          balls: row.battingJson.balls,
+          fours: row.battingJson.fours,
+          sixes: row.battingJson.sixes,
+          strikeRate: row.battingJson.strikeRate,
+          notOut: row.battingJson.notOut,
+          dismissalType: row.battingJson.dismissalType as BattingCardRow["dismissalType"],
+          dismissedByPlayerId: null,
+          fielderId: null,
+        }
+      : null;
+
+    const bowling: BowlingCardRow | null = row.bowlingJson
+      ? {
+          playerId: row.playerId,
+          overs: row.bowlingJson.overs,
+          maidens: row.bowlingJson.maidens,
+          runs: row.bowlingJson.runs,
+          wickets: row.bowlingJson.wickets,
+          wides: row.bowlingJson.wides,
+          noBalls: row.bowlingJson.noBalls,
+          economy: row.bowlingJson.economy,
+        }
+      : null;
+
+    return {
+      matchId: row.matchId,
+      playerId: row.playerId,
+      teamId: row.teamId,
+      innings: row.innings,
+      batting,
+      bowling,
+      fielding: row.fieldingJson ?? { catches: 0, runOuts: 0, stumpings: 0 },
+    };
+  });
+
+  const mom = pickManOfTheMatch(playerStats, match.winnerTeamId);
+  await db
+    .delete(scoringPlayerAwardsTable)
+    .where(eq(scoringPlayerAwardsTable.matchId, matchId));
+
+  if (!mom) return;
+
+  await db.insert(scoringPlayerAwardsTable).values({
+    matchId: match.id,
+    tournamentId: match.tournamentId,
+    playerId: mom.playerId,
+    teamId: mom.teamId,
+    awardType: "man_of_the_match",
+    selectionMethod: "auto",
+    score: mom.score,
+    reason: mom.reason,
+  });
 }
 
 /** Rebuild all leaderboard snapshots for a tournament. */
@@ -310,6 +386,33 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
 
   const playerMap = new Map(players.map((p) => [p.id, p.name]));
 
+  const [momAward] = await db
+    .select()
+    .from(scoringPlayerAwardsTable)
+    .where(
+      and(
+        eq(scoringPlayerAwardsTable.matchId, matchId),
+        eq(scoringPlayerAwardsTable.awardType, "man_of_the_match"),
+      ),
+    )
+    .limit(1);
+
+  let manOfTheMatch: {
+    playerId: number;
+    playerName: string;
+    teamId: number;
+    reason: string | null;
+  } | null = null;
+
+  if (momAward) {
+    manOfTheMatch = {
+      playerId: momAward.playerId,
+      playerName: playerMap.get(momAward.playerId) ?? `Player ${momAward.playerId}`,
+      teamId: momAward.teamId,
+      reason: momAward.reason,
+    };
+  }
+
   return {
     match: {
       id: match.id,
@@ -325,5 +428,6 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     },
     scorecard,
     players: Object.fromEntries(playerMap),
+    manOfTheMatch,
   };
 }

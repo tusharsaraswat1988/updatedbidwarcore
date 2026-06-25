@@ -805,6 +805,23 @@ void pool
     CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_lb_tournament_category
       ON scoring_leaderboard_snapshots (tournament_id, category);
     CREATE INDEX IF NOT EXISTS ix_scoring_lb_tournament_id ON scoring_leaderboard_snapshots (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_player_awards (
+      id SERIAL PRIMARY KEY,
+      match_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      player_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      award_type TEXT NOT NULL DEFAULT 'man_of_the_match',
+      selection_method TEXT NOT NULL DEFAULT 'auto',
+      score INTEGER,
+      reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_awards_match_type
+      ON scoring_player_awards (match_id, award_type);
+    CREATE INDEX IF NOT EXISTS ix_scoring_awards_tournament_id ON scoring_player_awards (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_awards_player_id ON scoring_player_awards (player_id);
   `)
   .catch((err) => {
     console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);

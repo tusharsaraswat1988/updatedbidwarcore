@@ -5,6 +5,7 @@ import { ScorecardView } from "@/components/scoring/scorecard-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
+import { ShareButtons } from "@/components/scoring/share-buttons";
 
 export default function ScoringMatchPublicPage() {
   const [, params] = useRoute("/tournament/:id/cricket/match/:matchId");
@@ -16,6 +17,11 @@ export default function ScoringMatchPublicPage() {
     queryFn: () => getPublicMatchScorecard(tournamentId, matchId),
     enabled: !!tournamentId && !!matchId,
   });
+
+  const pageUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/tournament/${tournamentId}/cricket/match/${matchId}`
+      : "";
 
   if (isLoading) {
     return (
@@ -44,12 +50,21 @@ export default function ScoringMatchPublicPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <Link
           href={cricketPublicPath(tournamentId)}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white mb-6"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-white mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           Tournament
         </Link>
-        <ScorecardView data={data} />
+        {pageUrl ? (
+          <div className="mb-4">
+            <ShareButtons
+              url={pageUrl}
+              shareText={`${data.match.homeTeam?.name ?? "Home"} vs ${data.match.awayTeam?.name ?? "Away"} — scorecard`}
+              compact
+            />
+          </div>
+        ) : null}
+        <ScorecardView data={data} tournamentId={tournamentId} />
       </div>
     </div>
   );

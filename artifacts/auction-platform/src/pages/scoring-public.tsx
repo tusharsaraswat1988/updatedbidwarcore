@@ -7,7 +7,8 @@ import { StandingsTable } from "@/components/scoring/standings-table";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CircleDot } from "lucide-react";
-import { cricketMatchPublicPath } from "@/lib/tournament-navigation";
+import { cricketMatchPublicPath, cricketTeamPublicPath } from "@/lib/tournament-navigation";
+import { ShareButtons } from "@/components/scoring/share-buttons";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 
 const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
@@ -58,6 +59,9 @@ export default function ScoringPublicPage() {
   const completed = (data?.matches ?? []).filter((m: { status: string }) => m.status === "completed");
 
   const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
+  const pageUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournamentId}/cricket` : "";
+  const shareTitle = data?.tournament?.name ?? "Cricket tournament";
 
   if (isLoading) {
     return (
@@ -84,6 +88,11 @@ export default function ScoringPublicPage() {
         <div className="max-w-3xl mx-auto px-4 py-8">
           <p className="text-xs uppercase tracking-[0.2em] text-amber-400/80 mb-2">Cricket</p>
           <h1 className="text-3xl font-bold tracking-tight text-white">{data.tournament.name}</h1>
+          {pageUrl ? (
+            <div className="pt-3">
+              <ShareButtons url={pageUrl} shareText={`${shareTitle} — live scores & leaderboards`} compact />
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -206,7 +215,11 @@ export default function ScoringPublicPage() {
               </button>
             ))}
           </div>
-          <LeaderboardTable rows={leaderboard ?? []} valueLabel={activeLb?.valueLabel} />
+          <LeaderboardTable
+            rows={leaderboard ?? []}
+            valueLabel={activeLb?.valueLabel}
+            tournamentId={tournamentId}
+          />
         </section>
 
         {standings && standings.length > 0 ? (

@@ -174,6 +174,12 @@ export type PublicScorecardResponse = {
   };
   scorecard: CricketFullScorecard;
   players: Record<string, string>;
+  manOfTheMatch?: {
+    playerId: number;
+    playerName: string;
+    teamId: number;
+    reason: string | null;
+  } | null;
 };
 
 export async function getScoringLeaderboard(
@@ -196,6 +202,83 @@ export async function getPublicMatchScorecard(
   const r = await apiFetch(
     `/tournaments/${tournamentId}/scoring/matches/${matchId}/scorecard`,
   );
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export type TournamentPlayerProfile = {
+  player: {
+    id: number;
+    name: string;
+    role: string | null;
+    photoUrl: string | null;
+    globalPlayerId: string | null;
+  };
+  team: { id: number; name: string; shortCode: string; color: string | null } | null;
+  stats: {
+    matches: number;
+    runs: number;
+    wickets: number;
+    strikeRate: number;
+    fours: number;
+    sixes: number;
+    economy: number;
+  } | null;
+  manOfTheMatchAwards: Array<{ matchId: number; reason: string | null; awardedAt: string }>;
+  recentMatches: Array<{
+    id: number;
+    homeTeamId: number;
+    awayTeamId: number;
+    status: string;
+    resultSummary: string | null;
+    completedAt: string | null;
+  }>;
+};
+
+export async function getTournamentPlayerProfile(
+  tournamentId: number,
+  playerId: number,
+): Promise<TournamentPlayerProfile> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/public/players/${playerId}`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export type TournamentTeamProfile = {
+  team: { id: number; name: string; shortCode: string; color: string | null; logoUrl: string | null };
+  standing: {
+    played: number;
+    won: number;
+    lost: number;
+    tied: number;
+    noResult: number;
+    points: number;
+    netRunRate: number;
+  } | null;
+  squad: Array<{ id: number; name: string; role: string | null; status: string; soldPrice: number | null }>;
+  recentResults: Array<{
+    id: number;
+    homeTeamId: number;
+    awayTeamId: number;
+    winnerTeamId: number | null;
+    resultSummary: string | null;
+    completedAt: string | null;
+    won: boolean;
+  }>;
+  topBatsmen: Array<{ playerId: number; playerName: string; runs: number; matches: number; strikeRate: number }>;
+};
+
+export async function getTournamentTeamProfile(
+  tournamentId: number,
+  teamId: number,
+): Promise<TournamentTeamProfile> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/public/teams/${teamId}`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function getGlobalCricketPlayerProfile(globalPlayerId: string) {
+  const r = await apiFetch(`/global-players/${globalPlayerId}/cricket-profile`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }

@@ -18,6 +18,7 @@ import {
   isCorsOriginAllowed,
 } from "./lib/runtime-env";
 import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
+import { isCricketPublicPath, resolveCricketPageMeta } from "./lib/cricket-page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
 import {
@@ -196,9 +197,17 @@ if (serveStatic) {
     // <title>, <meta>, canonical, OG/Twitter tags, and JSON-LD schemas.
     // This ensures social crawlers and bots that don't run JavaScript see the
     // correct metadata for each page.
-    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       if (req.method !== "GET") return next();
-      const meta = getPageMeta(req.path);
+
+      let meta = getPageMeta(req.path);
+      if (!meta && isCricketPublicPath(req.path)) {
+        try {
+          meta = await resolveCricketPageMeta(req.path);
+        } catch {
+          meta = null;
+        }
+      }
       if (!meta) return next();
 
       const html = injectPageMeta(meta);

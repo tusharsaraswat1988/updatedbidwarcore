@@ -26,6 +26,11 @@ import {
   getTournamentLeaderboard,
   type EnrichedLeaderboardRow,
 } from "../lib/scoring-stats-service";
+import {
+  getGlobalPlayerCricketProfile,
+  getTournamentPlayerPublicProfile,
+  getTournamentTeamPublicProfile,
+} from "../lib/scoring-public-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 
 const router = Router();
@@ -485,6 +490,65 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
       state: result.state,
       match: matchToJson(result.match),
     });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Public tournament player profile (stats + MoM awards). */
+router.get("/tournaments/:tournamentId/scoring/public/players/:playerId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const playerId = parseId(req.params.playerId);
+  if (tournamentId === null || playerId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  try {
+    res.json(await getTournamentPlayerPublicProfile(tournamentId, playerId));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Public tournament team profile (squad + results). */
+router.get("/tournaments/:tournamentId/scoring/public/teams/:teamId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const teamId = parseId(req.params.teamId);
+  if (tournamentId === null || teamId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  try {
+    res.json(await getTournamentTeamPublicProfile(tournamentId, teamId));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Global cricket player career profile (public). */
+router.get("/global-players/:globalPlayerId/cricket-profile", async (req, res) => {
+  const globalPlayerId = String(req.params.globalPlayerId || "").trim();
+  if (!globalPlayerId) {
+    res.status(400).json({ error: "Invalid player ID" });
+    return;
+  }
+
+  try {
+    res.json(await getGlobalPlayerCricketProfile(globalPlayerId));
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });

@@ -467,12 +467,17 @@ Event store, reducer V1, mobile scorer, standings, auction squad integration, SS
 
 **Exit criteria:** Completed match produces full scorecard + tournament leaderboards; fans can view scorecard without auth. **Met.**
 
-### Phase 3 — Parity polish
+### Phase 3 — Parity polish ✅
 
-- Player/team public profiles, MoM awards
-- Share URLs, WhatsApp OG tags
-- OpenAPI for scoring routes
-- Scorer shell visual refresh (IPL-grade)
+| Deliverable | Status |
+|-------------|--------|
+| Player/team public profiles | ✅ |
+| Man of the Match awards (`scoring_player_awards`) | ✅ |
+| Share URLs + WhatsApp-friendly OG meta (cricket pages) | ✅ |
+| OpenAPI for scoring routes | ✅ |
+| Scorer shell visual refresh (IPL-grade dark theme) | ✅ |
+
+**Exit criteria:** Fans can share tournament hub, match scorecards, and player profiles with rich previews; MoM appears on completed scorecards; scoring APIs documented in OpenAPI. **Met.**
 
 ### Phase 4 — Future ready
 

@@ -1,4 +1,7 @@
+import { Link } from "wouter";
 import type { PublicScorecardResponse } from "@/lib/scoring-api";
+import { cricketPlayerPublicPath } from "@/lib/tournament-navigation";
+import { Award } from "lucide-react";
 
 function playerName(map: Record<string, string>, id: number): string {
   return map[String(id)] ?? `Player ${id}`;
@@ -15,10 +18,11 @@ function teamLabel(
 
 type ScorecardViewProps = {
   data: PublicScorecardResponse;
+  tournamentId?: number;
 };
 
-export function ScorecardView({ data }: ScorecardViewProps) {
-  const { match, scorecard, players } = data;
+export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
+  const { match, scorecard, players, manOfTheMatch } = data;
 
   return (
     <div className="space-y-8">
@@ -31,6 +35,25 @@ export function ScorecardView({ data }: ScorecardViewProps) {
         </h1>
         {match.resultSummary ? (
           <p className="text-sm text-amber-300/90">{match.resultSummary}</p>
+        ) : null}
+        {manOfTheMatch ? (
+          <p className="text-sm text-amber-200/90 flex items-center gap-2 pt-1">
+            <Award className="h-4 w-4 shrink-0" />
+            Player of the Match:{" "}
+            {tournamentId ? (
+              <Link
+                href={cricketPlayerPublicPath(tournamentId, manOfTheMatch.playerId)}
+                className="font-semibold hover:underline"
+              >
+                {manOfTheMatch.playerName}
+              </Link>
+            ) : (
+              <span className="font-semibold">{manOfTheMatch.playerName}</span>
+            )}
+            {manOfTheMatch.reason ? (
+              <span className="text-muted-foreground">({manOfTheMatch.reason})</span>
+            ) : null}
+          </p>
         ) : null}
       </header>
 

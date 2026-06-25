@@ -70,6 +70,9 @@ const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
 const ScoringPublic = lazy(() => import("@/pages/scoring-public"));
 const ScoringMatchPublic = lazy(() => import("@/pages/scoring-match-public"));
+const ScoringPlayerPublic = lazy(() => import("@/pages/scoring-player-public"));
+const ScoringTeamPublic = lazy(() => import("@/pages/scoring-team-public"));
+const CricketGlobalPlayer = lazy(() => import("@/pages/cricket-global-player"));
 const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
@@ -437,6 +440,21 @@ function Router() {
             </ScoringFeatureGuard>
           )}
         </Route>
+        <Route path="/tournament/:id/cricket/player/:playerId">
+          {() => (
+            <ScoringFeatureGuard>
+              <ScoringPlayerPublic />
+            </ScoringFeatureGuard>
+          )}
+        </Route>
+        <Route path="/tournament/:id/cricket/team/:teamId">
+          {() => (
+            <ScoringFeatureGuard>
+              <ScoringTeamPublic />
+            </ScoringFeatureGuard>
+          )}
+        </Route>
+        <Route path="/player/:globalPlayerId" component={CricketGlobalPlayer} />
         <Route path="/tournament/:id/cricket">
           {() => (
             <ScoringFeatureGuard>
