@@ -13,6 +13,8 @@ import {
   teamsTable,
   bidsTable,
   auctionBidEventsTable,
+  auctionPlayerEventsTable,
+  auctionTimerEventsTable,
   tournamentsTable,
   categoriesTable,
   organizersTable,
@@ -56,6 +58,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
 import { auditLog } from "../lib/audit-service";
+import { invalidateIntelCacheForTournament } from "../lib/intelligence-cache";
 import { parseAuditReason } from "../lib/audit-reason";
 import {
   onAuctionPlayerSoldAsync,
@@ -1829,7 +1832,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
   res.json(await broadcastState(tid, ["players"]));
 });
 
-// POST reset trial auction — reset all non-retained players to available, clear bids.
+// POST reset trial auction — reset all non-retained players to available, clear bids and intelligence logs.
 // Operator panel: tournament organizer password. Admin panel: super admin password (ADMIN_PASSWORD).
 router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
@@ -1928,6 +1931,16 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
   }
 
   await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
+
+  // Trial resets must not leave behavioral intelligence — it would pollute live analytics.
+  await db.delete(auctionBidEventsTable).where(eq(auctionBidEventsTable.tournamentId, tid));
+  await db
+    .delete(auctionPlayerEventsTable)
+    .where(eq(auctionPlayerEventsTable.tournamentId, tid));
+  await db
+    .delete(auctionTimerEventsTable)
+    .where(eq(auctionTimerEventsTable.tournamentId, tid));
+  invalidateIntelCacheForTournament(tid);
 
   await db
     .update(auctionSessionsTable)

@@ -113,7 +113,8 @@ export default function AuctionReset() {
             </div>
             <ul className="text-sm text-red-200/80 space-y-1.5 list-disc list-inside pl-1">
               <li>Every sold / unsold result — all players reset to "Available"</li>
-              <li>All bid records for this tournament</li>
+              <li>All bid records and live bid feed history for this tournament</li>
+              <li>All AI intelligence data (replay, behavior, demand, and briefing reports)</li>
               <li>All purse usage for every team (back to full purse)</li>
             </ul>
             <p className="text-sm text-muted-foreground pt-1">

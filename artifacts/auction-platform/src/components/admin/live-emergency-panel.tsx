@@ -289,7 +289,7 @@ export function LiveEmergencyPanel({
             <DialogTitle className="text-red-400">Reset auction data</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This clears bids, player sales, and auction progress for <strong className="text-white">{t.name}</strong>.
+            This clears bids, bid feed history, AI intelligence data, player sales, and auction progress for <strong className="text-white">{t.name}</strong>.
             Enter your super admin password to confirm.
           </p>
           <Input
