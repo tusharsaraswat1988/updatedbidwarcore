@@ -35,6 +35,7 @@ import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/disp
 import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
 
 const TEAMS_PREVIEW = 6;
+const MOBILE_CHEER_VISIBLE_LIMIT = 8;
 
 type CheerEntry = { id: string; supporterLabel: string; message: string; teamColor: string | null; teamId: number; timestamp: number };
 
@@ -813,130 +814,76 @@ function CheerFeedRail({
   );
 }
 
+function MobileCheerBubble({ entry }: { entry: CheerEntry }) {
+  const tc = entry.teamColor || "#F59E0B";
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -16, scale: 0.94 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -8, scale: 0.92, transition: { duration: 0.18 } }}
+      transition={{ type: "spring", stiffness: 420, damping: 30 }}
+      className="flex items-start gap-1.5 w-fit max-w-full rounded-2xl px-2.5 py-1.5 bg-black/50 backdrop-blur-md border border-white/10 shadow-lg"
+      style={{ boxShadow: `0 2px 12px ${tc}18` }}
+    >
+      <span
+        className="font-bold text-[11px] leading-snug flex-shrink-0"
+        style={{ color: tc }}
+      >
+        {entry.supporterLabel}
+      </span>
+      <span className="text-[11px] text-white/90 leading-snug break-words">
+        {entry.message}
+      </span>
+    </motion.div>
+  );
+}
+
 function MobileCheerFeed({
   messages,
-  teams,
-  heatLevel,
-  fanBattle,
-  heatMeterEnabled,
-  fanBattleEnabled,
+  overlayBottom,
 }: {
   messages: CheerEntry[];
-  teams: TeamPurse[];
-  heatLevel: string | null;
-  fanBattle: Record<string, number>;
-  heatMeterEnabled: boolean;
-  fanBattleEnabled: boolean;
+  overlayBottom: number;
 }) {
-  const [open, setOpen] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const prevCountRef = useRef(messages.length);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef(false);
+
+  const visibleMessages = messages.slice(-MOBILE_CHEER_VISIBLE_LIMIT);
 
   useEffect(() => {
-    const prev = prevCountRef.current;
-    prevCountRef.current = messages.length;
-    if (messages.length <= prev) return;
-    setFlash(true);
-    const t = setTimeout(() => setFlash(false), 700);
-    return () => clearTimeout(t);
-  }, [messages.length]);
+    const el = scrollRef.current;
+    if (!el || userScrolledUpRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [visibleMessages.length, visibleMessages[visibleMessages.length - 1]?.id]);
 
-  const recentMessages = [...messages].reverse().slice(0, 6);
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 28;
+    userScrolledUpRef.current = !atBottom;
+  }
+
+  if (visibleMessages.length === 0) return null;
 
   return (
-    <>
-      {/* Right-edge pull tab — visible when drawer is closed */}
-      <AnimatePresence>
-        {!open && (
-          <motion.button
-            key="feed-tab"
-            initial={{ x: 56 }}
-            animate={{ x: 0, scale: flash ? [1, 1.12, 1] : 1 }}
-            exit={{ x: 56 }}
-            transition={{ type: "spring", stiffness: 340, damping: 28 }}
-            onClick={() => setOpen(true)}
-            className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 px-2.5 py-3.5 bg-[#18181b] border border-white/12 border-r-0 rounded-l-xl shadow-2xl"
-          >
-            <motion.div animate={flash ? { scale: [1, 1.3, 1] } : {}} transition={{ duration: 0.5 }}>
-              <Flame className="w-4 h-4 text-amber-400" />
-            </motion.div>
-            {messages.length > 0 && (
-              <span className="text-[9px] font-black text-amber-400 tabular-nums leading-none">
-                {messages.length > 99 ? "99+" : messages.length}
-              </span>
-            )}
-            <span
-              className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60 leading-none"
-              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-            >
-              LIVE
-            </span>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* Slide-in drawer from the right */}
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              key="feed-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              key="feed-drawer"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 30 }}
-              className="fixed right-0 top-0 bottom-0 z-50 w-72 max-w-[82vw] bg-[#111] border-l border-white/10 flex flex-col"
-            >
-              {/* Drawer header */}
-              <div className="flex-shrink-0 px-4 py-3.5 border-b border-white/8 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Cheer</span>
-                  {heatMeterEnabled && heatLevel && heatLevel !== "CALM" && (
-                    <HeatBadge level={heatLevel} />
-                  )}
-                </div>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
-              {fanBattleEnabled && Object.keys(fanBattle).length > 0 && (
-                <div className="flex-shrink-0 px-4 pt-2.5 pb-2 border-b border-white/5">
-                  <FanBattleStrip fanBattle={fanBattle} teams={teams} />
-                </div>
-              )}
-              {/* Feed — last 6, newest first */}
-              <div className="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
-                {recentMessages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
-                    <MessageCircle className="w-8 h-8 text-muted-foreground/20 mb-3" />
-                    <p className="text-xs text-muted-foreground/40">No cheers yet</p>
-                    <p className="text-[10px] text-muted-foreground/25 mt-1">Be the first to cheer!</p>
-                  </div>
-                ) : (
-                  <AnimatePresence mode="popLayout">
-                    {recentMessages.map((m) => (
-                      <CheerCard key={m.id} entry={m} />
-                    ))}
-                  </AnimatePresence>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </>
+    <div
+      className="fixed left-3 z-30 flex flex-col max-w-[min(78vw,300px)] pointer-events-none xl:hidden"
+      style={{ bottom: overlayBottom }}
+    >
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="pointer-events-auto flex flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1 scrollbar-none"
+        style={{ maxHeight: "min(40vh, 280px)" }}
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {visibleMessages.map((m) => (
+            <MobileCheerBubble key={m.id} entry={m} />
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
@@ -1075,9 +1022,12 @@ export default function LiveViewerPage() {
 
   // ── Cheer logic ────────────────────────────────────────────────────────────
   const cheerEnabled = tournament?.cheerMessagesEnabled !== false;
-  const cheerCooldownSeconds = (tournament as { cheerCooldownSeconds?: number } | undefined)?.cheerCooldownSeconds ?? 8;
+  const cheerCooldownSeconds = (tournament as { cheerCooldownSeconds?: number } | undefined)?.cheerCooldownSeconds ?? 2;
   const heatMeterEnabled = (tournament as { cheerHeatMeterEnabled?: boolean } | undefined)?.cheerHeatMeterEnabled ?? false;
   const fanBattleEnabled = (tournament as { cheerFanBattleEnabled?: boolean } | undefined)?.cheerFanBattleEnabled ?? false;
+  const cheerOverlayBottom =
+    cheerBottomOffset +
+    (heatMeterEnabled && heatLevel && heatLevel !== "CALM" ? 80 : 56);
   const cheerPresets = useMemo<string[]>(() => {
     const raw = tournament?.cheerMessagePresets;
     if (!raw) return DEFAULT_CHEER_PRESETS;
@@ -1125,7 +1075,7 @@ export default function LiveViewerPage() {
       return;
     }
     setCheerCooldown(true);
-    const localCooldownMs = Math.max(500, (cheerCooldownSeconds - 1) * 1000);
+    const localCooldownMs = cheerCooldownSeconds * 1000;
     setTimeout(() => setCheerCooldown(false), localCooldownMs);
     setCheerOpen(false);
     void postCheer(cheerTeamId, idx);
@@ -1814,18 +1764,12 @@ export default function LiveViewerPage() {
         toggle={toggleSound}
       />
 
-      {/* ── Mobile cheer feed rail — collapsible right-edge drawer (xl+ uses the fixed CheerFeedRail) ─── */}
+      {/* ── Mobile cheer overlay — Instagram Live style auto-feed (xl+ uses CheerFeedRail) ─── */}
       {cheerEnabled && (
-        <div className="xl:hidden">
-          <MobileCheerFeed
-            messages={cheerMessages}
-            teams={teamPurses ?? []}
-            heatLevel={heatLevel}
-            fanBattle={fanBattle}
-            heatMeterEnabled={heatMeterEnabled}
-            fanBattleEnabled={fanBattleEnabled}
-          />
-        </div>
+        <MobileCheerFeed
+          messages={cheerMessages}
+          overlayBottom={cheerOverlayBottom}
+        />
       )}
 
       {/* ── CHEER LIVE pill button ────────────────────────────────────────── */}

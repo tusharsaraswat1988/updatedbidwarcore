@@ -455,7 +455,7 @@ function DetailPanel({
   // Cheer settings
   const [cheerEnabled, setCheerEnabled] = useState(true);
   const [cheerPresets, setCheerPresets] = useState<string[]>([]);
-  const [cheerCooldownSeconds, setCheerCooldownSeconds] = useState(8);
+  const [cheerCooldownSeconds, setCheerCooldownSeconds] = useState(2);
   const [cheerHeatMeterEnabled, setCheerHeatMeterEnabled] = useState(false);
   const [cheerFanBattleEnabled, setCheerFanBattleEnabled] = useState(false);
   const [savingCheer, setSavingCheer] = useState(false);
@@ -511,7 +511,7 @@ function DetailPanel({
       );
       // Initialize cheer settings
       setCheerEnabled(d.tournament.cheerMessagesEnabled ?? true);
-      setCheerCooldownSeconds((d.tournament as { cheerCooldownSeconds?: number }).cheerCooldownSeconds ?? 8);
+      setCheerCooldownSeconds((d.tournament as { cheerCooldownSeconds?: number }).cheerCooldownSeconds ?? 2);
       setCheerHeatMeterEnabled((d.tournament as { cheerHeatMeterEnabled?: boolean }).cheerHeatMeterEnabled ?? false);
       setCheerFanBattleEnabled((d.tournament as { cheerFanBattleEnabled?: boolean }).cheerFanBattleEnabled ?? false);
       if (d.tournament.cheerMessagePresets) {

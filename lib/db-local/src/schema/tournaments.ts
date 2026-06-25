@@ -32,6 +32,11 @@ export const tournamentsTable = sqliteTable("tournaments", {
   localModeEnabled: integer("local_mode_enabled").notNull().default(0),
   operatorPin: text("operator_pin"),
   organizerPassword: text("organizer_password"),
+  cheerMessagesEnabled: integer("cheer_messages_enabled").notNull().default(1),
+  cheerMessagePresets: text("cheer_message_presets"),
+  cheerCooldownSeconds: integer("cheer_cooldown_seconds").notNull().default(2),
+  cheerHeatMeterEnabled: integer("cheer_heat_meter_enabled").notNull().default(0),
+  cheerFanBattleEnabled: integer("cheer_fan_battle_enabled").notNull().default(0),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });

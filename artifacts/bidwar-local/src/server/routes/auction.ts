@@ -11,17 +11,66 @@ import {
 import type { LocalDb } from "@workspace/db-local";
 import {
   auctionSessionsTable, playersTable, teamsTable, bidsTable, tournamentsTable,
-  purseBoostersTable,
+  purseBoostersTable, categoriesTable,
 } from "@workspace/db-local";
+import { CHEER_DEFAULT_PRESETS } from "@workspace/cheer-presets";
 import {
   computeEffectiveCapacity,
   getActiveBoosterTotal,
   validateCancelBooster,
 } from "../lib/purse-capacity.js";
 import { mirrorStateToCloud } from "../mirror.js";
+import { fetchCloudVenueGuard, releaseVenueAuctionOnCloud } from "../lib/venue-guard.js";
 
 // SSE client registry (in-process, no separate broadcast module needed)
 const sseClients = new Map<number, Set<Response>>();
+
+const cheerRateLimiter = new Map<string, number>();
+const fanBattleCounters = new Map<number, Map<number, number>>();
+const recentCheerTimestamps = new Map<number, number[]>();
+
+setInterval(() => {
+  const cutoff = Date.now() - 120_000;
+  for (const [ip, ts] of cheerRateLimiter) {
+    if (ts < cutoff) cheerRateLimiter.delete(ip);
+  }
+}, 60_000);
+
+function getHeatLevel(tournamentId: number): string {
+  const timestamps = recentCheerTimestamps.get(tournamentId) ?? [];
+  const cutoff = Date.now() - 30_000;
+  const recent = timestamps.filter((t) => t > cutoff).length;
+  if (recent >= 13) return "WAR MODE";
+  if (recent >= 7) return "HEATED";
+  if (recent >= 3) return "ACTIVE";
+  return "CALM";
+}
+
+type PlayerSelectionMode = "sequential" | "random" | "manual";
+
+function normalizePlayerSelectionMode(mode: string | null | undefined): PlayerSelectionMode {
+  if (mode === "random" || mode === "manual") return mode;
+  return "sequential";
+}
+
+function selectPlayerFromPool(
+  pool: { id: number }[],
+  mode: PlayerSelectionMode | undefined,
+  session: { randomDrawQueue?: string | null; currentPlayerId?: number | null },
+): { playerId: number; randomDrawQueue: string | null } | null {
+  if (pool.length === 0) return null;
+  if (mode === "random") {
+    const pick = pickRandomPlayerFromPool(pool, {
+      queueJson: session.randomDrawQueue,
+      lastPlayerId: session.currentPlayerId,
+    });
+    return { playerId: pick.playerId, randomDrawQueue: pick.queueJson };
+  }
+  return {
+    playerId: pool.reduce((a, b) => (a.id < b.id ? a : b)).id,
+    randomDrawQueue: null,
+  };
+}
 
 function addSseClient(tid: number, res: Response) {
   if (!sseClients.has(tid)) sseClients.set(tid, new Set());
@@ -160,6 +209,14 @@ export function createAuctionRouter(db: LocalDb) {
     let activeCategoryIds: number[] | null = null;
     try { if (session.activeCategoryIds) activeCategoryIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
 
+    let deferredPlayerIds: number[] = [];
+    try { if (session.deferredPlayerIds) deferredPlayerIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
+
+    let displayPlayerFilter: { status: string; categoryId: number | null; teamId: number | null } | undefined;
+    if (session.displayPlayerFilter) {
+      try { displayPlayerFilter = JSON.parse(session.displayPlayerFilter); } catch { /* ignore */ }
+    }
+
     let displayCountdown: { type: string; endsAt: string; message: string | null } | null = null;
     if (session.displayCountdown) {
       try {
@@ -225,13 +282,18 @@ export function createAuctionRouter(db: LocalDb) {
       wheelItems,
       wheelWinner: session.wheelSpinning ? null : session.wheelWinner,
       teamPurseViewActive: session.teamPurseViewActive,
+      displayOverlay: session.displayOverlay ?? null,
+      displayPlayerFilter,
       isBreak: session.isBreak ?? false,
       breakEndsAt: session.breakEndsAt ?? null,
       displayCountdown,
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+      licenseStatus: "active",
+      trialTeamIds: null,
+      deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
       lastPurseBooster,
       ledPurseToast,
-      lastAuctionActivityAt: session.updatedAt?.toISOString() ?? null,
+      lastAuctionActivityAt: session.updatedAt ?? null,
     };
   }
 
@@ -297,6 +359,12 @@ export function createAuctionRouter(db: LocalDb) {
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
     if (session.status === "idle" && tournament) {
+      const cloudGuard = await fetchCloudVenueGuard(tournament);
+      if (cloudGuard?.blockLocalStart) {
+        res.status(409).json({ error: cloudGuard.reason ?? "Cloud auction is already running." });
+        return;
+      }
+
       const [{ count: teamCount }] = await db
         .select({ count: sql<number>`count(*)` })
         .from(teamsTable)
@@ -651,6 +719,8 @@ export function createAuctionRouter(db: LocalDb) {
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
     await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+
+    releaseVenueAuctionOnCloud(db, tid);
 
     res.json(await broadcastState(tid, ["players"]));
   });
@@ -1089,6 +1159,220 @@ export function createAuctionRouter(db: LocalDb) {
     }).where(eq(purseBoostersTable.id, boosterId));
 
     await broadcastState(tid, ["purses"]);
+    res.json({ ok: true });
+  });
+
+  // POST defer current player — send to back of queue; auto-advance unless manual selection mode
+  router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const session = await getOrCreateSession(tid);
+    if (rejectIfAuctionPaused(session, res)) return;
+    if (!session.currentPlayerId) {
+      res.status(400).json({ error: "No player currently on the block" });
+      return;
+    }
+
+    const deferredId = session.currentPlayerId;
+    const [deferredPlayer] = await db
+      .select({ name: playersTable.name })
+      .from(playersTable)
+      .where(eq(playersTable.id, deferredId));
+
+    let deferredIds: number[] = [];
+    try { if (session.deferredPlayerIds) deferredIds = JSON.parse(session.deferredPlayerIds); } catch { /* ignore */ }
+    if (!deferredIds.includes(deferredId)) deferredIds.push(deferredId);
+
+    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    const timerSecs = tournament?.timerSeconds ?? 30;
+    const selMode = normalizePlayerSelectionMode(tournament?.playerSelectionMode);
+
+    let activeCatIds: number[] | null = null;
+    try { if (session.activeCategoryIds) activeCatIds = JSON.parse(session.activeCategoryIds); } catch { /* ignore */ }
+
+    if (selMode === "manual") {
+      await db.update(auctionSessionsTable).set({
+        status: "active",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerSeconds: timerSecs,
+        timerEndsAt: null,
+        pausedTimeRemaining: null,
+        deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+        lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
+      }).where(eq(auctionSessionsTable.tournamentId, tid));
+      res.json(await broadcastState(tid, ["players"]));
+      return;
+    }
+
+    const baseConditions = [eq(playersTable.tournamentId, tid), eq(playersTable.status, "available")];
+    const allAvailable = activeCatIds && activeCatIds.length > 0
+      ? await db.select().from(playersTable).where(and(...baseConditions, inArray(playersTable.categoryId as Parameters<typeof inArray>[0], activeCatIds)))
+      : await db.select().from(playersTable).where(and(...baseConditions));
+
+    const nonDeferred = allAvailable.filter((p) => !deferredIds.includes(p.id));
+    const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter((p) => deferredIds.includes(p.id));
+
+    const pick = selectPlayerFromPool(pool, selMode, session);
+    if (!pick) {
+      await db.update(auctionSessionsTable).set({
+        status: "completed", currentPlayerId: null, currentBid: null,
+        currentBidTeamId: null, timerEndsAt: null,
+        lastAction: "Auction completed — all players processed",
+      }).where(eq(auctionSessionsTable.tournamentId, tid));
+      await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+      res.json(await broadcastState(tid, ["players"]));
+      return;
+    }
+
+    let newDeferredIds = deferredIds;
+    if (deferredIds.includes(pick.playerId)) {
+      newDeferredIds = deferredIds.filter((id) => id !== pick.playerId);
+    }
+
+    const [selectedPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, pick.playerId));
+    let startingBid = selectedPlayer.basePrice;
+    if (selectedPlayer.categoryId) {
+      const [cat] = await db.select({ minBid: categoriesTable.minBid })
+        .from(categoriesTable).where(eq(categoriesTable.id, selectedPlayer.categoryId));
+      if (cat?.minBid != null && cat.minBid > 0) startingBid = cat.minBid;
+    }
+
+    await db.update(auctionSessionsTable).set({
+      status: "active",
+      currentPlayerId: pick.playerId,
+      currentBid: startingBid,
+      currentBidTeamId: null,
+      timerSeconds: timerSecs,
+      timerEndsAt: null,
+      pausedTimeRemaining: null,
+      deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
+      randomDrawQueue: pick.randomDrawQueue,
+      lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — Now bidding: ${selectedPlayer.name}`,
+    }).where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid, ["players"]));
+  });
+
+  // POST set LED display overlay mode (off | team | player | top5 | banner)
+  router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const body = z.object({ mode: z.enum(["off", "team", "player", "top5", "banner"]) }).safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    await getOrCreateSession(tid);
+    const overlay = body.data.mode === "off" ? null : body.data.mode;
+    await db.update(auctionSessionsTable).set({
+      displayOverlay: overlay,
+      teamPurseViewActive: overlay !== null,
+    }).where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid));
+  });
+
+  // POST set Player View filter shown on LED display
+  router.post("/tournaments/:tournamentId/auction/display-player-filter", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const body = z.object({
+      status: z.enum(["all", "sold", "unsold", "available", "retained"]),
+      categoryId: z.number().int().nullable().optional(),
+      teamId: z.number().int().nullable().optional(),
+    }).safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+    await getOrCreateSession(tid);
+    const filter = {
+      status: body.data.status,
+      categoryId: body.data.categoryId ?? null,
+      teamId: body.data.teamId ?? null,
+    };
+    await db.update(auctionSessionsTable).set({
+      displayPlayerFilter: JSON.stringify(filter),
+    }).where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid));
+  });
+
+  // POST stop timer — ends the current bid window
+  router.post("/tournaments/:tournamentId/auction/stop-timer", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    await getOrCreateSession(tid);
+    await db.update(auctionSessionsTable).set({
+      timerEndsAt: null,
+      pausedTimeRemaining: null,
+    }).where(eq(auctionSessionsTable.tournamentId, tid));
+    res.json(await broadcastState(tid));
+  });
+
+  // POST audience cheer message (LED fan battle / heat meter)
+  router.post("/tournaments/:tournamentId/cheer", async (req, res) => {
+    const tid = parseInt(req.params.tournamentId);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid tournament ID" }); return; }
+
+    const bodySchema = z.object({
+      teamId: z.number().int().positive(),
+      reactionId: z.number().int().min(0).max(9),
+    });
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const { teamId, reactionId } = parsed.data;
+
+    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+    if (!tournament.cheerMessagesEnabled) {
+      res.status(403).json({ error: "Cheer messages are disabled for this tournament" });
+      return;
+    }
+
+    const cooldownMs = (tournament.cheerCooldownSeconds ?? 2) * 1000;
+    const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").replace("::ffff:", "");
+    const now = Date.now();
+    const last = cheerRateLimiter.get(ip) ?? 0;
+    if (now - last < cooldownMs) {
+      res.status(429).json({
+        error: "Too many requests",
+        cooldownSeconds: tournament.cheerCooldownSeconds ?? 2,
+      });
+      return;
+    }
+    cheerRateLimiter.set(ip, now);
+
+    const [team] = await db.select().from(teamsTable)
+      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+    if (!team) { res.status(400).json({ error: "Team not found in this tournament" }); return; }
+
+    let presets: string[] = CHEER_DEFAULT_PRESETS;
+    if (tournament.cheerMessagePresets) {
+      try {
+        const p = JSON.parse(tournament.cheerMessagePresets) as unknown;
+        if (Array.isArray(p) && p.length > 0) presets = p as string[];
+      } catch { /* use defaults */ }
+    }
+    const message = presets[reactionId];
+    if (!message) { res.status(400).json({ error: "Invalid reaction ID" }); return; }
+
+    const supporterLabel = `${(team.shortCode ?? team.name.slice(0, 4)).toUpperCase()} FANS`;
+
+    if (!fanBattleCounters.has(tid)) fanBattleCounters.set(tid, new Map());
+    const tmap = fanBattleCounters.get(tid)!;
+    tmap.set(teamId, (tmap.get(teamId) ?? 0) + 1);
+    const fanBattle: Record<string, number> = {};
+    for (const [k, v] of tmap) fanBattle[String(k)] = v;
+
+    if (!recentCheerTimestamps.has(tid)) recentCheerTimestamps.set(tid, []);
+    const tsArr = recentCheerTimestamps.get(tid)!;
+    tsArr.push(now);
+    recentCheerTimestamps.set(tid, tsArr.filter((t) => t > now - 300_000));
+
+    broadcastToTournament(tid, {
+      type: "cheer_message",
+      supporterLabel,
+      message,
+      teamColor: team.color ?? null,
+      teamId,
+      timestamp: now,
+      heatLevel: getHeatLevel(tid),
+      fanBattle,
+    });
     res.json({ ok: true });
   });
 

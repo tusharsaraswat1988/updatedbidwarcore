@@ -13,6 +13,7 @@ import { createTeamsRouter } from "./routes/teams.js";
 import { createPlayersRouter } from "./routes/players.js";
 import { createCategoriesRouter } from "./routes/categories.js";
 import { createAuctionRouter } from "./routes/auction.js";
+import { createBrandingRouter } from "./routes/branding.js";
 import { createLocalRouter } from "./routes/local.js";
 import { createSyncWorker } from "./sync-worker.js";
 
@@ -39,7 +40,18 @@ async function main() {
   app.use("/api", createPlayersRouter(db));
   app.use("/api", createCategoriesRouter(db));
   app.use("/api", createAuctionRouter(db));
+  app.use("/api", createBrandingRouter(db));
   app.use("/local", createLocalRouter(db, CLOUD_BASE_URL));
+
+  const mediaDir = path.join(path.dirname(DB_PATH), "media");
+  if (existsSync(mediaDir)) {
+    app.use("/media", express.static(mediaDir));
+  }
+
+  // Unmatched /api/* must return JSON 404 — never fall through to the SPA catch-all.
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ error: "Not found" });
+  });
 
   const frontendDist = path.join(__dirname, "../frontend-dist");
   const ownerAppDist = path.join(__dirname, "../owner-app-dist");

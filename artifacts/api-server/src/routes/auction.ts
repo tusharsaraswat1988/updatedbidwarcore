@@ -54,6 +54,7 @@ import {
   validateAuctionReadiness,
   type AuctionReadinessMode,
 } from "@workspace/api-base/auction-readiness";
+import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
 import { auditLog } from "../lib/audit-service";
 import { parseAuditReason } from "../lib/audit-reason";
 import {
@@ -914,6 +915,18 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     await db.update(tournamentsTable)
       .set({ adminLocked: false, adminLockedAt: null })
       .where(eq(tournamentsTable.id, tid));
+  }
+
+  if (tournament?.localModeEnabled && session.status === "idle") {
+    const guard = evaluateVenueAuctionGuard({
+      localModeEnabled: true,
+      cloudSessionStatus: session.status,
+      lastMirrorAt: tournament.exportTokenLastMirrorAt,
+    });
+    if (guard.blockCloudStart) {
+      res.status(409).json({ error: guard.blockCloudStartReason });
+      return;
+    }
   }
 
   // Readiness gate — first start only (idle → active). Resume from pause skips validation.
@@ -2704,15 +2717,15 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
     return;
   }
 
-  // Per-IP cooldown — uses tournament's configured value (default 8s)
-  const cooldownMs = (tournament.cheerCooldownSeconds ?? 8) * 1000;
+  // Per-IP cooldown — uses tournament's configured value (default 2s)
+  const cooldownMs = (tournament.cheerCooldownSeconds ?? 2) * 1000;
   const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").replace("::ffff:", "");
   const now = Date.now();
   const last = cheerRateLimiter.get(ip) ?? 0;
   if (now - last < cooldownMs) {
     res.status(429).json({
       error: "Too many requests",
-      cooldownSeconds: tournament.cheerCooldownSeconds ?? 8,
+      cooldownSeconds: tournament.cheerCooldownSeconds ?? 2,
     });
     return;
   }

@@ -80,7 +80,7 @@ export const tournamentsTable = pgTable("tournaments", {
   // Cheer messages (live viewer interactive reactions)
   cheerMessagesEnabled: boolean("cheer_messages_enabled").notNull().default(true),
   cheerMessagePresets: text("cheer_message_presets"), // JSON array of up to 10 strings
-  cheerCooldownSeconds: integer("cheer_cooldown_seconds").notNull().default(8),
+  cheerCooldownSeconds: integer("cheer_cooldown_seconds").notNull().default(2),
   cheerHeatMeterEnabled: boolean("cheer_heat_meter_enabled").notNull().default(false),
   cheerFanBattleEnabled: boolean("cheer_fan_battle_enabled").notNull().default(false),
   // Main Banner — full-screen broadcast overlay for felicitation/announcements

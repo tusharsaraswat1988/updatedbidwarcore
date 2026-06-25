@@ -497,6 +497,9 @@ importers:
       '@workspace/api-base':
         specifier: workspace:*
         version: link:../../lib/api-base
+      '@workspace/cheer-presets':
+        specifier: workspace:*
+        version: link:../../lib/cheer-presets
       '@workspace/db-local':
         specifier: workspace:*
         version: link:../../lib/db-local

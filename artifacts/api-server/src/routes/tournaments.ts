@@ -6,11 +6,11 @@ import {
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
-import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable } from "@workspace/db";
 import { resolveSportIdBySlug } from "./sports";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { eq, and, sql } from "drizzle-orm";
@@ -28,8 +28,10 @@ import {
   PAYMENT_VERIFICATION_METHODS,
 } from "@workspace/api-base/registration-payment";
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
+import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
+import { brandingService } from "../lib/branding-service.js";
 import {
   resolveBroadcastAudioUrl,
   type PlatformAudioDefaults,
@@ -469,6 +471,71 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
   res.status(204).send();
 });
 
+// Venue auction guard — used by BidWar Local before starting a LAN auction.
+router.get("/tournaments/:tournamentId/venue-auction-guard", async (req, res) => {
+  const id = parseInt(String(req.params.tournamentId));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error });
+    return;
+  }
+
+  const [session] = await db
+    .select({ status: auctionSessionsTable.status })
+    .from(auctionSessionsTable)
+    .where(eq(auctionSessionsTable.tournamentId, id));
+
+  const guard = evaluateVenueAuctionGuard({
+    localModeEnabled: !!tournament.localModeEnabled,
+    cloudSessionStatus: session?.status ?? "idle",
+    lastMirrorAt: tournament.exportTokenLastMirrorAt,
+  });
+
+  res.json({
+    blockLocalStart: guard.blockLocalStart,
+    blockLocalStartReason: guard.blockLocalStartReason,
+    blockCloudStart: guard.blockCloudStart,
+    blockCloudStartReason: guard.blockCloudStartReason,
+    recentMirror: guard.recentMirror,
+    cloudLive: guard.cloudLive,
+  });
+});
+
+// Clear venue mirror heartbeat after local auction concludes.
+router.post("/tournaments/:tournamentId/venue-auction-release", async (req, res) => {
+  const id = parseInt(String(req.params.tournamentId));
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
+  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+
+  const tokenCheck = validateExportToken(
+    req.headers["x-export-token"],
+    tournament.exportToken,
+    tournament.exportTokenExpiresAt,
+  );
+  if (!tokenCheck.valid) {
+    res.status(tokenCheck.status).json({ error: tokenCheck.error });
+    return;
+  }
+
+  await db
+    .update(tournamentsTable)
+    .set({ exportTokenLastMirrorAt: null })
+    .where(eq(tournamentsTable.id, id));
+
+  res.json({ ok: true });
+});
+
 // GET export full tournament snapshot for local/offline mode
 // Requires organizer or admin session — token issuance is a privileged action
 router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) => {
@@ -493,9 +560,10 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
     return;
   }
 
-  // Generate a fresh 48-hour export token for this download
+  // Generate a fresh 48-hour export token and venue operator PIN for this download
   const exportToken = randomBytes(32).toString("hex");
   const exportTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const operatorPin = String(randomInt(1000, 10000));
   await db.update(tournamentsTable).set({ exportToken, exportTokenExpiresAt }).where(eq(tournamentsTable.id, id));
 
   // Derive the cloud base URL so the local app knows where to mirror back
@@ -504,6 +572,20 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, id));
   const players = await db.select().from(playersTable).where(eq(playersTable.tournamentId, id));
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, id));
+
+  const [brandingRow] = await db.select().from(brandingSettingsTable).limit(1);
+  const assetsMap = await brandingService.getAssetsMap();
+  const brandingPayload = brandingService.mergeLegacyAssetFields(
+    brandingRow ? { ...brandingRow, createdAt: brandingRow.createdAt.toISOString(), updatedAt: brandingRow.updatedAt.toISOString() } : {},
+    assetsMap,
+  );
+  const brandingAssets: Record<string, string> = {};
+  for (const [type, asset] of Object.entries(assetsMap)) {
+    if (asset?.fileUrl) brandingAssets[type] = asset.fileUrl;
+  }
+  if (Object.keys(brandingAssets).length > 0) {
+    (brandingPayload as Record<string, unknown>).assets = brandingAssets;
+  }
 
   const playerToJson = (p: typeof playersTable.$inferSelect) => ({
     id: p.id, tournamentId: p.tournamentId, categoryId: p.categoryId, teamId: p.teamId,
@@ -519,6 +601,7 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
     version: 1,
     exportedAt: new Date().toISOString(),
     exportToken,
+    operatorPin,
     cloudBaseUrl,
     tournament: {
       ...tournamentToJson(tournament),
@@ -538,6 +621,7 @@ router.get("/tournaments/:tournamentId/export", exportLimiter, async (req, res) 
       bidIncrement: c.bidIncrement, maxPlayers: c.maxPlayers, colorCode: c.colorCode,
       sortOrder: c.sortOrder, createdAt: c.createdAt.toISOString(),
     })),
+    branding: brandingPayload,
   });
 });
 

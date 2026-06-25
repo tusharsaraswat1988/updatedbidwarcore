@@ -195,6 +195,17 @@ export async function setupTables(client: Client): Promise<void> {
     "ALTER TABLE players ADD COLUMN serial_no INTEGER",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_players_tournament_serial_no ON players (tournament_id, serial_no)",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_teams_tournament_owner_mobile ON teams (tournament_id, owner_mobile)",
+    "ALTER TABLE auction_sessions ADD COLUMN deferred_player_ids TEXT",
+    "ALTER TABLE tournaments ADD COLUMN cheer_messages_enabled INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE tournaments ADD COLUMN cheer_message_presets TEXT",
+    "ALTER TABLE tournaments ADD COLUMN cheer_cooldown_seconds INTEGER NOT NULL DEFAULT 2",
+    "ALTER TABLE tournaments ADD COLUMN cheer_heat_meter_enabled INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tournaments ADD COLUMN cheer_fan_battle_enabled INTEGER NOT NULL DEFAULT 0",
+    `CREATE TABLE IF NOT EXISTS venue_snapshots (
+      key TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
   ];
   for (const sql of migrations) {
     try {

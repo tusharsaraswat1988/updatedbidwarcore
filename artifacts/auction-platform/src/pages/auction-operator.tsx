@@ -50,6 +50,7 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { useTimerExpired } from "@/hooks/use-timer-expired";
 import { ServerCountdown } from "@/components/server-countdown";
 import { OperatorLayout } from "@/components/operator-layout";
+import { LocalOperatorPinBar } from "@/components/local-operator-pin-bar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -734,6 +735,8 @@ export default function AuctionOperator() {
           secondsSinceLastActivity={feed.secondsSinceLastActivity}
           placement="inline"
         />
+
+        <LocalOperatorPinBar tournamentId={tournamentId} />
 
         {operatorLockReady && operatorReadOnly && (
           <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">

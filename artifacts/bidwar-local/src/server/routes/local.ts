@@ -1,5 +1,6 @@
 import { Router } from "express";
 import os from "node:os";
+import path from "node:path";
 import { eq, and, max } from "drizzle-orm";
 import { z } from "zod";
 import QRCode from "qrcode";
@@ -16,6 +17,13 @@ import {
 } from "@workspace/api-base/local-venue-urls";
 import { grantOrganizerForTournament } from "../lib/local-auth.js";
 import { getLocalJwtUser } from "../middleware/local-jwt-auth.js";
+import { saveBrandingSnapshot } from "./branding.js";
+import {
+  bundleMediaUrls,
+  rewriteUrl,
+  rewriteSponsorLogos,
+  urlsFromSponsorLogos,
+} from "../lib/media-bundle.js";
 
 function detectLocalLanIp(): string {
   const interfaces = os.networkInterfaces();
@@ -80,6 +88,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
     const schema = z.object({
       version: z.number(),
       exportToken: z.string().optional(),
+      operatorPin: z.string().min(4).max(12).optional(),
       cloudBaseUrl: z.string().url().optional(),
       tournament: z.object({
         id: z.number(), name: z.string(), sport: z.string(),
@@ -94,7 +103,13 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         maximumSquadSize: z.number().int().min(0).optional(),
         localModeEnabled: z.boolean().optional(),
         organizerPassword: z.string().nullish(),
+        cheerMessagesEnabled: z.boolean().optional(),
+        cheerMessagePresets: z.string().nullish(),
+        cheerCooldownSeconds: z.number().int().min(1).max(120).optional(),
+        cheerHeatMeterEnabled: z.boolean().optional(),
+        cheerFanBattleEnabled: z.boolean().optional(),
       }),
+      branding: z.record(z.string(), z.unknown()).optional(),
       teams: z.array(z.object({
         id: z.number(), name: z.string(), shortCode: z.string(), ownerName: z.string(),
         ownerMobile: z.string().nullish(), color: z.string().nullish(),
@@ -119,10 +134,30 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Invalid snapshot format", details: parsed.error.issues }); return; }
-    const { tournament: t, teams, players, categories, exportToken, cloudBaseUrl } = parsed.data;
+    const { tournament: t, teams, players, categories, exportToken, cloudBaseUrl, branding, operatorPin } = parsed.data;
     const minimumSquadSize = t.minimumSquadSize ?? 0;
     const maximumSquadSize = t.maximumSquadSize ?? 0;
     const localModeEnabled = (t.localModeEnabled ?? true) ? 1 : 0;
+    const cheerMessagesEnabled = (t.cheerMessagesEnabled ?? true) ? 1 : 0;
+    const cheerHeatMeterEnabled = (t.cheerHeatMeterEnabled ?? false) ? 1 : 0;
+    const cheerFanBattleEnabled = (t.cheerFanBattleEnabled ?? false) ? 1 : 0;
+    const cheerCooldownSeconds = t.cheerCooldownSeconds ?? 2;
+
+    const dbPath = process.env.DB_PATH || path.join(process.cwd(), "auction.db");
+    const mediaDir = path.join(path.dirname(dbPath), "media");
+    const mediaUrlList: (string | null | undefined)[] = [
+      t.logoUrl ?? null,
+      ...urlsFromSponsorLogos(t.sponsorLogos),
+      ...teams.map((team) => team.logoUrl ?? null),
+      ...players.map((player) => player.photoUrl ?? null),
+    ];
+    if (branding && typeof branding === "object") {
+      for (const value of Object.values(branding)) {
+        if (typeof value === "string" && /^https?:\/\//i.test(value)) mediaUrlList.push(value);
+      }
+    }
+    const mediaMap = await bundleMediaUrls(mediaDir, mediaUrlList);
+    const rw = (url: string | null | undefined) => rewriteUrl(url, mediaMap);
 
     const now = new Date().toISOString();
 
@@ -134,13 +169,16 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       await db.update(tournamentsTable).set({
         name: t.name, sport: t.sport, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
         organizerName: t.organizerName ?? null, organizerMobile: t.organizerMobile ?? null,
-        logoUrl: t.logoUrl ?? null, sponsorLogos: t.sponsorLogos ?? null,
+        logoUrl: rw(t.logoUrl ?? null), sponsorLogos: rewriteSponsorLogos(t.sponsorLogos, mediaMap),
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
         playerSelectionMode: t.playerSelectionMode, minimumSquadSize, maximumSquadSize,
         localModeEnabled,
+        cheerMessagesEnabled, cheerMessagePresets: t.cheerMessagePresets ?? null,
+        cheerCooldownSeconds, cheerHeatMeterEnabled, cheerFanBattleEnabled,
         status: "setup", updatedAt: now,
         organizerPassword: t.organizerPassword ?? null,
+        ...(operatorPin ? { operatorPin } : {}),
         ...(cloudBaseUrl ? { cloudBaseUrl } : {}),
         ...(exportToken ? { exportToken } : {}),
       }).where(eq(tournamentsTable.id, localTid));
@@ -148,15 +186,18 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       const [inserted] = await db.insert(tournamentsTable).values({
         name: t.name, sport: t.sport, venue: t.venue ?? null, auctionDate: t.auctionDate ?? null,
         organizerName: t.organizerName ?? null, organizerMobile: t.organizerMobile ?? null,
-        logoUrl: t.logoUrl ?? null, sponsorLogos: t.sponsorLogos ?? null,
+        logoUrl: rw(t.logoUrl ?? null), sponsorLogos: rewriteSponsorLogos(t.sponsorLogos, mediaMap),
         basePurse: t.basePurse, minBid: t.minBid, bidIncrement: t.bidIncrement,
         bidTiers: t.bidTiers ?? null, timerSeconds: t.timerSeconds, bidTimerSeconds: t.bidTimerSeconds,
         playerSelectionMode: t.playerSelectionMode, minimumSquadSize, maximumSquadSize,
         localModeEnabled,
+        cheerMessagesEnabled, cheerMessagePresets: t.cheerMessagePresets ?? null,
+        cheerCooldownSeconds, cheerHeatMeterEnabled, cheerFanBattleEnabled,
         status: "setup", cloudId: t.id,
         cloudBaseUrl: cloudBaseUrl ?? null,
         exportToken: exportToken ?? null,
         organizerPassword: t.organizerPassword ?? null,
+        operatorPin: operatorPin ?? null,
       }).returning();
       localTid = inserted.id;
     }
@@ -174,7 +215,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       const [inserted] = await db.insert(teamsTable).values({
         tournamentId: localTid, name: team.name, shortCode: team.shortCode,
         ownerName: team.ownerName, ownerMobile: team.ownerMobile ?? null,
-        color: team.color ?? "#3B82F6", logoUrl: team.logoUrl ?? null,
+        color: team.color ?? "#3B82F6", logoUrl: rw(team.logoUrl ?? null),
         purse: team.purse, purseUsed: team.purseUsed ?? 0,
         isBiddingEnabled: team.isBiddingEnabled ?? true,
         accessCode: team.accessCode ?? null, cloudId: team.id,
@@ -211,7 +252,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
         basePrice: player.basePrice, soldPrice: player.soldPrice ?? null,
         retainedPrice: player.retainedPrice ?? null,
         status: player.status === "retained" ? "retained" : "available",
-        jerseyNumber: player.jerseyNumber ?? null, photoUrl: player.photoUrl ?? null,
+        jerseyNumber: player.jerseyNumber ?? null, photoUrl: rw(player.photoUrl ?? null),
         mobileNumber: player.mobileNumber ?? null, battingStyle: player.battingStyle ?? null,
         bowlingStyle: player.bowlingStyle ?? null, specialization: player.specialization ?? null,
         cloudId: player.id,
@@ -220,15 +261,62 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
 
     grantOrganizerForTournament(res, getLocalJwtUser(req), localTid);
 
-    res.json({ ok: true, tournamentId: localTid, message: `Imported ${players.length} players, ${teams.length} teams` });
+    if (branding && typeof branding === "object") {
+      const brandingPayload: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(branding)) {
+        brandingPayload[key] = typeof value === "string" ? rw(value) : value;
+      }
+      await saveBrandingSnapshot(db, brandingPayload);
+    }
+
+    res.json({
+      ok: true,
+      tournamentId: localTid,
+      operatorPin: operatorPin ?? null,
+      cloudBaseUrl: cloudBaseUrl ?? null,
+      message: `Imported ${players.length} players, ${teams.length} teams`,
+    });
   });
 
   // GET /local/sync-status
   router.get("/sync-status", async (_req, res) => {
-    const pending = await db.select().from(syncQueueTable).where(eq(syncQueueTable.failed, false));
-    const unsynced = pending.filter(e => !e.syncedAt);
-    const lastSynced = pending.filter(e => e.syncedAt).sort((a, b) => (b.syncedAt ?? "").localeCompare(a.syncedAt ?? ""))[0];
-    res.json({ pending: unsynced.length, lastSync: lastSynced?.syncedAt ?? null });
+    const rows = await db.select().from(syncQueueTable);
+    const unsynced = rows.filter((e) => !e.syncedAt);
+    const failed = unsynced.filter((e) => e.failed);
+    const pending = unsynced.filter((e) => !e.failed);
+    const lastSynced = rows.filter((e) => e.syncedAt).sort((a, b) => (b.syncedAt ?? "").localeCompare(a.syncedAt ?? ""))[0];
+    res.json({
+      pending: pending.length,
+      failed: failed.length,
+      lastSync: lastSynced?.syncedAt ?? null,
+    });
+  });
+
+  // GET /local/tournament-meta — cloud link + operator PIN for Electron shell
+  router.get("/tournament-meta", async (req, res) => {
+    const tournamentId = parseInt(String(req.query.tournamentId ?? ""), 10);
+    if (!Number.isFinite(tournamentId) || tournamentId < 1) {
+      res.status(400).json({ error: "tournamentId query parameter is required" });
+      return;
+    }
+    const [tournament] = await db
+      .select({
+        cloudBaseUrl: tournamentsTable.cloudBaseUrl,
+        cloudId: tournamentsTable.cloudId,
+        operatorPin: tournamentsTable.operatorPin,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tournamentId));
+    if (!tournament) {
+      res.status(404).json({ error: "Tournament not found" });
+      return;
+    }
+    res.json({
+      tournamentId,
+      cloudBaseUrl: tournament.cloudBaseUrl,
+      hasCloudLink: !!(tournament.cloudId && tournament.cloudBaseUrl),
+      operatorPin: tournament.operatorPin,
+    });
   });
 
   // POST /local/sync-to-cloud — push auction results to cloud
@@ -370,6 +458,7 @@ export function createLocalRouter(db: LocalDb, defaultCloudUrl: string) {
       operator: {
         url: localVenuePublicUrl(baseUrl, operatorPath),
         path: operatorPath,
+        pin: tournament.operatorPin ?? null,
       },
       display: {
         url: localVenuePublicUrl(baseUrl, displayPath),

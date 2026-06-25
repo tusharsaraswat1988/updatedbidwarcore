@@ -25,7 +25,13 @@ const tournamentToJson = (t: typeof tournamentsTable.$inferSelect) => ({
   bidTier2UpTo: t.bidTier2UpTo, bidTier2Increment: t.bidTier2Increment,
   bidTier3Increment: t.bidTier3Increment, bidTiers: t.bidTiers, timerSeconds: t.timerSeconds,
   bidTimerSeconds: t.bidTimerSeconds, playerSelectionMode: t.playerSelectionMode,
+  minimumSquadSize: t.minimumSquadSize, maximumSquadSize: t.maximumSquadSize,
   localModeEnabled: !!t.localModeEnabled,
+  cheerMessagesEnabled: !!t.cheerMessagesEnabled,
+  cheerMessagePresets: t.cheerMessagePresets,
+  cheerCooldownSeconds: t.cheerCooldownSeconds,
+  cheerHeatMeterEnabled: !!t.cheerHeatMeterEnabled,
+  cheerFanBattleEnabled: !!t.cheerFanBattleEnabled,
   status: t.status, cloudId: t.cloudId, createdAt: t.createdAt,
 });
 

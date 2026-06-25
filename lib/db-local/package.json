@@ -10,6 +10,9 @@
     "@libsql/client": "^0.17.3",
     "drizzle-orm": "catalog:"
   },
+  "scripts": {
+    "build": "tsc -b"
+  },
   "devDependencies": {
     "@types/node": "catalog:"
   }

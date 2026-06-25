@@ -2074,7 +2074,7 @@ components:
           type: ["string", "null"]
         cheerCooldownSeconds:
           type: integer
-          description: "Per-viewer cheer cooldown in seconds (3–60)"
+          description: "Per-viewer cheer cooldown in seconds (2–60)"
         cheerHeatMeterEnabled:
           type: boolean
           description: "Show heat level indicator on the live viewer"

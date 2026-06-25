@@ -30,7 +30,8 @@
     "./registration-url": "./src/registration-url.ts",
     "./branding-assets": "./src/branding-assets.ts",
     "./player-specs-v2": "./src/player-specs-v2.ts",
-    "./player-sport-profiles": "./src/player-sport-profiles.ts"
+    "./player-sport-profiles": "./src/player-sport-profiles.ts",
+    "./venue-auction-guard": "./src/venue-auction-guard.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

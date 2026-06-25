@@ -767,7 +767,7 @@ router.patch("/auth/admin/tournaments/:tournamentId/cheer-settings", requireMast
   const schema = z.object({
     cheerMessagesEnabled: z.boolean().optional(),
     cheerMessagePresets: z.array(z.string().max(120)).min(8).max(10).optional(),
-    cheerCooldownSeconds: z.number().int().min(3).max(60).optional(),
+    cheerCooldownSeconds: z.number().int().min(2).max(60).optional(),
     cheerHeatMeterEnabled: z.boolean().optional(),
     cheerFanBattleEnabled: z.boolean().optional(),
   });

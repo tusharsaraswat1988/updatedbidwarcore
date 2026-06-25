@@ -51,6 +51,13 @@ export {
   ownerJoinPublicUrl,
 } from "./owner-urls.ts";
 
+export {
+  VENUE_MIRROR_TTL_MS,
+  evaluateVenueAuctionGuard,
+  type VenueAuctionGuardInput,
+  type VenueAuctionGuardResult,
+} from "./venue-auction-guard.ts";
+
 export const API_PREFIX = "/api";
 
 /** Default API listen port when API_DEV_PROXY_TARGET / PORT are unset in tooling. */

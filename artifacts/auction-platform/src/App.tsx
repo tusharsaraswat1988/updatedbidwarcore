@@ -11,6 +11,9 @@ import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
 import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
 import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
+import { setOperatorPinGetter } from "@workspace/api-client-react";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
+import { resolveLocalOperatorPin } from "@/lib/local-operator-pin";
 
 import Landing from "@/pages/landing";
 
@@ -101,6 +104,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function LocalOperatorPinEffects() {
+  useEffect(() => {
+    if (!isBidWarLocalHost()) return;
+    setOperatorPinGetter(() => resolveLocalOperatorPin());
+    return () => setOperatorPinGetter(null);
+  }, []);
+  return null;
+}
 
 function BrandingEffects() {
   const { logos, brandName } = useBranding();
@@ -558,6 +570,7 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <BrandingEffects />
+          <LocalOperatorPinEffects />
           <PageTracking />
           <Router />
         </WouterRouter>

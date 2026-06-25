@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/tusharsaraswat1988/updatedbidwarcore.git"
   },
+  "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "electron .",
@@ -17,6 +18,8 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "pnpm run build:icons && pnpm run build:frontend && pnpm run build:server && pnpm run build:electron",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke:p0": "node ./scripts/smoke-p0.mjs",
+    "smoke:p1": "node ./scripts/smoke-p1.mjs",
     "package:win": "electron-builder --win --publish never",
     "package:win:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
     "package:mac": "electron-builder --mac",
@@ -25,6 +28,7 @@
   "dependencies": {
     "@libsql/client": "^0.17.3",
     "@workspace/api-base": "workspace:*",
+    "@workspace/cheer-presets": "workspace:*",
     "@workspace/db-local": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

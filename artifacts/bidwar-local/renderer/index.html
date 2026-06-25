@@ -253,7 +253,18 @@
           <span class="status-label">Pending changes</span>
           <span class="status-value" id="pending-changes">-</span>
         </div>
+        <div class="status-row">
+          <span class="status-label">Failed (retrying)</span>
+          <span class="status-value" id="failed-changes">-</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Cloud URL</span>
+          <span class="status-value" id="cloud-url-status" style="font-size:11px;max-width:55%;text-align:right;word-break:break-all;">-</span>
+        </div>
       </div>
+      <p class="section-hint" style="margin-top:10px;">
+        Live mirror updates the cloud display while you auction. After the auction, use Sync to push final results (players, bids, purses).
+      </p>
       <div style="margin-top:14px;display:flex;gap:8px;">
         <button class="btn btn-outline" onclick="manualSync()">Sync to Cloud Now</button>
       </div>
@@ -265,6 +276,7 @@
     let serverPort = 3741;
     let tournamentId = parseInt(localStorage.getItem("activeTournamentId") || "0") || 0;
     let storedCloudBaseUrl = localStorage.getItem("cloudBaseUrl") || "";
+    let storedOperatorPin = "";
     let connectionKitCacheBust = Date.now();
 
     function setStatusEl(id, dotClass, label) {
@@ -293,6 +305,7 @@
         await refreshNetworkInfo();
         loadTournaments();
         loadConnectionKit();
+        loadTournamentMeta();
         checkInternet();
         setInterval(checkInternet, 10000);
         loadSyncStatus();
@@ -350,6 +363,7 @@
       localStorage.setItem("activeTournamentId", String(id));
       loadTournaments();
       loadConnectionKit();
+      loadTournamentMeta();
       alert(`Active tournament set to: ${name}`);
     }
 
@@ -497,6 +511,14 @@
           kit.operator.url,
           `Operator panel: ${kit.operator.url}`,
         ));
+        if (kit.operator.pin) {
+          const pinRow = document.createElement("div");
+          pinRow.className = "kit-pin";
+          pinRow.style.marginBottom = "12px";
+          pinRow.textContent = `Operator PIN ${kit.operator.pin}`;
+          el.appendChild(pinRow);
+          storedOperatorPin = kit.operator.pin;
+        }
         el.appendChild(renderKitLinkRow(
           "LED Display",
           "Big screen — open in browser and go full-screen",
@@ -538,12 +560,37 @@
       }
     }
 
+    async function loadTournamentMeta() {
+      if (!tournamentId) {
+        document.getElementById("cloud-url-status").textContent = "Import a tournament first";
+        return;
+      }
+      try {
+        const res = await fetch(`http://localhost:${serverPort}/local/tournament-meta?tournamentId=${tournamentId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.cloudBaseUrl) {
+          storedCloudBaseUrl = String(data.cloudBaseUrl);
+          localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
+        }
+        if (data.operatorPin) storedOperatorPin = String(data.operatorPin);
+        const cloudEl = document.getElementById("cloud-url-status");
+        if (cloudEl) {
+          cloudEl.textContent = data.hasCloudLink
+            ? (data.cloudBaseUrl || "Linked")
+            : "Not linked — re-export from cloud";
+        }
+      } catch {}
+    }
+
     async function loadSyncStatus() {
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/sync-status`);
         if (res.ok) {
           const data = await res.json();
-          document.getElementById("pending-changes").textContent = data.pending || "0";
+          document.getElementById("pending-changes").textContent = String(data.pending ?? "0");
+          const failedEl = document.getElementById("failed-changes");
+          if (failedEl) failedEl.textContent = String(data.failed ?? "0");
           document.getElementById("last-sync").textContent = data.lastSync ? new Date(data.lastSync).toLocaleString() : "Never";
         }
       } catch {}
@@ -590,12 +637,15 @@
             storedCloudBaseUrl = String(json.cloudBaseUrl);
             localStorage.setItem("cloudBaseUrl", storedCloudBaseUrl);
           }
+          if (json.operatorPin) storedOperatorPin = String(json.operatorPin);
+          if (data.operatorPin) storedOperatorPin = String(data.operatorPin);
           const name = String(json.tournament?.name || "tournament");
           const playerCount = Number(json.players?.length || 0);
           const teamCount = Number(json.teams?.length || 0);
           showMsg(msgEl, `Imported: ${name} (${playerCount} players, ${teamCount} teams)`, "ok");
           loadTournaments();
           loadConnectionKit();
+          loadTournamentMeta();
         } else {
           showMsg(msgEl, `Import failed: ${String(data.error || "Unknown error")}`, "err");
         }
@@ -606,22 +656,24 @@
     }
 
     async function manualSync() {
-      // Pre-fill from the cloudBaseUrl stored during import; user can override
-      const defaultUrl = storedCloudBaseUrl || "";
-      const cloudUrl = prompt(
-        "BidWar cloud URL (pre-filled from your last import — edit if needed):",
-        defaultUrl
-      );
-      if (!cloudUrl) return;
-      const trimmedUrl = cloudUrl.trim().replace(/\/$/, "");
-      // Persist the (possibly corrected) URL for next time
-      storedCloudBaseUrl = trimmedUrl;
-      localStorage.setItem("cloudBaseUrl", trimmedUrl);
+      if (!tournamentId) {
+        alert("Import a tournament first.");
+        return;
+      }
+      await loadTournamentMeta();
+      const cloudUrl = (storedCloudBaseUrl || "").trim().replace(/\/$/, "");
+      if (!cloudUrl) {
+        alert("No cloud URL on file. Re-export this tournament from BidWar cloud and import the JSON again.");
+        return;
+      }
       try {
         const res = await fetch(`http://localhost:${serverPort}/local/sync-to-cloud`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cloudBaseUrl: trimmedUrl, tournamentId }),
+          headers: {
+            "Content-Type": "application/json",
+            ...(storedOperatorPin ? { "X-Operator-Pin": storedOperatorPin } : {}),
+          },
+          body: JSON.stringify({ cloudBaseUrl: cloudUrl, tournamentId }),
         });
         const data = await res.json();
         if (res.ok) {

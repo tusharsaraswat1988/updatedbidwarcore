@@ -167,8 +167,8 @@ function CloudSyncStatus({ tournamentId }: CloudSyncStatusProps) {
     if (!auctionState?.status) return "Not yet started";
     const map: Record<string, string> = {
       idle: "Waiting to start",
-      active: "Live — syncing",
-      paused: "Paused",
+      active: "Live at venue",
+      paused: "Paused at venue",
       completed: "Auction complete",
     };
     return map[auctionState.status] ?? "Connected";
@@ -213,8 +213,9 @@ function CloudSyncStatus({ tournamentId }: CloudSyncStatusProps) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        While BidWar Local is running, every bid and player sale is automatically sent to this page in real time —
-        so your big screen and any online viewers stay in sync with what is happening at the venue.
+        While BidWar Local is running, auction display state is mirrored to the cloud when internet is available —
+        so online viewers and the cloud display can follow the venue. Final player results and purses are pushed
+        separately with &quot;Sync to Cloud&quot; after the auction ends.
       </p>
     </div>
   );
