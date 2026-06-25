@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useListTeams,
@@ -56,6 +56,12 @@ export default function ScoringMatchPage() {
   const [pendingNewBatsman, setPendingNewBatsman] = useState(false);
   const [localStrikerId, setLocalStrikerId] = useState<number | null>(null);
   const [localNonStrikerId, setLocalNonStrikerId] = useState<number | null>(null);
+  const sequenceRef = useRef(0);
+  const sendInFlightRef = useRef(false);
+
+  useEffect(() => {
+    if (data) sequenceRef.current = data.state.lastSequence;
+  }, [data?.state.lastSequence]);
 
   const applyDetail = useCallback(
     (detail: ScoringMatchDetail) => {
@@ -65,39 +71,51 @@ export default function ScoringMatchPage() {
     [setMatchDetail, invalidateAll],
   );
 
-  async function sendEvent(eventType: string, payload: Record<string, unknown>) {
-    if (!data) return;
-    setBusy(true);
-    try {
-      const result = await appendScoringEvent(tournamentId, matchId, {
-        eventType,
-        payload,
-        expectedSequence: data.state.lastSequence,
-      });
-      applyDetail({
-        match: result.match,
-        state: result.state,
-        eventCount: data.eventCount + 1,
-        lastSequence: result.state.lastSequence,
-      });
-      setLocalStrikerId(null);
-      setLocalNonStrikerId(null);
-    } catch (e) {
-      const err = e as Error & { status?: number };
-      if (err.status === 409) {
-        toast({ title: "Sync conflict", description: "Refreshing match…", variant: "destructive" });
-        await refetch();
-      } else {
-        toast({
-          title: "Could not save",
-          description: err.message,
-          variant: "destructive",
+  const sendEvent = useCallback(
+    async (eventType: string, payload: Record<string, unknown>) => {
+      if (!data || sendInFlightRef.current) return;
+      sendInFlightRef.current = true;
+      setBusy(true);
+      try {
+        const result = await appendScoringEvent(tournamentId, matchId, {
+          eventType,
+          payload,
+          expectedSequence: sequenceRef.current,
         });
+        sequenceRef.current = result.state.lastSequence;
+        applyDetail({
+          match: result.match,
+          state: result.state,
+          eventCount: data.eventCount + 1,
+          lastSequence: result.state.lastSequence,
+        });
+        setLocalStrikerId(null);
+        setLocalNonStrikerId(null);
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        if (err.status === 409) {
+          const refreshed = await refetch();
+          if (refreshed.data) {
+            sequenceRef.current = refreshed.data.state.lastSequence;
+          }
+          toast({
+            title: "Already saved",
+            description: "Match synced — continue from the latest step.",
+          });
+        } else {
+          toast({
+            title: "Could not save",
+            description: err.message,
+            variant: "destructive",
+          });
+        }
+      } finally {
+        sendInFlightRef.current = false;
+        setBusy(false);
       }
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+    [applyDetail, data, matchId, refetch, toast, tournamentId],
+  );
 
   const home = teams?.find((t) => t.id === data?.match.homeTeamId);
   const away = teams?.find((t) => t.id === data?.match.awayTeamId);
@@ -169,6 +187,7 @@ export default function ScoringMatchPage() {
                 localStrikerId={localStrikerId}
                 localNonStrikerId={localNonStrikerId}
                 onBall={(payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
+                onEvent={sendEvent}
                 onUndo={async () => {
                   if (!data) return;
                   setBusy(true);

@@ -85,10 +85,19 @@ export default function ScoringSchedulePage() {
   const [groupA, setGroupA] = useState<number[]>([]);
   const [groupB, setGroupB] = useState<number[]>([]);
 
-  function toggleTeam(id: number) {
-    setSelectedTeams((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+  function setTeamSelected(id: number, selected: boolean) {
+    setSelectedTeams((prev) => {
+      if (selected) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((x) => x !== id);
+    });
+  }
+
+  function openGenerateDialog() {
+    const allTeamIds = (teams ?? []).map((t) => t.id);
+    setSelectedTeams(allTeamIds);
+    setGroupA([]);
+    setGroupB([]);
+    setShowGenerate(true);
   }
 
   async function handleAddVenue() {
@@ -105,7 +114,11 @@ export default function ScoringSchedulePage() {
   }
 
   async function handleGenerate() {
-    if (!drawName.trim() || selectedTeams.length < 2) {
+    if (!drawName.trim()) {
+      toast({ title: "Enter a draw name", variant: "destructive" });
+      return;
+    }
+    if (selectedTeams.length < 2) {
       toast({ title: "Select at least 2 teams", variant: "destructive" });
       return;
     }
@@ -163,7 +176,7 @@ export default function ScoringSchedulePage() {
     >
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto">
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setShowGenerate(true)}>
+          <Button size="sm" onClick={openGenerateDialog}>
             <Plus className="h-4 w-4 mr-1" />
             Generate schedule
           </Button>
@@ -302,13 +315,16 @@ export default function ScoringSchedulePage() {
                 <ul className="max-h-40 overflow-y-auto space-y-1 border rounded-lg p-2">
                   {(teams ?? []).map((t) => (
                     <li key={t.id}>
-                      <label className="flex items-center gap-2 py-1.5 cursor-pointer">
+                      <div className="flex items-center gap-2 py-1.5">
                         <Checkbox
+                          id={`team-${t.id}`}
                           checked={selectedTeams.includes(t.id)}
-                          onCheckedChange={() => toggleTeam(t.id)}
+                          onCheckedChange={(checked) => setTeamSelected(t.id, checked === true)}
                         />
-                        <span className="text-sm">{t.name}</span>
-                      </label>
+                        <label htmlFor={`team-${t.id}`} className="text-sm cursor-pointer flex-1">
+                          {t.name}
+                        </label>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -323,17 +339,24 @@ export default function ScoringSchedulePage() {
                         const t = teamMap.get(id);
                         return (
                           <li key={id}>
-                            <label className="flex gap-1 items-center cursor-pointer">
+                            <div className="flex gap-1 items-center">
                               <Checkbox
+                                id={`group-a-${id}`}
                                 checked={groupA.includes(id)}
-                                onCheckedChange={() =>
+                                onCheckedChange={(checked) =>
                                   setGroupA((p) =>
-                                    p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
+                                    checked === true
+                                      ? p.includes(id)
+                                        ? p
+                                        : [...p, id]
+                                      : p.filter((x) => x !== id),
                                   )
                                 }
                               />
-                              {t?.name}
-                            </label>
+                              <label htmlFor={`group-a-${id}`} className="cursor-pointer">
+                                {t?.name}
+                              </label>
+                            </div>
                           </li>
                         );
                       })}
@@ -346,17 +369,24 @@ export default function ScoringSchedulePage() {
                         const t = teamMap.get(id);
                         return (
                           <li key={id}>
-                            <label className="flex gap-1 items-center cursor-pointer">
+                            <div className="flex gap-1 items-center">
                               <Checkbox
+                                id={`group-b-${id}`}
                                 checked={groupB.includes(id)}
-                                onCheckedChange={() =>
+                                onCheckedChange={(checked) =>
                                   setGroupB((p) =>
-                                    p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
+                                    checked === true
+                                      ? p.includes(id)
+                                        ? p
+                                        : [...p, id]
+                                      : p.filter((x) => x !== id),
                                   )
                                 }
                               />
-                              {t?.name}
-                            </label>
+                              <label htmlFor={`group-b-${id}`} className="cursor-pointer">
+                                {t?.name}
+                              </label>
+                            </div>
                           </li>
                         );
                       })}

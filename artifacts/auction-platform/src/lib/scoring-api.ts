@@ -1,5 +1,10 @@
 import { apiFetch } from "@workspace/api-base";
-import type { CricketMatchSummary, CricketScoreboardState } from "@workspace/scoring-core";
+import type {
+  CricketFullScorecard,
+  CricketMatchSummary,
+  CricketScoreboardState,
+  LeaderboardCategory,
+} from "@workspace/scoring-core";
 
 export type ScoringMatchJson = {
   id: number;
@@ -140,6 +145,57 @@ export async function getSquadReadiness(tournamentId: number): Promise<{
   minPlayingXi: number;
 }> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/squads`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export type ScoringLeaderboardRow = {
+  playerId: number;
+  teamId: number;
+  value: number;
+  rank: number;
+  playerName: string;
+  teamName: string;
+  shortCode: string;
+};
+
+export type PublicScorecardResponse = {
+  match: {
+    id: number;
+    status: string;
+    homeTeamId: number;
+    awayTeamId: number;
+    homeTeam: { id: number; name: string; shortCode: string } | null;
+    awayTeam: { id: number; name: string; shortCode: string } | null;
+    winnerTeamId: number | null;
+    resultSummary: string | null;
+    roundName: string | null;
+    completedAt: string | null;
+  };
+  scorecard: CricketFullScorecard;
+  players: Record<string, string>;
+};
+
+export async function getScoringLeaderboard(
+  tournamentId: number,
+  category: LeaderboardCategory,
+  limit = 20,
+): Promise<ScoringLeaderboardRow[]> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/leaderboards/${category}?limit=${limit}`,
+  );
+  if (!r.ok) throw new Error(await parseError(r));
+  const data = await r.json();
+  return data.rows ?? [];
+}
+
+export async function getPublicMatchScorecard(
+  tournamentId: number,
+  matchId: number,
+): Promise<PublicScorecardResponse> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/matches/${matchId}/scorecard`,
+  );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }

@@ -21,6 +21,12 @@ import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
+import {
+  getPublicMatchScorecard,
+  getTournamentLeaderboard,
+  type EnrichedLeaderboardRow,
+} from "../lib/scoring-stats-service";
+import type { LeaderboardCategory } from "@workspace/scoring-core";
 
 const router = Router();
 
@@ -111,6 +117,72 @@ function liveDisplayJson(result: Awaited<ReturnType<typeof getLiveScoringDisplay
     summary: result.summary,
   };
 }
+
+const LEADERBOARD_CATEGORIES = new Set<LeaderboardCategory>([
+  "runs",
+  "wickets",
+  "sixes",
+  "fours",
+  "strike_rate",
+  "economy",
+  "catches",
+  "stumpings",
+]);
+
+/** Public tournament leaderboards (no auth). */
+router.get("/tournaments/:tournamentId/scoring/leaderboards/:category", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const category = req.params.category as LeaderboardCategory;
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!LEADERBOARD_CATEGORIES.has(category)) {
+    res.status(400).json({ error: "Invalid leaderboard category" });
+    return;
+  }
+
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10) || 20, 50);
+
+  try {
+    const rows: EnrichedLeaderboardRow[] = await getTournamentLeaderboard(
+      tournamentId,
+      category,
+      limit,
+    );
+    res.json({ category, rows });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Public full scorecard for a match (no auth). */
+router.get(
+  "/tournaments/:tournamentId/scoring/matches/:matchId/scorecard",
+  async (req, res) => {
+    const tournamentId = parseId(req.params.tournamentId);
+    const matchId = parseId(req.params.matchId);
+    if (tournamentId === null || matchId === null) {
+      res.status(400).json({ error: "Invalid ID" });
+      return;
+    }
+
+    try {
+      const result = await getPublicMatchScorecard(tournamentId, matchId);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof ScoringServiceError) {
+        res.status(err.status).json({ error: err.message, code: err.code });
+        return;
+      }
+      throw err;
+    }
+  },
+);
 
 /** Public points table (no auth). */
 router.get("/tournaments/:tournamentId/scoring/standings", async (req, res) => {

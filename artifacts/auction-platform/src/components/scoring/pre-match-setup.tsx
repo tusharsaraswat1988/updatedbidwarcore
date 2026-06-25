@@ -182,7 +182,7 @@ function TossStep({
   setElectedTo: (v: "bat" | "bowl") => void;
   oversLimit: number;
   busy: boolean;
-  onStart: () => void;
+  onStart: () => void | Promise<void>;
 }) {
   const home = teams.find((t) => t.id === match.homeTeamId);
   const away = teams.find((t) => t.id === match.awayTeamId);
@@ -225,8 +225,15 @@ function TossStep({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">{oversLimit}-over match</p>
-      <Button className="w-full h-12 text-base" disabled={busy} onClick={onStart}>
-        Start match
+      <Button
+        className="w-full h-12 text-base"
+        disabled={busy}
+        onClick={() => {
+          if (busy) return;
+          void onStart();
+        }}
+      >
+        {busy ? "Starting…" : "Start match"}
       </Button>
     </section>
   );

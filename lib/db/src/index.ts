@@ -775,6 +775,36 @@ void pool
 
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS venue_id INTEGER;
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS officials_json JSONB;
+
+    CREATE TABLE IF NOT EXISTS scoring_match_player_stats (
+      id SERIAL PRIMARY KEY,
+      match_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      player_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      innings INTEGER NOT NULL,
+      batting_json JSONB,
+      bowling_json JSONB,
+      fielding_json JSONB NOT NULL DEFAULT '{"catches":0,"runOuts":0,"stumpings":0}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_mps_match_player_innings
+      ON scoring_match_player_stats (match_id, player_id, innings);
+    CREATE INDEX IF NOT EXISTS ix_scoring_mps_tournament_id ON scoring_match_player_stats (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_mps_match_id ON scoring_match_player_stats (match_id);
+    CREATE INDEX IF NOT EXISTS ix_scoring_mps_player_id ON scoring_match_player_stats (player_id);
+
+    CREATE TABLE IF NOT EXISTS scoring_leaderboard_snapshots (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      rows_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_lb_tournament_category
+      ON scoring_leaderboard_snapshots (tournament_id, category);
+    CREATE INDEX IF NOT EXISTS ix_scoring_lb_tournament_id ON scoring_leaderboard_snapshots (tournament_id);
   `)
   .catch((err) => {
     console.error("[db] failed to ensure cricket scoring phase 1 tables:", err);

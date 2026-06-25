@@ -69,6 +69,7 @@ const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
 const ScoringPublic = lazy(() => import("@/pages/scoring-public"));
+const ScoringMatchPublic = lazy(() => import("@/pages/scoring-match-public"));
 const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
@@ -428,6 +429,13 @@ function Router() {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
           }}
+        </Route>
+        <Route path="/tournament/:id/cricket/match/:matchId">
+          {() => (
+            <ScoringFeatureGuard>
+              <ScoringMatchPublic />
+            </ScoringFeatureGuard>
+          )}
         </Route>
         <Route path="/tournament/:id/cricket">
           {() => (

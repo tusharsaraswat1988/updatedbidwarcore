@@ -13,6 +13,8 @@ export type BallDisplayOutcome = {
   label: string;
 };
 
+export type InningsKind = "normal" | "super_over";
+
 export type CricketInningsState = {
   innings: number;
   battingTeamId: number;
@@ -22,6 +24,8 @@ export type CricketInningsState = {
   over: number;
   ball: number;
   phase: CricketInningsPhase;
+  kind: InningsKind;
+  oversLimit: number;
 };
 
 export type CricketScoreboardState = {
@@ -48,6 +52,12 @@ export type CricketScoreboardState = {
   resultText: string | null;
   abandonedReason: string | null;
   lastSequence: number;
+  /** Active after a no-ball until next legal delivery. */
+  freeHitActive: boolean;
+  /** Powerplay over limits from match start (e.g. [6, 15] for T20). */
+  powerplayOvers: number[];
+  /** Players retired hurt (may return) per team. */
+  retiredHurt: Record<number, number[]>;
 };
 
 export function createInitialCricketState(meta: MatchMeta): CricketScoreboardState {
@@ -75,6 +85,9 @@ export function createInitialCricketState(meta: MatchMeta): CricketScoreboardSta
     resultText: null,
     abandonedReason: null,
     lastSequence: 0,
+    freeHitActive: false,
+    powerplayOvers: [],
+    retiredHurt: {},
   };
 }
 
