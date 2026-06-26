@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { organiserWelcomeEmail } from "./templates/organiser-welcome";
 import { playerRegisteredEmail } from "./templates/player-registered";
+import { teamOwnerRegisteredEmail } from "./templates/team-owner-registered";
 import { tournamentCreatedEmail } from "./templates/tournament-created";
 import { hasEmailTemplate, renderEmailTemplate } from "./templates/registry";
 
@@ -57,10 +58,32 @@ describe("email templates", () => {
     expect(result.html).toContain("logo.png");
   });
 
+  it("renders team owner registered email", () => {
+    const result = teamOwnerRegisteredEmail({
+      ownerName: "Rohit Sharma",
+      teamName: "Mumbai Warriors",
+      ownerPhotoUrl: null,
+      tournamentName: "Corporate Premier League",
+      tournamentLogoUrl: null,
+      ownerJoinUrl: "https://bidwar.in/owner-app/join?tournamentId=4&teamId=12",
+      appUrl: "https://bidwar.in",
+      bidwarLogoUrl: "https://res.cloudinary.com/demo/image/upload/bidwar.png",
+      poweredByText: "Powered by BidWar",
+    });
+    expect(result.subject).toContain("Corporate Premier League");
+    expect(result.html).toContain("Rohit");
+    expect(result.html).toContain("Mumbai Warriors");
+    expect(result.html).toContain("Open Owner App");
+    expect(result.html).toContain("https://bidwar.in/owner-app/join?tournamentId=4&amp;teamId=12");
+    expect(result.html).toContain("access code before the auction");
+    expect(result.html).not.toContain("ABC123");
+  });
+
   it("registry resolves known event types", () => {
     expect(hasEmailTemplate("ORGANISER_REGISTERED")).toBe(true);
     expect(hasEmailTemplate("TOURNAMENT_CREATED")).toBe(true);
     expect(hasEmailTemplate("PLAYER_REGISTERED")).toBe(true);
+    expect(hasEmailTemplate("TEAM_OWNER_REGISTERED")).toBe(true);
     expect(hasEmailTemplate("AUCTION_STARTED")).toBe(false);
 
     const rendered = renderEmailTemplate("ORGANISER_REGISTERED", {

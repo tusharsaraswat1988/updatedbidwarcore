@@ -25,6 +25,7 @@ import { buildPublicUrl } from "../lib/runtime-env";
 import { auditLog } from "../lib/audit-service";
 import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotTeam } from "../lib/audit-snapshots";
+import { notifyAsync } from "../lib/notifications";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -190,6 +191,19 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         }
       } catch (err) { logger.error({ err, teamId: team.id }, "DLT team-owner SMS failed"); }
     })();
+  }
+
+  if (ownerEmailParsed.email) {
+    notifyAsync("TEAM_OWNER_REGISTERED", {
+      teamId: team.id,
+      teamName: team.name,
+      ownerName: team.ownerName,
+      email: ownerEmailParsed.email,
+      ownerPhotoUrl: team.ownerPhotoUrl,
+      tournamentId: tid,
+      tournamentName: tournament.name,
+      tournamentLogoUrl: tournament.logoUrl ?? null,
+    });
   }
 
   auditLog(req, {

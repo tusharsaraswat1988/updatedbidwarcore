@@ -66,12 +66,26 @@ export type PlayerRegisteredPayload = {
   poweredByText?: string;
 };
 
+export type TeamOwnerRegisteredPayload = {
+  teamId: number;
+  teamName: string;
+  ownerName: string;
+  email: string;
+  ownerPhotoUrl: string | null;
+  tournamentId: number;
+  tournamentName: string;
+  tournamentLogoUrl: string | null;
+  bidwarLogoUrl?: string | null;
+  brandName?: string;
+  poweredByText?: string;
+};
+
 export type NotificationPayloadMap = {
   ORGANISER_REGISTERED: OrganiserRegisteredPayload;
   TOURNAMENT_CREATED: TournamentCreatedPayload;
   PLAYER_REGISTERED: PlayerRegisteredPayload;
   TOURNAMENT_APPROVED: Record<string, unknown>;
-  TEAM_OWNER_REGISTERED: Record<string, unknown>;
+  TEAM_OWNER_REGISTERED: TeamOwnerRegisteredPayload;
   OWNER_CREDENTIALS_SENT: Record<string, unknown>;
   OWNER_CREDENTIALS_RESET: Record<string, unknown>;
   AUCTION_STARTED: Record<string, unknown>;

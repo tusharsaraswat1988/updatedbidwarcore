@@ -1,6 +1,7 @@
 import type { NotificationEventType } from "../types";
 import { organiserWelcomeEmail } from "./organiser-welcome";
 import { playerRegisteredEmail } from "./player-registered";
+import { teamOwnerRegisteredEmail } from "./team-owner-registered";
 import { tournamentCreatedEmail } from "./tournament-created";
 
 export type EmailTemplateResult = {
@@ -41,6 +42,19 @@ const EMAIL_TEMPLATE_REGISTRY: Partial<Record<NotificationEventType, EmailTempla
       tournamentName: String(params.tournamentName),
       tournamentLogoUrl: params.tournamentLogoUrl as string | null,
       paymentPending: Boolean(params.paymentPending),
+      appUrl: String(params.appUrl),
+      bidwarLogoUrl: params.bidwarLogoUrl as string | null | undefined,
+      brandName: params.brandName as string | undefined,
+      poweredByText: params.poweredByText as string | undefined,
+    }),
+  TEAM_OWNER_REGISTERED: (params) =>
+    teamOwnerRegisteredEmail({
+      ownerName: String(params.ownerName),
+      teamName: String(params.teamName),
+      ownerPhotoUrl: params.ownerPhotoUrl as string | null,
+      tournamentName: String(params.tournamentName),
+      tournamentLogoUrl: params.tournamentLogoUrl as string | null,
+      ownerJoinUrl: String(params.ownerJoinUrl),
       appUrl: String(params.appUrl),
       bidwarLogoUrl: params.bidwarLogoUrl as string | null | undefined,
       brandName: params.brandName as string | undefined,

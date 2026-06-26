@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
+import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import { db, notificationLogsTable, organizersTable, brandingSettingsTable } from "@workspace/db";
 import { brandingService } from "../branding-service.js";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
-import { getPublicOrigin } from "../runtime-env";
+import { buildPublicUrl, getPublicOrigin } from "../runtime-env";
 import { sendEmail } from "./providers/email-provider";
 import { sendNotificationSms } from "./providers/sms-provider";
 import { sendNotificationWhatsApp } from "./providers/whatsapp-provider";
@@ -40,6 +41,7 @@ const EVENT_CHANNEL_MAP: Partial<Record<NotificationEventType, NotificationChann
   ORGANISER_REGISTERED: ["email"],
   TOURNAMENT_CREATED: ["email"],
   PLAYER_REGISTERED: ["email"],
+  TEAM_OWNER_REGISTERED: ["email"],
 };
 
 function buildDedupKey(
@@ -65,6 +67,10 @@ function buildEntityKey(
   if (eventType === "PLAYER_REGISTERED") {
     const p = payload as NotificationPayloadMap["PLAYER_REGISTERED"];
     return `player:${p.playerId}`;
+  }
+  if (eventType === "TEAM_OWNER_REGISTERED") {
+    const p = payload as NotificationPayloadMap["TEAM_OWNER_REGISTERED"];
+    return `team:${p.teamId}`;
   }
   return `event:${randomUUID()}`;
 }
@@ -134,6 +140,30 @@ function resolveRecipients(
         tournamentName: p.tournamentName,
         tournamentLogoUrl: p.tournamentLogoUrl,
         paymentPending: p.paymentPending,
+        appUrl,
+        bidwarLogoUrl: p.bidwarLogoUrl ?? null,
+        brandName: p.brandName ?? "BidWar",
+        poweredByText: p.poweredByText ?? "Powered by BidWar",
+      },
+    };
+  }
+
+  if (eventType === "TEAM_OWNER_REGISTERED") {
+    const p = payload as NotificationPayloadMap["TEAM_OWNER_REGISTERED"];
+    const ownerJoinUrl = buildPublicUrl(ownerJoinPath(p.tournamentId, p.teamId));
+    return {
+      name: p.ownerName,
+      email: p.email,
+      mobile: null,
+      tournamentId: p.tournamentId,
+      organizerId: null,
+      templateParams: {
+        ownerName: p.ownerName,
+        teamName: p.teamName,
+        ownerPhotoUrl: p.ownerPhotoUrl,
+        tournamentName: p.tournamentName,
+        tournamentLogoUrl: p.tournamentLogoUrl,
+        ownerJoinUrl,
         appUrl,
         bidwarLogoUrl: p.bidwarLogoUrl ?? null,
         brandName: p.brandName ?? "BidWar",
@@ -350,6 +380,27 @@ async function enrichPlayerRegisteredPayload(
   };
 }
 
+async function enrichTeamOwnerRegisteredPayload(
+  payload: NotificationPayloadMap["TEAM_OWNER_REGISTERED"],
+): Promise<NotificationPayloadMap["TEAM_OWNER_REGISTERED"]> {
+  const [branding] = await db
+    .select({
+      brandName: brandingSettingsTable.brandName,
+      poweredByText: brandingSettingsTable.poweredByText,
+    })
+    .from(brandingSettingsTable)
+    .limit(1);
+
+  const logoUrl = await brandingService.resolveEmailLogoAssetUrl();
+
+  return {
+    ...payload,
+    bidwarLogoUrl: logoUrl,
+    brandName: branding?.brandName ?? "BidWar",
+    poweredByText: branding?.poweredByText ?? "Powered by BidWar",
+  };
+}
+
 async function enrichTournamentCreatedPayload(
   payload: NotificationPayloadMap["TOURNAMENT_CREATED"],
 ): Promise<NotificationPayloadMap["TOURNAMENT_CREATED"]> {
@@ -397,6 +448,11 @@ export async function dispatchNotification<E extends NotificationEventType>(
   if (eventType === "PLAYER_REGISTERED") {
     resolvedPayload = (await enrichPlayerRegisteredPayload(
       payload as NotificationPayloadMap["PLAYER_REGISTERED"],
+    )) as NotificationPayloadMap[E];
+  }
+  if (eventType === "TEAM_OWNER_REGISTERED") {
+    resolvedPayload = (await enrichTeamOwnerRegisteredPayload(
+      payload as NotificationPayloadMap["TEAM_OWNER_REGISTERED"],
     )) as NotificationPayloadMap[E];
   }
 
@@ -512,6 +568,45 @@ export async function resendNotification(logId: number): Promise<{ success: bool
         tournamentName: tournament.name,
         tournamentLogoUrl: tournament.logoUrl,
         paymentPending: player?.registrationPaymentStatus === "pending",
+      },
+      { skipDedup: true, resendOfLogId: logId },
+    );
+    return { success: true };
+  }
+
+  if (eventType === "TEAM_OWNER_REGISTERED" && log.tournamentId && log.recipientEmail) {
+    const { teamsTable, tournamentsTable } = await import("@workspace/db");
+
+    const teamIdFromKey = log.dedupKey?.match(/^TEAM_OWNER_REGISTERED:team:(\d+):email$/)?.[1];
+    const [team] = teamIdFromKey
+      ? await db
+          .select()
+          .from(teamsTable)
+          .where(eq(teamsTable.id, Number(teamIdFromKey)))
+          .limit(1)
+      : [undefined];
+
+    const [tournament] = await db
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, log.tournamentId))
+      .limit(1);
+
+    if (!tournament) {
+      return { success: false, error: "Tournament no longer exists" };
+    }
+
+    await dispatchNotification(
+      "TEAM_OWNER_REGISTERED",
+      {
+        teamId: team?.id ?? Number(teamIdFromKey ?? 0),
+        teamName: team?.name ?? "Team",
+        ownerName: log.recipientName ?? team?.ownerName ?? "Team Owner",
+        email: log.recipientEmail,
+        ownerPhotoUrl: team?.ownerPhotoUrl ?? null,
+        tournamentId: tournament.id,
+        tournamentName: tournament.name,
+        tournamentLogoUrl: tournament.logoUrl,
       },
       { skipDedup: true, resendOfLogId: logId },
     );
