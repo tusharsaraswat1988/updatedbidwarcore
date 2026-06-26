@@ -935,7 +935,7 @@ export default function PlayerRegister() {
                                 </Button>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">Upload, crop, enhance or remove the background.</p>
+                            <p className="text-xs text-muted-foreground">Upload, crop, and enhance your photo.</p>
                           </div>
                         </div>
                         <ImageEditorDialog
@@ -983,16 +983,6 @@ export default function PlayerRegister() {
                             Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
                           </span>
                         </label>
-                        {waLink && (
-                          <a
-                            href={waLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline pl-7"
-                          >
-                            WhatsApp pe subscribe karein (optional)
-                          </a>
-                        )}
                       </div>
 
                       {paymentEnabled && paymentConfigured && (

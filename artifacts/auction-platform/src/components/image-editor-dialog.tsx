@@ -6,14 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
-  Upload, Crop as CropIcon, Wand2, Scissors, RotateCw, X, Loader2, Check,
+  Upload, Crop as CropIcon, Wand2, RotateCw, X, Loader2, Check,
   Image as ImageIcon, AlertTriangle,
 } from "lucide-react";
-
-// Module-level flag: true once the AI model has finished downloading in this
-// browser session. After the first successful run the model is in the browser
-// cache, so we skip the "25 MB download" confirmation on subsequent presses.
-let bgModelCached = false;
 
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
@@ -118,9 +113,6 @@ export function ImageEditorDialog({
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // When true we show an inline "~25 MB download" confirmation strip before
-  // kicking off background removal for the first time.
-  const [confirmBgRemove, setConfirmBgRemove] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -218,37 +210,6 @@ export function ImageEditorDialog({
     }
   }
 
-  async function handleRemoveBackground() {
-    if (!src) return;
-    // First use in this session — confirm before pulling the AI model.
-    if (!bgModelCached) {
-      setConfirmBgRemove(true);
-      return;
-    }
-    await runRemoveBackground();
-  }
-
-  async function runRemoveBackground() {
-    if (!src) return;
-    setConfirmBgRemove(false);
-    setError(null);
-    setProcessing(bgModelCached ? "Removing background..." : "Downloading AI model (~25 MB) and removing background — please wait...");
-    try {
-      const mod = await import("@imgly/background-removal");
-      const blob = await mod.removeBackground(src);
-      bgModelCached = true;
-      setSrcFromBlob(blob);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? `Background removal failed: ${e.message}`
-          : "Background removal failed. The image may be cross-origin or the model could not load."
-      );
-    } finally {
-      setProcessing(null);
-    }
-  }
-
   async function handleSave() {
     if (!src) return;
     setError(null);
@@ -308,7 +269,7 @@ export function ImageEditorDialog({
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CropIcon className="w-5 h-5 text-primary" /> {title}
           </DialogTitle>
-          <p className="text-xs text-muted-foreground mt-1">Crop, rotate, enhance or remove the background — image is compressed and uploaded to cloud storage.</p>
+          <p className="text-xs text-muted-foreground mt-1">Crop, rotate, and enhance — image is compressed and uploaded to cloud storage.</p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -414,27 +375,6 @@ export function ImageEditorDialog({
               >
                 <Wand2 className="w-4 h-4" /> Auto Enhance
               </Button>
-              {confirmBgRemove ? (
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-xs text-amber-300 sm:flex-1">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" />
-                    <span className="flex-1">First use downloads the ~25 MB AI model (cached after that). Proceed?</span>
-                  </div>
-                  <div className="flex gap-2 sm:flex-shrink-0">
-                    <Button size="sm" variant="outline" className="h-10 sm:h-7 px-3 flex-1 sm:flex-none border-amber-500/50 text-amber-300 hover:bg-amber-500/20" onClick={runRemoveBackground}>Yes, download</Button>
-                    <Button size="sm" variant="ghost" className="h-10 sm:h-7 px-3 flex-1 sm:flex-none" onClick={() => setConfirmBgRemove(false)}>Cancel</Button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="gap-2 h-11 sm:h-9 w-full sm:w-auto"
-                  onClick={handleRemoveBackground}
-                  disabled={!src || !!processing}
-                >
-                  <Scissors className="w-4 h-4" /> Remove Background
-                </Button>
-              )}
             </div>
 
             {error && (

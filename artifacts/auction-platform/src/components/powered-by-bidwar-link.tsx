@@ -56,7 +56,7 @@ export function PoweredByBidWarLink({ className, variant = "default" }: PoweredB
           src={headerLogo.src}
           alt={logoAlt}
           onError={headerLogo.onError}
-          className={`${registrationHeaderPreset.sizeClass} transition-all duration-300 group-hover:opacity-95 group-hover:scale-105`}
+          className={`${registrationHeaderPreset.sizeClass} transition-transform duration-300 group-hover:scale-105`}
           loading="lazy"
           decoding="async"
         />
