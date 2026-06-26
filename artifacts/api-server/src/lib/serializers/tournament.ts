@@ -1,4 +1,5 @@
 import { parseBidValueOptions } from "@workspace/api-base/bid-value";
+import { parseRegistrationFieldsConfig } from "@workspace/api-base/registration-fields";
 import {
   resolveBroadcastAudioUrl,
   type PlatformAudioDefaults,
@@ -76,6 +77,7 @@ export function publicTournamentSerializer(
     mainBannerEnabled: t.mainBannerEnabled ?? false,
     mainBannerFit: t.mainBannerFit ?? "cover",
     matchDates: t.matchDates ?? null,
+    registrationFields: parseRegistrationFieldsConfig(t.registrationFieldsJson),
     scoringEnabled: t.scoringEnabled ?? false,
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),

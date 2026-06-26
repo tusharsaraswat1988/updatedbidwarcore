@@ -107,6 +107,7 @@ void pool
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auto_approve_withdrawn_re_registration boolean NOT NULL DEFAULT false;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS selected_bid_value integer;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS bid_value_source text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fields_json jsonb;
   `)
   .catch((err) => {
     console.error("[db] failed to ensure registration payment columns:", err);

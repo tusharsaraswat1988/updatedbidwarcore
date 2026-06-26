@@ -44,6 +44,14 @@ import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import {
+  REGISTRATION_MANDATORY_FIELD_KEYS,
+  REGISTRATION_OPTIONAL_FIELD_KEYS,
+  REGISTRATION_OPTIONAL_FIELD_LABELS,
+  parseRegistrationFieldsConfig,
+  serializeRegistrationFieldsConfig,
+  type RegistrationOptionalFieldKey,
+} from "@workspace/api-base/registration-fields";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import { resolveBroadcastAudioUrl } from "@workspace/api-base/platform-audio";
 
@@ -66,6 +74,7 @@ export default function TournamentSettings() {
     { increment: 0 },
   ]);
   const [bidValueOptions, setBidValueOptions] = useState<number[]>([]);
+  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationOptionalFieldKey[]>([]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
   const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
@@ -104,7 +113,8 @@ export default function TournamentSettings() {
     tiers: Array<{ upTo?: number; increment: number }>,
     logos: SponsorLogo[],
     bidOptions: number[],
-  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions }), []);
+    hiddenRegistrationFields: RegistrationOptionalFieldKey[],
+  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions, hiddenRegistrationFields }), []);
 
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
@@ -205,7 +215,11 @@ export default function TournamentSettings() {
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
-    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions));
+    const initialHidden = parseRegistrationFieldsConfig(
+      (t as { registrationFields?: { hidden?: RegistrationOptionalFieldKey[] } }).registrationFields,
+    ).hidden ?? [];
+    setRegistrationFieldsHidden(initialHidden);
+    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions, initialHidden));
   }, [buildSnapshot]);
 
   useEffect(() => {
@@ -387,13 +401,13 @@ export default function TournamentSettings() {
   }
 
   const isDirty = useMemo(
-    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions) !== baselineSnapshot,
-    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
+    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden) !== baselineSnapshot,
+    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden],
   );
 
   const saveKey = useMemo(
-    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions),
-    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions],
+    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden),
+    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden],
   );
 
   const squadSizeError = useMemo(() => {
@@ -519,11 +533,12 @@ export default function TournamentSettings() {
           mainBannerEnabled: editForm.mainBannerEnabled === true,
           mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
           matchDates: (editForm.matchDates as string).trim() || null,
+          registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
         },
       });
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0)));
+      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden));
       if (options?.notify) {
         toast({ title: "Settings saved", description: "Your auction rules have been updated." });
       }
@@ -543,6 +558,7 @@ export default function TournamentSettings() {
     getSaveBlockReason,
     qc,
     sponsorLogos,
+    registrationFieldsHidden,
     toast,
     tournamentId,
     updateTournament,
@@ -831,6 +847,61 @@ export default function TournamentSettings() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <SettingsCard
+                title="Registration Form Fields"
+                description="Choose which optional fields appear on the public registration link. Required fields cannot be turned off."
+                icon={<ClipboardList className="w-4 h-4 text-muted-foreground" />}
+                className="lg:col-span-2"
+              >
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-foreground mb-2">Always required</p>
+                    <div className="flex flex-wrap gap-2">
+                      {REGISTRATION_MANDATORY_FIELD_KEYS.map((key) => (
+                        <Badge key={key} variant="secondary" className="text-xs capitalize">
+                          {key === "mobile" ? "Mobile" : key.replace(/([A-Z])/g, " $1").trim()}
+                        </Badge>
+                      ))}
+                      <Badge variant="secondary" className="text-xs">Required player settings</Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1 border-t border-border/50">
+                    <p className="text-xs font-medium text-foreground">Optional fields</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Turn off a field to hide it from players. Payment, declaration, and bid-value fields follow their own settings below.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => {
+                        const visible = !registrationFieldsHidden.includes(key);
+                        const sport = (editForm.sport as string) || tournament?.sport || "cricket";
+                        if (key === "cricheroUrl" && sport !== "cricket") return null;
+                        if (key === "matchAvailability" && !(editForm.matchDates as string)?.trim() && !tournament?.matchDates) {
+                          return null;
+                        }
+                        return (
+                          <label
+                            key={key}
+                            className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5"
+                          >
+                            <span className="text-sm">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
+                            <Switch
+                              checked={visible}
+                              onCheckedChange={(checked) => {
+                                setRegistrationFieldsHidden((prev) => {
+                                  if (checked) return prev.filter((item) => item !== key);
+                                  return prev.includes(key) ? prev : [...prev, key];
+                                });
+                              }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </SettingsCard>
+
               <SettingsCard
                 title="Registration Limits"
                 description="Close the form after a date or player count. Leave blank for no limit."

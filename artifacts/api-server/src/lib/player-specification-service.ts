@@ -287,6 +287,34 @@ export async function buildSpecificationsForSave(
   return specificationsFromLegacyFields(groups, input);
 }
 
+export async function validateRequiredRoleSpecifications(
+  tournamentId: number,
+  role: string | null | undefined,
+  input: {
+    specifications?: PlayerSpecificationInput[] | null;
+    battingStyle?: string | null;
+    bowlingStyle?: string | null;
+    specialization?: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const groups = await resolveRoleSpecGroups(tournamentId, role);
+  const requiredGroups = groups.filter((group) => !group.optional);
+  if (requiredGroups.length === 0) return { ok: true };
+
+  const resolvedSpecs = input.specifications?.length
+    ? normalizeInputs(input.specifications)
+    : specificationsFromLegacyFields(groups, input);
+
+  for (const group of requiredGroups) {
+    const value = resolvedSpecs.find((spec) => spec.specGroupId === group.id)?.value?.trim();
+    if (!value) {
+      return { ok: false, error: `${group.groupName} is required.` };
+    }
+  }
+
+  return { ok: true };
+}
+
 export function mergePlayerLegacyFieldsFromSpecifications<
   T extends {
     battingStyle?: string | null;

@@ -16,6 +16,9 @@ import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import {
+  validateMandatoryRegistrationFields,
+} from "@workspace/api-base/registration-fields";
 import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
 import { isCriticalPlayerPatch, defaultPlayerPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
@@ -51,7 +54,11 @@ import {
   serializePlayerWithSpecifications,
   serializePlayersWithSpecifications,
 } from "../lib/player-spec-response";
-import { copyPlayerSpecifications } from "../lib/player-specification-service";
+import { copyPlayerSpecifications, validateRequiredRoleSpecifications } from "../lib/player-specification-service";
+import {
+  resolveRegistrationFieldVisibilityFromTournament,
+  sanitizeRegistrationInputByVisibility,
+} from "../lib/registration-field-validation";
 import {
   countActiveRegistrations,
   reinstateTournamentPlayer,
@@ -86,6 +93,7 @@ async function computeRegistrationStatus(tid: number) {
       registrationDeclarationText: tournamentsTable.registrationDeclarationText,
       bidValueMode: tournamentsTable.bidValueMode,
       bidValueOptions: tournamentsTable.bidValueOptions,
+      registrationFieldsJson: tournamentsTable.registrationFieldsJson,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -124,6 +132,9 @@ async function computeRegistrationStatus(tid: number) {
         : [],
     bidValueMode: tournament.bidValueMode ?? "system",
     bidValueOptions: parseBidValueOptions(tournament.bidValueOptions),
+    registrationFieldVisibility: resolveRegistrationFieldVisibilityFromTournament(
+      tournament.registrationFieldsJson,
+    ),
   };
 }
 
@@ -530,7 +541,27 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
 
   const parsed = playerInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
-  const d = parsed.data;
+  const visibility = status.registrationFieldVisibility
+    ?? resolveRegistrationFieldVisibilityFromTournament(null);
+  const sanitizedBody = sanitizeRegistrationInputByVisibility(parsed.data, visibility);
+  const d = { ...parsed.data, ...sanitizedBody };
+
+  const mandatory = validateMandatoryRegistrationFields({
+    name: d.name,
+    mobileNumber: d.mobileNumber,
+    photoUrl: d.photoUrl,
+    role: d.role,
+  });
+  if (!mandatory.ok) {
+    res.status(400).json({ error: mandatory.error, field: mandatory.field });
+    return;
+  }
+
+  const requiredSpecs = await validateRequiredRoleSpecifications(tid, d.role, d);
+  if (!requiredSpecs.ok) {
+    res.status(400).json({ error: requiredSpecs.error });
+    return;
+  }
 
   const mobileParsed = parseIndianMobile(d.mobileNumber);
   if (!mobileParsed.ok) {

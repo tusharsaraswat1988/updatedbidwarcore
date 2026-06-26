@@ -6,6 +6,10 @@ import {
   DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS,
 } from "@workspace/api-base/auction-readiness";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
+import {
+  REGISTRATION_OPTIONAL_FIELD_KEYS,
+  serializeRegistrationFieldsConfig,
+} from "@workspace/api-base/registration-fields";
 import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
@@ -274,6 +278,11 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationDeclarationText: z.string().nullable().optional(),
     bidValueMode: z.enum(["system", "player"]).optional(),
     bidValueOptions: z.array(z.number().int().positive()).optional(),
+    registrationFields: z
+      .object({
+        hidden: z.array(z.enum(REGISTRATION_OPTIONAL_FIELD_KEYS)).optional(),
+      })
+      .optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
     maximumSquadSize: z.number().int().min(0).nullable().optional(),
     audioEnabled: z.boolean().optional(),
@@ -408,6 +417,11 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidValueMode !== undefined) updates.bidValueMode = d.bidValueMode;
   if (d.bidValueOptions !== undefined) {
     updates.bidValueOptions = serializeBidValueOptions(d.bidValueOptions);
+  }
+  if (d.registrationFields !== undefined) {
+    updates.registrationFieldsJson = serializeRegistrationFieldsConfig(
+      d.registrationFields.hidden ?? [],
+    );
   }
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;
   if (d.maximumSquadSize !== undefined) updates.maximumSquadSize = d.maximumSquadSize ?? 0;

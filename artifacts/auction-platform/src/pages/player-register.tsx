@@ -25,6 +25,11 @@ import { RegistrationPageHeader } from "@/components/registration-page-header";
 import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 import type { PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
+import {
+  buildRegistrationFieldVisibility,
+  type RegistrationFieldsConfig,
+  type RegistrationOptionalFieldKey,
+} from "@workspace/api-base/registration-fields";
 import { formatIndianRupee } from "@/lib/format";
 import {
   applySpecificationsToSelections,
@@ -275,6 +280,27 @@ export default function PlayerRegister() {
 
   const declarationRequired = declarationPoints.length > 0;
 
+  const fieldVisibility = useMemo(() => {
+    const fromStatus = (status as {
+      registrationFieldVisibility?: Record<RegistrationOptionalFieldKey, boolean>;
+    } | null)?.registrationFieldVisibility;
+    if (fromStatus) return fromStatus;
+    return buildRegistrationFieldVisibility(
+      (tournament as { registrationFields?: RegistrationFieldsConfig } | null)?.registrationFields,
+    );
+  }, [status, tournament]);
+
+  const showEmail = fieldVisibility.email;
+  const showCity = fieldVisibility.city;
+  const showAge = fieldVisibility.age;
+  const showGender = fieldVisibility.gender;
+  const showJersey = fieldVisibility.jerseyNumber || fieldVisibility.jerseySize;
+  const showAchievements = fieldVisibility.achievements;
+  const showCrichero = isCricket && fieldVisibility.cricheroUrl;
+  const showMatchAvailability = fieldVisibility.matchAvailability;
+  const showWhatsappConsent = fieldVisibility.whatsappConsent;
+  const showProfileDetails = showCity || showAge || showGender;
+
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
     try {
@@ -374,7 +400,9 @@ export default function PlayerRegister() {
     setErrorMsg(null);
     setEmailError("");
 
-    const emailResult = parseOptionalEmail(form.email);
+    const emailResult = showEmail
+      ? parseOptionalEmail(form.email)
+      : { ok: true as const, email: null };
     if (!emailResult.ok) {
       setEmailError(emailResult.error);
       return;
@@ -404,6 +432,18 @@ export default function PlayerRegister() {
       return;
     }
 
+    if (!form.photoUrl.trim()) {
+      setErrorMsg("Please upload your player photo.");
+      return;
+    }
+
+    for (const group of specs) {
+      if (!group.optional && !specSelections[group.id]?.trim()) {
+        setErrorMsg(`${group.groupName} is required.`);
+        return;
+      }
+    }
+
     if (playerBidValueMode && !existingRegistration) {
       const parsedBid = parseInt(selectedBidValue, 10);
       if (!Number.isFinite(parsedBid) || !bidValueOptions.includes(parsedBid)) {
@@ -420,26 +460,26 @@ export default function PlayerRegister() {
         body: JSON.stringify({
           name: form.name,
           mobileNumber: mobileResult.normalized,
-          email: emailResult.email || undefined,
-          city: form.city || undefined,
+          email: showEmail ? (emailResult.email || undefined) : undefined,
+          city: showCity ? (form.city || undefined) : undefined,
           role: form.role || undefined,
           battingStyle: battingStyle || undefined,
           bowlingStyle: bowlingStyle || undefined,
           specialization: specialization || undefined,
           specifications: specifications.length > 0 ? specifications : undefined,
-          age: form.age ? parseInt(form.age) : undefined,
-          gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
-          jerseyNumber: form.jerseyNumber || undefined,
-          jerseySize: form.jerseySize || undefined,
-          achievements: form.achievements || undefined,
-          availabilityDates: form.availabilityDates || undefined,
-          cricheroUrl: isCricket ? (form.cricheroUrl || undefined) : undefined,
+          age: showAge && form.age ? parseInt(form.age) : undefined,
+          gender: showGender && (form.gender === "M" || form.gender === "F") ? form.gender : undefined,
+          jerseyNumber: fieldVisibility.jerseyNumber ? (form.jerseyNumber || undefined) : undefined,
+          jerseySize: fieldVisibility.jerseySize ? (form.jerseySize || undefined) : undefined,
+          achievements: showAchievements ? (form.achievements || undefined) : undefined,
+          availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
+          cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
           photoUrl: form.photoUrl || undefined,
           basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
           selectedBidValue: playerBidValueMode && !existingRegistration
             ? parseInt(selectedBidValue, 10)
             : undefined,
-          whatsappConsent: waConsent,
+          whatsappConsent: showWhatsappConsent ? waConsent : undefined,
           registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
           utrNumber: utrNumber.trim() || undefined,
           paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
@@ -698,38 +738,48 @@ export default function PlayerRegister() {
                         ) : null}
                       </div>
 
-                      <OptionalEmailField
-                        id="register-email"
-                        value={form.email}
-                        onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
-                        error={emailError || undefined}
-                        inputClassName="h-11 sm:h-9 text-base"
-                      />
+                      {showEmail && (
+                        <OptionalEmailField
+                          id="register-email"
+                          value={form.email}
+                          onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
+                          error={emailError || undefined}
+                          inputClassName="h-11 sm:h-9 text-base"
+                        />
+                      )}
 
                       <div className="space-y-2">
                         <Label>Full Name *</Label>
                         <Input required value={form.name} onChange={e => f("name", e.target.value)} placeholder="Your full name" className="h-11 sm:h-9" autoComplete="name" />
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>City</Label>
-                          <CityAutocomplete
-                            value={form.city}
-                            onChange={v => f("city", v)}
-                            className="h-11 sm:h-9"
-                          />
+                      {showProfileDetails && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {showCity && (
+                            <div className="space-y-2">
+                              <Label>City</Label>
+                              <CityAutocomplete
+                                value={form.city}
+                                onChange={v => f("city", v)}
+                                className="h-11 sm:h-9"
+                              />
+                            </div>
+                          )}
+                          {showAge && (
+                            <div className="space-y-2">
+                              <Label>Age</Label>
+                              <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} className="h-11 sm:h-9" />
+                            </div>
+                          )}
+                          {showGender && (
+                            <PlayerGenderSelect
+                              value={form.gender}
+                              onChange={(v) => f("gender", v)}
+                              triggerClassName="h-11 sm:h-9"
+                            />
+                          )}
                         </div>
-                        <div className="space-y-2">
-                          <Label>Age</Label>
-                          <Input type="number" inputMode="numeric" value={form.age} onChange={e => f("age", e.target.value)} className="h-11 sm:h-9" />
-                        </div>
-                        <PlayerGenderSelect
-                          value={form.gender}
-                          onChange={(v) => f("gender", v)}
-                          triggerClassName="h-11 sm:h-9"
-                        />
-                      </div>
+                      )}
 
                       {/* Role + role-specific specifications */}
                       <div className="space-y-3 p-3 sm:p-4 rounded-lg border border-border bg-muted/20">
@@ -815,19 +865,25 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Jersey Number</Label>
-                          <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} inputMode="numeric" className="h-11 sm:h-9" />
+                      {showJersey && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {fieldVisibility.jerseyNumber && (
+                            <div className="space-y-2">
+                              <Label>Jersey Number</Label>
+                              <Input value={form.jerseyNumber} onChange={e => f("jerseyNumber", e.target.value)} inputMode="numeric" className="h-11 sm:h-9" />
+                            </div>
+                          )}
+                          {fieldVisibility.jerseySize && (
+                            <JerseySizeSelect
+                              value={form.jerseySize}
+                              onChange={v => f("jerseySize", v)}
+                              triggerClassName="h-11 sm:h-9"
+                            />
+                          )}
                         </div>
-                        <JerseySizeSelect
-                          value={form.jerseySize}
-                          onChange={v => f("jerseySize", v)}
-                          triggerClassName="h-11 sm:h-9"
-                        />
-                      </div>
+                      )}
 
-                      {(() => {
+                      {showMatchAvailability && (() => {
                         const matchDates: string[] = ((tournament as { matchDates?: string | null } | undefined)?.matchDates || "").split(",").filter(Boolean);
                         if (matchDates.length === 0) return null;
                         const selectedDates: string[] = (form.availabilityDates || "").split(",").filter(Boolean);
@@ -870,12 +926,14 @@ export default function PlayerRegister() {
                         );
                       })()}
 
-                      <div className="space-y-2">
-                        <Label>Achievements / Bio</Label>
-                        <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-11 sm:h-9" />
-                      </div>
+                      {showAchievements && (
+                        <div className="space-y-2">
+                          <Label>Achievements / Bio</Label>
+                          <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-11 sm:h-9" />
+                        </div>
+                      )}
 
-                      {isCricket && (
+                      {showCrichero && (
                         <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 sm:p-4 space-y-2">
                           <div className="flex items-center gap-2">
                             <ExternalLink className="w-4 h-4 text-primary shrink-0" />
@@ -898,7 +956,7 @@ export default function PlayerRegister() {
                       )}
 
                       <div className="space-y-2">
-                        <Label>Player Photo (optional)</Label>
+                        <Label>Player Photo *</Label>
                         <div className="flex gap-3 items-start">
                           <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
                             {form.photoUrl ? (
@@ -970,20 +1028,21 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      {/* WhatsApp consent */}
-                      <div className="space-y-2">
-                        <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1">
-                          <input
-                            type="checkbox"
-                            checked={waConsent}
-                            onChange={e => setWaConsent(e.target.checked)}
-                            className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
-                          />
-                          <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                            Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
-                          </span>
-                        </label>
-                      </div>
+                      {showWhatsappConsent && (
+                        <div className="space-y-2">
+                          <label className="flex items-start gap-3 cursor-pointer group min-h-11 py-1">
+                            <input
+                              type="checkbox"
+                              checked={waConsent}
+                              onChange={e => setWaConsent(e.target.checked)}
+                              className="mt-0.5 h-5 w-5 rounded border-border accent-primary cursor-pointer shrink-0"
+                            />
+                            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                              Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain.
+                            </span>
+                          </label>
+                        </div>
+                      )}
 
                       {paymentEnabled && paymentConfigured && (
                         <RegistrationPaymentFormSection

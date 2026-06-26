@@ -28,6 +28,7 @@
     "./tournament-features": "./src/tournament-features.ts",
     "./sponsor-priority": "./src/sponsor-priority.ts",
     "./registration-url": "./src/registration-url.ts",
+    "./registration-fields": "./src/registration-fields.ts",
     "./branding-assets": "./src/branding-assets.ts",
     "./player-specs-v2": "./src/player-specs-v2.ts",
     "./player-sport-profiles": "./src/player-sport-profiles.ts",
