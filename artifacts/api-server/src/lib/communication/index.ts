@@ -35,4 +35,5 @@ export { createJobFromBusinessEvent, enqueueCommunicationFromEvent } from "./eve
 export { startCommunicationWorker, stopCommunicationWorker } from "./worker.js";
 export { getDashboardStats, resolveBulkRecipients, queueBulkCommunication, getSettings, updateSetting, getBulkTargets } from "./dashboard-service.js";
 export { buildMergeDataForRecipient, refreshJobMergeData } from "./merge-data-builder.js";
+export { buildOrganiserTeamsCredentialsData } from "./render-organiser-teams-bundle.js";
 export { seedCommunicationDefaults } from "./seed-templates.js";

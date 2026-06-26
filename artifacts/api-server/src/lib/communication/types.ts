@@ -77,6 +77,7 @@ export type BulkRecipientFilter = {
     | "operators"
     | "team"
     | "player"
+    | "organiser_teams_credentials"
     | "tournament"
     | "custom_emails"
     | "csv";
@@ -109,4 +110,7 @@ export const KNOWN_MERGE_VARIABLES = [
   "app_url",
   "brand_name",
   "powered_by_text",
+  "owner_app_link",
+  "teams_credentials_block",
+  "team_count",
 ] as const;

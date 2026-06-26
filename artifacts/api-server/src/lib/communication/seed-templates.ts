@@ -127,6 +127,24 @@ const DEFAULT_TEMPLATES = [
     htmlBody: `<p>This is a friendly reminder about {{tournament_name}}.</p>`,
   },
   {
+    name: "Organiser — All Teams Credentials",
+    internalKey: "organiser_all_teams_credentials",
+    eventType: null,
+    subject: "All Team Credentials — {{tournament_name}}",
+    htmlBody: `<p>Hi {{organiser_name}},</p>
+<p>Please find below the complete list of <strong>{{team_count}}</strong> registered teams and owner credentials for <strong>{{tournament_name}}</strong>.</p>
+<div style="margin:20px 0;padding:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+  <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#1e40af;">Common Owner App Link (same for all teams)</p>
+  <p style="margin:0;font-size:14px;"><a href="{{owner_app_link}}" style="color:#2563eb;word-break:break-all;">{{owner_app_link}}</a></p>
+  <p style="margin:12px 0 0;font-size:13px;color:#374151;">Each team uses its own <strong>Access Code</strong> on this link.</p>
+</div>
+<p style="margin:16px 0;font-size:14px;color:#4b5563;"><em>Team owners who provided an email address have already received their individual owner panel link by email. You may still share the details below on WhatsApp for quick reference.</em></p>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+<p style="margin:0 0 16px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Teams (copy each block to the respective WhatsApp group)</p>
+{{teams_credentials_block}}`,
+    autoSend: false,
+  },
+  {
     name: "Custom Template",
     internalKey: "custom_template",
     eventType: null,
