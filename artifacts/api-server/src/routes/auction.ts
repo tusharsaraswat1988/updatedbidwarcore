@@ -226,23 +226,25 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
     auctionable.length > 0 && auctionable.every((p) => p.status === "sold");
 
   if (allSold || (unsoldCount === 0 && auctionable.length > 0)) {
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        status: "completed",
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        timerType: null,
-        deferredPlayerIds: null,
-        randomDrawQueue: null,
-        displayCountdown: null,
-        lastAction: "Auction completed — all players sold",
-        lastOutcome: null,
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-    await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(auctionSessionsTable)
+        .set({
+          status: "completed",
+          currentPlayerId: null,
+          currentBid: null,
+          currentBidTeamId: null,
+          timerEndsAt: null,
+          timerType: null,
+          deferredPlayerIds: null,
+          randomDrawQueue: null,
+          displayCountdown: null,
+          lastAction: "Auction completed — all players sold",
+          lastOutcome: null,
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+      await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    });
     return;
   }
 
@@ -264,23 +266,25 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
     return;
   }
 
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      status: "completed",
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      timerType: null,
-      deferredPlayerIds: null,
-      randomDrawQueue: null,
-      displayCountdown: null,
-      lastAction: "Auction completed",
-      lastOutcome: null,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        timerType: null,
+        deferredPlayerIds: null,
+        randomDrawQueue: null,
+        displayCountdown: null,
+        lastAction: "Auction completed",
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+  });
 }
 
 function rejectIfAuctionPaused(
@@ -980,8 +984,10 @@ router.post("/tournaments/:tournamentId/auction/start", async (req, res) => {
     patch.pausedTimeRemaining = null;
   }
 
-  await db.update(auctionSessionsTable).set(patch).where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
+  await db.transaction(async (tx) => {
+    await tx.update(auctionSessionsTable).set(patch).where(eq(auctionSessionsTable.tournamentId, tid));
+    await tx.update(tournamentsTable).set({ status: "active" }).where(eq(tournamentsTable.id, tid));
+  });
 
   // Fire-and-forget push notification — only on the first true start (idle → active),
   // not on every resume from pause, to avoid repeated notifications to owners.
@@ -1019,11 +1025,13 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
     pausedTimeRemaining = remaining > 0 ? remaining : null;
   }
 
-  await db
-    .update(auctionSessionsTable)
-    .set({ status: "paused", lastAction: "Auction paused", timerEndsAt: null, pausedTimeRemaining })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(auctionSessionsTable)
+      .set({ status: "paused", lastAction: "Auction paused", timerEndsAt: null, pausedTimeRemaining })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await tx.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+  });
   auditLog(req, {
     category: "auction",
     action: "auction.paused",
@@ -1362,45 +1370,53 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   const teamId = session.currentBidTeamId;
   const soldAmount = session.currentBid ?? 0;
 
-  await db
-    .update(playersTable)
-    .set({ status: "sold", teamId, soldPrice: soldAmount })
-    .where(eq(playersTable.id, playerId));
+  // All four table writes are atomic: a mid-flight server failure cannot leave
+  // players sold while purse is unchanged, or bids recorded without a sold player.
+  const { soldPlayer, team } = await db.transaction(async (tx) => {
+    await tx
+      .update(playersTable)
+      .set({ status: "sold", teamId, soldPrice: soldAmount })
+      .where(eq(playersTable.id, playerId));
 
-  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-  await db
-    .update(teamsTable)
-    .set({ purseUsed: (team?.purseUsed ?? 0) + soldAmount })
-    .where(eq(teamsTable.id, teamId));
+    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+    await tx
+      .update(teamsTable)
+      .set({ purseUsed: (txTeam?.purseUsed ?? 0) + soldAmount })
+      .where(eq(teamsTable.id, teamId));
 
-  await db.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
+    await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
 
-  const [soldPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
+    const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        pausedTimeRemaining: null,
+        lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
+        lastOutcome: JSON.stringify({
+          type: "sold",
+          playerId,
+          playerName: txSoldPlayer?.name ?? "Player",
+          photoUrl: txSoldPlayer?.photoUrl ?? null,
+          teamId,
+          teamName: txTeam?.name ?? null,
+          teamColor: txTeam?.color ?? null,
+          teamLogoUrl: txTeam?.logoUrl ?? null,
+          amount: soldAmount,
+          isManual: false,
+        }),
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    return { soldPlayer: txSoldPlayer, team: txTeam };
+  });
+
+  // Tournament fetch is read-only; placed after commit so notifications use fresh data.
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      pausedTimeRemaining: null,
-      lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
-      lastOutcome: JSON.stringify({
-        type: "sold",
-        playerId,
-        playerName: soldPlayer?.name ?? "Player",
-        photoUrl: soldPlayer?.photoUrl ?? null,
-        teamId,
-        teamName: team?.name ?? null,
-        teamColor: team?.color ?? null,
-        teamLogoUrl: team?.logoUrl ?? null,
-        amount: soldAmount,
-        isManual: false,
-      }),
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
 
   // Fire-and-forget WhatsApp notification
   notifyPlayerSold({
@@ -1527,50 +1543,57 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     }
   }
 
-  await db
-    .update(playersTable)
-    .set({ status: "sold", teamId, soldPrice: amount })
-    .where(eq(playersTable.id, playerId));
+  // All four table writes are atomic — no partial state on failure.
+  const { soldPlayer, team, teamAfter } = await db.transaction(async (tx) => {
+    await tx
+      .update(playersTable)
+      .set({ status: "sold", teamId, soldPrice: amount })
+      .where(eq(playersTable.id, playerId));
 
-  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-  if (team && amount > 0) {
-    await db
-      .update(teamsTable)
-      .set({ purseUsed: (team.purseUsed ?? 0) + amount })
-      .where(eq(teamsTable.id, teamId));
-  }
+    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+    if (txTeam && amount > 0) {
+      await tx
+        .update(teamsTable)
+        .set({ purseUsed: (txTeam.purseUsed ?? 0) + amount })
+        .where(eq(teamsTable.id, teamId));
+    }
 
-  if (amount > 0) {
-    await db.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount });
-  }
+    if (amount > 0) {
+      await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount });
+    }
 
-  const [soldPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
-  const [teamAfter] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+    const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
+    const [txTeamAfter] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        pausedTimeRemaining: null,
+        lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
+        lastOutcome: JSON.stringify({
+          type: "sold",
+          playerId,
+          playerName: txSoldPlayer?.name ?? "Player",
+          photoUrl: txSoldPlayer?.photoUrl ?? null,
+          teamId,
+          teamName: txTeam?.name ?? null,
+          teamColor: txTeam?.color ?? null,
+          teamLogoUrl: txTeam?.logoUrl ?? null,
+          amount,
+          isManual: true,
+        }),
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    return { soldPlayer: txSoldPlayer, team: txTeam, teamAfter: txTeamAfter };
+  });
+
+  // Tournament fetch is read-only; after commit so notifications use fresh data.
   const [manualTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      pausedTimeRemaining: null,
-      lastAction: `SOLD: ${soldPlayer?.name ?? "Player"} to ${team?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
-      lastOutcome: JSON.stringify({
-        type: "sold",
-        playerId,
-        playerName: soldPlayer?.name ?? "Player",
-        photoUrl: soldPlayer?.photoUrl ?? null,
-        teamId,
-        teamName: team?.name ?? null,
-        teamColor: team?.color ?? null,
-        teamLogoUrl: team?.logoUrl ?? null,
-        amount,
-        isManual: true,
-      }),
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
 
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
@@ -1644,30 +1667,34 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     .from(playersTable)
     .where(eq(playersTable.id, session.currentPlayerId));
 
-  await db
-    .update(playersTable)
-    .set({ status: "unsold" })
-    .where(eq(playersTable.id, session.currentPlayerId));
+  // Atomic: player status and session cleared together — no partial state.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(playersTable)
+      .set({ status: "unsold" })
+      .where(eq(playersTable.id, session.currentPlayerId));
 
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        pausedTimeRemaining: null,
+        lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
+        lastOutcome: JSON.stringify({
+          type: "unsold",
+          playerId: player?.id ?? null,
+          playerName: player?.name ?? "Player",
+          photoUrl: player?.photoUrl ?? null,
+        }),
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  });
+
+  // Tournament fetch is read-only; after commit so notification uses fresh data.
   const [unsoldTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      pausedTimeRemaining: null,
-      lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
-      lastOutcome: JSON.stringify({
-        type: "unsold",
-        playerId: player?.id ?? null,
-        playerName: player?.name ?? "Player",
-        photoUrl: player?.photoUrl ?? null,
-      }),
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
 
   notifyPlayerUnsold({
     mobile: player?.mobileNumber ?? null,
@@ -1726,44 +1753,49 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
 
   if (!player) { res.status(404).json({ error: "Player not found" }); return; }
 
-  // If player was sold, reverse purse usage
-  if (player.status === "sold" && player.teamId && player.soldPrice) {
-    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, player.teamId));
-    if (team) {
-      await db
-        .update(teamsTable)
-        .set({ purseUsed: Math.max(0, team.purseUsed - player.soldPrice) })
-        .where(eq(teamsTable.id, player.teamId));
-    }
-    await db
-      .delete(bidsTable)
-      .where(and(eq(bidsTable.playerId, playerId), eq(bidsTable.tournamentId, tid)));
-  }
-
+  // Fetch read-only data before the transaction so they are available both
+  // inside (for writes) and outside (for notifications/audit).
   const startingBid = startFromBase ? player.basePrice : (player.soldPrice ?? player.basePrice);
-  await db
-    .update(playersTable)
-    .set({ status: "available", teamId: null, soldPrice: null })
-    .where(eq(playersTable.id, playerId));
-
   const [reTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const timerSecs = reTournament?.timerSeconds ?? 30;
 
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      status: "active",
-      currentPlayerId: playerId,
-      currentBid: startingBid,
-      currentBidTeamId: null,
-      timerSeconds: timerSecs,
-      timerEndsAt: null,
-      timerType: null,
-      randomDrawQueue: null,
-      lastAction: `RE-AUCTION: ${player.name}`,
-      lastOutcome: null,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
+  // Atomic: purse reversal + bid deletion + player reset + session update.
+  await db.transaction(async (tx) => {
+    // If player was sold, reverse purse usage
+    if (player.status === "sold" && player.teamId && player.soldPrice) {
+      const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, player.teamId));
+      if (txTeam) {
+        await tx
+          .update(teamsTable)
+          .set({ purseUsed: Math.max(0, txTeam.purseUsed - player.soldPrice) })
+          .where(eq(teamsTable.id, player.teamId));
+      }
+      await tx
+        .delete(bidsTable)
+        .where(and(eq(bidsTable.playerId, playerId), eq(bidsTable.tournamentId, tid)));
+    }
+
+    await tx
+      .update(playersTable)
+      .set({ status: "available", teamId: null, soldPrice: null })
+      .where(eq(playersTable.id, playerId));
+
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        status: "active",
+        currentPlayerId: playerId,
+        currentBid: startingBid,
+        currentBidTeamId: null,
+        timerSeconds: timerSecs,
+        timerEndsAt: null,
+        timerType: null,
+        randomDrawQueue: null,
+        lastAction: `RE-AUCTION: ${player.name}`,
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  });
 
   notifyPlayerReAuction({
     mobile: player.mobileNumber ?? null,
@@ -1814,20 +1846,23 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
     return;
   }
 
-  for (const p of unsoldPlayers) {
-    await db
-      .update(playersTable)
-      .set({ status: "available" })
-      .where(eq(playersTable.id, p.id));
-  }
+  // Atomic: all player resets and session update succeed together.
+  await db.transaction(async (tx) => {
+    for (const p of unsoldPlayers) {
+      await tx
+        .update(playersTable)
+        .set({ status: "available" })
+        .where(eq(playersTable.id, p.id));
+    }
 
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      randomDrawQueue: null,
-      lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        randomDrawQueue: null,
+        lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+  });
 
   auditLog(req, {
     category: "auction",
@@ -1917,76 +1952,83 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid));
 
-  for (const p of allPlayers) {
-    if (p.status !== "retained") {
-      await db
-        .update(playersTable)
-        .set({ status: "available", teamId: null, soldPrice: null })
-        .where(eq(playersTable.id, p.id));
-    }
-  }
-
+  // Fetch teams before the transaction (read-only; used to compute retained purse cost).
   const teams = await db
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tid));
 
-  for (const team of teams) {
-    const retainedPlayers = allPlayers.filter(
-      (p) => p.status === "retained" && p.teamId === team.id
-    );
-    const retainedCost = retainedPlayers.reduce((sum, p) => sum + (p.retainedPrice ?? 0), 0);
-    await db
-      .update(teamsTable)
-      .set({ purseUsed: retainedCost })
-      .where(eq(teamsTable.id, team.id));
-  }
+  // Atomic: all 7 tables either succeed together or are fully rolled back.
+  // invalidateIntelCacheForTournament (in-memory) runs after commit.
+  await db.transaction(async (tx) => {
+    for (const p of allPlayers) {
+      if (p.status !== "retained") {
+        await tx
+          .update(playersTable)
+          .set({ status: "available", teamId: null, soldPrice: null })
+          .where(eq(playersTable.id, p.id));
+      }
+    }
 
-  await db.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
+    for (const team of teams) {
+      const retainedPlayers = allPlayers.filter(
+        (p) => p.status === "retained" && p.teamId === team.id
+      );
+      const retainedCost = retainedPlayers.reduce((sum, p) => sum + (p.retainedPrice ?? 0), 0);
+      await tx
+        .update(teamsTable)
+        .set({ purseUsed: retainedCost })
+        .where(eq(teamsTable.id, team.id));
+    }
 
-  // Trial resets must not leave behavioral intelligence — it would pollute live analytics.
-  await db.delete(auctionBidEventsTable).where(eq(auctionBidEventsTable.tournamentId, tid));
-  await db
-    .delete(auctionPlayerEventsTable)
-    .where(eq(auctionPlayerEventsTable.tournamentId, tid));
-  await db
-    .delete(auctionTimerEventsTable)
-    .where(eq(auctionTimerEventsTable.tournamentId, tid));
+    await tx.delete(bidsTable).where(eq(bidsTable.tournamentId, tid));
+
+    // Trial resets must not leave behavioral intelligence — it would pollute live analytics.
+    await tx.delete(auctionBidEventsTable).where(eq(auctionBidEventsTable.tournamentId, tid));
+    await tx
+      .delete(auctionPlayerEventsTable)
+      .where(eq(auctionPlayerEventsTable.tournamentId, tid));
+    await tx
+      .delete(auctionTimerEventsTable)
+      .where(eq(auctionTimerEventsTable.tournamentId, tid));
+
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        status: "idle",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        deferredPlayerIds: null,
+        randomDrawQueue: null,
+        soldPlayersCount: 0,
+        unsoldPlayersCount: 0,
+        lastAction: "Reset complete — ready for live auction",
+        lastOutcome: null,
+        fortuneWheelActive: false,
+        wheelSpinning: false,
+        wheelWinner: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+
+    await tx
+      .update(tournamentsTable)
+      .set({
+        status: "setup",
+        resetCount: previousResetCount + 1,
+        lastResetAt: new Date(),
+        lastResetBy: resetActor,
+        // A reset always clears the admin lock — the act of resetting implies the
+        // tournament is being prepared for another live run.
+        adminLocked: false,
+        adminLockedAt: null,
+      })
+      .where(eq(tournamentsTable.id, tid));
+  });
+
+  // In-memory cache invalidation — runs after the DB transaction commits.
   invalidateIntelCacheForTournament(tid);
-
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      status: "idle",
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      deferredPlayerIds: null,
-      randomDrawQueue: null,
-      soldPlayersCount: 0,
-      unsoldPlayersCount: 0,
-      lastAction: "Reset complete — ready for live auction",
-      lastOutcome: null,
-      fortuneWheelActive: false,
-      wheelSpinning: false,
-      wheelWinner: null,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-
-  await db
-    .update(tournamentsTable)
-    .set({
-      status: "setup",
-      resetCount: previousResetCount + 1,
-      lastResetAt: new Date(),
-      lastResetBy: resetActor,
-      // A reset always clears the admin lock — the act of resetting implies the
-      // tournament is being prepared for another live run.
-      adminLocked: false,
-      adminLockedAt: null,
-    })
-    .where(eq(tournamentsTable.id, tid));
 
   auditLog(req, {
     category: "auction",
@@ -2229,27 +2271,32 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
     const purseUsedBefore = teamBefore?.purseUsed ?? 0;
     const purseUsedAfter = Math.max(0, purseUsedBefore - bid.amount);
 
-    await db
-      .update(playersTable)
-      .set({ status: "available", teamId: null, soldPrice: null })
-      .where(eq(playersTable.id, bid.playerId));
+    // Atomic: player reset + purse reversal + bid deletion + session update.
+    const { player, teamAfter } = await db.transaction(async (tx) => {
+      await tx
+        .update(playersTable)
+        .set({ status: "available", teamId: null, soldPrice: null })
+        .where(eq(playersTable.id, bid.playerId));
 
-    const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
-    if (team) {
-      await db
-        .update(teamsTable)
-        .set({ purseUsed: purseUsedAfter })
-        .where(eq(teamsTable.id, bid.teamId));
-    }
+      if (teamBefore) {
+        await tx
+          .update(teamsTable)
+          .set({ purseUsed: purseUsedAfter })
+          .where(eq(teamsTable.id, bid.teamId));
+      }
 
-    await db.delete(bidsTable).where(eq(bidsTable.id, bid.id));
+      await tx.delete(bidsTable).where(eq(bidsTable.id, bid.id));
 
-    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
-    const [teamAfter] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
-    await db
-      .update(auctionSessionsTable)
-      .set({ lastAction: `Undone: ${player?.name ?? "Player"} returned to pool`, randomDrawQueue: null })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
+      await tx
+        .update(auctionSessionsTable)
+        .set({ lastAction: `Undone: ${playerBefore?.name ?? "Player"} returned to pool`, randomDrawQueue: null })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+
+      // Re-fetch post-transaction state for the audit "after" snapshot.
+      const [txPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, bid.playerId));
+      const [txTeamAfter] = await tx.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
+      return { player: txPlayer, teamAfter: txTeamAfter };
+    });
 
     auditLog(req, {
       category: "auction",
@@ -2522,26 +2569,28 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
     return;
   }
 
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      status: "completed",
-      currentPlayerId: null,
-      currentBid: null,
-      currentBidTeamId: null,
-      timerEndsAt: null,
-      timerType: null,
-      deferredPlayerIds: null,
-      randomDrawQueue: null,
-      displayCountdown: null,
-      lastAction:
-        unsoldCount > 0
-          ? `Auction concluded by operator — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remain`
-          : "Auction concluded by operator",
-      lastOutcome: null,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  await db.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        currentPlayerId: null,
+        currentBid: null,
+        currentBidTeamId: null,
+        timerEndsAt: null,
+        timerType: null,
+        deferredPlayerIds: null,
+        randomDrawQueue: null,
+        displayCountdown: null,
+        lastAction:
+          unsoldCount > 0
+            ? `Auction concluded by operator — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remain`
+            : "Auction concluded by operator",
+        lastOutcome: null,
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tid));
+    await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+  });
 
   auditLog(req, {
     category: "auction",
@@ -2576,16 +2625,18 @@ router.post("/tournaments/:tournamentId/auction/break-timer", async (req, res) =
       const remaining = Math.ceil((new Date(session.timerEndsAt).getTime() - Date.now()) / 1000);
       pausedTimeRemaining = remaining > 0 ? remaining : null;
     }
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        status: "paused",
-        lastAction: "Auction paused for break",
-        timerEndsAt: null,
-        pausedTimeRemaining,
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-    await db.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(auctionSessionsTable)
+        .set({
+          status: "paused",
+          lastAction: "Auction paused for break",
+          timerEndsAt: null,
+          pausedTimeRemaining,
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+      await tx.update(tournamentsTable).set({ status: "paused" }).where(eq(tournamentsTable.id, tid));
+    });
     auditLog(req, {
       category: "auction",
       action: "auction.paused",
