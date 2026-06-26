@@ -42,6 +42,7 @@ import {
   serializeBidValueOptions,
 } from "@workspace/api-base/bid-value";
 import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
+import { loadTournamentByRegistrationCode } from "../lib/registration-context-service.js";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
 import {
@@ -472,19 +473,13 @@ async function handleRegisterLookup(tid: number, mobileRaw: string, res: Respons
 }
 
 router.get("/register/:code/context", async (req, res) => {
-  const tid = await findTournamentIdByRegistrationCode(req.params.code);
-  if (!tid) {
-    res.status(404).json({ error: "Registration link not found" });
-    return;
-  }
-
-  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  const tournament = await loadTournamentByRegistrationCode(req.params.code);
   if (!tournament) {
     res.status(404).json({ error: "Registration link not found" });
     return;
   }
 
-  const status = await computeRegistrationStatus(tid);
+  const status = await computeRegistrationStatus(tournament.id);
   if (!status) {
     res.status(404).json({ error: "Registration link not found" });
     return;

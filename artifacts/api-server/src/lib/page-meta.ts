@@ -10,6 +10,9 @@
  * App pages (/tournament/*, /admin/*, /organizer/*) are intentionally absent;
  * they are served with the generic index.html shell.
  *
+ * Registration pages (/register/:code) are resolved dynamically via
+ * registration-page-meta.ts (one tournament lookup, server-injected OG tags).
+ *
  * Blog pages (/blog/*) are handled dynamically via getPageMeta() below.
  */
 import {
@@ -23,7 +26,8 @@ import {
 } from "@workspace/blog-data";
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
 
-const BASE_URL = "https://bidwar.in";
+export const BASE_URL = "https://bidwar.in";
+export const DEFAULT_OG_IMAGE_URL = `${BASE_URL}/bidwar-screenshot.png`;
 const PHONE = "+91-8707488250";
 
 // ─── Shared schema fragments ──────────────────────────────────────────────────
@@ -162,6 +166,17 @@ function graph(...items: object[]) {
 
 // ─── PageMeta type ────────────────────────────────────────────────────────────
 
+/** Extensible registration-specific fields for future OG additions (deadline, city, etc.). */
+export interface RegistrationMetaFields {
+  tournamentName: string;
+  sport?: string | null;
+  venue?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  organizerName?: string | null;
+  registrationCode?: string | null;
+}
+
 export interface PageMeta {
   title: string;
   description: string;
@@ -174,6 +189,8 @@ export interface PageMeta {
   twitterTitle?: string;
   twitterDescription?: string;
   schemas?: object[];
+  /** Present only for /register/:code pages — not emitted into HTML directly. */
+  registration?: RegistrationMetaFields;
 }
 
 // ─── Static marketing pages ───────────────────────────────────────────────────

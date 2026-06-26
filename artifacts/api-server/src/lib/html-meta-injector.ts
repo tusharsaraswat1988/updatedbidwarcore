@@ -1,5 +1,6 @@
 /**
- * Server-side HTML meta injection for marketing pages.
+ * Server-side HTML meta injection for marketing and public app pages
+ * (including /register/:code player registration links).
  *
  * At startup we read the built index.html once and cache it. For each request
  * that matches a known public marketing route, we replace the marker comment

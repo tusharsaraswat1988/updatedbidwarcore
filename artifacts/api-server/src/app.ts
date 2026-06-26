@@ -19,6 +19,10 @@ import {
 } from "./lib/runtime-env";
 import { getPageMeta, getAllBlogUrls } from "./lib/page-meta.js";
 import { isCricketPublicPath, resolveCricketPageMeta } from "./lib/cricket-page-meta.js";
+import {
+  isRegistrationPublicPath,
+  resolveRegistrationPageMeta,
+} from "./lib/registration-page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
 import {
@@ -205,6 +209,13 @@ if (serveStatic) {
       if (!meta && isCricketPublicPath(req.path)) {
         try {
           meta = await resolveCricketPageMeta(req.path);
+        } catch {
+          meta = null;
+        }
+      }
+      if (!meta && isRegistrationPublicPath(req.path)) {
+        try {
+          meta = await resolveRegistrationPageMeta(req.path);
         } catch {
           meta = null;
         }
