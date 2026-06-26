@@ -76,11 +76,13 @@ export type BulkRecipientFilter = {
     | "sponsors"
     | "operators"
     | "team"
+    | "player"
     | "tournament"
     | "custom_emails"
     | "csv";
   tournamentId?: number;
   teamId?: number;
+  playerId?: number;
   emails?: string[];
   csvEmails?: string[];
 };

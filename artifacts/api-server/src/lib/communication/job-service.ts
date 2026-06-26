@@ -5,6 +5,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { CommunicationJobStatus } from "@workspace/db";
+import { refreshJobMergeData } from "./merge-data-builder.js";
 import { renderMergeTemplate } from "./merge-variables.js";
 import { getTemplateById, getTemplateByKey, getTemplateVersion, logCommunicationAction } from "./template-service.js";
 import type { CreateJobInput, JobListFilters } from "./types.js";
@@ -430,6 +431,8 @@ export async function createResendJob(
 
   const newIdempotencyKey = `resend:${originalJobId}:${Date.now()}`;
 
+  const mergeData = await refreshJobMergeData(original);
+
   const newJobId = await createCommunicationJob({
     channel: "email",
     templateId: original.templateId ?? undefined,
@@ -442,7 +445,7 @@ export async function createResendJob(
     recipientEmail: primary.recipientEmail,
     recipientPhone: primary.recipientPhone,
     recipientRole: primary.recipientRole,
-    mergeData: original.mergeData ?? {},
+    mergeData,
     idempotencyKey: newIdempotencyKey,
     parentJobId: originalJobId,
     sentBy: "admin",

@@ -185,9 +185,14 @@ export default function AdminCommunicationCenter() {
   const [editRecipient, setEditRecipient] = useState<{ jobId: string; email: string; name: string } | null>(null);
 
   const [bulkTemplateId, setBulkTemplateId] = useState("");
-  const [bulkFilterType, setBulkFilterType] = useState("players");
+  const [bulkFilterType, setBulkFilterType] = useState("team");
   const [bulkTournamentId, setBulkTournamentId] = useState("");
+  const [bulkTeamId, setBulkTeamId] = useState("");
+  const [bulkPlayerId, setBulkPlayerId] = useState("");
   const [bulkRecipients, setBulkRecipients] = useState<Array<{ name: string | null; email: string; role: string }>>([]);
+  const [bulkTeams, setBulkTeams] = useState<Array<{ id: number; name: string; ownerName: string | null; ownerEmail: string | null; hasEmail: boolean }>>([]);
+  const [bulkPlayers, setBulkPlayers] = useState<Array<{ id: number; name: string; email: string | null; hasEmail: boolean; status: string | null }>>([]);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [tournaments, setTournaments] = useState<Array<{ id: number; name: string }>>([]);
 
   const apiBase = "/api/auth/admin/communication-center";
@@ -318,34 +323,96 @@ export default function AdminCommunicationCenter() {
     });
   };
 
+  useEffect(() => {
+    if (!bulkTournamentId) {
+      setBulkTeams([]);
+      setBulkPlayers([]);
+      setBulkTeamId("");
+      setBulkPlayerId("");
+      return;
+    }
+    void fetch(`${apiBase}/bulk/targets?tournamentId=${bulkTournamentId}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { teams?: typeof bulkTeams; players?: typeof bulkPlayers }) => {
+        setBulkTeams(d.teams ?? []);
+        setBulkPlayers(d.players ?? []);
+      })
+      .catch(() => {
+        setBulkTeams([]);
+        setBulkPlayers([]);
+      });
+  }, [apiBase, bulkTournamentId]);
+
+  const buildBulkFilter = useCallback(() => {
+    const filter: Record<string, unknown> = {
+      type: bulkFilterType,
+      tournamentId: bulkTournamentId ? Number(bulkTournamentId) : undefined,
+    };
+    if (bulkFilterType === "team" && bulkTeamId) filter.teamId = Number(bulkTeamId);
+    if (bulkFilterType === "player" && bulkPlayerId) filter.playerId = Number(bulkPlayerId);
+    return filter;
+  }, [bulkFilterType, bulkTournamentId, bulkTeamId, bulkPlayerId]);
+
   const previewBulkRecipients = async () => {
+    const filter = buildBulkFilter();
+    if ((filter.type === "team" || filter.type === "player") && !filter.tournamentId) {
+      alert("Please select a tournament first.");
+      return;
+    }
+    if (filter.type === "team" && !filter.teamId) {
+      alert("Please select a specific team.");
+      return;
+    }
+    if (filter.type === "player" && !filter.playerId) {
+      alert("Please select a specific player.");
+      return;
+    }
     const res = await fetch(`${apiBase}/bulk/preview-recipients`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: bulkFilterType,
-        tournamentId: bulkTournamentId ? Number(bulkTournamentId) : undefined,
-      }),
+      body: JSON.stringify(filter),
     });
     if (res.ok) {
       const data = await res.json();
       setBulkRecipients(data.recipients ?? []);
+      if (!data.recipients?.length) {
+        alert("No recipients with a valid email address found for this selection.");
+      }
     }
   };
 
   const queueBulk = async () => {
+    if (!bulkTemplateId) return;
     await fetch(`${apiBase}/bulk/queue`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         templateId: bulkTemplateId,
-        filter: { type: bulkFilterType, tournamentId: Number(bulkTournamentId) },
+        filter: buildBulkFilter(),
         sendImmediately: true,
       }),
     });
     changeTab("sent");
+  };
+
+  const resendJob = async (jobId: string) => {
+    setResendingId(jobId);
+    try {
+      const res = await fetch(`${apiBase}/jobs/${jobId}/resend`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert((data as { error?: string }).error ?? "Resend failed");
+        return;
+      }
+      void loadTab("sent");
+    } finally {
+      setResendingId(null);
+    }
   };
 
   if (isLoading || !isLoggedIn || !isMaster) {
@@ -548,7 +615,7 @@ export default function AdminCommunicationCenter() {
                 </SelectContent>
               </Select>
             </div>
-            <JobsTable jobs={jobs} onSend={sendJob} onView={setViewJob} showSent />
+            <JobsTable jobs={jobs} onSend={sendJob} onView={setViewJob} onResend={resendJob} resendingId={resendingId} showSent />
           </TabsContent>
 
           <TabsContent value="drafts">
@@ -571,12 +638,12 @@ export default function AdminCommunicationCenter() {
 
           <TabsContent value="bulk" className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Bulk Communication</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Send Email</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <Label>Tournament</Label>
-                    <Select value={bulkTournamentId} onValueChange={setBulkTournamentId}>
+                    <Select value={bulkTournamentId} onValueChange={(v) => { setBulkTournamentId(v); setBulkTeamId(""); setBulkPlayerId(""); setBulkRecipients([]); }}>
                       <SelectTrigger><SelectValue placeholder="Select tournament" /></SelectTrigger>
                       <SelectContent>
                         {tournaments.map((t) => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
@@ -585,15 +652,17 @@ export default function AdminCommunicationCenter() {
                   </div>
                   <div>
                     <Label>Recipient Filter</Label>
-                    <Select value={bulkFilterType} onValueChange={setBulkFilterType}>
+                    <Select value={bulkFilterType} onValueChange={(v) => { setBulkFilterType(v); setBulkRecipients([]); }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="team">Specific Team Owner</SelectItem>
+                        <SelectItem value="player">Specific Player</SelectItem>
+                        <SelectItem value="team_owners">All Team Owners</SelectItem>
                         <SelectItem value="players">All Players</SelectItem>
                         <SelectItem value="selected_players">Selected Players</SelectItem>
                         <SelectItem value="unsold_players">Unsold Players</SelectItem>
                         <SelectItem value="men">Men</SelectItem>
                         <SelectItem value="women">Women</SelectItem>
-                        <SelectItem value="team_owners">Team Owners</SelectItem>
                         <SelectItem value="organisers">Organisers</SelectItem>
                       </SelectContent>
                     </Select>
@@ -603,19 +672,65 @@ export default function AdminCommunicationCenter() {
                     <Select value={bulkTemplateId} onValueChange={setBulkTemplateId}>
                       <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
                       <SelectContent>
-                        {templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                        {templates.filter((t) => !t.isDraft && t.isActive).map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <div className="flex gap-2">
+
+                {bulkFilterType === "team" && bulkTournamentId && (
+                  <div>
+                    <Label>Team</Label>
+                    <Select value={bulkTeamId} onValueChange={(v) => { setBulkTeamId(v); setBulkRecipients([]); }}>
+                      <SelectTrigger><SelectValue placeholder="Select team" /></SelectTrigger>
+                      <SelectContent>
+                        {bulkTeams.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)} disabled={!t.hasEmail}>
+                            {t.name} — {t.ownerName ?? "Owner"}{!t.hasEmail ? " (no email)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Team owner link (`login_link`) is auto-filled for the selected team.
+                    </p>
+                  </div>
+                )}
+
+                {bulkFilterType === "player" && bulkTournamentId && (
+                  <div>
+                    <Label>Player</Label>
+                    <Select value={bulkPlayerId} onValueChange={(v) => { setBulkPlayerId(v); setBulkRecipients([]); }}>
+                      <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
+                      <SelectContent>
+                        {bulkPlayers.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)} disabled={!p.hasEmail}>
+                            {p.name}{!p.hasEmail ? " (no email)" : ` — ${p.email}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => void previewBulkRecipients()}>Preview Recipients</Button>
                   <Button onClick={() => void queueBulk()} disabled={!bulkTemplateId || bulkRecipients.length === 0}>
-                    Queue {bulkRecipients.length} Emails
+                    Send to {bulkRecipients.length || "…"} Recipient{bulkRecipients.length === 1 ? "" : "s"}
                   </Button>
                 </div>
+
                 {bulkRecipients.length > 0 && (
-                  <p className="text-sm text-muted-foreground">{bulkRecipients.length} recipients selected</p>
+                  <div className="rounded-lg border p-3">
+                    <p className="mb-2 text-sm font-medium">{bulkRecipients.length} recipient(s) ready</p>
+                    <ul className="space-y-1 text-sm text-muted-foreground">
+                      {bulkRecipients.map((r) => (
+                        <li key={r.email}>{r.name ?? "—"} &lt;{r.email}&gt;</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -765,12 +880,16 @@ function JobsTable({
   onSend,
   onView,
   onEditRecipient,
+  onResend,
+  resendingId,
   showSent,
 }: {
   jobs: CommJob[];
   onSend: (id: string) => void;
   onView: (job: CommJob) => void;
   onEditRecipient?: (job: CommJob) => void;
+  onResend?: (id: string) => void;
+  resendingId?: string | null;
   showSent?: boolean;
 }) {
   return (
@@ -806,6 +925,17 @@ function JobsTable({
                       <Button size="sm" variant="ghost" onClick={() => onSend(j.id)}><Send className="h-3.5 w-3.5" /></Button>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => onView(j)}>View</Button>
+                    {showSent && onResend && j.recipient?.recipientEmail && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Resend email"
+                        disabled={resendingId === j.id}
+                        onClick={() => onResend(j.id)}
+                      >
+                        <RotateCcw className={`h-3.5 w-3.5 ${resendingId === j.id ? "animate-spin" : ""}`} />
+                      </Button>
+                    )}
                     {onEditRecipient && (
                       <Button size="sm" variant="ghost" onClick={() => onEditRecipient(j)}>Edit</Button>
                     )}

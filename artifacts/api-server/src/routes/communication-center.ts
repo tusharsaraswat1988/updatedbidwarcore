@@ -23,6 +23,7 @@ import {
   resolveBulkRecipients,
   updateJobRecipient,
   updateSetting,
+  getBulkTargets,
 } from "../lib/communication/index.js";
 import {
   db,
@@ -325,7 +326,9 @@ router.post("/auth/admin/communication-center/jobs/:id/resend", async (req, res)
     createdBy: adminLabel(req),
     ipAddress: clientIp(req),
   });
-  if (!newJobId) return res.status(400).json({ error: "Cannot resend this job" });
+  if (!newJobId) {
+    return res.status(400).json({ error: "Cannot resend — recipient email missing or job not found" });
+  }
   res.json({ success: true, newJobId });
 });
 
@@ -346,6 +349,15 @@ router.patch("/auth/admin/communication-center/jobs/:id/recipient", async (req, 
 });
 
 // ─── Bulk ────────────────────────────────────────────────────────────────────
+
+router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => {
+  const tournamentId = Number(req.query.tournamentId);
+  if (!Number.isFinite(tournamentId)) {
+    return res.status(400).json({ error: "tournamentId required" });
+  }
+  const targets = await getBulkTargets(tournamentId);
+  res.json(targets);
+});
 
 router.post("/auth/admin/communication-center/bulk/preview-recipients", async (req, res) => {
   const filter = req.body as Parameters<typeof resolveBulkRecipients>[0];

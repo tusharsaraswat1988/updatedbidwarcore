@@ -33,5 +33,6 @@ export {
 } from "./recovery.js";
 export { createJobFromBusinessEvent, enqueueCommunicationFromEvent } from "./event-bridge.js";
 export { startCommunicationWorker, stopCommunicationWorker } from "./worker.js";
-export { getDashboardStats, resolveBulkRecipients, queueBulkCommunication, getSettings, updateSetting } from "./dashboard-service.js";
+export { getDashboardStats, resolveBulkRecipients, queueBulkCommunication, getSettings, updateSetting, getBulkTargets } from "./dashboard-service.js";
+export { buildMergeDataForRecipient, refreshJobMergeData } from "./merge-data-builder.js";
 export { seedCommunicationDefaults } from "./seed-templates.js";

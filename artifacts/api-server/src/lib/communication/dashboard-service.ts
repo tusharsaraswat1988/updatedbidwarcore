@@ -14,6 +14,7 @@ import {
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { DashboardStats, BulkRecipientFilter } from "./types.js";
 import { createCommunicationJob, queueJob } from "./job-service.js";
+import { buildMergeDataForRecipient } from "./merge-data-builder.js";
 
 export async function getDashboardStats(tournamentId?: number): Promise<DashboardStats> {
   const countsResult = await pool.query<{
@@ -151,6 +152,57 @@ export async function resolveBulkRecipients(
     return results;
   }
 
+  if (filter.type === "player" && filter.playerId) {
+    const [player] = await db
+      .select({
+        id: playersTable.id,
+        name: playersTable.name,
+        email: playersTable.email,
+        tournamentId: playersTable.tournamentId,
+      })
+      .from(playersTable)
+      .where(eq(playersTable.id, filter.playerId))
+      .limit(1);
+
+    if (player && isValidEmail(player.email)) {
+      results.push({
+        name: player.name,
+        email: player.email!.trim(),
+        role: "player",
+        entityType: "player",
+        entityId: player.id,
+        tournamentId: player.tournamentId,
+      });
+    }
+    return results;
+  }
+
+  if (filter.type === "team" && filter.teamId) {
+    const [team] = await db
+      .select({
+        id: teamsTable.id,
+        name: teamsTable.name,
+        ownerName: teamsTable.ownerName,
+        ownerEmail: teamsTable.ownerEmail,
+        tournamentId: teamsTable.tournamentId,
+      })
+      .from(teamsTable)
+      .where(eq(teamsTable.id, filter.teamId))
+      .limit(1);
+
+    if (team && isValidEmail(team.ownerEmail)) {
+      results.push({
+        name: team.ownerName,
+        email: team.ownerEmail!.trim(),
+        role: "team_owner",
+        entityType: "team",
+        entityId: team.id,
+        tournamentId: team.tournamentId,
+      });
+    }
+    return results;
+  }
+
   if (!filter.tournamentId && filter.type !== "organisers") return results;
 
   if (filter.type === "players" || filter.type === "selected_players" || filter.type === "unsold_players" || filter.type === "men" || filter.type === "women") {
@@ -266,6 +318,15 @@ export async function queueBulkCommunication(params: {
   const jobIds: string[] = [];
 
   for (const recipient of params.recipients) {
+    const mergeData = await buildMergeDataForRecipient({
+      name: recipient.name,
+      email: recipient.email,
+      role: recipient.role,
+      entityType: recipient.entityType,
+      entityId: recipient.entityId,
+      tournamentId: recipient.tournamentId,
+    });
+
     const jobId = await createCommunicationJob({
       channel: "email",
       templateId: params.templateId,
@@ -275,13 +336,7 @@ export async function queueBulkCommunication(params: {
       recipientRole: recipient.role,
       entityType: recipient.entityType ?? null,
       entityId: recipient.entityId ?? null,
-      mergeData: {
-        ...params.mergeData,
-        email: recipient.email,
-        owner_name: recipient.name,
-        player_name: recipient.name,
-        organiser_name: recipient.name,
-      },
+      mergeData: { ...mergeData, ...params.mergeData },
       idempotencyKey: `bulk:${campaignId}:${recipient.email}`,
       sentBy: "bulk",
       createdByAdmin: params.createdByAdmin ?? null,
@@ -296,6 +351,51 @@ export async function queueBulkCommunication(params: {
   }
 
   return { campaignId, jobIds, queued: jobIds.length };
+}
+
+/** Teams and players for bulk targeting dropdowns (Super Admin). */
+export async function getBulkTargets(tournamentId: number) {
+  const teams = await db
+    .select({
+      id: teamsTable.id,
+      name: teamsTable.name,
+      ownerName: teamsTable.ownerName,
+      ownerEmail: teamsTable.ownerEmail,
+    })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tournamentId))
+    .orderBy(teamsTable.name);
+
+  const players = await db
+    .select({
+      id: playersTable.id,
+      name: playersTable.name,
+      email: playersTable.email,
+      status: playersTable.status,
+    })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tournamentId))
+    .orderBy(playersTable.name);
+
+  const isValidEmail = (email: string | null | undefined) =>
+    email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  return {
+    teams: teams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      ownerName: t.ownerName,
+      ownerEmail: t.ownerEmail,
+      hasEmail: isValidEmail(t.ownerEmail),
+    })),
+    players: players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      status: p.status,
+      hasEmail: isValidEmail(p.email),
+    })),
+  };
 }
 
 export async function getSettings(): Promise<Record<string, unknown>> {
