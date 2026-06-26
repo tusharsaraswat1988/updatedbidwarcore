@@ -139,4 +139,137 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       timestamp TIMESTAMPTZ NOT NULL
     );
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS communication_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      asset_key TEXT NOT NULL,
+      asset_type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      mime_type TEXT,
+      description TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_communication_assets_asset_key ON communication_assets (asset_key);
+
+    CREATE TABLE IF NOT EXISTS communication_templates (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      internal_key TEXT NOT NULL,
+      subject TEXT NOT NULL DEFAULT '',
+      html_body TEXT NOT NULL DEFAULT '',
+      header_image_asset_id UUID,
+      footer_html TEXT,
+      signature_html TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      auto_send BOOLEAN NOT NULL DEFAULT TRUE,
+      is_draft BOOLEAN NOT NULL DEFAULT FALSE,
+      is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+      current_version INTEGER NOT NULL DEFAULT 1,
+      event_type TEXT,
+      created_by TEXT,
+      updated_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_communication_templates_internal_key ON communication_templates (internal_key);
+
+    CREATE TABLE IF NOT EXISTS communication_template_versions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      template_id UUID NOT NULL,
+      version_number INTEGER NOT NULL,
+      subject TEXT NOT NULL,
+      html_body TEXT NOT NULL,
+      header_image_asset_id UUID,
+      footer_html TEXT,
+      signature_html TEXT,
+      change_note TEXT,
+      created_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_communication_template_versions_tpl_ver
+      ON communication_template_versions (template_id, version_number);
+
+    CREATE TABLE IF NOT EXISTS communication_jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      channel TEXT NOT NULL DEFAULT 'email',
+      template_id UUID,
+      template_version_id UUID,
+      template_internal_key TEXT,
+      tournament_id INTEGER,
+      triggered_by_event TEXT,
+      entity_type TEXT,
+      entity_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'pending',
+      pending_reason TEXT,
+      subject TEXT,
+      html_body TEXT,
+      merge_data JSONB NOT NULL DEFAULT '{}',
+      idempotency_key TEXT NOT NULL,
+      parent_job_id UUID,
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      max_retries INTEGER NOT NULL DEFAULT 5,
+      next_retry_at TIMESTAMPTZ,
+      sent_by TEXT NOT NULL DEFAULT 'system',
+      created_by_admin TEXT,
+      provider_message_id TEXT,
+      error_message TEXT,
+      bulk_campaign_id UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      queued_at TIMESTAMPTZ,
+      sent_at TIMESTAMPTZ,
+      delivered_at TIMESTAMPTZ,
+      opened_at TIMESTAMPTZ,
+      clicked_at TIMESTAMPTZ
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_communication_jobs_idempotency_key ON communication_jobs (idempotency_key);
+    CREATE INDEX IF NOT EXISTS ix_communication_jobs_status ON communication_jobs (status);
+    CREATE INDEX IF NOT EXISTS ix_communication_jobs_tournament_id ON communication_jobs (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_communication_jobs_created_at ON communication_jobs (created_at);
+
+    CREATE TABLE IF NOT EXISTS communication_job_recipients (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id UUID NOT NULL,
+      recipient_name TEXT,
+      recipient_email TEXT,
+      recipient_phone TEXT,
+      recipient_role TEXT,
+      is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_communication_job_recipients_job_id ON communication_job_recipients (job_id);
+    CREATE INDEX IF NOT EXISTS ix_communication_job_recipients_email ON communication_job_recipients (recipient_email);
+
+    CREATE TABLE IF NOT EXISTS communication_logs (
+      id SERIAL PRIMARY KEY,
+      job_id UUID,
+      template_id UUID,
+      template_version_id UUID,
+      action TEXT NOT NULL,
+      previous_status TEXT,
+      new_status TEXT,
+      channel TEXT NOT NULL DEFAULT 'email',
+      recipient_name TEXT,
+      recipient_email TEXT,
+      created_by TEXT,
+      triggered_by TEXT,
+      ip_address TEXT,
+      metadata JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_communication_logs_job_id ON communication_logs (job_id);
+    CREATE INDEX IF NOT EXISTS ix_communication_logs_created_at ON communication_logs (created_at);
+
+    CREATE TABLE IF NOT EXISTS communication_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL DEFAULT '{}',
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 }

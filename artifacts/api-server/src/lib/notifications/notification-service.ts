@@ -5,10 +5,9 @@ import { brandingService } from "../branding-service.js";
 import { eq } from "drizzle-orm";
 import { logger } from "../logger";
 import { buildPublicUrl, getPublicOrigin } from "../runtime-env";
-import { sendEmail } from "./providers/email-provider";
 import { sendNotificationSms } from "./providers/sms-provider";
 import { sendNotificationWhatsApp } from "./providers/whatsapp-provider";
-import { hasEmailTemplate, renderEmailTemplate } from "./templates/registry";
+import { createJobFromBusinessEvent } from "../communication/event-bridge.js";
 import type {
   NotificationChannel,
   NotificationEventType,
@@ -181,22 +180,7 @@ async function deliverOnChannel(
   recipient: RecipientInfo,
 ): Promise<{ result: ProviderSendResult; subject?: string }> {
   if (channel === "email") {
-    if (!isValidEmail(recipient.email)) {
-      return { result: { success: false, error: "No valid recipient email" } };
-    }
-    if (!hasEmailTemplate(eventType)) {
-      return { result: { success: false, error: `No email template for ${eventType}` } };
-    }
-    const rendered = renderEmailTemplate(eventType, recipient.templateParams);
-    if (!rendered) {
-      return { result: { success: false, error: "Email template render failed" } };
-    }
-    const result = await sendEmail({
-      to: recipient.email,
-      subject: rendered.subject,
-      html: rendered.html,
-    });
-    return { result, subject: rendered.subject };
+    return { result: { success: false, error: "Email routed via Communication Center" } };
   }
 
   if (channel === "sms") {
@@ -457,12 +441,58 @@ export async function dispatchNotification<E extends NotificationEventType>(
   }
 
   await Promise.all(
-    channels.map((channel) =>
-      sendOnChannel(eventType, channel, resolvedPayload, options).catch((err) => {
+    channels.map(async (channel) => {
+      try {
+        if (channel === "email") {
+          if (options.skipDedup) {
+            // Admin resend — create new communication job with unique idempotency
+            const { createCommunicationJob } = await import("../communication/job-service.js");
+            const recipient = resolveRecipients(eventType, resolvedPayload);
+            if (!recipient) return;
+
+            const entityKey = buildEntityKey(eventType, resolvedPayload);
+            await createCommunicationJob({
+              channel: "email",
+              templateInternalKey: mapEventToTemplateKey(eventType),
+              tournamentId: recipient.tournamentId,
+              triggeredByEvent: eventType,
+              entityType: entityKey.split(":")[0] ?? null,
+              entityId: extractEntityId(entityKey),
+              recipientName: recipient.name,
+              recipientEmail: recipient.email,
+              recipientPhone: recipient.mobile,
+              mergeData: recipient.templateParams,
+              idempotencyKey: `resend:${options.resendOfLogId ?? "manual"}:${randomUUID()}`,
+              sentBy: "admin",
+              skipAutoQueue: false,
+            });
+          } else {
+            await createJobFromBusinessEvent(eventType, resolvedPayload);
+          }
+          return;
+        }
+
+        await sendOnChannel(eventType, channel, resolvedPayload, options);
+      } catch (err) {
         logger.error({ eventType, channel, err }, "Unhandled notification channel error");
-      }),
-    ),
+      }
+    }),
   );
+}
+
+function mapEventToTemplateKey(eventType: NotificationEventType): string | undefined {
+  const map: Partial<Record<NotificationEventType, string>> = {
+    ORGANISER_REGISTERED: "welcome_organiser",
+    TOURNAMENT_CREATED: "tournament_created",
+    PLAYER_REGISTERED: "player_registration",
+    TEAM_OWNER_REGISTERED: "welcome_team_owner",
+  };
+  return map[eventType];
+}
+
+function extractEntityId(entityKey: string): number | null {
+  const match = entityKey.match(/:(\d+)$/);
+  return match ? Number(match[1]) : null;
 }
 
 /** Fire-and-forget wrapper — notification failures never break business workflows. */

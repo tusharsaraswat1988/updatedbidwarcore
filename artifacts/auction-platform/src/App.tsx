@@ -49,6 +49,7 @@ const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LegalPage = lazy(() => import("@/pages/legal"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
+const AdminCommunicationCenter = lazy(() => import("@/pages/admin-communication-center"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
 const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
@@ -224,6 +225,8 @@ function Router() {
         <Route path="/admin/settings/reports" component={AdminReports} />
         <Route path="/admin/settings/intelligence" component={AdminIntelligence} />
         <Route path="/admin/settings/intelligence/:tab" component={AdminIntelligence} />
+        <Route path="/admin/communication/:tab" component={AdminCommunicationCenter} />
+        <Route path="/admin/communication" component={AdminCommunicationCenter} />
         <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
         <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
         <Route path="/admin/settings/communication" component={AdminCommunicate} />

@@ -42,3 +42,4 @@ export * from "./tournament-player-profiles";
 export * from "./contact_inquiries";
 export * from "./creative_jobs";
 export * from "./intelligence_archive";
+export * from "./communication";

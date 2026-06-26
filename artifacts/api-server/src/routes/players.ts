@@ -37,6 +37,7 @@ import {
   validatePlayerPaymentProof,
 } from "../lib/registration-payment";
 import { notifyAsync } from "../lib/notifications";
+import { recoverJobsForPlayerEmailUpdate } from "../lib/communication/recovery.js";
 import { allocateNextPlayerSerialNo } from "../lib/player-serial";
 import {
   canEditPlayerBidValue,
@@ -750,27 +751,25 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
   syncAuctionPlayerToMasterAsync(player.id, tid);
   await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
 
-  if (emailParsed.email) {
-    const [tournamentInfo] = await db
-      .select({
-        name: tournamentsTable.name,
-        logoUrl: tournamentsTable.logoUrl,
-      })
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tid))
-      .limit(1);
+  const [tournamentInfo] = await db
+    .select({
+      name: tournamentsTable.name,
+      logoUrl: tournamentsTable.logoUrl,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid))
+    .limit(1);
 
-    notifyAsync("PLAYER_REGISTERED", {
-      playerId: player.id,
-      playerName: player.name,
-      email: emailParsed.email,
-      photoUrl: player.photoUrl,
-      tournamentId: tid,
-      tournamentName: tournamentInfo?.name ?? "Tournament",
-      tournamentLogoUrl: tournamentInfo?.logoUrl ?? null,
-      paymentPending: paymentConfig?.enableRegistrationPayment === true,
-    });
-  }
+  notifyAsync("PLAYER_REGISTERED", {
+    playerId: player.id,
+    playerName: player.name,
+    email: emailParsed.email ?? "",
+    photoUrl: player.photoUrl,
+    tournamentId: tid,
+    tournamentName: tournamentInfo?.name ?? "Tournament",
+    tournamentLogoUrl: tournamentInfo?.logoUrl ?? null,
+    paymentPending: paymentConfig?.enableRegistrationPayment === true,
+  });
 
   res.status(201).json({
     ...(await serializePlayerWithSpecifications(player, "public")),
@@ -1086,6 +1085,10 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
     .returning();
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (normalizedEmail !== undefined) {
+    void recoverJobsForPlayerEmailUpdate(playerId, player.email).catch(() => {});
+  }
 
   // Recalc purseUsed for any team affected by a retention change
   const teamsToRecalc = new Set<number>();
