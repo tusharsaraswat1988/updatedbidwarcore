@@ -11,7 +11,11 @@ import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamen
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable } from "@workspace/db";
-import { resolveSportIdBySlug } from "./sports";
+import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
+import {
+  isScoringSupportedSport,
+  TOURNAMENT_LIFECYCLE_STATUSES,
+} from "../lib/tournament-lifecycle";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -126,6 +130,11 @@ router.post("/tournaments", async (req, res) => {
   const parsed = tournamentInputSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  if (!await isKnownActiveSportSlug(d.sport)) {
+    res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
 
   let validatedSponsorLogos: string | null | undefined;
   if (d.sponsorLogos !== undefined) {
@@ -252,9 +261,10 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidExtensionThresholdSeconds: z.number().int().min(1).max(60).optional(),
     bidExtensionSeconds: z.number().int().min(1).max(120).optional(),
     playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
-    status: z.string().optional(),
+    status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     registrationDeadline: z.string().nullable().optional(),
     registrationLimit: z.number().int().nullable().optional(),
+    autoApproveWithdrawnReRegistration: z.boolean().optional(),
     enableRegistrationPayment: z.boolean().optional(),
     registrationFee: z.number().int().min(1).nullable().optional(),
     upiId: z.string().nullable().optional(),
@@ -296,6 +306,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  const isAdminCaller = req.jwtUser?.isAdmin === true;
 
   const nextMinimumSquadSize = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : beforeTournament.minimumSquadSize;
   const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
@@ -313,15 +324,33 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     return;
   }
 
-  if (d.sport !== undefined && d.sport !== beforeTournament.sport) {
-    const [playerCountRow] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(playersTable)
-      .where(eq(playersTable.tournamentId, id));
-    if ((playerCountRow?.count ?? 0) > 0) {
-      res.status(400).json({ error: "Sport cannot be changed while players exist in the pool." });
+  if (d.sport !== undefined) {
+    if (!await isKnownActiveSportSlug(d.sport)) {
+      res.status(400).json({ error: "Unknown or inactive sport" });
       return;
     }
+    if (d.sport !== beforeTournament.sport) {
+      const [playerCountRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(playersTable)
+        .where(eq(playersTable.tournamentId, id));
+      if ((playerCountRow?.count ?? 0) > 0) {
+        res.status(400).json({ error: "Sport cannot be changed while players exist in the pool." });
+        return;
+      }
+    }
+  }
+
+  const nextSport = d.sport ?? beforeTournament.sport;
+  const nextScoringEnabled =
+    isAdminCaller && d.scoringEnabled !== undefined
+      ? d.scoringEnabled
+      : beforeTournament.scoringEnabled;
+  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
+    res.status(400).json({
+      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
+    });
+    return;
   }
 
   const updates: Record<string, unknown> = {};
@@ -364,6 +393,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.registrationDeadline !== undefined)
     updates.registrationDeadline = d.registrationDeadline === "" ? null : d.registrationDeadline;
   if (d.registrationLimit !== undefined) updates.registrationLimit = d.registrationLimit;
+  if (d.autoApproveWithdrawnReRegistration !== undefined) {
+    updates.autoApproveWithdrawnReRegistration = d.autoApproveWithdrawnReRegistration;
+  }
   if (d.enableRegistrationPayment !== undefined) updates.enableRegistrationPayment = d.enableRegistrationPayment;
   if (d.registrationFee !== undefined) updates.registrationFee = d.registrationFee;
   if (d.upiId !== undefined) updates.upiId = d.upiId === "" ? null : d.upiId;
@@ -394,7 +426,6 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
-  const isAdminCaller = req.jwtUser?.isAdmin === true;
   if (isAdminCaller) {
     if (d.scoringEnabled !== undefined) {
       updates.scoringEnabled = d.scoringEnabled;
@@ -455,19 +486,26 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, id))) return;
   const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
-  await db.delete(tournamentsTable).where(eq(tournamentsTable.id, id));
-  if (before) {
-    auditLog(req, {
-      category: "tournament",
-      action: "tournament.deleted",
-      summary: `Tournament "${before.name}" deleted`,
-      severity: "critical",
-      tournamentId: id,
-      resource: { type: "tournament", id: id },
-      before: snapshotTournament(before),
-      alertKey: "tournament_deleted",
-    });
+  if (!before) {
+    res.status(404).json({ error: "Not found" });
+    return;
   }
+  const { adminDeleteTournamentCascade } = await import("../lib/admin-delete-tournament");
+  const deleted = await adminDeleteTournamentCascade(id);
+  if (!deleted) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  auditLog(req, {
+    category: "tournament",
+    action: "tournament.deleted",
+    summary: `Tournament "${before.name}" deleted`,
+    severity: "critical",
+    tournamentId: id,
+    resource: { type: "tournament", id: id },
+    before: snapshotTournament(before),
+    alertKey: "tournament_deleted",
+  });
   res.status(204).send();
 });
 

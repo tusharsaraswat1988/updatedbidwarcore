@@ -16,7 +16,9 @@ import { intelligenceArchivesTable } from "@workspace/db";
 import { desc, eq as drizzleEq } from "drizzle-orm";
 
 const router = Router();
-router.use(requireAdmin);
+/** Scoped so requireAdmin does not intercept unrelated /api routes mounted later on the main router. */
+const adminIntel = Router();
+adminIntel.use(requireAdmin);
 
 function bidEventFilters(filters: IntelFilterParams, paramStart: number): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
@@ -61,7 +63,7 @@ function playerEventFilters(filters: IntelFilterParams, paramStart: number): { s
 
 // ─── Tournament list ──────────────────────────────────────────────────────────
 
-router.get("/intelligence/tournaments", async (_req, res) => {
+adminIntel.get("/tournaments", async (_req, res) => {
   const rows = await db.select({
     id: tournamentsTable.id,
     name: tournamentsTable.name,
@@ -73,7 +75,7 @@ router.get("/intelligence/tournaments", async (_req, res) => {
 
 // ─── Tournament Overview ──────────────────────────────────────────────────────
 
-router.get("/intelligence/tournament/:tournamentId", async (req, res) => {
+adminIntel.get("/tournament/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
@@ -154,7 +156,7 @@ router.get("/intelligence/tournament/:tournamentId", async (req, res) => {
 
 // ─── Replay Timeline ──────────────────────────────────────────────────────────
 
-router.get("/intelligence/replay/:tournamentId", async (req, res) => {
+adminIntel.get("/replay/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const limit = Math.min(parseInt((req.query.limit as string) ?? "400", 10) || 400, 600);
@@ -292,7 +294,7 @@ router.get("/intelligence/replay/:tournamentId", async (req, res) => {
 
 // ─── Player Demand Analytics ──────────────────────────────────────────────────
 
-router.get("/intelligence/demand/:tournamentId", async (req, res) => {
+adminIntel.get("/demand/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
@@ -332,7 +334,7 @@ router.get("/intelligence/demand/:tournamentId", async (req, res) => {
 
 // ─── Team Behavior Profiles ───────────────────────────────────────────────────
 
-router.get("/intelligence/behavior/:tournamentId", async (req, res) => {
+adminIntel.get("/behavior/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
@@ -426,7 +428,7 @@ router.get("/intelligence/behavior/:tournamentId", async (req, res) => {
 
 // ─── Observation Notes (rule-based) ──────────────────────────────────────────
 
-router.get("/intelligence/observations/:tournamentId", async (req, res) => {
+adminIntel.get("/observations/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
@@ -680,7 +682,7 @@ router.get("/intelligence/observations/:tournamentId", async (req, res) => {
 
 // ─── Event Explorer ───────────────────────────────────────────────────────────
 
-router.get("/intelligence/events", async (req, res) => {
+adminIntel.get("/events", async (req, res) => {
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
   const teamId = req.query.teamId ? parseInt(req.query.teamId as string) : null;
   const playerId = req.query.playerId ? parseInt(req.query.playerId as string) : null;
@@ -796,7 +798,7 @@ router.get("/intelligence/events", async (req, res) => {
 
 // ─── Player Search ────────────────────────────────────────────────────────────
 
-router.get("/intelligence/players/search", heavyLimiter, async (req, res) => {
+adminIntel.get("/players/search", heavyLimiter, async (req, res) => {
   const q = `%${(req.query.q as string) ?? ""}%`;
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
 
@@ -831,7 +833,7 @@ router.get("/intelligence/players/search", heavyLimiter, async (req, res) => {
 
 // ─── Player Detail (cross-tournament when global_player_id is linked) ───────────
 
-router.get("/intelligence/players/detail", async (req, res) => {
+adminIntel.get("/players/detail", async (req, res) => {
   const globalPlayerId = typeof req.query.globalPlayerId === "string" ? req.query.globalPlayerId : null;
   const playerId = req.query.playerId ? parseInt(req.query.playerId as string) : null;
 
@@ -893,7 +895,7 @@ router.get("/intelligence/players/detail", async (req, res) => {
 
 // ─── Player Detail (legacy path) ───────────────────────────────────────────────
 
-router.get("/intelligence/players/:playerId", async (req, res) => {
+adminIntel.get("/players/:playerId", async (req, res) => {
   const pid = parseInt(req.params.playerId);
   if (isNaN(pid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -958,7 +960,7 @@ router.get("/intelligence/players/:playerId", async (req, res) => {
 
 // ─── Team list ────────────────────────────────────────────────────────────────
 
-router.get("/intelligence/teams", async (req, res) => {
+adminIntel.get("/teams", async (req, res) => {
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
 
   if (tournamentId && !isNaN(tournamentId)) {
@@ -990,7 +992,7 @@ router.get("/intelligence/teams", async (req, res) => {
 
 // ─── Team Intelligence ────────────────────────────────────────────────────────
 
-router.get("/intelligence/team/:teamId", async (req, res) => {
+adminIntel.get("/team/:teamId", async (req, res) => {
   const teamId = parseInt(req.params.teamId);
   if (isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const tournamentId = req.query.tournamentId ? parseInt(req.query.tournamentId as string) : null;
@@ -1068,7 +1070,7 @@ router.get("/intelligence/team/:teamId", async (req, res) => {
 
 // ─── Filter Options ───────────────────────────────────────────────────────────
 
-router.get("/intelligence/filters/:tournamentId", async (req, res) => {
+adminIntel.get("/filters/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -1096,7 +1098,7 @@ router.get("/intelligence/filters/:tournamentId", async (req, res) => {
 
 // ─── Bid Intensity Analysis ───────────────────────────────────────────────────
 
-router.get("/intelligence/intensity/:tournamentId", async (req, res) => {
+adminIntel.get("/intensity/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const filters = parseIntelFilters(req.query as Record<string, unknown>);
@@ -1229,7 +1231,7 @@ router.get("/intelligence/intensity/:tournamentId", async (req, res) => {
 
 // ─── Live Intel (poll-based, no cache) ────────────────────────────────────────
 
-router.get("/intelligence/live/:tournamentId", async (req, res) => {
+adminIntel.get("/live/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -1336,7 +1338,7 @@ router.get("/intelligence/live/:tournamentId", async (req, res) => {
 
 // ─── Intelligence Archives ────────────────────────────────────────────────────
 
-router.get("/intelligence/archives", async (_req, res) => {
+adminIntel.get("/archives", async (_req, res) => {
   const rows = await db
     .select()
     .from(intelligenceArchivesTable)
@@ -1344,7 +1346,7 @@ router.get("/intelligence/archives", async (_req, res) => {
   res.json(rows);
 });
 
-router.get("/intelligence/archives/:archiveId", async (req, res) => {
+adminIntel.get("/archives/:archiveId", async (req, res) => {
   const archiveId = parseInt(req.params.archiveId);
   if (isNaN(archiveId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -1380,7 +1382,7 @@ router.get("/intelligence/archives/:archiveId", async (req, res) => {
 
 // ─── Cross-Sport Intelligence ─────────────────────────────────────────────────
 
-router.get("/intelligence/cross-sport", async (_req, res) => {
+adminIntel.get("/cross-sport", async (_req, res) => {
   const payload = await getCachedIntel("cross-sport:platform", async () => {
     const [liveBids, archiveBids, livePlayers, archivePlayers, archivesBySport] = await Promise.all([
       pool.query(
@@ -1503,7 +1505,7 @@ router.get("/intelligence/cross-sport", async (_req, res) => {
 
 // ─── AI Briefing (observations only) ──────────────────────────────────────────
 
-router.get("/intelligence/briefing/:tournamentId", async (req, res) => {
+adminIntel.get("/briefing/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
@@ -1729,7 +1731,7 @@ async function fetchObservationsForTournament(tid: number): Promise<ObservationN
 
 // ─── Training Export (CSV) ────────────────────────────────────────────────────
 
-router.get("/intelligence/export/live/:tournamentId", async (req, res) => {
+adminIntel.get("/export/live/:tournamentId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const dataset = (req.query.dataset as ExportDataset) || "all";
@@ -1752,7 +1754,7 @@ router.get("/intelligence/export/live/:tournamentId", async (req, res) => {
   });
 });
 
-router.get("/intelligence/export/archive/:archiveId", async (req, res) => {
+adminIntel.get("/export/archive/:archiveId", async (req, res) => {
   const archiveId = parseInt(req.params.archiveId);
   if (isNaN(archiveId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const dataset = (req.query.dataset as ExportDataset) || "all";
@@ -1774,5 +1776,7 @@ router.get("/intelligence/export/archive/:archiveId", async (req, res) => {
     archiveId,
   });
 });
+
+router.use("/intelligence", adminIntel);
 
 export default router;

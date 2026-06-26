@@ -1,25 +1,23 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { 
-  Trophy, LayoutDashboard, Users, UserPlus, 
+  LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Calendar, Globe, Sparkles,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, CircleDot, Sparkles,
 } from "lucide-react";
 import {
   auctionRoomPath,
   auctionResetPath,
-  cricketPublicPath,
   displayScreenPath,
   mediaCenterPath,
   mediaCenterTournamentPath,
-  scoringPath,
-  scoringSchedulePath,
 } from "@/lib/tournament-navigation";
+import { openScoringApp } from "@workspace/api-base/scoring-urls";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
-import { useBadmintonScoringActive, useCricketScoringActive } from "@/hooks/use-platform-features";
+import { useScoringPlatformEnabled } from "@/hooks/use-platform-features";
 import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
@@ -81,8 +79,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
-  const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
-  const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
+  const scoringPlatform = useScoringPlatformEnabled();
   const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
 
@@ -226,42 +223,18 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                     {!collapsed && <span className="font-medium">Media Center</span>}
                   </Link>
                 ) : null}
-                {cricketScoringActive && !localVenue ? (
-                  <>
-                    <Link href={scoringPath(tournamentId)} title="Match Scoring" className={navCls(`/tournament/${tournamentId}/score`)}>
-                      <CircleDot className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">Match Scoring</span>}
-                    </Link>
-                    <Link
-                      href={scoringSchedulePath(tournamentId)}
-                      title="Fixtures & Schedule"
-                      className={navCls(`/tournament/${tournamentId}/score/schedule`)}
-                    >
-                      <Calendar className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && <span className="font-medium">Schedule</span>}
-                    </Link>
-                    <Link
-                      href={cricketPublicPath(tournamentId)}
-                      title="Public scorecards & leaderboards"
-                      className={navCls(`/tournament/${tournamentId}/cricket`)}
-                    >
-                      <Globe className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && (
-                        <span className="font-medium">
-                          Fan page
-                          <span className="block text-[10px] text-muted-foreground font-normal">
-                            Scorecards & stats
-                          </span>
-                        </span>
-                      )}
-                    </Link>
-                  </>
-                ) : null}
-                {badmintonScoringActive && !localVenue ? (
-                  <Link href={`/tournament/${tournamentId}/badminton`} title="Badminton Scoring" className={navCls(`/tournament/${tournamentId}/badminton`)}>
-                    <Trophy className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="font-medium">Badminton Scoring</span>}
-                  </Link>
+                {scoringPlatform && tournament?.scoringEnabled && !localVenue ? (
+                  <button
+                    type="button"
+                    onClick={() => openScoringApp(tournamentId)}
+                    title="Open All Sports Scoring in a new tab"
+                    className={`flex items-center rounded-md transition-colors font-medium ${
+                      collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
+                    } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
+                  >
+                    <CircleDot className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span>All Sports Scoring</span>}
+                  </button>
                 ) : null}
                 {tournament?.status === "completed" ? (
                   <Link href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={navCls(`/tournament/${tournamentId}/reports`)}>
@@ -271,18 +244,18 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
                 ) : (
                   <div
                     title="Opens after auction is marked completed"
-                    className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                      collapsed ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
+                    className={`flex items-center rounded-md cursor-not-allowed select-none ${
+                      collapsed ? "justify-center w-9 h-9 mx-auto opacity-30" : "gap-3 px-3 py-2"
                     }`}
                   >
-                    <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                    <BarChart3 className={`w-5 h-5 flex-shrink-0 ${collapsed ? "" : "opacity-30"}`} />
                     {!collapsed && (
                       <div className="flex flex-col min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 opacity-30">
                           <span className="font-medium">Reports & Analytics</span>
                           <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto shrink-0">Locked</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                        <span className="text-[11px] text-yellow-400/85 leading-tight mt-0.5 normal-case">
                           Opens after auction is marked completed
                         </span>
                       </div>

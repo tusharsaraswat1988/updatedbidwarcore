@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useLocation } from "wouter";
+import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AppLayout } from "@/components/layout";
@@ -15,6 +16,9 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
 
   const [location] = useLocation();
   const badmintonRoute = isBadmintonOrganizerPath(location);
+  const inScoringApp =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith(SCORING_APP_BASE);
 
   const {
     warningVisible,
@@ -26,17 +30,26 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     tournamentId,
   });
 
+  const redirectedRef = useRef(false);
+
   useEffect(() => {
+    if (redirectedRef.current) return;
     if (!isLoading && !isLoggedIn && tournamentId && !isBidWarLocalHost()) {
+      redirectedRef.current = true;
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      if (inScoringApp) {
+        window.location.href = `/tournament/${tournamentId}/login?next=${encodeURIComponent(returnTo)}`;
+        return;
+      }
       navigate(`/organizer?next=${encodeURIComponent(location)}`);
     }
-  }, [isLoggedIn, isLoading, tournamentId, navigate, location]);
+  }, [isLoggedIn, isLoading, tournamentId, navigate, location, inScoringApp]);
 
   if (isLoading) {
-    if (badmintonRoute) {
+    if (badmintonRoute || inScoringApp) {
       return (
         <div
-          className={BADMINTON_ROUTE_LOADING_CLASS}
+          className={badmintonRoute ? BADMINTON_ROUTE_LOADING_CLASS : "min-h-screen bg-background"}
           aria-busy="true"
           aria-label="Checking organizer access"
         />
@@ -58,6 +71,21 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
   }
   if (!isLoggedIn) {
     if (isBidWarLocalHost()) {
+      if (inScoringApp) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center p-6">
+            <div className="max-w-lg space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
+              <div className="flex items-center gap-2 text-amber-300">
+                <MonitorDown className="h-5 w-5" />
+                <span className="font-semibold">Import required</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Open the BidWar Local app on this computer, import your tournament export file, then return here to score matches.
+              </p>
+            </div>
+          </div>
+        );
+      }
       return (
         <AppLayout tournamentId={tournamentId}>
           <div className="max-w-lg space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
@@ -72,7 +100,11 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         </AppLayout>
       );
     }
-    return null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-sm text-muted-foreground">
+        Redirecting to organizer login…
+      </div>
+    );
   }
 
   return (

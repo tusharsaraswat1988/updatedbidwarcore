@@ -14,25 +14,19 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, CircleDot, Trophy,
+  CheckCircle2, Circle,
 } from "lucide-react";
-import { cricketPublicPath, openScoreDisplay, scoringPath, scoringSchedulePath } from "@/lib/tournament-navigation";
-import { useScoringStandings } from "@/hooks/use-scoring-match";
-import { StandingsTable } from "@/components/scoring/standings-table";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getReadinessChecklistItems,
   tournamentToReadinessInput,
   type AuctionReadinessCheckId,
 } from "@workspace/api-base/auction-readiness";
-import { useBadmintonScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 
 export default function TournamentHub() {
   const [, params] = useRoute("/tournament/:id");
   const [, navigate] = useLocation();
   const tournamentId = parseInt(params?.id || "0");
-  const { scoring: scoringPlatform } = usePlatformFeatures();
 
   const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -43,12 +37,6 @@ export default function TournamentHub() {
   const { data: teamPurses, isLoading: loadingPurses } = useGetTeamPurses(tournamentId, {
     query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const scoringEnabled = tournament?.scoringEnabled === true;
-  const badmintonScoringActive = useBadmintonScoringActive(tournament?.sport, tournament?.scoringEnabled);
-  const { data: standings, isLoading: loadingStandings } = useScoringStandings(
-    tournamentId,
-    tournament?.sport === "cricket" && scoringPlatform && scoringEnabled,
-  );
 
   const readinessMode = tournament?.licenseStatus === "active" ? "live" : "trial";
   const readinessLinks: Partial<Record<AuctionReadinessCheckId, string>> = {
@@ -282,83 +270,6 @@ export default function TournamentHub() {
             </div>
           </div>
         )}
-
-        {badmintonScoringActive ? (
-          <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <div className="p-2.5 rounded-lg bg-primary/15">
-                <Trophy className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-base font-display font-bold">Badminton Tournament</h2>
-                <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                  Manage players, categories, draws, and live match scoring from the badminton hub.
-                </p>
-              </div>
-            </div>
-            <Button
-              className="h-11 shrink-0"
-              onClick={() => navigate(`/tournament/${tournamentId}/badminton`)}
-            >
-              Open Badminton Hub
-            </Button>
-          </div>
-        ) : null}
-
-        {tournament?.sport === "cricket" && scoringPlatform && scoringEnabled ? (
-          <>
-            <div className="rounded-xl border border-primary/25 bg-primary/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <div className="p-2.5 rounded-lg bg-primary/15">
-                  <CircleDot className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-base font-display font-bold">Match Scoring</h2>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-md">
-                    Score matches on your phone at the ground — squads from auction, toss, playing XI, and ball-by-ball scoring.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <Button className="h-11" onClick={() => navigate(scoringPath(tournamentId))}>
-                  Open Scorer
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-11"
-                  onClick={() => navigate(scoringSchedulePath(tournamentId))}
-                >
-                  Schedule
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-11"
-                  onClick={() => navigate(cricketPublicPath(tournamentId))}
-                >
-                  Public page
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-11"
-                  onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-                >
-                  LED Board
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-xl font-display font-bold mb-4 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-primary" /> Points Table
-              </h2>
-              {loadingStandings ? (
-                <Skeleton className="h-48 w-full" />
-              ) : (
-                <StandingsTable rows={standings ?? []} />
-              )}
-            </div>
-          </>
-        ) : null}
 
         {/* Team Purses */}
         <div>

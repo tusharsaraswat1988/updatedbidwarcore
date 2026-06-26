@@ -236,6 +236,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         timerEndsAt: null,
         timerType: null,
         deferredPlayerIds: null,
+        randomDrawQueue: null,
         displayCountdown: null,
         lastAction: "Auction completed — all players sold",
         lastOutcome: null,
@@ -255,6 +256,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         currentBidTeamId: null,
         timerEndsAt: null,
         timerType: null,
+        randomDrawQueue: null,
         lastAction: `Main round complete — ${unsoldCount} unsold player${unsoldCount !== 1 ? "s" : ""} remaining`,
         lastOutcome: null,
       })
@@ -272,6 +274,7 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
       timerEndsAt: null,
       timerType: null,
       deferredPlayerIds: null,
+      randomDrawQueue: null,
       displayCountdown: null,
       lastAction: "Auction completed",
       lastOutcome: null,
@@ -1081,6 +1084,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   if (playerId) {
     // Manual selection — operator picked a specific player
     selectedPlayerId = playerId;
+    newRandomDrawQueue = null;
     if (deferredIds.includes(playerId)) {
       newDeferredIds = deferredIds.filter(id => id !== playerId);
     }
@@ -1096,7 +1100,11 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     const nonDeferred = allAvailable.filter(p => !deferredIds.includes(p.id));
     const pool = nonDeferred.length > 0 ? nonDeferred : allAvailable.filter(p => deferredIds.includes(p.id));
 
-    const pick = selectPlayerFromPool(pool, mode, session);
+    const pick = selectPlayerFromPool(
+      pool,
+      mode ?? normalizePlayerSelectionMode(tournament?.playerSelectionMode),
+      session,
+    );
     if (pick) {
       selectedPlayerId = pick.playerId;
       newRandomDrawQueue = pick.randomDrawQueue;
@@ -1751,6 +1759,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       timerSeconds: timerSecs,
       timerEndsAt: null,
       timerType: null,
+      randomDrawQueue: null,
       lastAction: `RE-AUCTION: ${player.name}`,
       lastOutcome: null,
     })
@@ -1814,7 +1823,10 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
 
   await db
     .update(auctionSessionsTable)
-    .set({ lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue` })
+    .set({
+      randomDrawQueue: null,
+      lastAction: `RE-AUCTION ROUND: ${unsoldPlayers.length} unsold players returned to queue`,
+    })
     .where(eq(auctionSessionsTable.tournamentId, tid));
 
   auditLog(req, {
@@ -2066,6 +2078,7 @@ router.post("/tournaments/:tournamentId/auction/defer-player", async (req, res) 
         timerType: null,
         pausedTimeRemaining: null,
         deferredPlayerIds: deferredIds.length > 0 ? JSON.stringify(deferredIds) : null,
+        randomDrawQueue: null,
         lastAction: `Brought later: ${deferredPlayer?.name ?? "Player"} — select next player`,
         lastOutcome: null,
       })
@@ -2235,7 +2248,7 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
     const [teamAfter] = await db.select().from(teamsTable).where(eq(teamsTable.id, bid.teamId));
     await db
       .update(auctionSessionsTable)
-      .set({ lastAction: `Undone: ${player?.name ?? "Player"} returned to pool` })
+      .set({ lastAction: `Undone: ${player?.name ?? "Player"} returned to pool`, randomDrawQueue: null })
       .where(eq(auctionSessionsTable.tournamentId, tid));
 
     auditLog(req, {
@@ -2422,7 +2435,7 @@ router.post("/tournaments/:tournamentId/auction/category-filter", async (req, re
   const activeCategoryIds = ids && ids.length > 0 ? JSON.stringify(ids) : null;
   await db
     .update(auctionSessionsTable)
-    .set({ activeCategoryIds })
+    .set({ activeCategoryIds, randomDrawQueue: null })
     .where(eq(auctionSessionsTable.tournamentId, tid));
   res.json(await broadcastState(tid));
 });
@@ -2519,6 +2532,7 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
       timerEndsAt: null,
       timerType: null,
       deferredPlayerIds: null,
+      randomDrawQueue: null,
       displayCountdown: null,
       lastAction:
         unsoldCount > 0

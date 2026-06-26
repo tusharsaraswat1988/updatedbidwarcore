@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRoute, useLocation, Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,9 +7,18 @@ import {
   getGetTournamentQueryKey,
   getListTeamsQueryKey,
 } from "@workspace/api-client-react";
-import { ScorerShell } from "@/components/scoring/scorer-shell";
+import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
+import {
+  BtnPrimary,
+  EmptyState,
+  HubKpiCard,
+  HubSectionHeader,
+  PageHeader,
+  hubCardClass,
+} from "@/components/badminton/page-chrome";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -28,9 +37,20 @@ import { Input } from "@/components/ui/input";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import { createScoringMatch } from "@/lib/scoring-api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ChevronRight, CircleDot, Monitor, RefreshCw, Calendar, Globe } from "lucide-react";
-import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import {
+  Plus,
+  ChevronRight,
+  Monitor,
+  RefreshCw,
+  Calendar,
+  Globe,
+  Radio,
+  CheckCircle2,
+  Trophy,
+} from "lucide-react";
+import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { cricketPublicPath, openScoreDisplay, scoringSchedulePath } from "@/lib/tournament-navigation";
+import { cn } from "@/lib/utils";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -41,11 +61,11 @@ type CricketMasterTeam = {
   syncedToMaster: boolean;
 };
 
-function statusColor(status: string) {
-  if (status === "live") return "text-green-400";
-  if (status === "completed") return "text-muted-foreground";
-  if (status === "abandoned") return "text-red-400";
-  return "text-primary";
+function statusBadgeVariant(status: string): "default" | "destructive" | "secondary" | "outline" {
+  if (status === "live") return "destructive";
+  if (status === "completed") return "secondary";
+  if (status === "abandoned") return "outline";
+  return "default";
 }
 
 export default function ScoringMatchListPage() {
@@ -60,8 +80,7 @@ export default function ScoringMatchListPage() {
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const isCricket = tournament?.sport === "cricket";
-  const scoringEnabled = tournament?.scoringEnabled === true;
+  const { loading: featuresLoading } = usePlatformFeatures();
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
   const { data: matches, isLoading, refetch, isFetching } = useScoringMatches(tournamentId, scoringActive);
   const { data: squadData } = useSquadReadiness(tournamentId, scoringActive);
@@ -79,6 +98,16 @@ export default function ScoringMatchListPage() {
     },
     enabled: scoringActive && !!tournamentId,
   });
+
+  const stats = useMemo(() => {
+    const list = matches ?? [];
+    return {
+      live: list.filter((m) => m.status === "live").length,
+      scheduled: list.filter((m) => m.status === "scheduled").length,
+      completed: list.filter((m) => m.status === "completed").length,
+      total: list.length,
+    };
+  }, [matches]);
 
   const [syncingRoster, setSyncingRoster] = useState(false);
 
@@ -114,11 +143,6 @@ export default function ScoringMatchListPage() {
 
   const unsyncedTeams = masterTeams?.filter((t) => !t.syncedToMaster).length ?? 0;
 
-  useEffect(() => {
-    if (!tournament || scoringActive) return;
-    navigate(`/tournament/${tournamentId}`);
-  }, [tournament, scoringActive, tournamentId, navigate]);
-
   const [createOpen, setCreateOpen] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
@@ -153,163 +177,215 @@ export default function ScoringMatchListPage() {
     }
   }
 
-  return (
-      <ScorerShell
-        tournamentId={tournamentId}
-        title="Cricket Scorer"
-        subtitle={tournament?.name}
-        backHref={`/tournament/${tournamentId}`}
-        onRefresh={() => void refetch()}
-        refreshing={isFetching}
+  const pageActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        disabled={syncingRoster || !scoringActive}
+        onClick={() => void handleSyncRoster()}
       >
-        {!scoringActive ? null : (
-          <div className="p-4 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button className="flex-1 min-w-[120px] h-12 gap-2" onClick={() => setCreateOpen(true)}>
-                <Plus className="w-4 h-4" />
-                New match
-              </Button>
-              <Button
-                variant="secondary"
-                className="h-12 gap-2"
-                onClick={() => navigate(scoringSchedulePath(tournamentId))}
-              >
-                <Calendar className="w-4 h-4" />
-                Schedule
-              </Button>
-              <Button
-                variant="secondary"
-                className="h-12 gap-2"
-                onClick={() => navigate(cricketPublicPath(tournamentId))}
-              >
-                <Globe className="w-4 h-4" />
-                Fan page
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 gap-2 shrink-0"
-                disabled={syncingRoster}
-                onClick={() => void handleSyncRoster()}
-                title="Link auction teams and squads to master sports"
-              >
-                <RefreshCw className={`w-4 h-4 ${syncingRoster ? "animate-spin" : ""}`} />
-                Sync
-              </Button>
-              <Button
-                variant="outline"
-                className="h-12 gap-2"
-                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-              >
-                <Monitor className="w-4 h-4" />
-                LED
-              </Button>
-            </div>
+        <RefreshCw className={cn("w-4 h-4", syncingRoster && "animate-spin")} />
+        Sync roster
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        disabled={!scoringActive}
+        onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+      >
+        <Monitor className="w-4 h-4" />
+        LED display
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        disabled={isFetching}
+        onClick={() => void refetch()}
+      >
+        <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
+        Refresh
+      </Button>
+      <BtnPrimary onClick={() => setCreateOpen(true)} disabled={!scoringActive}>
+        <Plus className="w-4 h-4 mr-1.5 inline" />
+        New match
+      </BtnPrimary>
+    </div>
+  );
 
+  return (
+    <CricketOrganizerPageShell tournamentId={tournamentId}>
+      <PageHeader
+        eyebrow="Cricket Operations"
+        title="Match Command Center"
+        subtitle={tournament?.name ?? "Load tournament…"}
+        badge={stats.live > 0 ? `${stats.live} Live` : undefined}
+        actions={pageActions}
+      />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-8">
+        {featuresLoading || isLoading ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 w-full rounded-xl" />
+              ))}
+            </div>
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+        ) : !scoringActive ? (
+          <EmptyState
+            icon={Trophy}
+            title="Cricket scoring is off"
+            desc="Enable scoring for this tournament in auction settings, then return here."
+          />
+        ) : (
+          <>
             {unsyncedTeams > 0 ? (
-              <p className="text-xs text-primary px-1">
-                {unsyncedTeams} team(s) not yet linked to master sports — tap Sync before scoring.
-              </p>
+              <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+                {unsyncedTeams} team(s) not linked to master sports — run Sync roster before scoring.
+              </div>
             ) : null}
 
-            {isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            ) : matches && matches.length > 0 ? (
-              <ul className="space-y-2">
-                {matches.map((m) => {
-                  const home = teams?.find((t) => t.id === m.homeTeamId);
-                  const away = teams?.find((t) => t.id === m.awayTeamId);
-                  return (
-                    <li key={m.id}>
-                      <Link
-                        href={`/tournament/${tournamentId}/score/${m.id}`}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3.5 active:bg-muted/40"
-                      >
-                        <CircleDot className={`w-4 h-4 shrink-0 ${statusColor(m.status)}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {home?.shortCode ?? "H"} vs {away?.shortCode ?? "A"}
-                          </p>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {m.status}
-                            {m.resultSummary ? ` · ${m.resultSummary}` : ""}
-                          </p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-center text-sm text-muted-foreground py-8">
-                No matches yet. Create one to start scoring.
-              </p>
-            )}
-          </div>
-        )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <HubKpiCard label="Live now" value={stats.live} icon={Radio} tint="red" pulse={stats.live > 0} />
+              <HubKpiCard label="Scheduled" value={stats.scheduled} icon={Calendar} tint="muted" />
+              <HubKpiCard label="Completed" value={stats.completed} icon={CheckCircle2} tint="green" />
+              <HubKpiCard label="Auction teams" value={teams?.length ?? 0} icon={Trophy} tint="primary" />
+            </div>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>New cricket match</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>Home team</Label>
-                <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams?.map((t) => {
-                      const squad = squadData?.squads.find((s) => s.teamId === t.id);
-                      return (
-                        <SelectItem key={t.id} value={String(t.id)}>
-                          {t.name}
-                          {squad ? ` (${squad.eligibleCount} players)` : ""}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Away team</Label>
-                <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams?.map((t) => {
-                      const squad = squadData?.squads.find((s) => s.teamId === t.id);
-                      return (
-                        <SelectItem key={t.id} value={String(t.id)} disabled={homeTeamId === String(t.id)}>
-                          {t.name}
-                          {squad ? ` (${squad.eligibleCount} players)` : ""}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              {squadData?.squads.some((s) => !s.ready) ? (
-                <p className="text-xs text-primary">
-                  Some teams have fewer than {squadData.minPlayingXi} sold/retained players — playing XI may be incomplete.
-                </p>
-              ) : null}
-              <div className="space-y-2">
-                <Label>Overs</Label>
-                <Input value={overs} onChange={(e) => setOvers(e.target.value)} inputMode="numeric" />
-              </div>
-              <Button className="w-full h-11" disabled={creating} onClick={() => void handleCreate()}>
-                Create match
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" className="gap-2" asChild>
+                <Link href={scoringSchedulePath(tournamentId)}>
+                  <Calendar className="w-4 h-4" />
+                  Schedule
+                </Link>
+              </Button>
+              <Button variant="secondary" size="sm" className="gap-2" asChild>
+                <Link href={cricketPublicPath(tournamentId)}>
+                  <Globe className="w-4 h-4" />
+                  Fan page
+                </Link>
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-      </ScorerShell>
+
+            <section>
+              <HubSectionHeader
+                title="All matches"
+                subtitle={`${stats.total} match${stats.total === 1 ? "" : "es"} in this tournament`}
+                badge={stats.live > 0 ? "LIVE" : undefined}
+                badgeVariant="destructive"
+              />
+
+              {matches && matches.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4">
+                  {matches.map((m) => {
+                    const home = teams?.find((t) => t.id === m.homeTeamId);
+                    const away = teams?.find((t) => t.id === m.awayTeamId);
+                    const isLive = m.status === "live";
+                    return (
+                      <Link key={m.id} href={`/tournament/${tournamentId}/score/${m.id}`}>
+                        <div
+                          className={cn(
+                            hubCardClass,
+                            "p-4 cursor-pointer transition-all hover:border-primary/30",
+                            isLive && "border-red-500/30 shadow-[0_0_24px_rgba(239,68,68,0.12)]",
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <Badge variant={statusBadgeVariant(m.status)} className="capitalize">
+                              {m.status}
+                            </Badge>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </div>
+                          <p className="font-display font-bold text-lg text-foreground">
+                            {home?.shortCode ?? home?.name ?? "Home"} vs {away?.shortCode ?? away?.name ?? "Away"}
+                          </p>
+                          {m.resultSummary ? (
+                            <p className="text-sm text-muted-foreground mt-1">{m.resultSummary}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-1 capitalize">{m.status}</p>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={Plus}
+                  title="No matches yet"
+                  desc="Create your first match to open the live scorer."
+                  action={{ label: "New match", onClick: () => setCreateOpen(true) }}
+                />
+              )}
+            </section>
+          </>
+        )}
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New cricket match</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Home team</Label>
+              <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((t) => {
+                    const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                    return (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.name}
+                        {squad ? ` (${squad.eligibleCount} players)` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Away team</Label>
+              <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((t) => {
+                    const squad = squadData?.squads.find((s) => s.teamId === t.id);
+                    return (
+                      <SelectItem key={t.id} value={String(t.id)} disabled={homeTeamId === String(t.id)}>
+                        {t.name}
+                        {squad ? ` (${squad.eligibleCount} players)` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            {squadData?.squads.some((s) => !s.ready) ? (
+              <p className="text-xs text-primary">
+                Some teams have fewer than {squadData.minPlayingXi} sold/retained players — playing XI may be incomplete.
+              </p>
+            ) : null}
+            <div className="space-y-2">
+              <Label>Overs</Label>
+              <Input value={overs} onChange={(e) => setOvers(e.target.value)} inputMode="numeric" />
+            </div>
+            <BtnPrimary className="w-full" disabled={creating} onClick={() => void handleCreate()}>
+              Create match
+            </BtnPrimary>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </CricketOrganizerPageShell>
   );
 }

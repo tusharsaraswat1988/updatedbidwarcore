@@ -23,7 +23,7 @@ import {
   type ScoringEventEnvelope,
 } from "@workspace/scoring-core";
 import { and, eq, inArray } from "drizzle-orm";
-import { ScoringServiceError } from "./scoring-service";
+import { ScoringPlatformError } from "./scoring-platform/errors";
 import { ensureScoringEnabled } from "./scoring-standings";
 
 const LEADERBOARD_CATEGORIES: LeaderboardCategory[] = [
@@ -345,7 +345,7 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     .limit(1);
 
   if (!match) {
-    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+    throw new ScoringPlatformError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
   const scorecard = await buildMatchScorecard(match);

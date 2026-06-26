@@ -2,7 +2,7 @@
  * Badminton match state hook — SSE-backed live state with React Query cache.
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   cmdAwardPoint,
@@ -11,6 +11,8 @@ import {
   type BadmintonMatchState,
   type CommandEvent,
 } from "@workspace/badminton-core";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import type { ScoringConnectionStatus } from "@/hooks/use-scoring-socket";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -62,6 +64,12 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
   const queryClient = useQueryClient();
   const queryKey = ["badminton-match", tournamentId, matchId];
   const esRef = useRef<EventSource | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ScoringConnectionStatus>("reconnecting");
+  const setStatusRef = useRef(setConnectionStatus);
+
+  useEffect(() => {
+    setStatusRef.current = setConnectionStatus;
+  });
 
   const query = useQuery({
     queryKey,
@@ -69,17 +77,41 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
     enabled: !!tournamentId && !!matchId,
     staleTime: 10_000,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.state?.matchStatus;
+      const live = status === "live" || status === "paused";
+      if (!live) return false;
+      return sseAwareRefetchInterval(connectionStatus, 15000);
+    },
   });
 
   // SSE subscription
   useEffect(() => {
     if (!tournamentId || !matchId) return;
 
+    let disconnectedTimer: ReturnType<typeof setTimeout>;
+
+    function markConnected() {
+      clearTimeout(disconnectedTimer);
+      setStatusRef.current("connected");
+    }
+
+    function markReconnecting() {
+      clearTimeout(disconnectedTimer);
+      setStatusRef.current("reconnecting");
+      disconnectedTimer = setTimeout(() => {
+        setStatusRef.current("disconnected");
+      }, 5000);
+    }
+
     const url = `${API_BASE}/api/tournaments/${tournamentId}/badminton/stream?matchId=${matchId}`;
     const es = new EventSource(url, { withCredentials: true });
     esRef.current = es;
 
+    es.onopen = () => markConnected();
+
     es.onmessage = (event) => {
+      markConnected();
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "match_state" && msg.data) {
@@ -93,14 +125,15 @@ export function useBadmintonMatch(tournamentId: number, matchId: number) {
     };
 
     es.onerror = () => {
-      // SSE will auto-reconnect
+      markReconnecting();
     };
 
     return () => {
+      clearTimeout(disconnectedTimer);
       es.close();
       esRef.current = null;
     };
-  }, [tournamentId, matchId]);
+  }, [tournamentId, matchId, queryClient]);
 
   return query;
 }

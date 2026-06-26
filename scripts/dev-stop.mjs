@@ -1,11 +1,11 @@
 /**
- * Stop all BidWar local dev servers (API, auction-platform, owner-app).
+ * Stop all BidWar local dev servers (API, auction-platform, owner-app, scoring-app).
  * Usage: pnpm dev:stop
  */
 import { getDevPorts, freePorts, waitForPortsFree } from "./dev-ports.mjs";
 
 const ports = getDevPorts();
-const unique = [...new Set([ports.api, ports.frontend, ports.ownerApp])];
+const unique = [...new Set([ports.api, ports.frontend, ports.ownerApp, ports.scoringApp])];
 
 console.log("\nBidWar — stopping local dev servers\n");
 console.log(`  Ports: ${unique.join(", ")}\n`);

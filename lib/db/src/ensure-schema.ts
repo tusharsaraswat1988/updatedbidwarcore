@@ -15,6 +15,7 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_declaration_text text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_mode text NOT NULL DEFAULT 'system';
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_value_options text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auto_approve_withdrawn_re_registration boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_enabled boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_threshold_seconds integer NOT NULL DEFAULT 3;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS bid_extension_seconds integer NOT NULL DEFAULT 5;

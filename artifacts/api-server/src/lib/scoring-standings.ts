@@ -14,7 +14,7 @@ import {
   type StandingsMatchInput,
 } from "@workspace/scoring-core";
 import { and, eq, inArray, or } from "drizzle-orm";
-import { ScoringServiceError } from "./scoring-service";
+import { ScoringPlatformError } from "./scoring-platform/errors";
 
 const MIN_PLAYING_XI = 11;
 const CRICKET_SPORT_SLUG = "cricket" as const;
@@ -201,12 +201,12 @@ export async function ensureScoringEnabled(tournamentId: number) {
     .limit(1);
 
   if (!tournament) {
-    throw new ScoringServiceError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
+    throw new ScoringPlatformError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
   }
   if (!tournament.scoringEnabled) {
-    throw new ScoringServiceError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
+    throw new ScoringPlatformError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
   }
   if (tournament.sport !== CRICKET_SPORT_SLUG) {
-    throw new ScoringServiceError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
+    throw new ScoringPlatformError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
   }
 }

@@ -124,6 +124,7 @@ function applyLineupSet(
 function applyBallRecorded(
   state: CricketScoreboardState,
   payload: CricketBallRecordedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
   if (state.sessionStatus === "paused") {
     throw new InvalidEventPayloadError(
@@ -138,7 +139,7 @@ function applyBallRecorded(
     );
   }
 
-  if (state.freeHitActive && payload.wicket) {
+  if (enforceLiveRules && state.freeHitActive && payload.wicket) {
     const allowed = FREE_HIT_DISMISSALS.includes(payload.wicket.type);
     if (!allowed) {
       throw new InvalidEventPayloadError(
@@ -391,14 +392,22 @@ function appendThisOver(
   return current.length > 0 ? [...current, display] : [display];
 }
 
+export type ReduceCricketOptions = {
+  /** Reject balls that break live scoring rules (e.g. caught on free hit). Off during event replay. */
+  enforceLiveRules?: boolean;
+};
+
 export function reduceCricket(
   state: CricketScoreboardState,
   event: ScoringEventEnvelope,
+  options?: ReduceCricketOptions,
 ): CricketScoreboardState {
   const parsed = parseCricketEventPayload(event.eventType, event.payload);
   if (!parsed.ok) {
     throw new InvalidEventPayloadError(event.eventType, parsed.error);
   }
+
+  const enforceLiveRules = options?.enforceLiveRules ?? false;
 
   let next: CricketScoreboardState;
 
@@ -410,7 +419,7 @@ export function reduceCricket(
       next = applyLineupSet(state, parsed.payload as CricketLineupSetPayload);
       break;
     case CricketEventType.BALL_RECORDED:
-      next = applyBallRecorded(state, parsed.payload as CricketBallRecordedPayload);
+      next = applyBallRecorded(state, parsed.payload as CricketBallRecordedPayload, enforceLiveRules);
       break;
     case CricketEventType.PENALTY_AWARDED:
       next = applyPenaltyAwarded(state, parsed.payload as CricketPenaltyAwardedPayload);

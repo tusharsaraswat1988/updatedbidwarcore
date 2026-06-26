@@ -50,6 +50,7 @@ export function publicTournamentSerializer(
     licenseStatus: t.licenseStatus ?? "trial",
     registrationDeadline: t.registrationDeadline ?? null,
     registrationLimit: t.registrationLimit ?? null,
+    autoApproveWithdrawnReRegistration: t.autoApproveWithdrawnReRegistration ?? false,
     enableRegistrationPayment: t.enableRegistrationPayment ?? false,
     registrationFee: t.registrationFee ?? null,
     enableRegistrationDeclaration: t.enableRegistrationDeclaration ?? false,

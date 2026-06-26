@@ -5,16 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBranding } from "@/hooks/use-branding";
 import { OrganizerGuard } from "@/components/organizer-guard";
-import { TournamentCodeGate } from "@/components/tournament-code-gate";
 import { PageTracking } from "@/components/page-tracking";
-import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
-import { BADMINTON_ROUTE_LOADING_CLASS, isBadmintonOrganizerPath } from "@/lib/badminton-routes";
 import { BRAND_ICON_PLACEHOLDER, getBrandLogoSrc } from "@/lib/brand-assets";
 import { applyPwaHeadBranding, resolvePwaIconUrl } from "@/lib/branding-pwa";
-import { setOperatorPinGetter } from "@workspace/api-client-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
-import { resolveLocalOperatorPin } from "@/lib/local-operator-pin";
 import { LocalVenueGate } from "@/components/local-venue-gate";
+import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
+import { RedirectToScoringApp } from "@/components/redirect-to-scoring-app";
 
 import Landing from "@/pages/landing";
 
@@ -65,16 +62,6 @@ const TeamReports = lazy(() => import("@/pages/team-reports"));
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
 const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
-const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
-const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
-const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
-const ScoringPublic = lazy(() => import("@/pages/scoring-public"));
-const ScoringMatchPublic = lazy(() => import("@/pages/scoring-match-public"));
-const ScoringPlayerPublic = lazy(() => import("@/pages/scoring-player-public"));
-const ScoringTeamPublic = lazy(() => import("@/pages/scoring-team-public"));
-const CricketGlobalPlayer = lazy(() => import("@/pages/cricket-global-player"));
-const CricketGlobalLeaderboards = lazy(() => import("@/pages/cricket-global-leaderboards"));
-const ScoreDisplay = lazy(() => import("@/pages/score-display"));
 const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
 const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
@@ -88,20 +75,6 @@ const BlogCategory = lazy(() => import("@/pages/blog/category"));
 const BlogTag      = lazy(() => import("@/pages/blog/tag"));
 const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
 
-// Badminton Tournament System
-const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
-const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
-const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
-const BadmintonMatchControlPage = lazy(() => import("@/pages/badminton/match-control"));
-const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
-const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
-const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
-const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
-const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
-const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
-const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
-const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -110,15 +83,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-function LocalOperatorPinEffects() {
-  useEffect(() => {
-    if (!isBidWarLocalHost()) return;
-    setOperatorPinGetter(() => resolveLocalOperatorPin());
-    return () => setOperatorPinGetter(null);
-  }, []);
-  return null;
-}
 
 function BrandingEffects() {
   const { logos, brandName } = useBranding();
@@ -182,11 +146,7 @@ function BrandingEffects() {
 }
 
 function RouteSuspenseFallback() {
-  const [location] = useLocation();
-  const className = isBadmintonOrganizerPath(location)
-    ? BADMINTON_ROUTE_LOADING_CLASS
-    : "min-h-screen bg-background";
-  return <div className={className} aria-busy="true" />;
+  return <div className="min-h-screen bg-background" aria-busy="true" />;
 }
 
 function Router() {
@@ -203,7 +163,7 @@ function Router() {
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
-        <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
+        <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
         {/* Public live viewer — no auction code gate; share /live/:id with fans */}
         <Route path="/live/:id" component={LiveViewer} />
         <Route path="/live">
@@ -221,16 +181,10 @@ function Router() {
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 
-        {/* Badminton — public scoreboard / display / overlay pages (feature-flagged) */}
-        <Route path="/badminton/:matchId/score">
-          {() => <ScoringFeatureGuard><BadmintonScorerPage /></ScoringFeatureGuard>}
-        </Route>
-        <Route path="/badminton/:matchId/display">
-          {() => <ScoringFeatureGuard><BadmintonDisplayPage /></ScoringFeatureGuard>}
-        </Route>
-        <Route path="/badminton/:matchId/overlay">
-          {() => <ScoringFeatureGuard><BadmintonOverlayPage /></ScoringFeatureGuard>}
-        </Route>
+        {/* Scoring — redirect legacy URLs to external scoring app */}
+        <Route path="/badminton/:matchId/score" component={RedirectToScoringApp} />
+        <Route path="/badminton/:matchId/display" component={RedirectToScoringApp} />
+        <Route path="/badminton/:matchId/overlay" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/owner/:teamId">
           {(params) => (
             <RedirectToOwnerApp
@@ -434,158 +388,24 @@ function Router() {
             return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
           }}
         </Route>
-        <Route path="/tournament/:id/cricket/match/:matchId">
-          {() => (
-            <ScoringFeatureGuard>
-              <ScoringMatchPublic />
-            </ScoringFeatureGuard>
-          )}
-        </Route>
-        <Route path="/tournament/:id/cricket/player/:playerId">
-          {() => (
-            <ScoringFeatureGuard>
-              <ScoringPlayerPublic />
-            </ScoringFeatureGuard>
-          )}
-        </Route>
-        <Route path="/tournament/:id/cricket/team/:teamId">
-          {() => (
-            <ScoringFeatureGuard>
-              <ScoringTeamPublic />
-            </ScoringFeatureGuard>
-          )}
-        </Route>
-        <Route path="/cricket/leaderboards" component={CricketGlobalLeaderboards} />
-        <Route path="/player/:globalPlayerId" component={CricketGlobalPlayer} />
-        <Route path="/tournament/:id/cricket">
-          {() => (
-            <ScoringFeatureGuard>
-              <ScoringPublic />
-            </ScoringFeatureGuard>
-          )}
-        </Route>
-        <Route path="/tournament/:id/score/schedule">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringSchedule /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/score/:matchId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringMatch /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/score">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><ScoringMatchList /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-
-        {/* Badminton — organizer-protected management pages (feature-flagged) */}
-        <Route path="/tournament/:id/badminton/players">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonPlayersPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/matches">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonMatchesPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/matches/:matchId/control">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonMatchControlPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/courts">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonCourtsPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/categories">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonCategoriesPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/analytics">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonAnalyticsPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/branding">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonBrandingPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton/broadcast">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonBroadcastPage /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
-        <Route path="/tournament/:id/badminton">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return (
-              <ScoringFeatureGuard>
-                <OrganizerGuard tournamentId={tid}><BadmintonTournamentHub /></OrganizerGuard>
-              </ScoringFeatureGuard>
-            );
-          }}
-        </Route>
+        <Route path="/tournament/:id/cricket/match/:matchId" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/cricket/player/:playerId" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/cricket/team/:teamId" component={RedirectToScoringApp} />
+        <Route path="/cricket/leaderboards" component={RedirectToScoringApp} />
+        <Route path="/player/:globalPlayerId" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/cricket" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/schedule" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/:matchId" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/players" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/matches/:matchId/control" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/matches" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/courts" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/categories" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/broadcast" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton" component={RedirectToScoringApp} />
 
         <Route component={NotFound} />
       </Switch>

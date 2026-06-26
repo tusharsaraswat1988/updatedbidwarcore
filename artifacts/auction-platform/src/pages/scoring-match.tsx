@@ -7,7 +7,8 @@ import {
   getListPlayersQueryKey,
 } from "@workspace/api-client-react";
 import { buildCricketMatchSummary, CricketEventType } from "@workspace/scoring-core";
-import { ScorerShell } from "@/components/scoring/scorer-shell";
+import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
+import { EmptyState, PageHeader } from "@/components/badminton/page-chrome";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
@@ -28,8 +29,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { openScoreDisplay } from "@/lib/tournament-navigation";
 import { Button } from "@/components/ui/button";
-import { Monitor, WifiOff } from "lucide-react";
-import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { Monitor, WifiOff, RefreshCw, AlertTriangle } from "lucide-react";
+import { useCricketScoringActive, usePlatformFeatures } from "@/hooks/use-platform-features";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 export default function ScoringMatchPage() {
@@ -43,12 +44,13 @@ export default function ScoringMatchPage() {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
-  const { data, isLoading, refetch, isFetching } = useScoringMatch(tournamentId, matchId, scoringActive);
+  const { loading: featuresLoading } = usePlatformFeatures();
+  const { data, isLoading, isError, error, refetch, isFetching, isPending } = useScoringMatch(
+    tournamentId,
+    matchId,
+    scoringActive,
+  );
 
-  useEffect(() => {
-    if (!tournament || scoringActive) return;
-    navigate(`/tournament/${tournamentId}`);
-  }, [tournament, scoringActive, tournamentId, navigate]);
   const { invalidateAll, setMatchDetail } = useInvalidateScoring(tournamentId, matchId);
 
   const { data: teams } = useListTeams(tournamentId, {
@@ -216,60 +218,129 @@ export default function ScoringMatchPage() {
     data?.summary ??
     (data && isFinished ? buildCricketMatchSummary(data.state) : null);
 
-  if (!scoringActive) return null;
+  const matchTitle =
+    data?.match.status === "live"
+      ? "Live scoring"
+      : data?.match.status === "completed"
+        ? "Match result"
+        : "Match setup";
+
+  const loadingShell = (
+    <CricketOrganizerPageShell tournamentId={tournamentId}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    </CricketOrganizerPageShell>
+  );
+
+  if (featuresLoading || (isPending && !data)) {
+    return loadingShell;
+  }
+
+  if (!scoringActive) {
+    return (
+      <CricketOrganizerPageShell tournamentId={tournamentId}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <EmptyState
+            icon={AlertTriangle}
+            title="Cricket scoring is off"
+            desc="Enable scoring for this tournament in auction settings, then return here."
+          />
+        </div>
+      </CricketOrganizerPageShell>
+    );
+  }
+
+  if (isError && !data) {
+    return (
+      <CricketOrganizerPageShell tournamentId={tournamentId}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load match"
+            desc={error instanceof Error ? error.message : "Something went wrong. Try again."}
+            action={{ label: "Retry", onClick: () => void refetch() }}
+          />
+        </div>
+      </CricketOrganizerPageShell>
+    );
+  }
 
   return (
-      <ScorerShell
-        tournamentId={tournamentId}
-        title={data?.match.status === "live" ? "Live" : "Match setup"}
-        subtitle={subtitle}
-        backHref={`/tournament/${tournamentId}/score`}
-        onRefresh={() => void refetch()}
-        refreshing={isFetching}
-        statusBanner={
-          queueDepth > 0 ? (
-            <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 flex items-center gap-2 text-xs text-amber-100">
-              <WifiOff className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — will sync when online.
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="ml-auto h-7 text-xs"
-                onClick={() => void drainQueue()}
-              >
-                Sync now
-              </Button>
-            </div>
-          ) : null
-        }
-      >
-        {isLoading || !data ? (
-          <div className="p-4 space-y-3">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-48 w-full" />
+    <CricketOrganizerPageShell tournamentId={tournamentId}>
+      <PageHeader
+        eyebrow="Cricket Scorer"
+        title={matchTitle}
+        subtitle={subtitle ?? tournament?.name}
+        badge={data?.match.status === "live" ? "LIVE" : undefined}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+            >
+              <Monitor className="w-4 h-4" />
+              LED display
+            </Button>
           </div>
+        }
+      />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-10 space-y-4">
+        {queueDepth > 0 ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center gap-2 text-sm text-amber-100">
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>
+              {queueDepth} ball{queueDepth === 1 ? "" : "s"} queued offline — will sync when online.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-8 text-xs"
+              onClick={() => void drainQueue()}
+            >
+              Sync now
+            </Button>
+          </div>
+        ) : null}
+
+        {isLoading && !data ? (
+          <div className="space-y-3">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+        ) : !data ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Match not found"
+            desc="This match may have been removed. Go back to the match list."
+            action={{
+              label: "Back to matches",
+              onClick: () => navigate(`/tournament/${tournamentId}/score`),
+            }}
+          />
         ) : (
           <>
-            <div className="px-4 pt-3 flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 gap-1.5"
-                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-              >
-                <Monitor className="w-3.5 h-3.5" />
-                Open LED Scoreboard
-              </Button>
-            </div>
-
-        <PreMatchSetup
-          tournamentId={tournamentId}
-          match={data.match}
-          state={data.state}
-          teams={teams ?? []}
-          players={players ?? []}
+            <PreMatchSetup
+              tournamentId={tournamentId}
+              match={data.match}
+              state={data.state}
+              teams={teams ?? []}
+              players={players ?? []}
               localBowlerId={localBowlerId}
               busy={busy}
               onEvent={sendEvent}
@@ -277,7 +348,8 @@ export default function ScoringMatchPage() {
             />
 
             {readyToScore && data.state.matchStatus !== "completed" ? (
-              <LiveScoringPad
+              <div className="max-w-lg mx-auto w-full">
+                <LiveScoringPad
                 state={data.state}
                 teams={teams ?? []}
                 players={players ?? []}
@@ -332,15 +404,24 @@ export default function ScoringMatchPage() {
                   setPendingNewBatsman(false);
                 }}
               />
+              </div>
+            ) : null}
+
+            {!readyToScore &&
+            !isFinished &&
+            data.state.innings.length > 0 &&
+            data.state.tossWinnerTeamId != null ? (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+                Complete squad selection and pick openers + bowler to start scoring balls.
+              </div>
             ) : null}
 
             {isFinished && summary ? (
-              <div className="p-4">
-                <MatchSummaryCard summary={summary} teams={teams ?? []} compact />
-              </div>
+              <MatchSummaryCard summary={summary} teams={teams ?? []} compact />
             ) : null}
           </>
         )}
-      </ScorerShell>
+      </div>
+    </CricketOrganizerPageShell>
   );
 }

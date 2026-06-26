@@ -163,6 +163,7 @@ if (serveStatic) {
   // Two levels up from dist/ reaches the artifacts/ root.
   const auctionDist = path.resolve(__dirname, "../../auction-platform/dist/public");
   const ownerDist   = path.resolve(__dirname, "../../owner-app/dist/public");
+  const scoringDist = path.resolve(__dirname, "../../scoring-app/dist/public");
 
   assertServeStaticBuild(auctionDist);
 
@@ -352,6 +353,16 @@ if (serveStatic) {
         res.sendFile(path.join(ownerDist, "index.html"));
       });
       logger.info({ path: ownerDist }, "Static: owner-app at /owner-app");
+    }
+
+    // Scoring app at /scoring-app/ — before auction catch-all
+    if (existsSync(scoringDist)) {
+      app.use("/scoring-app", expressStaticGzip(scoringDist, staticOpts));
+      app.use("/scoring-app", (_req: express.Request, res: express.Response) => {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.sendFile(path.join(scoringDist, "index.html"));
+      });
+      logger.info({ path: scoringDist }, "Static: scoring-app at /scoring-app");
     }
 
     // Auction platform catch-all at /

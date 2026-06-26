@@ -29,7 +29,7 @@
 
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { eq, and, asc, count, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, asc, count, inArray, isNotNull, ne } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   badmintonPlayersTable,
@@ -73,6 +73,10 @@ import {
   listBadmintonPlayersForMatchRoster,
   listBadmintonPlayersForOrganizer,
 } from "../lib/master-sports/badminton";
+import {
+  validateBadmintonCategoryEntry,
+  validateBadmintonRegistrationReinstate,
+} from "../lib/badminton-registration-validation";
 import {
   addBadmintonSseClient,
   broadcastBadmintonMatchUpdate,
@@ -825,9 +829,8 @@ router.post("/categories/:catId/registrations", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
-  // Validate player1 belongs to this tournament.
-  const [p1] = await db
-    .select({ id: badmintonPlayersTable.id })
+  const [p1Row] = await db
+    .select()
     .from(badmintonPlayersTable)
     .where(
       and(
@@ -837,12 +840,12 @@ router.post("/categories/:catId/registrations", async (req, res) => {
     )
     .limit(1);
 
-  if (!p1) return void res.status(400).json({ error: "player1Id not found in this tournament" });
+  if (!p1Row) return void res.status(400).json({ error: "player1Id not found in this tournament" });
 
-  // Validate player2 belongs to this tournament (doubles only).
+  let p2Row: typeof p1Row | null = null;
   if (parsed.data.player2Id) {
-    const [p2] = await db
-      .select({ id: badmintonPlayersTable.id })
+    const [row] = await db
+      .select()
       .from(badmintonPlayersTable)
       .where(
         and(
@@ -851,13 +854,12 @@ router.post("/categories/:catId/registrations", async (req, res) => {
         ),
       )
       .limit(1);
-
-    if (!p2) return void res.status(400).json({ error: "player2Id not found in this tournament" });
+    if (!row) return void res.status(400).json({ error: "player2Id not found in this tournament" });
+    p2Row = row;
   }
 
-  // Validate category belongs to this tournament.
-  const [cat] = await db
-    .select({ id: badmintonCategoriesTable.id })
+  const [categoryRow] = await db
+    .select()
     .from(badmintonCategoriesTable)
     .where(
       and(
@@ -867,7 +869,53 @@ router.post("/categories/:catId/registrations", async (req, res) => {
     )
     .limit(1);
 
-  if (!cat) return void res.status(404).json({ error: "category not found in this tournament" });
+  if (!categoryRow) return void res.status(404).json({ error: "category not found in this tournament" });
+
+  const [{ acceptedCount }] = await db
+    .select({ acceptedCount: count() })
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        eq(badmintonRegistrationsTable.status, "accepted"),
+      ),
+    );
+
+  const entryValidation = validateBadmintonCategoryEntry(
+    categoryRow,
+    p1Row,
+    p2Row,
+    Number(acceptedCount),
+  );
+  if (!entryValidation.ok) {
+    return void res.status(entryValidation.status).json({
+      error: entryValidation.error,
+      code: entryValidation.code,
+    });
+  }
+
+  const existingRegs = await db
+    .select({ id: badmintonRegistrationsTable.id, player1Id: badmintonRegistrationsTable.player1Id, player2Id: badmintonRegistrationsTable.player2Id })
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+        inArray(badmintonRegistrationsTable.status, ["accepted", "pending", "withdrawn"]),
+      ),
+    );
+
+  const playerIds = new Set([parsed.data.player1Id, parsed.data.player2Id].filter(Boolean) as number[]);
+  for (const reg of existingRegs) {
+    const regPlayers = [reg.player1Id, reg.player2Id].filter(Boolean) as number[];
+    if (regPlayers.some((id) => playerIds.has(id))) {
+      return void res.status(409).json({
+        error: "One or more players are already registered in this category.",
+        code: "DUPLICATE_CATEGORY_ENTRY",
+      });
+    }
+  }
 
   const [reg] = await db
     .insert(badmintonRegistrationsTable)
@@ -875,6 +923,140 @@ router.post("/categories/:catId/registrations", async (req, res) => {
     .returning();
 
   res.status(201).json(reg);
+});
+
+router.patch("/categories/:catId/registrations/:regId", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  const regId = parseId((req.params as MergedParams).regId);
+  if (!catId || !regId) return void res.status(400).json({ error: "bad id" });
+
+  const schema = z.object({
+    status: z.enum(["pending", "accepted", "withdrawn", "disqualified"]).optional(),
+    seedNumber: z.number().int().min(1).max(32).nullable().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
+
+  const [existing] = await db
+    .select()
+    .from(badmintonRegistrationsTable)
+    .where(
+      and(
+        eq(badmintonRegistrationsTable.id, regId),
+        eq(badmintonRegistrationsTable.categoryId, catId),
+        eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) return void res.status(404).json({ error: "registration not found" });
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+  if (parsed.data.seedNumber !== undefined) updates.seedNumber = parsed.data.seedNumber;
+
+  if (Object.keys(updates).length === 0) {
+    return void res.status(400).json({ error: "No fields to update" });
+  }
+
+  if (
+    parsed.data.status === "accepted" &&
+    existing.status === "withdrawn"
+  ) {
+    const [categoryRow] = await db
+      .select()
+      .from(badmintonCategoriesTable)
+      .where(
+        and(
+          eq(badmintonCategoriesTable.id, catId),
+          eq(badmintonCategoriesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (!categoryRow) return void res.status(404).json({ error: "category not found" });
+
+    const playerIds = [existing.player1Id, existing.player2Id].filter(Boolean) as number[];
+    const players =
+      playerIds.length > 0
+        ? await db
+            .select()
+            .from(badmintonPlayersTable)
+            .where(
+              and(
+                eq(badmintonPlayersTable.tournamentId, tournamentId),
+                inArray(badmintonPlayersTable.id, playerIds),
+              ),
+            )
+        : [];
+
+    const p1Row = players.find((p) => p.id === existing.player1Id);
+    if (!p1Row) return void res.status(400).json({ error: "player1 not found in tournament" });
+
+    const p2Row = existing.player2Id
+      ? players.find((p) => p.id === existing.player2Id) ?? null
+      : null;
+
+    const [{ acceptedCount }] = await db
+      .select({ acceptedCount: count() })
+      .from(badmintonRegistrationsTable)
+      .where(
+        and(
+          eq(badmintonRegistrationsTable.categoryId, catId),
+          eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+          eq(badmintonRegistrationsTable.status, "accepted"),
+        ),
+      );
+
+    const otherActiveRegs = await db
+      .select({
+        id: badmintonRegistrationsTable.id,
+        player1Id: badmintonRegistrationsTable.player1Id,
+        player2Id: badmintonRegistrationsTable.player2Id,
+      })
+      .from(badmintonRegistrationsTable)
+      .where(
+        and(
+          eq(badmintonRegistrationsTable.categoryId, catId),
+          eq(badmintonRegistrationsTable.tournamentId, tournamentId),
+          inArray(badmintonRegistrationsTable.status, ["accepted", "pending"]),
+          ne(badmintonRegistrationsTable.id, regId),
+        ),
+      );
+
+    const conflictingIds: number[] = [];
+    const regPlayerSet = new Set(playerIds);
+    for (const reg of otherActiveRegs) {
+      const ids = [reg.player1Id, reg.player2Id].filter(Boolean) as number[];
+      if (ids.some((id) => regPlayerSet.has(id))) {
+        conflictingIds.push(...ids.filter((id) => regPlayerSet.has(id)));
+      }
+    }
+
+    const reinstateValidation = validateBadmintonRegistrationReinstate(
+      categoryRow,
+      p1Row,
+      p2Row,
+      Number(acceptedCount),
+      conflictingIds,
+    );
+    if (!reinstateValidation.ok) {
+      return void res.status(reinstateValidation.status).json({
+        error: reinstateValidation.error,
+        code: reinstateValidation.code,
+      });
+    }
+  }
+
+  const [updated] = await db
+    .update(badmintonRegistrationsTable)
+    .set(updates)
+    .where(eq(badmintonRegistrationsTable.id, regId))
+    .returning();
+
+  res.json(updated);
 });
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

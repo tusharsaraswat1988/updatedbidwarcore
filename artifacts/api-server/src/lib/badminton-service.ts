@@ -26,8 +26,6 @@ import type {
   BadmintonMatchStartedPayload,
 } from "@workspace/badminton-core";
 import {
-  replayBadmintonEvents,
-  reduceBadminton,
   cmdAwardPoint,
   cmdUndoLastPoint,
   cmdStartMatch,
@@ -50,7 +48,11 @@ import {
   type MatchPauseReason,
 } from "@workspace/badminton-core";
 import type { BadmintonEventEnvelope } from "@workspace/badminton-core";
-import { updateBadmintonStatisticsFromMatch } from "./master-sports/badminton";
+import type { ScoringEventEnvelope } from "@workspace/scoring-core";
+import { replayScoringMatchState } from "./scoring-platform";
+import { appendMatchEventBatch, type ScoringActor as PlatformActor } from "./scoring-platform/orchestrator";
+import { runBadmintonMasterStatisticsPipeline } from "./scoring-platform/projections";
+import { ScoringPlatformError } from "./scoring-platform/errors";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,18 @@ export class BadmintonServiceError extends Error {
 }
 
 const BADMINTON_SPORT = "badminton" as const;
+
+/** Replay via Scoring Platform → Badminton Adapter → Badminton Engine. */
+function replayBadmintonViaPlatform(
+  meta: InternalMatchMeta,
+  events: BadmintonEventEnvelope[],
+): BadmintonMatchState {
+  return replayScoringMatchState<BadmintonMatchState>(
+    BADMINTON_SPORT,
+    meta,
+    events as ScoringEventEnvelope[],
+  );
+}
 
 /** Reject badminton mutations on non-badminton or scoring-disabled tournaments. */
 export async function ensureBadmintonTournament(tournamentId: number): Promise<void> {
@@ -222,21 +236,15 @@ export async function replayMatch(
   if (!meta) return null;
 
   const events = await loadBadmintonEvents(matchId);
-  return replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const replayed = replayBadmintonViaPlatform(meta, events);
+  const persistedTail = await getLastBadmintonSequence(matchId);
+  if (persistedTail > 0 && replayed.lastSequence !== persistedTail) {
+    return { ...replayed, lastSequence: persistedTail };
+  }
+  return replayed;
 }
 
 // ── Internal: sequence helpers ────────────────────────────────────────────────
-
-async function getNextSequence(matchId: number): Promise<number> {
-  const [last] = await db
-    .select({ sequence: scoringEventsTable.sequence })
-    .from(scoringEventsTable)
-    .where(eq(scoringEventsTable.matchId, matchId))
-    .orderBy(desc(scoringEventsTable.sequence))
-    .limit(1);
-
-  return (last?.sequence ?? 0) + 1;
-}
 
 async function getLastBadmintonSequence(matchId: number): Promise<number> {
   const [last] = await db
@@ -276,70 +284,44 @@ async function loadCurrentMatchState(
   }
 
   const events = await loadBadmintonEvents(matchId);
-  return replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  return replayBadmintonViaPlatform(meta, events);
 }
 
-// ── Internal: event persistence ───────────────────────────────────────────────
+// ── Internal: platform event append ───────────────────────────────────────────
 
-type AppendEventInput = {
-  tournamentId: number;
-  fixtureId?: number | null;
-  eventType: string;
-  payload: Record<string, unknown>;
-  actorType: string;
-  actorId?: string | null;
-};
-
-async function appendEvents(
-  matchId: number,
-  inputs: AppendEventInput[],
-): Promise<number> {
-  let seq = await getNextSequence(matchId);
-  const startSeq = seq;
-
-  for (const input of inputs) {
-    await db.insert(scoringEventsTable).values({
-      matchId,
-      tournamentId: input.tournamentId,
-      fixtureId: input.fixtureId ?? null,
-      sportSlug: "badminton",
-      eventType: input.eventType,
-      eventVersion: 1,
-      sequence: seq++,
-      actorType: input.actorType,
-      actorId: input.actorId ?? null,
-      payloadJson: input.payload,
-    });
-  }
-
-  return startSeq;
-}
-
-function applyPersistedCommandEvents(
-  state: BadmintonMatchState,
-  commandEvents: Array<{ eventType: string; payload: Record<string, unknown> }>,
-  startSequence: number,
+async function persistBadmintonCommandEvents(
   matchId: number,
   tournamentId: number,
-): BadmintonMatchState {
-  let next = state;
-  let seq = startSequence;
+  meta: InternalMatchMeta,
+  priorState: BadmintonMatchState,
+  commandEvents: Array<{ eventType: string; payload: Record<string, unknown> }>,
+  actor: Actor,
+  projectionMode: "incremental" | "replay",
+): Promise<BadmintonMatchState> {
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
-  for (const event of commandEvents) {
-    next = reduceBadminton(next, {
-      matchId,
+  try {
+    const { state } = await appendMatchEventBatch({
       tournamentId,
-      sportSlug: "badminton",
-      eventType: event.eventType,
-      eventVersion: 1,
-      sequence: seq,
-      actorType: "system",
-      payload: event.payload,
+      matchId,
+      sportSlug: BADMINTON_SPORT,
+      fixtureId,
+      actor: actor as PlatformActor,
+      events: commandEvents,
+      projectionMode,
+      priorState: projectionMode === "incremental" ? priorState : undefined,
+      matchMeta: meta,
     });
-    seq += 1;
-  }
 
-  return next;
+    const projected = state as BadmintonMatchState;
+    await updateSnapshot(matchId, tournamentId, projected);
+    return projected;
+  } catch (err) {
+    if (err instanceof ScoringPlatformError) {
+      throw new BadmintonServiceError(err.code ?? "PLATFORM_ERROR", err.message, err.status);
+    }
+    throw err;
+  }
 }
 
 // ── Internal: snapshot update ─────────────────────────────────────────────────
@@ -402,13 +384,8 @@ async function updateSnapshot(
       .limit(1);
 
     if (detail?.leftSideJson && detail?.rightSideJson) {
-      void updateBadmintonStatisticsFromMatch(
-        state,
-        tournamentId,
-        detail.leftSideJson as Record<string, unknown>,
-        detail.rightSideJson as Record<string, unknown>,
-      ).catch((err) => {
-        console.error("[master-sports] updateBadmintonStatisticsFromMatch failed:", err);
+      void runBadmintonMasterStatisticsPipeline(matchId).catch((err) => {
+        console.error("[master-sports] badminton statistics pipeline failed:", err);
       });
     }
   } else if (state.matchStatus === "live") {
@@ -457,34 +434,20 @@ export async function startBadmintonMatch(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdStartMatch(state, input);
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  const startSeq = await appendEvents(
-    matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
-  );
-
-  const newState = applyPersistedCommandEvents(
-    state,
-    result.events,
-    startSeq,
+  return persistBadmintonCommandEvents(
     matchId,
     tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "incremental",
   );
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function awardPoint(
@@ -502,29 +465,15 @@ export async function awardPoint(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  const startSeq = await appendEvents(
-    matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
-  );
-
-  const newState = applyPersistedCommandEvents(
-    state,
-    result.events,
-    startSeq,
+  return persistBadmintonCommandEvents(
     matchId,
     tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "incremental",
   );
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function undoLastPoint(
@@ -536,7 +485,7 @@ export async function undoLastPoint(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
 
   const undoTargets = getUndoTargetSequences(events);
   if (undoTargets.length === 0) {
@@ -546,24 +495,15 @@ export async function undoLastPoint(
   const result = cmdUndoLastPoint(state, undoTargets);
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleTimeout(
@@ -578,7 +518,7 @@ export async function handleTimeout(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
 
   const result =
     action === "start" && side
@@ -587,24 +527,15 @@ export async function handleTimeout(
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleInterval(
@@ -617,29 +548,20 @@ export async function handleInterval(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
 
   const result = action === "start" ? cmdStartInterval(state) : cmdEndInterval(state);
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleCourtChangeAck(
@@ -651,28 +573,19 @@ export async function handleCourtChangeAck(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdAcknowledgeCourtChange(state);
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleRetirement(
@@ -686,29 +599,20 @@ export async function handleRetirement(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdDeclareRetirement(state, retiringSide, reason);
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleWalkover(
@@ -722,29 +626,20 @@ export async function handleWalkover(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdDeclareWalkover(state, winningSide, reason);
 
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 async function persistCommandResult(
@@ -757,24 +652,15 @@ async function persistCommandResult(
 ): Promise<BadmintonMatchState> {
   if (!result.ok) throw new BadmintonServiceError("COMMAND_FAILED", result.error);
 
-  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
-
-  await appendEvents(
+  return persistBadmintonCommandEvents(
     matchId,
-    result.events.map((e) => ({
-      tournamentId,
-      fixtureId,
-      eventType: e.eventType,
-      payload: e.payload,
-      actorType: actor.type,
-      actorId: actor.id,
-    })),
+    tournamentId,
+    meta,
+    state,
+    result.events,
+    actor,
+    "replay",
   );
-
-  const newEvents = await loadBadmintonEvents(matchId);
-  const newState = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], newEvents);
-  await updateSnapshot(matchId, tournamentId, newState);
-  return newState;
 }
 
 export async function handleDisqualification(
@@ -788,7 +674,7 @@ export async function handleDisqualification(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdDeclareDisqualification(state, disqualifiedSide, reason);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
@@ -804,7 +690,7 @@ export async function handlePauseMatch(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdPauseMatch(state, reason, detail);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
@@ -818,7 +704,7 @@ export async function handleResumeMatch(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdResumeMatch(state);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
@@ -833,7 +719,7 @@ export async function handleAddMatchNote(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdAddMatchNote(state, text);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
@@ -848,7 +734,7 @@ export async function handleForceEndMatch(
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdForceEndMatch(state, reason);
   return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
 }
@@ -866,7 +752,7 @@ export async function getMatchReportData(matchId: number, tournamentId: number) 
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
 
   const events = await loadBadmintonEvents(matchId);
-  const state = replayBadmintonEvents(meta as Parameters<typeof replayBadmintonEvents>[0], events);
+  const state = replayBadmintonViaPlatform(meta, events);
   return buildMatchReport(state, events);
 }
 

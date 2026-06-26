@@ -15,6 +15,29 @@ function tid(req: { params: Record<string, string> }): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+function parseAuctionTeamFilter(req: { query: Record<string, unknown> }): number | undefined {
+  const teamIdRaw = req.query.teamId;
+  const auctionTeamId = teamIdRaw != null ? parseInt(String(teamIdRaw), 10) : undefined;
+  return Number.isFinite(auctionTeamId) ? auctionTeamId : undefined;
+}
+
+async function listRosterItems(req: {
+  params: Record<string, string>;
+  query: Record<string, unknown>;
+}, res: {
+  status: (code: number) => { json: (body: unknown) => void };
+  json: (body: unknown) => void;
+}): Promise<void> {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const items = await listCricketMasterPlayers(tournamentId, parseAuctionTeamFilter(req));
+  res.json(items);
+}
+
 /** GET master-linked auction teams with squad counts */
 router.get("/master-teams", async (req, res) => {
   const tournamentId = tid(req);
@@ -29,21 +52,12 @@ router.get("/master-teams", async (req, res) => {
 
 /** GET players for cricket scorer (optional ?teamId= auction team filter) */
 router.get("/master-players", async (req, res) => {
-  const tournamentId = tid(req);
-  if (!tournamentId) {
-    res.status(400).json({ error: "Invalid tournament id" });
-    return;
-  }
+  await listRosterItems(req, res);
+});
 
-  const teamIdRaw = req.query.teamId;
-  const auctionTeamId =
-    teamIdRaw != null ? parseInt(String(teamIdRaw), 10) : undefined;
-
-  const items = await listCricketMasterPlayers(
-    tournamentId,
-    Number.isFinite(auctionTeamId) ? auctionTeamId : undefined,
-  );
-  res.json(items);
+/** GET unified tournament roster for scorer adapters (alias of /master-players). */
+router.get("/roster", async (req, res) => {
+  await listRosterItems(req, res);
 });
 
 /** GET sold/retained squad for one auction team */

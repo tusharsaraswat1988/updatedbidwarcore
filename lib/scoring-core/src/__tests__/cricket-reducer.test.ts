@@ -142,4 +142,84 @@ describe("cricket reducer foundation", () => {
     expect(state.lineups[1]).toEqual([10, 11]);
     expect(state.lastSequence).toBe(2);
   });
+
+  it("replays committed caught-on-free-hit balls without throwing (live rules still enforced on append)", () => {
+    const events = [
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 100, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.LINEUP_SET,
+        sequence: 2,
+        payload: { teamId: 100, playerIds: [1, 2], battingOrder: [1, 2] },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.LINEUP_SET,
+        sequence: 3,
+        payload: { teamId: 200, playerIds: [9] },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_RECORDED,
+        sequence: 4,
+        payload: {
+          innings: 1,
+          over: 0,
+          ball: 1,
+          strikerId: 1,
+          nonStrikerId: 2,
+          bowlerId: 9,
+          runsOffBat: 0,
+          extras: { type: "no_ball", runs: 1 },
+          wicket: null,
+          isLegalDelivery: false,
+        },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_RECORDED,
+        sequence: 5,
+        payload: {
+          innings: 1,
+          over: 0,
+          ball: 2,
+          strikerId: 1,
+          nonStrikerId: 2,
+          bowlerId: 9,
+          runsOffBat: 0,
+          extras: { type: null, runs: 0 },
+          wicket: { type: "caught", dismissedPlayerId: 1 },
+          isLegalDelivery: true,
+        },
+        actorType: "organizer",
+      }),
+    ];
+
+    const state = replayCricketEvents(matchMeta, events);
+    expect(state.innings[0]?.wickets).toBe(1);
+
+    const stateBeforeCaught = replayCricketEvents(matchMeta, events.slice(0, 4));
+    expect(() =>
+      reduceCricket(stateBeforeCaught, events[4]!, { enforceLiveRules: true }),
+    ).toThrow(/free hit/i);
+  });
 });

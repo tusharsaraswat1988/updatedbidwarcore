@@ -95,6 +95,10 @@ import {
   getOrganizerBidOptions,
   shouldShowPlayerBidValueSelector,
 } from "@workspace/api-base/bid-value";
+import {
+  reinstateTournamentPlayer,
+  withdrawTournamentPlayer,
+} from "@/lib/registration-api";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -1434,6 +1438,7 @@ const statusColors: Record<string, string> = {
   sold: "bg-green-500/15 text-green-300 border-green-500/30",
   unsold: "bg-red-500/15 text-red-300 border-red-500/30",
   retained: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+  withdrawn: "bg-amber-500/15 text-amber-300 border-amber-500/30",
 };
 
 const statusLabels: Record<string, string> = {
@@ -1441,6 +1446,7 @@ const statusLabels: Record<string, string> = {
   sold: "Sold",
   retained: "Retained",
   unsold: "Unsold",
+  withdrawn: "Withdrawn",
 };
 
 function formatPlayerAmount(player: {
@@ -1673,7 +1679,7 @@ function MultiFilterPopover({
   );
 }
 
-type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold";
+type StatusFilterValue = "all" | "available" | "sold" | "retained" | "unsold" | "withdrawn";
 
 const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass: string; activeClass: string }[] = [
   { value: "all", label: "All", idleClass: "text-muted-foreground", activeClass: "bg-muted/60 text-foreground border-border" },
@@ -1681,6 +1687,7 @@ const STATUS_FILTER_CHIPS: { value: StatusFilterValue; label: string; idleClass:
   { value: "retained", label: "Retained", idleClass: "text-purple-300/80", activeClass: "bg-purple-500/20 text-purple-200 border-purple-500/40" },
   { value: "sold", label: "Sold", idleClass: "text-green-300/80", activeClass: "bg-green-500/20 text-green-200 border-green-500/40" },
   { value: "unsold", label: "Unsold", idleClass: "text-red-300/80", activeClass: "bg-red-500/20 text-red-200 border-red-500/40" },
+  { value: "withdrawn", label: "Withdrawn", idleClass: "text-amber-300/80", activeClass: "bg-amber-500/20 text-amber-200 border-amber-500/40" },
 ];
 
 function StatusFilterChip({
@@ -1802,6 +1809,8 @@ function PlayerDetailPanel({
   categories,
   onEdit,
   onDelete,
+  onWithdraw,
+  onReinstate,
 }: {
   player: any;
   cat: { name: string; colorCode?: string | null } | null;
@@ -1813,6 +1822,8 @@ function PlayerDetailPanel({
   categories?: CategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
+  onWithdraw: () => void;
+  onReinstate: () => void;
 }) {
   const tagTheme = getTagTheme(player.playerTag);
   const isCricket = (tournament?.sport ?? "cricket") === "cricket";
@@ -2021,6 +2032,15 @@ function PlayerDetailPanel({
         <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
           <Pencil className="w-3.5 h-3.5" /> Edit
         </Button>
+        {player.status === "withdrawn" ? (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={onReinstate}>
+            <CheckCircle2 className="w-3.5 h-3.5" /> Reinstate
+          </Button>
+        ) : player.status !== "sold" && player.status !== "retained" ? (
+          <Button size="sm" variant="outline" className="gap-1.5 text-amber-400 hover:text-amber-300" onClick={onWithdraw}>
+            <CalendarX className="w-3.5 h-3.5" /> Withdraw
+          </Button>
+        ) : null}
         <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={onDelete}>
           <Trash2 className="w-3.5 h-3.5" /> Delete
         </Button>
@@ -2279,11 +2299,45 @@ export default function Players() {
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    await deletePlayer.mutateAsync({ tournamentId, playerId: deleteTarget.id });
-    qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
-    setDeleteTarget(null);
-    setExpandedId(null);
-    setDrawerPlayer(null);
+    try {
+      await deletePlayer.mutateAsync({ tournamentId, playerId: deleteTarget.id });
+      qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      setDeleteTarget(null);
+      setExpandedId(null);
+      setDrawerPlayer(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not delete player.";
+      toast({ title: "Delete failed", description: message, variant: "destructive" });
+    }
+  }
+
+  async function handleWithdraw(player: { id: number; name: string }) {
+    try {
+      await withdrawTournamentPlayer(tournamentId, player.id);
+      qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      toast({ title: "Player withdrawn", description: `${player.name} is no longer in the auction pool.` });
+      setDrawerPlayer(null);
+      setExpandedId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not withdraw player.";
+      toast({ title: "Withdraw failed", description: message, variant: "destructive" });
+    }
+  }
+
+  async function handleReinstate(player: { id: number; name: string }) {
+    try {
+      await reinstateTournamentPlayer(tournamentId, player.id);
+      qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+      qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
+      toast({ title: "Player reinstated", description: `${player.name} is available for auction again.` });
+      setDrawerPlayer(null);
+      setExpandedId(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not reinstate player.";
+      toast({ title: "Reinstate failed", description: message, variant: "destructive" });
+    }
   }
 
   function openEdit(player: any) {
@@ -2358,6 +2412,7 @@ export default function Players() {
       sold: list.filter(p => p.status === "sold").length,
       retained: list.filter(p => p.status === "retained").length,
       unsold: list.filter(p => p.status === "unsold").length,
+      withdrawn: list.filter(p => p.status === "withdrawn").length,
     };
   }, [players]);
 
@@ -2931,6 +2986,8 @@ export default function Players() {
                                 categories={hasCategories ? categories || [] : undefined}
                                 onEdit={() => openEdit(player)}
                                 onDelete={() => openDelete({ id: player.id, name: player.name })}
+                                onWithdraw={() => handleWithdraw({ id: player.id, name: player.name })}
+                                onReinstate={() => handleReinstate({ id: player.id, name: player.name })}
                               />
                             </TableCell>
                           </TableRow>
@@ -3065,6 +3122,8 @@ export default function Players() {
                   categories={hasCategories ? categories || [] : undefined}
                   onEdit={() => openEdit(drawerPlayer)}
                   onDelete={() => openDelete({ id: drawerPlayer.id, name: drawerPlayer.name })}
+                  onWithdraw={() => handleWithdraw({ id: drawerPlayer.id, name: drawerPlayer.name })}
+                  onReinstate={() => handleReinstate({ id: drawerPlayer.id, name: drawerPlayer.name })}
                 />
                 <SheetFooter className="mt-4 sm:justify-start" />
               </>

@@ -20,7 +20,7 @@ import {
   cmdStartMatch,
   cmdUndoLastPoint,
 } from "@workspace/badminton-core";
-import type { BadmintonEventEnvelope, BadmintonMatchState } from "@workspace/badminton-core";
+import type { BadmintonEventEnvelope, BadmintonMatchState, BadmintonSide } from "@workspace/badminton-core";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,34 @@ function makeEnvelope(
     actorType: "organizer",
     payload,
   };
+}
+
+function makePointWonEnvelope(
+  seq: number,
+  winningSide: BadmintonSide,
+  tournamentId: number,
+  matchId: number,
+): BadmintonEventEnvelope {
+  return makeEnvelope(seq, BadmintonEventType.POINT_WON, {
+    winningSide,
+    gameNumber: 1,
+    winnerScore: seq,
+    loserScore: 0,
+    isGamePoint: false,
+    isMatchPoint: false,
+  }, tournamentId, matchId);
+}
+
+function makeConsecutivePointEvents(
+  startSeq: number,
+  count: number,
+  winningSide: BadmintonSide,
+  tournamentId: number,
+  matchId: number,
+): BadmintonEventEnvelope[] {
+  return Array.from({ length: count }, (_, i) =>
+    makePointWonEnvelope(startSeq + i, winningSide, tournamentId, matchId),
+  );
 }
 
 function makeMatchStartedPayload(firstServer: "left" | "right" = "left") {
@@ -341,26 +369,12 @@ describe("Tenant isolation — service layer contract", () => {
 
     const eventsA: BadmintonEventEnvelope[] = [
       makeEnvelope(1, BadmintonEventType.MATCH_STARTED, makeMatchStartedPayload(), TOURNAMENT_A, MATCH_IN_A),
-      makeEnvelope(2, BadmintonEventType.POINT_WON, {
-        winningSide: "left",
-        gameNumber: 1,
-        winnerScore: 5,
-        loserScore: 0,
-        isGamePoint: false,
-        isMatchPoint: false,
-      }, TOURNAMENT_A, MATCH_IN_A),
+      ...makeConsecutivePointEvents(2, 5, "left", TOURNAMENT_A, MATCH_IN_A),
     ];
 
     const eventsB: BadmintonEventEnvelope[] = [
       makeEnvelope(1, BadmintonEventType.MATCH_STARTED, makeMatchStartedPayload("right"), TOURNAMENT_B, MATCH_IN_B),
-      makeEnvelope(2, BadmintonEventType.POINT_WON, {
-        winningSide: "right",
-        gameNumber: 1,
-        winnerScore: 11,
-        loserScore: 0,
-        isGamePoint: false,
-        isMatchPoint: false,
-      }, TOURNAMENT_B, MATCH_IN_B),
+      ...makeConsecutivePointEvents(2, 11, "right", TOURNAMENT_B, MATCH_IN_B),
     ];
 
     const stateA = replayBadmintonEvents(metaA, eventsA);
@@ -388,14 +402,7 @@ describe("Tenant isolation — service layer contract", () => {
     // handles them predictably and that pure tournament-A events are consistent.
     const pureTournamentAEvents: BadmintonEventEnvelope[] = [
       makeEnvelope(1, BadmintonEventType.MATCH_STARTED, makeMatchStartedPayload(), TOURNAMENT_A, MATCH_IN_A),
-      makeEnvelope(2, BadmintonEventType.POINT_WON, {
-        winningSide: "left",
-        gameNumber: 1,
-        winnerScore: 3,
-        loserScore: 0,
-        isGamePoint: false,
-        isMatchPoint: false,
-      }, TOURNAMENT_A, MATCH_IN_A),
+      ...makeConsecutivePointEvents(2, 3, "left", TOURNAMENT_A, MATCH_IN_A),
     ];
 
     const stateFromPureEvents = replayBadmintonEvents(meta, pureTournamentAEvents);

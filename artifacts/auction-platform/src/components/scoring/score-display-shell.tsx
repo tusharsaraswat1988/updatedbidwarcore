@@ -45,7 +45,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const scoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
 
   const { connectionStatus } = useScoringSocket(tournamentId, scoringActive);
-  const { data: live } = useScoringLive(tournamentId, scoringActive);
+  const { data: live } = useScoringLive(tournamentId, scoringActive, connectionStatus);
   const { data: teams } = useListTeams(tournamentId, {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });

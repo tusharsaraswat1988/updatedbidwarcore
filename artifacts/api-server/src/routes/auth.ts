@@ -29,7 +29,11 @@ import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/a
 import { notifyAsync } from "../lib/notifications";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
-import { resolveSportIdBySlug } from "./sports";
+import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
+import {
+  isScoringSupportedSport,
+  TOURNAMENT_LIFECYCLE_STATUSES,
+} from "../lib/tournament-lifecycle";
 import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
 import { snapshotTournament, snapshotOrganizer } from "../lib/audit-snapshots";
 
@@ -409,6 +413,11 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  if (!await isKnownActiveSportSlug(d.sport)) {
+    res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
   let organizerMobile: string | null | undefined = d.organizerMobile;
   if (d.organizerMobile !== undefined) {
     const trimmed = d.organizerMobile.trim();
@@ -718,7 +727,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     bidTimerSeconds: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
     playerSelectionMode: z.string().optional(),
-    status: z.string().optional(),
+    status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
@@ -744,11 +753,27 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   const updates: Record<string, unknown> = {};
-  if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) {
+    if (!await isKnownActiveSportSlug(d.sport)) {
+      res.status(400).json({ error: "Unknown or inactive sport" });
+      return;
+    }
     updates.sport = d.sport;
     updates.sportId = await resolveSportIdBySlug(d.sport);
   }
+  const nextSport =
+    typeof updates.sport === "string" ? updates.sport : (beforeTournament?.sport ?? "cricket");
+  const nextScoringEnabled =
+    d.scoringEnabled !== undefined
+      ? d.scoringEnabled
+      : (beforeTournament?.scoringEnabled ?? false);
+  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
+    res.status(400).json({
+      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
+    });
+    return;
+  }
+  if (d.name !== undefined) updates.name = d.name;
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) {
@@ -1285,6 +1310,11 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  if (!await isKnownActiveSportSlug(d.sport)) {
+    res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
   const bidTiersJson = JSON.stringify([{ increment: d.bidIncrement }]);
 
   // Generate unique auction code (TT+NN+DDMM format)
@@ -1308,6 +1338,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     organizerId: organizer.id,
     name: d.name,
     sport: d.sport,
+    sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
     venue: d.venue ?? null,
     auctionDate: d.auctionDate ?? null,

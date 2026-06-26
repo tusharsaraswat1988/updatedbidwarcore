@@ -1,7 +1,9 @@
+import { scoringAppPath, scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
+
 export type BadmintonBroadcastKind = "display" | "overlay-compact" | "overlay-full" | "scorer";
 
 export function badmintonBroadcastPath(tournamentId: number, matchId?: number) {
-  const base = `/tournament/${tournamentId}/badminton/broadcast`;
+  const base = scoringAppPath(`/tournament/${tournamentId}/badminton/broadcast`);
   return matchId ? `${base}?match=${matchId}` : base;
 }
 
@@ -13,13 +15,13 @@ export function badmintonBroadcastUrl(
 ) {
   switch (kind) {
     case "display":
-      return `${origin}/badminton/${matchId}/display?tid=${tournamentId}`;
+      return scoringAppPublicUrl(origin, `/badminton/${matchId}/display?tid=${tournamentId}`);
     case "overlay-compact":
-      return `${origin}/badminton/${matchId}/overlay?tid=${tournamentId}&type=compact`;
+      return scoringAppPublicUrl(origin, `/badminton/${matchId}/overlay?tid=${tournamentId}&type=compact`);
     case "overlay-full":
-      return `${origin}/badminton/${matchId}/overlay?tid=${tournamentId}&type=full`;
+      return scoringAppPublicUrl(origin, `/badminton/${matchId}/overlay?tid=${tournamentId}&type=full`);
     case "scorer":
-      return `${origin}/badminton/${matchId}/score?tid=${tournamentId}`;
+      return scoringAppPublicUrl(origin, `/badminton/${matchId}/score?tid=${tournamentId}`);
   }
 }
 

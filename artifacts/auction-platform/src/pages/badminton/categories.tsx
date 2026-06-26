@@ -413,6 +413,35 @@ function CategoryPanel({
                           : row.registration.status}
                       </p>
                     </div>
+                    {row.registration.status === "withdrawn" ? (
+                      <button
+                        type="button"
+                        className="text-[10px] uppercase tracking-wide text-emerald-400 hover:text-emerald-300"
+                        onClick={() =>
+                          void badmintonFetch(
+                            tournamentId,
+                            `/categories/${category.id}/registrations/${row.registration.id}`,
+                            { method: "PATCH", body: JSON.stringify({ status: "accepted" }) },
+                          ).then(() => onRefresh())
+                        }
+                      >
+                        Reinstate
+                      </button>
+                    ) : row.registration.status !== "disqualified" ? (
+                      <button
+                        type="button"
+                        className="text-[10px] uppercase tracking-wide text-amber-400 hover:text-amber-300"
+                        onClick={() =>
+                          void badmintonFetch(
+                            tournamentId,
+                            `/categories/${category.id}/registrations/${row.registration.id}`,
+                            { method: "PATCH", body: JSON.stringify({ status: "withdrawn" }) },
+                          ).then(() => onRefresh())
+                        }
+                      >
+                        Withdraw
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               </div>

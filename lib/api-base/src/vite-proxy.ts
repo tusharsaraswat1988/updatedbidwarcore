@@ -1,7 +1,7 @@
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT } from "./index.ts";
+import { API_PREFIX, DEFAULT_API_DEV_PORT, DEFAULT_OWNER_DEV_PORT, DEFAULT_SCORING_DEV_PORT } from "./index.ts";
 
 export type ViteApiProxyOptions = {
   target: string;
@@ -36,6 +36,31 @@ export function rewriteOwnerAppHtmlAssets(html: string): string {
       (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`)
     .replace(/(from\s+["'])(\/(?!owner-app\/)(?:@|src\/|node_modules\/\.vite\/)[^"']*)(["'])/g,
       (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`);
+}
+
+/** Same as owner-app rewrite but for `/scoring-app` dev proxy. */
+export function rewriteScoringAppHtmlAssets(html: string): string {
+  const prefix = (path: string) =>
+    path.startsWith("/scoring-app/") || path === "/scoring-app"
+      ? path
+      : `/scoring-app${path}`;
+
+  return html
+    .replace(
+      /(\s(?:src|href)=["'])(\.\/?(?:src\/|@)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => {
+        const normalized = path.startsWith("./") ? path.slice(1) : path.startsWith(".") ? `/${path.slice(1)}` : path;
+        return `${lead}${prefix(normalized.startsWith("/") ? normalized : `/${normalized}`)}${tail}`;
+      },
+    )
+    .replace(
+      /(\s(?:src|href)=["'])(\/(?!scoring-app\/)(?:@|src\/|node_modules\/\.vite\/|favicon\.svg)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`,
+    )
+    .replace(
+      /(from\s+["'])(\/(?!scoring-app\/)(?:@|src\/|node_modules\/\.vite\/)[^"']*)(["'])/g,
+      (_m, lead: string, path: string, tail: string) => `${lead}${prefix(path)}${tail}`,
+    );
 }
 
 function copyProxyHeaders(
@@ -75,6 +100,18 @@ export function getDevOwnerAppProxyTarget(): string {
 
   const port =
     process.env.OWNER_APP_PORT?.trim() || String(DEFAULT_OWNER_DEV_PORT);
+  return `http://127.0.0.1:${port}`;
+}
+
+/** Target for scoring-app Vite dev server. */
+export function getDevScoringAppProxyTarget(): string {
+  const raw =
+    process.env.SCORING_APP_DEV_PROXY_TARGET?.trim() ||
+    process.env.VITE_DEV_SCORING_APP_TARGET?.trim();
+  if (raw) return raw.replace(/\/+$/, "");
+
+  const port =
+    process.env.SCORING_APP_PORT?.trim() || String(DEFAULT_SCORING_DEV_PORT);
   return `http://127.0.0.1:${port}`;
 }
 
@@ -203,15 +240,107 @@ export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
   };
 }
 
+/** Vite proxy: forwards `/scoring-app/*` to the scoring-app dev server. */
+export function createViteScoringAppProxy(): Record<string, ViteApiProxyOptions> {
+  const target = getDevScoringAppProxyTarget();
+  return {
+    "/scoring-app": {
+      target,
+      changeOrigin: true,
+      secure: false,
+      ws: true,
+      selfHandleResponse: true,
+      configure: (proxy) => {
+        proxy.on("error", (err, _req, res) => {
+          if (res && !res.headersSent && typeof res.writeHead === "function") {
+            const body = scoringAppProxyUnavailableHtml(target);
+            res.writeHead(502, {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Length": String(Buffer.byteLength(body)),
+              "Cache-Control": "no-store",
+            });
+            res.end(body);
+            return;
+          }
+          console.error("[scoring-app proxy]", err);
+        });
+        proxy.on("proxyRes", (proxyRes, _req, res) => {
+          res.setHeader(
+            "Set-Cookie",
+            `${SCORING_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
+
+          const contentType = proxyRes.headers["content-type"] ?? "";
+          const isHtml = contentType.includes("text/html");
+
+          if (!isHtml) {
+            res.statusCode = proxyRes.statusCode ?? 200;
+            copyProxyHeaders(proxyRes, res);
+            proxyRes.pipe(res);
+            return;
+          }
+
+          const chunks: Buffer[] = [];
+          proxyRes.on("data", (chunk: Buffer) => chunks.push(chunk));
+          proxyRes.on("end", () => {
+            let html = Buffer.concat(chunks).toString("utf8");
+            html = rewriteScoringAppHtmlAssets(html);
+
+            const body = Buffer.from(html, "utf8");
+            res.statusCode = proxyRes.statusCode ?? 200;
+            copyProxyHeaders(proxyRes, res);
+            res.setHeader("content-type", contentType);
+            res.setHeader("content-length", String(body.length));
+            res.end(body);
+          });
+        });
+      },
+    },
+  };
+}
+
+function scoringAppProxyUnavailableHtml(target: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scoring app unavailable</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #09090b; color: #fafafa; margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    main { max-width: 32rem; text-align: center; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+    p { color: #a1a1aa; line-height: 1.6; margin: 0 0 1rem; }
+    code { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Scoring app is not running</h1>
+    <p>
+      This page is proxied to the scoring-app dev server at
+      <code>${target}</code>, but nothing is listening there.
+    </p>
+    <p>
+      From the repo root, run <code>pnpm dev</code> or
+      <code>pnpm dev:restart</code> to start API, auction-platform, owner-app, and scoring-app together.
+    </p>
+  </main>
+</body>
+</html>`;
+}
+
 /** Combined dev proxies for apps that host owner-app behind the same origin. */
 export function createViteDevProxies(): Record<string, ViteApiProxyOptions> {
   return {
     ...createViteApiProxy(),
     ...createViteOwnerAppProxy(),
+    ...createViteScoringAppProxy(),
   };
 }
 
 const OWNER_APP_DEV_COOKIE = "bidwar-dev-app=owner";
+const SCORING_APP_DEV_COOKIE = "bidwar-dev-app=scoring";
 
 /** Shared Vite dev paths that collide with auction-platform. */
 function isOwnerAppSharedAssetPath(pathname: string): boolean {
@@ -253,8 +382,31 @@ function shouldProxyOwnerAppAsset(
   referer: string,
   cookieHeader: string | undefined,
 ): boolean {
-  if (pathname.startsWith("/owner-app")) return false;
+  if (pathname.startsWith("/owner-app") || pathname.startsWith("/scoring-app")) {
+    return false;
+  }
+  if (isScoringAppDevContext(referer, cookieHeader)) return false;
   if (!isOwnerAppDevContext(referer, cookieHeader)) return false;
+  return isOwnerAppSharedAssetPath(pathname);
+}
+
+function isScoringAppDevContext(
+  referer: string,
+  cookieHeader: string | undefined,
+): boolean {
+  if (referer.includes("/scoring-app")) return true;
+  return parseCookies(cookieHeader)["bidwar-dev-app"] === "scoring";
+}
+
+function shouldProxyScoringAppAsset(
+  pathname: string,
+  referer: string,
+  cookieHeader: string | undefined,
+): boolean {
+  if (pathname.startsWith("/scoring-app") || pathname.startsWith("/owner-app")) {
+    return false;
+  }
+  if (!isScoringAppDevContext(referer, cookieHeader)) return false;
   return isOwnerAppSharedAssetPath(pathname);
 }
 
@@ -262,7 +414,11 @@ function isAuctionHtmlNavigation(
   pathname: string,
   accept: string | undefined,
 ): boolean {
-  if (pathname.startsWith("/owner-app") || pathname.startsWith("/api")) {
+  if (
+    pathname.startsWith("/owner-app") ||
+    pathname.startsWith("/scoring-app") ||
+    pathname.startsWith("/api")
+  ) {
     return false;
   }
   if (!accept?.includes("text/html")) return false;
@@ -274,12 +430,24 @@ function forwardHttp(
   res: ServerResponse,
   target: URL,
   next: (err?: unknown) => void,
+  basePrefix?: string,
 ): void {
+  const raw = req.url ?? "/";
+  const pathname = raw.split("?")[0] ?? "/";
+  const qs = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
+  let path = raw;
+  if (basePrefix) {
+    path =
+      pathname.startsWith(`${basePrefix}/`) || pathname === basePrefix
+        ? `${pathname}${qs}`
+        : `${basePrefix}${pathname.startsWith("/") ? pathname : `/${pathname}`}${qs}`;
+  }
+
   const proxyReq = http.request(
     {
       hostname: target.hostname,
       port: target.port || 80,
-      path: req.url,
+      path,
       method: req.method,
       headers: {
         ...req.headers,
@@ -316,6 +484,11 @@ export function ownerAppDevProxyPlugin(): Plugin {
             "Set-Cookie",
             `${OWNER_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
           );
+        } else if (pathname.startsWith("/scoring-app")) {
+          res.setHeader(
+            "Set-Cookie",
+            `${SCORING_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
         } else if (isAuctionHtmlNavigation(pathname, req.headers.accept)) {
           res.setHeader(
             "Set-Cookie",
@@ -338,7 +511,50 @@ export function ownerAppDevProxyPlugin(): Plugin {
           return;
         }
 
-        forwardHttp(req, res, target, next);
+        forwardHttp(req, res, target, next, "/owner-app");
+      });
+    },
+  };
+}
+
+/**
+ * Proxies scoring-app Vite dev assets requested from root paths when the page
+ * was loaded via `/scoring-app/`.
+ */
+export function scoringAppDevProxyPlugin(): Plugin {
+  const target = new URL(getDevScoringAppProxyTarget());
+
+  return {
+    name: "bidwar-scoring-app-asset-proxy",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+
+        if (pathname.startsWith("/scoring-app")) {
+          res.setHeader(
+            "Set-Cookie",
+            `${SCORING_APP_DEV_COOKIE}; Path=/; SameSite=Lax`,
+          );
+        }
+
+        next();
+      });
+
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? "/";
+        const pathname = raw.split("?")[0] ?? "/";
+        const referer = req.headers.referer ?? "";
+
+        if (
+          !shouldProxyScoringAppAsset(pathname, referer, req.headers.cookie)
+        ) {
+          next();
+          return;
+        }
+
+        forwardHttp(req, res, target, next, "/scoring-app");
       });
     },
   };

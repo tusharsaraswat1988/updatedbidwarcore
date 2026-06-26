@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ChevronLeft } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -6,7 +8,7 @@ import {
   CricketPublicBrandMark,
   useCricketBidWarTheme,
 } from "@/components/scoring/cricket-branding";
-
+import { cricketPublicPath, scoringSchedulePath } from "@/lib/tournament-navigation";
 /** Standard cricket hub card — matches auction `Card`. */
 export const cricketCardClass =
   "rounded-xl border bg-card border-border text-card-foreground shadow";
@@ -80,7 +82,69 @@ export function CricketPublicShell({
   );
 }
 
-/** Organizer cricket pages with BidWar brand bar + optional tournament hub link. */
+/** Sticky nav for cricket organizer scoring pages (matches, schedule, fan page). */
+export function CricketScoringNav({ tournamentId }: { tournamentId: number }) {
+  const [location] = useLocation();
+  const schedulePath = scoringSchedulePath(tournamentId);
+  const fanPath = cricketPublicPath(tournamentId);
+  const matchesPath = `/tournament/${tournamentId}/score`;
+
+  const items = [
+    {
+      label: "Matches",
+      href: matchesPath,
+      active:
+        location === matchesPath ||
+        (location.startsWith(`${matchesPath}/`) && !location.startsWith(schedulePath)),
+    },
+    { label: "Schedule", href: schedulePath, active: location.startsWith(schedulePath) },
+    { label: "Fan page", href: fanPath, active: location.startsWith(fanPath) },
+  ] as const;
+
+  return (
+    <nav
+      className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-md"
+      aria-label="Cricket scoring navigation"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 space-y-2.5">
+        <a
+          href={`/tournament/${tournamentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+        >
+          <ChevronLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          Auction Hub
+        </a>
+
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1 scrollbar-none"
+          role="tablist"
+          aria-label="Cricket scoring sections"
+        >
+          {items.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              role="tab"
+              aria-selected={item.active}
+              className={cn(
+                "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors border",
+                item.active
+                  ? "bg-primary/15 text-primary border-primary/30"
+                  : "bg-secondary/50 text-muted-foreground border-transparent hover:text-foreground hover:bg-accent hover:border-border",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/** Organizer cricket pages with BidWar brand bar + scoring nav. */
 export function CricketOrganizerPageShell({
   children,
   className,
@@ -92,6 +156,7 @@ export function CricketOrganizerPageShell({
 }) {
   return (
     <CricketOrganizerShell className={className} tournamentId={tournamentId}>
+      {tournamentId ? <CricketScoringNav tournamentId={tournamentId} /> : null}
       {children}
     </CricketOrganizerShell>
   );

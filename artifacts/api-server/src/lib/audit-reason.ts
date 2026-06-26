@@ -48,6 +48,7 @@ export const TOURNAMENT_CONFIG_FIELDS = new Set([
   "maximumSquadSize",
   "registrationDeadline",
   "registrationLimit",
+  "autoApproveWithdrawnReRegistration",
   "bidValueMode",
   "bidValueOptions",
   "status",

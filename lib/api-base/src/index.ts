@@ -44,6 +44,14 @@ export {
 } from "./auction-date.ts";
 
 export {
+  SCORING_APP_BASE,
+  scoringAppPath,
+  scoringAppHomePath,
+  scoringAppPublicUrl,
+  openScoringApp,
+} from "./scoring-urls.ts";
+
+export {
   OWNER_APP_BASE,
   ownerJoinPath,
   ownerJoinAppPath,
@@ -68,6 +76,9 @@ export const DEFAULT_AUCTION_DEV_PORT = 3000;
 
 /** Default Vite dev port for owner-app. */
 export const DEFAULT_OWNER_DEV_PORT = 5174;
+
+/** Default Vite dev port for scoring-app. */
+export const DEFAULT_SCORING_DEV_PORT = 5175;
 
 /**
  * Resolve a path for browser fetch/EventSource.

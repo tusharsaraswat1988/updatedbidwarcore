@@ -7,6 +7,8 @@ import {
   listScoringMatches,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
+import { sseAwareRefetchInterval } from "@/lib/sse-polling";
+import type { ScoringConnectionStatus } from "@/hooks/use-scoring-socket";
 
 export function scoringLiveQueryKey(tournamentId: number) {
   return ["scoring-live", tournamentId] as const;
@@ -36,12 +38,21 @@ export function useScoringMatches(tournamentId: number, enabled = true) {
   });
 }
 
-export function useScoringLive(tournamentId: number, enabled = true) {
+export function useScoringLive(
+  tournamentId: number,
+  enabled = true,
+  connectionStatus?: ScoringConnectionStatus,
+) {
   return useQuery({
     queryKey: scoringLiveQueryKey(tournamentId),
     queryFn: () => getScoringLive(tournamentId),
     enabled: tournamentId > 0 && enabled,
-    refetchInterval: enabled ? 15000 : false,
+    refetchInterval:
+      connectionStatus !== undefined
+        ? sseAwareRefetchInterval(connectionStatus, 15000)
+        : enabled
+          ? 15000
+          : false,
   });
 }
 

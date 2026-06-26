@@ -6,6 +6,10 @@ import type {
   LeaderboardCategory,
 } from "@workspace/scoring-core";
 
+export function isTerminalCricketMatchStatus(status: string): boolean {
+  return status === "completed" || status === "abandoned";
+}
+
 export type ScoringMatchJson = {
   id: number;
   tournamentId: number;
@@ -61,6 +65,23 @@ export type SquadReadinessRow = {
   retainedCount: number;
   eligibleCount: number;
   ready: boolean;
+};
+
+export type CricketTournamentRosterPlayer = {
+  auctionPlayerId: number;
+  masterPlayerId: string | null;
+  tournamentPlayerProfileId: number | null;
+  tournamentPlayerInitials: string | null;
+  displayName: string;
+  photoUrl: string | null;
+  role: string | null;
+  status: string;
+  auctionTeamId: number | null;
+  masterTeamId: string | null;
+  teamName: string | null;
+  teamLogoUrl: string | null;
+  syncedToMaster: boolean;
+  onRoster: boolean;
 };
 
 async function parseError(r: Response): Promise<string> {
@@ -146,6 +167,16 @@ export async function getSquadReadiness(tournamentId: number): Promise<{
   minPlayingXi: number;
 }> {
   const r = await apiFetch(`/tournaments/${tournamentId}/scoring/squads`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function getCricketTournamentRoster(
+  tournamentId: number,
+  teamId?: number,
+): Promise<CricketTournamentRosterPlayer[]> {
+  const teamFilter = Number.isFinite(teamId) ? `?teamId=${teamId}` : "";
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/roster${teamFilter}`);
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }

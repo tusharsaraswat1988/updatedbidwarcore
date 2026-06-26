@@ -15,6 +15,7 @@ import {
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { ScoringServiceError } from "./scoring-service";
+import { TERMINAL_SCORING_MATCH_STATUSES } from "./scoring-match-terminal";
 import { ensureScoringEnabled } from "./scoring-standings";
 import type { BattingStatsJson, BowlingStatsJson, FieldingStatsJson } from "@workspace/db";
 
@@ -239,7 +240,7 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     .where(
       and(
         eq(scoringMatchesTable.tournamentId, tournamentId),
-        eq(scoringMatchesTable.status, "completed"),
+        inArray(scoringMatchesTable.status, [...TERMINAL_SCORING_MATCH_STATUSES]),
       ),
     )
     .orderBy(desc(scoringMatchesTable.completedAt))

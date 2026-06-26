@@ -40,6 +40,8 @@ export const tournamentsTable = pgTable("tournaments", {
   // Player registration link controls
   registrationDeadline: text("registration_deadline"),
   registrationLimit: integer("registration_limit"),
+  /** When true, public re-registration by mobile restores withdrawn players to the auction pool without organizer reinstate */
+  autoApproveWithdrawnReRegistration: boolean("auto_approve_withdrawn_re_registration").notNull().default(false),
   // Registration payment verification (isolated from auction workflows)
   enableRegistrationPayment: boolean("enable_registration_payment").notNull().default(false),
   registrationFee: integer("registration_fee"),

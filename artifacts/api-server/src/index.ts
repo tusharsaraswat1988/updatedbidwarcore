@@ -1,4 +1,5 @@
 import "./lib/bootstrap.js";
+import "./lib/scoring-adapters/register.js";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startConsentBlastScheduler } from "./lib/scheduler";

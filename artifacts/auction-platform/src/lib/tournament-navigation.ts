@@ -1,3 +1,5 @@
+import { scoringAppPath } from "@workspace/api-base/scoring-urls";
+
 /** Relative path to the live auction operator room for a tournament. */
 export function auctionRoomPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/auction`;
@@ -106,52 +108,52 @@ export function obsOverlayPath(tournamentId: number): string {
 /** @alias obsOverlayPath */
 export const broadcastOverlayPath = obsOverlayPath;
 
-/** Mobile cricket scorer (organizer). */
+/** Mobile cricket scorer (organizer) — external scoring app. */
 export function scoringPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/score`;
+  return scoringAppPath(`/tournament/${tournamentId}/score`);
 }
 
-/** Tournament schedule generator (organizer). */
+/** Tournament schedule generator (organizer) — external scoring app. */
 export function scoringSchedulePath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/score/schedule`;
+  return scoringAppPath(`/tournament/${tournamentId}/score/schedule`);
 }
 
-/** Public cricket tournament page (fans). */
+/** Public cricket tournament page (fans) — external scoring app. */
 export function cricketPublicPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/cricket`;
+  return scoringAppPath(`/tournament/${tournamentId}/cricket`);
 }
 
 /** Public full scorecard for a completed match. */
 export function cricketMatchPublicPath(tournamentId: number, matchId: number): string {
-  return `/tournament/${tournamentId}/cricket/match/${matchId}`;
+  return scoringAppPath(`/tournament/${tournamentId}/cricket/match/${matchId}`);
 }
 
 /** Public tournament player profile. */
 export function cricketPlayerPublicPath(tournamentId: number, playerId: number): string {
-  return `/tournament/${tournamentId}/cricket/player/${playerId}`;
+  return scoringAppPath(`/tournament/${tournamentId}/cricket/player/${playerId}`);
 }
 
 /** Public tournament team profile. */
 export function cricketTeamPublicPath(tournamentId: number, teamId: number): string {
-  return `/tournament/${tournamentId}/cricket/team/${teamId}`;
+  return scoringAppPath(`/tournament/${tournamentId}/cricket/team/${teamId}`);
 }
 
 /** Global cricket player career profile. */
 export function globalCricketPlayerPath(globalPlayerId: string): string {
-  return `/player/${globalPlayerId}`;
+  return scoringAppPath(`/player/${globalPlayerId}`);
 }
 
 /** Global cricket career leaderboards. */
 export function globalCricketLeaderboardsPath(): string {
-  return "/cricket/leaderboards";
+  return scoringAppPath("/cricket/leaderboards");
 }
 
-/** LED cricket scoreboard (public, optional auction code). */
+/** LED cricket scoreboard (public, optional auction code) — external scoring app. */
 export function scoreDisplayPath(
   tournamentId: number,
   auctionCode?: string | null,
 ): string {
-  const base = `/tournament/${tournamentId}/score-display`;
+  const base = scoringAppPath(`/tournament/${tournamentId}/score-display`);
   if (!auctionCode?.trim()) return base;
   return `${base}?code=${encodeURIComponent(auctionCode.trim())}`;
 }

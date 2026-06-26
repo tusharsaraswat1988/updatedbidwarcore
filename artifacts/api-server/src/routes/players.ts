@@ -2,6 +2,12 @@ import { Router } from "express";
 import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
 import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
+import { validateCategoryBelongsToTournament } from "../lib/category-tournament-guard";
+import {
+  deletePlayerRegistrationData,
+  validatePlayerDeletable,
+} from "../lib/player-delete-guard";
+import { recalcTeamPurseUsed } from "../lib/player-purse";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
@@ -45,6 +51,12 @@ import {
   serializePlayersWithSpecifications,
 } from "../lib/player-spec-response";
 import { copyPlayerSpecifications } from "../lib/player-specification-service";
+import {
+  countActiveRegistrations,
+  reinstateTournamentPlayer,
+  withdrawTournamentPlayer,
+  applyPublicWithdrawnReRegistration,
+} from "../lib/player-withdrawal";
 import type { Request, Response } from "express";
 
 async function fetchTournamentBidConfig(tid: number) {
@@ -77,10 +89,7 @@ async function computeRegistrationStatus(tid: number) {
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   if (!tournament) return null;
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(playersTable)
-    .where(eq(playersTable.tournamentId, tid));
+  const count = await countActiveRegistrations(tid);
   const deadline = tournament.deadline ?? null;
   const limit = tournament.limit ?? null;
   let reason: string | null = null;
@@ -138,6 +147,20 @@ async function findDuplicatePlayerMobile(
   return null;
 }
 
+async function rejectInvalidCategory(
+  res: Response,
+  tournamentId: number,
+  categoryId: number | null | undefined,
+): Promise<boolean> {
+  if (categoryId == null) return true;
+  const result = await validateCategoryBelongsToTournament(tournamentId, categoryId);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return false;
+  }
+  return true;
+}
+
 /** Profile-only fields players may update via public self-registration when mobile already exists. */
 function buildPublicRegistrationProfileUpdates(
   d: z.infer<typeof playerInputSchema>,
@@ -178,26 +201,6 @@ function buildPublicRegistrationProfileUpdates(
   }
 
   return updates;
-}
-
-/**
- * Recalculate and persist team.purseUsed from the current player records.
- * Called whenever a player's retained status or teamId changes so that the
- * purse figures are always consistent without requiring a manual reset.
- */
-async function recalcTeamPurseUsed(tournamentId: number, teamId: number): Promise<void> {
-  const players = await db
-    .select({ status: playersTable.status, soldPrice: playersTable.soldPrice, retainedPrice: playersTable.retainedPrice })
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tournamentId), eq(playersTable.teamId, teamId)));
-
-  const purseUsed = players.reduce((sum, p) => {
-    if (p.status === "sold") return sum + (p.soldPrice ?? 0);
-    if (p.status === "retained") return sum + (p.retainedPrice ?? 0);
-    return sum;
-  }, 0);
-
-  await db.update(teamsTable).set({ purseUsed }).where(eq(teamsTable.id, teamId));
 }
 
 async function fetchTournamentPaymentConfig(tid: number) {
@@ -359,6 +362,8 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       return;
     }
   }
+
+  if (!await rejectInvalidCategory(res, tid, d.categoryId)) return;
 
   const paymentConfig = await fetchTournamentPaymentConfig(tid);
   const paymentFields = buildPaymentInsertFields(paymentConfig, d, "organizer");
@@ -606,27 +611,61 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
       .returning();
 
+    let finalPlayer = player;
+    let publicReRegistrationMeta: {
+      requiresOrganizerApproval?: boolean;
+      reinstated?: boolean;
+      reinstateBlockedCode?: string;
+    } = {};
+
+    if (existing.status === "withdrawn") {
+      const [tournamentRow] = await db
+        .select({
+          autoApproveWithdrawnReRegistration: tournamentsTable.autoApproveWithdrawnReRegistration,
+        })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, tid))
+        .limit(1);
+
+      const reinstateOutcome = await applyPublicWithdrawnReRegistration(
+        tid,
+        player,
+        tournamentRow?.autoApproveWithdrawnReRegistration ?? false,
+      );
+      finalPlayer = reinstateOutcome.player;
+      publicReRegistrationMeta = {
+        requiresOrganizerApproval: reinstateOutcome.requiresOrganizerApproval,
+        reinstated: reinstateOutcome.reinstated,
+        ...(reinstateOutcome.reinstateBlockedCode
+          ? { reinstateBlockedCode: reinstateOutcome.reinstateBlockedCode }
+          : {}),
+      };
+    }
+
     if (d.whatsappConsent && mobileNumber && !existing.whatsappConsent) {
       await db.insert(waConsentEventsTable).values({
         mobile: mobileNumber,
         recipientType: "player",
-        recipientId: player.id,
+        recipientId: finalPlayer.id,
         tournamentId: tid,
         eventType: "web_checkbox",
       });
     }
 
-    syncAuctionPlayerToMasterAsync(player.id, tid);
-    await persistPlayerSpecificationsDualWrite(tid, player.id, player.role, d);
+    syncAuctionPlayerToMasterAsync(finalPlayer.id, tid);
+    await persistPlayerSpecificationsDualWrite(tid, finalPlayer.id, finalPlayer.role, d);
 
     res.status(200).json({
-      ...(await serializePlayerWithSpecifications(player, "public")),
+      ...(await serializePlayerWithSpecifications(finalPlayer, "public")),
       updated: true,
+      ...publicReRegistrationMeta,
     });
     return;
   }
 
   if (!status.open) { res.status(403).json(status); return; }
+
+  if (!await rejectInvalidCategory(res, tid, d.categoryId)) return;
 
   const bidConfig = await fetchTournamentBidConfig(tid);
   if (!bidConfig) { res.status(404).json({ error: "Not found" }); return; }
@@ -765,6 +804,14 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         errors.push(`${pd.name}: ${bidResolved.error}`);
         continue;
       }
+      if (pd.categoryId != null) {
+        const catCheck = await validateCategoryBelongsToTournament(tid, pd.categoryId);
+        if (!catCheck.ok) {
+          failed++;
+          errors.push(`${pd.name}: ${catCheck.error}`);
+          continue;
+        }
+      }
       const bulkLegacySpecFields = await resolveLegacyFieldsForInsert(tid, pd.role, pd);
       const [inserted] = await db.insert(playersTable).values({
         tournamentId: tid,
@@ -794,6 +841,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
       }).returning({ id: playersTable.id });
       if (inserted) {
         await persistPlayerSpecificationsDualWrite(tid, inserted.id, pd.role, pd);
+        syncAuctionPlayerToMasterAsync(inserted.id, tid);
       }
       batchMobiles.add(bulkMobile);
       created++;
@@ -904,6 +952,18 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
       return;
     }
     normalizedEmail = emailParsed.email;
+  }
+
+  if (d.status !== undefined && d.status === "withdrawn") {
+    res.status(400).json({
+      error: "Use the withdraw endpoint to mark a player as withdrawn.",
+      code: "USE_WITHDRAW_ENDPOINT",
+    });
+    return;
+  }
+
+  if (d.categoryId !== undefined && d.categoryId != null) {
+    if (!await rejectInvalidCategory(res, tid, d.categoryId)) return;
   }
 
   // Validate: retained status requires a team + price
@@ -1068,6 +1128,100 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   res.json(await serializePlayerWithSpecifications(player, "private"));
 });
 
+router.post("/tournaments/:tournamentId/players/:playerId/withdraw", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const schema = z.object({ reason: z.string().max(500).optional() });
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const result = await withdrawTournamentPlayer(tid, existing);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error, code: result.code });
+    return;
+  }
+
+  const reasonResult = resolveAuditReasonWithDefault(parsed.data.reason, defaultPlayerPatchReason);
+  auditLog(req, {
+    category: "player",
+    action: "player.withdrawn",
+    summary: `Player "${result.player.name}" withdrawn from registration`,
+    severity: "warning",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    playerId,
+    resource: { type: "player", id: playerId },
+    before: snapshotPlayer(existing),
+    after: snapshotPlayer(result.player),
+  });
+
+  syncAuctionPlayerToMasterAsync(result.player.id, tid);
+
+  res.json(await serializePlayerWithSpecifications(result.player, "private"));
+});
+
+router.post("/tournaments/:tournamentId/players/:playerId/reinstate", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const schema = z.object({ reason: z.string().max(500).optional() });
+  const parsed = schema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(playersTable)
+    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const result = await reinstateTournamentPlayer(tid, existing);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error, code: result.code });
+    return;
+  }
+
+  const reasonResult = resolveAuditReasonWithDefault(parsed.data.reason, defaultPlayerPatchReason);
+  auditLog(req, {
+    category: "player",
+    action: "player.reinstated",
+    summary: `Player "${result.player.name}" reinstated to available pool`,
+    severity: "info",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    playerId,
+    resource: { type: "player", id: playerId },
+    before: snapshotPlayer(existing),
+    after: snapshotPlayer(result.player),
+  });
+
+  syncAuctionPlayerToMasterAsync(result.player.id, tid);
+
+  res.json(await serializePlayerWithSpecifications(result.player, "private"));
+});
+
 router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
@@ -1077,19 +1231,29 @@ router.delete("/tournaments/:tournamentId/players/:playerId", async (req, res) =
     .select()
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
-  await db.delete(playersTable).where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
-  if (before) {
-    auditLog(req, {
-      category: "player",
-      action: "player.deleted",
-      summary: `Player "${before.name}" deleted`,
-      severity: "warning",
-      tournamentId: tid,
-      playerId,
-      resource: { type: "player", id: playerId },
-      before: snapshotPlayer(before),
-    });
+  if (!before) {
+    res.status(404).json({ error: "Not found" });
+    return;
   }
+
+  const deleteGuard = await validatePlayerDeletable(tid, before);
+  if (!deleteGuard.ok) {
+    res.status(deleteGuard.status).json({ error: deleteGuard.error, code: deleteGuard.code });
+    return;
+  }
+
+  await deletePlayerRegistrationData(tid, playerId, before.teamId);
+
+  auditLog(req, {
+    category: "player",
+    action: "player.deleted",
+    summary: `Player "${before.name}" deleted`,
+    severity: "warning",
+    tournamentId: tid,
+    playerId,
+    resource: { type: "player", id: playerId },
+    before: snapshotPlayer(before),
+  });
   res.status(204).send();
 });
 
@@ -1270,6 +1434,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
 
     if (importedPlayer) {
       await copyPlayerSpecifications(p.id, importedPlayer.id);
+      syncAuctionPlayerToMasterAsync(importedPlayer.id, tid);
     }
 
     imported++;

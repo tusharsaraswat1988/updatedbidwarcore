@@ -1,5 +1,5 @@
 /**
- * Start API + auction-platform + owner-app together with shared root .env and dev defaults.
+ * Start API + auction-platform + owner-app + scoring-app together with shared root .env and dev defaults.
  * Automatically frees stale dev ports before starting.
  * Usage: pnpm dev   (from repository root)
  */
@@ -15,12 +15,13 @@ import {
 } from "./dev-ports.mjs";
 
 const { loaded, path: envPath, file } = loadRootEnv();
-const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT } =
+const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT } =
   getDevPorts();
 
 const API_PORT_STR = String(API_PORT);
 const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
+const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
 
 function devEnv(overrides) {
   return {
@@ -36,9 +37,16 @@ function devEnv(overrides) {
     API_PORT: API_PORT_STR,
     FRONTEND_PORT: FRONTEND_PORT_STR,
     OWNER_APP_PORT: OWNER_APP_PORT_STR,
+    SCORING_APP_PORT: SCORING_APP_PORT_STR,
     API_DEV_PROXY_TARGET:
       process.env.API_DEV_PROXY_TARGET?.trim() ||
       `http://127.0.0.1:${API_PORT}`,
+    OWNER_APP_DEV_PROXY_TARGET:
+      process.env.OWNER_APP_DEV_PROXY_TARGET?.trim() ||
+      `http://127.0.0.1:${OWNER_APP_PORT}`,
+    SCORING_APP_DEV_PROXY_TARGET:
+      process.env.SCORING_APP_DEV_PROXY_TARGET?.trim() ||
+      `http://127.0.0.1:${SCORING_APP_PORT}`,
     ...overrides,
   };
 }
@@ -80,7 +88,7 @@ function run(label, command, args, env) {
   return child;
 }
 
-const devPorts = [...new Set([API_PORT, FRONTEND_PORT, OWNER_APP_PORT])];
+const devPorts = [...new Set([API_PORT, FRONTEND_PORT, OWNER_APP_PORT, SCORING_APP_PORT])];
 
 console.log("\nBidWar — local development\n");
 if (loaded) {
@@ -91,32 +99,34 @@ if (loaded) {
   );
 }
 
-const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT };
+const devPortsConfig = { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT };
 
 let startServers = true;
 
 if (!forceStart) {
   const stack = await getDevStackStatus(devPortsConfig);
-  const allRunning = stack.api && stack.web && stack.owner;
+  const allRunning = stack.api && stack.web && stack.owner && stack.scoring;
 
   if (allRunning) {
     console.log(
       "\n  Dev servers are already running.\n" +
         `  API:       http://127.0.0.1:${API_PORT}/api/healthz\n` +
         `  Frontend:  http://127.0.0.1:${FRONTEND_PORT}/admin/login\n` +
-        `  Owner app: http://127.0.0.1:${FRONTEND_PORT}/owner-app/join\n\n` +
+        `  Owner app: http://127.0.0.1:${FRONTEND_PORT}/owner-app/join\n` +
+        `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/\n\n` +
         "  Use `pnpm dev:restart` to restart, or `pnpm dev:stop` then `pnpm dev`.\n" +
         "  To force-kill existing processes: `pnpm dev -- --force`\n",
     );
     startServers = false;
     process.exitCode = 0;
-  } else if (stack.api || stack.web || stack.owner) {
+  } else if (stack.api || stack.web || stack.owner || stack.scoring) {
     console.error(
-      "\n  Partial dev stack detected — owner links will not work until all services run.\n" +
-        `  API (${API_PORT}):        ${stack.api ? "running" : "NOT running"}\n` +
-        `  Frontend (${FRONTEND_PORT}):   ${stack.web ? "running" : "NOT running"}\n` +
-        `  Owner app (${OWNER_APP_PORT}): ${stack.owner ? "running" : "NOT running"}\n\n` +
-        "  Run `pnpm dev:restart` to start API, auction-platform, and owner-app together.\n" +
+      "\n  Partial dev stack detected — owner/scoring links will not work until all services run.\n" +
+        `  API (${API_PORT}):           ${stack.api ? "running" : "NOT running"}\n` +
+        `  Frontend (${FRONTEND_PORT}):      ${stack.web ? "running" : "NOT running"}\n` +
+        `  Owner app (${OWNER_APP_PORT}):    ${stack.owner ? "running" : "NOT running"}\n` +
+        `  Scoring app (${SCORING_APP_PORT}): ${stack.scoring ? "running" : "NOT running"}\n\n` +
+        "  Run `pnpm dev:restart` to start API, auction-platform, owner-app, and scoring-app together.\n" +
         "  Or use `pnpm dev -- --force` to replace whatever is on the dev ports.\n",
     );
     startServers = false;
@@ -149,7 +159,13 @@ if (startServers) {
     `  Owner app: http://127.0.0.1:${FRONTEND_PORT}/owner-app/join`,
   );
   console.log(
-    `             (direct) http://127.0.0.1:${OWNER_APP_PORT}/owner-app/\n`,
+    `             (direct) http://127.0.0.1:${OWNER_APP_PORT}/owner-app/`,
+  );
+  console.log(
+    `  Scoring:   http://127.0.0.1:${FRONTEND_PORT}/scoring-app/tournament/1/score`,
+  );
+  console.log(
+    `             (direct) http://127.0.0.1:${SCORING_APP_PORT}/scoring-app/\n`,
   );
 
   console.log("Building API (one-time)…\n");
@@ -192,6 +208,13 @@ if (startServers) {
     "pnpm",
     ["--filter", "@workspace/owner-app", "run", "dev"],
     devEnv({ OWNER_APP_PORT: OWNER_APP_PORT_STR, PORT: OWNER_APP_PORT_STR }),
+  );
+
+  run(
+    "scoring",
+    "pnpm",
+    ["--filter", "@workspace/scoring-app", "run", "dev"],
+    devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR }),
   );
 
   console.log("All dev processes started. Press Ctrl+C to stop.\n");

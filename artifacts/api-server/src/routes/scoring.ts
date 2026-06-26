@@ -16,7 +16,7 @@ import {
   getScoringSseClientCount,
   removeScoringSseClient,
 } from "../lib/scoring-broadcast";
-import { buildCricketMatchSummary } from "@workspace/scoring-core";
+import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
 import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -391,6 +391,10 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    if (err instanceof InvalidEventPayloadError) {
+      res.status(422).json({ error: err.message, code: err.code });
       return;
     }
     throw err;

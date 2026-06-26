@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { squadPlayersForTeam } from "@/lib/scoring-squad";
-import { battingTeamId, bowlingTeamId } from "@/lib/scoring-match-logic";
+import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
 import { ScoringPlayerLabel } from "@/components/scoring/scoring-player-row";
@@ -34,6 +34,26 @@ function teamName(teams: Team[], id: number) {
   return teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
 }
 
+/** Batting/bowling sides from active innings, or from toss when innings not started yet. */
+export function resolveCricketSideTeamIds(
+  state: CricketScoreboardState,
+  match: ScoringMatchJson,
+): { battingId: number | null; bowlingId: number | null } {
+  const inn = getActiveInnings(state);
+  if (inn) {
+    return { battingId: inn.battingTeamId, bowlingId: inn.bowlingTeamId };
+  }
+  if (state.tossWinnerTeamId != null && state.electedTo != null) {
+    const other =
+      state.tossWinnerTeamId === match.homeTeamId ? match.awayTeamId : match.homeTeamId;
+    return {
+      battingId: state.electedTo === "bat" ? state.tossWinnerTeamId : other,
+      bowlingId: state.electedTo === "bat" ? other : state.tossWinnerTeamId,
+    };
+  }
+  return { battingId: null, bowlingId: null };
+}
+
 export function PreMatchSetup({
   tournamentId,
   match,
@@ -51,9 +71,11 @@ export function PreMatchSetup({
   const [electedTo, setElectedTo] = useState<"bat" | "bowl">("bat");
   const oversLimit = match.rules?.overs ?? state.oversLimit ?? 20;
 
-  const battingId = battingTeamId(state);
-  const bowlingId = bowlingTeamId(state);
-  const needsToss = state.tossWinnerTeamId == null;
+  const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
+  const needsToss =
+    state.innings.length === 0 &&
+    state.matchStatus !== "completed" &&
+    state.matchStatus !== "abandoned";
   const needsBattingLineup =
     battingId != null && (state.lineups[battingId]?.length ?? 0) < 2;
   const needsBowlingLineup =

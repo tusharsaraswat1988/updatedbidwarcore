@@ -70,4 +70,34 @@ describe("pickRandomPlayerFromPool", () => {
 
     expect([1, 3]).toContain(afterRemoval.playerId);
   });
+
+  it("stores structured fair-queue payload across picks", () => {
+    const first = pickRandomPlayerFromPool(
+      [{ id: 1 }, { id: 2 }, { id: 3 }],
+      { queueJson: null, lastPlayerId: null },
+    );
+    expect(first.queueJson).toMatch(/"pool"/);
+    expect(first.queueJson).toMatch(/"queue"/);
+
+    const second = pickRandomPlayerFromPool(
+      [{ id: 1 }, { id: 2 }, { id: 3 }],
+      { queueJson: first.queueJson, lastPlayerId: first.playerId },
+    );
+    expect(second.playerId).not.toBe(first.playerId);
+    const payload = JSON.parse(second.queueJson!);
+    expect(payload.queue).toHaveLength(1);
+  });
+
+  it("reshuffles legacy queue when a queued player leaves the pool", () => {
+    const legacy = pickRandomPlayerFromPool([{ id: 1 }, { id: 2 }, { id: 3 }], {
+      queueJson: null,
+      lastPlayerId: null,
+    });
+    const afterSold = pickRandomPlayerFromPool([{ id: 1 }, { id: 3 }], {
+      queueJson: JSON.stringify([2, 3]),
+      lastPlayerId: 1,
+    });
+    expect([1, 3]).toContain(afterSold.playerId);
+    expect(afterSold.queueJson).toMatch(/"pool"/);
+  });
 });

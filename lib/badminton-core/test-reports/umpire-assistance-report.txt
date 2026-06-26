@@ -1,5 +1,5 @@
 UMPIRE ASSISTANCE TEST REPORT
-Generated: 2026-06-16T21:45:53.318Z
+Generated: 2026-06-26T10:34:25.809Z
 
 1. [PASS] Singles server label
    Expected Abhinav Keshri, got Abhinav Keshri
@@ -22,9 +22,9 @@ Generated: 2026-06-16T21:45:53.318Z
 10. [PASS] Singles court change required
    courtChange=true
 11. [PASS] Singles interval banner
-   Banners: INTERVAL DUE (10 POINTS) | COURT CHANGE REQUIRED
+   Banners: INTERVAL DUE (11 POINTS) | COURT CHANGE REQUIRED
 12. [PASS] Singles court change banner
-   Banners: INTERVAL DUE (10 POINTS) | COURT CHANGE REQUIRED
+   Banners: INTERVAL DUE (11 POINTS) | COURT CHANGE REQUIRED
 13. [PASS] Singles court change ack command
    ok
 14. [PASS] Singles voice prompts include interval and court change

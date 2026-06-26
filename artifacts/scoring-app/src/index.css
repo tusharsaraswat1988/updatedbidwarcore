@@ -1,0 +1,4 @@
+/* Tailwind must scan auction-platform sources (aliased as @/) — not only scoring-app/src. */
+@import "../../auction-platform/src/index.css";
+@source "../../auction-platform/src";
+@source "./";

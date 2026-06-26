@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBadmintonBranding,
   resolveBadmintonSponsorLogos,
-} from "../lib/master-sports/badminton";
+} from "../lib/master-sports/badminton-branding";
 
 describe("badminton sponsor logo isolation", () => {
   it("prefers scoring-settings sponsors over tournament auction sponsors", () => {

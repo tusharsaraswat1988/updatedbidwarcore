@@ -9,6 +9,8 @@
 
 export const FAIR_RANDOM_POOL_THRESHOLD = 5;
 
+export const FAIR_QUEUE_PAYLOAD_VERSION = 1;
+
 export type PlayerPoolEntry = { id: number };
 
 export type FairRandomState = {
@@ -19,6 +21,12 @@ export type FairRandomState = {
 export type RandomPickResult = {
   playerId: number;
   queueJson: string | null;
+};
+
+type FairQueuePayload = {
+  v: typeof FAIR_QUEUE_PAYLOAD_VERSION;
+  pool: number[];
+  queue: number[];
 };
 
 function shuffleInPlace(ids: number[]): number[] {
@@ -35,20 +43,69 @@ function avoidLeadingRepeat(queue: number[], lastPlayerId: number | null | undef
   [queue[0], queue[swapIdx]] = [queue[swapIdx], queue[0]];
 }
 
-function parseQueue(
+function sortedPoolIds(pool: PlayerPoolEntry[]): number[] {
+  return pool.map((p) => p.id).sort((a, b) => a - b);
+}
+
+function poolSnapshotsEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function serializeFairQueue(poolSnapshot: number[], queue: number[]): string {
+  return JSON.stringify({
+    v: FAIR_QUEUE_PAYLOAD_VERSION,
+    pool: poolSnapshot,
+    queue,
+  } satisfies FairQueuePayload);
+}
+
+function parseFairQueue(
   queueJson: string | null | undefined,
   poolIdSet: Set<number>,
-): number[] {
-  if (!queueJson) return [];
-  try {
-    const parsed = JSON.parse(queueJson);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (id): id is number => typeof id === "number" && poolIdSet.has(id),
-    );
-  } catch {
-    return [];
+): { poolSnapshot: number[] | null; queue: number[]; legacyInvalidIds: boolean } {
+  if (!queueJson) {
+    return { poolSnapshot: null, queue: [], legacyInvalidIds: false };
   }
+
+  try {
+    const parsed = JSON.parse(queueJson) as unknown;
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      Array.isArray((parsed as FairQueuePayload).queue)
+    ) {
+      const payload = parsed as FairQueuePayload;
+      const poolSnapshot = Array.isArray(payload.pool)
+        ? payload.pool
+            .filter((id): id is number => typeof id === "number")
+            .sort((a, b) => a - b)
+        : null;
+      const queue = payload.queue.filter(
+        (id): id is number => typeof id === "number" && poolIdSet.has(id),
+      );
+      return { poolSnapshot, queue, legacyInvalidIds: false };
+    }
+
+    if (Array.isArray(parsed)) {
+      const queue = parsed.filter(
+        (id): id is number => typeof id === "number" && poolIdSet.has(id),
+      );
+      const legacyInvalidIds = parsed.some(
+        (id) => typeof id === "number" && !poolIdSet.has(id),
+      );
+      return { poolSnapshot: null, queue, legacyInvalidIds };
+    }
+  } catch {
+    // fall through
+  }
+
+  return { poolSnapshot: null, queue: [], legacyInvalidIds: false };
 }
 
 export function pickRandomPlayerFromPool(
@@ -67,19 +124,31 @@ export function pickRandomPlayerFromPool(
   }
 
   const poolIdSet = new Set(pool.map((p) => p.id));
-  let queue = parseQueue(state.queueJson, poolIdSet);
+  const currentPoolSnapshot = sortedPoolIds(pool);
+  const parsed = parseFairQueue(state.queueJson, poolIdSet);
 
-  const queuedIds = new Set(queue);
-  const poolChanged = pool.some((p) => !queuedIds.has(p.id));
+  const poolMembershipChanged =
+    parsed.poolSnapshot !== null &&
+    !poolSnapshotsEqual(parsed.poolSnapshot, currentPoolSnapshot);
 
-  if (queue.length === 0 || poolChanged) {
+  const needsReshuffle =
+    parsed.queue.length === 0 || poolMembershipChanged || parsed.legacyInvalidIds;
+
+  let queue = parsed.queue;
+
+  if (needsReshuffle) {
     queue = shuffleInPlace(pool.map((p) => p.id));
     avoidLeadingRepeat(queue, state.lastPlayerId);
   }
 
   const playerId = queue.shift()!;
+  const remaining = queue;
+
   return {
     playerId,
-    queueJson: queue.length > 0 ? JSON.stringify(queue) : null,
+    queueJson:
+      remaining.length > 0
+        ? serializeFairQueue(currentPoolSnapshot, remaining)
+        : null,
   };
 }

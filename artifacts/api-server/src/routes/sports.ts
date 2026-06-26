@@ -35,6 +35,15 @@ export async function resolveSportIdBySlug(slug: string): Promise<number | null>
   return sport?.id ?? null;
 }
 
+/** Accept slugs from the active sports table or built-in defaults when the table is empty. */
+export async function isKnownActiveSportSlug(slug: string): Promise<boolean> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return false;
+  const sportId = await resolveSportIdBySlug(normalized);
+  if (sportId != null) return true;
+  return DEFAULT_SPORTS.some((s) => s.slug === normalized);
+}
+
 // ─── GET /sports ─────────────────────────────────────────────────────────────
 // List all active sports (public — used by registration forms, tournament creation)
 router.get("/sports", async (_req, res) => {

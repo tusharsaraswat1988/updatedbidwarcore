@@ -6,12 +6,14 @@
  * keyed by master player id (for future cricket stats on global_players).
  */
 
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, inArray, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   playersTable,
   teamsTable,
   playerTeamAssignmentsTable,
+  tournamentPlayerProfilesTable,
+  masterTeamsTable,
   type Player,
 } from "@workspace/db";
 import { logSync } from "./sync-helpers";
@@ -42,6 +44,8 @@ export type CricketMasterTeamItem = {
 export type CricketMasterPlayerItem = {
   auctionPlayerId: number;
   masterPlayerId: string | null;
+  tournamentPlayerProfileId: number | null;
+  tournamentPlayerInitials: string | null;
   displayName: string;
   photoUrl: string | null;
   role: string | null;
@@ -262,23 +266,115 @@ export async function listCricketMasterPlayers(
     .where(eq(teamsTable.tournamentId, tournamentId));
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
+  const masterPlayerIds = [...new Set(
+    players
+      .map((p) => p.globalPlayerId)
+      .filter((id): id is string => Boolean(id)),
+  )];
+
+  const tournamentProfiles = masterPlayerIds.length
+    ? await db
+      .select({
+        id: tournamentPlayerProfilesTable.id,
+        masterPlayerId: tournamentPlayerProfilesTable.masterPlayerId,
+        displayName: tournamentPlayerProfilesTable.displayName,
+        initials: tournamentPlayerProfilesTable.initials,
+      })
+      .from(tournamentPlayerProfilesTable)
+      .where(
+        and(
+          eq(tournamentPlayerProfilesTable.tournamentId, tournamentId),
+          inArray(tournamentPlayerProfilesTable.masterPlayerId, masterPlayerIds),
+        ),
+      )
+    : [];
+  const profileByMasterId = new Map(
+    tournamentProfiles.map((profile) => [profile.masterPlayerId, profile] as const),
+  );
+
+  const activeAssignments = masterPlayerIds.length
+    ? await db
+      .select({
+        playerId: playerTeamAssignmentsTable.playerId,
+        teamId: playerTeamAssignmentsTable.teamId,
+        auctionTeamId: playerTeamAssignmentsTable.auctionTeamId,
+      })
+      .from(playerTeamAssignmentsTable)
+      .where(
+        and(
+          eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
+          eq(playerTeamAssignmentsTable.sport, "cricket"),
+          eq(playerTeamAssignmentsTable.isActive, true),
+          inArray(playerTeamAssignmentsTable.playerId, masterPlayerIds),
+        ),
+      )
+      .orderBy(desc(playerTeamAssignmentsTable.assignedAt))
+    : [];
+  const activeAssignmentByMasterId = new Map<string, (typeof activeAssignments)[number]>();
+  for (const assignment of activeAssignments) {
+    // Keep the most recent active row per player.
+    if (!activeAssignmentByMasterId.has(assignment.playerId)) {
+      activeAssignmentByMasterId.set(assignment.playerId, assignment);
+    }
+  }
+
+  const assignmentMasterTeamIds = [...new Set(
+    activeAssignments.map((row) => row.teamId).filter((id): id is string => Boolean(id)),
+  )];
+  const masterTeams = assignmentMasterTeamIds.length
+    ? await db
+      .select({
+        id: masterTeamsTable.id,
+        name: masterTeamsTable.name,
+        logoUrl: masterTeamsTable.logoUrl,
+      })
+      .from(masterTeamsTable)
+      .where(inArray(masterTeamsTable.id, assignmentMasterTeamIds))
+    : [];
+  const masterTeamById = new Map(masterTeams.map((team) => [team.id, team] as const));
+
   const items: CricketMasterPlayerItem[] = [];
 
   for (const p of players) {
     const team = p.teamId ? teamById.get(p.teamId) : undefined;
+    const profile = p.globalPlayerId ? profileByMasterId.get(p.globalPlayerId) : undefined;
+    const assignment = p.globalPlayerId
+      ? activeAssignmentByMasterId.get(p.globalPlayerId)
+      : undefined;
+
+    const assignmentAuctionTeam = assignment?.auctionTeamId
+      ? teamById.get(assignment.auctionTeamId)
+      : undefined;
+    const assignmentMasterTeam = assignment?.teamId
+      ? masterTeamById.get(assignment.teamId)
+      : undefined;
+
+    // Read assignment table first; fallback to legacy auction-team linkage.
+    const resolvedAuctionTeamId = assignment?.auctionTeamId ?? p.teamId;
+    const resolvedMasterTeamId = assignment?.teamId ?? team?.masterTeamId ?? null;
+    const resolvedTeamName = assignmentAuctionTeam?.name
+      ?? assignmentMasterTeam?.name
+      ?? team?.name
+      ?? null;
+    const resolvedTeamLogoUrl = assignmentAuctionTeam?.logoUrl
+      ?? assignmentMasterTeam?.logoUrl
+      ?? team?.logoUrl
+      ?? null;
     const onRoster = p.status === "sold" || p.status === "retained";
 
     items.push({
       auctionPlayerId: p.id,
       masterPlayerId: p.globalPlayerId ?? null,
-      displayName: p.name,
+      tournamentPlayerProfileId: profile?.id ?? null,
+      tournamentPlayerInitials: profile?.initials ?? null,
+      displayName: profile?.displayName ?? p.name,
       photoUrl: p.photoUrl,
       role: p.role,
       status: p.status,
-      auctionTeamId: p.teamId,
-      masterTeamId: team?.masterTeamId ?? null,
-      teamName: team?.name ?? null,
-      teamLogoUrl: team?.logoUrl ?? null,
+      auctionTeamId: resolvedAuctionTeamId,
+      masterTeamId: resolvedMasterTeamId,
+      teamName: resolvedTeamName,
+      teamLogoUrl: resolvedTeamLogoUrl,
       syncedToMaster: Boolean(p.globalPlayerId),
       onRoster,
     });

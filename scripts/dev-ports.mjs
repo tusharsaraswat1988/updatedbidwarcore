@@ -7,7 +7,7 @@ import { loadRootEnv } from "./load-root-env.mjs";
 
 loadRootEnv();
 
-/** @returns {{ api: number; frontend: number; ownerApp: number }} */
+/** @returns {{ api: number; frontend: number; ownerApp: number; scoringApp: number }} */
 export function getDevPorts(env = process.env) {
   return {
     api: Number(env.API_PORT?.trim() || "8080"),
@@ -15,6 +15,7 @@ export function getDevPorts(env = process.env) {
       env.FRONTEND_PORT?.trim() || env.WEB_PORT?.trim() || "3000",
     ),
     ownerApp: Number(env.OWNER_APP_PORT?.trim() || "5174"),
+    scoringApp: Number(env.SCORING_APP_PORT?.trim() || "5175"),
   };
 }
 
@@ -151,12 +152,12 @@ export async function waitForApiHealth(apiPort, timeoutMs = 45000) {
 }
 
 /**
- * @param {{ api: number; frontend: number; ownerApp: number }} ports
- * @returns {Promise<{ api: boolean; web: boolean; owner: boolean }>}
+ * @param {{ api: number; frontend: number; ownerApp: number; scoringApp: number }} ports
+ * @returns {Promise<{ api: boolean; web: boolean; owner: boolean; scoring: boolean }>}
  */
 export async function getDevStackStatus(ports) {
-  /** @type {{ api: boolean; web: boolean; owner: boolean }} */
-  const status = { api: false, web: false, owner: false };
+  /** @type {{ api: boolean; web: boolean; owner: boolean; scoring: boolean }} */
+  const status = { api: false, web: false, owner: false, scoring: false };
 
   async function probe(url, check) {
     const controller = new AbortController();
@@ -193,6 +194,15 @@ export async function getDevStackStatus(ports) {
       if (!res.ok) return false;
       const text = await res.text();
       return text.includes('id="root"') || text.includes("BidWar Owner");
+    },
+  );
+
+  status.scoring = await probe(
+    `http://127.0.0.1:${ports.scoringApp}/scoring-app/`,
+    async (res) => {
+      if (!res.ok) return false;
+      const text = await res.text();
+      return text.includes('id="root"') || text.includes("BidWar Scoring");
     },
   );
 

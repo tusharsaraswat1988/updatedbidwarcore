@@ -1,9 +1,7 @@
 import { db } from "@workspace/db";
 import {
-  scoringEventsTable,
   scoringMatchesTable,
   scoringSessionsTable,
-  scoringDlsCalculationsTable,
   teamsTable,
   tournamentsTable,
 } from "@workspace/db";
@@ -11,62 +9,35 @@ import {
   CricketEventType,
   buildCricketMatchSummary,
   createInitialCricketState,
-  parseCricketEventPayload,
-  replayCricketEvents,
-  assertExpectedSequence,
-  nextSequence,
-  getCurrentSequence,
-  type ScoringEventEnvelope,
   type MatchMeta,
   type CricketScoreboardState,
   type CricketMatchSummary,
 } from "@workspace/scoring-core";
-import { and, desc, eq, ne } from "drizzle-orm";
-import { broadcastScoringState } from "./scoring-broadcast";
-import { rebuildTournamentStandings } from "./scoring-standings";
-import {
-  projectMatchPlayerStats,
-  projectMatchAwards,
-  rebuildTournamentLeaderboards,
-} from "./scoring-stats-service";
-import { projectGlobalCricketStatsForMatch } from "./scoring-global-stats-service";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { replayScoringMatchState } from "./scoring-platform";
+import { ScoringPlatformError } from "./scoring-platform/errors";
+import { appendSingleMatchEvent, type ScoringActor } from "./scoring-platform/orchestrator";
+import { loadMatchEvents } from "./scoring-platform/event-store";
 
-export type ScoringActor = {
-  type: "organizer" | "admin" | "scorer_pin" | "system";
-  id?: string | null;
-};
+export type { ScoringActor };
 
-export class ScoringServiceError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly code?: string,
-  ) {
-    super(message);
+export class ScoringServiceError extends ScoringPlatformError {
+  constructor(message: string, status: number, code?: string) {
+    super(message, status, code);
     this.name = "ScoringServiceError";
   }
 }
 
-const CRICKET_SPORT_SLUG = "cricket" as const;
-
-function rowToEnvelope(row: typeof scoringEventsTable.$inferSelect): ScoringEventEnvelope {
-  return {
-    id: row.id,
-    matchId: row.matchId,
-    tournamentId: row.tournamentId,
-    fixtureId: row.fixtureId,
-    sportSlug: row.sportSlug as "cricket",
-    eventType: row.eventType,
-    eventVersion: row.eventVersion,
-    sequence: row.sequence,
-    occurredAt: row.occurredAt,
-    actorType: row.actorType as ScoringEventEnvelope["actorType"],
-    actorId: row.actorId,
-    correlationId: row.correlationId,
-    causationId: row.causationId,
-    payload: row.payloadJson ?? {},
-  };
+function mapPlatformError<T>(fn: () => Promise<T>): Promise<T> {
+  return fn().catch((err) => {
+    if (err instanceof ScoringPlatformError) {
+      throw new ScoringServiceError(err.message, err.status, err.code);
+    }
+    throw err;
+  });
 }
+
+const CRICKET_SPORT_SLUG = "cricket" as const;
 
 function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): MatchMeta {
   const rules = match.rulesJson ?? {};
@@ -80,44 +51,15 @@ function matchMetaFromRow(match: typeof scoringMatchesTable.$inferSelect): Match
   };
 }
 
-async function loadMatchEvents(matchId: number): Promise<ScoringEventEnvelope[]> {
-  const rows = await db
-    .select()
-    .from(scoringEventsTable)
-    .where(eq(scoringEventsTable.matchId, matchId))
-    .orderBy(scoringEventsTable.sequence);
-  return rows.map(rowToEnvelope);
-}
-
-async function persistDlsCalculation(
-  matchId: number,
-  tournamentId: number,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  const existing = await db
-    .select({ id: scoringDlsCalculationsTable.id })
-    .from(scoringDlsCalculationsTable)
-    .where(eq(scoringDlsCalculationsTable.matchId, matchId));
-
-  await db.insert(scoringDlsCalculationsTable).values({
-    matchId,
-    tournamentId,
-    revision: existing.length + 1,
-    inputsJson: payload,
-    outputsJson: {
-      parScore: payload.parScore,
-      target: payload.target,
-      revisedOvers: payload.revisedOvers,
-    },
-    reason: typeof payload.reason === "string" ? payload.reason : null,
-  });
-}
-
 async function projectMatchState(
   match: typeof scoringMatchesTable.$inferSelect,
 ): Promise<CricketScoreboardState> {
   const events = await loadMatchEvents(match.id);
-  const state = replayCricketEvents(matchMetaFromRow(match), events);
+  const state = replayScoringMatchState<CricketScoreboardState>(
+    CRICKET_SPORT_SLUG,
+    matchMetaFromRow(match),
+    events,
+  );
   const lastSeq = events.length > 0 ? events[events.length - 1]!.sequence : 0;
   return { ...state, lastSequence: lastSeq };
 }
@@ -214,28 +156,6 @@ function summaryFromMatch(
   return buildCricketMatchSummary(state);
 }
 
-function publishScoringUpdate(
-  tournamentId: number,
-  match: typeof scoringMatchesTable.$inferSelect,
-  state: CricketScoreboardState,
-) {
-  const summary = summaryFromMatch(match, state);
-  broadcastScoringState(tournamentId, {
-    type: "scoring_state",
-    matchId: match.id,
-    match: {
-      id: match.id,
-      status: match.status,
-      homeTeamId: match.homeTeamId,
-      awayTeamId: match.awayTeamId,
-      winnerTeamId: match.winnerTeamId,
-      resultSummary: match.resultSummary,
-    },
-    state,
-    summary,
-  });
-}
-
 /** Live or most recently finished match for LED / public display. */
 export async function getLiveScoringDisplay(tournamentId: number) {
   await ensureTournamentScoring(tournamentId);
@@ -262,7 +182,7 @@ export async function getLiveScoringDisplay(tournamentId: number) {
         and(
           eq(scoringMatchesTable.tournamentId, tournamentId),
           eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
-          eq(scoringMatchesTable.status, "completed"),
+          inArray(scoringMatchesTable.status, ["completed", "abandoned"]),
         ),
       )
       .orderBy(desc(scoringMatchesTable.completedAt))
@@ -329,128 +249,40 @@ export async function appendScoringEvent(
     correlationId?: string | null;
   },
 ) {
-  const parsed = parseCricketEventPayload(input.eventType, input.payload);
-  if (!parsed.ok) {
-    throw new ScoringServiceError(parsed.error, 400, "INVALID_PAYLOAD");
-  }
+  await ensureTournamentScoring(tournamentId);
 
-  const { match } = await getScoringMatch(tournamentId, matchId);
-
-  if (match.status === "completed" || match.status === "abandoned") {
-    throw new ScoringServiceError("Match is no longer live", 409, "MATCH_CLOSED");
-  }
-
-  const [session] = await db
+  const [match] = await db
     .select()
-    .from(scoringSessionsTable)
-    .where(eq(scoringSessionsTable.matchId, matchId))
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.id, matchId),
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
+      ),
+    )
     .limit(1);
 
-  const currentSeq = getCurrentSequence(session?.lastEventSeq);
-  try {
-    assertExpectedSequence(input.expectedSequence, currentSeq);
-  } catch {
-    throw new ScoringServiceError(
-      `Sequence conflict: expected ${input.expectedSequence}, current is ${currentSeq}`,
-      409,
-      "SEQUENCE_CONFLICT",
-    );
+  if (!match) {
+    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  if (input.eventType === CricketEventType.MATCH_STARTED) {
-    const [otherLive] = await db
-      .select({ id: scoringMatchesTable.id })
-      .from(scoringMatchesTable)
-      .where(
-        and(
-          eq(scoringMatchesTable.tournamentId, tournamentId),
-          eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
-          eq(scoringMatchesTable.status, "live"),
-          ne(scoringMatchesTable.id, matchId),
-        ),
-      )
-      .limit(1);
-    if (otherLive) {
-      throw new ScoringServiceError(
-        "Another match is already live in this tournament",
-        409,
-        "LIVE_MATCH_EXISTS",
-      );
-    }
-  }
-
-  const newSeq = nextSequence(currentSeq);
-
-  const [eventRow] = await db
-    .insert(scoringEventsTable)
-    .values({
-      matchId,
-      tournamentId,
-      fixtureId: match.fixtureId,
-      sportSlug: "cricket",
-      eventType: input.eventType,
-      eventVersion: 1,
-      sequence: newSeq,
-      actorType: input.actor.type,
-      actorId: input.actor.id ?? null,
-      correlationId: input.correlationId ?? null,
-      payloadJson: parsed.payload,
-    })
-    .returning();
-
-  const state = await projectMatchState(match);
-  const matchStatus = state.matchStatus;
-  const matchPatch: Partial<typeof scoringMatchesTable.$inferInsert> = {
-    status: matchStatus,
-    currentProjectionVersion: newSeq,
-  };
-
-  if (matchStatus === "live" && !match.startedAt) {
-    matchPatch.startedAt = new Date();
-  }
-  if (matchStatus === "completed" || matchStatus === "abandoned") {
-    matchPatch.completedAt = new Date();
-    matchPatch.winnerTeamId = state.winnerTeamId;
-    matchPatch.resultSummary = state.resultText;
-    matchPatch.summaryJson = buildCricketMatchSummary(state);
-  }
-
-  const [updatedMatch] = await db
-    .update(scoringMatchesTable)
-    .set(matchPatch)
-    .where(eq(scoringMatchesTable.id, matchId))
-    .returning();
-
-  await db
-    .update(scoringSessionsTable)
-    .set({
-      status: state.sessionStatus,
-      stateJson: state,
-      lastEventSeq: newSeq,
-    })
-    .where(eq(scoringSessionsTable.matchId, matchId));
-
-  publishScoringUpdate(tournamentId, updatedMatch, state);
-
-  if (input.eventType === CricketEventType.DLS_APPLIED) {
-    await persistDlsCalculation(matchId, tournamentId, parsed.payload);
-  }
-
-  if (matchStatus === "completed" || matchStatus === "abandoned") {
-    await rebuildTournamentStandings(tournamentId);
-    if (matchStatus === "completed") {
-      await projectMatchPlayerStats(matchId);
-      await projectMatchAwards(matchId);
-      await rebuildTournamentLeaderboards(tournamentId);
-      await projectGlobalCricketStatsForMatch(matchId);
-    }
-  }
-
-  return {
-    event: rowToEnvelope(eventRow),
-    state,
-    match: updatedMatch,
-  };
+  return mapPlatformError(() =>
+    appendSingleMatchEvent(
+      {
+        tournamentId,
+        matchId,
+        sportSlug: CRICKET_SPORT_SLUG,
+        eventType: input.eventType,
+        payload: input.payload,
+        expectedSequence: input.expectedSequence,
+        actor: input.actor,
+        correlationId: input.correlationId,
+        matchMeta: matchMetaFromRow(match),
+      },
+      match,
+    ),
+  );
 }
 
 export async function undoLastScoringEvent(

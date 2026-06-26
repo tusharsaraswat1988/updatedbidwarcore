@@ -20,6 +20,10 @@ export default function ScoringMatchPublicPage() {
     queryKey: ["scoring-scorecard", tournamentId, matchId],
     queryFn: () => getPublicMatchScorecard(tournamentId, matchId),
     enabled: !!tournamentId && !!matchId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.match?.status;
+      return status === "live" ? 10000 : false;
+    },
   });
 
   const pageUrl =

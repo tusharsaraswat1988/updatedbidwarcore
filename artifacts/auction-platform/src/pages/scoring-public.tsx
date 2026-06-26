@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
-import { getScoringLeaderboard, getScoringStandings } from "@/lib/scoring-api";
+import { getScoringLeaderboard, getScoringStandings, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
 import { CircleDot } from "lucide-react";
@@ -30,7 +30,7 @@ const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: s
 
 function statusBadge(status: string) {
   if (status === "live") return "text-emerald-400";
-  if (status === "completed") return "text-muted-foreground";
+  if (isTerminalCricketMatchStatus(status)) return "text-muted-foreground";
   return "text-primary";
 }
 
@@ -43,18 +43,25 @@ export default function ScoringPublicPage() {
     queryKey: ["scoring-public", tournamentId],
     queryFn: () => getPublicSchedule(tournamentId),
     enabled: !!tournamentId,
+    refetchInterval: (query) => {
+      const matches = query.state.data?.matches ?? [];
+      const hasLive = matches.some((m: { status: string }) => m.status === "live");
+      return hasLive ? 20000 : 60000;
+    },
   });
 
   const { data: standings } = useQuery({
     queryKey: ["scoring-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
     enabled: !!tournamentId,
+    refetchInterval: 30000,
   });
 
   const { data: leaderboard } = useQuery({
     queryKey: ["scoring-leaderboard", tournamentId, lbTab],
     queryFn: () => getScoringLeaderboard(tournamentId, lbTab, 15),
     enabled: !!tournamentId,
+    refetchInterval: 30000,
   });
 
   type PublicTeam = { id: number; name: string; shortCode: string; color: string | null };
@@ -66,7 +73,9 @@ export default function ScoringPublicPage() {
 
   const liveMatches = (data?.matches ?? []).filter((m: { status: string }) => m.status === "live");
   const upcoming = (data?.matches ?? []).filter((m: { status: string }) => m.status === "scheduled");
-  const completed = (data?.matches ?? []).filter((m: { status: string }) => m.status === "completed");
+  const completed = (data?.matches ?? []).filter((m: { status: string }) =>
+    isTerminalCricketMatchStatus(m.status),
+  );
 
   const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
   const pageUrl =

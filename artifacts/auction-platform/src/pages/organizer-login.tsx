@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +9,18 @@ import { Lock, Eye, EyeOff, Trophy, LogIn, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+function safeNextPath(): string | null {
+  try {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      return next;
+    }
+  } catch {
+    /* ignore malformed query */
+  }
+  return null;
+}
 
 export default function OrganizerLogin() {
   const [, params] = useRoute("/tournament/:id/login");
@@ -24,13 +37,24 @@ export default function OrganizerLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const defaultPath = `/tournament/${tournamentId}`;
+  const postLoginPath = safeNextPath() ?? defaultPath;
+
+  function goAfterLogin(path: string) {
+    if (path.startsWith(SCORING_APP_BASE)) {
+      window.location.href = path;
+      return;
+    }
+    navigate(path);
+  }
+
   // If already authenticated (e.g. organizer-account owner who just created this tournament),
   // skip the login gate entirely
   useEffect(() => {
     if (!authLoading && isLoggedIn && tournamentId) {
-      navigate(`/tournament/${tournamentId}`);
+      goAfterLogin(postLoginPath);
     }
-  }, [authLoading, isLoggedIn, tournamentId, navigate]);
+  }, [authLoading, isLoggedIn, tournamentId, postLoginPath]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +63,7 @@ export default function OrganizerLogin() {
     setError("");
     const result = await login(password.trim());
     if (result.success) {
-      navigate(`/tournament/${tournamentId}`);
+      goAfterLogin(postLoginPath);
     } else {
       setError(result.error || "Login failed");
       setPassword("");
