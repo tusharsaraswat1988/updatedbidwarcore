@@ -478,11 +478,38 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   // Dynamic roles from sport master table
   const [sportRoles, setSportRoles] = useState<{ id: number; roleName: string }[]>([]);
   useEffect(() => {
+    let cancelled = false;
     const slug = tournament?.sport ?? "cricket";
-    fetch(`/api/sports/by-slug/${encodeURIComponent(slug)}/roles`)
-      .then(r => r.json())
-      .then((d: { id: number; roleName: string }[]) => setSportRoles(d))
-      .catch(() => {});
+
+    async function loadRoles() {
+      try {
+        const res = await fetch(`/api/sports/by-slug/${encodeURIComponent(slug)}/roles`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          if (!cancelled) setSportRoles([]);
+          return;
+        }
+        const data: unknown = await res.json();
+        const roles = Array.isArray(data)
+          ? data.filter(
+              (item): item is { id: number; roleName: string } =>
+                typeof item === "object" &&
+                item !== null &&
+                typeof (item as { id?: unknown }).id === "number" &&
+                typeof (item as { roleName?: unknown }).roleName === "string",
+            )
+          : [];
+        if (!cancelled) setSportRoles(roles);
+      } catch {
+        if (!cancelled) setSportRoles([]);
+      }
+    }
+
+    void loadRoles();
+    return () => {
+      cancelled = true;
+    };
   }, [tournament?.sport]);
 
   // Spec groups state — populated after role selection (see effects below, after form state)
@@ -535,11 +562,44 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   // selectedRoleId must be derived AFTER form state to avoid temporal dead zone
   const selectedRoleId = sportRoles.find(r => r.roleName === form.role)?.id;
   useEffect(() => {
-    if (!selectedRoleId) { setSpecGroups([]); return; }
-    fetch(`/api/sports/roles/${selectedRoleId}/specs`)
-      .then(r => r.json())
-      .then((d: SpecGroup[]) => setSpecGroups(d))
-      .catch(() => setSpecGroups([]));
+    if (!selectedRoleId) {
+      setSpecGroups([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSpecs() {
+      try {
+        const res = await fetch(`/api/sports/roles/${selectedRoleId}/specs`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          if (!cancelled) setSpecGroups([]);
+          return;
+        }
+        const data: unknown = await res.json();
+        const groups = Array.isArray(data)
+          ? data.filter(
+              (group): group is SpecGroup =>
+                typeof group === "object" &&
+                group !== null &&
+                typeof (group as { id?: unknown }).id === "number" &&
+                typeof (group as { groupName?: unknown }).groupName === "string" &&
+                typeof (group as { displayOrder?: unknown }).displayOrder === "number" &&
+                Array.isArray((group as { options?: unknown }).options),
+            )
+          : [];
+        if (!cancelled) setSpecGroups(groups);
+      } catch {
+        if (!cancelled) setSpecGroups([]);
+      }
+    }
+
+    void loadSpecs();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRoleId]);
   useEffect(() => {
     if (isFirstSpecRender.current) { isFirstSpecRender.current = false; return; }
@@ -607,9 +667,21 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           const res = await fetch(`/api/global-players/search?q=${encodeURIComponent(sanitized)}&limit=5${sportQ}`, {
             credentials: "include",
           });
-          const data: SuggestionProfile[] = await res.json();
-          const match = Array.isArray(data) && data.length > 0
-            ? (digits.length >= 10 ? data[0] : data.find(p => p.name))
+          if (!res.ok) {
+            return;
+          }
+          const data: unknown = await res.json();
+          const suggestions = Array.isArray(data)
+            ? data.filter(
+                (item): item is SuggestionProfile =>
+                  typeof item === "object" &&
+                  item !== null &&
+                  typeof (item as { id?: unknown }).id === "number" &&
+                  typeof (item as { name?: unknown }).name === "string",
+              )
+            : [];
+          const match = suggestions.length > 0
+            ? (digits.length >= 10 ? suggestions[0] : suggestions.find(p => p.name))
             : undefined;
           if (match) setPendingMobileProfile(match);
         } catch {
