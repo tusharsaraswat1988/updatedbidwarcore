@@ -28,13 +28,19 @@ describe("og-image cache key", () => {
     tournamentName: "Test League",
     sport: "badminton",
     backgroundImageUrl: "https://cdn.example/banner.jpg",
-    generatorVersion: 1,
+    generatorVersion: 2,
     contentVersion: "2026-06-26T00:00:00.000Z",
   };
 
   it("changes when content version changes", () => {
     const a = buildRegistrationOgCacheKey(baseInput);
     const b = buildRegistrationOgCacheKey({ ...baseInput, contentVersion: "2026-06-27T00:00:00.000Z" });
+    expect(a).not.toBe(b);
+  });
+
+  it("changes when generator version changes", () => {
+    const a = buildRegistrationOgCacheKey(baseInput);
+    const b = buildRegistrationOgCacheKey({ ...baseInput, generatorVersion: 99 });
     expect(a).not.toBe(b);
   });
 

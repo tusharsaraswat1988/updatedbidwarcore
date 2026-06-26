@@ -8,12 +8,11 @@ function escapeXml(value: string): string {
 }
 
 /** Wrap tournament names into readable lines without overflow. */
-export function wrapTitleLines(title: string, maxLines = 4): string[] {
+export function wrapTitleLines(title: string, maxLines = 3): string[] {
   const words = title.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return ["Tournament"];
 
-  const maxChars =
-    words.length === 1 && words[0].length > 28 ? 18 : words.some((w) => w.length > 16) ? 22 : 26;
+  const maxChars = words.some((w) => w.length > 14) ? 20 : 24;
 
   const lines: string[] = [];
   let current = "";
@@ -42,10 +41,9 @@ export function wrapTitleLines(title: string, maxLines = 4): string[] {
 }
 
 export function titleFontSize(lineCount: number): number {
-  if (lineCount <= 1) return 68;
-  if (lineCount === 2) return 56;
-  if (lineCount === 3) return 46;
-  return 38;
+  if (lineCount <= 1) return 58;
+  if (lineCount === 2) return 48;
+  return 40;
 }
 
 export function formatRegistrationDeadline(raw: string | null | undefined): string | null {
@@ -61,6 +59,13 @@ export function formatRegistrationDeadline(raw: string | null | undefined): stri
     year: "numeric",
   });
   return `Register by ${formatted}`;
+}
+
+export function buildMetaLine(venue: string | null | undefined, deadline: string | null | undefined): string | null {
+  const parts = [venue?.trim(), deadline ? formatRegistrationDeadline(deadline) : null].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length ? parts.join("  ·  ") : null;
 }
 
 export function escapeSvgText(value: string): string {

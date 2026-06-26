@@ -18,6 +18,7 @@ export function buildRegistrationOgCacheKey(input: RegistrationOgCardInput): str
     organizerName: input.organizerName ?? null,
     registrationDeadline: input.registrationDeadline ?? null,
     backgroundImageUrl: input.backgroundImageUrl,
+    logoImageUrl: input.logoImageUrl ?? null,
     badges: input.badges ?? [],
   });
   return createHash("sha256").update(payload).digest("hex").slice(0, 24);

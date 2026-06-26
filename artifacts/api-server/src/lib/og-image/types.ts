@@ -15,6 +15,8 @@ export interface RegistrationOgCardInput {
   registrationDeadline?: string | null;
   /** Resolved background source URL (banner → logo → platform → default). */
   backgroundImageUrl: string;
+  /** Optional crisp logo overlay (usually tournament logo). */
+  logoImageUrl?: string | null;
   /** Bump when card layout/design changes to invalidate disk cache. */
   generatorVersion: number;
   /** Tournament row updatedAt ISO — invalidates cache when branding changes. */

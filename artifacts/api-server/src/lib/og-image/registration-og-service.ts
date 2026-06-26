@@ -29,10 +29,18 @@ function buildInputFromTournament(
     organizerName: fields.organizerName,
     registrationDeadline: tournament.registrationDeadline,
     backgroundImageUrl: resolveRegistrationBackgroundImageUrl(fields),
+    logoImageUrl: fields.logoUrl?.trim() ? absolutizeLogoUrl(fields.logoUrl) : null,
     generatorVersion: REGISTRATION_OG_GENERATOR_VERSION,
     contentVersion: tournament.updatedAt?.toISOString() ?? tournament.createdAt.toISOString(),
     badges: [],
   };
+}
+
+function absolutizeLogoUrl(url: string): string {
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `${BASE_URL.replace(/\/+$/, "")}/${trimmed.replace(/^\/+/, "")}`;
 }
 
 /** Load from disk cache or generate a registration OG card PNG. */
