@@ -1265,11 +1265,39 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   if (!team) return;
   if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
 
-  // Access-code gate: if the team has a code set the caller must supply it correctly.
-  // Organizers and admins are exempt — they are already authenticated server-side and
-  // use the operator panel quick-bid buttons without an owner access code.
-  if (team.accessCode && !isTournamentOrganizer(req, tid, tournament?.organizerId)) {
-    if (!accessCode || team.accessCode.toUpperCase() !== accessCode.toUpperCase()) {
+  // Access-code gate (Phase 5 hardening):
+  //
+  // A blank/null accessCode is NOT a bypass — unauthenticated callers must
+  // supply the code. Only authenticated organizers/admins are exempt.
+  //
+  // Security improvements vs previous code:
+  //   1. Teams with no accessCode still require organizer auth for unauthenticated
+  //      callers — anonymous bids on codeless teams are now rejected.
+  //   2. String comparison is timing-safe to prevent brute-force inference.
+  const isOrganizer = isTournamentOrganizer(req, tid, tournament?.organizerId);
+  if (!isOrganizer) {
+    // Non-organizer callers must supply the correct access code.
+    const teamCode = (team.accessCode ?? "").trim();
+    const suppliedCode = (accessCode ?? "").trim();
+
+    if (!teamCode) {
+      // Team has no access code configured — anonymous bids not permitted.
+      // The owner should set an access code via the team management panel.
+      res.status(403).json({ error: "This team has no access code set. Contact the auction organizer." });
+      return;
+    }
+
+    // Timing-safe comparison — prevents timing-based brute-force attacks.
+    // Reuse the same safeCompare helper used in reset-trial.
+    const a = teamCode.toUpperCase();
+    const b = suppliedCode.toUpperCase();
+    let timingSafeResult = a.length === b.length;
+    if (timingSafeResult) {
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+      timingSafeResult = diff === 0;
+    }
+    if (!timingSafeResult) {
       res.status(403).json({ error: "Invalid access code" });
       return;
     }
