@@ -1061,6 +1061,9 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   const timerSecs = tournament?.timerSeconds ?? 30;
 
   const session = await getOrCreateSession(tid);
+  // Capture revision for optimistic concurrency — prevents two simultaneous
+  // next-player calls from both committing (last-writer-wins race).
+  const nextPlayerRevision = session.revision ?? 0;
 
   // Parse active category filter
   let activeCatIds: number[] | null = null;
@@ -1146,7 +1149,9 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     }
   }
 
-  await db
+  // Optimistic concurrency: only commit if no other next-player call mutated
+  // the session since we read it (prevents concurrent random-draw queue corruption).
+  const nextPlayerCommitted = await db
     .update(auctionSessionsTable)
     .set({
       status: "active",
@@ -1162,23 +1167,33 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       displayCountdown: null,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
       lastOutcome: null,
+      revision: sql`COALESCE(revision, 0) + 1`,
     })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
+    .where(and(
+      eq(auctionSessionsTable.tournamentId, tid),
+      sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${nextPlayerRevision}`,
+    ))
+    .returning({ id: auctionSessionsTable.id });
 
-  // Log player auction start event (fire-and-forget)
-  logPlayerAuctionStart({
-    tournamentId: tid,
-    playerId: selectedPlayer.id,
-    globalPlayerId: (selectedPlayer as any).globalPlayerId ?? null,
-    categoryId: selectedPlayer.categoryId,
-    sport: tournament?.sport ?? "cricket",
-    playerName: selectedPlayer.name,
-    playerRole: selectedPlayer.role,
-    playerAge: selectedPlayer.age,
-    playerCity: selectedPlayer.city,
-    basePrice: selectedPlayer.basePrice,
-    playerSnapshotJson: JSON.stringify(selectedPlayer),
-  });
+  // Log player auction start only if our update actually committed.
+  // If a concurrent call won the race (0 rows updated), we skip the log and
+  // broadcast the current state — the operator sees whatever the winning call
+  // selected, which is correct.
+  if (nextPlayerCommitted.length > 0) {
+    logPlayerAuctionStart({
+      tournamentId: tid,
+      playerId: selectedPlayer.id,
+      globalPlayerId: (selectedPlayer as any).globalPlayerId ?? null,
+      categoryId: selectedPlayer.categoryId,
+      sport: tournament?.sport ?? "cricket",
+      playerName: selectedPlayer.name,
+      playerRole: selectedPlayer.role,
+      playerAge: selectedPlayer.age,
+      playerCity: selectedPlayer.city,
+      basePrice: selectedPlayer.basePrice,
+      playerSnapshotJson: JSON.stringify(selectedPlayer),
+    });
+  }
 
   res.json(await broadcastState(tid, ["players"]));
 });
@@ -1194,6 +1209,10 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
 
   const { teamId, amount, accessCode } = parsed.data;
   const session = await getOrCreateSession(tid);
+  // Capture revision before any concurrent writes — used for the optimistic
+  // concurrency check at the end of this handler to prevent two simultaneous
+  // bids from both succeeding on the same session state.
+  const currentRevision = session.revision ?? 0;
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
 
   if (!session.currentPlayerId) { res.status(400).json({ error: "No player currently up for bid" }); return; }
@@ -1314,7 +1333,10 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   const timerDurationSecs = computeBidTimerDuration(session, tournament);
   const newTimerEndsAt = new Date(Date.now() + timerDurationSecs * 1000).toISOString();
 
-  await db
+  // Optimistic concurrency: only commit if no other bid has mutated the session
+  // since we read it. COALESCE handles existing rows created before this column.
+  // If 0 rows are updated, a concurrent bid won the race — return 409.
+  const committed = await db
     .update(auctionSessionsTable)
     .set({
       currentBid: amount,
@@ -1322,9 +1344,22 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
       timerEndsAt: newTimerEndsAt,
       timerType: "bid",
       pausedTimeRemaining: null,
+      revision: sql`COALESCE(revision, 0) + 1`,
       lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
     })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
+    .where(and(
+      eq(auctionSessionsTable.tournamentId, tid),
+      sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${currentRevision}`,
+    ))
+    .returning({ id: auctionSessionsTable.id });
+
+  if (committed.length === 0) {
+    res.status(409).json({
+      error: "A concurrent bid changed the auction state — please refresh and bid again.",
+      hint: "stale_bid",
+    });
+    return;
+  }
 
   // Log bid event (fire-and-forget — never blocks the response)
   logBidEvent({

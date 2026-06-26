@@ -257,6 +257,7 @@ void pool
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_purse_booster_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_led_toast_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0;
   `)
   .catch((err) => {
     console.error("[db] failed to ensure purse_boosters table:", err);

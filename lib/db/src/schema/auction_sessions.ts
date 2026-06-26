@@ -38,6 +38,10 @@ export const auctionSessionsTable = pgTable("auction_sessions", {
   lastPurseBoosterJson: text("last_purse_booster_json"),
   lastLedToastJson: text("last_led_toast_json"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  // Monotonically incrementing counter for optimistic concurrency control.
+  // Incremented on every /bid and /next-player write so concurrent requests
+  // can detect a lost update without a row-level lock.
+  revision: integer("revision").notNull().default(0),
 });
 
 export const insertAuctionSessionSchema = createInsertSchema(auctionSessionsTable).omit({
