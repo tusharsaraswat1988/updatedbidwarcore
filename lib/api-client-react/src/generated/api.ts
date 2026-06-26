@@ -3256,13 +3256,29 @@ export const getSellPlayerUrl = (tournamentId: number) => {
   return `/api/tournaments/${tournamentId}/auction/sell`;
 };
 
+/** Optional sell-confirmation payload — prevents selling to the wrong team
+ *  when a new bid arrives between the operator clicking SELL and the server
+ *  processing the request.  If the server's current state does not match, it
+ *  returns HTTP 409 with the actual current leader. */
+export type SellConfirmation = {
+  expectedBidTeamId?: number;
+  expectedBidAmount?: number;
+};
+
 export const sellPlayer = async (
   tournamentId: number,
+  body?: SellConfirmation,
   options?: RequestInit,
 ): Promise<AuctionState> => {
   return customFetch<AuctionState>(getSellPlayerUrl(tournamentId), {
     ...options,
     method: "POST",
+    ...(body && Object.keys(body).length > 0
+      ? {
+          headers: { "Content-Type": "application/json", ...options?.headers },
+          body: JSON.stringify(body),
+        }
+      : {}),
   });
 };
 
@@ -3273,14 +3289,14 @@ export const getSellPlayerMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof sellPlayer>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number } & SellConfirmation,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof sellPlayer>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number } & SellConfirmation,
   TContext
 > => {
   const mutationKey = ["sellPlayer"];
@@ -3294,11 +3310,14 @@ export const getSellPlayerMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof sellPlayer>>,
-    { tournamentId: number }
+    { tournamentId: number } & SellConfirmation
   > = (props) => {
-    const { tournamentId } = props ?? {};
+    const { tournamentId, expectedBidTeamId, expectedBidAmount } = props ?? {};
+    const body: SellConfirmation = {};
+    if (expectedBidTeamId !== undefined) body.expectedBidTeamId = expectedBidTeamId;
+    if (expectedBidAmount !== undefined) body.expectedBidAmount = expectedBidAmount;
 
-    return sellPlayer(tournamentId, requestOptions);
+    return sellPlayer(tournamentId, Object.keys(body).length > 0 ? body : undefined, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3311,7 +3330,10 @@ export type SellPlayerMutationResult = NonNullable<
 export type SellPlayerMutationError = ErrorType<unknown>;
 
 /**
- * @summary Mark current player as sold to highest bidder
+ * @summary Mark current player as sold to highest bidder.
+ * Accepts optional SellConfirmation fields (expectedBidTeamId, expectedBidAmount)
+ * to guard against concurrent bids that arrive between the operator clicking SELL
+ * and the server processing the request.
  */
 export const useSellPlayer = <
   TError = ErrorType<unknown>,
@@ -3320,14 +3342,14 @@ export const useSellPlayer = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof sellPlayer>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number } & SellConfirmation,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof sellPlayer>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number } & SellConfirmation,
   TContext
 > => {
   return useMutation(getSellPlayerMutationOptions(options));

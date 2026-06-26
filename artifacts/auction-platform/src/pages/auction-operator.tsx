@@ -383,7 +383,14 @@ export default function AuctionOperator() {
 
   async function handleSell() {
     if (controlsLocked || sellPlayer.isPending) return;
-    const result = await sellPlayer.mutateAsync({ tournamentId });
+    // Pass the bid state the operator currently sees so the server can detect
+    // a concurrent bid that arrived between the operator clicking SELL and the
+    // request reaching the server (Phase 3 sell-race prevention).
+    const result = await sellPlayer.mutateAsync({
+      tournamentId,
+      ...(state?.currentBidTeamId != null ? { expectedBidTeamId: state.currentBidTeamId as number } : {}),
+      ...(state?.currentBid != null ? { expectedBidAmount: state.currentBid as number } : {}),
+    });
     applyMutationResult(result);
   }
   async function handleUnsold() {

@@ -1394,10 +1394,45 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
+  // Optional sell-confirmation guard: the operator UI sends these fields so the
+  // server can detect if a new bid arrived between when the operator saw the
+  // leading bid and when this request reached the server.
+  const sellBodySchema = z.object({
+    expectedBidTeamId: z.number().int().optional(),
+    expectedBidAmount: z.number().int().optional(),
+  });
+  const sellBody = sellBodySchema.safeParse(req.body ?? {});
+  const sellConfirmation = sellBody.success ? sellBody.data : {};
+
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId || !session.currentBidTeamId) {
     res.status(400).json({ error: "No current player or bidder" });
+    return;
+  }
+
+  // Phase 3 sell-race guard: if the operator sent expected values, verify that
+  // the auction state still matches what they saw when they clicked SELL.
+  // If a new bid arrived in flight, return 409 so the UI can confirm with the
+  // actual current leader instead of selling to the wrong team.
+  if (sellConfirmation.expectedBidTeamId !== undefined &&
+      sellConfirmation.expectedBidTeamId !== session.currentBidTeamId) {
+    res.status(409).json({
+      error: "Auction state changed — a new bid arrived before your sell request. Please confirm the current leader.",
+      currentBidTeamId: session.currentBidTeamId,
+      currentBid: session.currentBid,
+      hint: "sell_race",
+    });
+    return;
+  }
+  if (sellConfirmation.expectedBidAmount !== undefined &&
+      sellConfirmation.expectedBidAmount !== session.currentBid) {
+    res.status(409).json({
+      error: "Auction state changed — the bid amount changed before your sell request. Please confirm the current bid.",
+      currentBidTeamId: session.currentBidTeamId,
+      currentBid: session.currentBid,
+      hint: "sell_race",
+    });
     return;
   }
 
@@ -1431,6 +1466,9 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
         currentBidTeamId: null,
         timerEndsAt: null,
         pausedTimeRemaining: null,
+        // Bump revision so any in-flight bid (concurrent with this sell) returns
+        // stale_bid instead of silently overwriting the sold state.
+        revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${soldAmount.toLocaleString("en-IN")}`,
         lastOutcome: JSON.stringify({
           type: "sold",
