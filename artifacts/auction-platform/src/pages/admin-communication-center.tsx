@@ -192,6 +192,15 @@ export default function AdminCommunicationCenter() {
   const [bulkRecipients, setBulkRecipients] = useState<Array<{ name: string | null; email: string; role: string }>>([]);
   const [bulkTeams, setBulkTeams] = useState<Array<{ id: number; name: string; ownerName: string | null; ownerEmail: string | null; hasEmail: boolean }>>([]);
   const [bulkPlayers, setBulkPlayers] = useState<Array<{ id: number; name: string; email: string | null; hasEmail: boolean; status: string | null }>>([]);
+  const [bulkOrganiserBundle, setBulkOrganiserBundle] = useState<{
+    tournamentName: string;
+    teamCount: number;
+    ownerAppLink: string;
+    organiserName: string | null;
+    organiserEmail: string | null;
+  } | null>(null);
+  const [bulkEmailPreview, setBulkEmailPreview] = useState<{ subject: string; html: string } | null>(null);
+  const [bulkPreviewLoading, setBulkPreviewLoading] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [tournaments, setTournaments] = useState<Array<{ id: number; name: string }>>([]);
 
@@ -343,6 +352,24 @@ export default function AdminCommunicationCenter() {
       });
   }, [apiBase, bulkTournamentId]);
 
+  const organiserTeamsTemplate = templates.find((t) => t.internalKey === "organiser_all_teams_credentials");
+
+  useEffect(() => {
+    if (bulkFilterType === "organiser_teams_credentials" && organiserTeamsTemplate) {
+      setBulkTemplateId(organiserTeamsTemplate.id);
+    }
+  }, [bulkFilterType, organiserTeamsTemplate]);
+
+  const handleBulkFilterChange = (value: string) => {
+    setBulkFilterType(value);
+    setBulkRecipients([]);
+    setBulkOrganiserBundle(null);
+    setBulkEmailPreview(null);
+    if (value === "organiser_teams_credentials" && organiserTeamsTemplate) {
+      setBulkTemplateId(organiserTeamsTemplate.id);
+    }
+  };
+
   const buildBulkFilter = useCallback(() => {
     const filter: Record<string, unknown> = {
       type: bulkFilterType,
@@ -355,7 +382,7 @@ export default function AdminCommunicationCenter() {
 
   const previewBulkRecipients = async () => {
     const filter = buildBulkFilter();
-    if ((filter.type === "team" || filter.type === "player") && !filter.tournamentId) {
+    if ((filter.type === "team" || filter.type === "player" || filter.type === "organiser_teams_credentials") && !filter.tournamentId) {
       alert("Please select a tournament first.");
       return;
     }
@@ -367,33 +394,86 @@ export default function AdminCommunicationCenter() {
       alert("Please select a specific player.");
       return;
     }
-    const res = await fetch(`${apiBase}/bulk/preview-recipients`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(filter),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setBulkRecipients(data.recipients ?? []);
-      if (!data.recipients?.length) {
-        alert("No recipients with a valid email address found for this selection.");
+    setBulkPreviewLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/bulk/preview-recipients`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(filter),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBulkRecipients(data.recipients ?? []);
+        setBulkOrganiserBundle(data.organiserBundle ?? null);
+        setBulkEmailPreview(null);
+        if (!data.recipients?.length) {
+          alert(
+            filter.type === "organiser_teams_credentials"
+              ? "Tournament organiser email not found. Add organiser email on the tournament first."
+              : "No recipients with a valid email address found for this selection.",
+          );
+        }
       }
+    } finally {
+      setBulkPreviewLoading(false);
+    }
+  };
+
+  const previewBulkEmail = async () => {
+    if (!bulkTemplateId) {
+      alert("Please select a template.");
+      return;
+    }
+    const filter = buildBulkFilter();
+    if (filter.type === "organiser_teams_credentials" && !filter.tournamentId) {
+      alert("Please select a tournament first.");
+      return;
+    }
+    setBulkPreviewLoading(true);
+    try {
+      const res = await fetch(`${apiBase}/bulk/preview-email`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: bulkTemplateId, filter }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBulkEmailPreview({ subject: data.subject, html: data.html });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert((data as { error?: string }).error ?? "Preview failed");
+      }
+    } finally {
+      setBulkPreviewLoading(false);
     }
   };
 
   const queueBulk = async () => {
     if (!bulkTemplateId) return;
+    const filter = buildBulkFilter();
+    if (filter.type === "organiser_teams_credentials" && !filter.tournamentId) {
+      alert("Please select a tournament first.");
+      return;
+    }
+    if (!bulkRecipients.length) {
+      alert("Preview recipients first to confirm the organiser email.");
+      return;
+    }
     await fetch(`${apiBase}/bulk/queue`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         templateId: bulkTemplateId,
-        filter: buildBulkFilter(),
+        filter,
         sendImmediately: true,
       }),
     });
+    setBulkRecipients([]);
+    setBulkOrganiserBundle(null);
+    setBulkEmailPreview(null);
     changeTab("sent");
   };
 
@@ -643,7 +723,7 @@ export default function AdminCommunicationCenter() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <Label>Tournament</Label>
-                    <Select value={bulkTournamentId} onValueChange={(v) => { setBulkTournamentId(v); setBulkTeamId(""); setBulkPlayerId(""); setBulkRecipients([]); }}>
+                    <Select value={bulkTournamentId} onValueChange={(v) => { setBulkTournamentId(v); setBulkTeamId(""); setBulkPlayerId(""); setBulkRecipients([]); setBulkOrganiserBundle(null); setBulkEmailPreview(null); }}>
                       <SelectTrigger><SelectValue placeholder="Select tournament" /></SelectTrigger>
                       <SelectContent>
                         {tournaments.map((t) => <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>)}
@@ -652,9 +732,10 @@ export default function AdminCommunicationCenter() {
                   </div>
                   <div>
                     <Label>Recipient Filter</Label>
-                    <Select value={bulkFilterType} onValueChange={(v) => { setBulkFilterType(v); setBulkRecipients([]); }}>
+                    <Select value={bulkFilterType} onValueChange={handleBulkFilterChange}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="organiser_teams_credentials">Organiser — All Teams Credentials</SelectItem>
                         <SelectItem value="team">Specific Team Owner</SelectItem>
                         <SelectItem value="player">Specific Player</SelectItem>
                         <SelectItem value="team_owners">All Team Owners</SelectItem>
@@ -679,6 +760,19 @@ export default function AdminCommunicationCenter() {
                     </Select>
                   </div>
                 </div>
+
+                {bulkFilterType === "organiser_teams_credentials" && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Manual organiser email with all team credentials</p>
+                    <p className="mt-1">
+                      Sends one email to the tournament organiser with every team&apos;s name, logo, access code, owner name, and mobile — in registration order.
+                      Each team includes a WhatsApp copy-paste block. The owner app link is common for all teams.
+                    </p>
+                    <p className="mt-2">
+                      Owners who registered an email have already received their owner panel link separately.
+                    </p>
+                  </div>
+                )}
 
                 {bulkFilterType === "team" && bulkTournamentId && (
                   <div>
@@ -716,11 +810,25 @@ export default function AdminCommunicationCenter() {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void previewBulkRecipients()}>Preview Recipients</Button>
-                  <Button onClick={() => void queueBulk()} disabled={!bulkTemplateId || bulkRecipients.length === 0}>
+                  <Button variant="outline" onClick={() => void previewBulkRecipients()} disabled={bulkPreviewLoading}>
+                    Preview Recipients
+                  </Button>
+                  <Button variant="outline" onClick={() => void previewBulkEmail()} disabled={bulkPreviewLoading || !bulkTemplateId}>
+                    Preview Email
+                  </Button>
+                  <Button onClick={() => void queueBulk()} disabled={!bulkTemplateId || bulkRecipients.length === 0 || bulkPreviewLoading}>
                     Send to {bulkRecipients.length || "…"} Recipient{bulkRecipients.length === 1 ? "" : "s"}
                   </Button>
                 </div>
+
+                {bulkOrganiserBundle && (
+                  <div className="rounded-lg border border-dashed p-3 text-sm">
+                    <p className="font-medium">{bulkOrganiserBundle.tournamentName}</p>
+                    <p className="text-muted-foreground">
+                      {bulkOrganiserBundle.teamCount} team{bulkOrganiserBundle.teamCount === 1 ? "" : "s"} · Common owner app link included
+                    </p>
+                  </div>
+                )}
 
                 {bulkRecipients.length > 0 && (
                   <div className="rounded-lg border p-3">
@@ -730,6 +838,16 @@ export default function AdminCommunicationCenter() {
                         <li key={r.email}>{r.name ?? "—"} &lt;{r.email}&gt;</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {bulkEmailPreview && (
+                  <div className="rounded-lg border p-3">
+                    <p className="mb-2 text-sm font-medium">Email preview: {bulkEmailPreview.subject}</p>
+                    <div
+                      className="max-h-[480px] overflow-auto rounded border bg-white p-4 text-sm"
+                      dangerouslySetInnerHTML={{ __html: bulkEmailPreview.html }}
+                    />
                   </div>
                 )}
               </CardContent>

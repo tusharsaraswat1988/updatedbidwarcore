@@ -24,6 +24,8 @@ import {
   updateJobRecipient,
   updateSetting,
   getBulkTargets,
+  buildOrganiserTeamsCredentialsData,
+  buildMergeDataForRecipient,
 } from "../lib/communication/index.js";
 import {
   db,
@@ -362,7 +364,75 @@ router.get("/auth/admin/communication-center/bulk/targets", async (req, res) => 
 router.post("/auth/admin/communication-center/bulk/preview-recipients", async (req, res) => {
   const filter = req.body as Parameters<typeof resolveBulkRecipients>[0];
   const recipients = await resolveBulkRecipients(filter);
+
+  if (filter.type === "organiser_teams_credentials" && filter.tournamentId) {
+    const bundle = await buildOrganiserTeamsCredentialsData(filter.tournamentId);
+    return res.json({
+      recipients,
+      count: recipients.length,
+      organiserBundle: bundle
+        ? {
+            tournamentName: bundle.tournamentName,
+            teamCount: bundle.teamCount,
+            ownerAppLink: bundle.ownerAppLink,
+            organiserName: bundle.organiserName,
+            organiserEmail: bundle.organiserEmail,
+          }
+        : null,
+    });
+  }
+
   res.json({ recipients, count: recipients.length });
+});
+
+router.post("/auth/admin/communication-center/bulk/preview-email", async (req, res) => {
+  const { templateId, filter } = req.body as {
+    templateId: string;
+    filter: Parameters<typeof resolveBulkRecipients>[0];
+  };
+
+  if (!templateId || !filter) {
+    return res.status(400).json({ error: "templateId and filter required" });
+  }
+
+  const template = await getTemplateById(templateId);
+  if (!template) return res.status(404).json({ error: "Template not found" });
+
+  let mergeData: Record<string, unknown> = { ...buildSampleMergeData() };
+
+  if (filter.type === "organiser_teams_credentials" && filter.tournamentId) {
+    const bundle = await buildOrganiserTeamsCredentialsData(filter.tournamentId);
+    if (!bundle) return res.status(404).json({ error: "Tournament not found" });
+    mergeData = { ...mergeData, ...bundle.mergeData };
+  } else {
+    const recipients = await resolveBulkRecipients(filter);
+    if (recipients[0]) {
+      mergeData = {
+        ...mergeData,
+        ...(await buildMergeDataForRecipient({
+          name: recipients[0].name,
+          email: recipients[0].email,
+          role: recipients[0].role,
+          entityType: recipients[0].entityType,
+          entityId: recipients[0].entityId,
+          tournamentId: recipients[0].tournamentId,
+        })),
+      };
+    }
+  }
+
+  const subject = renderMergeTemplate(template.subject, mergeData);
+  const html = highlightUnknownVariables(
+    renderMergeTemplate(template.htmlBody, mergeData) +
+      (template.footerHtml ? renderMergeTemplate(template.footerHtml, mergeData) : "") +
+      (template.signatureHtml ? renderMergeTemplate(template.signatureHtml, mergeData) : ""),
+  );
+
+  res.json({
+    subject,
+    html,
+    unknownVariables: findUnknownVariables(template.htmlBody + template.subject),
+  });
 });
 
 router.post("/auth/admin/communication-center/bulk/queue", async (req, res) => {
@@ -380,6 +450,7 @@ router.post("/auth/admin/communication-center/bulk/queue", async (req, res) => {
     templateId,
     recipients,
     mergeData,
+    bulkFilter: filter,
     createdByAdmin: adminLabel(req),
     sendImmediately: sendImmediately ?? true,
   });

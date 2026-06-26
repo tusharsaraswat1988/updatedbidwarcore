@@ -15,6 +15,7 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { DashboardStats, BulkRecipientFilter } from "./types.js";
 import { createCommunicationJob, queueJob } from "./job-service.js";
 import { buildMergeDataForRecipient } from "./merge-data-builder.js";
+import { buildOrganiserTeamsCredentialsData } from "./render-organiser-teams-bundle.js";
 
 export async function getDashboardStats(tournamentId?: number): Promise<DashboardStats> {
   const countsResult = await pool.query<{
@@ -298,6 +299,25 @@ export async function resolveBulkRecipients(
     }
   }
 
+  if (filter.type === "organiser_teams_credentials" && filter.tournamentId) {
+    const [tournament] = await db
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, filter.tournamentId))
+      .limit(1);
+
+    if (tournament && isValidEmail(tournament.organizerEmail)) {
+      results.push({
+        name: tournament.organizerName,
+        email: tournament.organizerEmail!.trim(),
+        role: "organiser",
+        entityType: "organizer",
+        entityId: tournament.organizerId,
+        tournamentId: tournament.id,
+      });
+    }
+  }
+
   const seen = new Set<string>();
   return results.filter((r) => {
     const key = r.email.toLowerCase();
@@ -311,21 +331,33 @@ export async function queueBulkCommunication(params: {
   templateId: string;
   recipients: Array<{ name: string | null; email: string; role: string; entityType?: string; entityId?: number; tournamentId?: number }>;
   mergeData?: Record<string, unknown>;
+  bulkFilter?: BulkRecipientFilter;
   createdByAdmin?: string;
   sendImmediately?: boolean;
 }): Promise<{ campaignId: string; jobIds: string[]; queued: number }> {
   const campaignId = randomUUID();
   const jobIds: string[] = [];
 
+  let organiserBundleMerge: Record<string, unknown> | null = null;
+  if (
+    params.bulkFilter?.type === "organiser_teams_credentials" &&
+    params.bulkFilter.tournamentId
+  ) {
+    const bundle = await buildOrganiserTeamsCredentialsData(params.bulkFilter.tournamentId);
+    organiserBundleMerge = bundle?.mergeData ?? null;
+  }
+
   for (const recipient of params.recipients) {
-    const mergeData = await buildMergeDataForRecipient({
-      name: recipient.name,
-      email: recipient.email,
-      role: recipient.role,
-      entityType: recipient.entityType,
-      entityId: recipient.entityId,
-      tournamentId: recipient.tournamentId,
-    });
+    const mergeData =
+      organiserBundleMerge ??
+      (await buildMergeDataForRecipient({
+        name: recipient.name,
+        email: recipient.email,
+        role: recipient.role,
+        entityType: recipient.entityType,
+        entityId: recipient.entityId,
+        tournamentId: recipient.tournamentId,
+      }));
 
     const jobId = await createCommunicationJob({
       channel: "email",
