@@ -1,9 +1,8 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { z } from "zod";
-import { requireAdmin } from "../middleware/require-admin.js";
+import { requireMasterAdmin } from "../middleware/require-admin.js";
 import {
   cancelJob,
-  createCommunicationJob,
   createResendJob,
   createTemplateVersion,
   getDashboardStats,
@@ -37,12 +36,11 @@ import { sendEmail } from "../lib/notifications/providers/email-provider.js";
 
 const router: IRouter = Router();
 
-function isMasterAdmin(req: Request): boolean {
-  return !!req.jwtUser?.isAdmin && req.jwtUser?.adminLevel === "master";
-}
+/** Platform-internal module — Super Admin only. Not exposed to organisers or data-entry admins. */
+router.use(requireMasterAdmin);
 
-function adminLabel(req: Request): string {
-  return req.jwtUser?.adminLevel === "master" ? "master_admin" : "data_entry_admin";
+function adminLabel(_req: Request): string {
+  return "master_admin";
 }
 
 function clientIp(req: Request): string | undefined {
@@ -51,7 +49,7 @@ function clientIp(req: Request): string | undefined {
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/dashboard", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/dashboard", async (req, res) => {
   const tournamentId = req.query.tournamentId ? Number(req.query.tournamentId) : undefined;
   const stats = await getDashboardStats(tournamentId);
   res.json(stats);
@@ -59,7 +57,7 @@ router.get("/auth/admin/communication-center/dashboard", requireAdmin, async (re
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/templates", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/templates" async (req, res) => {
   const includeDrafts = req.query.includeDrafts === "true";
   const includeArchived = req.query.includeArchived === "true";
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -67,7 +65,7 @@ router.get("/auth/admin/communication-center/templates", requireAdmin, async (re
   res.json({ templates });
 });
 
-router.get("/auth/admin/communication-center/templates/:id", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/templates/:id" async (req, res) => {
   const template = await getTemplateById(req.params.id);
   if (!template) return res.status(404).json({ error: "Template not found" });
   res.json({ template });
@@ -88,9 +86,7 @@ const templateSchema = z.object({
   changeNote: z.string().optional(),
 });
 
-router.post("/auth/admin/communication-center/templates", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.post("/auth/admin/communication-center/templates" async (req, res) => {
   const parsed = templateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -134,9 +130,7 @@ router.post("/auth/admin/communication-center/templates", requireAdmin, async (r
   res.status(201).json({ template: created });
 });
 
-router.put("/auth/admin/communication-center/templates/:id", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.put("/auth/admin/communication-center/templates/:id" async (req, res) => {
   const parsed = templateSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -180,9 +174,7 @@ router.put("/auth/admin/communication-center/templates/:id", requireAdmin, async
   res.json({ template: updated });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/duplicate", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.post("/auth/admin/communication-center/templates/:id/duplicate" async (req, res) => {
   const existing = await getTemplateById(req.params.id);
   if (!existing) return res.status(404).json({ error: "Template not found" });
 
@@ -208,9 +200,7 @@ router.post("/auth/admin/communication-center/templates/:id/duplicate", requireA
   res.status(201).json({ template: copy });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/archive", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.post("/auth/admin/communication-center/templates/:id/archive" async (req, res) => {
   const [updated] = await db
     .update(communicationTemplatesTable)
     .set({ isArchived: true, isActive: false, updatedAt: new Date() })
@@ -221,7 +211,7 @@ router.post("/auth/admin/communication-center/templates/:id/archive", requireAdm
   res.json({ template: updated });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/test", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/templates/:id/test" async (req, res) => {
   const { email, mergeData } = req.body as { email?: string; mergeData?: Record<string, unknown> };
   if (!email) return res.status(400).json({ error: "email required" });
 
@@ -240,7 +230,7 @@ router.post("/auth/admin/communication-center/templates/:id/test", requireAdmin,
   res.json({ success: result.success, messageId: result.messageId, error: result.error });
 });
 
-router.post("/auth/admin/communication-center/templates/:id/preview", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/templates/:id/preview" async (req, res) => {
   const template = await getTemplateById(req.params.id);
   if (!template) return res.status(404).json({ error: "Template not found" });
 
@@ -261,7 +251,7 @@ router.post("/auth/admin/communication-center/templates/:id/preview", requireAdm
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/jobs", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/jobs" async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const statuses = typeof req.query.statuses === "string" ? req.query.statuses.split(",") : undefined;
   const pendingReason = typeof req.query.pendingReason === "string" ? req.query.pendingReason : undefined;
@@ -274,13 +264,13 @@ router.get("/auth/admin/communication-center/jobs", requireAdmin, async (req, re
   res.json({ jobs, total: jobs.length });
 });
 
-router.get("/auth/admin/communication-center/jobs/:id", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/jobs/:id" async (req, res) => {
   const job = await getJobById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
   res.json({ job });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/send", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/jobs/:id/send" async (req, res) => {
   const job = await getJobById(req.params.id);
   if (!job) return res.status(404).json({ error: "Job not found" });
 
@@ -298,7 +288,7 @@ router.post("/auth/admin/communication-center/jobs/:id/send", requireAdmin, asyn
   res.json({ success: queued });
 });
 
-router.post("/auth/admin/communication-center/jobs/bulk-send", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/jobs/bulk-send" async (req, res) => {
   const { jobIds, allReady } = req.body as { jobIds?: string[]; allReady?: boolean };
   let ids = jobIds ?? [];
 
@@ -316,7 +306,7 @@ router.post("/auth/admin/communication-center/jobs/bulk-send", requireAdmin, asy
   res.json({ queued, total: ids.length });
 });
 
-router.post("/auth/admin/communication-center/jobs/retry-failed", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/jobs/retry-failed" async (req, res) => {
   const failed = await listJobs({ status: "failed", limit: 200 });
   let retried = 0;
   for (const job of failed) {
@@ -326,12 +316,12 @@ router.post("/auth/admin/communication-center/jobs/retry-failed", requireAdmin, 
   res.json({ retried });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/cancel", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/jobs/:id/cancel" async (req, res) => {
   const ok = await cancelJob(req.params.id, { createdBy: adminLabel(req), ipAddress: clientIp(req) });
   res.json({ success: ok });
 });
 
-router.post("/auth/admin/communication-center/jobs/:id/resend", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/jobs/:id/resend" async (req, res) => {
   const newJobId = await createResendJob(req.params.id, {
     createdBy: adminLabel(req),
     ipAddress: clientIp(req),
@@ -340,7 +330,7 @@ router.post("/auth/admin/communication-center/jobs/:id/resend", requireAdmin, as
   res.json({ success: true, newJobId });
 });
 
-router.patch("/auth/admin/communication-center/jobs/:id/recipient", requireAdmin, async (req, res) => {
+router.patch("/auth/admin/communication-center/jobs/:id/recipient" async (req, res) => {
   const { recipientEmail, recipientName, recipientPhone } = req.body as {
     recipientEmail?: string;
     recipientName?: string;
@@ -358,15 +348,13 @@ router.patch("/auth/admin/communication-center/jobs/:id/recipient", requireAdmin
 
 // ─── Bulk ────────────────────────────────────────────────────────────────────
 
-router.post("/auth/admin/communication-center/bulk/preview-recipients", requireAdmin, async (req, res) => {
+router.post("/auth/admin/communication-center/bulk/preview-recipients" async (req, res) => {
   const filter = req.body as Parameters<typeof resolveBulkRecipients>[0];
   const recipients = await resolveBulkRecipients(filter);
   res.json({ recipients, count: recipients.length });
 });
 
-router.post("/auth/admin/communication-center/bulk/queue", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.post("/auth/admin/communication-center/bulk/queue" async (req, res) => {
   const { templateId, filter, mergeData, sendImmediately } = req.body as {
     templateId: string;
     filter: Parameters<typeof resolveBulkRecipients>[0];
@@ -390,14 +378,12 @@ router.post("/auth/admin/communication-center/bulk/queue", requireAdmin, async (
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/assets", requireAdmin, async (_req, res) => {
+router.get("/auth/admin/communication-center/assets" async (_req, res) => {
   const assets = await db.select().from(communicationAssetsTable).orderBy(communicationAssetsTable.name);
   res.json({ assets });
 });
 
-router.post("/auth/admin/communication-center/assets", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.post("/auth/admin/communication-center/assets" async (req, res) => {
   const schema = z.object({
     name: z.string().min(1),
     assetKey: z.string().min(1),
@@ -414,9 +400,7 @@ router.post("/auth/admin/communication-center/assets", requireAdmin, async (req,
   res.status(201).json({ asset });
 });
 
-router.put("/auth/admin/communication-center/assets/:id", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.put("/auth/admin/communication-center/assets/:id" async (req, res) => {
   const [asset] = await db
     .update(communicationAssetsTable)
     .set({ ...req.body, updatedAt: new Date() })
@@ -429,7 +413,7 @@ router.put("/auth/admin/communication-center/assets/:id", requireAdmin, async (r
 
 // ─── Logs ────────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/logs", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/logs" async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 100), 500);
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const jobId = typeof req.query.jobId === "string" ? req.query.jobId : undefined;
@@ -458,14 +442,12 @@ router.get("/auth/admin/communication-center/logs", requireAdmin, async (req, re
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/settings", requireAdmin, async (_req, res) => {
+router.get("/auth/admin/communication-center/settings" async (_req, res) => {
   const settings = await getSettings();
   res.json({ settings });
 });
 
-router.put("/auth/admin/communication-center/settings", requireAdmin, async (req, res) => {
-  if (!isMasterAdmin(req)) return res.status(403).json({ error: "Master admin required" });
-
+router.put("/auth/admin/communication-center/settings" async (req, res) => {
   const { key, value } = req.body as { key?: string; value?: Record<string, unknown> };
   if (!key || !value) return res.status(400).json({ error: "key and value required" });
 
@@ -475,7 +457,7 @@ router.put("/auth/admin/communication-center/settings", requireAdmin, async (req
 
 // ─── Entity history ──────────────────────────────────────────────────────────
 
-router.get("/auth/admin/communication-center/history/:entityType/:entityId", requireAdmin, async (req, res) => {
+router.get("/auth/admin/communication-center/history/:entityType/:entityId" async (req, res) => {
   const entityId = Number(req.params.entityId);
   if (!Number.isFinite(entityId)) return res.status(400).json({ error: "Invalid entity ID" });
 

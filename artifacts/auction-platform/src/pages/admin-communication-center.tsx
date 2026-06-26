@@ -162,6 +162,12 @@ export default function AdminCommunicationCenter() {
   const [location, navigate] = useLocation();
   const [tab, setTab] = useState<TabKey>(() => tabFromPath(location));
 
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && !isMaster) {
+      navigate("/admin");
+    }
+  }, [isLoading, isLoggedIn, isMaster, navigate]);
+
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [jobs, setJobs] = useState<CommJob[]>([]);
@@ -342,7 +348,7 @@ export default function AdminCommunicationCenter() {
     changeTab("sent");
   };
 
-  if (isLoading || !isLoggedIn) {
+  if (isLoading || !isLoggedIn || !isMaster) {
     return (
       <AdminShell title="Communication Center">
         <div className="space-y-4 p-6">
@@ -484,11 +490,9 @@ export default function AdminCommunicationCenter() {
           <TabsContent value="templates" className="space-y-4">
             <div className="flex justify-between">
               <h2 className="text-lg font-semibold">Email Templates</h2>
-              {isMaster && (
-                <Button onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", internalKey: "", subject: "", htmlBody: "", autoSend: true, isActive: true }); setShowTemplateDialog(true); }}>
-                  New Template
-                </Button>
-              )}
+              <Button onClick={() => { setEditingTemplate(null); setTemplateForm({ name: "", internalKey: "", subject: "", htmlBody: "", autoSend: true, isActive: true }); setShowTemplateDialog(true); }}>
+                New Template
+              </Button>
             </div>
             <Card>
               <CardContent className="p-0">
@@ -711,7 +715,7 @@ export default function AdminCommunicationCenter() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowTemplateDialog(false); setEditingTemplate(null); }}>Cancel</Button>
-            <Button onClick={() => void saveTemplate()} disabled={!isMaster}>Save Template</Button>
+            <Button onClick={() => void saveTemplate()}>Save Template</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -816,6 +820,7 @@ function JobsTable({
   );
 }
 
+/** Super Admin only — embed on platform admin profile pages, never in the organiser panel. */
 export function CommunicationHistoryPanel({
   entityType,
   entityId,

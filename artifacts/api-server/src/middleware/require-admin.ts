@@ -8,3 +8,12 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   }
   next();
 }
+
+/** Super Admin (master) only — platform-internal modules such as Communication Center. */
+export function requireMasterAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.jwtUser?.isAdmin || req.jwtUser.adminLevel !== "master") {
+    res.status(403).json({ error: "Super Admin access required" });
+    return;
+  }
+  next();
+}

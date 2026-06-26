@@ -105,6 +105,7 @@ function NavSection({
 export function AdminSidebarNav({
   location,
   onNavigate,
+  isMaster = false,
 }: {
   location: string;
   onNavigate?: () => void;
@@ -119,7 +120,9 @@ export function AdminSidebarNav({
       />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
-      <NavSection label="Communication" items={communicationItems} location={location} onNavigate={onNavigate} />
+      {isMaster && (
+        <NavSection label="Platform" items={communicationItems} location={location} onNavigate={onNavigate} />
+      )}
       <NavSection label="Platform Settings" items={settingItems} location={location} onNavigate={onNavigate} />
     </nav>
   );
