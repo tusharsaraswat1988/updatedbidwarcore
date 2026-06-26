@@ -16,7 +16,16 @@ export function playerRegistrationPath(auctionCode: string): string {
   return `/register/${encodeURIComponent(normalized)}`;
 }
 
-/** Absolute registration URL for QR codes, WhatsApp, and copy links. */
+/** Absolute registration URL (canonical — no query string). */
 export function playerRegistrationPublicUrl(origin: string, auctionCode: string): string {
   return `${origin.replace(/\/+$/, "")}${playerRegistrationPath(auctionCode)}`;
+}
+
+/** WhatsApp/Meta cache-bust version — bump when OG metadata changes need a fresh scrape. */
+export const REGISTRATION_SHARE_CACHE_VERSION = "3";
+
+/** Shareable registration URL with cache-bust query for WhatsApp link previews. */
+export function playerRegistrationShareUrl(origin: string, auctionCode: string): string {
+  const base = playerRegistrationPublicUrl(origin, auctionCode);
+  return `${base}?v=${REGISTRATION_SHARE_CACHE_VERSION}`;
 }

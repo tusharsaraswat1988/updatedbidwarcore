@@ -2,8 +2,7 @@ import {
   isValidRegistrationCodeFormat,
   normalizeRegistrationCode,
 } from "@workspace/api-base/registration-url";
-import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
-import { BASE_URL, DEFAULT_OG_IMAGE_URL, type RegistrationMetaFields } from "./page-meta.js";
+import { BASE_URL, type RegistrationMetaFields } from "./page-meta.js";
 
 const REGISTRATION_PUBLIC_RE = /^\/register\/([^/?#]+)\/?$/;
 
@@ -34,17 +33,10 @@ function absolutizeImageUrl(url: string): string {
   return `${BASE_URL.replace(/\/+$/, "")}/${trimmed.replace(/^\/+/, "")}`;
 }
 
-/** Resolve OG image using tournament assets first, then platform branding, then default. */
-export function resolveRegistrationOgImage(fields: RegistrationMetaFields): string {
-  if (fields.bannerUrl?.trim()) {
-    return absolutizeImageUrl(fields.bannerUrl);
-  }
-  if (fields.logoUrl?.trim()) {
-    return absolutizeImageUrl(fields.logoUrl);
-  }
-  const platformOg = getPlatformOpenGraphImageUrl();
-  if (platformOg) return platformOg;
-  return DEFAULT_OG_IMAGE_URL;
+/** Public URL for dynamically generated 1200×630 registration OG card. */
+export function resolveRegistrationOgImage(code: string): string {
+  const normalized = normalizeRegistrationCode(code);
+  return `${BASE_URL.replace(/\/+$/, "")}/og/register/${encodeURIComponent(normalized)}.png`;
 }
 
 /** Build crawler-facing description for registration link previews. */

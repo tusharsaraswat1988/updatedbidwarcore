@@ -29,7 +29,7 @@ import {
   type SearchGlobalPlayersParams,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { playerRegistrationPublicUrl } from "@workspace/api-base/registration-url";
+import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2549,7 +2549,7 @@ export default function Players() {
     if (typeof window === "undefined") return "";
     const code = tournament?.auctionCode;
     if (!code) return "";
-    return playerRegistrationPublicUrl(window.location.origin, code);
+    return playerRegistrationShareUrl(window.location.origin, code);
   }, [tournament?.auctionCode]);
 
   return (

@@ -25,6 +25,7 @@ import {
 } from "./lib/registration-page-meta.js";
 import { BLOG_POSTS_META } from "@workspace/blog-data";
 import { loadIndexHtml, injectPageMeta } from "./lib/html-meta-injector.js";
+import { registerOgImageRoutes } from "./routes/og-images.js";
 import {
   buildAuctionPlatformManifest,
   buildOwnerAppManifest,
@@ -195,6 +196,8 @@ if (serveStatic) {
     // Load the built index.html into memory once for meta injection.
     loadIndexHtml(auctionDist);
     logger.info("SEO: page-meta injector loaded");
+
+    registerOgImageRoutes(app);
 
     // ── Server-side meta injection for marketing pages ────────────────────────
     // For every known public marketing URL, we replace the PAGE_META_START/END

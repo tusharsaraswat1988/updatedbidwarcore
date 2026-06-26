@@ -3,6 +3,7 @@ import {
   normalizeRegistrationCode,
   playerRegistrationPath,
   playerRegistrationPublicUrl,
+  playerRegistrationShareUrl,
   isValidRegistrationCodeFormat,
 } from "@workspace/api-base/registration-url";
 
@@ -16,6 +17,9 @@ describe("registration-url", () => {
     expect(playerRegistrationPath("CU1234")).toBe("/register/CU1234");
     expect(playerRegistrationPublicUrl("https://bidwar.in", "CU1234")).toBe(
       "https://bidwar.in/register/CU1234",
+    );
+    expect(playerRegistrationShareUrl("https://bidwar.in", "CU1234")).toBe(
+      "https://bidwar.in/register/CU1234?v=3",
     );
   });
 });

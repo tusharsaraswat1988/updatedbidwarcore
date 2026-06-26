@@ -54,7 +54,7 @@ export async function resolveRegistrationPageMeta(pathname: string): Promise<Pag
   const canonical = playerRegistrationPublicUrl(BASE_URL, code);
   const title = `${fields.tournamentName.trim()} | Player Registration`;
   const description = buildRegistrationShareDescription(fields);
-  const ogImage = resolveRegistrationOgImage(fields);
+  const ogImage = resolveRegistrationOgImage(code);
 
   return {
     title,

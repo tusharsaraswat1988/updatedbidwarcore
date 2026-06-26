@@ -27,6 +27,8 @@ describe("resolveRegistrationPageMeta", () => {
       mainBannerEnabled: false,
       organizerName: "Organizer",
       auctionCode: "VN830108",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-01T00:00:00.000Z"),
     } as Awaited<ReturnType<typeof loadTournamentByRegistrationCode>>);
 
     const meta = await resolveRegistrationPageMeta("/register/VN830108");
@@ -35,7 +37,7 @@ describe("resolveRegistrationPageMeta", () => {
       title: "Vyapari Network Badminton League | Player Registration",
       canonical: "https://bidwar.in/register/VN830108",
       ogTitle: "Vyapari Network Badminton League | Player Registration",
-      ogImage: "https://cdn.example/tournament-logo.jpg",
+      ogImage: "https://bidwar.in/og/register/VN830108.png",
       twitterTitle: "Vyapari Network Badminton League | Player Registration",
     });
     expect(meta?.description).toContain("Vyapari Network Badminton League");

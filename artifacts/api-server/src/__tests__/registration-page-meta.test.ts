@@ -1,24 +1,12 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildRegistrationShareDescription,
   isRegistrationPublicPath,
   parseRegistrationCodeFromPath,
   resolveRegistrationOgImage,
 } from "../lib/registration-meta-builders.js";
-import type { RegistrationMetaFields } from "../lib/page-meta.js";
-
-vi.mock("../lib/branding-service.js", () => ({
-  getPlatformOpenGraphImageUrl: vi.fn(() => null),
-}));
-
-import { getPlatformOpenGraphImageUrl } from "../lib/branding-service.js";
-import { DEFAULT_OG_IMAGE_URL } from "../lib/page-meta.js";
 
 describe("registration-page-meta", () => {
-  beforeEach(() => {
-    vi.mocked(getPlatformOpenGraphImageUrl).mockReturnValue(null);
-  });
-
   it("detects valid registration paths", () => {
     expect(isRegistrationPublicPath("/register/VN410108")).toBe(true);
     expect(parseRegistrationCodeFromPath("/register/vn410108")).toBe("VN410108");
@@ -54,34 +42,7 @@ describe("registration-page-meta", () => {
     expect(description).not.toContain("Venue:");
   });
 
-  it("resolves OG image with banner → logo → platform → default priority", () => {
-    const base: RegistrationMetaFields = {
-      tournamentName: "Test",
-      bannerUrl: "https://cdn.example/banner.png",
-      logoUrl: "https://cdn.example/logo.png",
-    };
-
-    expect(resolveRegistrationOgImage(base)).toBe("https://cdn.example/banner.png");
-
-    expect(
-      resolveRegistrationOgImage({
-        tournamentName: "Test",
-        logoUrl: "https://cdn.example/logo.png",
-      }),
-    ).toBe("https://cdn.example/logo.png");
-
-    vi.mocked(getPlatformOpenGraphImageUrl).mockReturnValue("https://cdn.example/og.png");
-    expect(
-      resolveRegistrationOgImage({
-        tournamentName: "Test",
-      }),
-    ).toBe("https://cdn.example/og.png");
-
-    vi.mocked(getPlatformOpenGraphImageUrl).mockReturnValue(null);
-    expect(
-      resolveRegistrationOgImage({
-        tournamentName: "Test",
-      }),
-    ).toBe(DEFAULT_OG_IMAGE_URL);
+  it("resolves OG image URL to generated social card endpoint", () => {
+    expect(resolveRegistrationOgImage("VN410108")).toBe("https://bidwar.in/og/register/VN410108.png");
   });
 });
