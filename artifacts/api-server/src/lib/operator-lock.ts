@@ -160,6 +160,35 @@ export async function releaseOperatorLock(
   }
 }
 
+/**
+ * Force-acquire the operator lock for a specific tab, unconditionally
+ * displacing whatever holder currently exists.  Used by the explicit
+ * "Take Over" UX — only callable by an authenticated organizer who has
+ * confirmed the takeover intent in the UI.
+ */
+export async function forceAcquireOperatorLock(
+  tournamentId: number,
+  sessionId: string,
+  ownerId: string,
+): Promise<{ acquired: boolean; holderTabId: string }> {
+  const redis = getRedisCommandClient();
+  const now = Date.now();
+  const payload = serializeLock(sessionId, ownerId, now);
+
+  if (redis) {
+    await redis.set(LOCK_KEY(tournamentId), payload, "EX", LOCK_TTL_SEC);
+    return { acquired: true, holderTabId: sessionId };
+  }
+
+  memoryLocks.set(tournamentId, {
+    tabId: sessionId,
+    ownerId,
+    lastHeartbeat: now,
+    acquiredAt: now,
+  });
+  return { acquired: true, holderTabId: sessionId };
+}
+
 export async function getOperatorLockHolder(tournamentId: number): Promise<string | null> {
   const redis = getRedisCommandClient();
 

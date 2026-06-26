@@ -67,6 +67,7 @@ import {
 import { snapshotPlayer, snapshotTeam } from "../lib/audit-snapshots";
 import {
   acquireOperatorLock,
+  forceAcquireOperatorLock,
   heartbeatOperatorLock,
   releaseOperatorLock,
 } from "../lib/operator-lock";
@@ -900,6 +901,27 @@ router.post("/tournaments/:tournamentId/auction/operator-lock/release", async (r
   if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
   await releaseOperatorLock(tid, parsed.data.tabId);
   res.json({ ok: true });
+});
+
+// POST force-takeover: authenticated organizer explicitly displaces the current lock holder.
+// This is the safe "Take Over" path — the operator must confirm in the UI before calling
+// this route, so it is never triggered by a transient network error.
+router.post("/tournaments/:tournamentId/auction/operator-lock/takeover", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+  const parsed = operatorLockBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid body" }); return; }
+  const result = await forceAcquireOperatorLock(tid, parsed.data.tabId, operatorOwnerId(req));
+  auditLog(req, {
+    category: "auction",
+    action: "auction.operator_takeover",
+    summary: "Operator session lock force-taken over",
+    tournamentId: tid,
+    resource: { type: "auction_session", id: tid },
+    metadata: { tabId: parsed.data.tabId },
+  });
+  res.json(result);
 });
 
 // POST start / resume auction

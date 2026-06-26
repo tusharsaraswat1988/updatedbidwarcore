@@ -266,7 +266,12 @@ export default function AuctionOperator() {
 
   const { connectionStatus } = useAuctionSocket(tournamentId);
   const { applyMutationResult, invalidateFallback } = useMutationSync(tournamentId, connectionStatus);
-  const { readOnly: operatorReadOnly, lockReady: operatorLockReady } = useOperatorSessionLock(tournamentId);
+  const {
+    readOnly: operatorReadOnly,
+    lockReady: operatorLockReady,
+    lockStatus: operatorLockStatus,
+    takeover: operatorTakeover,
+  } = useOperatorSessionLock(tournamentId);
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -745,7 +750,32 @@ export default function AuctionOperator() {
 
         <LocalOperatorPinBar tournamentId={tournamentId} />
 
-        {operatorLockReady && operatorReadOnly && (
+        {/* Phase 4: nuanced lock-state banners (fail-closed, retrying, locked with takeover) */}
+        {operatorLockStatus === "retrying" && (
+          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-yellow-500/10 border-yellow-500/25 text-yellow-300">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 animate-pulse" />
+            Acquiring operator lock… (network issue — retrying)
+          </div>
+        )}
+
+        {operatorLockStatus === "locked" && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+              Read-only — another operator tab is controlling this auction.
+            </div>
+            <button
+              onClick={() => { void operatorTakeover(); }}
+              className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-orange-500/20 hover:bg-orange-500/40 border border-orange-500/40 transition-colors"
+              title="Force-take control of this auction (use only if the other tab is unresponsive)"
+            >
+              Take Over
+            </button>
+          </div>
+        )}
+
+        {/* Legacy banner for backward compatibility while lockStatus is unknown */}
+        {operatorLockReady && operatorReadOnly && operatorLockStatus !== "locked" && (
           <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 text-xs border-b z-20 bg-orange-500/10 border-orange-500/25 text-orange-300">
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
             Read-only — another operator tab is controlling this auction. Close the other tab or wait for it to disconnect.
