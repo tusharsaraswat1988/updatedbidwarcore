@@ -37,7 +37,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos, validateSponsorList } from "@/lib/sponsor-logo";
-import { SettingsCard } from "@/components/settings/settings-card";
+import { SettingsCard, SettingsInsetBlock, SettingsTabPanel } from "@/components/settings/settings-card";
 import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
@@ -660,7 +660,8 @@ export default function TournamentSettings() {
       />
 
       {/* Sticky tab strip */}
-      <div className="flex border-b border-border mb-5 overflow-x-auto sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-1 -mx-1 px-1">
+      <div className="sticky top-0 z-20 mb-5 rounded-xl border border-border/70 bg-[hsl(240,10%,8%)] p-1 shadow-sm shadow-black/15">
+        <div className="flex overflow-x-auto scrollbar-none">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeSection === tab.id;
@@ -668,16 +669,17 @@ export default function TournamentSettings() {
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
-              className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all border-b-2 ${
+              className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all rounded-lg ${
                 active
-                  ? "text-primary border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                  ? "text-primary bg-[hsl(240,10%,14%)] shadow-sm ring-1 ring-primary/25"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
               }`}
             >
               <Icon className="w-4 h-4" /> {tab.label}
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -685,6 +687,7 @@ export default function TournamentSettings() {
 
         {/* ── IDENTITY ── */}
         {activeSection === "identity" && (
+          <SettingsTabPanel>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <SettingsCard
               title="Tournament Information"
@@ -834,12 +837,13 @@ export default function TournamentSettings() {
               Organizer account, login password and contact details are managed by the platform support team.
             </p>
           </div>
+          </SettingsTabPanel>
         )}
 
         {/* ── PLAYER REGISTRATION ── */}
         {activeSection === "playerRegistration" && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
+          <SettingsTabPanel className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-[hsl(240,10%,9%)] px-3 py-2">
               <Badge variant="outline" className="text-xs font-normal">All settings optional</Badge>
               <p className="text-[11px] text-muted-foreground">
                 Configure the public player registration link. Changes save automatically.
@@ -854,23 +858,21 @@ export default function TournamentSettings() {
                 className="lg:col-span-2"
               >
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-medium text-foreground mb-2">Always required</p>
+                  <SettingsInsetBlock title="Always required">
                     <div className="flex flex-wrap gap-2">
                       {REGISTRATION_MANDATORY_FIELD_KEYS.map((key) => (
-                        <Badge key={key} variant="secondary" className="text-xs capitalize">
+                        <Badge key={key} variant="secondary" className="text-xs capitalize bg-muted/60">
                           {key === "mobile" ? "Mobile" : key.replace(/([A-Z])/g, " $1").trim()}
                         </Badge>
                       ))}
-                      <Badge variant="secondary" className="text-xs">Required player settings</Badge>
+                      <Badge variant="secondary" className="text-xs bg-muted/60">Required player settings</Badge>
                     </div>
-                  </div>
+                  </SettingsInsetBlock>
 
-                  <div className="space-y-2 pt-1 border-t border-border/50">
-                    <p className="text-xs font-medium text-foreground">Optional fields</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Turn off a field to hide it from players. Payment, declaration, and bid-value fields follow their own settings below.
-                    </p>
+                  <SettingsInsetBlock
+                    title="Optional fields"
+                    description="Turn off a field to hide it from players. Payment, declaration, and bid-value fields follow their own settings below."
+                  >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => {
                         const visible = !registrationFieldsHidden.includes(key);
@@ -882,7 +884,7 @@ export default function TournamentSettings() {
                         return (
                           <label
                             key={key}
-                            className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5"
+                            className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-[hsl(240,10%,8%)] px-3 py-2.5 hover:bg-[hsl(240,10%,10%)] transition-colors"
                           >
                             <span className="text-sm">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
                             <Switch
@@ -898,7 +900,7 @@ export default function TournamentSettings() {
                         );
                       })}
                     </div>
-                  </div>
+                  </SettingsInsetBlock>
                 </div>
               </SettingsCard>
 
@@ -1161,13 +1163,13 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
             </div>
-          </div>
+          </SettingsTabPanel>
         )}
 
         {/* ── AUCTION RULES ── */}
         {activeSection === "auction" && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <SettingsTabPanel className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 bg-[hsl(240,10%,9%)] px-3 py-2">
               <p className="text-xs text-muted-foreground">Set these before your auction starts.</p>
               <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={applyCricketPreset}>
                 Use standard cricket settings
@@ -1348,12 +1350,12 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
             </div>
-          </div>
+          </SettingsTabPanel>
         )}
 
         {/* ── SPONSORS ── */}
         {activeSection === "sponsors" && (
-          <div className="max-w-3xl">
+          <SettingsTabPanel className="max-w-3xl">
             <SettingsCard
               title="Sponsor Logos"
               description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 2 seconds on the big screen."
@@ -1365,11 +1367,12 @@ export default function TournamentSettings() {
               </div>
               <SponsorLogosEditor logos={sponsorLogos} onChange={setSponsorLogos} onUploadFile={handleSponsorLogoUpload} uploadingIdx={sponsorUploadingIdx} />
             </SettingsCard>
-          </div>
+          </SettingsTabPanel>
         )}
 
         {/* ── BROADCAST ── */}
         {activeSection === "broadcast" && (
+          <SettingsTabPanel>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <SettingsCard
               title="LED Display"
@@ -1677,11 +1680,12 @@ export default function TournamentSettings() {
               )}
             </SettingsCard>
           </div>
+          </SettingsTabPanel>
         )}
 
         {/* ── RECOVERY ── */}
         {activeSection === "recovery" && (
-          <div className="max-w-3xl">
+          <SettingsTabPanel className="max-w-3xl">
             <SettingsCard
               title="Danger Zone"
               description="Irreversible actions that reset live auction state."
@@ -1721,7 +1725,7 @@ export default function TournamentSettings() {
                 </p>
               </div>
             </SettingsCard>
-          </div>
+          </SettingsTabPanel>
         )}
       </div>
 
