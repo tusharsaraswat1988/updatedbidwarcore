@@ -28,7 +28,19 @@ describe("og-image cache key", () => {
     tournamentName: "Test League",
     sport: "badminton",
     backgroundImageUrl: "https://cdn.example/banner.jpg",
-    generatorVersion: 2,
+    backgroundKind: "banner",
+    registrationStatus: "open",
+    brand: {
+      brandName: "BidWar",
+      poweredByText: "Powered by BidWar",
+      primaryColor: "#F59E0B",
+      secondaryColor: "#1E293B",
+      accentColor: "#3B82F6",
+      backgroundColor: "#080A0F",
+      dangerColor: "#EF4444",
+      logoUrl: "https://cdn.example/bidwar-logo.svg",
+    },
+    generatorVersion: 3,
     contentVersion: "2026-06-26T00:00:00.000Z",
   };
 

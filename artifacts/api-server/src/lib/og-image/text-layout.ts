@@ -12,7 +12,7 @@ export function wrapTitleLines(title: string, maxLines = 3): string[] {
   const words = title.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return ["Tournament"];
 
-  const maxChars = words.some((w) => w.length > 14) ? 20 : 24;
+  const maxChars = words.some((w) => w.length > 14) ? 18 : 22;
 
   const lines: string[] = [];
   let current = "";
@@ -41,9 +41,10 @@ export function wrapTitleLines(title: string, maxLines = 3): string[] {
 }
 
 export function titleFontSize(lineCount: number): number {
-  if (lineCount <= 1) return 58;
-  if (lineCount === 2) return 48;
-  return 40;
+  if (lineCount <= 1) return 72;
+  if (lineCount === 2) return 60;
+  if (lineCount === 3) return 48;
+  return 42;
 }
 
 export function formatRegistrationDeadline(raw: string | null | undefined): string | null {

@@ -175,6 +175,7 @@ export interface RegistrationMetaFields {
   bannerUrl?: string | null;
   organizerName?: string | null;
   registrationCode?: string | null;
+  registrationDeadline?: string | null;
 }
 
 export interface PageMeta {

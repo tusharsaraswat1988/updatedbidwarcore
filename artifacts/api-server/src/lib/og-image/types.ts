@@ -13,10 +13,20 @@ export interface RegistrationOgCardInput {
   venue?: string | null;
   organizerName?: string | null;
   registrationDeadline?: string | null;
+  registrationStatus: "open" | "closed";
   /** Resolved background source URL (banner → logo → platform → default). */
-  backgroundImageUrl: string;
-  /** Optional crisp logo overlay (usually tournament logo). */
-  logoImageUrl?: string | null;
+  backgroundImageUrl?: string | null;
+  backgroundKind: "banner" | "generated";
+  brand: {
+    brandName: string;
+    poweredByText: string;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    backgroundColor: string;
+    dangerColor: string;
+    logoUrl?: string | null;
+  };
   /** Bump when card layout/design changes to invalidate disk cache. */
   generatorVersion: number;
   /** Tournament row updatedAt ISO — invalidates cache when branding changes. */

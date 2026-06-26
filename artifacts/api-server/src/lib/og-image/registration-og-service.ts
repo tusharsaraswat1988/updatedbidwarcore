@@ -1,4 +1,6 @@
 import { BASE_URL } from "../page-meta.js";
+import { db, brandingSettingsTable } from "@workspace/db";
+import { getAsset } from "../branding-service.js";
 import { loadTournamentByRegistrationCode } from "../registration-context-service.js";
 import { tournamentRowToRegistrationMetaFields } from "../registration-meta-builders.js";
 import { REGISTRATION_OG_GENERATOR_VERSION } from "./constants.js";
@@ -7,7 +9,10 @@ import {
   readCachedRegistrationOgImage,
   writeCachedRegistrationOgImage,
 } from "./cache.js";
-import { composeRegistrationOgCard, resolveRegistrationBackgroundImageUrl } from "./compose-registration-card.js";
+import {
+  composeRegistrationOgCard,
+  resolveRegistrationBackgroundImageUrl,
+} from "./compose-registration-card.js";
 import type { RegistrationOgCardInput, RegistrationOgImageResult } from "./types.js";
 
 export function registrationOgImagePublicUrl(code: string): string {
@@ -15,11 +20,39 @@ export function registrationOgImagePublicUrl(code: string): string {
   return `${origin}/og/register/${encodeURIComponent(code)}.png`;
 }
 
-function buildInputFromTournament(
+async function resolveBrandingForOgCard(): Promise<RegistrationOgCardInput["brand"]> {
+  const [settings] = await db.select().from(brandingSettingsTable).limit(1);
+  const reverseLogo = await getAsset("REVERSE_LOGO");
+  const primaryLogo = await getAsset("PRIMARY_LOGO");
+  const symbolLogo = await getAsset("SYMBOL_LOGO");
+
+  const logoUrl = reverseLogo?.fileUrl ?? primaryLogo?.fileUrl ?? symbolLogo?.fileUrl ?? null;
+
+  return {
+    brandName: settings?.brandName ?? "BidWar",
+    poweredByText: settings?.poweredByText ?? "Powered by BidWar",
+    primaryColor: settings?.primaryColor ?? "#F59E0B",
+    secondaryColor: settings?.secondaryColor ?? "#1E293B",
+    accentColor: settings?.accentColor ?? "#3B82F6",
+    backgroundColor: settings?.backgroundColor ?? "#080A0F",
+    dangerColor: settings?.dangerColor ?? "#EF4444",
+    logoUrl: logoUrl ? absolutizeLogoUrl(logoUrl) : null,
+  };
+}
+
+function resolveRegistrationStatus(deadline: string | null | undefined): "open" | "closed" {
+  const trimmed = deadline?.trim();
+  if (!trimmed) return "open";
+  const today = new Date().toISOString().slice(0, 10);
+  return today > trimmed ? "closed" : "open";
+}
+
+async function buildInputFromTournament(
   tournament: NonNullable<Awaited<ReturnType<typeof loadTournamentByRegistrationCode>>>,
-): RegistrationOgCardInput {
+): Promise<RegistrationOgCardInput> {
   const fields = tournamentRowToRegistrationMetaFields(tournament);
   const registrationCode = tournament.auctionCode?.trim().toUpperCase() ?? "";
+  const bannerUrl = fields.bannerUrl?.trim() ? resolveRegistrationBackgroundImageUrl(fields) : null;
 
   return {
     registrationCode,
@@ -28,8 +61,10 @@ function buildInputFromTournament(
     venue: fields.venue,
     organizerName: fields.organizerName,
     registrationDeadline: tournament.registrationDeadline,
-    backgroundImageUrl: resolveRegistrationBackgroundImageUrl(fields),
-    logoImageUrl: fields.logoUrl?.trim() ? absolutizeLogoUrl(fields.logoUrl) : null,
+    registrationStatus: resolveRegistrationStatus(tournament.registrationDeadline),
+    backgroundImageUrl: bannerUrl,
+    backgroundKind: bannerUrl ? "banner" : "generated",
+    brand: await resolveBrandingForOgCard(),
     generatorVersion: REGISTRATION_OG_GENERATOR_VERSION,
     contentVersion: tournament.updatedAt?.toISOString() ?? tournament.createdAt.toISOString(),
     badges: [],
@@ -50,7 +85,7 @@ export async function getOrCreateRegistrationOgImage(
   const tournament = await loadTournamentByRegistrationCode(rawCode);
   if (!tournament?.auctionCode) return null;
 
-  const input = buildInputFromTournament(tournament);
+  const input = await buildInputFromTournament(tournament);
   const etag = buildRegistrationOgCacheKey(input);
 
   const cached = await readCachedRegistrationOgImage(input.registrationCode, etag);

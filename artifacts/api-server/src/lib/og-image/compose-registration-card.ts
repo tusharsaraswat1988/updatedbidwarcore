@@ -4,6 +4,7 @@ import { getPlatformOpenGraphImageUrl } from "../branding-service.js";
 import { BASE_URL, DEFAULT_OG_IMAGE_URL, type RegistrationMetaFields } from "../page-meta.js";
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "./constants.js";
 import { buildRegistrationCardOverlaySvg } from "./svg-overlay.js";
+import { escapeSvgText } from "./text-layout.js";
 import type { RegistrationOgCardInput } from "./types.js";
 
 function absolutizeImageUrl(url: string): string {
@@ -14,74 +15,115 @@ function absolutizeImageUrl(url: string): string {
   return `${BASE_URL.replace(/\/+$/, "")}/${trimmed.replace(/^\/+/, "")}`;
 }
 
-/** Background URL priority: banner → logo → platform OG → default. */
+/** External background resolver for uploaded tournament banners. */
 export function resolveRegistrationBackgroundImageUrl(fields: RegistrationMetaFields): string {
   if (fields.bannerUrl?.trim()) {
     return absolutizeImageUrl(fields.bannerUrl);
-  }
-  if (fields.logoUrl?.trim()) {
-    return absolutizeImageUrl(fields.logoUrl);
   }
   const platformOg = getPlatformOpenGraphImageUrl();
   if (platformOg) return platformOg;
   return DEFAULT_OG_IMAGE_URL;
 }
 
-async function withOpacity(buffer: Buffer, opacity: number): Promise<Buffer> {
-  return sharp(buffer)
-    .ensureAlpha()
-    .linear([1, 1, 1, opacity], [0, 0, 0, 0])
-    .png()
-    .toBuffer();
+function sanitizeHexColor(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return fallback;
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed;
+  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`;
+  }
+  return fallback;
 }
 
-async function isSquareLogo(source: Buffer): Promise<boolean> {
-  const meta = await sharp(source).metadata();
-  const w = meta.width ?? 1;
-  const h = meta.height ?? 1;
-  return Math.abs(w - h) / Math.max(w, h) < 0.22;
+function buildGeneratedSportsBackground(input: RegistrationOgCardInput): Buffer {
+  const primary = sanitizeHexColor(input.brand.primaryColor, "#F59E0B");
+  const secondary = sanitizeHexColor(input.brand.secondaryColor, "#1E293B");
+  const background = sanitizeHexColor(input.brand.backgroundColor, "#080A0F");
+  const sport = escapeSvgText((input.sport.trim() || "Sports").toUpperCase());
+
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${OG_IMAGE_WIDTH}" height="${OG_IMAGE_HEIGHT}" viewBox="0 0 ${OG_IMAGE_WIDTH} ${OG_IMAGE_HEIGHT}">
+  <defs>
+    <radialGradient id="stadiumGlow" cx="72%" cy="28%" r="62%">
+      <stop offset="0%" stop-color="${secondary}" stop-opacity="0.74"/>
+      <stop offset="50%" stop-color="${background}" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="${background}" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="fieldSweep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${primary}" stop-opacity="0.34"/>
+      <stop offset="42%" stop-color="${secondary}" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="${background}" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="${background}"/>
+  <rect width="1200" height="630" fill="url(#stadiumGlow)"/>
+  <path d="M0 474 C236 404 452 392 712 432 C908 462 1068 452 1200 404 L1200 630 L0 630 Z" fill="${secondary}" opacity="0.44"/>
+  <path d="M600 342 L1170 610 M742 326 L1200 520 M470 362 L930 630 M250 430 L535 630" stroke="${primary}" stroke-opacity="0.16" stroke-width="2"/>
+  <path d="M682 148 C820 108 982 108 1128 148" stroke="#ffffff" stroke-opacity="0.13" stroke-width="3" fill="none"/>
+  <path d="M720 190 C846 158 982 158 1096 190" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2" fill="none"/>
+  <circle cx="930" cy="430" r="170" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
+  <text x="1160" y="132" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-size="76" font-weight="800" fill="#ffffff" opacity="0.045" letter-spacing="4">${sport}</text>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#fieldSweep)" opacity="0.42"/>
+</svg>`;
+
+  return Buffer.from(svg);
 }
 
-async function buildDarkBase(): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: OG_IMAGE_WIDTH,
-      height: OG_IMAGE_HEIGHT,
-      channels: 4,
-      background: { r: 10, g: 10, b: 12, alpha: 1 },
-    },
-  })
-    .png()
-    .toBuffer();
-}
-
-/** Subtle atmospheric wash — never a readable giant watermark. */
-async function buildAtmosphericBackground(source: Buffer): Promise<Buffer> {
-  const squareLogo = await isSquareLogo(source);
-  const darkBase = await buildDarkBase();
-
-  const atmospheric = await sharp(source)
-    .resize(OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT, { fit: "cover", position: "centre" })
-    .blur(squareLogo ? 36 : 22)
-    .modulate({
-      brightness: squareLogo ? 0.32 : 0.4,
-      saturation: squareLogo ? 0.28 : 0.5,
+async function buildBannerBackground(source: Buffer, input: RegistrationOgCardInput): Promise<Buffer> {
+  const base = await sharp(source)
+    .resize(OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT, {
+      fit: "cover",
+      position: "attention",
+      withoutEnlargement: false,
     })
+    .modulate({ brightness: 0.62, saturation: 0.86 })
     .png()
     .toBuffer();
 
-  const faded = await withOpacity(atmospheric, squareLogo ? 0.18 : 0.32);
+  const primary = sanitizeHexColor(input.brand.primaryColor, "#F59E0B");
+  const background = sanitizeHexColor(input.brand.backgroundColor, "#080A0F");
+  const overlay = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${OG_IMAGE_WIDTH}" height="${OG_IMAGE_HEIGHT}" viewBox="0 0 ${OG_IMAGE_WIDTH} ${OG_IMAGE_HEIGHT}">
+  <defs>
+    <linearGradient id="readability" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="${background}" stop-opacity="0.94"/>
+      <stop offset="52%" stop-color="${background}" stop-opacity="0.78"/>
+      <stop offset="100%" stop-color="${background}" stop-opacity="0.5"/>
+    </linearGradient>
+    <radialGradient id="accentGlow" cx="82%" cy="14%" r="58%">
+      <stop offset="0%" stop-color="${primary}" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="${primary}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#readability)"/>
+  <rect width="1200" height="630" fill="url(#accentGlow)"/>
+</svg>`;
 
-  return sharp(darkBase)
-    .composite([{ input: faded, top: 0, left: 0 }])
+  return sharp(base)
+    .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
     .png()
     .toBuffer();
 }
 
-async function buildLogoOverlay(source: Buffer): Promise<{ buffer: Buffer; top: number; left: number }> {
-  const size = 112;
+async function buildBackground(input: RegistrationOgCardInput): Promise<Buffer> {
+  if (input.backgroundKind === "banner" && input.backgroundImageUrl) {
+    const remote = await fetchImageBuffer(input.backgroundImageUrl);
+    if (remote) return buildBannerBackground(remote, input);
+  }
+
+  return sharp(buildGeneratedSportsBackground(input)).png().toBuffer();
+}
+
+async function buildBrandLogoOverlay(
+  logoUrl: string | null | undefined,
+): Promise<{ buffer: Buffer; top: number; left: number } | null> {
+  const trimmed = logoUrl?.trim();
+  if (!trimmed) return null;
+  const source = await fetchImageBuffer(trimmed);
+  if (!source) return null;
+
   const buffer = await sharp(source)
-    .resize(size, size, {
+    .resize(196, 64, {
       fit: "contain",
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
@@ -90,43 +132,25 @@ async function buildLogoOverlay(source: Buffer): Promise<{ buffer: Buffer; top: 
 
   return {
     buffer,
-    top: 108,
-    left: Math.round((OG_IMAGE_WIDTH - size) / 2),
+    top: 46,
+    left: 64,
   };
 }
 
 /** Compose a 1200×630 registration social card PNG. */
 export async function composeRegistrationOgCard(input: RegistrationOgCardInput): Promise<Buffer> {
-  const remote = await fetchImageBuffer(input.backgroundImageUrl);
-  const fallback = await fetchImageBuffer(DEFAULT_OG_IMAGE_URL);
-  const source = remote ?? fallback;
-
-  if (!source) {
-    throw new Error("Unable to load background image for OG card");
-  }
-
-  const background = await buildAtmosphericBackground(source);
+  const background = await buildBackground(input);
   const composites: sharp.OverlayOptions[] = [];
 
-  const logoSourceUrl = input.logoImageUrl?.trim();
-  let hasLogo = false;
-
-  if (logoSourceUrl) {
-    const logoBuffer = await fetchImageBuffer(logoSourceUrl);
-    if (logoBuffer) {
-      const logo = await buildLogoOverlay(logoBuffer);
-      composites.push({ input: logo.buffer, top: logo.top, left: logo.left });
-      hasLogo = true;
-    }
-  } else if (await isSquareLogo(source)) {
-    const logo = await buildLogoOverlay(source);
-    composites.push({ input: logo.buffer, top: logo.top, left: logo.left });
-    hasLogo = true;
-  }
-
-  const overlaySvg = buildRegistrationCardOverlaySvg(input, { hasLogo });
-
+  const overlaySvg = buildRegistrationCardOverlaySvg(input, {
+    hasBrandLogo: Boolean(input.brand.logoUrl),
+  });
   composites.push({ input: Buffer.from(overlaySvg), top: 0, left: 0 });
+
+  const brandLogo = await buildBrandLogoOverlay(input.brand.logoUrl);
+  if (brandLogo) {
+    composites.push({ input: brandLogo.buffer, top: brandLogo.top, left: brandLogo.left });
+  }
 
   return sharp(background)
     .composite(composites)

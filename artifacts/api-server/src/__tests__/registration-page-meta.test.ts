@@ -15,20 +15,20 @@ describe("registration-page-meta", () => {
     expect(isRegistrationPublicPath("/")).toBe(false);
   });
 
-  it("builds description with sport and venue", () => {
+  it("builds description with status, deadline, sport, and venue", () => {
     const description = buildRegistrationShareDescription({
       tournamentName: "Varanasi Premier League",
       sport: "cricket",
       venue: "BHU Ground",
+      registrationDeadline: "2026-07-15",
     });
 
-    expect(description).toContain("Player registrations are now open.");
-    expect(description).toContain("Varanasi Premier League");
+    expect(description).toContain("Registration is now open.");
+    expect(description).toContain("Register before 15 July 2026.");
     expect(description).toContain("Sport:");
     expect(description).toContain("Cricket");
-    expect(description).toContain("Venue:");
+    expect(description).toContain("Venue: BHU Ground.");
     expect(description).toContain("BHU Ground");
-    expect(description).toContain("Register now.");
   });
 
   it("omits missing sport and venue", () => {

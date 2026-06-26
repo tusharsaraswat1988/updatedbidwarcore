@@ -25,6 +25,24 @@ function formatSportLabel(sport: string | null | undefined): string | null {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
+function formatDeadline(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(`${trimmed}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return trimmed;
+  return parsed.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function isRegistrationClosed(deadline: string | null | undefined): boolean {
+  const trimmed = deadline?.trim();
+  if (!trimmed) return false;
+  return new Date().toISOString().slice(0, 10) > trimmed;
+}
+
 function absolutizeImageUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
@@ -41,19 +59,18 @@ export function resolveRegistrationOgImage(code: string): string {
 
 /** Build crawler-facing description for registration link previews. */
 export function buildRegistrationShareDescription(fields: RegistrationMetaFields): string {
-  const lines = ["Player registrations are now open.", "", "Tournament:", fields.tournamentName.trim()];
+  const closed = isRegistrationClosed(fields.registrationDeadline);
+  const lines = [closed ? "Registration is closed." : "Registration is now open."];
 
-  const sport = formatSportLabel(fields.sport);
-  if (sport) {
-    lines.push("", "Sport:", sport);
-  }
+  const deadline = formatDeadline(fields.registrationDeadline);
+  if (deadline) lines.push(`${closed ? "Closed after" : "Register before"} ${deadline}.`);
 
   const venue = fields.venue?.trim();
-  if (venue) {
-    lines.push("", "Venue:", venue);
-  }
+  if (venue) lines.push(`Venue: ${venue}.`);
 
-  lines.push("", "Register now.");
+  const sport = formatSportLabel(fields.sport);
+  if (sport) lines.push(`Sport: ${sport}.`);
+
   return lines.join("\n");
 }
 
@@ -66,6 +83,7 @@ export function tournamentRowToRegistrationMetaFields(tournament: {
   mainBannerEnabled: boolean;
   organizerName: string | null;
   auctionCode: string | null;
+  registrationDeadline?: string | null;
 }): RegistrationMetaFields {
   const bannerUrl =
     tournament.mainBannerEnabled && tournament.mainBannerUrl?.trim()
@@ -80,5 +98,6 @@ export function tournamentRowToRegistrationMetaFields(tournament: {
     bannerUrl,
     organizerName: tournament.organizerName,
     registrationCode: tournament.auctionCode,
+    registrationDeadline: tournament.registrationDeadline ?? null,
   };
 }
