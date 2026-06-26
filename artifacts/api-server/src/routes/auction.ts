@@ -1498,14 +1498,15 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
       .set({ status: "sold", teamId, soldPrice: soldAmount })
       .where(eq(playersTable.id, playerId));
 
-    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+    // Phase 6: atomic purse increment — no read-modify-write, no lost update
     await tx
       .update(teamsTable)
-      .set({ purseUsed: (txTeam?.purseUsed ?? 0) + soldAmount })
+      .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${soldAmount}` })
       .where(eq(teamsTable.id, teamId));
 
     await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount: soldAmount });
 
+    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
 
     await tx
@@ -1673,20 +1674,18 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       .set({ status: "sold", teamId, soldPrice: amount })
       .where(eq(playersTable.id, playerId));
 
-    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-    if (txTeam && amount > 0) {
+    // Phase 6: atomic purse increment — no read-modify-write, no lost update
+    if (amount > 0) {
       await tx
         .update(teamsTable)
-        .set({ purseUsed: (txTeam.purseUsed ?? 0) + amount })
+        .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${amount}` })
         .where(eq(teamsTable.id, teamId));
-    }
-
-    if (amount > 0) {
       await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount });
     }
 
+    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
     const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
-    const [txTeamAfter] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+    const txTeamAfter = txTeam; // same row post-update, re-used for audit snapshot
 
     await tx
       .update(auctionSessionsTable)
@@ -1884,15 +1883,12 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
 
   // Atomic: purse reversal + bid deletion + player reset + session update.
   await db.transaction(async (tx) => {
-    // If player was sold, reverse purse usage
+    // If player was sold, reverse purse usage (Phase 6: atomic decrement, clamped at 0)
     if (player.status === "sold" && player.teamId && player.soldPrice) {
-      const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, player.teamId));
-      if (txTeam) {
-        await tx
-          .update(teamsTable)
-          .set({ purseUsed: Math.max(0, txTeam.purseUsed - player.soldPrice) })
-          .where(eq(teamsTable.id, player.teamId));
-      }
+      await tx
+        .update(teamsTable)
+        .set({ purseUsed: sql`GREATEST(0, COALESCE(purse_used, 0) - ${player.soldPrice})` })
+        .where(eq(teamsTable.id, player.teamId));
       await tx
         .delete(bidsTable)
         .where(and(eq(bidsTable.playerId, playerId), eq(bidsTable.tournamentId, tid)));
@@ -2392,7 +2388,7 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
       .where(eq(auctionSessionsTable.tournamentId, tid));
 
     const purseUsedBefore = teamBefore?.purseUsed ?? 0;
-    const purseUsedAfter = Math.max(0, purseUsedBefore - bid.amount);
+    const purseUsedAfter = Math.max(0, purseUsedBefore - bid.amount); // kept for audit metadata
 
     // Atomic: player reset + purse reversal + bid deletion + session update.
     const { player, teamAfter } = await db.transaction(async (tx) => {
@@ -2401,10 +2397,11 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
         .set({ status: "available", teamId: null, soldPrice: null })
         .where(eq(playersTable.id, bid.playerId));
 
+      // Phase 6: atomic decrement — GREATEST(0, …) prevents negative purse
       if (teamBefore) {
         await tx
           .update(teamsTable)
-          .set({ purseUsed: purseUsedAfter })
+          .set({ purseUsed: sql`GREATEST(0, COALESCE(purse_used, 0) - ${bid.amount})` })
           .where(eq(teamsTable.id, bid.teamId));
       }
 
