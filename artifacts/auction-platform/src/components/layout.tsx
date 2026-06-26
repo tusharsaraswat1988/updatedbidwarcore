@@ -11,6 +11,7 @@ import {
   cricketPublicPath,
   displayScreenPath,
   mediaCenterPath,
+  mediaCenterTournamentPath,
   scoringPath,
   scoringSchedulePath,
 } from "@/lib/tournament-navigation";
