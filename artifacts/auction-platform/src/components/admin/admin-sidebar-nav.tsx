@@ -7,6 +7,7 @@ import {
   Gavel,
   Image,
   LifeBuoy,
+  Mail,
   Monitor,
   Settings,
   Trophy,
@@ -29,11 +30,15 @@ const creativeItems: NavItem[] = [
   { label: "Creative Assets", href: "/admin/creative-assets", icon: Image },
 ];
 
+const communicationItems: NavItem[] = [
+  { label: "Communication Center", href: "/admin/communication", icon: Mail },
+];
+
 const settingItems: NavItem[] = [
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
-  { label: "Communication", href: "/admin/settings/communication", icon: LifeBuoy },
-  { label: "Notifications", href: "/admin/settings/notifications", icon: Bell },
+  { label: "SMS / WhatsApp", href: "/admin/settings/communication", icon: LifeBuoy },
+  { label: "Notifications (Legacy)", href: "/admin/settings/notifications", icon: Bell },
   { label: "System", href: "/admin/settings/system/sms", icon: Monitor },
 ];
 
@@ -114,6 +119,7 @@ export function AdminSidebarNav({
       />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
+      <NavSection label="Communication" items={communicationItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Platform Settings" items={settingItems} location={location} onNavigate={onNavigate} />
     </nav>
   );

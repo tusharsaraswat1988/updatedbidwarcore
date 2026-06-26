@@ -26,6 +26,7 @@ import { auditLog } from "../lib/audit-service";
 import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotTeam } from "../lib/audit-snapshots";
 import { notifyAsync } from "../lib/notifications";
+import { recoverJobsForTeamEmailUpdate } from "../lib/communication/recovery.js";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -193,18 +194,16 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     })();
   }
 
-  if (ownerEmailParsed.email) {
-    notifyAsync("TEAM_OWNER_REGISTERED", {
-      teamId: team.id,
-      teamName: team.name,
-      ownerName: team.ownerName,
-      email: ownerEmailParsed.email,
-      ownerPhotoUrl: team.ownerPhotoUrl,
-      tournamentId: tid,
-      tournamentName: tournament.name,
-      tournamentLogoUrl: tournament.logoUrl ?? null,
-    });
-  }
+  notifyAsync("TEAM_OWNER_REGISTERED", {
+    teamId: team.id,
+    teamName: team.name,
+    ownerName: team.ownerName,
+    email: ownerEmailParsed.email ?? "",
+    ownerPhotoUrl: team.ownerPhotoUrl,
+    tournamentId: tid,
+    tournamentName: tournament.name,
+    tournamentLogoUrl: tournament.logoUrl ?? null,
+  });
 
   auditLog(req, {
     category: "team",
@@ -407,6 +406,10 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     throw err;
   }
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (d.ownerEmail !== undefined) {
+    void recoverJobsForTeamEmailUpdate(teamId, team.ownerEmail).catch(() => {});
+  }
 
   const reasonResult = resolveAuditReasonWithDefault(
     req.body,
