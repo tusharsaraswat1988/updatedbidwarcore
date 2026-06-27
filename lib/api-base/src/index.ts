@@ -34,6 +34,7 @@ export {
 
 export {
   buildPlayerExportRows,
+  buildPlayerExportSheetValues,
   playerExportRowsToSheetValues,
   type ExportCategoryMap,
   type ExportTeamMap,

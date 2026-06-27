@@ -895,4 +895,26 @@ void pool
     console.error("[db] failed to ensure organizers google sheets columns:", err);
   });
 
+/** Persistent Google Sheet sync — one sheet per tournament. */
+void pool
+  .query(`
+    CREATE TABLE IF NOT EXISTS google_sheet_syncs (
+      id SERIAL PRIMARY KEY,
+      organizer_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      spreadsheet_id TEXT NOT NULL,
+      spreadsheet_url TEXT NOT NULL,
+      sync_status TEXT NOT NULL DEFAULT 'CONNECTED',
+      last_synced_at TIMESTAMPTZ,
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS google_sheet_syncs_tournament_id_idx
+      ON google_sheet_syncs (tournament_id);
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure google_sheet_syncs table:", err);
+  });
+
 export * from "./schema";

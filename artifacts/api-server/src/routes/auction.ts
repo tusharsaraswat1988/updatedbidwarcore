@@ -43,6 +43,11 @@ import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
 import { getAdminPassword, getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
+import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
+
+function afterPlayerDataChanged(tournamentId: number, log?: import("pino").Logger) {
+  scheduleGoogleSheetSync(tournamentId, log);
+}
 import {
   logBidEvent,
   logPlayerAuctionStart,
@@ -1626,6 +1631,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     onAuctionPlayerSoldAsync(soldPlayer, team, tid);
   }
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount: soldAmount }, ["bids", "players"]));
 });
 router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) => {
@@ -1771,6 +1777,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     onAuctionPlayerSoldAsync(soldPlayer, team, tid);
   }
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastSoldDelta(tid, { playerId, teamId, amount }, ["bids", "players"]));
 });
 
@@ -1844,6 +1851,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     soldToTeamName: null,
   });
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -1940,6 +1948,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
     alertKey: "auction_reauction",
   });
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
@@ -1995,6 +2004,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
     alertKey: "auction_reauction_bulk",
   });
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastState(tid, ["players"]));
 });
 
@@ -2167,6 +2177,7 @@ router.post("/tournaments/:tournamentId/auction/reset-trial", async (req, res) =
     alertKey: "auction_reset_trial",
   });
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 
@@ -2478,6 +2489,7 @@ router.post("/tournaments/:tournamentId/auction/undo", async (req, res) => {
     });
   }
 
+  afterPlayerDataChanged(tid, req.log);
   res.json(await broadcastState(tid, ["bids", "purses", "players"]));
 });
 

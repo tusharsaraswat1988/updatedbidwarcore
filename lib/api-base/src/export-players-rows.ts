@@ -103,7 +103,9 @@ export function buildPlayerExportRows(
 }
 
 export function playerExportRowsToSheetValues(rows: Record<string, string | number>[]): string[][] {
-  if (rows.length === 0) return [];
+  if (rows.length === 0) {
+    return [Object.keys(buildRow({}, {}, {}, []))];
+  }
 
   const headers = Object.keys(rows[0]!);
   const data = rows.map((row) =>
@@ -115,4 +117,12 @@ export function playerExportRowsToSheetValues(rows: Record<string, string | numb
   );
 
   return [headers, ...data];
+}
+
+export function buildPlayerExportSheetValues(
+  players: Record<string, unknown>[],
+  catMap: ExportCategoryMap,
+  teamMap: ExportTeamMap,
+): string[][] {
+  return playerExportRowsToSheetValues(buildPlayerExportRows(players, catMap, teamMap));
 }
