@@ -257,6 +257,23 @@ void pool
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_purse_booster_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS last_led_toast_json TEXT;
     ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS random_draw_queue TEXT;
+    ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure purse_boosters / revision column:", err);
+  });
+
+/** Phase 5: ensure every team row has a non-blank access code.
+ *  Teams created before the access-code hardening that have a NULL or empty
+ *  access_code are back-filled with a random 8-character hex string so the
+ *  new /bid security gate doesn't silently reject all bids for those teams.
+ *  The organizer can view / override access codes from the Teams settings panel.
+ */
+void pool
+  .query(`
+    UPDATE teams
+    SET access_code = SUBSTRING(MD5(RANDOM()::TEXT), 1, 8)
+    WHERE access_code IS NULL OR TRIM(access_code) = '';
   `)
   .catch((err) => {
     console.error("[db] failed to ensure purse_boosters table:", err);
