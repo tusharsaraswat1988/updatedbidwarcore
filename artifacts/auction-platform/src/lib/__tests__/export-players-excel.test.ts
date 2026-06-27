@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectSpecColumnLabels } from "../../player-spec-display";
+import { collectSpecColumnLabels } from "@workspace/api-base/player-spec-export";
 import { exportPlayersToExcel } from "../../export-players-excel";
 
 describe("exportPlayersToExcel", () => {

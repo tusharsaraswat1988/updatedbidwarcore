@@ -7,91 +7,20 @@ const SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets";
 const HEADER_BG = { red: 0.984, green: 0.749, blue: 0.141 };
 const HEADER_FG = { red: 0.039, green: 0.039, blue: 0.059 };
 
-const STATUS_LABELS: Record<string, string> = {
-  available: "Available",
-  sold: "Sold",
-  retained: "Retained",
-  unsold: "Unsold",
-  withdrawn: "Withdrawn",
-};
-
 export const GOOGLE_SHEETS_SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/drive.file",
 ].join(" ");
 
-export interface PlayerSheetRow {
-  serialNo: string | number;
-  name: string;
-  mobile: string;
-  gender: string;
-  category: string;
-  team: string;
-  status: string;
-  baseValue: string | number;
-  soldValue: string | number;
-}
-
-function formatGender(code: string | null | undefined): string {
-  if (code === "M") return "Male";
-  if (code === "F") return "Female";
-  return "";
-}
-
-export function buildPlayerSheetRows(
-  players: Array<{
-    serialNo?: number | null;
-    id?: number;
-    name?: string | null;
-    mobileNumber?: string | null;
-    gender?: string | null;
-    categoryId?: number | null;
-    teamId?: number | null;
-    status?: string | null;
-    basePrice?: number | null;
-    soldPrice?: number | null;
-  }>,
-  catMap: Record<number, string>,
-  teamMap: Record<number, string>,
-): PlayerSheetRow[] {
-  return players.map((p) => ({
-    serialNo: p.serialNo ?? p.id ?? "",
-    name: p.name ?? "",
-    mobile: p.mobileNumber ?? "",
-    gender: formatGender(p.gender),
-    category: p.categoryId ? (catMap[p.categoryId] ?? "") : "",
-    team: p.teamId ? (teamMap[p.teamId] ?? "") : "",
-    status: STATUS_LABELS[String(p.status ?? "")] ?? String(p.status ?? ""),
-    baseValue: p.basePrice ?? "",
-    soldValue: p.soldPrice ?? "",
-  }));
-}
-
-const HEADERS = [
-  "Serial No",
-  "Player Name",
-  "Mobile",
-  "Gender",
-  "Category",
-  "Team",
-  "Status",
-  "Base Value",
-  "Sold Value",
-] as const;
-
-function rowsToValues(rows: PlayerSheetRow[]): string[][] {
-  const data = rows.map((r) => [
-    String(r.serialNo),
-    r.name,
-    r.mobile,
-    r.gender,
-    r.category,
-    r.team,
-    r.status,
-    r.baseValue === "" ? "" : String(r.baseValue),
-    r.soldValue === "" ? "" : String(r.soldValue),
-  ]);
-  return [HEADERS.slice(), ...data];
+function columnIndexToLetter(index: number): string {
+  let n = index;
+  let label = "";
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
 }
 
 async function exchangeRefreshToken(refreshToken: string): Promise<{ access_token: string; expires_in: number }> {
@@ -144,9 +73,11 @@ export async function getValidAccessToken(ownerKey: string): Promise<string> {
 export async function createPlayersSpreadsheet(
   accessToken: string,
   title: string,
-  rows: PlayerSheetRow[],
+  values: string[][],
 ): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
-  const values = rowsToValues(rows);
+  if (values.length === 0) {
+    throw new Error("No data to export.");
+  }
 
   const createRes = await fetch(SHEETS_API, {
     method: "POST",
@@ -172,11 +103,12 @@ export async function createPlayersSpreadsheet(
 
   const spreadsheetId = created.spreadsheetId;
   const sheetId = created.sheets?.[0]?.properties?.sheetId ?? 0;
-  const colCount = HEADERS.length;
+  const colCount = values[0]?.length ?? 0;
   const rowCount = values.length;
+  const lastCol = columnIndexToLetter(colCount);
 
   const valueRes = await fetch(
-    `${SHEETS_API}/${spreadsheetId}/values/Players!A1:${String.fromCharCode(64 + colCount)}${rowCount}?valueInputOption=USER_ENTERED`,
+    `${SHEETS_API}/${spreadsheetId}/values/Players!A1:${lastCol}${rowCount}?valueInputOption=USER_ENTERED`,
     {
       method: "PUT",
       headers: {

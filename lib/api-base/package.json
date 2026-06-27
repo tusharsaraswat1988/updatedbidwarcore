@@ -31,6 +31,8 @@
     "./registration-fields": "./src/registration-fields.ts",
     "./branding-assets": "./src/branding-assets.ts",
     "./player-specs-v2": "./src/player-specs-v2.ts",
+    "./player-spec-export": "./src/player-spec-export.ts",
+    "./export-players-rows": "./src/export-players-rows.ts",
     "./player-sport-profiles": "./src/player-sport-profiles.ts",
     "./venue-auction-guard": "./src/venue-auction-guard.ts"
   },

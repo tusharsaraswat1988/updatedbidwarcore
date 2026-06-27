@@ -32,6 +32,21 @@ export {
   canEditPlayerBidValue,
 } from "./bid-value.ts";
 
+export {
+  buildPlayerExportRows,
+  playerExportRowsToSheetValues,
+  type ExportCategoryMap,
+  type ExportTeamMap,
+} from "./export-players-rows.ts";
+
+export { formatPlayerGender } from "./player-gender.ts";
+export { playerTagLabel } from "./player-tag-label.ts";
+export {
+  collectSpecColumnLabels,
+  resolvePlayerSpecifications,
+  type PlayerSpecSource,
+} from "./player-spec-export.ts";
+
 export { isPlayerSpecsV2Enabled } from "./player-specs-v2.ts";
 export { isPlayerSportProfilesEnabled } from "./player-sport-profiles.ts";
 

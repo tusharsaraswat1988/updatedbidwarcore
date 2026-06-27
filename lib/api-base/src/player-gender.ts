@@ -31,3 +31,9 @@ export function resolvePlayerPortraitGender(
 ): PlayerPortraitGender {
   return mapStoredGenderToPortrait(stored) ?? inferGenderFromCategoryName(categoryName);
 }
+
+export function formatPlayerGender(code: string | null | undefined): string {
+  if (code === "M") return "Male";
+  if (code === "F") return "Female";
+  return "";
+}

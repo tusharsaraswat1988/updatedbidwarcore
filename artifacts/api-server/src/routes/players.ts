@@ -69,10 +69,13 @@ import {
 import type { Request, Response } from "express";
 import { googleSheetsOwnerKey } from "../lib/google-sheets-oauth.js";
 import {
-  buildPlayerSheetRows,
   createPlayersSpreadsheet,
   getValidAccessToken,
 } from "../lib/google-sheets-service.js";
+import {
+  buildPlayerExportRows,
+  playerExportRowsToSheetValues,
+} from "@workspace/api-base/export-players-rows";
 
 async function fetchTournamentBidConfig(tid: number) {
   const [tournament] = await db
@@ -1625,18 +1628,7 @@ router.post("/tournaments/:tournamentId/players/export/google-sheets", async (re
   }
 
   const playerRows = await db
-    .select({
-      id: playersTable.id,
-      serialNo: playersTable.serialNo,
-      name: playersTable.name,
-      mobileNumber: playersTable.mobileNumber,
-      gender: playersTable.gender,
-      categoryId: playersTable.categoryId,
-      teamId: playersTable.teamId,
-      status: playersTable.status,
-      basePrice: playersTable.basePrice,
-      soldPrice: playersTable.soldPrice,
-    })
+    .select()
     .from(playersTable)
     .where(and(eq(playersTable.tournamentId, tid), inArray(playersTable.id, parsed.data.playerIds)));
 
@@ -1655,23 +1647,26 @@ router.post("/tournaments/:tournamentId/players/export/google-sheets", async (re
     return;
   }
 
+  const serializedPlayers = await serializePlayersWithSpecifications(orderedPlayers, "private");
+
   const [categories, teams] = await Promise.all([
     db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)),
     db.select({ id: teamsTable.id, name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.tournamentId, tid)),
   ]);
 
-  const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  const teamMap = Object.fromEntries(teams.map((t) => [t.id, t.name]));
-  const sheetRows = buildPlayerSheetRows(orderedPlayers, catMap, teamMap);
+  const catMap = Object.fromEntries(categories.map((c) => [c.id, { name: c.name }]));
+  const teamMap = Object.fromEntries(teams.map((t) => [t.id, { name: t.name }]));
+  const exportRows = buildPlayerExportRows(serializedPlayers, catMap, teamMap);
+  const sheetValues = playerExportRowsToSheetValues(exportRows);
   const title = `${tournament.name} - Players`;
 
   try {
-    const result = await createPlayersSpreadsheet(accessToken, title, sheetRows);
+    const result = await createPlayersSpreadsheet(accessToken, title, sheetValues);
     res.json({
       success: true,
       spreadsheetUrl: result.spreadsheetUrl,
       spreadsheetId: result.spreadsheetId,
-      playerCount: sheetRows.length,
+      playerCount: exportRows.length,
     });
   } catch (err) {
     req.log.error({ err, tournamentId: tid }, "Google Sheets export failed");
