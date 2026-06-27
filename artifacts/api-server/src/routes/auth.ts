@@ -17,6 +17,7 @@ import type { AuthClaims } from "../lib/jwt";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
 import { buildPublicUrl, getAdminDataPassword, getAdminPassword } from "../lib/runtime-env";
+import { tryCompleteGoogleSheetsOAuth } from "../lib/google-sheets-oauth-callback.js";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
   DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS,
@@ -1564,6 +1565,8 @@ router.get("/auth/google", (req, res) => {
 });
 
 router.get("/auth/google/callback", async (req, res) => {
+  if (await tryCompleteGoogleSheetsOAuth(req, res)) return;
+
   const code = req.query.code as string | undefined;
   const returnedState = req.query.state as string | undefined;
   if (!code) { res.redirect("/organizer?error=google_cancelled"); return; }
