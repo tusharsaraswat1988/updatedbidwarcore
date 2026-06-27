@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy, Users } from "lucide-react";
 import { cldUrl } from "@/lib/cloudinary";
 import { getSponsorsByPriority, parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
 import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
@@ -73,6 +73,8 @@ type RegistrationPageHeaderProps = {
   tournamentLogoUrl?: string | null;
   sponsorLogosJson?: string | null;
   brandNameFallback?: string;
+  registeredCount?: number;
+  registrationLimit?: number | null;
 };
 
 export function RegistrationPageHeader({
@@ -80,6 +82,8 @@ export function RegistrationPageHeader({
   tournamentLogoUrl,
   sponsorLogosJson,
   brandNameFallback = "BidWar",
+  registeredCount,
+  registrationLimit,
 }: RegistrationPageHeaderProps) {
   const sponsorLogos = useMemo(
     () => getSponsorsByPriority(parseSponsorLogos(sponsorLogosJson)),
@@ -117,6 +121,16 @@ export function RegistrationPageHeader({
           {tournamentName || brandNameFallback}
         </h1>
         <p className="text-muted-foreground mt-1">Player Registration</p>
+        {registeredCount != null ? (
+          <p className="text-sm text-white/70 mt-1.5 flex items-center justify-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span>
+              {registrationLimit != null
+                ? `${registeredCount} / ${registrationLimit} players registered`
+                : `${registeredCount} player${registeredCount === 1 ? "" : "s"} registered`}
+            </span>
+          </p>
+        ) : null}
       </div>
     </div>
   );

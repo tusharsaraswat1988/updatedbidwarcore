@@ -563,6 +563,8 @@ export default function PlayerRegister() {
             tournamentLogoUrl={(tournament as { logoUrl?: string | null } | undefined)?.logoUrl}
             sponsorLogosJson={(tournament as { sponsorLogos?: string | null } | undefined)?.sponsorLogos}
             brandNameFallback={brandName}
+            registeredCount={status.currentCount}
+            registrationLimit={status.limit}
           />
 
           <AnimatePresence mode="wait">
