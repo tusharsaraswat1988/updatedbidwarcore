@@ -51,16 +51,17 @@ export default function TournamentHub() {
   };
   const isSetupPhase = tournament?.status === "setup";
   const minPlayersNeeded = readinessMode === "trial" ? 1 : 2;
-  const readinessInput = tournament
+  const readinessInput = tournament && summary && Array.isArray(teamPurses)
     ? tournamentToReadinessInput(
         tournament,
-        teamPurses?.length ?? 0,
-        summary?.totalPlayers ?? 0,
+        teamPurses.length,
+        summary.totalPlayers,
       )
     : null;
   const readinessChecks = readinessInput
     ? getReadinessChecklistItems(readinessInput, readinessMode, readinessLinks)
     : [];
+  const readinessDataLoaded = readinessInput !== null;
   const readinessComplete = readinessChecks.length > 0 && readinessChecks.every((c) => c.done);
   const readinessDoneCount = readinessChecks.filter((c) => c.done).length;
   const readinessTotal = readinessChecks.length;
@@ -221,7 +222,7 @@ export default function TournamentHub() {
         </div>
 
         {/* Setup Checklist — hidden once every item is complete */}
-        {isSetupPhase && !readinessComplete && (
+        {isSetupPhase && readinessDataLoaded && !readinessComplete && (
           <div className="rounded-xl border border-border bg-card/30 p-5 space-y-4">
             <div>
               <h2 className="text-base font-display font-bold flex items-center gap-2">

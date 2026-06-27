@@ -592,11 +592,11 @@ export default function AuctionOperator() {
       return;
     }
 
-    if (tournament) {
+    if (tournament && Array.isArray(teams) && Array.isArray(players)) {
       const readinessInput = tournamentToReadinessInput(
         tournament,
-        teams?.length ?? 0,
-        allPlayers.length,
+        teams.length,
+        players.length,
       );
       const issues = validateAuctionReadiness(readinessInput, isTrialMode ? "trial" : "live");
       if (issues.length > 0) {
