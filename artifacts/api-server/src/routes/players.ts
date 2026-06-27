@@ -9,7 +9,7 @@ import {
 } from "../lib/player-delete-guard";
 import { recalcTeamPurseUsed } from "../lib/player-purse";
 import { db } from "@workspace/db";
-import { playersTable, teamsTable, tournamentsTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
+import { playersTable, teamsTable, tournamentsTable, categoriesTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
 import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
@@ -67,6 +67,12 @@ import {
   applyPublicWithdrawnReRegistration,
 } from "../lib/player-withdrawal";
 import type { Request, Response } from "express";
+import { googleSheetsOwnerKey } from "../lib/google-sheets-oauth.js";
+import {
+  buildPlayerSheetRows,
+  createPlayersSpreadsheet,
+  getValidAccessToken,
+} from "../lib/google-sheets-service.js";
 
 async function fetchTournamentBidConfig(tid: number) {
   const [tournament] = await db
@@ -1570,6 +1576,108 @@ router.post("/tournaments/:tournamentId/players/:playerId/registration-payment/p
     return;
   }
   await updateRegistrationPaymentStatus(req, res, tid, playerId, "pending");
+});
+
+const exportGoogleSheetsSchema = z.object({
+  playerIds: z.array(z.number().int().positive()).min(1).max(5000),
+});
+
+router.post("/tournaments/:tournamentId/players/export/google-sheets", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const ownerKey = googleSheetsOwnerKey(req.jwtUser?.organizerAccountId, !!req.jwtUser?.isAdmin);
+  if (!ownerKey) {
+    res.status(403).json({ error: "Organizer account required", needsGoogleAuth: true });
+    return;
+  }
+
+  const parsed = exportGoogleSheetsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
+    return;
+  }
+
+  let accessToken: string;
+  try {
+    accessToken = await getValidAccessToken(ownerKey);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Google account not connected";
+    if (message === "GOOGLE_SHEETS_NOT_CONNECTED") {
+      res.status(401).json({ error: "Google account not connected", needsGoogleAuth: true });
+      return;
+    }
+    res.status(502).json({ error: message });
+    return;
+  }
+
+  const [tournament] = await db
+    .select({ name: tournamentsTable.name })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const playerRows = await db
+    .select({
+      id: playersTable.id,
+      serialNo: playersTable.serialNo,
+      name: playersTable.name,
+      mobileNumber: playersTable.mobileNumber,
+      gender: playersTable.gender,
+      categoryId: playersTable.categoryId,
+      teamId: playersTable.teamId,
+      status: playersTable.status,
+      basePrice: playersTable.basePrice,
+      soldPrice: playersTable.soldPrice,
+    })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), inArray(playersTable.id, parsed.data.playerIds)));
+
+  if (playerRows.length === 0) {
+    res.status(400).json({ error: "No matching players found for export." });
+    return;
+  }
+
+  const idSet = new Set(parsed.data.playerIds);
+  const orderedPlayers = parsed.data.playerIds
+    .map((id) => playerRows.find((p) => p.id === id))
+    .filter((p): p is (typeof playerRows)[number] => !!p);
+
+  if (orderedPlayers.length !== idSet.size) {
+    res.status(400).json({ error: "Some player IDs are invalid for this tournament." });
+    return;
+  }
+
+  const [categories, teams] = await Promise.all([
+    db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)),
+    db.select({ id: teamsTable.id, name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.tournamentId, tid)),
+  ]);
+
+  const catMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  const teamMap = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+  const sheetRows = buildPlayerSheetRows(orderedPlayers, catMap, teamMap);
+  const title = `${tournament.name} - Players`;
+
+  try {
+    const result = await createPlayersSpreadsheet(accessToken, title, sheetRows);
+    res.json({
+      success: true,
+      spreadsheetUrl: result.spreadsheetUrl,
+      spreadsheetId: result.spreadsheetId,
+      playerCount: sheetRows.length,
+    });
+  } catch (err) {
+    req.log.error({ err, tournamentId: tid }, "Google Sheets export failed");
+    const message = err instanceof Error ? err.message : "Failed to create Google Spreadsheet";
+    res.status(502).json({ error: message });
+  }
 });
 
 export default router;

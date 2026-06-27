@@ -62,7 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, FileSpreadsheet, Sheet as SheetIcon } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import {
@@ -99,6 +99,15 @@ import {
   reinstateTournamentPlayer,
   withdrawTournamentPlayer,
 } from "@/lib/registration-api";
+import { exportPlayersToExcel } from "@/lib/export-players-excel";
+import {
+  clearPendingGoogleSheetsExport,
+  exportPlayersToGoogleSheetsApi,
+  googleSheetsConnectUrl,
+  GoogleSheetsAuthRequiredError,
+  readPendingGoogleSheetsExport,
+  savePendingGoogleSheetsExport,
+} from "@/lib/export-players-google-sheets";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -2325,7 +2334,8 @@ export default function Players() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [drawerPlayer, setDrawerPlayer] = useState<any | null>(null);
-  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingTarget, setExportingTarget] = useState<"excel" | "sheets" | null>(null);
+  const [googleSheetResult, setGoogleSheetResult] = useState<{ url: string; playerCount: number } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -2461,21 +2471,6 @@ export default function Players() {
 
   const roleSpecMap = useRoleSpecMap(tournament?.sport, players || []);
 
-  async function handleExportExcel() {
-    if (!players?.length) return;
-    setExportingExcel(true);
-    try {
-      const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      await exportPlayersToExcel(players, catMap, teamMap, `${fileStem}_Players_Master`);
-      toast({ title: "Excel exported", description: `${players.length} players downloaded.` });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not export players.";
-      toast({ title: "Export failed", description: message, variant: "destructive" });
-    } finally {
-      setExportingExcel(false);
-    }
-  }
-
   const statusCounts = useMemo(() => {
     const list = players || [];
     return {
@@ -2528,6 +2523,66 @@ export default function Players() {
     });
     return sortPlayers(list, sortKey, sortDir, catMap, teamMap);
   }, [players, tab, search, categoryIds, teamIds, tagFilters, genderFilters, teamFilterEnabled, sortKey, sortDir, catMap, teamMap]);
+
+  async function runGoogleSheetsExport(playerIds: number[]) {
+    if (playerIds.length === 0) {
+      toast({ title: "Nothing to export", description: "Adjust filters to include at least one player.", variant: "destructive" });
+      return;
+    }
+
+    setExportingTarget("sheets");
+    try {
+      const result = await exportPlayersToGoogleSheetsApi(tournamentId, playerIds);
+      clearPendingGoogleSheetsExport();
+      setGoogleSheetResult({ url: result.spreadsheetUrl, playerCount: result.playerCount });
+    } catch (err) {
+      if (err instanceof GoogleSheetsAuthRequiredError) {
+        const returnPath = `${window.location.pathname}${window.location.search}`;
+        savePendingGoogleSheetsExport({ tournamentId, playerIds });
+        window.location.href = googleSheetsConnectUrl(returnPath);
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Could not export to Google Sheets.";
+      toast({ title: "Export failed", description: message, variant: "destructive" });
+    } finally {
+      setExportingTarget(null);
+    }
+  }
+
+  async function handleExportExcel() {
+    if (!filtered.length) return;
+    setExportingTarget("excel");
+    try {
+      const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
+      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`);
+      toast({ title: "Excel exported", description: `${filtered.length} players downloaded.` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not export players.";
+      toast({ title: "Export failed", description: message, variant: "destructive" });
+    } finally {
+      setExportingTarget(null);
+    }
+  }
+
+  async function handleExportGoogleSheets() {
+    if (!filtered.length) return;
+    await runGoogleSheetsExport(filtered.map((p) => p.id));
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !tournamentId || !filtersHydrated) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google_sheets_connected") !== "1") return;
+
+    params.delete("google_sheets_connected");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+
+    const pending = readPendingGoogleSheetsExport(tournamentId);
+    if (pending) {
+      void runGoogleSheetsExport(pending.playerIds);
+    }
+  }, [tournamentId, filtersHydrated]);
 
   const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
@@ -2813,21 +2868,47 @@ export default function Players() {
                   <SelectItem value="team:asc">Team → Name</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-xs shrink-0"
-                disabled={!players?.length || exportingExcel}
-                onClick={() => void handleExportExcel()}
-              >
-                {exportingExcel ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                )}
-                <span className="hidden md:inline">{exportingExcel ? "Exporting…" : "Export"}</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs shrink-0"
+                    disabled={!filtered.length || exportingTarget !== null}
+                  >
+                    {exportingTarget ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    <span className="hidden md:inline">
+                      {exportingTarget === "excel"
+                        ? "Exporting Excel…"
+                        : exportingTarget === "sheets"
+                          ? "Exporting Sheets…"
+                          : "Export"}
+                    </span>
+                    <ChevronDown className="w-3 h-3 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    disabled={exportingTarget !== null}
+                    onClick={() => void handleExportExcel()}
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Export to Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={exportingTarget !== null}
+                    onClick={() => void handleExportGoogleSheets()}
+                  >
+                    <SheetIcon className="w-4 h-4" />
+                    Export to Google Sheets
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -3227,6 +3308,35 @@ export default function Players() {
                 </>
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={googleSheetResult !== null} onOpenChange={(open) => { if (!open) setGoogleSheetResult(null); }}>
+        <DialogContent className="max-w-md dark">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <CheckCircle2 className="w-5 h-5" />
+              Google Sheet Created Successfully
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {googleSheetResult
+              ? `${googleSheetResult.playerCount} player${googleSheetResult.playerCount === 1 ? "" : "s"} exported to your Google Drive.`
+              : null}
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setGoogleSheetResult(null)}>
+              Close
+            </Button>
+            {googleSheetResult ? (
+              <Button asChild>
+                <a href={googleSheetResult.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open Google Sheet
+                </a>
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

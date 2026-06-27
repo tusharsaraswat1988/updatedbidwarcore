@@ -10,6 +10,11 @@ export const organizersTable = pgTable("organizers", {
   passwordHash: text("password_hash"),
   googleId: text("google_id").unique(),
   googleEmail: text("google_email"),
+  /** Google Sheets OAuth — refresh token for exporting player rosters. */
+  googleSheetsRefreshToken: text("google_sheets_refresh_token"),
+  googleSheetsAccessToken: text("google_sheets_access_token"),
+  googleSheetsTokenExpiry: timestamp("google_sheets_token_expiry", { withTimezone: true }),
+  googleSheetsConnectedEmail: text("google_sheets_connected_email"),
   licenseStatus: text("license_status").notNull().default("active"),
   maxTournaments: integer("max_tournaments").notNull().default(1),
   notes: text("notes"),

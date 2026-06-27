@@ -883,4 +883,16 @@ void pool
     console.error("[db] failed to ensure contact_inquiries table:", err);
   });
 
+/** Google Sheets export OAuth tokens on organizer accounts. */
+void pool
+  .query(`
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_refresh_token text;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_access_token text;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_token_expiry timestamptz;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS google_sheets_connected_email text;
+  `)
+  .catch((err) => {
+    console.error("[db] failed to ensure organizers google sheets columns:", err);
+  });
+
 export * from "./schema";

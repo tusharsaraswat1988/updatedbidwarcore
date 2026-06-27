@@ -33,10 +33,12 @@ import scoringFoundationRouter from "./scoring-foundation";
 import creativeJobsRouter from "./creative-jobs";
 import contactRouter from "./contact";
 import communicationCenterRouter from "./communication-center";
+import googleSheetsRouter from "./google-sheets";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(googleSheetsRouter);
 router.use(pushRouter);
 router.use(healthRouter);
 router.use(uploadRouter);
