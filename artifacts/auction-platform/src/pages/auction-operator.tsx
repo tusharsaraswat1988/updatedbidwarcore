@@ -283,6 +283,7 @@ export default function AuctionOperator() {
     connectionStatus,
     tournamentId,
     typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
+    { audience: "operator" },
   );
   const feedDiagnostic = formatLastActivityDiagnostic(feed.secondsSinceLastActivity);
 

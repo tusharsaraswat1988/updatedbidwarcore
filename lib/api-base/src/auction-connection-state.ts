@@ -55,11 +55,15 @@ export function clearRecordedAuctionActivity(tournamentId: number): void {
   activityByTournament.delete(tournamentId);
 }
 
+export type AuctionFeedAudience = "viewer" | "operator";
+
 export function resolveAuctionFeedState(input: {
   connectionStatus: AuctionSocketStatus;
   lastActivityAt: number | null;
   now?: number;
   awaitingThresholdMs?: number;
+  /** Operator console stays "live" while connected — idle timeout is for display surfaces only. */
+  audience?: AuctionFeedAudience;
 }): {
   state: AuctionFeedState;
   lastActivityAt: number | null;
@@ -78,7 +82,11 @@ export function resolveAuctionFeedState(input: {
     return { state: "reconnecting", lastActivityAt, secondsSinceLastActivity };
   }
 
-  if (lastActivityAt != null && now - lastActivityAt > threshold) {
+  if (
+    input.audience !== "operator" &&
+    lastActivityAt != null &&
+    now - lastActivityAt > threshold
+  ) {
     return { state: "awaiting_operator_response", lastActivityAt, secondsSinceLastActivity };
   }
 

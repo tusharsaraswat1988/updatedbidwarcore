@@ -73,6 +73,10 @@ export function getObsBrandMarkSrc(logos: BrandLogos | undefined): string {
   return getBrandLogoSrc(logos, ["obsWatermark", "mini", "main", "appIcon"]);
 }
 
+/** Static fallback when admin OBS watermark is not configured. */
+export const OBS_BROADCAST_LOGO_FALLBACK =
+  "/assets/broadcast/bidwar-reverse-logo-official.png";
+
 /** OBS broadcast overlay top-center — admin PNG only (OBS_WATERMARK). */
 export function getObsBroadcastLogoSrc(logos: BrandLogos | undefined): string {
   const raw = logos?.obsWatermark;

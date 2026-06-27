@@ -5,6 +5,7 @@ import {
   parseActivityTimestamp,
   recordAuctionActivity,
   resolveAuctionFeedState,
+  type AuctionFeedAudience,
   type AuctionFeedState,
   type AuctionSocketStatus,
 } from "@workspace/api-base/auction-connection-state";
@@ -18,6 +19,7 @@ export function useAuctionConnectionState(
   options?: {
     awaitingThresholdMs?: number;
     tickMs?: number;
+    audience?: AuctionFeedAudience;
   },
 ) {
   const [lastActivityAt, setLastActivityAt] = useState<number | null>(null);
@@ -49,7 +51,8 @@ export function useAuctionConnectionState(
         lastActivityAt,
         now,
         awaitingThresholdMs: options?.awaitingThresholdMs ?? DEFAULT_AWAITING_OPERATOR_THRESHOLD_MS,
+        audience: options?.audience ?? "viewer",
       }),
-    [connectionStatus, lastActivityAt, now, options?.awaitingThresholdMs],
+    [connectionStatus, lastActivityAt, now, options?.awaitingThresholdMs, options?.audience],
   );
 }

@@ -1,7 +1,38 @@
 import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { ChyronStrip } from "./ChyronStrip";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
+import { LedOverlayTopBar } from "./led-overlay-top-bar";
+import { LedTopBrandMark } from "./led-top-brand-mark";
+import {
+  LED_AMOUNT_CLASS,
+  LED_HEADLINE_CLASS,
+  LED_META_LABEL_CLASS,
+  LED_PLAYER_NAME_CLASS,
+  LED_ROLE_META_CLASS,
+  LED_SECTION_KICKER_CLASS,
+  LED_STAGE_FONT_CLASS,
+  LED_SUBHEAD_CLASS,
+} from "@/lib/led-display-typography";
+
+function LedPoweredByFooter({ text }: { text?: string }) {
+  return (
+    <div className="py-[0.4vh] flex items-center justify-center bg-black/20 border-t border-white/[0.05]">
+      {text ? (
+        <p className={`${LED_META_LABEL_CLASS} text-white/30`}>{text}</p>
+      ) : (
+        <p className={`${LED_META_LABEL_CLASS} text-white/30`}>
+          Powered by{" "}
+          <span
+            className={`${LED_SUBHEAD_CLASS} text-sm`}
+            style={{ color: "var(--accent)" }}
+          >
+            BIDWAR.IN
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * EFFECTS LAYER — full-stage overlays driven by derivedState from production DB.
@@ -184,16 +215,8 @@ export const EffectsLayer = memo(function EffectsLayer({
     const mm = Math.floor(breakInfo.secondsLeft / 60).toString().padStart(2, "0");
     const ss = (breakInfo.secondsLeft % 60).toString().padStart(2, "0");
     const poweredBy = branding?.poweredByText ?? "Powered by BidWar";
-    const brandLogoSrc = getBrandLogoSrc(
-      {
-        mini: branding?.miniLogoUrl,
-        main: branding?.mainLogoUrl,
-      },
-      ["mini", "main"],
-    );
-    const logoAlt = getBrandLogoAlt(branding?.brandName ?? "BidWar");
     return (
-      <div className="absolute inset-0 z-30 grid grid-rows-[auto_1fr_auto] pointer-events-none overflow-hidden font-['Barlow_Condensed']">
+      <div className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr_auto] pointer-events-none overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-amber-950 via-black to-orange-950" />
         <div
           className="absolute inset-0 opacity-30"
@@ -203,20 +226,11 @@ export const EffectsLayer = memo(function EffectsLayer({
           }}
         />
 
-        {/* Top bar — logo + tournament name */}
-        <div className="relative flex items-center justify-between px-[2.5%] py-[1%] border-b border-white/10 bg-black/40 backdrop-blur-sm">
-          <img
-            src={brandLogoSrc}
-            alt={logoAlt}
-            className="h-[3.5vh] min-h-[28px] w-auto object-contain"
-          />
-          <p
-            className="font-['Bebas_Neue'] tracking-[0.2em] text-white/90 truncate text-right"
-            style={{ fontSize: "1.6vw" }}
-          >
-            {tournament.name}
-          </p>
-        </div>
+        <LedOverlayTopBar
+          tournamentName={tournament.name}
+          tournamentLogoUrl={tournament.logoUrl}
+          barClassName="backdrop-blur-sm"
+        />
 
         {/* Center content */}
         <div className="relative grid place-items-center">
@@ -250,15 +264,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           </div>
         </div>
 
-        {/* Bottom — Powered by BidWar */}
-        <div className="relative py-[0.8vh] flex items-center justify-center bg-black/70 border-t border-white/10">
-          <p
-            className="font-mono uppercase tracking-[0.5em] text-white/55"
-            style={{ fontSize: "0.85vw" }}
-          >
-            {poweredBy}
-          </p>
-        </div>
+        <LedPoweredByFooter text={poweredBy} />
       </div>
     );
   }
@@ -356,28 +362,19 @@ export const EffectsLayer = memo(function EffectsLayer({
     const amountSize = `${2.6 * scale + 1.1}vw`;
     const subSize = `${1.2 * scale + 0.75}vw`;
     const labelSize = `${0.6 * scale + 0.55}vw`;
-    const brandName = branding?.brandName ?? "BIDWAR";
 
     return (
-      <div className="absolute inset-0 z-30 grid grid-rows-[auto_1fr] pointer-events-none">
+      <div className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr] pointer-events-none ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 bg-[#070b1a]" />
-        {/* Branded header bar */}
-        <div className="relative px-[2.5%] pt-[1.2%] pb-[0.8%] flex items-center justify-between border-b border-white/10">
-          <div className="flex items-baseline gap-[1.2vw]">
-            <p className="font-['Bebas_Neue'] tracking-[0.3em]" style={{ fontSize: "2vw", color: "var(--accent)" }}>
-              {brandName}
+        <LedOverlayTopBar
+          tournamentName={tournament.name}
+          tournamentLogoUrl={tournament.logoUrl}
+          right={
+            <p className={`${LED_HEADLINE_CLASS} text-xl md:text-2xl text-white/90`}>
+              TEAM PURSE
             </p>
-            <span className="font-mono uppercase tracking-[0.4em] text-white/40" style={{ fontSize: "0.9vw" }}>
-              ·
-            </span>
-            <p className="font-['Bebas_Neue'] tracking-[0.2em] text-white/90 truncate" style={{ fontSize: "1.5vw" }}>
-              {tournament.name}
-            </p>
-          </div>
-          <p className="font-['Bebas_Neue'] tracking-[0.3em] text-white/80" style={{ fontSize: "1.6vw" }}>
-            TEAM PURSE
-          </p>
-        </div>
+          }
+        />
 
         <div
           className="relative px-[1.5%] pb-[1.5%] grid gap-[0.6%] min-h-0"
@@ -460,24 +457,13 @@ export const EffectsLayer = memo(function EffectsLayer({
 
   // ---------- BANNER VIEW ----------
   if (derivedState === "banner") {
-    const brandName = branding?.brandName ?? "BIDWAR";
     return (
-      <div className="absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[auto_1fr_auto]">
-        {/* Branded header — BIDWAR left, tournament right */}
-        <div className="px-[2.5%] pt-[1%] pb-[0.7%] flex items-center justify-between gap-[2vw] border-b border-white/10 bg-black/70 backdrop-blur-sm">
-          <p
-            className="font-['Bebas_Neue'] tracking-[0.3em] shrink-0"
-            style={{ fontSize: "2.4vw", color: "var(--accent)" }}
-          >
-            {brandName}
-          </p>
-          <p
-            className="font-['Bebas_Neue'] tracking-[0.2em] text-white/95 truncate text-right min-w-0"
-            style={{ fontSize: "1.9vw" }}
-          >
-            {tournament.name}
-          </p>
-        </div>
+      <div className={`absolute inset-0 z-30 bg-black overflow-hidden grid grid-rows-[3.5rem_1fr_auto] ${LED_STAGE_FONT_CLASS}`}>
+        <LedOverlayTopBar
+          tournamentName={tournament.name}
+          tournamentLogoUrl={tournament.logoUrl}
+          barClassName="bg-black/70 backdrop-blur-sm"
+        />
 
 
         {/* Banner image */}
@@ -490,15 +476,10 @@ export const EffectsLayer = memo(function EffectsLayer({
               style={{ objectFit: banner.fit }}
             />
           ) : (
-            <div className="text-center">
+            <div className="text-center flex flex-col items-center gap-4">
+              <LedTopBrandMark />
               <p
-                className="font-['Bebas_Neue'] tracking-widest"
-                style={{ color: "var(--accent)", fontSize: "6vw" }}
-              >
-                {brandName}
-              </p>
-              <p
-                className="font-['Bebas_Neue'] tracking-[0.25em] text-white/90 mt-2"
+                className={`${LED_HEADLINE_CLASS} text-white/90`}
                 style={{ fontSize: "2.4vw" }}
               >
                 {tournament.name}
@@ -512,20 +493,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           <div className="h-[7vh] min-h-[56px]">
             <ChyronStrip view={view} />
           </div>
-          <div className="py-[0.7vh] flex items-center justify-center bg-black/70 border-t border-white/10">
-            <p
-              className="font-mono uppercase tracking-[0.5em] text-white/55"
-              style={{ fontSize: "0.85vw" }}
-            >
-              Powered by{" "}
-              <span
-                className="font-['Bebas_Neue'] tracking-[0.25em]"
-                style={{ color: "var(--accent)", fontSize: "1.1vw" }}
-              >
-                BIDWAR.IN
-              </span>
-            </p>
-          </div>
+          <LedPoweredByFooter />
         </div>
 
         <ToastLayer toast={toast} booster={purseBooster} />
@@ -538,14 +506,14 @@ export const EffectsLayer = memo(function EffectsLayer({
   // ---------- TEAM WISE VIEW ----------
   if (derivedState === "teamWise") {
     return (
-      <div className="absolute inset-0 z-30 bg-black/95 overflow-hidden">
+      <div className={`absolute inset-0 z-30 bg-black/95 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 p-[2%] flex flex-col">
           <div className="text-center mb-3">
-            <p className="text-[10px] font-mono uppercase tracking-[0.5em] text-white/60">
+            <p className={`${LED_SECTION_KICKER_CLASS} text-white/60`}>
               Team-wise Squad View
             </p>
             <p
-              className="font-['Bebas_Neue'] text-5xl tracking-widest"
+              className={`${LED_HEADLINE_CLASS} text-5xl tracking-widest`}
               style={{ color: "var(--accent)" }}
             >
               TEAMS
@@ -636,15 +604,15 @@ export const EffectsLayer = memo(function EffectsLayer({
       ? displayPlayerFilter.status.toUpperCase()
       : "ALL";
     return (
-      <div className="absolute inset-0 z-30 bg-black/95 overflow-hidden">
+      <div className={`absolute inset-0 z-30 bg-black/95 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 p-[2%] flex flex-col">
           <div className="flex items-end justify-between mb-3">
             <div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.5em] text-white/60">
+              <p className={`${LED_SECTION_KICKER_CLASS} text-white/60`}>
                 Player-wise View
               </p>
               <p
-                className="font-['Bebas_Neue'] text-5xl tracking-widest"
+                className={`${LED_HEADLINE_CLASS} text-5xl tracking-widest`}
                 style={{ color: "var(--accent)" }}
               >
                 PLAYERS
@@ -721,11 +689,9 @@ export const EffectsLayer = memo(function EffectsLayer({
   // ---------- TOP 5 SOLD PLAYERS ----------
   if (derivedState === "topSold") {
     const max = topSoldPlayers[0]?.soldPrice ?? 1;
-    const brandName = branding?.brandName ?? "BIDWAR";
-    // animation key: when the list of ids/prices changes, re-run the count-up
     const animKey = topSoldPlayers.map((p) => `${p.id}:${p.soldPrice}`).join("|");
     return (
-      <div className="absolute inset-0 z-30 overflow-hidden">
+      <div className={`absolute inset-0 z-30 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
         <div className="absolute inset-0 bg-[#070b1a]" />
         <div
           className="absolute inset-0 opacity-40"
@@ -734,44 +700,22 @@ export const EffectsLayer = memo(function EffectsLayer({
               "radial-gradient(ellipse at top, color-mix(in oklab, var(--accent) 25%, transparent) 0%, transparent 60%)",
           }}
         />
-        <div className="relative h-full grid grid-rows-[auto_1fr_auto]">
-          {/* Branded header */}
-          <div className="px-[2.5%] pt-[1.2%] pb-[0.8%] flex items-center justify-between border-b border-white/10">
-            <div className="flex items-baseline gap-[1.2vw] min-w-0">
-              <p
-                className="font-['Bebas_Neue'] tracking-[0.3em]"
-                style={{ fontSize: "2.4vw", color: "var(--accent)" }}
-              >
-                {brandName}
-              </p>
-              <span
-                className="font-mono uppercase tracking-[0.4em] text-white/40"
-                style={{ fontSize: "1vw" }}
-              >
-                ·
-              </span>
-              <p
-                className="font-['Bebas_Neue'] tracking-[0.2em] text-white/95 truncate"
-                style={{ fontSize: "1.9vw" }}
-              >
-                {tournament.name}
-              </p>
-            </div>
-            <div className="text-right">
-              <p
-                className="font-mono uppercase tracking-[0.5em] text-white/50"
-                style={{ fontSize: "0.7vw" }}
-              >
-                Highest Bids
-              </p>
-              <p
-                className="font-['Bebas_Neue'] tracking-[0.25em]"
-                style={{ fontSize: "2.2vw", color: "var(--accent)" }}
-              >
-                TOP 5 PLAYERS SOLD
-              </p>
-            </div>
-          </div>
+        <div className="relative h-full grid grid-rows-[3.5rem_1fr_auto]">
+          <LedOverlayTopBar
+            tournamentName={tournament.name}
+            tournamentLogoUrl={tournament.logoUrl}
+            right={
+              <div>
+                <p className={LED_SECTION_KICKER_CLASS}>Highest Bids</p>
+                <p
+                  className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5`}
+                  style={{ color: "var(--accent)" }}
+                >
+                  TOP 5 PLAYERS SOLD
+                </p>
+              </div>
+            }
+          />
 
           {/* List */}
           <div className="px-[3%] py-[1.5%] flex flex-col justify-center gap-[1.2vh] min-h-0">
@@ -798,20 +742,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <div className="h-[7vh] min-h-[56px]">
               <ChyronStrip view={view} />
             </div>
-            <div className="py-[0.7vh] flex items-center justify-center bg-black/60 border-t border-white/10">
-              <p
-                className="font-mono uppercase tracking-[0.5em] text-white/55"
-                style={{ fontSize: "0.85vw" }}
-              >
-                Powered by{" "}
-                <span
-                  className="font-['Bebas_Neue'] tracking-[0.25em]"
-                  style={{ color: "var(--accent)", fontSize: "1.1vw" }}
-                >
-                  BIDWAR.IN
-                </span>
-              </p>
-            </div>
+            <LedPoweredByFooter />
           </div>
 
         </div>
@@ -877,7 +808,7 @@ function TopSoldRow({
   return (
     <div className="flex items-center gap-[1.5vw]">
       <span
-        className="font-['Bebas_Neue'] text-right tabular-nums leading-none"
+        className={`${LED_AMOUNT_CLASS} text-right tabular-nums`}
         style={{ color: accent, fontSize: "5.5vw", width: "5vw" }}
       >
         {rank}
@@ -897,16 +828,12 @@ function TopSoldRow({
       )}
       <div className="flex-1 min-w-0">
         <p
-          className="font-['Bebas_Neue'] text-white tracking-wider truncate leading-none"
-          style={{ fontSize: "3.4vw" }}
+          className={`${LED_PLAYER_NAME_CLASS} text-white truncate text-[clamp(1.75rem,3.4vw,3.25rem)]`}
         >
           {player.name}
         </p>
-        <p
-          className="font-mono uppercase tracking-[0.35em] text-white/65 mt-[0.4vw] truncate"
-          style={{ fontSize: "0.95vw" }}
-        >
-          {player.roleRaw} · {player.team?.name ?? "—"}
+        <p className={`${LED_ROLE_META_CLASS} mt-[0.4vw] truncate`}>
+          SOLD TO — {player.team?.name ?? "—"}
         </p>
         <div
           className="mt-[0.7vw] bg-white/10 overflow-hidden rounded-sm"
@@ -931,8 +858,8 @@ function TopSoldRow({
         />
       ) : null}
       <p
-        className="font-['Bebas_Neue'] tabular-nums text-right leading-none"
-        style={{ color: accent, fontSize: "4vw", width: "13vw" }}
+        className={`${LED_AMOUNT_CLASS} text-right text-[clamp(2rem,4vw,4.25rem)]`}
+        style={{ color: accent, width: "13vw" }}
       >
         {formatted}
       </p>

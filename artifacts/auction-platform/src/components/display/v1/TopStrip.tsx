@@ -1,57 +1,11 @@
 import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
-import { useBranding } from "@/hooks/use-branding";
-import { getBrandLogoAlt, getObsBrandMarkSrc, getObsBroadcastLogoSrc } from "@/lib/brand-assets";
 import { cldUrl } from "@/lib/cloudinary";
-import { DevThemePicker } from "./DevThemePicker";const LED_TOP_BRAND_MAX_HEIGHT_PX = 48;
-const LED_TOP_BRAND_MAX_WIDTH_PX = 220;
-
-const LedTopBrandMark = memo(function LedTopBrandMark() {
-  const { logos, brandName } = useBranding();
-  const logoSrc = getObsBroadcastLogoSrc(logos) || getObsBrandMarkSrc(logos);
-
-  if (logoSrc) {
-    return (
-      <img
-        src={logoSrc}
-        alt={getBrandLogoAlt(brandName)}
-        className="block w-auto shrink-0 object-contain object-top"
-        style={{
-          maxHeight: LED_TOP_BRAND_MAX_HEIGHT_PX,
-          maxWidth: LED_TOP_BRAND_MAX_WIDTH_PX,
-          filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.55))",
-        }}
-        loading="eager"
-        decoding="async"
-      />
-    );
-  }
-  return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5"
-      style={{ backgroundColor: "var(--accent)" }}
-    >
-      <span
-        className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
-        style={{ color: "var(--accent-on)" }}
-      >
-        BIDWAR
-      </span>
-      <span
-        className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
-        style={{ color: "var(--accent-on)" }}
-      >
-        LIVE
-      </span>
-    </div>
-  );
-});
-
-/* ─── TopStrip ─── */
+import { LedTopBrandMark } from "./led-top-brand-mark";
+import { DevThemePicker } from "./DevThemePicker";
 
 /**
- * TOP STRIP — BIDWAR LIVE brand, tournament line, LIVE pill, remaining counter.
- * Pure presentation. Sourced from TOURNAMENT + state.isBidding + queue.length.
+ * TOP STRIP — OBS crest (center), tournament line, LIVE pill, remaining counter.
  */
 export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
   const { tournament, state, remaining, totalPlayers } = view;
@@ -60,11 +14,10 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
 
   return (
     <div className="relative grid h-full min-h-[3.5rem] max-h-[3.5rem] grid-cols-[1fr_auto_1fr] items-center gap-6 overflow-visible px-[3%] border-b border-white/10 bg-black/40">
-      {/* Center: OBS brand mark — pinned to canvas top edge */}      <div className="pointer-events-none absolute top-0 left-1/2 z-10 -translate-x-1/2">
+      <div className="pointer-events-none absolute top-0 left-1/2 z-10 -translate-x-1/2">
         <LedTopBrandMark />
       </div>
 
-      {/* Left: tournament logo + name */}
       <div className="col-start-1 flex items-center gap-3 min-w-0 justify-self-start">
         <div className="hidden md:flex items-center gap-4 min-w-0 max-h-[3.25rem]">
           {tournament.logoUrl ? (
@@ -90,12 +43,13 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         </div>
       </div>
 
-      <div        aria-hidden
+      <div
+        aria-hidden
         className="col-start-2 w-[min(220px,18vw)] shrink-0"
       />
 
-      {/* Right: LIVE pill + remaining + theme */}
-      <div className="col-start-3 relative z-20 flex items-center justify-end gap-4 justify-self-end">        <div
+      <div className="col-start-3 relative z-20 flex items-center justify-end gap-4 justify-self-end">
+        <div
           className={`flex items-center gap-2 px-4 py-1.5 border ${
             live
               ? "border-red-500/50 bg-red-500/10"
@@ -139,6 +93,7 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         </div>
 
         <DevThemePicker placement="inline" />
-      </div>    </div>
+      </div>
+    </div>
   );
 });

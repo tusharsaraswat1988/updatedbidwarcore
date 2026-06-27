@@ -56,6 +56,18 @@ describe("resolveAuctionFeedState", () => {
     expect(result.secondsSinceLastActivity).toBeGreaterThanOrEqual(60);
   });
 
+  it("keeps operator console live while connected even when auction is idle", () => {
+    const stale = now - DEFAULT_AWAITING_OPERATOR_THRESHOLD_MS - 1;
+    expect(
+      resolveAuctionFeedState({
+        connectionStatus: "connected",
+        lastActivityAt: stale,
+        now,
+        audience: "operator",
+      }).state,
+    ).toBe("live");
+  });
+
   it("does not treat idle feed as disconnected", () => {
     const stale = now - 60_000;
     expect(
