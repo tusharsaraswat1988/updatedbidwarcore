@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
+import {
+  brandingCacheSignature,
+  readBrandingCache,
+  writeBrandingCache,
+} from "@/lib/branding-cache";
 
 export interface BrandingSettings {
   id?: number;
@@ -77,14 +82,25 @@ function resolveAsset(
  * Intended for use across public-facing screens (viewer, owner app, display).
  */
 export function useBranding() {
-  const [settings, setSettings] = useState<BrandingSettings>(BRANDING_DEFAULTS);
-  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<BrandingSettings>(() => {
+    const cached = readBrandingCache();
+    return cached ? { ...BRANDING_DEFAULTS, ...cached } : BRANDING_DEFAULTS;
+  });
+  const [loading, setLoading] = useState(() => !readBrandingCache());
 
   useEffect(() => {
     fetch("/api/branding")
       .then(r => (r.ok ? r.json() : null))
       .then((data: BrandingSettings | null) => {
-        if (data) setSettings({ ...BRANDING_DEFAULTS, ...data });
+        if (!data) return;
+        const merged = { ...BRANDING_DEFAULTS, ...data };
+        const cached = readBrandingCache();
+        const changed =
+          !cached || brandingCacheSignature(cached) !== brandingCacheSignature(merged);
+        if (changed) {
+          setSettings(merged);
+          writeBrandingCache(merged);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));

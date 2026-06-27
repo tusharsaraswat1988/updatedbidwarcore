@@ -39,7 +39,11 @@ export function SideDisplayShell({
   const view = useSideLedView(tournamentId, connectionStatus);
 
   const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 5 * 60 * 1000,
+    },
   });
 
   const { data: state } = useGetAuctionState(tournamentId, {
@@ -116,7 +120,7 @@ export function SideDisplayShell({
     <div className="fixed inset-0 overflow-hidden bg-black">
       <div className="relative h-full w-full">
         <StageThemeProvider initialTheme={resolvedTheme}>
-          <SideLedStageContent view={view} panel={panel} feedState={feed.state} />
+          <SideLedStageContent view={view} panel={panel} feedState={feed.state} tournamentId={tournamentId} />
           <DevThemePicker anchor="stage" />
         </StageThemeProvider>
 
@@ -133,4 +137,4 @@ export function SideDisplayShell({
     </div>
   );
 }
-
+

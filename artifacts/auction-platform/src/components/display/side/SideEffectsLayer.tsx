@@ -2,13 +2,14 @@ import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
 
 /**
- * Side-panel overlays — sold/unsold/pause/break only.
- * Operator display modes (team/player/top5/banner/purse) are never shown here.
+ * Side-panel overlays — sold / unsold only.
+ * Pause and break use SideBreakBadge in the bottom status strip (no dimming overlay).
  */
 export const SideEffectsLayer = memo(function SideEffectsLayer({
   view,
 }: {
   view: LedView;
+  panel?: "sponsors" | "player";
 }) {
   const {
     derivedState,
@@ -17,8 +18,6 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
     currentPlayer,
     basePriceLabel,
     lastOutcome,
-    breakInfo,
-    pausedSeconds,
   } = view;
 
   if (derivedState === "sold") {
@@ -75,39 +74,6 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
           <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">
             {playerName} · Base {basePriceLabel}
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (derivedState === "paused") {
-    return (
-      <div className="absolute inset-0 z-30 grid place-items-center bg-black/75 pointer-events-none">
-        <div className="border-4 border-amber-400 bg-black/90 px-10 py-8 text-center">
-          <p className="font-['Bebas_Neue'] text-5xl tracking-tighter text-amber-400">PAUSED</p>
-          {pausedSeconds != null ? (
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">
-              {pausedSeconds}s remaining
-            </p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (derivedState === "break" || derivedState === "preAuction") {
-    const mm = Math.floor(breakInfo.secondsLeft / 60).toString().padStart(2, "0");
-    const ss = (breakInfo.secondsLeft % 60).toString().padStart(2, "0");
-    const title = derivedState === "preAuction" ? "STARTS IN" : "BREAK";
-    return (
-      <div className="absolute inset-0 z-30 grid place-items-center bg-black/80 pointer-events-none">
-        <div className="text-center px-8">
-          <p className="font-['Bebas_Neue'] text-4xl tracking-widest text-amber-400">{title}</p>
-          {breakInfo.secondsLeft > 0 ? (
-            <p className="font-['Bebas_Neue'] text-7xl tabular-nums text-white mt-2">
-              {mm}:{ss}
-            </p>
-          ) : null}
         </div>
       </div>
     );

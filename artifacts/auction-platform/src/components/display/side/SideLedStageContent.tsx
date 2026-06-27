@@ -5,6 +5,7 @@ import { SideStageFrame } from "./SideStageFrame";
 import { SideSponsorPanel } from "./SideSponsorPanel";
 import { SidePlayerProfilePanel } from "./SidePlayerProfilePanel";
 import { SideEffectsLayer } from "./SideEffectsLayer";
+import { SideBreakBadge, sidePanelShowsStatusBadge } from "./SideBreakBadge";
 
 export type SideLedPanelMode = "sponsors" | "player";
 
@@ -44,10 +45,12 @@ export function SideLedStageContent({
   view,
   panel,
   feedState,
+  tournamentId,
 }: {
   view: LedView;
   panel: SideLedPanelMode;
   feedState?: AuctionFeedState;
+  tournamentId: number;
 }) {
   const standby = resolveReconnectStandby(view, feedState);
   if (standby) {
@@ -64,13 +67,20 @@ export function SideLedStageContent({
 
   return (
     <SideStageFrame>
-      <div className="relative h-full w-full">
-        {panel === "sponsors" ? (
-          <SideSponsorPanel view={view} />
-        ) : (
-          <SidePlayerProfilePanel view={view} />
-        )}
-        <SideEffectsLayer view={view} />
+      <div className="flex h-full w-full flex-col">
+        <div className="relative min-h-0 flex-1">
+          {panel === "sponsors" ? (
+            <SideSponsorPanel view={view} tournamentId={tournamentId} />
+          ) : (
+            <SidePlayerProfilePanel view={view} />
+          )}
+          <SideEffectsLayer view={view} panel={panel} />
+        </div>
+        {sidePanelShowsStatusBadge(view) ? (
+          <div className="shrink-0 border-t border-white/10 px-[5%] py-[2%]">
+            <SideBreakBadge view={view} />
+          </div>
+        ) : null}
       </div>
     </SideStageFrame>
   );

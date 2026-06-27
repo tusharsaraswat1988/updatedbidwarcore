@@ -1,8 +1,17 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { User, UserRound } from "lucide-react";
 import type { LedView } from "@/lib/led-view/types";
 import type { PlayerGender } from "@/lib/led-view/player-gender";
 import { hasUsablePortrait } from "@/lib/led-view/player-gender";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getObsBroadcastLogoSrc } from "@/lib/brand-assets";
+import {
+  broadcastSpecLabel,
+  portraitSpecGridClass,
+} from "@/lib/led-view/portrait-footer-stats";
+
+const SIDE_HEADER_LOGO_MAX_HEIGHT_PX = 30;
+const SIDE_HEADER_LOGO_MAX_WIDTH_PX = 150;
 
 function fmtTimer(secs: number): string {
   const m = Math.floor(secs / 60).toString().padStart(2, "0");
@@ -30,6 +39,10 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
     timerCeiling,
   } = view;
 
+  const { logos, brandName } = useBranding();
+  const logoSrc = getObsBroadcastLogoSrc(logos);
+  const logoAlt = getBrandLogoAlt(brandName);
+
   const [photoFailed, setPhotoFailed] = useState(false);
   useEffect(() => {
     setPhotoFailed(false);
@@ -41,14 +54,36 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
   const ceiling = Math.max(1, timerCeiling);
   const pct = Math.max(0, Math.min(100, (countdown / ceiling) * 100));
 
+  const profileRows = useMemo(() => {
+    if (!currentPlayer) return [];
+
+    return [
+      { shortLabel: "AGE", fullLabel: "Age", value: currentPlayer.age ? String(currentPlayer.age) : "—" },
+      { shortLabel: "CITY", fullLabel: "City", value: currentPlayer.city?.trim() || "—" },
+      { shortLabel: "BASE", fullLabel: "Base Price", value: basePriceLabel, accent: true as const },
+      {
+        shortLabel: "ROLE",
+        fullLabel: "Role",
+        value: currentPlayer.roleRaw || roleLabel || "—",
+      },
+      ...currentPlayer.specs.map((spec) => ({
+        shortLabel: broadcastSpecLabel(spec.label),
+        fullLabel: spec.label,
+        value: spec.value?.trim() || "—",
+      })),
+    ];
+  }, [currentPlayer, basePriceLabel, roleLabel]);
+
+  const specGridClass = portraitSpecGridClass(profileRows.length);
+
   if (!currentPlayer) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-[8%] text-center">
-        <p className="font-['Bebas_Neue'] text-5xl tracking-widest text-white/25">PLAYER</p>
-        <p className="mt-4 font-mono text-xs uppercase tracking-[0.4em] text-white/45">
+        <p className="font-['Bebas_Neue'] text-5xl tracking-[0.12em] uppercase text-white/25">PLAYER</p>
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.35em] text-white/45">
           Awaiting next player
         </p>
-        <p className="mt-2 font-['Bebas_Neue'] text-xl tracking-wider text-white/70">
+        <p className="mt-2 font-['Bebas_Neue'] text-xl tracking-[0.12em] uppercase text-white/70">
           {tournament.name}
         </p>
       </div>
@@ -60,38 +95,31 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <header className="shrink-0 flex items-center justify-between border-b border-white/10 bg-black/50 px-[5%] py-[2.5%]">
-        <div className="flex items-center gap-2">
-          <div
-            className="size-10 grid place-items-center font-['Bebas_Neue'] text-lg italic"
-            style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
-          >
-            #{player.serialNo}
+      <header className="shrink-0 border-b border-white/10 bg-black/50 px-[5%] pb-[3%] pt-0">
+        {logoSrc ? (
+          <div className="flex items-start justify-center">
+            <img
+              src={logoSrc}
+              alt={logoAlt}
+              className="block w-auto shrink-0 object-contain object-top"
+              style={{
+                maxHeight: SIDE_HEADER_LOGO_MAX_HEIGHT_PX,
+                maxWidth: SIDE_HEADER_LOGO_MAX_WIDTH_PX,
+                filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.55))",
+              }}
+              loading="eager"
+              decoding="async"
+            />
           </div>
-          <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/45">
-              Live Auction
-            </p>
-            <p className="font-['Bebas_Neue'] text-sm tracking-widest text-white/90 truncate max-w-[40vw]">
-              {tournament.name}
-            </p>
-          </div>
-        </div>
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1 border ${
-            live ? "border-red-500/50 bg-red-500/10" : "border-white/15 bg-white/5"
-          }`}
+        ) : null}
+        <h1
+          className={`text-center font-['Bebas_Neue'] text-4xl leading-none tracking-[0.12em] uppercase text-white/90 md:text-5xl ${logoSrc ? "mt-6" : "mt-4"}`}
         >
-          <span
-            className={`size-1.5 rounded-full ${live ? "bg-red-500 animate-pulse" : "bg-white/40"}`}
-          />
-          <span className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/70">
-            {live ? "On Block" : "Profile"}
-          </span>
-        </div>
+          {tournament.name}
+        </h1>
       </header>
 
-      <div className="relative min-h-0 flex-[45%] shrink-0">
+      <div className="relative min-h-0 flex-1 shrink">
         {showPhoto ? (
           <img
             src={player.portrait}
@@ -106,106 +134,121 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+        <div
+          className="absolute top-[5%] right-[5%] z-10 grid size-12 place-items-center font-['Bebas_Neue'] text-xl italic shadow-2xl md:size-14 md:text-2xl"
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
+        >
+          #{player.serialNo}
+        </div>
         <div className="absolute bottom-0 left-0 right-0 p-[5%]">
-          <span
-            className="inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest"
-            style={{ backgroundColor: "var(--accent)", color: "var(--accent-on)" }}
-          >
-            {roleLabel || player.roleRaw}
-          </span>
-          {player.categoryName ? (
-            <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.25em] text-white/50">
-              {player.categoryName}
-            </span>
-          ) : null}
-          <h2 className="mt-2 font-['Bebas_Neue'] text-[clamp(2rem,8vw,4rem)] leading-[0.9] uppercase tracking-tight text-white">
+          <p className="text-[11px] font-bold uppercase leading-snug tracking-[0.14em] sm:text-xs">
+            <span style={{ color: "var(--accent)" }}>{roleLabel || player.roleRaw}</span>
+            {player.categoryName ? (
+              <>
+                <span className="mx-2 font-normal text-white/35">•</span>
+                <span className="font-mono tracking-[0.18em] text-white/80">{player.categoryName}</span>
+              </>
+            ) : null}
+          </p>
+          <h2 className="mt-2 font-['Bebas_Neue'] text-[clamp(1.75rem,8vw,4rem)] leading-[0.88] uppercase tracking-tight text-white">
             {player.name}
           </h2>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-[5%] py-[4%] space-y-[4%]">
-        <div className="grid grid-cols-2 gap-2">
-          <ProfileStat label="Age" value={player.age ? String(player.age) : "—"} />
-          <ProfileStat label="City" value={player.city || "—"} />
-          <ProfileStat label="Base Price" value={basePriceLabel} accent />
-          <ProfileStat label="Role" value={player.roleRaw || roleLabel} />
-          {player.specs.map((spec) => (
-            <ProfileStat key={spec.label} label={spec.label} value={spec.value} />
+      <div className="shrink-0 overflow-hidden border-t border-white/10 px-[5%] py-[2.5%]">
+        <div className={`grid ${specGridClass} gap-x-3 gap-y-1`}>
+          {profileRows.map((row, index) => (
+            <SideSpecRow
+              key={`${row.fullLabel}-${index}`}
+              shortLabel={row.shortLabel}
+              fullLabel={row.fullLabel}
+              value={row.value}
+              accent={row.accent === true}
+              className={
+                profileRows.length > 2 &&
+                profileRows.length % 2 === 1 &&
+                index === profileRows.length - 1
+                  ? "col-span-2"
+                  : undefined
+              }
+            />
           ))}
         </div>
 
         {player.achievements ? (
-          <div className="border border-white/10 bg-white/[0.03] p-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/45">
-              Highlights
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-white/75 line-clamp-4">
-              {player.achievements}
-            </p>
-          </div>
+          <p
+            className="mt-2 line-clamp-2 font-mono text-[11px] leading-snug text-white/60"
+            title={player.achievements}
+          >
+            <span className="text-[10px] uppercase tracking-[0.12em] text-white/45">Highlights: </span>
+            {player.achievements}
+          </p>
         ) : null}
       </div>
 
-      <footer className="shrink-0 border-t border-white/10 bg-black/70 px-[5%] py-[3%]">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p
-              className="font-mono text-[9px] uppercase tracking-[0.35em]"
-              style={{ color: "var(--accent)" }}
+      <footer className="relative shrink-0 border-t border-white/10 bg-black/70 px-[5%] py-[4%]">
+        {live ? (
+          <div className="absolute right-[5%] top-1/2 flex -translate-y-1/2 flex-col items-end">
+            <span className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-white/45">
+              Hammer Time
+            </span>
+            <span
+              className="font-mono text-4xl font-bold tabular-nums leading-none md:text-5xl"
+              style={{
+                color: urgent ? "#ef4444" : "var(--accent)",
+                animation: urgent ? "auction-urgency-pulse 0.8s ease-in-out infinite" : undefined,
+              }}
             >
-              {state.currentBid > 0 ? "Current Bid" : "Opening Bid"}
-            </p>
-            <p
-              key={state.currentBid}
-              className="font-['Bebas_Neue'] text-[clamp(2rem,7vw,3.5rem)] leading-none tabular-nums tracking-tight"
-              style={{ animation: live ? "auction-bid-flash 1.2s ease-out" : undefined }}
-            >
-              {currentBidLabel}
-            </p>
-            {leadingTeam && state.currentBid > 0 ? (
-              <div className="mt-1 flex items-center gap-2 min-w-0">
-                {leadingTeam.logoUrl ? (
-                  <img src={leadingTeam.logoUrl} alt="" className="h-5 w-5 object-contain shrink-0" />
-                ) : null}
-                <span
-                  className="truncate text-[10px] font-bold uppercase tracking-wider"
-                  style={{ color: leadingTeam.color }}
-                >
-                  {leadingTeam.name}
-                </span>
-              </div>
-            ) : live ? (
-              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.3em] text-white/40">
-                Waiting for first bid
-              </p>
-            ) : null}
-          </div>
-
-          {live ? (
-            <div className="flex flex-col items-end shrink-0">
-              <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/45">
-                Timer
-              </span>
-              <span
-                className="font-mono text-4xl font-bold tabular-nums leading-none"
+              {fmtTimer(countdown)}
+            </span>
+            <div className="mt-1 h-1 w-20 bg-white/10 overflow-hidden md:w-24">
+              <div
+                className="h-full transition-all duration-1000 ease-linear"
                 style={{
-                  color: urgent ? "#ef4444" : "var(--accent)",
-                  animation: urgent ? "auction-urgency-pulse 0.8s ease-in-out infinite" : undefined,
+                  width: `${pct}%`,
+                  backgroundColor: urgent ? "#ef4444" : "var(--accent)",
                 }}
-              >
-                {fmtTimer(countdown)}
-              </span>
-              <div className="mt-1 h-1 w-24 bg-white/10 overflow-hidden">
-                <div
-                  className="h-full transition-all duration-1000 ease-linear"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: urgent ? "#ef4444" : "var(--accent)",
-                  }}
-                />
-              </div>
+              />
             </div>
+          </div>
+        ) : null}
+
+        <div
+          key={state.currentBid}
+          className="mx-auto flex w-full max-w-3xl flex-col items-center text-center"
+          style={{ animation: live ? "auction-bid-flash 1.2s ease-out" : undefined }}
+        >
+          <p
+            className="mb-2 font-mono text-[10px] uppercase tracking-[0.5em]"
+            style={{ color: "var(--accent)" }}
+          >
+            {state.currentBid > 0 ? "Current Bid" : "Bid Starts At"}
+          </p>
+          <p
+            className="font-['Bebas_Neue'] text-[clamp(3.25rem,14vw,6.5rem)] leading-[0.85] tabular-nums tracking-tighter text-white"
+            style={{
+              animation: live ? "auction-mega-glow 3s ease-in-out infinite" : undefined,
+            }}
+          >
+            {currentBidLabel}
+          </p>
+          {leadingTeam && state.currentBid > 0 ? (
+            <div className="mt-3 flex max-w-full items-center justify-center gap-2">
+              {leadingTeam.logoUrl ? (
+                <img src={leadingTeam.logoUrl} alt="" className="h-6 w-6 shrink-0 object-contain" />
+              ) : null}
+              <span
+                className="truncate font-['Bebas_Neue'] text-base uppercase tracking-wider md:text-lg"
+                style={{ color: leadingTeam.color }}
+              >
+                {leadingTeam.name}
+              </span>
+            </div>
+          ) : live ? (
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
+              Waiting for first bid
+            </p>
           ) : null}
         </div>
       </footer>
@@ -213,25 +256,34 @@ export const SidePlayerProfilePanel = memo(function SidePlayerProfilePanel({
   );
 });
 
-function ProfileStat({
-  label,
+function SideSpecRow({
+  shortLabel,
+  fullLabel,
   value,
   accent,
+  className,
 }: {
-  label: string;
+  shortLabel: string;
+  fullLabel: string;
   value: string;
   accent?: boolean;
+  className?: string;
 }) {
   return (
-    <div className="border border-white/10 bg-black/40 px-3 py-2">
-      <p className="font-mono text-[8px] uppercase tracking-[0.25em] text-white/40">{label}</p>
-      <p
-        className="mt-0.5 font-['Bebas_Neue'] text-lg tracking-wide truncate"
+    <p className={`min-w-0 leading-snug ${className ?? ""}`}>
+      <span
+        className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/50 sm:text-xs"
+        title={fullLabel}
+      >
+        {shortLabel}:{" "}
+      </span>
+      <span
+        className="font-mono text-[12px] font-bold sm:text-[13px]"
         style={{ color: accent ? "var(--accent)" : "#fff" }}
       >
         {value}
-      </p>
-    </div>
+      </span>
+    </p>
   );
 }
 
