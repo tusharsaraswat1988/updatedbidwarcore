@@ -82,20 +82,29 @@ function resolveLeadingTeam(
     color: auctionState.currentBidTeamColor ?? "#3B82F6",
     purse: 0,
     totalPurse: 0,
+    purseUsed: 0,
     logoUrl: auctionState.currentBidTeamLogoUrl ?? null,
     playersBought: 0,
+    playersSold: 0,
+    retainedCount: 0,
     reservedAmount: 0,
     maxBidAllowed: 0,
     slotsRemaining: 0,
+    maximumSquadSize: 0,
+    lastPurchase: null,
   };
 }
 
 function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam {
   const playersBought = t.playersBought;
-  const remainingSlotsTotal = Math.max(0, minSquadSize - playersBought);
-  const reservedAmount = remainingSlotsTotal * Math.max(0, minBid);
+  const retainedCount = t.retainedCount ?? 0;
+  const playersSold = Math.max(0, playersBought - retainedCount);
+  const maxSquad = t.maximumSquadSize ?? minSquadSize;
+  const remainingSlotsTotal = Math.max(0, maxSquad - playersBought);
+  const reservedAmount = t.reservePurse ?? remainingSlotsTotal * Math.max(0, minBid);
   const reserveForOthers = Math.max(0, remainingSlotsTotal - 1) * Math.max(0, minBid);
-  const maxBidAllowed = Math.max(0, t.purseRemaining - reserveForOthers);
+  const maxBidAllowed =
+    t.spendablePurse ?? Math.max(0, t.purseRemaining - reserveForOthers);
   return {
     id: String(t.teamId),
     name: t.teamName,
@@ -103,11 +112,19 @@ function toLedTeam(t: TeamPurse, minBid: number, minSquadSize: number): LedTeam 
     color: t.color ?? "#3B82F6",
     purse: t.purseRemaining,
     totalPurse: t.purse,
+    purseUsed: t.purseUsed,
     logoUrl: t.logoUrl ?? null,
     playersBought,
+    playersSold,
+    retainedCount,
     reservedAmount,
     maxBidAllowed,
     slotsRemaining: remainingSlotsTotal,
+    maximumSquadSize: maxSquad,
+    lastPurchase:
+      t.topPlayerName && t.topPlayerAmount != null
+        ? { playerName: t.topPlayerName, amount: t.topPlayerAmount }
+        : null,
   };
 }
 
@@ -199,6 +216,7 @@ const EMPTY_VIEW: LedView = {
   filteredPlayers: [],
   topSoldPlayers: [],
   timerCeiling: 30,
+  minimumBid: 0,
   loading: true,
   error: null,
   connectionStatus: "connecting",
@@ -374,7 +392,7 @@ export function useLedView(
     const outcome = stateExt?.outcome;
     const minBid = tournament.minBid ?? 0;
     const minSquadSize = tournament.minimumSquadSize ?? 0;
-    const teams = (teamPurses ?? []).map((t) => toLedTeam(t, minBid, minSquadSize));
+    const teamsBase = (teamPurses ?? []).map((t) => toLedTeam(t, minBid, minSquadSize));
 
     const playersSource = allPlayers ?? (state?.currentPlayer ? [state.currentPlayer] : []);
     const currentPlayerIdResolved = state?.currentPlayer?.id ?? outcome?.playerId ?? null;
@@ -385,6 +403,49 @@ export function useLedView(
     const players = playersSource.map((p) =>
       toLedPlayer(p, currentPlayerIdResolved, categoryNameFor(p), labelsFor(p)),
     );
+
+    const lastSoldByTeam = new Map<
+      string,
+      { playerName: string; amount: number; playerId: number }
+    >();
+    for (const p of players) {
+      if (p.status !== "sold" || !p.soldToTeamId) continue;
+      const pid = Number(p.id);
+      const prev = lastSoldByTeam.get(p.soldToTeamId);
+      if (!prev || pid > prev.playerId) {
+        lastSoldByTeam.set(p.soldToTeamId, {
+          playerName: p.name,
+          amount: p.soldPrice ?? p.basePrice,
+          playerId: pid,
+        });
+      }
+    }
+    if (
+      outcome?.type === "sold" &&
+      outcome.teamId != null &&
+      outcome.playerName &&
+      (outcome.amount ?? 0) > 0
+    ) {
+      const tid = String(outcome.teamId);
+      const oid = outcome.playerId ?? 0;
+      const prev = lastSoldByTeam.get(tid);
+      if (!prev || oid >= prev.playerId) {
+        lastSoldByTeam.set(tid, {
+          playerName: outcome.playerName,
+          amount: outcome.amount ?? 0,
+          playerId: oid,
+        });
+      }
+    }
+
+    const teams = teamsBase.map((team) => {
+      const last = lastSoldByTeam.get(team.id);
+      if (!last) return team;
+      return {
+        ...team,
+        lastPurchase: { playerName: last.playerName, amount: last.amount },
+      };
+    });
 
     const currentPlayer = state?.currentPlayer
       ? toLedPlayer(
@@ -715,6 +776,7 @@ export function useLedView(
       filteredPlayers,
       topSoldPlayers,
       timerCeiling,
+      minimumBid: minBid,
       loading: false,
       error: error ? String(error) : null,
       connectionStatus,

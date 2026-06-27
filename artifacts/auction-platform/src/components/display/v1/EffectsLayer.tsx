@@ -2,6 +2,14 @@ import { memo, useEffect, useState } from "react";
 import type { LedView } from "@/lib/led-view/types";
 import { ChyronStrip } from "./ChyronStrip";
 import { LedOverlayTopBar } from "./led-overlay-top-bar";
+import {
+  computeTeamWiseGrid,
+  formatTeamWiseMoney,
+  formatTeamWiseMoneyShort,
+  getTeamWiseStatus,
+  getTeamWiseTypography,
+} from "./team-wise-layout";
+import type { LedTeam } from "@/lib/led-view/types";
 import { LedTopBrandMark } from "./led-top-brand-mark";
 import {
   LED_AMOUNT_CLASS,
@@ -41,6 +49,7 @@ function LedPoweredByFooter({ text }: { text?: string }) {
  *   break             → "BREAK" with countdown
  *   fortuneWheel      → wheel spinner / winner reveal
  *   teamPurse         → "TEAM PURSE VIEW" overlay
+ *   teamWise          → compact broadcast team rows (purse + squad stats)
  * Toasts + purse boosters render as transient corner cards on top.
  */
 export const EffectsLayer = memo(function EffectsLayer({
@@ -62,12 +71,14 @@ export const EffectsLayer = memo(function EffectsLayer({
     toast,
     purseBooster,
     banner,
-    teamSquads,
     filteredPlayers,
     topSoldPlayers,
     displayPlayerFilter,
     tournament,
     branding,
+    minimumBid,
+    totalPlayers,
+    remaining,
   } = view;
   const teams = state.teams;
 
@@ -488,13 +499,8 @@ export const EffectsLayer = memo(function EffectsLayer({
           )}
         </div>
 
-        {/* Sponsor ticker + Powered by */}
-        <div className="flex flex-col">
-          <div className="h-[7vh] min-h-[56px]">
-            <ChyronStrip view={view} />
-          </div>
-          <LedPoweredByFooter />
-        </div>
+        {/* Powered by — ticker hidden while banner is shown */}
+        <LedPoweredByFooter />
 
         <ToastLayer toast={toast} booster={purseBooster} />
       </div>
@@ -505,94 +511,68 @@ export const EffectsLayer = memo(function EffectsLayer({
 
   // ---------- TEAM WISE VIEW ----------
   if (derivedState === "teamWise") {
+    const n = Math.max(teams.length, 1);
+    const { cols, rows } = computeTeamWiseGrid(n);
+    const type = getTeamWiseTypography(rows);
+    const totalSold = teams.reduce((s, t) => s + t.playersBought, 0);
+    const totalPurseLeft = teams.reduce((s, t) => s + t.purse, 0);
+    const playerTotal = totalPlayers || (totalSold + remaining);
+
     return (
-      <div className={`absolute inset-0 z-30 bg-black/95 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
-        <div className="absolute inset-0 p-[2%] flex flex-col">
-          <div className="text-center mb-3">
-            <p className={`${LED_SECTION_KICKER_CLASS} text-white/60`}>
-              Team-wise Squad View
-            </p>
-            <p
-              className={`${LED_HEADLINE_CLASS} text-5xl tracking-widest`}
-              style={{ color: "var(--accent)" }}
-            >
-              TEAMS
-            </p>
-          </div>
-          <div
-            className="flex-1 grid gap-3 overflow-hidden"
-            style={{
-              gridTemplateColumns: `repeat(${Math.min(teamSquads.length, 4) || 1}, minmax(0, 1fr))`,
-              gridAutoRows: "minmax(0, 1fr)",
-            }}
-          >
-            {teamSquads.map((sq) => (
-              <div
-                key={sq.team.id}
-                className="flex flex-col border-2 bg-white/[0.03] overflow-hidden"
-                style={{ borderColor: sq.team.color }}
+      <div
+        className={`absolute inset-0 z-30 grid grid-rows-[3.5rem_1fr_auto_auto] overflow-hidden pointer-events-none ${LED_STAGE_FONT_CLASS}`}
+      >
+        <div className="absolute inset-0 bg-[#070b1a]" />
+        <LedOverlayTopBar
+          tournamentName={tournament.name}
+          tournamentLogoUrl={tournament.logoUrl}
+          right={
+            <div className="text-right">
+              <p className={LED_SECTION_KICKER_CLASS}>Squad Status</p>
+              <p
+                className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5`}
+                style={{ color: "var(--accent)" }}
               >
-                <div
-                  className="flex items-center gap-2 px-3 py-2"
-                  style={{ background: `${sq.team.color}22` }}
-                >
-                  {sq.team.logoUrl ? (
-                    <img src={sq.team.logoUrl} className="h-10 w-10 object-contain" alt="" />
-                  ) : (
-                    <div
-                      className="h-10 w-10 grid place-items-center font-['Bebas_Neue'] text-base"
-                      style={{ background: sq.team.color, color: "#000" }}
-                    >
-                      {sq.team.short}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-['Bebas_Neue'] text-lg leading-none truncate text-white tracking-wider">
-                      {sq.team.name}
-                    </p>
-                    <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-white/60">
-                      {sq.players.length} players · spent {sq.spentLabel}
-                    </p>
-                  </div>
-                  <p
-                    className="font-['Bebas_Neue'] text-lg tabular-nums"
-                    style={{ color: sq.team.color }}
-                  >
-                    {sq.remainingLabel}
-                  </p>
-                </div>
-                <div className="flex-1 overflow-hidden p-2 space-y-1">
-                  {sq.players.length === 0 ? (
-                    <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 text-center mt-4">
-                      No purchases yet
-                    </p>
-                  ) : (
-                    sq.players.slice(0, 10).map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-2 text-xs border-l-2 px-2 py-1 bg-black/40"
-                        style={{ borderColor: sq.team.color }}
-                      >
-                        <span className="font-['Bebas_Neue'] tracking-wider text-white text-sm flex-1 truncate">
-                          {p.name}
-                        </span>
-                        <span className="text-[9px] font-mono uppercase text-white/50 tracking-[0.2em]">
-                          {p.roleRaw}
-                        </span>
-                        <span
-                          className="font-['Bebas_Neue'] tabular-nums text-sm"
-                          style={{ color: sq.team.color }}
-                        >
-                          {p.soldPriceLabel}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                TEAM WISE
+              </p>
+            </div>
+          }
+        />
+
+        <div
+          className="relative px-[1.2%] pt-[0.6%] pb-[0.5%] grid min-h-0 min-w-0"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            gap: "0.9%",
+          }}
+        >
+          {teams.length === 0 ? (
+            <div className="col-span-full grid place-items-center">
+              <p className="text-white/40 font-mono uppercase tracking-[0.4em] text-sm">No teams yet</p>
+            </div>
+          ) : (
+            teams.map((team) => (
+              <TeamWiseBroadcastPanel
+                key={team.id}
+                team={team}
+                minimumBid={minimumBid}
+                type={type}
+              />
+            ))
+          )}
         </div>
+
+        {/* Bottom summary bar */}
+        <TeamWiseSummaryBar
+          totalSold={totalSold}
+          playerTotal={playerTotal}
+          totalPurseLeft={totalPurseLeft}
+          labelSize={type.label}
+          metaSize={type.meta}
+        />
+
+        <LedPoweredByFooter />
         <ToastLayer toast={toast} booster={purseBooster} />
       </div>
     );
@@ -759,6 +739,201 @@ export const EffectsLayer = memo(function EffectsLayer({
 
 type TopSoldPlayer = LedView["topSoldPlayers"][number];
 
+type TeamWiseTypography = ReturnType<typeof getTeamWiseTypography>;
+
+function TeamWiseSummaryBar({
+  totalSold,
+  playerTotal,
+  totalPurseLeft,
+  labelSize,
+  metaSize,
+}: {
+  totalSold: number;
+  playerTotal: number;
+  totalPurseLeft: number;
+  labelSize: string;
+  metaSize: string;
+}) {
+  return (
+    <div className="relative flex items-center justify-end gap-[2%] px-[1.5%] py-[0.55%] bg-[#080d1e] border-t border-white/[0.08]">
+      <div className="flex items-center gap-[0.5em] shrink-0">
+        <span className="font-mono uppercase tracking-[0.08em] text-white/45 leading-none" style={{ fontSize: metaSize }}>
+          Total Players Sold
+        </span>
+        <span className={`${LED_HEADLINE_CLASS} text-white/90 leading-none`} style={{ fontSize: labelSize }}>
+          {totalSold} / {playerTotal || "—"}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-[0.5em] shrink-0 border-l border-white/[0.08] pl-[1.5%]">
+        <span className="font-mono uppercase tracking-[0.08em] text-white/45 leading-none" style={{ fontSize: metaSize }}>
+          Total Purse Left
+        </span>
+        <span
+          className="font-['Barlow_Condensed'] font-bold tabular-nums text-amber-300 leading-none"
+          style={{ fontSize: labelSize }}
+        >
+          {formatTeamWiseMoney(totalPurseLeft)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TeamWiseBroadcastPanel({
+  team,
+  minimumBid,
+  type,
+}: {
+  team: LedTeam;
+  minimumBid: number;
+  type: TeamWiseTypography;
+}) {
+  const status = getTeamWiseStatus(team, minimumBid);
+  const squadCap = Math.max(team.maximumSquadSize, team.playersBought, 1);
+  const progressPct = Math.min(100, (team.playersBought / squadCap) * 100);
+
+  return (
+    <div className="relative flex flex-col bg-[#0d1220] border border-white/[0.09] rounded-xl overflow-hidden min-w-0 min-h-0 shadow-[0_8px_32px_rgba(0,0,0,0.75),0_4px_14px_rgba(0,0,0,0.55),0_0_0_1px_rgba(0,0,0,0.35)]">
+
+      {/* Colored header band — logo + name same row */}
+      <div
+        className="flex items-center gap-[0.45em] px-[0.55em] py-[0.38em] shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${team.color} 55%, #0a1022)` }}
+      >
+        <div
+          className="shrink-0 grid place-items-center rounded overflow-hidden bg-black/20"
+          style={{ width: type.logo, height: type.logo }}
+        >
+          {team.logoUrl ? (
+            <img src={team.logoUrl} alt={team.short} className="max-h-[90%] max-w-[90%] object-contain" />
+          ) : (
+            <span
+              className={`${LED_HEADLINE_CLASS} leading-none`}
+              style={{ fontSize: type.squad, color: "#fff" }}
+            >
+              {team.short}
+            </span>
+          )}
+        </div>
+        <h2
+          className={`${LED_HEADLINE_CLASS} flex-1 min-w-0 truncate text-white leading-tight`}
+          style={{ fontSize: type.name, textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}
+        >
+          {team.name}
+        </h2>
+      </div>
+
+      {/* Body — justify-between so sections fill the full card height */}
+      <div className="flex flex-col justify-between px-[3%] py-[2.5%] flex-1 min-h-0">
+
+        {/* Financial stats: Purse Left | Max Spendable | Reserve */}
+        <div className="grid grid-cols-3 gap-[0.3em]">
+          {/* Purse Left */}
+          <div className="min-w-0">
+            <p className="font-mono uppercase tracking-[0.1em] text-white/50 leading-none" style={{ fontSize: type.label }}>
+              Purse Left
+            </p>
+            <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-amber-300 mt-[0.14em]"
+              style={{ fontSize: type.purse }}>
+              {formatTeamWiseMoneyShort(team.purse)}
+            </p>
+          </div>
+          {/* Max Spendable */}
+          <div className="min-w-0">
+            <p className="font-mono uppercase tracking-[0.1em] text-white/50 leading-none" style={{ fontSize: type.label }}>
+              Max Spendable
+            </p>
+            <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-emerald-300 mt-[0.14em]"
+              style={{ fontSize: type.purse }}>
+              {formatTeamWiseMoneyShort(team.maxBidAllowed)}
+            </p>
+            <p className="font-mono uppercase tracking-[0.06em] text-white/32 leading-none mt-[0.06em]" style={{ fontSize: type.meta }}>
+              On 1 Player
+            </p>
+          </div>
+          {/* Reserve */}
+          <div className="min-w-0">
+            <p className="font-mono uppercase tracking-[0.1em] text-white/50 leading-none" style={{ fontSize: type.label }}>
+              Reserve
+            </p>
+            <p className="font-['Barlow_Condensed'] font-bold tabular-nums leading-tight text-white/80 mt-[0.14em]"
+              style={{ fontSize: type.money }}>
+              {formatTeamWiseMoneyShort(team.reservedAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-white/[0.07]" />
+
+        {/* Squad counts + status */}
+        <div className="grid grid-cols-3 gap-[0.3em] items-center">
+          <div className="min-w-0">
+            <p className="font-mono uppercase tracking-[0.1em] text-white/45 leading-none" style={{ fontSize: type.label }}>
+              Bought
+            </p>
+            <p className={`${LED_AMOUNT_CLASS} text-white/92 leading-none mt-[0.12em]`} style={{ fontSize: type.squad }}>
+              {team.playersBought}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="font-mono uppercase tracking-[0.1em] text-white/45 leading-none" style={{ fontSize: type.label }}>
+              Slots Left
+            </p>
+            <p className={`${LED_AMOUNT_CLASS} text-white/88 leading-none mt-[0.12em]`} style={{ fontSize: type.squad }}>
+              {team.slotsRemaining}
+            </p>
+          </div>
+          <div className={`flex items-center justify-center gap-[0.3em] rounded-lg border px-[0.3em] py-[0.3em] self-stretch ${status.badgeClass}`}>
+            <span className={`h-[0.4em] w-[0.4em] min-h-[4px] min-w-[4px] rounded-full shrink-0 ${status.dotClass}`} />
+            <span className="font-mono uppercase tracking-[0.05em] leading-none text-center" style={{ fontSize: type.badge }}>
+              {status.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="min-w-0">
+          <div className="h-[0.5em] min-h-[4px] rounded-full bg-white/[0.08] overflow-hidden">
+            <div className="h-full rounded-full transition-[width] duration-500 ease-out"
+              style={{ width: `${progressPct}%`, backgroundColor: team.color }} />
+          </div>
+          <p className="font-mono uppercase tracking-[0.08em] text-white/40 mt-[0.45em] leading-none"
+            style={{ fontSize: type.meta }}>
+            {team.playersBought} / {squadCap} Players
+          </p>
+        </div>
+
+        <div className="border-t border-white/[0.07]" />
+
+        {/* Last purchase */}
+        <div className="min-w-0">
+          <p className="font-mono uppercase tracking-[0.08em] text-white/38 leading-none" style={{ fontSize: type.meta }}>
+            Last Purchase
+          </p>
+          {team.lastPurchase ? (
+            <div className="flex items-baseline justify-between gap-[0.4em] mt-[0.1em]">
+              <p className={`${LED_HEADLINE_CLASS} truncate text-white/90 leading-tight flex-1 min-w-0`}
+                style={{ fontSize: type.money }}>
+                {team.lastPurchase.playerName}
+              </p>
+              <p className="font-['Barlow_Condensed'] font-bold tabular-nums text-white/65 shrink-0 leading-none"
+                style={{ fontSize: type.money }}>
+                {formatTeamWiseMoneyShort(team.lastPurchase.amount)}
+              </p>
+            </div>
+          ) : (
+            <p className="font-mono uppercase tracking-[0.06em] text-white/30 leading-none mt-[0.1em]"
+              style={{ fontSize: type.meta }}>
+              No Purchase Yet —
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TopSoldRow({
   rank,
   player,
@@ -832,8 +1007,13 @@ function TopSoldRow({
         >
           {player.name}
         </p>
-        <p className={`${LED_ROLE_META_CLASS} mt-[0.4vw] truncate`}>
-          SOLD TO — {player.team?.name ?? "—"}
+        <p className="mt-[0.4vw] truncate leading-tight">
+          <span className={LED_ROLE_META_CLASS}>SOLD TO — </span>
+          <span
+            className={`${LED_HEADLINE_CLASS} text-[clamp(0.9375rem,1.5vw,1.5rem)] text-white/90`}
+          >
+            {player.team?.name ?? "—"}
+          </span>
         </p>
         <div
           className="mt-[0.7vw] bg-white/10 overflow-hidden rounded-sm"

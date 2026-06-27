@@ -10,6 +10,11 @@ export type LedPlayerSpec = {
 
 export type LedPlayerStatus = "queue" | "live" | "sold" | "unsold" | "retained";
 
+export type LedTeamLastPurchase = {
+  playerName: string;
+  amount: number;
+};
+
 export type LedTeam = {
   id: string;
   name: string;
@@ -17,11 +22,17 @@ export type LedTeam = {
   color: string;
   purse: number;
   totalPurse: number;
+  purseUsed: number;
   logoUrl: string | null;
   playersBought: number;
+  /** Players acquired at auction (sold), excluding retained. */
+  playersSold: number;
+  retainedCount: number;
   reservedAmount: number;
   maxBidAllowed: number;
   slotsRemaining: number;
+  maximumSquadSize: number;
+  lastPurchase: LedTeamLastPurchase | null;
 };
 
 export type LedPlayer = {
@@ -208,6 +219,8 @@ export type LedView = {
   filteredPlayers: LedPlayer[];
   topSoldPlayers: LedTopSold[];
   timerCeiling: number;
+  /** Tournament minimum bid — used for team dashboard status. */
+  minimumBid: number;
   loading: boolean;
   error: string | null;
   connectionStatus: "connected" | "connecting" | "disconnected" | "error" | "reconnecting";
