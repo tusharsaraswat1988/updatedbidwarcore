@@ -81,10 +81,13 @@ export type LedTopSold = LedSquadPlayer & {
   team: LedTeam | null;
 };
 
+export type LiveSponsorTier = "title" | "co_sponsor" | "normal";
+
 export type LiveSponsorDTO = {
   name: string;
   type: string;
   logoUrl: string;
+  tier?: LiveSponsorTier;
 };
 
 export type LiveBrandingDTO = {

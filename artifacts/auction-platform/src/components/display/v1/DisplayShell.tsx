@@ -11,8 +11,8 @@ import { resolveReconnectStandby } from "../display-reconnect-standby";
 import type { AuctionFeedState } from "@workspace/api-base/auction-connection-state";
 import type { LedView } from "@/lib/led-view/types";
 
-const STAGE_GRID_ROWS = "grid-rows-[minmax(3.5rem,8%)_1fr_minmax(3rem,8%)]";
-const STAGE_GRID_ROWS_LIVE = "grid-rows-[minmax(3.5rem,8%)_1fr_minmax(4.5rem,12%)_minmax(3rem,8%)]";
+const STAGE_GRID_ROWS = "grid-rows-[3.5rem_1fr_minmax(3rem,8%)]";
+const STAGE_GRID_ROWS_LIVE = "grid-rows-[3.5rem_1fr_minmax(4.5rem,12%)_minmax(3rem,8%)]";
 
 /**
  * V1 LED stage layout — pure presentation over a LedView snapshot.

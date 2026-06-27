@@ -12,13 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Monitor, Users, Link2, Copy, ExternalLink, MessageCircle, KeyRound, Radio } from "lucide-react";
 import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
 import { broadcastOverlayUrl, broadcastOverlayPreviewUrl } from "@/lib/broadcast-overlay";
-import {
-  cricketPublicPath,
-  liveViewerPath,
-  scoreDisplayPath,
-  sideDisplayPath,
-} from "@/lib/tournament-navigation";
-import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
 import type { Team } from "@workspace/api-client-react";
 
@@ -151,14 +145,10 @@ export default function LinksPage() {
     query: { queryKey: getListTeamsQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
-  const cricketScoringActive = useCricketScoringActive(tournament?.sport, tournament?.scoringEnabled);
-
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const displayUrl = `${base}/tournament/${tournamentId}/display`;
   const sideSponsorUrl = `${base}${sideDisplayPath(tournamentId, "sponsors", tournament?.auctionCode)}`;
   const sidePlayerUrl = `${base}${sideDisplayPath(tournamentId, "player", tournament?.auctionCode)}`;
-  const scoreDisplayUrl = `${base}${scoreDisplayPath(tournamentId, tournament?.auctionCode)}`;
-  const cricketFanUrl = `${base}${cricketPublicPath(tournamentId)}`;
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
   const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
@@ -203,33 +193,6 @@ export default function LinksPage() {
             />
           </CardContent>
         </Card>
-
-        {cricketScoringActive ? (
-          <Card className="border-emerald-500/25 bg-emerald-500/5">
-            <CardContent className="p-6">
-              <h2 className="font-display font-bold text-lg mb-1">Cricket scoring</h2>
-              <p className="text-xs text-muted-foreground mb-4">
-                Share fan links on WhatsApp — live scores, standings, leaderboards, and player profiles update automatically from the phone scorer.
-              </p>
-              <LinkRow
-                label="Cricket fan page (spectators)"
-                url={cricketFanUrl}
-                description="Public hub — live matches, points table, leaderboards, and links to full scorecards. No login required."
-                shareText={`Follow ${tournament?.name ?? "our cricket tournament"} live: ${cricketFanUrl}`}
-              />
-              <LinkRow
-                label="Cricket LED Scoreboard"
-                url={scoreDisplayUrl}
-                description={
-                  tournament?.auctionCode
-                    ? `Enter code ${tournament.auctionCode} if prompted.`
-                    : "Open on a TV or projector at the ground."
-                }
-                shareText={`Live cricket scoreboard for ${tournament?.name ?? "our tournament"}: ${scoreDisplayUrl}`}
-              />
-            </CardContent>
-          </Card>
-        ) : null}
 
         <Card className="border-violet-500/25 bg-violet-500/5">
           <CardContent className="p-6">

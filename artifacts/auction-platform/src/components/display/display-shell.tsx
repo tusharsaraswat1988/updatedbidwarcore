@@ -16,7 +16,7 @@ import { useDisplayAudioLeader } from "./use-display-audio-leader";
 import { AudioUnlockButton } from "./audio-unlock-button";
 import { DisplayConnectionBanner } from "./display-connection-banner";
 import { DisplayStageViewport } from "./display-stage-viewport";
-import { LedStageContent, StageThemeProvider, DevThemePicker } from "./v1";
+import { LedStageContent, StageThemeProvider } from "./v1";
 import type { AudioSettings } from "@/lib/audio-manager";
 
 /**
@@ -112,7 +112,6 @@ export function DisplayShell({
     <DisplayStageViewport>
       <StageThemeProvider initialTheme={resolvedTheme}>
         <LedStageContent view={view} feedState={feed.state} />
-        <DevThemePicker anchor="stage" />
       </StageThemeProvider>
 
       <DisplayConnectionBanner

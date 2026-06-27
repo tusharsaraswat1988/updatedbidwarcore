@@ -134,6 +134,107 @@ export function getSponsorCaptionNameStyle(
   }
 }
 
+/** LED chyron strip — elevated pill treatment for title / co-sponsor tiers. */
+export function getSponsorChyronItemStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        background:
+          "linear-gradient(135deg, rgba(201, 162, 39, 0.24) 0%, rgba(247, 223, 138, 0.08) 100%)",
+        border: "1px solid rgba(247, 223, 138, 0.5)",
+        borderRadius: 6,
+        padding: "4px 10px",
+        boxShadow:
+          "0 0 20px rgba(247, 223, 138, 0.18), inset 0 1px 0 rgba(255,255,255,0.1)",
+      };
+    case "co_sponsor":
+      return {
+        background:
+          "linear-gradient(135deg, rgba(160, 180, 210, 0.2) 0%, rgba(232, 238, 248, 0.07) 100%)",
+        border: "1px solid rgba(180, 200, 220, 0.4)",
+        borderRadius: 6,
+        padding: "4px 10px",
+        boxShadow: "0 0 14px rgba(180, 200, 220, 0.14)",
+      };
+    default:
+      return {};
+  }
+}
+
+export function getSponsorChyronNameStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD,
+        fontSize: "clamp(0.9rem, 1.25vw, 1.1rem)",
+        letterSpacing: "0.28em",
+        textShadow:
+          "0 0 12px rgba(247, 223, 138, 0.6), 0 0 24px rgba(201, 162, 39, 0.35), 0 1px 3px rgba(0,0,0,0.85)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER,
+        fontSize: "clamp(0.85rem, 1.15vw, 1rem)",
+        letterSpacing: "0.26em",
+        textShadow: "0 0 10px rgba(180, 200, 220, 0.45), 0 1px 3px rgba(0,0,0,0.75)",
+      };
+    default:
+      return { color: "rgba(255,255,255,0.9)" };
+  }
+}
+
+export function getSponsorChyronTypeStyle(tier: SponsorBroadcastTier): CSSProperties {
+  switch (tier) {
+    case "title":
+      return {
+        color: TITLE_GOLD_MUTED,
+        fontSize: 9,
+        letterSpacing: "0.32em",
+        textShadow: "0 0 6px rgba(247, 223, 138, 0.4)",
+      };
+    case "co_sponsor":
+      return {
+        color: CO_SILVER_MUTED,
+        fontSize: 8,
+        letterSpacing: "0.3em",
+        textShadow: "0 0 4px rgba(180, 200, 220, 0.3)",
+      };
+    default:
+      return { color: "rgba(255,255,255,0.45)" };
+  }
+}
+
+export function getSponsorChyronLogoStyle(tier: SponsorBroadcastTier): CSSProperties {
+  const base: CSSProperties = {
+    height: "80%",
+    maxHeight: tier === "title" ? 44 : 40,
+    width: "auto",
+    objectFit: "contain",
+    borderRadius: 4,
+    padding: "2px 8px",
+    backgroundColor: "rgba(255,255,255,0.97)",
+  };
+
+  switch (tier) {
+    case "title":
+      return {
+        ...base,
+        border: "1px solid rgba(247, 223, 138, 0.65)",
+        filter: getSponsorLogoFilter("title"),
+        boxShadow: "0 0 16px rgba(247, 223, 138, 0.4)",
+      };
+    case "co_sponsor":
+      return {
+        ...base,
+        border: "1px solid rgba(180, 200, 220, 0.45)",
+        filter: getSponsorLogoFilter("co_sponsor"),
+        boxShadow: "0 0 10px rgba(180, 200, 220, 0.25)",
+      };
+    default:
+      return base;
+  }
+}
+
 export function getSponsorCaptionTypeStyle(
   tier: SponsorBroadcastTier,
   overlay: boolean,

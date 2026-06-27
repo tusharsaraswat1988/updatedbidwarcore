@@ -11,6 +11,14 @@ import {
   hasScoreBoardSponsor,
 } from "@/components/badminton/score-board-sponsor-panel";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { resolveSponsorPriorityType } from "@/lib/sponsor-logo";
+import {
+  getSponsorChyronItemStyle,
+  getSponsorChyronLogoStyle,
+  getSponsorChyronNameStyle,
+  getSponsorChyronTypeStyle,
+  sponsorBroadcastTier,
+} from "@/lib/sponsor-broadcast-priority-styles";
 import { cn } from "@/lib/utils";
 
 const CHYRON_TICKER_DURATION_S = 36 / 1.3;
@@ -196,28 +204,48 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
             style={{ animation: `auction-ticker-scroll ${CHYRON_TICKER_DURATION_S}s linear infinite` }}
             aria-hidden
           >
-            {loop.map((s, i) => (
-              <div key={`${s.url}-${i}`} className="flex items-center gap-3 shrink-0 h-full py-1">
-                {s.url ? (
-                  <img
-                    src={s.url}
-                    alt={s.name ?? "Sponsor"}
-                    className="h-[80%] max-h-10 w-auto object-contain bg-white/95 rounded-sm px-2 py-1"
-                  />
-                ) : null}
-                <div className="flex flex-col leading-none">
-                  <span className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase text-white/90">
-                    {s.name?.trim() || s.type?.trim() || "Partner"}
-                  </span>
-                  {s.type?.trim() ? (
-                    <span className="text-[8px] font-mono uppercase tracking-[0.3em] text-white/45">
-                      {s.type}
-                    </span>
+            {loop.map((s, i) => {
+              const tier = sponsorBroadcastTier(resolveSponsorPriorityType(s));
+              const typeLabel =
+                tier === "title"
+                  ? "Title Sponsor"
+                  : tier === "co_sponsor"
+                    ? "Co Sponsor"
+                    : (s.type?.trim() || "Partner");
+
+              return (
+                <div
+                  key={`${s.url}-${i}`}
+                  className="flex items-center gap-3 shrink-0 h-full py-1"
+                  style={getSponsorChyronItemStyle(tier)}
+                >
+                  {s.url ? (
+                    <img
+                      src={s.url}
+                      alt={s.name ?? "Sponsor"}
+                      style={getSponsorChyronLogoStyle(tier)}
+                    />
                   ) : null}
+                  <div className="flex flex-col leading-none">
+                    <span
+                      className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase"
+                      style={getSponsorChyronNameStyle(tier)}
+                    >
+                      {s.name?.trim() || typeLabel}
+                    </span>
+                    {typeLabel ? (
+                      <span
+                        className="font-mono uppercase tracking-[0.3em]"
+                        style={getSponsorChyronTypeStyle(tier)}
+                      >
+                        {typeLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-white/15 ml-2">•</span>
                 </div>
-                <span className="text-white/15 ml-2">•</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="px-4 text-[10px] font-mono uppercase tracking-[0.4em] text-white/40 truncate">

@@ -1,6 +1,13 @@
 import { memo } from "react";
-import type { LedView } from "@/lib/led-view/types";
+import type { LedView, LiveSponsorDTO } from "@/lib/led-view/types";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
+import {
+  getSponsorChyronItemStyle,
+  getSponsorChyronLogoStyle,
+  getSponsorChyronNameStyle,
+  getSponsorChyronTypeStyle,
+  type SponsorBroadcastTier,
+} from "@/lib/sponsor-broadcast-priority-styles";
 
 const chyronPreset = getBrandSurfacePreset("led-chyron");
 
@@ -9,6 +16,48 @@ const chyronPreset = getBrandSurfacePreset("led-chyron");
  * Falls back to brand mark if no sponsors are configured.
  */
 const CHYRON_TICKER_DURATION_S = 36 / 1.3; // 30% faster than 36s baseline
+
+function chyronTier(sponsor: LiveSponsorDTO): SponsorBroadcastTier {
+  return sponsor.tier ?? "normal";
+}
+
+const ChyronSponsorSegment = memo(function ChyronSponsorSegment({
+  sponsor,
+}: {
+  sponsor: LiveSponsorDTO;
+}) {
+  const tier = chyronTier(sponsor);
+
+  return (
+    <div
+      className="flex items-center gap-3 shrink-0 h-full py-1"
+      style={getSponsorChyronItemStyle(tier)}
+    >
+      {sponsor.logoUrl ? (
+        <img
+          src={sponsor.logoUrl}
+          alt={sponsor.name}
+          style={getSponsorChyronLogoStyle(tier)}
+        />
+      ) : null}
+      <div className="flex flex-col leading-none">
+        <span
+          className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase"
+          style={getSponsorChyronNameStyle(tier)}
+        >
+          {sponsor.name}
+        </span>
+        <span
+          className="font-mono uppercase tracking-[0.3em]"
+          style={getSponsorChyronTypeStyle(tier)}
+        >
+          {sponsor.type}
+        </span>
+      </div>
+      <span className="text-white/15 ml-2">•</span>
+    </div>
+  );
+});
 
 export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }) {
   const sponsors = view.sponsors ?? [];
@@ -35,24 +84,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
             aria-hidden
           >
             {loop.map((s, i) => (
-              <div key={`${s.name}-${i}`} className="flex items-center gap-3 shrink-0 h-full py-1">
-                {s.logoUrl ? (
-                  <img
-                    src={s.logoUrl}
-                    alt={s.name}
-                    className="h-[80%] max-h-10 w-auto object-contain bg-white/95 rounded-sm px-2 py-1"
-                  />
-                ) : null}
-                <div className="flex flex-col leading-none">
-                  <span className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase text-white/90">
-                    {s.name}
-                  </span>
-                  <span className="text-[8px] font-mono uppercase tracking-[0.3em] text-white/45">
-                    {s.type}
-                  </span>
-                </div>
-                <span className="text-white/15 ml-2">•</span>
-              </div>
+              <ChyronSponsorSegment key={`${s.name}-${s.tier ?? "normal"}-${i}`} sponsor={s} />
             ))}
           </div>
         ) : (

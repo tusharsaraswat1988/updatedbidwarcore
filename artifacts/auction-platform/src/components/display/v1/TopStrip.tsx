@@ -1,73 +1,49 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoAlt, getObsBrandMarkSrc, getObsBroadcastLogoSrc } from "@/lib/brand-assets";
+import { cldUrl } from "@/lib/cloudinary";
+import { DevThemePicker } from "./DevThemePicker";const LED_TOP_BRAND_MAX_HEIGHT_PX = 48;
+const LED_TOP_BRAND_MAX_WIDTH_PX = 220;
 
-/* ─── Animated eyes mascot (shown when auction is awaiting) ─── */
+const LedTopBrandMark = memo(function LedTopBrandMark() {
+  const { logos, brandName } = useBranding();
+  const logoSrc = getObsBroadcastLogoSrc(logos) || getObsBrandMarkSrc(logos);
 
-type Offset = { x: number; y: number };
-const CENTER: Offset = { x: 0, y: 0 };
-const MAX_R = 2.5;
-const GAZE_DIRS: Offset[] = [
-  { x: MAX_R, y: 0 }, { x: -MAX_R, y: 0 },
-  { x: 0, y: -MAX_R }, { x: 0, y: MAX_R },
-  { x: MAX_R * 0.7, y: -MAX_R * 0.7 }, { x: -MAX_R * 0.7, y: -MAX_R * 0.7 },
-  { x: MAX_R * 0.7, y: MAX_R * 0.7 }, { x: -MAX_R * 0.7, y: MAX_R * 0.7 },
-];
-function randomDir(exclude?: Offset): Offset {
-  const choices = exclude
-    ? GAZE_DIRS.filter((d) => d.x !== exclude.x || d.y !== exclude.y)
-    : GAZE_DIRS;
-  return choices[Math.floor(Math.random() * choices.length)]!;
-}
-
-const EyesMascot = memo(function EyesMascot({ idle }: { idle: boolean }) {
-  const [left, setLeft] = useState<Offset>(CENTER);
-  const [right, setRight] = useState<Offset>(CENTER);
-  const [blink, setBlink] = useState(false);
-  const lastDir = useRef<Offset | null>(null);
-
-  useEffect(() => {
-    if (!idle) {
-      setLeft(CENTER);
-      setRight(CENTER);
-      setBlink(true);
-      const t = setTimeout(() => setBlink(false), 180);
-      lastDir.current = null;
-      return () => clearTimeout(t);
-    }
-    function look() {
-      const dir = randomDir(lastDir.current ?? undefined);
-      lastDir.current = dir;
-      setLeft(dir);
-      setRight({ x: dir.x * (0.8 + Math.random() * 0.4), y: dir.y * (0.8 + Math.random() * 0.4) });
-    }
-    look();
-    const id = setInterval(look, 1500 + Math.random() * 900);
-    return () => clearInterval(id);
-  }, [idle]);
-
-  const EYE_R = 6;
-  const PUPIL_R = 2.4;
-  const ey = 11;
-
+  if (logoSrc) {
+    return (
+      <img
+        src={logoSrc}
+        alt={getBrandLogoAlt(brandName)}
+        className="block w-auto shrink-0 object-contain object-top"
+        style={{
+          maxHeight: LED_TOP_BRAND_MAX_HEIGHT_PX,
+          maxWidth: LED_TOP_BRAND_MAX_WIDTH_PX,
+          filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.55))",
+        }}
+        loading="eager"
+        decoding="async"
+      />
+    );
+  }
   return (
-    <svg width="46" height="22" viewBox="0 0 46 22" style={{ display: "block", flexShrink: 0 }}>
-      {/* Left eye */}
-      <circle cx={10} cy={ey} r={EYE_R} fill="white" opacity={blink ? 0.15 : 1} />
-      {!blink && (
-        <g style={{ transform: `translate(${left.x}px,${left.y}px)`, transition: "transform 0.32s cubic-bezier(.4,0,.2,1)" }}>
-          <circle cx={10} cy={ey} r={PUPIL_R} fill="#1a1a1a" />
-          <circle cx={11.2} cy={ey - 1.4} r={0.85} fill="white" opacity={0.75} />
-        </g>
-      )}
-      {/* Right eye */}
-      <circle cx={36} cy={ey} r={EYE_R} fill="white" opacity={blink ? 0.15 : 1} />
-      {!blink && (
-        <g style={{ transform: `translate(${right.x}px,${right.y}px)`, transition: "transform 0.32s cubic-bezier(.4,0,.2,1)" }}>
-          <circle cx={36} cy={ey} r={PUPIL_R} fill="#1a1a1a" />
-          <circle cx={37.2} cy={ey - 1.4} r={0.85} fill="white" opacity={0.75} />
-        </g>
-      )}
-    </svg>
+    <div
+      className="flex items-center gap-2 px-3 py-1.5"
+      style={{ backgroundColor: "var(--accent)" }}
+    >
+      <span
+        className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
+        style={{ color: "var(--accent-on)" }}
+      >
+        BIDWAR
+      </span>
+      <span
+        className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
+        style={{ color: "var(--accent-on)" }}
+      >
+        LIVE
+      </span>
+    </div>
   );
 });
 
@@ -83,39 +59,43 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
   const live = state.isBidding && !paused;
 
   return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-6 px-[3%] min-h-[3.5rem] h-full border-b border-white/10 bg-black/40 overflow-hidden">
-      {/* Left: brand mark + tournament */}
-      <div className="flex items-center gap-4">
-        <div
-          className="flex items-center gap-2 px-3 py-1.5"
-          style={{ backgroundColor: "var(--accent)" }}
-        >
-          <span
-            className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
-            style={{ color: "var(--accent-on)" }}
-          >
-            BIDWAR
-          </span>
-          <span
-            className="font-['Bebas_Neue'] text-xl tracking-[0.2em] italic"
-            style={{ color: "var(--accent-on)" }}
-          >
-            LIVE
-          </span>
-        </div>
-        <div className="hidden md:flex flex-col leading-none border-l border-white/15 pl-4">
-          <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/45">
-            Tournament
-          </span>
-          <span className="font-['Bebas_Neue'] text-base tracking-widest uppercase text-white/95 mt-1">
-            {tournament.name}
-          </span>
+    <div className="relative grid h-full min-h-[3.5rem] max-h-[3.5rem] grid-cols-[1fr_auto_1fr] items-center gap-6 overflow-visible px-[3%] border-b border-white/10 bg-black/40">
+      {/* Center: OBS brand mark — pinned to canvas top edge */}      <div className="pointer-events-none absolute top-0 left-1/2 z-10 -translate-x-1/2">
+        <LedTopBrandMark />
+      </div>
+
+      {/* Left: tournament logo + name */}
+      <div className="col-start-1 flex items-center gap-3 min-w-0 justify-self-start">
+        <div className="hidden md:flex items-center gap-4 min-w-0 max-h-[3.25rem]">
+          {tournament.logoUrl ? (
+            <img
+              src={cldUrl(tournament.logoUrl, "headerLogo")}
+              alt=""
+              className="h-12 w-auto max-w-[104px] shrink-0 object-contain"
+              loading="eager"
+              decoding="async"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+          ) : null}
+          <div className="flex min-w-0 flex-col justify-center leading-none">
+            <span className="text-[10px] font-mono uppercase tracking-[0.28em] text-white/45">
+              Tournament
+            </span>
+            <span className="mt-0.5 truncate font-['Bebas_Neue'] text-xl tracking-[0.12em] uppercase text-white/95 md:text-2xl">
+              {tournament.name}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Center: LIVE pill */}
-      <div className="flex items-center justify-center">
-        <div
+      <div        aria-hidden
+        className="col-start-2 w-[min(220px,18vw)] shrink-0"
+      />
+
+      {/* Right: LIVE pill + remaining + theme */}
+      <div className="col-start-3 relative z-20 flex items-center justify-end gap-4 justify-self-end">        <div
           className={`flex items-center gap-2 px-4 py-1.5 border ${
             live
               ? "border-red-500/50 bg-red-500/10"
@@ -125,13 +105,9 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
           }`}
         >
           {!live && !paused ? (
-            /* Awaiting: cartoon eyes instead of static text */
-            <>
-              <EyesMascot idle />
-              <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/50">
-                Awaiting
-              </span>
-            </>
+            <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">
+              Standby
+            </span>
           ) : (
             <>
               <span
@@ -151,18 +127,18 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
             </>
           )}
         </div>
-      </div>
 
-      {/* Right: remaining players */}
-      <div className="flex flex-col items-end leading-none">
-        <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/45">
-          Players Remaining
-        </span>
-        <span className="font-['Bebas_Neue'] text-2xl tabular-nums mt-1 text-white/95">
-          <span style={{ color: "var(--accent)" }}>{remaining}</span>
-          <span className="text-white/40"> / {totalPlayers}</span>
-        </span>
-      </div>
-    </div>
+        <div className="flex flex-col items-end leading-none">
+          <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/45">
+            Players Remaining
+          </span>
+          <span className="font-['Bebas_Neue'] text-2xl tabular-nums mt-1 text-white/95">
+            <span style={{ color: "var(--accent)" }}>{remaining}</span>
+            <span className="text-white/40"> / {totalPlayers}</span>
+          </span>
+        </div>
+
+        <DevThemePicker placement="inline" />
+      </div>    </div>
   );
 });

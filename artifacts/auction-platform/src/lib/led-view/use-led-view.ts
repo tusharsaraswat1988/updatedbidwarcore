@@ -18,7 +18,12 @@ import {
 import { useBranding } from "@/hooks/use-branding";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
-import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
+import {
+  getSponsorsByPriority,
+  parseSponsorLogos,
+  resolveSponsorPriorityType,
+  SponsorPriorityType,
+} from "@/lib/sponsor-logo";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
 import { formatINR, formatINRFull, nextIncrement } from "./format-inr";
 import { useCountdownSeconds } from "./use-countdown-seconds";
@@ -603,11 +608,27 @@ export function useLedView(
       });
 
     const sponsorLogos = getSponsorsByPriority(parseSponsorLogos(tournament.sponsorLogos));
-    const sponsors = sponsorLogos.map((s) => ({
-      name: s.name ?? "",
-      type: s.type ?? "Partner",
-      logoUrl: s.url ?? "",
-    }));
+    const sponsors = sponsorLogos.map((s) => {
+      const priorityType = resolveSponsorPriorityType(s);
+      const tier =
+        priorityType === SponsorPriorityType.TITLE
+          ? ("title" as const)
+          : priorityType === SponsorPriorityType.CO_SPONSOR
+            ? ("co_sponsor" as const)
+            : ("normal" as const);
+      const typeLabel =
+        priorityType === SponsorPriorityType.TITLE
+          ? "Title Sponsor"
+          : priorityType === SponsorPriorityType.CO_SPONSOR
+            ? "Co Sponsor"
+            : (s.type?.trim() || "Partner");
+      return {
+        name: s.name ?? "",
+        type: typeLabel,
+        logoUrl: s.url ?? "",
+        tier,
+      };
+    });
 
     const branding: LiveBrandingDTO = {
       brandName: brandingHook.brandName,

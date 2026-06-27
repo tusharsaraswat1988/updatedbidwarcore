@@ -2,51 +2,20 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useStageTheme } from "./StageThemeProvider";
 
-/**
- * Live LED theme picker — bottom-left floating chip + preset grid.
- * Stadium Gold / Sapphire / Emerald / Crimson + custom accent color.
- *
- * Use `anchor="stage"` when rendered inside `.auction-stage` (16:9 canvas).
- */
-export function DevThemePicker({
-  anchor = "viewport",
+function ThemePickerPanel({
+  onClose,
+  className,
 }: {
-  /** viewport = fixed to browser window; stage = absolute on LED canvas */
-  anchor?: "viewport" | "stage";
+  onClose: () => void;
+  className?: string;
 }) {
-  const { presets, themeId, setThemeId, customAccent, setCustomAccent, theme } = useStageTheme();
-  const [open, setOpen] = useState(false);
-
-  const positionClass =
-    anchor === "stage"
-      ? "absolute bottom-[calc(8vh+0.75rem)] left-3 z-[200]"
-      : "fixed bottom-3 left-3 z-[100]";
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          positionClass,
-          "w-10 h-10 rounded-full bg-black/80 border border-white/20 backdrop-blur-md hover:bg-black hover:border-white/35 shadow-lg flex items-center justify-center pointer-events-auto",
-        )}
-        title="Stage theme"
-        aria-label="Open theme picker"
-      >
-        <span
-          className="w-5 h-5 rounded-full border-2 border-white/40 shadow-inner"
-          style={{ background: theme.vars["--accent"] }}
-        />
-      </button>
-    );
-  }
+  const { presets, themeId, setThemeId, customAccent, setCustomAccent } = useStageTheme();
 
   return (
     <div
       className={cn(
-        positionClass,
         "flex flex-col gap-2 p-3 rounded-xl border border-white/10 bg-black/90 backdrop-blur-md shadow-2xl w-64 pointer-events-auto",
+        className,
       )}
     >
       <div className="flex items-center justify-between">
@@ -55,7 +24,7 @@ export function DevThemePicker({
         </span>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={onClose}
           className="text-white/60 hover:text-white text-xs px-1"
           aria-label="Collapse theme picker"
         >
@@ -115,5 +84,80 @@ export function DevThemePicker({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Live LED theme picker — preset grid + custom accent color.
+ * `inline` sits in the top strip; `floating` stays on the stage corner.
+ */
+export function DevThemePicker({
+  anchor = "viewport",
+  placement = "floating",
+}: {
+  /** viewport = fixed to browser window; stage = absolute on LED canvas */
+  anchor?: "viewport" | "stage";
+  /** inline = top-strip slot; floating = corner chip on stage/viewport */
+  placement?: "floating" | "inline";
+}) {
+  const { theme } = useStageTheme();
+  const [open, setOpen] = useState(false);
+
+  const floatingPositionClass =
+    anchor === "stage"
+      ? "absolute top-3 right-3 z-[200]"
+      : "fixed top-3 right-3 z-[100]";
+
+  if (placement === "inline") {
+    return (
+      <div className="relative z-30 shrink-0 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="w-8 h-8 rounded-full bg-black/80 border border-white/20 backdrop-blur-md hover:bg-black hover:border-white/35 shadow-lg flex items-center justify-center"
+          title="Stage theme"
+          aria-label="Open theme picker"
+          aria-expanded={open}
+        >
+          <span
+            className="w-4 h-4 rounded-full border-2 border-white/40 shadow-inner"
+            style={{ background: theme.vars["--accent"] }}
+          />
+        </button>
+        {open ? (
+          <ThemePickerPanel
+            onClose={() => setOpen(false)}
+            className="absolute right-0 top-[calc(100%+0.35rem)] z-[250]"
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          floatingPositionClass,
+          "w-10 h-10 rounded-full bg-black/80 border border-white/20 backdrop-blur-md hover:bg-black hover:border-white/35 shadow-lg flex items-center justify-center pointer-events-auto",
+        )}
+        title="Stage theme"
+        aria-label="Open theme picker"
+      >
+        <span
+          className="w-5 h-5 rounded-full border-2 border-white/40 shadow-inner"
+          style={{ background: theme.vars["--accent"] }}
+        />
+      </button>
+    );
+  }
+
+  return (
+    <ThemePickerPanel
+      onClose={() => setOpen(false)}
+      className={floatingPositionClass}
+    />
   );
 }
