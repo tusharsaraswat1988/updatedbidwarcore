@@ -28,9 +28,9 @@ function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
   const label = current.name?.trim() || current.type?.trim() || "Sponsor";
 
   return (
-    <div className="flex flex-col items-end min-w-0 max-w-[132px] sm:max-w-[168px]">
+    <div className="flex flex-col items-end min-w-0 w-full">
       {current.type?.trim() ? (
-        <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.14em] text-amber-400/80 text-right truncate w-full">
+        <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.14em] text-amber-400/80 text-right w-full leading-tight break-words">
           {current.type}
         </p>
       ) : null}
@@ -49,7 +49,7 @@ function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
         />
       </div>
       {current.name?.trim() ? (
-        <p className="text-[10px] sm:text-[11px] font-semibold text-white/90 text-right truncate w-full leading-tight">
+        <p className="text-[10px] sm:text-[11px] font-semibold text-white/90 text-right w-full leading-tight break-words">
           {current.name}
         </p>
       ) : null}
