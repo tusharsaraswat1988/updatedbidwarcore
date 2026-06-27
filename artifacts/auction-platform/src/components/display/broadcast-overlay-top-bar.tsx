@@ -135,27 +135,37 @@ export const BroadcastOverlayTopBar = memo(function BroadcastOverlayTopBar({
       </div>
 
       {title ? (
-        <p
+        <div
           style={{
-            margin: 0,
             marginTop: BROADCAST_OVERLAY_TOURNAMENT_NAME_GAP,
-            padding: 0,
-            textAlign: "center",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.72)",
-            lineHeight: 1.2,
-            maxWidth: "100%",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            textShadow: "0 1px 8px rgba(0,0,0,0.75)",
+            display: "flex",
+            justifyContent: "center",
           }}
         >
-          {title}
-        </p>
+          <p
+            style={{
+              margin: 0,
+              padding: "5px 22px",
+              textAlign: "center",
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.24em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.96)",
+              lineHeight: 1.2,
+              maxWidth: "min(920px, 100%)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              background: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.52) 12%, rgba(0,0,0,0.52) 88%, transparent 100%)",
+              backdropFilter: "blur(4px)",
+              textShadow:
+                "0 0 10px rgba(0,0,0,0.95), 0 1px 2px rgba(0,0,0,0.95), 0 2px 18px rgba(0,0,0,0.85)",
+            }}
+          >
+            {title}
+          </p>
+        </div>
       ) : null}
     </div>
   );

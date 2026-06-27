@@ -459,6 +459,12 @@ export default function ObsOverlay() {
 
   const teamTickerOffset = teams.length > 0 && !showSold ? TEAM_TICKER_HEIGHT_PX : 0;
   const bottomStackHeight = SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX + teamTickerOffset;
+  const showAwaitingPlayer =
+    !!state &&
+    !hasPlayer &&
+    !showSold &&
+    !stickyDc &&
+    displayMode.overlayMode !== "paused";
 
   return (
     <div
@@ -536,6 +542,65 @@ export default function ObsOverlay() {
           compactBottomOffset={bottomStackHeight}
         />
       )}
+
+      {/* ── Between players — subtle hold message above sponsor strip ── */}
+      <AnimatePresence>
+        {showAwaitingPlayer ? (
+          <motion.div
+            key="awaiting-player"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: bottomStackHeight + 18,
+              zIndex: 28,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "7px 22px",
+                borderTop: `1px solid ${BIDWAR_BROADCAST_YELLOW_BORDER}`,
+                borderBottom: `1px solid ${BIDWAR_BROADCAST_YELLOW_BORDER}`,
+                background: "rgba(0,0,0,0.42)",
+                backdropFilter: "blur(4px)",
+              }}
+            >
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: themeAccent,
+                  opacity: 0.85,
+                  animation: "livePulse 1.6s ease-in-out infinite",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.38em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.62)",
+                  fontFamily: "monospace",
+                }}
+              >
+                Awaiting new player
+              </span>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* ── Live bidding lower-third ── */}
       <AnimatePresence>

@@ -2,11 +2,12 @@ import { memo } from "react";
 import type { LedView } from "@/lib/led-view/types";
 
 /**
- * Side-panel overlays — sold / unsold only.
- * Pause and break use SideBreakBadge in the bottom status strip (no dimming overlay).
+ * Side-panel overlays — sold / unsold on player panel only.
+ * Sponsors panel keeps carousel running; pause/break use SideBreakBadge.
  */
 export const SideEffectsLayer = memo(function SideEffectsLayer({
   view,
+  panel = "player",
 }: {
   view: LedView;
   panel?: "sponsors" | "player";
@@ -19,6 +20,10 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
     basePriceLabel,
     lastOutcome,
   } = view;
+
+  if (panel === "sponsors") {
+    return null;
+  }
 
   if (derivedState === "sold") {
     const teamName = lastOutcome?.teamName ?? leadingTeam?.name ?? "";
