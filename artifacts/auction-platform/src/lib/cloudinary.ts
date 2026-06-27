@@ -48,6 +48,11 @@ const PRESETS = {
   brandWordmark: "w_960,c_limit,f_auto,q_auto",
 
   /**
+   * Admin-uploaded OBS broadcast badge — trim transparent margins, preserve aspect ratio.
+   */
+  obsBroadcastLogo: "w_960,c_limit,e_trim,f_auto,q_auto",
+
+  /**
    * 512×512 px — app icon / favicon source.
    * Uses PNG explicitly for broad favicon compatibility.
    */

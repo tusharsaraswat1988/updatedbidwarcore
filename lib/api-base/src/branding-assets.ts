@@ -128,10 +128,10 @@ export const BRANDING_ASSET_META: Record<BrandingAssetType, BrandingAssetMeta> =
   },
   OBS_WATERMARK: {
     type: "OBS_WATERMARK",
-    name: "OBS Watermark",
+    name: "OBS Broadcast Logo",
     category: "streaming",
-    usage: "OBS overlays, live streaming, YouTube, Facebook Live",
-    recommendedDimensions: "Transparent PNG preferred",
+    usage: "Top-center logo on tournament Broadcast Overlay (/obs). Upload your finished transparent PNG — shown exactly as uploaded.",
+    recommendedDimensions: "Transparent PNG, ~800–2000px wide",
     preferTransparent: true,
     accept: "image/png,image/webp,image/svg+xml",
   },
@@ -173,7 +173,7 @@ export const BRANDING_ASSET_CATEGORIES: Array<{
   {
     id: "streaming",
     title: "Streaming",
-    description: "Overlay watermark for live broadcasts.",
+    description: "OBS Broadcast Logo for tournament /obs overlay (upload finished PNG).",
     types: ["OBS_WATERMARK"],
   },
   {

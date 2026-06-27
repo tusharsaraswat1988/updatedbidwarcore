@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Upload, X, RefreshCw, Image, AlertTriangle, FileImage,
-  ChevronDown, ChevronUp, Info, CheckCircle2, Clock, ShieldCheck,
+  ChevronDown, ChevronUp, Info, CheckCircle2, Clock, ShieldCheck, Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -152,36 +152,22 @@ function PdfIntegrationBadge({ asset }: { asset: BrandingAssetRecord | null }) {
   );
 }
 
-function ObsAdvancedPlaceholder() {
+function ObsOverlayIntegrationBadge({ asset }: { asset: BrandingAssetRecord | null }) {
+  const status = inferAssetStatus(asset);
+  if (status === "missing") return null;
+
   return (
-    <div className="rounded-lg border border-dashed border-border/50 bg-muted/5 p-3 space-y-3 opacity-70">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-          Overlay Settings
-        </p>
-        <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">Coming Soon</Badge>
-      </div>
-      <div className="space-y-2 pointer-events-none select-none">
-        <div className="space-y-1">
-          <p className="text-[11px] text-muted-foreground">Position</p>
-          <Select disabled defaultValue="bottom-right">
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="top-left">Top Left</SelectItem>
-              <SelectItem value="top-right">Top Right</SelectItem>
-              <SelectItem value="bottom-left">Bottom Left</SelectItem>
-              <SelectItem value="bottom-right">Bottom Right</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>Opacity</span>
-            <span>15%</span>
-          </div>
-          <Slider disabled defaultValue={[15]} min={0} max={100} step={1} />
-        </div>
-      </div>
+    <div className="rounded-lg border border-border/40 bg-muted/10 p-3 space-y-1.5">
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1">
+        <Monitor className="w-3 h-3" /> Broadcast Overlay
+      </p>
+      <p className="text-[11px] text-green-400 flex items-start gap-1.5">
+        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        Shown full-size at top center on every tournament /obs overlay.
+      </p>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        Upload one finished PNG (crest + logo). No cropping or resizing beyond max display size.
+      </p>
     </div>
   );
 }
@@ -248,7 +234,7 @@ function AssetCardDetails({
 
       {assetType === "FAVICON" && <FaviconPipelineNote asset={asset} />}
       {assetType === "PDF_WATERMARK" && <PdfIntegrationBadge asset={asset} />}
-      {assetType === "OBS_WATERMARK" && <ObsAdvancedPlaceholder />}
+      {assetType === "OBS_WATERMARK" && <ObsOverlayIntegrationBadge asset={asset} />}
     </div>
   );
 }

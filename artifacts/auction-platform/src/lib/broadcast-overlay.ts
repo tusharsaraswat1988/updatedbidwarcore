@@ -21,13 +21,20 @@ export const BROADCAST_OVERLAY_SAFE_INSET_Y = 54;
 /** Horizontal padding used by the lower-third bid panel. */
 export const BROADCAST_OVERLAY_PANEL_PADDING_X = 48;
 
-/** Corner offsets for top chrome (logo, sponsor carousel, live badge). */
+/** Horizontal inset for corner chrome (tournament logo, sponsors). */
 export const BROADCAST_OVERLAY_CORNER_INSET_X = 40;
-export const BROADCAST_OVERLAY_CORNER_INSET_TOP = 32;
-export const BROADCAST_OVERLAY_CORNER_INSET_TOP_ACTIVE = 90;
+/** Shared height for tournament, BidWar, and sponsor logos in the top row (px). */
+export const BROADCAST_OVERLAY_TOP_LOGO_HEIGHT = 56;
+export const BROADCAST_OVERLAY_TOP_ROW_HEIGHT = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
+/** Gap between logo row and tournament title (px). */
+export const BROADCAST_OVERLAY_TOURNAMENT_NAME_GAP = 4;
 
-/** Top-left BidWar brand mark — modest vs sponsor carousel (h-24 ≈ 96px). */
-export const BROADCAST_OVERLAY_BRAND_LOGO_HEIGHT = 22;
+/** Max width for sponsor name/type captions below logo (logo size unchanged). */
+export const BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH = 320;
+
+/** Admin-uploaded OBS broadcast logo (OBS_WATERMARK) — shown full PNG at top center. */
+export const BROADCAST_OVERLAY_OBS_LOGO_MAX_HEIGHT = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
+export const BROADCAST_OVERLAY_OBS_LOGO_MAX_WIDTH = 440;
 export const BROADCAST_OVERLAY_BRAND_Z_INDEX = 35;
 
 /** Bottom ticker credit segment (interleaved with sponsor names on Broadcast Overlay). */

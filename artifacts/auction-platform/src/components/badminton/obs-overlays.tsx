@@ -715,7 +715,7 @@ function SponsorOverlay({
           Supported by
         </span>
       ) : null}
-      <SponsorCarousel logos={sponsorLogos} />
+      <SponsorCarousel logos={sponsorLogos} overlay />
     </div>
   );
 }

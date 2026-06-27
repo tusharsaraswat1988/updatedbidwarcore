@@ -1,19 +1,65 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useState, type CSSProperties } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
+import {
+  getSponsorCaptionNameStyle,
+  getSponsorCaptionTypeStyle,
+  getSponsorLogoFilter,
+  sponsorBroadcastTier,
+} from "@/lib/sponsor-broadcast-priority-styles";
+
+import {
+  BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH,
+  BROADCAST_OVERLAY_TOP_LOGO_HEIGHT,
+} from "@/lib/broadcast-overlay";
+
+/** Time each sponsor logo stays visible before rotating. */
+export const SPONSOR_CAROUSEL_ROTATE_MS = 4000;
+const SPONSOR_CAROUSEL_FADE_MS = 350;
+
+const overlayLogoStyle = (height: number, tier: ReturnType<typeof sponsorBroadcastTier>): CSSProperties => ({
+  display: "block",
+  height,
+  maxWidth: 200,
+  width: "auto",
+  objectFit: "contain",
+  objectPosition: "right center",
+  borderRadius: 12,
+  filter: getSponsorLogoFilter(tier),
+});
+
+/** Long sponsor names/types wrap on word boundaries — wide caption area, logo unchanged. */
+const overlayCaptionWrapStyle = (maxWidth = BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH): CSSProperties => ({
+  margin: 0,
+  maxWidth,
+  width: "100%",
+  textAlign: "right",
+  whiteSpace: "normal",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  lineHeight: 1.3,
+  textShadow: "0 1px 6px rgba(0,0,0,0.65)",
+});
 
 /**
- * Rotating sponsor logo carousel — top-right of LED display.
- * Sized for venue visibility with high-contrast backing panel.
+ * Rotating sponsor logo carousel — top-right of LED / broadcast overlay.
  */
 export const SponsorCarousel = memo(function SponsorCarousel({
   logos,
   compact = false,
+  overlay = false,
+  overlayLogoRow = false,
+  rotateMs = SPONSOR_CAROUSEL_ROTATE_MS,
 }: {
   logos: SponsorLogo[];
   /** Smaller variant for live viewer header / mobile. */
   compact?: boolean;
+  /** Fixed-size bare logo treatment for 1920×1080 broadcast overlay. */
+  overlay?: boolean;
+  /** Logo-only row — aligns with tournament/BidWar; captions sit below. */
+  overlayLogoRow?: boolean;
+  rotateMs?: number;
 }) {
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -25,52 +71,175 @@ export const SponsorCarousel = memo(function SponsorCarousel({
       setTimeout(() => {
         setIdx(i => (i + 1) % logos.length);
         setVisible(true);
-      }, 350);
-    }, 2000);
+      }, SPONSOR_CAROUSEL_FADE_MS);
+    }, rotateMs);
     return () => clearInterval(id);
-  }, [logos.length]);
+  }, [logos.length, rotateMs]);
 
   if (!logos.length) return null;
   const current = logos[idx];
 
   const priorityType = resolveSponsorPriorityType(current);
-  const priorityLabel =
+  const tier = sponsorBroadcastTier(priorityType);
+  const typeLabel =
     priorityType === SponsorPriorityType.TITLE
       ? "Title Sponsor"
       : priorityType === SponsorPriorityType.CO_SPONSOR
         ? "Co Sponsor"
         : current.type?.trim() || "";
 
-  const label = current.name?.trim() || priorityLabel || "Sponsor";
+  const nameLabel = current.name?.trim() || "";
+  const imgAlt = nameLabel || typeLabel || "Sponsor";
+  const logoH = BROADCAST_OVERLAY_TOP_LOGO_HEIGHT;
+
+  if (overlay && overlayLogoRow) {
+    const captionW = BROADCAST_OVERLAY_SPONSOR_CAPTION_MAX_WIDTH;
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          width: captionW,
+          maxWidth: "100%",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          className="flex items-center justify-end transition-opacity duration-300"
+          style={{ opacity: visible ? 1 : 0, height: logoH, width: "100%" }}
+        >
+          <img
+            key={current.url}
+            src={cldUrl(current.url, "teamLogo")}
+            alt={imgAlt}
+            style={overlayLogoStyle(logoH, tier)}
+            loading="eager"
+            decoding="async"
+            onError={e => (e.currentTarget.style.display = "none")}
+          />
+        </div>
+        {(nameLabel || typeLabel) ? (
+          <div
+            style={{
+              marginTop: 2,
+              width: "100%",
+              textAlign: "right",
+              pointerEvents: "none",
+            }}
+          >
+            {nameLabel ? (
+              <p
+                style={{
+                  ...overlayCaptionWrapStyle(captionW),
+                  ...getSponsorCaptionNameStyle(tier, true),
+                }}
+              >
+                {nameLabel}
+              </p>
+            ) : null}
+            {typeLabel ? (
+              <p
+                style={{
+                  ...overlayCaptionWrapStyle(captionW),
+                  ...getSponsorCaptionTypeStyle(tier, true),
+                }}
+              >
+                {typeLabel}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex flex-col items-end flex-shrink-0 ${compact ? "gap-0.5" : "gap-2"}`}>
-      {!compact && priorityLabel && (
-        <p className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-white/75 text-right">
-          {priorityLabel}
-        </p>
+    <div className={`flex flex-col items-end flex-shrink-0 ${compact ? "gap-0.5" : overlay ? "gap-1" : "gap-2"}`}>
+      {compact ? (
+        <div
+          className="flex items-center justify-end transition-opacity duration-300"
+          style={{ opacity: visible ? 1 : 0, minWidth: 72 }}
+        >
+          <img
+            key={current.url}
+            src={cldUrl(current.url, "teamLogo")}
+            alt={imgAlt}
+            className="h-9 max-w-[88px] object-contain"
+            loading="eager"
+            decoding="async"
+            onError={e => (e.currentTarget.style.display = "none")}
+          />
+        </div>
+      ) : (
+        <div
+          className={`flex flex-col items-end transition-opacity duration-300 ${overlay ? "" : "gap-2"}`}
+          style={{
+            opacity: visible ? 1 : 0,
+            gap: overlay ? 4 : undefined,
+            minWidth: overlay ? undefined : 220,
+          }}
+        >
+          {nameLabel ? (
+            overlay ? (
+              <p
+                style={{
+                  ...overlayCaptionWrapStyle(),
+                  ...getSponsorCaptionNameStyle(tier, true),
+                }}
+              >
+                {nameLabel}
+              </p>
+            ) : (
+              <p
+                className="text-base md:text-lg lg:text-xl font-bold uppercase tracking-[0.12em] text-white text-right max-w-[min(28vw,420px)] break-words"
+                style={getSponsorCaptionNameStyle(tier, false)}
+              >
+                {nameLabel}
+              </p>
+            )
+          ) : null}
+          <img
+            key={current.url}
+            src={cldUrl(current.url, "teamLogo")}
+            alt={imgAlt}
+            className={
+              overlay
+                ? undefined
+                : "h-20 md:h-28 lg:h-32 max-w-[min(28vw,420px)] object-contain"
+            }
+            style={
+              overlay
+                ? overlayLogoStyle(BROADCAST_OVERLAY_TOP_LOGO_HEIGHT, tier)
+                : { filter: getSponsorLogoFilter(tier) }
+            }
+            loading="eager"
+            decoding="async"
+            onError={e => (e.currentTarget.style.display = "none")}
+          />
+          {typeLabel ? (
+            overlay ? (
+              <p
+                style={{
+                  ...overlayCaptionWrapStyle(),
+                  ...getSponsorCaptionTypeStyle(tier, true),
+                }}
+              >
+                {typeLabel}
+              </p>
+            ) : (
+              <p
+                className="text-xs md:text-sm font-bold uppercase tracking-[0.2em] text-white/75 text-right max-w-[min(28vw,420px)] break-words"
+                style={getSponsorCaptionTypeStyle(tier, false)}
+              >
+                {typeLabel}
+              </p>
+            )
+          ) : null}
+        </div>
       )}
-      <div
-        className={`flex items-center justify-end transition-opacity duration-300 rounded-xl ${compact ? "" : "px-3 py-2 md:px-4 md:py-3 bg-black/55 border border-white/12"}`}
-        style={{ opacity: visible ? 1 : 0, minWidth: compact ? 72 : 220 }}
-      >
-        <img
-          key={current.url}
-          src={cldUrl(current.url, "teamLogo")}
-          alt={label}
-          className={compact ? "h-9 max-w-[88px] object-contain" : "h-20 md:h-28 lg:h-32 max-w-[min(28vw,420px)] object-contain"}
-          style={{ filter: "brightness(1.35) contrast(1.1) drop-shadow(0 0 16px rgba(255,255,255,0.35))" }}
-          loading="eager"
-          decoding="async"
-          onError={e => (e.currentTarget.style.display = "none")}
-        />
-      </div>
-      {!compact && current.name?.trim() && (
-        <p className="text-base md:text-lg lg:text-xl font-bold uppercase tracking-[0.12em] text-white text-right max-w-[min(28vw,420px)] truncate">
-          {current.name}
-        </p>
-      )}
-      {!compact && logos.length > 1 && (
+      {!compact && !overlayLogoRow && logos.length > 1 && (
         <div className="flex gap-1.5 justify-end">
           {logos.map((_, i) => (
             <div

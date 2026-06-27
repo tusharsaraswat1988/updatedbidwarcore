@@ -21,14 +21,14 @@ export const ASSET_USAGE_LOCATIONS: Record<BrandingAssetType, string[]> = {
   APPLE_TOUCH_ICON: ["iPhone Home Screen", "iPad Home Screen"],
   SPLASH_LOGO: ["PWA Loading Screen", "Mobile App Splash", "Owner App Launch"],
   OPEN_GRAPH_IMAGE: ["WhatsApp Shares", "Facebook Shares", "LinkedIn Shares", "X/Twitter Shares"],
-  OBS_WATERMARK: ["OBS Overlays", "YouTube Live", "Facebook Live", "Broadcast Overlays"],
+  OBS_WATERMARK: ["Tournament Broadcast Overlay (/obs)", "Top-center BidWar badge"],
   PDF_WATERMARK: ["Reports", "Invoices", "Certificates", "PDF Exports"],
 };
 
 /** Assets wired into production code paths today. */
 export const ASSET_ENGINE_CONNECTED: Partial<Record<BrandingAssetType, boolean>> = {
   PDF_WATERMARK: false,
-  OBS_WATERMARK: false,
+  OBS_WATERMARK: true,
 };
 
 export const FAVICON_GENERATED_SIZES = ["16×16", "32×32", "48×48"] as const;

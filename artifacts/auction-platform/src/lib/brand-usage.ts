@@ -146,8 +146,8 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
   },
   "obs-overlay": {
     logoAsset: "SYMBOL_LOGO",
-    logoOrder: ["obsWatermark", "mini", "appIcon"],
-    sizeClass: "h-[22px] w-auto object-contain",
+    logoOrder: ["obsWatermark"],
+    sizeClass: "max-h-14 w-auto object-contain",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: true,

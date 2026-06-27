@@ -1358,7 +1358,7 @@ export default function TournamentSettings() {
           <SettingsTabPanel className="max-w-3xl">
             <SettingsCard
               title="Sponsor Logos"
-              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 2 seconds on the big screen."
+              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen."
               icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
             >
               <div className="flex items-center justify-between text-xs text-muted-foreground">

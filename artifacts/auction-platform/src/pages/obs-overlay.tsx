@@ -11,11 +11,10 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatIndianRupee } from "@/lib/format";
 import { getTagTheme, TAG_PULSE_ANIMATION } from "@/lib/tag-theme";
-import { SponsorCarousel } from "@/components/display/sponsor-carousel";
-import { BroadcastOverlayBrandMark } from "@/components/display/broadcast-overlay-brand-mark";
-import { SponsorTicker, SPONSOR_RIBBON_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
+import { BroadcastOverlayTopBar } from "@/components/display/broadcast-overlay-top-bar";
+import { SponsorTicker, SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX } from "@/components/display/sponsor-ticker";
 import { getSponsorsByPriority, parseSponsorLogos } from "@/lib/sponsor-logo";
-import { BIDWAR_BROADCAST_YELLOW } from "@/lib/bidwar-broadcast-colors";
+import { BIDWAR_BROADCAST_YELLOW, BIDWAR_BROADCAST_YELLOW_BORDER, BIDWAR_BROADCAST_YELLOW_SOFT } from "@/lib/bidwar-broadcast-colors";
 import { deriveAuctionDisplayMode, outcomeEventKey, soldRecordFromOutcome, unsoldRecordFromOutcome } from "@/lib/auction-display-status";
 import { AuctionStatusOverlay } from "@/components/display/auction-status-overlay";
 import { BreakCountdownOverlay } from "@/components/display/break-countdown-overlay";
@@ -27,9 +26,7 @@ import {
   BROADCAST_OVERLAY_WIDTH,
   BROADCAST_OVERLAY_HEIGHT,
   BROADCAST_OVERLAY_CORNER_INSET_X,
-  BROADCAST_OVERLAY_CORNER_INSET_TOP,
   BROADCAST_OVERLAY_PANEL_PADDING_X,
-  BROADCAST_OVERLAY_BRAND_Z_INDEX,
 } from "@/lib/broadcast-overlay";
 
 /**
@@ -87,7 +84,7 @@ function HexPhoto({ src, color, size = 180, playerTag }: { src?: string | null; 
 }
 
 // ─── Countdown ring ───────────────────────────────────────────────────────────
-function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
+function CountdownRing({ timerEndsAt, size = 68 }: { timerEndsAt?: string | null; size?: number }) {
   const [remaining, setRemaining] = useState(0);
   // Capture the full duration at the moment timerEndsAt arrives so the ring
   // always starts at 100% regardless of what the tournament default is.
@@ -107,20 +104,24 @@ function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
   }, [timerEndsAt]);
 
   const pct = totalRef.current > 0 ? remaining / totalRef.current : 0;
-  const r = 28, cx = 34, cy = 34;
+  const scale = size / 68;
+  const r = 28 * scale;
+  const cx = 34 * scale;
+  const cy = 34 * scale;
   const circumference = 2 * Math.PI * r;
   const strokeDash = circumference * pct;
   const color = remaining <= 5 ? "#ef4444" : remaining <= 10 ? "#f59e0b" : "#22c55e";
+  const strokeWidth = Math.max(3, 4 * scale);
 
   if (!timerEndsAt) return null;
 
   return (
-    <div style={{ position: "relative", width: 68, height: 68, flexShrink: 0 }}>
-      <svg width={68} height={68} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={4} />
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} />
         <circle
           cx={cx} cy={cy} r={r} fill="none"
-          stroke={color} strokeWidth={4}
+          stroke={color} strokeWidth={strokeWidth}
           strokeDasharray={`${strokeDash} ${circumference}`}
           strokeLinecap="round"
           style={{ transition: "stroke-dasharray 0.25s linear" }}
@@ -129,7 +130,7 @@ function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
       <div style={{
         position: "absolute", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 20, fontWeight: 900, color,
+        fontSize: Math.round(20 * scale), fontWeight: 900, color,
       }}>
         {remaining}
       </div>
@@ -137,9 +138,37 @@ function CountdownRing({ timerEndsAt }: { timerEndsAt?: string | null }) {
   );
 }
 
+/** ~20% tighter lower-third bid panel — proportional scale keeps animations legible. */
+const OBS_BID_PANEL = {
+  paddingY: 14,
+  contentGap: 26,
+  hexSize: 88,
+  dividerHeight: 72,
+  statusFont: 9,
+  nameFont: 43,
+  tagFont: 10,
+  metaFont: 11,
+  labelFont: 9,
+  valueFont: 11,
+  bidFont: 51,
+  teamFont: 12,
+  hintFont: 10,
+  teamLogoH: 19,
+  countdownSize: 54,
+  statusGap: 4,
+  tagMt: 6,
+  tagPy: 3,
+  tagPx: 11,
+  metaMt: 4,
+  baseMt: 8,
+  basePy: 3,
+  basePx: 11,
+  bidSectionMinW: 224,
+  bidLabelMb: 2,
+  bidTeamMt: 5,
+} as const;
+
 const TEAM_TICKER_HEIGHT_PX = 46;
-/** Clear gap between lower-third player panel and team ticker (hex glow + gradient bleed). */
-const BOTTOM_CHROME_GAP_PX = 16;
 
 type TeamTickerRow = {
   name: string;
@@ -409,11 +438,12 @@ export default function ObsOverlay() {
   );
 
   const themeAccent = BIDWAR_BROADCAST_YELLOW;
+  const bidColor = state?.currentBidTeamColor || themeAccent;
+  const panelAccent = themeAccent;
 
   const hasPlayer = !!state?.currentPlayer;
   const isActive = displayMode.phase === "live";
   const freezeBidUpdates = displayMode.freezeBidUpdates;
-  const bidColor = state?.currentBidTeamColor || "#00d4ff";
   const hasBid = !!state?.currentBidTeamName;
 
   const teams: TeamTickerRow[] = (teamPurses ?? []).map(t => ({
@@ -428,8 +458,7 @@ export default function ObsOverlay() {
   }));
 
   const teamTickerOffset = teams.length > 0 && !showSold ? TEAM_TICKER_HEIGHT_PX : 0;
-  const bottomChromeGap = teamTickerOffset > 0 ? BOTTOM_CHROME_GAP_PX : 0;
-  const bottomStackHeight = SPONSOR_RIBBON_TOTAL_HEIGHT_PX + teamTickerOffset + bottomChromeGap;
+  const bottomStackHeight = SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX + teamTickerOffset;
 
   return (
     <div
@@ -453,68 +482,12 @@ export default function ObsOverlay() {
         secondsSinceLastActivity={feed.secondsSinceLastActivity}
       />
 
-      {/* ── Top-center: permanent BidWar brand mark ── */}
-      <div style={{
-        position: "absolute",
-        top: BROADCAST_OVERLAY_CORNER_INSET_TOP,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: BROADCAST_OVERLAY_BRAND_Z_INDEX,
-      }}>
-        <BroadcastOverlayBrandMark />
-      </div>
-
-      {/* ── Top-left: tournament logo ── */}
-      {tournament?.logoUrl && (
-        <div style={{
-          position: "absolute",
-          top: BROADCAST_OVERLAY_CORNER_INSET_TOP,
-          left: BROADCAST_OVERLAY_CORNER_INSET_X,
-          zIndex: 35,
-        }}>
-          <div style={{
-            background: "rgba(0,0,0,0.92)",
-            borderRadius: 12,
-            padding: "8px 14px",
-            border: "1px solid rgba(255,255,255,0.12)",
-          }}>
-            <img src={cldUrl(tournament.logoUrl, "headerLogo")} alt="" style={{ height: 60, maxWidth: 200, objectFit: "contain" }} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Top-right: LIVE + sponsor (inline row) ── */}
-      {(isActive || sponsorLogos.length > 0) && (
-        <div style={{
-          position: "absolute",
-          top: 36,
-          right: BROADCAST_OVERLAY_CORNER_INSET_X,
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 12,
-          zIndex: 20,
-        }}>
-          <AnimatePresence>
-            {isActive && (
-              <motion.div
-                initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
-                  background: "rgba(239,68,68,0.9)",
-                  borderRadius: 8, padding: "6px 14px",
-                  boxShadow: "0 0 20px rgba(239,68,68,0.5)",
-                }}
-              >
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff", animation: "livePulse 1s ease-in-out infinite" }} />
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "0.2em" }}>LIVE</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {sponsorLogos.length > 0 && (
-            <SponsorCarousel logos={sponsorLogos} />
-          )}
-        </div>
-      )}
+      {/* ── Top row: tournament · BidWar · sponsor (aligned) ── */}
+      <BroadcastOverlayTopBar
+        tournamentLogoUrl={tournament?.logoUrl}
+        tournamentName={tournament?.name}
+        sponsorLogos={sponsorLogos}
+      />
 
       {/* ── Outcome fullscreen banner ── */}
       <AnimatePresence>
@@ -583,9 +556,9 @@ export default function ObsOverlay() {
               transition: "opacity 0.3s ease",
             }}
           >
-            {/* Gradient fade above the panel — kept short so it does not bleed into team ticker */}
+            {/* Gradient fade above the panel */}
             <div style={{
-              height: 48,
+              height: 24,
               background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.55))",
               pointerEvents: "none",
             }} />
@@ -593,34 +566,34 @@ export default function ObsOverlay() {
             {/* Main panel */}
             <div style={{
               background: "rgba(0,0,0,0.94)",
-              borderTop: `3px solid ${isActive ? bidColor : "rgba(255,255,255,0.1)"}`,
-              boxShadow: isActive ? `0 -4px 40px ${bidColor}33` : "none",
-              padding: `18px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
+              borderTop: `3px solid ${isActive ? panelAccent : "rgba(255,255,255,0.1)"}`,
+              boxShadow: isActive ? `0 -4px 40px ${panelAccent}33` : "none",
+              padding: `${OBS_BID_PANEL.paddingY}px ${BROADCAST_OVERLAY_PANEL_PADDING_X}px`,
               display: "flex",
               alignItems: "center",
-              gap: 32,
+              gap: OBS_BID_PANEL.contentGap,
             }}>
               {/* Hexagonal player photo */}
               <HexPhoto
                 src={state?.currentPlayer?.photoUrl}
-                color={isActive ? bidColor : "#666"}
-                size={110}
+                color={isActive ? (hasBid ? bidColor : panelAccent) : "#666"}
+                size={OBS_BID_PANEL.hexSize}
                 playerTag={(state?.currentPlayer as { playerTag?: string | null } | undefined)?.playerTag}
               />
 
               {/* Player info */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: OBS_BID_PANEL.statusGap }}>
                   {isActive ? (
                     <>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", animation: "livePulse 1s infinite" }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", letterSpacing: "0.25em" }}>LIVE AUCTION</span>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", animation: "livePulse 1s infinite" }} />
+                      <span style={{ fontSize: OBS_BID_PANEL.statusFont, fontWeight: 700, color: "#22c55e", letterSpacing: "0.25em" }}>LIVE AUCTION</span>
                     </>
                   ) : (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#71717a", letterSpacing: "0.25em" }}>UP NEXT</span>
+                    <span style={{ fontSize: OBS_BID_PANEL.statusFont, fontWeight: 700, color: "#71717a", letterSpacing: "0.25em" }}>UP NEXT</span>
                   )}
                 </div>
-                <div style={{ fontSize: 54, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
+                <div style={{ fontSize: OBS_BID_PANEL.nameFont, fontWeight: 900, color: "#fff", lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textTransform: "uppercase", textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
                   {state?.currentPlayer?.name}
                 </div>
                 {(() => {
@@ -629,10 +602,10 @@ export default function ObsOverlay() {
                   return tt ? (
                     <div style={{
                       display: "inline-flex", alignItems: "center",
-                      marginTop: 8,
-                      padding: "4px 14px",
+                      marginTop: OBS_BID_PANEL.tagMt,
+                      padding: `${OBS_BID_PANEL.tagPy}px ${OBS_BID_PANEL.tagPx}px`,
                       borderRadius: 999,
-                      fontSize: 12,
+                      fontSize: OBS_BID_PANEL.tagFont,
                       fontWeight: 800,
                       letterSpacing: "0.06em",
                       background: tt.bg,
@@ -645,47 +618,47 @@ export default function ObsOverlay() {
                     </div>
                   ) : null;
                 })()}
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.80)", marginTop: 5, display: "flex", gap: 12 }}>
+                <div style={{ fontSize: OBS_BID_PANEL.metaFont, color: "rgba(255,255,255,0.80)", marginTop: OBS_BID_PANEL.metaMt, display: "flex", gap: 10 }}>
                   {state?.currentPlayer?.role && <span>{state.currentPlayer.role}</span>}
                   {state?.currentPlayer?.city && <span style={{ opacity: 0.6 }}>· {state.currentPlayer.city}</span>}
                 </div>
 
                 {/* BASE VALUE bar */}
                 <div style={{
-                  marginTop: 10,
+                  marginTop: OBS_BID_PANEL.baseMt,
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 10,
-                  background: "rgba(0,212,255,0.12)",
-                  border: "1px solid rgba(0,212,255,0.25)",
+                  gap: 8,
+                  background: BIDWAR_BROADCAST_YELLOW_SOFT,
+                  border: `1px solid ${BIDWAR_BROADCAST_YELLOW_BORDER}`,
                   borderRadius: 6,
-                  padding: "4px 14px",
+                  padding: `${OBS_BID_PANEL.basePy}px ${OBS_BID_PANEL.basePx}px`,
                 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00d4ff" }} />
-                  <span style={{ fontSize: 11, color: "#00d4ff", fontWeight: 700, letterSpacing: "0.15em" }}>BASE VALUE</span>
-                  <span style={{ fontSize: 14, color: "#fff", fontWeight: 800, fontFamily: "monospace" }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: panelAccent }} />
+                  <span style={{ fontSize: OBS_BID_PANEL.labelFont, color: panelAccent, fontWeight: 700, letterSpacing: "0.15em" }}>BASE VALUE</span>
+                  <span style={{ fontSize: OBS_BID_PANEL.valueFont, color: "#fff", fontWeight: 800, fontFamily: "monospace" }}>
                     {formatIndianRupee(state?.currentPlayer?.basePrice ?? 0)}
                   </span>
                 </div>
               </div>
 
               {/* Divider */}
-              <div style={{ width: 1, height: 90, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
+              <div style={{ width: 1, height: OBS_BID_PANEL.dividerHeight, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
 
               {/* Bid section */}
-              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 280 }}>
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: OBS_BID_PANEL.bidSectionMinW }}>
                 {hasBid ? (
                   freezeBidUpdates ? (
                     <div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                      <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                      <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>LEADING BID</div>
+                      <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                         {formatIndianRupee(state?.currentBid ?? 0)}
                       </div>
-                      <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                      <div style={{ marginTop: OBS_BID_PANEL.bidTeamMt, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                         {state?.currentBidTeamLogoUrl && (
-                          <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
+                          <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: OBS_BID_PANEL.teamLogoH, objectFit: "contain" }} />
                         )}
-                        <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                        <span style={{ fontSize: OBS_BID_PANEL.teamFont, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                       </div>
                     </div>
                   ) : (
@@ -695,25 +668,25 @@ export default function ObsOverlay() {
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   >
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: 2 }}>LEADING BID</div>
-                    <div style={{ fontSize: 64, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
+                    <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.85)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>LEADING BID</div>
+                    <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: bidColor, lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)", filter: `drop-shadow(0 0 12px ${bidColor}88)` }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
-                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                    <div style={{ marginTop: OBS_BID_PANEL.bidTeamMt, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                       {state?.currentBidTeamLogoUrl && (
-                        <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: 24, objectFit: "contain" }} />
+                        <img src={cldUrl(state.currentBidTeamLogoUrl, "teamLogo")} alt="" style={{ height: OBS_BID_PANEL.teamLogoH, objectFit: "contain" }} />
                       )}
-                      <span style={{ fontSize: 15, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
+                      <span style={{ fontSize: OBS_BID_PANEL.teamFont, color: "rgba(255,255,255,0.80)", fontWeight: 600 }}>{state?.currentBidTeamName}</span>
                     </div>
                   </motion.div>
                   )
                 ) : (
                   <div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.95)", letterSpacing: "0.15em", marginBottom: 2 }}>OPENING BID</div>
-                    <div style={{ fontSize: 64, fontWeight: 900, color: "rgba(255,255,255,0.95)", lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)" }}>
+                    <div style={{ fontSize: OBS_BID_PANEL.labelFont, color: "rgba(255,255,255,0.95)", letterSpacing: "0.15em", marginBottom: OBS_BID_PANEL.bidLabelMb }}>OPENING BID</div>
+                    <div style={{ fontSize: OBS_BID_PANEL.bidFont, fontWeight: 900, color: "rgba(255,255,255,0.95)", lineHeight: 1, textShadow: "0 2px 10px rgba(0,0,0,0.9)" }}>
                       {formatIndianRupee(state?.currentBid ?? 0)}
                     </div>
-                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.80)", marginTop: 6 }}>Waiting for first bid...</div>
+                    <div style={{ fontSize: OBS_BID_PANEL.hintFont, color: "rgba(255,255,255,0.80)", marginTop: OBS_BID_PANEL.bidTeamMt }}>Waiting for first bid...</div>
                   </div>
                 )}
               </div>
@@ -721,8 +694,8 @@ export default function ObsOverlay() {
               {/* Timer */}
               {isActive && !freezeBidUpdates && state?.timerEndsAt && (
                 <>
-                  <div style={{ width: 1, height: 90, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
-                  <CountdownRing timerEndsAt={state.timerEndsAt} />
+                  <div style={{ width: 1, height: OBS_BID_PANEL.dividerHeight, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
+                  <CountdownRing timerEndsAt={state.timerEndsAt} size={OBS_BID_PANEL.countdownSize} />
                 </>
               )}
             </div>
@@ -732,14 +705,14 @@ export default function ObsOverlay() {
 
       {/* ── Bottom ticker — sponsors + periodic "Powered by BidWar" ── */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 25 }}>
-        <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} includePoweredByBidWar />
+        <SponsorTicker logos={sponsorLogos} themeAccent={themeAccent} includePoweredByBidWar overlay />
       </div>
 
       {/* ── Team squad ticker — above sponsor strip ── */}
       {teams.length > 0 && !showSold && (
         <div style={{
           position: "absolute",
-          bottom: SPONSOR_RIBBON_TOTAL_HEIGHT_PX,
+          bottom: SPONSOR_RIBBON_OVERLAY_TOTAL_HEIGHT_PX,
           left: 0,
           right: 0,
           zIndex: 22,

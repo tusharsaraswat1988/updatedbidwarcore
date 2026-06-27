@@ -35,7 +35,8 @@ const WORDMARK_LOGO_KEYS = new Set<keyof BrandLogos>(["main", "mainReverse"]);
 
 function brandLogoPreset(key: keyof BrandLogos): Parameters<typeof cldUrl>[1] {
   if (key === "appIcon" || key === "favicon" || key === "pwaIcon" || key === "appleTouchIcon") return "appIcon";
-  if (key === "obsWatermark" || key === "pdfWatermark") return "headerLogo";
+  if (key === "obsWatermark") return "obsBroadcastLogo";
+  if (key === "pdfWatermark") return "headerLogo";
   if (WORDMARK_LOGO_KEYS.has(key as "main" | "mainReverse")) return "brandWordmark";
   return "headerLogo";
 }
@@ -70,6 +71,13 @@ export function getBrandLogoSrc(
 /** OBS overlay / streaming brand mark: OBS_WATERMARK → SYMBOL → PRIMARY → app icon */
 export function getObsBrandMarkSrc(logos: BrandLogos | undefined): string {
   return getBrandLogoSrc(logos, ["obsWatermark", "mini", "main", "appIcon"]);
+}
+
+/** OBS broadcast overlay top-center — admin PNG only (OBS_WATERMARK). */
+export function getObsBroadcastLogoSrc(logos: BrandLogos | undefined): string {
+  const raw = logos?.obsWatermark;
+  if (!raw) return "";
+  return cldUrl(raw, "obsBroadcastLogo") || raw;
 }
 
 /** Splash / loading screens: SPLASH_LOGO → PRIMARY → SYMBOL */
