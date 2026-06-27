@@ -501,10 +501,21 @@ void pool
 /** Migrate legacy referee_name → umpire_name, then drop referee_name. */
 void pool
   .query(`
-    UPDATE badminton_match_details
-    SET umpire_name = referee_name
-    WHERE umpire_name IS NULL AND referee_name IS NOT NULL;
-    ALTER TABLE badminton_match_details DROP COLUMN IF EXISTS referee_name;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'badminton_match_details'
+          AND column_name = 'referee_name'
+      ) THEN
+        UPDATE badminton_match_details
+        SET umpire_name = referee_name
+        WHERE umpire_name IS NULL AND referee_name IS NOT NULL;
+        ALTER TABLE badminton_match_details DROP COLUMN referee_name;
+      END IF;
+    END $$;
   `)
   .catch((err) => {
     console.error("[db] failed to migrate badminton_match_details referee_name:", err);
