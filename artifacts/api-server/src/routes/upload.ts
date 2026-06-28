@@ -1,7 +1,18 @@
 import { Router } from "express";
 import multer from "multer";
+import Busboy from "busboy";
+import sharp from "sharp";
+import { pipeline as pipelineCallback } from "node:stream";
+import { promisify } from "node:util";
+
+const pipeline = promisify(pipelineCallback);
 
 const router = Router();
+const useStreamingUploads = () => process.env.UPLOAD_STREAMING === "true";
+const unlessStreaming = (middleware: import("express").RequestHandler): import("express").RequestHandler => (req, res, next) => {
+  if (useStreamingUploads()) return next();
+  return middleware(req, res, next);
+};
 
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp",
@@ -49,6 +60,71 @@ const audioUpload = multer({
   },
 });
 
+
+type UploadKind = "image" | "media" | "audio";
+
+function uploadOptions(kind: UploadKind) {
+  if (kind === "media") return { folder: "bidwar/branding", resource_type: "auto" as const };
+  if (kind === "audio") return { folder: "bidwar/audio", resource_type: "video" as const };
+  return { folder: "bidwar", resource_type: "image" as const, quality: "auto" as const, fetch_format: "auto" as const };
+}
+
+function isAllowedUpload(kind: UploadKind, mimeType: string, filename: string): boolean {
+  if (kind === "media") return mimeType.startsWith("image/") || mimeType.startsWith("video/");
+  if (kind === "audio") return new Set(["audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav", "audio/aac", "audio/mp4", "audio/webm"]).has(mimeType) || /\.(mp3|ogg|wav|aac|m4a|webm)$/i.test(filename);
+  return ALLOWED_IMAGE_TYPES.has(mimeType);
+}
+
+async function uploadStreaming(req: import("express").Request, kind: UploadKind): Promise<string> {
+  const cloudinary = await getCloudinary();
+  if (!cloudinary) throw Object.assign(new Error("Cloudinary not configured"), { statusCode: 503 });
+
+  return new Promise<string>((resolve, reject) => {
+    const bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: kind === "audio" ? 8 * 1024 * 1024 : kind === "media" ? 20 * 1024 * 1024 : 15 * 1024 * 1024 } });
+    let settled = false;
+    let sawFile = false;
+    const finish = (err?: unknown, url?: string) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve(url!);
+    };
+
+    bb.on("file", (_name, file, info) => {
+      sawFile = true;
+      if (!isAllowedUpload(kind, info.mimeType, info.filename)) {
+        file.resume();
+        finish(Object.assign(new Error("Unsupported file type"), { statusCode: 400 }));
+        return;
+      }
+
+      const upload = cloudinary.uploader.upload_stream(uploadOptions(kind), (error, result) => {
+        if (error || !result) finish(error ?? new Error("Cloudinary upload failed"));
+        else finish(undefined, result.secure_url);
+      });
+      upload.on("error", finish);
+
+      const source = kind === "image" && info.mimeType !== "image/svg+xml" && !info.mimeType.includes("gif")
+        ? file.pipe(sharp().rotate())
+        : file;
+
+      void pipeline(source, upload).catch(finish);
+    });
+    bb.on("error", finish);
+    bb.on("finish", () => {
+      if (!sawFile) finish(Object.assign(new Error("No file provided"), { statusCode: 400 }));
+    });
+    req.pipe(bb);
+  });
+}
+
+function releaseMulterFile(req: { file?: Express.Multer.File }): void {
+  if (req.file) {
+    req.file.buffer = Buffer.alloc(0);
+    req.file = undefined;
+  }
+}
+
 async function getCloudinary() {
   if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
     return null;
@@ -70,7 +146,12 @@ async function getCloudinary() {
  * Accepts a single image file (multipart/form-data, field name "file").
  * Uploads it to Cloudinary and returns the secure HTTPS URL.
  */
-router.post("/upload", imageUpload.single("file"), async (req, res) => {
+router.post("/upload", unlessStreaming(imageUpload.single("file")), async (req, res) => {
+  if (useStreamingUploads()) {
+    try { res.json({ url: await uploadStreaming(req, "image") }); }
+    catch (err) { req.log?.error({ err }, "Cloudinary streaming upload error"); res.status((err as { statusCode?: number }).statusCode ?? 500).json({ error: "Upload failed. Please try again." }); }
+    return;
+  }
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
@@ -104,6 +185,8 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Cloudinary upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    releaseMulterFile(req);
   }
 });
 
@@ -113,7 +196,12 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
  * Uses Cloudinary resource_type "auto" so videos are stored correctly.
  * Used for branding assets like logo animations.
  */
-router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
+router.post("/upload/media", unlessStreaming(mediaUpload.single("file")), async (req, res) => {
+  if (useStreamingUploads()) {
+    try { res.json({ url: await uploadStreaming(req, "media") }); }
+    catch (err) { req.log?.error({ err }, "Cloudinary media streaming upload error"); res.status((err as { statusCode?: number }).statusCode ?? 500).json({ error: "Upload failed. Please try again." }); }
+    return;
+  }
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
@@ -142,6 +230,8 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Cloudinary media upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    releaseMulterFile(req);
   }
 });
 
@@ -149,7 +239,12 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
  * POST /api/upload/audio
  * Accepts audio files up to 8 MB for platform/tournament broadcast sounds.
  */
-router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
+router.post("/upload/audio", unlessStreaming(audioUpload.single("file")), async (req, res) => {
+  if (useStreamingUploads()) {
+    try { res.json({ url: await uploadStreaming(req, "audio") }); }
+    catch (err) { req.log?.error({ err }, "Cloudinary audio streaming upload error"); res.status((err as { statusCode?: number }).statusCode ?? 500).json({ error: "Upload failed. Please try again." }); }
+    return;
+  }
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
@@ -178,6 +273,8 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    releaseMulterFile(req);
   }
 });
 

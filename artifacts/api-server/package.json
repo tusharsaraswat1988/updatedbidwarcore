@@ -44,7 +44,8 @@
     "web-push": "^3.6.7",
     "ws": "^8.21.0",
     "ioredis": "^5.6.1",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "busboy": "^1.6.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

@@ -288,22 +288,27 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     res.write(`data: ${JSON.stringify({ type: "scoring_state", match: null, state: null, summary: null })}\n\n`);
   }
 
-  const heartbeat = setInterval(() => {
-    try {
-      res.write(": heartbeat\n\n");
-    } catch {
-      clearInterval(heartbeat);
-    }
-  }, 20000);
-
-  req.on("close", () => {
+  const cleanup = () => {
     clearInterval(heartbeat);
     removeScoringSseClient(client);
+    req.off("close", cleanup);
+    res.off("close", cleanup);
     logger.info(
       { tournamentId, clientCount: getScoringSseClientCount(tournamentId) },
       "scoring SSE client disconnected",
     );
-  });
+  };
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      cleanup();
+    }
+  }, 20000);
+
+  req.on("close", cleanup);
+  res.on("close", cleanup);
 });
 
 router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {

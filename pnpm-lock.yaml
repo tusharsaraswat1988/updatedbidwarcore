@@ -114,6 +114,9 @@ importers:
       cloudinary:
         specifier: ^2.10.0
         version: 2.10.0
+      busboy:
+        specifier: ^1.6.0
+        version: 1.6.0
       compression:
         specifier: ^1.8.1
         version: 1.8.1
