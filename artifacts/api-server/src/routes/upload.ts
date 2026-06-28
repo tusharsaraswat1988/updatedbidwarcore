@@ -1,19 +1,37 @@
-import { Router } from "express";
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import multer from "multer";
+import sharp from "sharp";
 
 const router = Router();
 
+const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_SPONSOR_LOGO_DIMENSION_PX = 1200;
+
 const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg", "image/png", "image/webp",
-  "image/gif", "image/svg+xml", "image/heic", "image/heif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/heic",
+  "image/heif",
 ]);
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB raw; client compresses to <400 KB first
+  limits: { fileSize: MAX_IMAGE_UPLOAD_BYTES },
   fileFilter(_req, file, cb) {
     if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
-      cb(new Error("Unsupported file type. Upload a JPEG, PNG, WebP, GIF, or SVG image."));
+      cb(
+        new Error(
+          "Unsupported file type. Upload a JPEG, PNG, WebP, GIF, or SVG image.",
+        ),
+      );
       return;
     }
     cb(null, true);
@@ -24,7 +42,8 @@ const mediaUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB for video/gif
   fileFilter(_req, file, cb) {
-    const allowed = file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
+    const allowed =
+      file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
     if (!allowed) {
       cb(new Error("Only image or video files are allowed"));
       return;
@@ -38,10 +57,18 @@ const audioUpload = multer({
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
     const allowed = new Set([
-      "audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav",
-      "audio/aac", "audio/mp4", "audio/webm",
+      "audio/mpeg",
+      "audio/ogg",
+      "audio/wav",
+      "audio/x-wav",
+      "audio/aac",
+      "audio/mp4",
+      "audio/webm",
     ]);
-    if (!allowed.has(file.mimetype) && !file.originalname.match(/\.(mp3|ogg|wav|aac|m4a|webm)$/i)) {
+    if (
+      !allowed.has(file.mimetype) &&
+      !file.originalname.match(/\.(mp3|ogg|wav|aac|m4a|webm)$/i)
+    ) {
       cb(new Error("Unsupported audio type. Upload MP3, OGG, WAV, or AAC."));
       return;
     }
@@ -49,11 +76,76 @@ const audioUpload = multer({
   },
 });
 
+function isSvg(file: Express.Multer.File) {
+  return (
+    file.mimetype === "image/svg+xml" ||
+    file.originalname.toLowerCase().endsWith(".svg")
+  );
+}
+
+function shouldOptimizeRasterImage(file: Express.Multer.File) {
+  return (
+    file.mimetype.startsWith("image/") &&
+    !isSvg(file) &&
+    file.mimetype !== "image/gif"
+  );
+}
+
+async function optimizeImageBuffer(file: Express.Multer.File) {
+  if (!shouldOptimizeRasterImage(file)) {
+    return { buffer: file.buffer, mimetype: file.mimetype };
+  }
+
+  const optimized = await sharp(file.buffer, { failOn: "none" })
+    .rotate()
+    .resize({
+      width: MAX_SPONSOR_LOGO_DIMENSION_PX,
+      height: MAX_SPONSOR_LOGO_DIMENSION_PX,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 82, effort: 4 })
+    .toBuffer();
+
+  return { buffer: optimized, mimetype: "image/webp" };
+}
+
+function clearMulterFileBuffer(file?: Express.Multer.File) {
+  if (!file) return;
+  file.buffer = Buffer.alloc(0);
+}
+
+function uploadToCloudinary(
+  cloudinary: Awaited<ReturnType<typeof getCloudinary>>,
+  buffer: Buffer,
+  options: Record<string, unknown>,
+) {
+  if (!cloudinary) throw new Error("Cloudinary is not configured");
+  return new Promise<string>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      options,
+      (error, result) => {
+        if (error || !result)
+          reject(error ?? new Error("Cloudinary upload failed"));
+        else resolve(result.secure_url);
+      },
+    );
+    stream.end(buffer);
+  });
+}
+
 async function getCloudinary() {
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
     return null;
   }
-  if (process.env.CLOUDINARY_URL && !process.env.CLOUDINARY_URL.startsWith("cloudinary://")) {
+  if (
+    process.env.CLOUDINARY_URL &&
+    !process.env.CLOUDINARY_URL.startsWith("cloudinary://")
+  ) {
     delete process.env.CLOUDINARY_URL;
   }
   const { v2: cloudinary } = await import("cloudinary");
@@ -74,36 +166,40 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
-      error: "Image upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
+      error:
+        "Image upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
     });
     return;
   }
 
   if (!req.file) {
-    res.status(400).json({ error: "No file provided. Send a multipart/form-data request with a field named 'file'." });
+    res
+      .status(400)
+      .json({
+        error:
+          "No file provided. Send a multipart/form-data request with a field named 'file'.",
+      });
     return;
   }
 
+  let uploadBuffer: Buffer | null = null;
   try {
-    const url = await new Promise<string>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "bidwar",
-          resource_type: "image",
-          quality: "auto",        // store at optimal quality
-          fetch_format: "auto",   // allow auto-format on CDN delivery
-        },
-        (error, result) => {
-          if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
-          else resolve(result.secure_url);
-        },
-      );
-      stream.end(req.file!.buffer);
+    const optimized = await optimizeImageBuffer(req.file);
+    uploadBuffer = optimized.buffer;
+    const url = await uploadToCloudinary(cloudinary, uploadBuffer, {
+      folder: "bidwar",
+      resource_type: "image",
+      quality: "auto",
+      fetch_format: "auto",
+      format: optimized.mimetype === "image/webp" ? "webp" : undefined,
     });
     res.json({ url });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    uploadBuffer = null;
+    clearMulterFileBuffer(req.file);
   }
 });
 
@@ -117,7 +213,8 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
-      error: "Media upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
+      error:
+        "Media upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
     });
     return;
   }
@@ -127,21 +224,34 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
     return;
   }
 
+  if (
+    req.file.mimetype.startsWith("image/") &&
+    req.file.size > MAX_IMAGE_UPLOAD_BYTES
+  ) {
+    clearMulterFileBuffer(req.file);
+    res.status(413).json({ error: "Image uploads are limited to 5 MB." });
+    return;
+  }
+
+  let uploadBuffer: Buffer | null = null;
   try {
-    const url = await new Promise<string>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "bidwar/branding", resource_type: "auto" },
-        (error, result) => {
-          if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
-          else resolve(result.secure_url);
-        },
-      );
-      stream.end(req.file!.buffer);
+    if (req.file.mimetype.startsWith("image/")) {
+      const optimized = await optimizeImageBuffer(req.file);
+      uploadBuffer = optimized.buffer;
+    } else {
+      uploadBuffer = req.file.buffer;
+    }
+    const url = await uploadToCloudinary(cloudinary, uploadBuffer, {
+      folder: "bidwar/branding",
+      resource_type: "auto",
     });
     res.json({ url });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary media upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    uploadBuffer = null;
+    clearMulterFileBuffer(req.file);
   }
 });
 
@@ -153,7 +263,8 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
   if (!cloudinary) {
     res.status(503).json({
-      error: "Audio upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
+      error:
+        "Audio upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.",
     });
     return;
   }
@@ -168,7 +279,8 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder: "bidwar/audio", resource_type: "video" },
         (error, result) => {
-          if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
+          if (error || !result)
+            reject(error ?? new Error("Cloudinary upload failed"));
           else resolve(result.secure_url);
         },
       );
@@ -178,7 +290,17 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   } catch (err) {
     req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
+  } finally {
+    clearMulterFileBuffer(req.file);
   }
+});
+
+router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+    res.status(413).json({ error: "Image uploads are limited to 5 MB." });
+    return;
+  }
+  next(err);
 });
 
 export default router;
