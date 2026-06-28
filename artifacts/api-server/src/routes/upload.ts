@@ -8,6 +8,9 @@ import { promisify } from "node:util";
 const pipeline = promisify(pipelineCallback);
 
 const router = Router();
+const IMAGE_UPLOAD_LIMIT_BYTES = 5 * 1024 * 1024;
+const MEDIA_UPLOAD_LIMIT_BYTES = 20 * 1024 * 1024;
+const AUDIO_UPLOAD_LIMIT_BYTES = 8 * 1024 * 1024;
 const useStreamingUploads = () => process.env.UPLOAD_STREAMING === "true";
 const unlessStreaming = (middleware: import("express").RequestHandler): import("express").RequestHandler => (req, res, next) => {
   if (useStreamingUploads()) return next();
@@ -21,7 +24,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
 
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB raw; client compresses to <400 KB first
+  limits: { fileSize: IMAGE_UPLOAD_LIMIT_BYTES }, // 5 MB image limit
   fileFilter(_req, file, cb) {
     if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
       cb(new Error("Unsupported file type. Upload a JPEG, PNG, WebP, GIF, or SVG image."));
@@ -33,7 +36,7 @@ const imageUpload = multer({
 
 const mediaUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB for video/gif
+  limits: { fileSize: MEDIA_UPLOAD_LIMIT_BYTES }, // 20 MB for video/gif
   fileFilter(_req, file, cb) {
     const allowed = file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
     if (!allowed) {
@@ -46,7 +49,7 @@ const mediaUpload = multer({
 
 const audioUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: AUDIO_UPLOAD_LIMIT_BYTES },
   fileFilter(_req, file, cb) {
     const allowed = new Set([
       "audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav",
@@ -63,10 +66,16 @@ const audioUpload = multer({
 
 type UploadKind = "image" | "media" | "audio";
 
-function uploadOptions(kind: UploadKind) {
+function uploadOptions(kind: UploadKind, mimeType?: string) {
   if (kind === "media") return { folder: "bidwar/branding", resource_type: "auto" as const };
   if (kind === "audio") return { folder: "bidwar/audio", resource_type: "video" as const };
-  return { folder: "bidwar", resource_type: "image" as const, quality: "auto" as const, fetch_format: "auto" as const };
+  return {
+    folder: "bidwar",
+    resource_type: "image" as const,
+    quality: "auto" as const,
+    fetch_format: "auto" as const,
+    ...(mimeType && shouldOptimizeImage(mimeType) ? { format: "webp" as const } : {}),
+  };
 }
 
 function isAllowedUpload(kind: UploadKind, mimeType: string, filename: string): boolean {
@@ -75,12 +84,30 @@ function isAllowedUpload(kind: UploadKind, mimeType: string, filename: string): 
   return ALLOWED_IMAGE_TYPES.has(mimeType);
 }
 
+function uploadLimitBytes(kind: UploadKind): number {
+  if (kind === "audio") return AUDIO_UPLOAD_LIMIT_BYTES;
+  if (kind === "media") return MEDIA_UPLOAD_LIMIT_BYTES;
+  return IMAGE_UPLOAD_LIMIT_BYTES;
+}
+
+function shouldOptimizeImage(mimeType: string): boolean {
+  return mimeType.startsWith("image/") && mimeType !== "image/svg+xml" && mimeType !== "image/gif";
+}
+
+async function optimizeImageBuffer(file: Express.Multer.File): Promise<Buffer> {
+  if (!shouldOptimizeImage(file.mimetype)) return file.buffer;
+  return sharp(file.buffer)
+    .rotate()
+    .webp({ quality: 82, effort: 4 })
+    .toBuffer();
+}
+
 async function uploadStreaming(req: import("express").Request, kind: UploadKind): Promise<string> {
   const cloudinary = await getCloudinary();
   if (!cloudinary) throw Object.assign(new Error("Cloudinary not configured"), { statusCode: 503 });
 
   return new Promise<string>((resolve, reject) => {
-    const bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: kind === "audio" ? 8 * 1024 * 1024 : kind === "media" ? 20 * 1024 * 1024 : 15 * 1024 * 1024 } });
+    const bb = Busboy({ headers: req.headers, limits: { files: 1, fileSize: uploadLimitBytes(kind) } });
     let settled = false;
     let sawFile = false;
     const finish = (err?: unknown, url?: string) => {
@@ -98,14 +125,14 @@ async function uploadStreaming(req: import("express").Request, kind: UploadKind)
         return;
       }
 
-      const upload = cloudinary.uploader.upload_stream(uploadOptions(kind), (error, result) => {
+      const upload = cloudinary.uploader.upload_stream(uploadOptions(kind, info.mimeType), (error, result) => {
         if (error || !result) finish(error ?? new Error("Cloudinary upload failed"));
         else finish(undefined, result.secure_url);
       });
       upload.on("error", finish);
 
-      const source = kind === "image" && info.mimeType !== "image/svg+xml" && !info.mimeType.includes("gif")
-        ? file.pipe(sharp().rotate())
+      const source = kind === "image" && shouldOptimizeImage(info.mimeType)
+        ? file.pipe(sharp().rotate().webp({ quality: 82, effort: 4 }))
         : file;
 
       void pipeline(source, upload).catch(finish);
@@ -168,18 +195,15 @@ router.post("/upload", unlessStreaming(imageUpload.single("file")), async (req, 
   try {
     const url = await new Promise<string>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: "bidwar",
-          resource_type: "image",
-          quality: "auto",        // store at optimal quality
-          fetch_format: "auto",   // allow auto-format on CDN delivery
-        },
+        uploadOptions("image", req.file!.mimetype),
         (error, result) => {
           if (error || !result) reject(error ?? new Error("Cloudinary upload failed"));
           else resolve(result.secure_url);
         },
       );
-      stream.end(req.file!.buffer);
+      void optimizeImageBuffer(req.file!)
+        .then((buffer) => stream.end(buffer))
+        .catch(reject);
     });
     res.json({ url });
   } catch (err) {
