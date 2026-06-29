@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { createViteApiProxy } from "../../lib/api-base/src/vite-proxy.ts";
+import { stripUseClientDirective } from "../../lib/api-base/src/vite-strip-use-client.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
@@ -58,7 +59,7 @@ const basePath = "/scoring-app/";
 
 export default defineConfig({
   base: basePath,
-  plugins: [react(), tailwindcss()],
+  plugins: [stripUseClientDirective(), react(), tailwindcss()],
   resolve: {
     alias: {
       html2canvas: "html2canvas-pro",

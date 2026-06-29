@@ -9,6 +9,7 @@ import {
   ownerAppDevProxyPlugin,
   scoringAppDevProxyPlugin,
 } from "../../lib/api-base/src/vite-proxy.ts";
+import { stripUseClientDirective } from "../../lib/api-base/src/vite-strip-use-client.ts";
 
 function apiBaseAliases(dirname: string): Record<string, string> {
   const src = path.resolve(dirname, "..", "..", "lib", "api-base", "src");
@@ -52,6 +53,7 @@ const basePath = process.env.BASE_PATH ?? "/";
 export default defineConfig({
   base: basePath,
   plugins: [
+    stripUseClientDirective(),
     react(),
     tailwindcss(),
     scoringAppDevProxyPlugin(),
