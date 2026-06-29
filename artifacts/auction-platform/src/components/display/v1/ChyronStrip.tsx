@@ -8,6 +8,7 @@ import {
   getSponsorChyronTypeStyle,
   type SponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
+import { ChyronTickerScroller } from "./ChyronTickerScroller";
 
 const chyronPreset = getBrandSurfacePreset("led-chyron");
 
@@ -15,7 +16,6 @@ const chyronPreset = getBrandSurfacePreset("led-chyron");
  * CHYRON STRIP — sponsor logos pulled live from the production tournament.
  * Falls back to brand mark if no sponsors are configured.
  */
-const CHYRON_TICKER_DURATION_S = 36 / 1.3; // 30% faster than 36s baseline
 
 function chyronTier(sponsor: LiveSponsorDTO): SponsorBroadcastTier {
   return sponsor.tier ?? "normal";
@@ -62,8 +62,6 @@ const ChyronSponsorSegment = memo(function ChyronSponsorSegment({
 export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }) {
   const sponsors = view.sponsors ?? [];
   const branding = view.branding;
-  const loop =
-    sponsors.length > 0 ? [...sponsors, ...sponsors, ...sponsors] : [];
 
   return (
     <div className="border-t border-white/10 bg-black/50 h-full grid grid-cols-[auto_1fr_auto] items-center gap-4 pr-[3%]">
@@ -77,16 +75,16 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
       </div>
 
       <div className="relative overflow-hidden h-full flex items-center">
-        {loop.length > 0 ? (
-          <div
-            className="flex items-center gap-10 whitespace-nowrap"
-            style={{ animation: `auction-ticker-scroll ${CHYRON_TICKER_DURATION_S}s linear infinite` }}
-            aria-hidden
-          >
-            {loop.map((s, i) => (
-              <ChyronSponsorSegment key={`${s.name}-${s.tier ?? "normal"}-${i}`} sponsor={s} />
-            ))}
-          </div>
+        {sponsors.length > 0 ? (
+          <ChyronTickerScroller
+            items={sponsors}
+            renderItem={(sponsor, index) => (
+              <ChyronSponsorSegment
+                key={`${sponsor.name}-${sponsor.tier ?? "normal"}-${index}`}
+                sponsor={sponsor}
+              />
+            )}
+          />
         ) : (
           <div className="px-4 text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">
             {view.tournament.name}

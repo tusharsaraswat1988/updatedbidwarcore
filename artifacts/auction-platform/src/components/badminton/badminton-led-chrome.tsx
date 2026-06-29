@@ -19,9 +19,8 @@ import {
   getSponsorChyronTypeStyle,
   sponsorBroadcastTier,
 } from "@/lib/sponsor-broadcast-priority-styles";
+import { ChyronTickerScroller } from "@/components/display/v1/ChyronTickerScroller";
 import { cn } from "@/lib/utils";
-
-const CHYRON_TICKER_DURATION_S = 36 / 1.3;
 
 /** Auction LED-style top strip — BIDWAR LIVE + tournament + court/match + status. */
 export const BadmintonLedTopStrip = memo(function BadmintonLedTopStrip({
@@ -177,7 +176,6 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
   accentMode?: "theme" | "bidwar";
 }) {
   const { brandName, poweredByText, miniSrc, logoAlt } = useBadmintonBidWarTheme();
-  const loop = sponsors.length > 0 ? [...sponsors, ...sponsors, ...sponsors] : [];
   const accentBg = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW : "var(--accent)";
   const accentOn = accentMode === "bidwar" ? BIDWAR_BROADCAST_YELLOW_ON : "var(--accent-on)";
 
@@ -198,13 +196,10 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
       </div>
 
       <div className="relative overflow-hidden h-full flex items-center min-w-0">
-        {loop.length > 0 ? (
-          <div
-            className="flex items-center gap-10 whitespace-nowrap"
-            style={{ animation: `auction-ticker-scroll ${CHYRON_TICKER_DURATION_S}s linear infinite` }}
-            aria-hidden
-          >
-            {loop.map((s, i) => {
+        {sponsors.length > 0 ? (
+          <ChyronTickerScroller
+            items={sponsors}
+            renderItem={(s, index) => {
               const tier = sponsorBroadcastTier(resolveSponsorPriorityType(s));
               const typeLabel =
                 tier === "title"
@@ -215,7 +210,7 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
 
               return (
                 <div
-                  key={`${s.url}-${i}`}
+                  key={`${s.url}-${index}`}
                   className="flex items-center gap-3 shrink-0 h-full py-1"
                   style={getSponsorChyronItemStyle(tier)}
                 >
@@ -245,8 +240,8 @@ export const BadmintonLedChyron = memo(function BadmintonLedChyron({
                   <span className="text-white/15 ml-2">•</span>
                 </div>
               );
-            })}
-          </div>
+            }}
+          />
         ) : (
           <div className="px-4 text-[10px] font-mono uppercase tracking-[0.4em] text-white/40 truncate">
             {tournamentName}
