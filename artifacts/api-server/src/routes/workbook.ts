@@ -28,6 +28,7 @@ import {
   listWorkbookVersions,
   getWorkbookHealth,
   buildValidationReportCsv,
+  buildWorkbookExportFilename,
 } from "../lib/bulk-import/workbook-service.ts";
 import {
   rollbackBulkImportJob,
@@ -99,8 +100,12 @@ router.get("/export", requireMasterAdmin, async (req: Request, res: Response) =>
   }
   try {
     const buffer = await exportTournamentWorkbook(tid);
-    const [t] = await db.select({ name: tournamentsTable.name }).from(tournamentsTable).where(eq(tournamentsTable.id, tid)).limit(1);
-    const safeName = (t?.name ?? "tournament").replace(/[^\w\-]+/g, "-").slice(0, 40);
+    const [t] = await db
+      .select({ name: tournamentsTable.name, auctionCode: tournamentsTable.auctionCode })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+    const fileName = buildWorkbookExportFilename(t?.name, t?.auctionCode);
     auditLog(req, {
       category: "admin",
       action: "bmw.exported",
@@ -108,7 +113,7 @@ router.get("/export", requireMasterAdmin, async (req: Request, res: Response) =>
       tournamentId: tid,
     });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="BidWar-BMW-${safeName}.xlsx"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Export failed" });

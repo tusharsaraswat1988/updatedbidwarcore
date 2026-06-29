@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const API = "/api";
 
@@ -104,9 +106,22 @@ type WorkbookVersion = {
 
 type View = "main" | "preview" | "history" | "versions" | "job-detail";
 
+type ExportPhase = "preparing" | "building" | "downloading";
+
+const EXPORT_STATUS: Record<ExportPhase, string> = {
+  preparing: "Preparing workbook…",
+  building: "Building Excel sheets…",
+  downloading: "Starting download…",
+};
+
 function getTournamentId(pathname: string): number | null {
   const match = pathname.match(/\/admin\/tournaments\/(\d+)/);
   return match ? Number(match[1]) : null;
+}
+
+function filenameFromContentDisposition(header: string | null, fallback: string): string {
+  const match = header?.match(/filename="?([^"]+)"?/);
+  return match?.[1]?.trim() || fallback;
 }
 
 async function downloadExport(tournamentId: number) {
@@ -116,10 +131,14 @@ async function downloadExport(tournamentId: number) {
     throw new Error(err.error || "Export failed");
   }
   const blob = await r.blob();
+  const fileName = filenameFromContentDisposition(
+    r.headers.get("Content-Disposition"),
+    `BidWar-BMW-t${tournamentId}.xlsx`,
+  );
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `BidWar-BMW-t${tournamentId}.xlsx`;
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -127,13 +146,17 @@ async function downloadExport(tournamentId: number) {
 export default function TournamentMasterWorkbookPage() {
   const [location] = useLocation();
   const { isLoggedIn, isLoading, isMaster } = useAdminPageGuard();
+  const { toast } = useToast();
   const tournamentId = getTournamentId(location);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exportPhaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const [view, setView] = useState<View>("main");
   const [importMode, setImportMode] = useState<ImportMode>("merge_data");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportPhase, setExportPhase] = useState<ExportPhase>("preparing");
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<WorkbookPreview | null>(null);
   const [previewJobId, setPreviewJobId] = useState<number | null>(null);
@@ -165,24 +188,43 @@ export default function TournamentMasterWorkbookPage() {
     if (view === "versions" && tournamentId) loadVersions().catch(() => setError("Could not load versions"));
   }, [view, tournamentId, loadHistory, loadVersions]);
 
-  if (isLoading || !isLoggedIn) return null;
+  useEffect(() => {
+    return () => {
+      exportPhaseTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
-  if (!isMaster) {
-    return (
-      <AdminShell title="Access Denied" eyebrow="BidWar Master Workbook">
-        <Card className="border-destructive/40 bg-destructive/10 p-6">
-          <p className="text-sm text-destructive">BidWar Master Workbook is restricted to Super Admin only.</p>
-        </Card>
-      </AdminShell>
-    );
-  }
+  async function handleExport() {
+    if (!tournamentId || exporting) return;
 
-  if (!tournamentId) {
-    return (
-      <AdminShell title="BidWar Master Workbook" eyebrow="Super Admin">
-        <p className="text-muted-foreground">Invalid tournament.</p>
-      </AdminShell>
+    exportPhaseTimersRef.current.forEach(clearTimeout);
+    exportPhaseTimersRef.current = [];
+
+    setExporting(true);
+    setExportPhase("preparing");
+    setError(null);
+
+    exportPhaseTimersRef.current.push(
+      setTimeout(() => setExportPhase("building"), 700),
+      setTimeout(() => setExportPhase("downloading"), 2500),
     );
+
+    try {
+      await downloadExport(tournamentId);
+      toast({
+        title: "Workbook exported",
+        description: "Your BidWar Master Workbook download has started.",
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Export failed";
+      setError(message);
+      toast({ title: "Export failed", description: message, variant: "destructive" });
+    } finally {
+      exportPhaseTimersRef.current.forEach(clearTimeout);
+      exportPhaseTimersRef.current = [];
+      setExporting(false);
+      setExportPhase("preparing");
+    }
   }
 
   async function runPreview(file?: File) {
@@ -254,6 +296,26 @@ export default function TournamentMasterWorkbookPage() {
     URL.revokeObjectURL(url);
   }
 
+  if (isLoading || !isLoggedIn) return null;
+
+  if (!isMaster) {
+    return (
+      <AdminShell title="Access Denied" eyebrow="BidWar Master Workbook">
+        <Card className="border-destructive/40 bg-destructive/10 p-6">
+          <p className="text-sm text-destructive">BidWar Master Workbook is restricted to Super Admin only.</p>
+        </Card>
+      </AdminShell>
+    );
+  }
+
+  if (!tournamentId) {
+    return (
+      <AdminShell title="BidWar Master Workbook" eyebrow="Super Admin">
+        <p className="text-muted-foreground">Invalid tournament.</p>
+      </AdminShell>
+    );
+  }
+
   return (
     <AdminShell
       title="BidWar Master Workbook (BMW)"
@@ -288,14 +350,41 @@ export default function TournamentMasterWorkbookPage() {
       {view === "main" && (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-border bg-card/70 p-5">
-              <FileSpreadsheet className="h-8 w-8 text-primary mb-3" />
+            <Card className={cn(
+              "border-border bg-card/70 p-5 transition-all",
+              exporting && "border-primary/40 ring-1 ring-primary/30",
+            )}>
+              <FileSpreadsheet className={cn("h-8 w-8 text-primary mb-3", exporting && "animate-pulse")} />
               <h3 className="font-semibold text-white">Export Workbook</h3>
               <p className="mt-1 text-xs text-muted-foreground">All 9 sheets + instructions + reference dropdowns. Admin-friendly format.</p>
-              <Button className="mt-4 w-full gap-2" onClick={() => downloadExport(tournamentId!).catch((e) => setError(String(e)))} disabled={busy}>
-                <Download className="h-4 w-4" />
-                Export .xlsx
+              <Button
+                className="mt-4 w-full gap-2"
+                onClick={() => void handleExport()}
+                disabled={exporting || busy}
+                aria-busy={exporting}
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    {EXPORT_STATUS[exportPhase]}
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" aria-hidden />
+                    Export .xlsx
+                  </>
+                )}
               </Button>
+              {exporting && (
+                <div className="mt-3 space-y-2" role="status" aria-live="polite">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full w-2/5 animate-pulse rounded-full bg-primary" />
+                  </div>
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    Large tournaments can take a few seconds — please wait.
+                  </p>
+                </div>
+              )}
             </Card>
 
             <Card className="border-border bg-card/70 p-5 md:col-span-2">
