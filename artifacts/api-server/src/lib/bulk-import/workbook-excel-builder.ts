@@ -192,10 +192,18 @@ function buildRowForSheet(
         row[field.label] = String(p.name ?? t.name ?? "");
         break;
       case "mobile":
-        row[field.label] = String(p.mobileNumber ?? t.organizerMobile ?? "");
+        row[field.label] = field.entity === "tournament"
+          ? String(t.organizerMobile ?? "")
+          : String(p.mobileNumber ?? "");
         break;
       case "email":
-        row[field.label] = String(p.email ?? t.organizerEmail ?? "");
+        if (field.entity === "tournament") {
+          row[field.label] = String(t.organizerEmail ?? "");
+        } else if (field.entity === "team") {
+          row[field.label] = String(p.ownerEmail ?? "");
+        } else {
+          row[field.label] = String(p.email ?? "");
+        }
         break;
       case "gender":
         row[field.label] = formatPlayerGenderForWorkbook(p.gender as string | null | undefined);
