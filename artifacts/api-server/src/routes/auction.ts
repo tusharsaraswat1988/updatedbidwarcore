@@ -858,15 +858,20 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
     res.write(formatSseFrame(version || 1, envelope));
   }
 
-  const heartbeat = setInterval(() => {
-    try { res.write(": heartbeat\n\n"); } catch { clearInterval(heartbeat); }
-  }, 20000);
-
-  req.on("close", () => {
+  const cleanup = () => {
     clearInterval(heartbeat);
     removeSseClient(client);
+    req.off("close", cleanup);
+    res.off("close", cleanup);
     logger.info({ tournamentId: tid, clientCount: getSseClientCount(tid) }, "SSE client disconnected");
-  });
+  };
+
+  const heartbeat = setInterval(() => {
+    try { res.write(": heartbeat\n\n"); } catch { cleanup(); }
+  }, 20000);
+
+  req.on("close", cleanup);
+  res.on("close", cleanup);
 });
 
 // GET auction state

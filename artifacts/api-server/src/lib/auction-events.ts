@@ -1,4 +1,4 @@
-import { getRedisCommandClient, getRedisSubscriberClient, isRedisEnabled } from "./redis";
+import { getRedisCommandClient, getRedisSubscriberClient, isRedisEnabled, markRedisUnavailable } from "./redis";
 import { writeSseToLocalClients } from "./broadcast";
 import { logger } from "./logger";
 
@@ -31,8 +31,12 @@ export function isAuctionActivityEventType(type: string): boolean {
 export async function getLastAuctionActivityAt(tournamentId: number): Promise<string | null> {
   const redis = getRedisCommandClient();
   if (redis) {
-    const v = await redis.get(LAST_ACTIVITY_KEY(tournamentId));
-    if (v) return v;
+    try {
+      const v = await redis.get(LAST_ACTIVITY_KEY(tournamentId));
+      if (v) return v;
+    } catch (err) {
+      markRedisUnavailable(err, "getLastAuctionActivityAt");
+    }
   }
   return localLastActivity.get(tournamentId) ?? null;
 }
@@ -41,7 +45,11 @@ async function setLastAuctionActivityAt(tournamentId: number, iso: string): Prom
   localLastActivity.set(tournamentId, iso);
   const redis = getRedisCommandClient();
   if (redis) {
-    await redis.set(LAST_ACTIVITY_KEY(tournamentId), iso);
+    try {
+      await redis.set(LAST_ACTIVITY_KEY(tournamentId), iso);
+    } catch (err) {
+      markRedisUnavailable(err, "setLastAuctionActivityAt");
+    }
   }
 }
 
@@ -65,8 +73,12 @@ export function formatSseFrame(version: number, payload: Record<string, unknown>
 export async function getCurrentEventVersion(tournamentId: number): Promise<number> {
   const redis = getRedisCommandClient();
   if (redis) {
-    const v = await redis.get(VERSION_KEY(tournamentId));
-    return v ? parseInt(v, 10) : 0;
+    try {
+      const v = await redis.get(VERSION_KEY(tournamentId));
+      return v ? parseInt(v, 10) : 0;
+    } catch (err) {
+      markRedisUnavailable(err, "getCurrentEventVersion");
+    }
   }
   return localVersions.get(tournamentId) ?? 0;
 }
@@ -74,7 +86,11 @@ export async function getCurrentEventVersion(tournamentId: number): Promise<numb
 async function nextEventVersion(tournamentId: number): Promise<number> {
   const redis = getRedisCommandClient();
   if (redis) {
-    return redis.incr(VERSION_KEY(tournamentId));
+    try {
+      return await redis.incr(VERSION_KEY(tournamentId));
+    } catch (err) {
+      markRedisUnavailable(err, "nextEventVersion");
+    }
   }
   return bumpLocalVersion(tournamentId);
 }
@@ -82,11 +98,15 @@ async function nextEventVersion(tournamentId: number): Promise<number> {
 async function bufferEvent(tournamentId: number, serialized: string): Promise<void> {
   const redis = getRedisCommandClient();
   if (redis) {
-    const pipeline = redis.pipeline();
-    pipeline.lpush(EVENTS_KEY(tournamentId), serialized);
-    pipeline.ltrim(EVENTS_KEY(tournamentId), 0, EVENT_BUFFER_MAX - 1);
-    await pipeline.exec();
-    return;
+    try {
+      const pipeline = redis.pipeline();
+      pipeline.lpush(EVENTS_KEY(tournamentId), serialized);
+      pipeline.ltrim(EVENTS_KEY(tournamentId), 0, EVENT_BUFFER_MAX - 1);
+      await pipeline.exec();
+      return;
+    } catch (err) {
+      markRedisUnavailable(err, "bufferEvent");
+    }
   }
   bufferLocal(tournamentId, serialized);
 }
@@ -117,10 +137,14 @@ export async function publishAuctionEvent(
 
   const redis = getRedisCommandClient();
   if (redis) {
-    await redis.publish(PUBSUB_CHANNEL(tournamentId), serialized);
-  } else {
-    writeSseToLocalClients(tournamentId, version, envelope);
+    try {
+      await redis.publish(PUBSUB_CHANNEL(tournamentId), serialized);
+      return envelope;
+    } catch (err) {
+      markRedisUnavailable(err, "publishAuctionEvent");
+    }
   }
+  writeSseToLocalClients(tournamentId, version, envelope);
 
   return envelope;
 }
@@ -134,7 +158,12 @@ export async function getEventsAfter(
   let raw: string[] = [];
 
   if (redis) {
-    raw = await redis.lrange(EVENTS_KEY(tournamentId), 0, EVENT_BUFFER_MAX - 1);
+    try {
+      raw = await redis.lrange(EVENTS_KEY(tournamentId), 0, EVENT_BUFFER_MAX - 1);
+    } catch (err) {
+      markRedisUnavailable(err, "getEventsAfter");
+      raw = localBuffers.get(tournamentId) ?? [];
+    }
   } else {
     raw = localBuffers.get(tournamentId) ?? [];
   }
