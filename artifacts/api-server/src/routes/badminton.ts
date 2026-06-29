@@ -79,6 +79,8 @@ import {
 } from "../lib/badminton-registration-validation";
 import {
   addBadmintonSseClient,
+  createBadmintonSseClient,
+  removeBadmintonSseClient,
   broadcastBadmintonMatchUpdate,
   broadcastTournamentUpdate,
 } from "../lib/badminton-broadcast";
@@ -303,17 +305,26 @@ router.get("/stream", (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  addBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
+  const client = createBadmintonSseClient({ res, matchId: matchId ?? 0, tournamentId });
+  addBadmintonSseClient(client);
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    removeBadmintonSseClient(client);
+    req.off("close", cleanup);
+    res.off("close", cleanup);
+  };
 
   const heartbeat = setInterval(() => {
     try {
       res.write(": heartbeat\n\n");
     } catch {
-      clearInterval(heartbeat);
+      cleanup();
     }
   }, 25000);
 
-  req.on("close", () => clearInterval(heartbeat));
+  req.on("close", cleanup);
+  res.on("close", cleanup);
 });
 
 // ─── Players ─────────────────────────────────────────────────────────────────

@@ -4,13 +4,13 @@ import { formatSseFrame } from "./auction-events";
 
 interface SseClient {
   tournamentId: number;
-  res: Response;
+  write: (frame: string) => boolean;
 }
 
 const clients: Set<SseClient> = new Set();
 
 export function addSseClient(tournamentId: number, res: Response): SseClient {
-  const client: SseClient = { tournamentId, res };
+  const client: SseClient = { tournamentId, write: (frame) => res.write(frame) };
   clients.add(client);
   return client;
 }
@@ -29,7 +29,7 @@ export function writeSseToLocalClients(
   for (const client of clients) {
     if (client.tournamentId === tournamentId) {
       try {
-        client.res.write(frame);
+        client.write(frame);
       } catch {
         clients.delete(client);
       }

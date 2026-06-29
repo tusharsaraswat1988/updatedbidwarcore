@@ -11,6 +11,7 @@ import { initRedisClients } from "./lib/redis";
 import { startAuctionEventSubscriber } from "./lib/auction-events";
 import { ensureCoreSchema, pool } from "@workspace/db";
 import { brandingService } from "./lib/branding-service.js";
+import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
 
 const { port } = getRuntimeConfig();
 
@@ -31,6 +32,7 @@ async function start() {
     startConsentBlastScheduler();
     startCreativeRenderWorker();
     startCommunicationWorker();
+    startMemoryDiagnostics();
   });
 }
 

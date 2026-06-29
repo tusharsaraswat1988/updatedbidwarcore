@@ -5,6 +5,8 @@ import { logger } from "./logger";
 let commandClient: Redis | null = null;
 let subscriberClient: Redis | null = null;
 let initAttempted = false;
+let redisUnavailable = false;
+let warnedFallback = false;
 
 function createClient(label: string): Redis {
   const { redisUrl } = getRuntimeConfig();
@@ -19,11 +21,18 @@ function createClient(label: string): Redis {
   });
 
   client.on("error", (err) => {
-    logger.warn({ err, label }, "Redis client error");
+    redisUnavailable = true;
+    if (!warnedFallback) {
+      warnedFallback = true;
+      logger.warn({ err, label }, "Redis unavailable — falling back to in-memory locks and SSE on this instance");
+    } else {
+      logger.warn({ err, label }, "Redis client error");
+    }
   });
 
-  client.on("connect", () => {
-    logger.info({ label }, "Redis connected");
+  client.on("ready", () => {
+    redisUnavailable = false;
+    logger.info({ label }, "Redis ready");
   });
 
   return client;
@@ -36,7 +45,7 @@ export function isRedisEnabled(): boolean {
 
 /** Shared Redis client for commands (lock, buffer, publish). */
 export function getRedisCommandClient(): Redis | null {
-  if (!isRedisEnabled()) return null;
+  if (!isRedisEnabled() || redisUnavailable) return null;
   if (!commandClient) {
     commandClient = createClient("command");
   }
@@ -45,7 +54,7 @@ export function getRedisCommandClient(): Redis | null {
 
 /** Dedicated subscriber client (Redis requires separate connection for SUBSCRIBE). */
 export function getRedisSubscriberClient(): Redis | null {
-  if (!isRedisEnabled()) return null;
+  if (!isRedisEnabled() || redisUnavailable) return null;
   if (!subscriberClient) {
     subscriberClient = createClient("subscriber");
   }
@@ -60,6 +69,22 @@ export async function initRedisClients(): Promise<void> {
     logger.info("Redis not configured — using in-memory fallbacks for locks and SSE");
     return;
   }
-  getRedisCommandClient();
-  getRedisSubscriberClient();
+  const command = getRedisCommandClient();
+  const subscriber = getRedisSubscriberClient();
+  try {
+    await Promise.all([command?.ping(), subscriber?.ping()]);
+    logger.info("Redis configured for distributed locks and SSE pub/sub");
+  } catch (err) {
+    redisUnavailable = true;
+    warnedFallback = true;
+    logger.warn({ err }, "Redis startup check failed — falling back to in-memory locks and SSE on this instance");
+  }
+}
+
+export function markRedisUnavailable(err: unknown, context: string): void {
+  redisUnavailable = true;
+  if (!warnedFallback) {
+    warnedFallback = true;
+  }
+  logger.warn({ err, context }, "Redis operation failed — falling back to in-memory locks and SSE on this instance");
 }
