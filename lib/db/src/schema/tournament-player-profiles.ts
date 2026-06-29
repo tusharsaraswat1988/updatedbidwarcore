@@ -13,6 +13,8 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -29,7 +31,15 @@ export const tournamentPlayerProfilesTable = pgTable(
     photoOverrideUrl: text("photo_override_url"),
     photoOverridePublicId: text("photo_override_public_id"),
     category: text("category"),
+    subCategory: text("sub_category"),
     seedRank: integer("seed_rank"),
+    auctionBatch: text("auction_batch"),
+    rating: integer("rating"),
+    priority: integer("priority"),
+    remarks: text("remarks"),
+    isWildcard: boolean("is_wildcard").notNull().default(false),
+    /** Extensible auction metadata — future fields without schema migrations */
+    auctionDataJson: jsonb("auction_data_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

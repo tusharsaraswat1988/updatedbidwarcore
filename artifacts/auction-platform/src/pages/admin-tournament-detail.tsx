@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles } from "lucide-react";
+import { Activity, BadgeCheck, CircleDot, Lock, RefreshCw, Sparkles, Database } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveDisplaysPanel } from "@/components/admin/live-displays-panel";
@@ -346,14 +346,32 @@ export default function AdminTournamentDetailPage() {
               </div>
             </div>
           ) : tab === "players" ? (
-            <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
-              <AdminScrollPanel>
-                {detail.players.map((p) => (
-                  <div key={p.id} className="grid grid-cols-[1fr_160px_120px_130px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                    <span className="text-white">{p.name}</span><span className="text-muted-foreground">{p.role || "No role"}</span><span>{p.status}</span><span className="text-right">₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}</span>
+            <div className="space-y-3">
+              {isMaster && (
+                <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-white">
+                      <Database className="h-4 w-4 text-primary" />
+                      Tournament Master Workbook
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Official import/export for all tournament data — Excel & Google Sheets.
+                    </p>
                   </div>
-                ))}
-              </AdminScrollPanel>
+                  <Link href={`/admin/tournaments/${tournamentId}/workbook`}>
+                    <Button size="sm" className="gap-1.5">Open Workbook</Button>
+                  </Link>
+                </div>
+              )}
+              <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
+                <AdminScrollPanel>
+                  {detail.players.map((p) => (
+                    <div key={p.id} className="grid grid-cols-[1fr_160px_120px_130px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
+                      <span className="text-white">{p.name}</span><span className="text-muted-foreground">{p.role || "No role"}</span><span>{p.status}</span><span className="text-right">₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}</span>
+                    </div>
+                  ))}
+                </AdminScrollPanel>
+              </div>
             </div>
           ) : tab === "teams" ? (
             <div className="rounded-xl border border-border bg-card/70 overflow-hidden">

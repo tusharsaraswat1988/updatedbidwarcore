@@ -287,5 +287,110 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
     ALTER TABLE branding_assets ADD COLUMN IF NOT EXISTS file_public_id text;
     ALTER TABLE showcase_events ADD COLUMN IF NOT EXISTS image_public_id text;
     ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS photo_override_public_id text;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS sub_category text;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS auction_batch text;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS rating integer;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS priority integer;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS remarks text;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS is_wildcard boolean NOT NULL DEFAULT false;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS auction_data_json jsonb;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bulk_import_jobs (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      module_type TEXT NOT NULL DEFAULT 'auction_data',
+      uploaded_by TEXT NOT NULL,
+      uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      file_name TEXT,
+      ip_address TEXT,
+      browser TEXT,
+      processing_time_ms INTEGER,
+      status TEXT NOT NULL DEFAULT 'pending',
+      total_rows INTEGER NOT NULL DEFAULT 0,
+      updated_rows INTEGER NOT NULL DEFAULT 0,
+      failed_rows INTEGER NOT NULL DEFAULT 0,
+      skipped_rows INTEGER NOT NULL DEFAULT 0,
+      preview_json JSONB,
+      error_report_json JSONB,
+      rolled_back_at TIMESTAMPTZ,
+      rolled_back_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_jobs_tournament
+      ON bulk_import_jobs (tournament_id, uploaded_at);
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_jobs_module
+      ON bulk_import_jobs (module_type, uploaded_at);
+
+    CREATE TABLE IF NOT EXISTS bulk_import_job_items (
+      id BIGSERIAL PRIMARY KEY,
+      job_id INTEGER NOT NULL,
+      player_id INTEGER,
+      field_name TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error_message TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_job_items_job ON bulk_import_job_items (job_id);
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_job_items_player ON bulk_import_job_items (player_id);
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      field_name TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      action TEXT NOT NULL,
+      performed_by TEXT NOT NULL,
+      performed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ip_address TEXT,
+      user_agent TEXT,
+      job_id INTEGER,
+      tournament_id INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_entity
+      ON audit_logs (entity_type, entity_id, performed_at);
+    CREATE INDEX IF NOT EXISTS ix_audit_logs_job ON audit_logs (job_id);
+    ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS import_mode text;
+    ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS source_type text DEFAULT 'excel';
+    ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS google_sheet_url text;
+    ALTER TABLE bulk_import_jobs ADD COLUMN IF NOT EXISTS workbook_version_id integer;
+
+    CREATE TABLE IF NOT EXISTS workbook_versions (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL,
+      job_id INTEGER,
+      version_label TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      snapshot_meta JSONB,
+      rolled_back_at TIMESTAMPTZ,
+      rolled_back_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS ix_workbook_versions_tournament
+      ON workbook_versions (tournament_id, created_at);
+
+    ALTER TABLE workbook_versions ADD COLUMN IF NOT EXISTS version_notes text;
+    ALTER TABLE workbook_versions ADD COLUMN IF NOT EXISTS manifest_snapshot jsonb;
+
+    CREATE TABLE IF NOT EXISTS workbook_mapping_profiles (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      organizer_id INTEGER,
+      tournament_id INTEGER,
+      source_label TEXT,
+      sport TEXT,
+      fields_json JSONB NOT NULL DEFAULT '[]',
+      created_by TEXT NOT NULL DEFAULT 'system',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ,
+      use_count INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS ix_workbook_mapping_profiles_tournament
+      ON workbook_mapping_profiles (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_workbook_mapping_profiles_organizer
+      ON workbook_mapping_profiles (organizer_id);
   `);
 }

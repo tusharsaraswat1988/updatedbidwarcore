@@ -111,6 +111,9 @@ importers:
       '@workspace/scoring-core':
         specifier: workspace:*
         version: link:../../lib/scoring-core
+      adm-zip:
+        specifier: ^0.5.16
+        version: 0.5.18
       cloudinary:
         specifier: ^2.10.0
         version: 2.10.0
@@ -3699,6 +3702,10 @@ packages:
   adler-32@1.3.1:
     resolution: {integrity: sha512-ynZ4w/nUUv5rrsR8UUGoe1VC9hZj6V5hU9Qw1HlMDJGEJw5S7TfTErWTjMys6M7vr0YWcPqs3qAr4ss0nDfP+A==}
     engines: {node: '>=0.8'}
+
+  adm-zip@0.5.18:
+    resolution: {integrity: sha512-ufJnssQGbxzLNS1Ho9bCtX4rQKCCvoVuDLHoJyc3F9dOGDB4BkWs2Ci0kv53lqocAEQ/Cbi+I2XCsNYGqVYqng==}
+    engines: {node: '>=12.0'}
 
   agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
@@ -10244,6 +10251,8 @@ snapshots:
   acorn@8.16.0: {}
 
   adler-32@1.3.1: {}
+
+  adm-zip@0.5.18: {}
 
   agent-base@6.0.2:
     dependencies:

@@ -40,6 +40,7 @@ const AdminOrganisersList = lazy(() => import("@/pages/admin-organisers-list"));
 const AdminSportsPage = lazy(() => import("@/pages/admin-sports-page"));
 const AdminSystemPage = lazy(() => import("@/pages/admin-system-page"));
 const AdminTournamentDetail = lazy(() => import("@/pages/admin-tournament-detail"));
+const TournamentMasterWorkbook = lazy(() => import("@/pages/tournament-master-workbook"));
 const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
@@ -213,6 +214,10 @@ function Router() {
         <Route path="/admin/tournaments/:id" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/overview" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/players" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/players/auction-data-manager">
+          {({ id }) => <Redirect to={`/admin/tournaments/${id}/workbook`} />}
+        </Route>
+        <Route path="/admin/tournaments/:id/workbook" component={TournamentMasterWorkbook} />
         <Route path="/admin/tournaments/:id/teams" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/bids" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/monitor" component={AdminTournamentDetail} />
