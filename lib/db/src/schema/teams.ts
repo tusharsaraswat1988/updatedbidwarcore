@@ -11,8 +11,10 @@ export const teamsTable = pgTable("teams", {
   ownerMobile: text("owner_mobile").notNull().default(""),
   ownerEmail: text("owner_email"),
   ownerPhotoUrl: text("owner_photo_url"),
+  ownerPhotoPublicId: text("owner_photo_public_id"),
   color: text("color").default("#3B82F6"),
   logoUrl: text("logo_url"),
+  logoPublicId: text("logo_public_id"),
   /** Canonical team in master_teams (mt_*). */
   masterTeamId: text("master_team_id"),
   purse: integer("purse").notNull().default(10000000),

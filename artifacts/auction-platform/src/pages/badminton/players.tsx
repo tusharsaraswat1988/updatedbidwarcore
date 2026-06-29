@@ -728,6 +728,7 @@ function PlayerFormModal({
     mobile: player?.mobile ? sanitizeMobileInput(player.mobile) : "",
     email: player?.email ?? "",
     photoUrl: player?.photoUrl ?? "",
+    photoPublicId: "",
     city: existingMeta?.city ?? player?.academyName ?? "",
     age: existingMeta?.age != null ? String(existingMeta.age) : "",
     gender: player?.gender ?? "",
@@ -791,7 +792,8 @@ function PlayerFormModal({
         name: form.name.trim(),
         mobile: mobileResult.normalized,
         email: emailResult.email || undefined,
-        photoUrl: form.photoUrl || undefined,
+        photoUrl: form.photoUrl || null,
+        photoPublicId: form.photoPublicId || null,
         city: form.city.trim() || undefined,
         age: form.age ? parseInt(form.age, 10) : undefined,
         gender: form.gender === "M" || form.gender === "F" ? form.gender : undefined,
@@ -846,7 +848,10 @@ function PlayerFormModal({
             {form.photoUrl ? (
               <BtnSecondary
                 type="button"
-                onClick={() => setField("photoUrl", "")}
+                onClick={() => {
+                  setField("photoUrl", "");
+                  setField("photoPublicId", "");
+                }}
                 className="gap-1.5 text-xs h-9 text-destructive border-destructive/30 hover:bg-destructive/10"
               >
                 <X className="w-3.5 h-3.5" />
@@ -866,7 +871,11 @@ function PlayerFormModal({
         initialUrl={form.photoUrl || undefined}
         aspect={1}
         title="Player Photo"
-        onSave={(url) => setField("photoUrl", url)}
+        onSave={(upload) => {
+          setField("photoUrl", upload.url);
+          setField("photoPublicId", upload.publicId);
+          setPhotoEditorOpen(false);
+        }}
       />
 
       <FormField label="Mobile Number *">

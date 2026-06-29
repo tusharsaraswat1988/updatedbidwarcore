@@ -124,6 +124,7 @@ export default function TournamentSettings() {
       auctionDate: t.auctionDate || "",
       auctionTime: t.auctionTime || "",
       logoUrl: t.logoUrl && !t.logoUrl.startsWith("data:") ? t.logoUrl : "",
+      logoPublicId: (t as { logoPublicId?: string | null }).logoPublicId ?? "",
       basePurse: t.basePurse ? String(t.basePurse) : "",
       minBid: t.minBid ? String(t.minBid) : "",
       timerSeconds: String(t.timerSeconds ?? "30"),
@@ -155,6 +156,7 @@ export default function TournamentSettings() {
       breakEndMusicUrl: String(t.breakEndMusicUrl ?? ""),
       breakEndMusicVolume: String(t.breakEndMusicVolume ?? 80),
       mainBannerUrl: t.mainBannerUrl ?? "",
+      mainBannerPublicId: (t as { mainBannerPublicId?: string | null }).mainBannerPublicId ?? "",
       mainBannerEnabled: t.mainBannerEnabled ?? false,
       mainBannerFit: t.mainBannerFit ?? "cover",
       matchDates: t.matchDates ?? "",
@@ -310,13 +312,14 @@ export default function TournamentSettings() {
       fd.append("file", file);
       const r = await fetch("/api/upload", { method: "POST", body: fd });
       if (!r.ok) throw new Error("Upload failed");
-      const data = await r.json() as { url?: string };
+      const data = await r.json() as { url?: string; publicId?: string };
       if (data.url) {
         const url = data.url as string;
+        const publicId = data.publicId ?? undefined;
         if (idx === "new") {
-          setSponsorLogos(prev => [...prev, { url, name: "", type: "" }]);
+          setSponsorLogos(prev => [...prev, { url, publicId, name: "", type: "" }]);
         } else {
-          setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, url } : l));
+          setSponsorLogos(prev => prev.map((l, i) => i === idx ? { ...l, url, publicId } : l));
         }
       }
     } catch { alert("Sponsor logo upload failed. Please try again."); }
@@ -488,6 +491,7 @@ export default function TournamentSettings() {
           auctionDate: editForm.auctionDate as string || undefined,
           auctionTime: editForm.auctionTime as string || undefined,
           logoUrl: editForm.logoUrl as string || undefined,
+          logoPublicId: (editForm.logoPublicId as string) || undefined,
           sponsorLogos: JSON.stringify(filteredLogos),
           basePurse: Number(editForm.basePurse) || undefined,
           minBid: Number(editForm.minBid) || undefined,
@@ -530,10 +534,15 @@ export default function TournamentSettings() {
           breakEndMusicUrl: (editForm.breakEndMusicUrl as string).trim() || null,
           breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
           mainBannerUrl: (editForm.mainBannerUrl as string).trim() || null,
+          mainBannerPublicId: (editForm.mainBannerPublicId as string) || null,
           mainBannerEnabled: editForm.mainBannerEnabled === true,
           mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
           matchDates: (editForm.matchDates as string).trim() || null,
           registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+        } as import("@workspace/api-client-react").TournamentUpdate & {
+          reason: string;
+          logoPublicId?: string;
+          mainBannerPublicId?: string | null;
         },
       });
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -1401,7 +1410,7 @@ export default function TournamentSettings() {
                       <button
                         type="button"
                         className="absolute top-1.5 right-1.5 h-7 w-7 bg-black/70 hover:bg-black/90 text-white/80 hover:text-white rounded flex items-center justify-center transition-colors z-10"
-                        onClick={() => setEditForm(f => ({ ...f, mainBannerUrl: "" }))}
+                        onClick={() => setEditForm(f => ({ ...f, mainBannerUrl: "", mainBannerPublicId: "" }))}
                         title="Remove banner"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -1735,7 +1744,7 @@ export default function TournamentSettings() {
         initialUrl={editForm.logoUrl as string || undefined}
         aspect={1}
         title="Tournament Logo"
-        onSave={url => setEditForm(f => ({ ...f, logoUrl: url }))}
+        onSave={upload => setEditForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
       />
       <ImageEditorDialog
         open={bannerEditorOpen}
@@ -1746,7 +1755,7 @@ export default function TournamentSettings() {
         exportMaxWidthOrHeight={1920}
         exportMaxSizeMB={4.5}
         exportHint="Drag to reposition, use the zoom slider to scale. Output is saved at 16:9 (up to 1920px) — the preview above matches the LED screen."
-        onSave={url => setEditForm(f => ({ ...f, mainBannerUrl: url }))}
+        onSave={upload => setEditForm(f => ({ ...f, mainBannerUrl: upload.url, mainBannerPublicId: upload.publicId }))}
       />
       </div>
     </AppLayout>

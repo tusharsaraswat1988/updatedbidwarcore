@@ -67,8 +67,10 @@ export const badmintonPlayersTable = pgTable(
     email: text("email"),
     /** Photo URL (Cloudinary). */
     photoUrl: text("photo_url"),
+    photoPublicId: text("photo_public_id"),
     /** National flag or team logo URL. */
     flagUrl: text("flag_url"),
+    flagPublicId: text("flag_public_id"),
     /** National / team color (hex). */
     teamColor: text("team_color"),
     /** BWF world ranking. */

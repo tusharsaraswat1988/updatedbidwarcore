@@ -25,15 +25,17 @@ const EMPTY_SCOREBOARD_SPONSOR: ScoreBoardSponsor = {
 
 function scoreBoardSponsorPayload(sponsor: ScoreBoardSponsor): ScoreBoardSponsor | null {
   const logoUrl = sponsor.logoUrl?.trim() || null;
+  const logoPublicId = sponsor.logoPublicId?.trim() || null;
   const name = sponsor.name?.trim() || null;
   const title = sponsor.title?.trim() || null;
   if (!logoUrl && !name && !title) return null;
-  return { logoUrl, name, title };
+  return { logoUrl, logoPublicId, name, title };
 }
 
 type BrandingFormState = {
   displayName: string;
   logoUrl: string;
+  logoPublicId: string;
   venue: string;
   organizerName: string;
   primaryColor: string;
@@ -49,6 +51,7 @@ function brandingFromApi(branding: BadmintonBranding): {
     form: {
       displayName: branding.displayName,
       logoUrl: branding.logoUrl ?? "",
+      logoPublicId: "",
       venue: branding.venue ?? "",
       organizerName: branding.organizerName ?? "",
       primaryColor: branding.primaryColor,
@@ -67,6 +70,7 @@ function buildBrandingPatchPayload(
   return {
     displayName: form.displayName.trim(),
     logoUrl: form.logoUrl.trim() || null,
+    logoPublicId: form.logoPublicId.trim() || null,
     sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
     venue: form.venue.trim() || null,
     organizerName: form.organizerName.trim() || null,
@@ -118,6 +122,7 @@ export default function BadmintonBrandingPage() {
   const [form, setForm] = useState({
     displayName: "",
     logoUrl: "",
+    logoPublicId: "",
     venue: "",
     organizerName: "",
     primaryColor: "#F59E0B",
@@ -431,7 +436,7 @@ export default function BadmintonBrandingPage() {
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
                     </BtnPrimary>
                     {form.logoUrl && (
-                      <BtnSecondary type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "" }))}>
+                      <BtnSecondary type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "", logoPublicId: "" }))}>
                         Remove
                       </BtnSecondary>
                     )}
@@ -522,7 +527,7 @@ export default function BadmintonBrandingPage() {
                       {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
                     </BtnPrimary>
                     {scoreBoardSponsor.logoUrl && (
-                      <BtnSecondary type="button" onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null }))}>
+                      <BtnSecondary type="button" onClick={() => setScoreBoardSponsor((s) => ({ ...s, logoUrl: null, logoPublicId: null }))}>
                         Remove
                       </BtnSecondary>
                     )}
@@ -589,8 +594,8 @@ export default function BadmintonBrandingPage() {
         initialUrl={form.logoUrl || undefined}
         aspect={1}
         title="Tournament Logo"
-        onSave={(url) => {
-          setForm((f) => ({ ...f, logoUrl: url }));
+        onSave={(upload) => {
+          setForm((f) => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }));
           setLogoEditorOpen(false);
         }}
       />
@@ -600,8 +605,12 @@ export default function BadmintonBrandingPage() {
         initialUrl={scoreBoardSponsor.logoUrl ?? undefined}
         aspect={1}
         title="Scoreboard Sponsor Logo"
-        onSave={(url) => {
-          setScoreBoardSponsor((s) => ({ ...s, logoUrl: url }));
+        onSave={(upload) => {
+          setScoreBoardSponsor((s) => ({
+            ...s,
+            logoUrl: upload.url,
+            logoPublicId: upload.publicId,
+          }));
           setScoreBoardLogoEditorOpen(false);
         }}
       />

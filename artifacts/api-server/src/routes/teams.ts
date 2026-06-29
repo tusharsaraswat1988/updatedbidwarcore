@@ -27,6 +27,11 @@ import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/au
 import { snapshotTeam } from "../lib/audit-snapshots";
 import { notifyAsync } from "../lib/notifications";
 import { recoverJobsForTeamEmailUpdate } from "../lib/communication/recovery.js";
+import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
+import {
+  queueImageFieldChange,
+  type ImageFieldChange,
+} from "../lib/cloudinary-image-fields";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -100,8 +105,10 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     ownerMobile: z.string().min(1, "Owner mobile is required for communication features"),
     ownerEmail: z.string().optional(),
     ownerPhotoUrl: cloudinaryLogoUrl,
+    ownerPhotoPublicId: z.string().optional().nullable(),
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
+    logoPublicId: z.string().optional().nullable(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
@@ -157,8 +164,10 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         ownerMobile,
         ownerEmail: ownerEmailParsed.email,
         ownerPhotoUrl: d.ownerPhotoUrl || null,
+        ownerPhotoPublicId: d.ownerPhotoPublicId || null,
         color: d.color ?? "#3B82F6",
         logoUrl: d.logoUrl ?? null,
+        logoPublicId: d.logoPublicId ?? null,
         purse: tournament.basePurse,
         purseUsed: 0,
         isBiddingEnabled: true,
@@ -314,8 +323,10 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     ownerMobile: z.string().min(1).optional(),
     ownerEmail: z.string().optional(),
     ownerPhotoUrl: cloudinaryLogoUrl,
+    ownerPhotoPublicId: z.string().optional().nullable(),
     color: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
+    logoPublicId: z.string().optional().nullable(),
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
     regenerateCode: z.boolean().optional(),
@@ -349,6 +360,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   }
 
   const updates: Record<string, unknown> = {};
+  const imageChanges: ImageFieldChange[] = [];
   if (d.name !== undefined) updates.name = d.name;
   if (d.shortCode !== undefined) updates.shortCode = d.shortCode;
   if (d.ownerName !== undefined) updates.ownerName = d.ownerName;
@@ -367,9 +379,23 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     }
     updates.ownerEmail = ownerEmailParsed.email;
   }
-  if (d.ownerPhotoUrl !== undefined) updates.ownerPhotoUrl = d.ownerPhotoUrl || null;
+  queueImageFieldChange(imageChanges, updates, {
+    label: "ownerPhotoUrl",
+    urlKey: "ownerPhotoUrl",
+    publicIdKey: "ownerPhotoPublicId",
+    existing: { url: beforeTeam.ownerPhotoUrl, publicId: beforeTeam.ownerPhotoPublicId },
+    nextUrl: d.ownerPhotoUrl,
+    nextPublicId: d.ownerPhotoPublicId,
+  });
   if (d.color !== undefined) updates.color = d.color;
-  if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl || null;
+  queueImageFieldChange(imageChanges, updates, {
+    label: "logoUrl",
+    urlKey: "logoUrl",
+    publicIdKey: "logoPublicId",
+    existing: { url: beforeTeam.logoUrl, publicId: beforeTeam.logoPublicId },
+    nextUrl: d.logoUrl,
+    nextPublicId: d.logoPublicId,
+  });
   if (d.purse !== undefined) updates.purse = d.purse;
   if (d.isBiddingEnabled !== undefined) updates.isBiddingEnabled = d.isBiddingEnabled;
   if (d.regenerateCode) updates.accessCode = genAccessCode();
@@ -391,14 +417,33 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     }
   }
 
-  let team: typeof teamsTable.$inferSelect;
+  let team!: typeof teamsTable.$inferSelect;
   try {
-    [team] = await db
-      .update(teamsTable)
-      .set(updates)
-      .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)))
-      .returning();
+    const persistTeamUpdate = async () => {
+      const [updated] = await db
+        .update(teamsTable)
+        .set(updates)
+        .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)))
+        .returning();
+      if (!updated) throw new Error("TEAM_NOT_FOUND");
+      team = updated;
+    };
+
+    if (imageChanges.length > 0) {
+      await commitBatchCloudinaryImageWrites({
+        changes: imageChanges,
+        persist: persistTeamUpdate,
+        logger: req.log,
+        context: { route: "teams.patch", tournamentId: tid, teamId },
+      });
+    } else {
+      await persistTeamUpdate();
+    }
   } catch (err) {
+    if ((err as Error).message === "TEAM_NOT_FOUND") {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     if (isUniqueViolation(err)) {
       res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
       return;

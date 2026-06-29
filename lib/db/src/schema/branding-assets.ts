@@ -14,6 +14,7 @@ export const brandingAssetsTable = pgTable(
     id: serial("id").primaryKey(),
     assetType: text("asset_type").notNull(),
     fileUrl: text("file_url").notNull(),
+    filePublicId: text("file_public_id"),
     fileName: text("file_name"),
     mimeType: text("mime_type"),
     width: integer("width"),

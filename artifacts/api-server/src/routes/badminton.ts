@@ -88,6 +88,11 @@ import type { BadmintonMatchStartedPayload } from "@workspace/badminton-core";
 import { STANDARD_FORMAT } from "@workspace/badminton-core";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import { generateMatchReportPdf } from "../lib/badminton-match-report";
+import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
+import {
+  queueImageFieldChange,
+  type ImageFieldChange,
+} from "../lib/cloudinary-image-fields";
 
 const router = Router({ mergeParams: true });
 
@@ -368,6 +373,7 @@ const walkInPlayerBodySchema = z
     lastName: z.string().min(1).max(100).optional(),
     shortName: z.string().max(50).optional(),
     photoUrl: z.string().max(500).optional(),
+    photoPublicId: z.string().max(500).optional().nullable(),
     mobile: z.string().max(20).optional(),
     email: z.string().max(200).optional(),
     gender: z.enum(["M", "F"]).or(z.literal("")).optional(),
@@ -433,6 +439,7 @@ async function normalizeWalkInPlayerInput(
     lastName: names.lastName,
     shortName,
     photoUrl: input.photoUrl,
+    photoPublicId: input.photoPublicId,
     mobile: input.mobile,
     email: input.email,
     gender: input.gender === "M" || input.gender === "F" ? input.gender : null,
@@ -504,17 +511,52 @@ router.patch("/players/:playerId", async (req, res) => {
   if (!existing) return void res.status(404).json({ error: "player not found" });
 
   const values = await normalizeWalkInPlayerInput(tournamentId, parsed.data, existing);
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const imageChanges: ImageFieldChange[] = [];
 
-  const [player] = await db
-    .update(badmintonPlayersTable)
-    .set({ ...values, updatedAt: new Date() })
-    .where(
-      and(
-        eq(badmintonPlayersTable.id, playerId),
-        eq(badmintonPlayersTable.tournamentId, tournamentId),
-      ),
-    )
-    .returning();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined && key !== "photoUrl" && key !== "photoPublicId") {
+      updates[key] = value;
+    }
+  }
+
+  if (parsed.data.photoUrl !== undefined || parsed.data.photoPublicId !== undefined) {
+    queueImageFieldChange(imageChanges, updates, {
+      label: "photoUrl",
+      urlKey: "photoUrl",
+      publicIdKey: "photoPublicId",
+      existing: { url: existing.photoUrl, publicId: existing.photoPublicId },
+      nextUrl: parsed.data.photoUrl !== undefined ? (parsed.data.photoUrl || null) : undefined,
+      nextPublicId: parsed.data.photoPublicId,
+    });
+  }
+
+  let player!: typeof badmintonPlayersTable.$inferSelect;
+  const persistPlayerUpdate = async () => {
+    const [updated] = await db
+      .update(badmintonPlayersTable)
+      .set(updates)
+      .where(
+        and(
+          eq(badmintonPlayersTable.id, playerId),
+          eq(badmintonPlayersTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning();
+    if (!updated) throw new Error("PLAYER_NOT_FOUND");
+    player = updated;
+  };
+
+  if (imageChanges.length > 0) {
+    await commitBatchCloudinaryImageWrites({
+      changes: imageChanges,
+      persist: persistPlayerUpdate,
+      logger: req.log,
+      context: { route: "badminton.patchPlayer", tournamentId, playerId },
+    });
+  } else {
+    await persistPlayerUpdate();
+  }
 
   res.json(player);
 });

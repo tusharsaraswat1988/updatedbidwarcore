@@ -3,6 +3,9 @@ import { db } from "@workspace/db";
 import { showcaseEventsTable } from "@workspace/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
+import { commitBatchCloudinaryImageWrites, destroyCloudinaryAssetSafe } from "../lib/cloudinary-media-service";
+import { queueImageFieldChange, type ImageFieldChange } from "../lib/cloudinary-image-fields";
+import { resolveCloudinaryPublicId } from "@workspace/api-base/cloudinary-media";
 
 const router = Router();
 
@@ -13,6 +16,7 @@ function requireMasterAdmin(req: Request, res: Response, next: NextFunction): vo
 
 const createSchema = z.object({
   imageUrl: z.string().url(),
+  imagePublicId: z.string().optional().nullable(),
   sportName: z.string().min(1).max(60),
   tournamentName: z.string().min(1).max(120),
   description: z.string().max(300).optional(),
@@ -50,7 +54,10 @@ router.post("/auth/admin/showcase-events", requireMasterAdmin, async (req, res) 
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
     return;
   }
-  const [row] = await db.insert(showcaseEventsTable).values(parsed.data).returning();
+  const [row] = await db.insert(showcaseEventsTable).values({
+    ...parsed.data,
+    imagePublicId: parsed.data.imagePublicId ?? null,
+  }).returning();
   res.status(201).json(row);
 });
 
@@ -76,18 +83,73 @@ router.patch("/auth/admin/showcase-events/:id", requireMasterAdmin, async (req, 
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
     return;
   }
-  const [row] = await db
-    .update(showcaseEventsTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
-    .where(eq(showcaseEventsTable.id, id))
-    .returning();
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  const [existing] = await db
+    .select()
+    .from(showcaseEventsTable)
+    .where(eq(showcaseEventsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  const imageChanges: ImageFieldChange[] = [];
+  queueImageFieldChange(imageChanges, updates, {
+    label: "imageUrl",
+    urlKey: "imageUrl",
+    publicIdKey: "imagePublicId",
+    existing: { url: existing.imageUrl, publicId: existing.imagePublicId },
+    nextUrl: parsed.data.imageUrl,
+    nextPublicId: parsed.data.imagePublicId,
+  });
+  if (parsed.data.sportName !== undefined) updates.sportName = parsed.data.sportName;
+  if (parsed.data.tournamentName !== undefined) updates.tournamentName = parsed.data.tournamentName;
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+  if (parsed.data.altText !== undefined) updates.altText = parsed.data.altText;
+  if (parsed.data.displayOrder !== undefined) updates.displayOrder = parsed.data.displayOrder;
+  if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+
+  let row!: typeof showcaseEventsTable.$inferSelect;
+  const persistShowcaseUpdate = async () => {
+    const [updated] = await db
+      .update(showcaseEventsTable)
+      .set(updates)
+      .where(eq(showcaseEventsTable.id, id))
+      .returning();
+    if (!updated) throw new Error("SHOWCASE_NOT_FOUND");
+    row = updated;
+  };
+
+  if (imageChanges.length > 0) {
+    await commitBatchCloudinaryImageWrites({
+      changes: imageChanges,
+      persist: persistShowcaseUpdate,
+      logger: req.log,
+      context: { route: "showcase.patch", showcaseEventId: id },
+    });
+  } else {
+    await persistShowcaseUpdate();
+  }
   res.json(row);
 });
 
 router.delete("/auth/admin/showcase-events/:id", requireMasterAdmin, async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [existing] = await db
+    .select()
+    .from(showcaseEventsTable)
+    .where(eq(showcaseEventsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const publicId = resolveCloudinaryPublicId({
+    url: existing.imageUrl,
+    publicId: existing.imagePublicId,
+  });
+  if (publicId) {
+    await destroyCloudinaryAssetSafe(publicId, req.log, {
+      route: "showcase.delete",
+      showcaseEventId: id,
+    });
+  }
+
   await db.delete(showcaseEventsTable).where(eq(showcaseEventsTable.id, id));
   res.status(204).end();
 });

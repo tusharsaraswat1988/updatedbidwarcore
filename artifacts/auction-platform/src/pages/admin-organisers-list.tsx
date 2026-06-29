@@ -6,7 +6,7 @@ import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
 import { AdminOrganizerRow, listAdminOrganizers } from "@/lib/auth";
@@ -74,7 +74,7 @@ export default function AdminOrganisersListPage() {
           <span className="text-right">Action</span>
         </div>
 
-        <ScrollArea className="max-h-[calc(100vh-300px)]">
+        <AdminScrollPanel>
           {loading ? (
             <div className="space-y-2 p-4">
               {[1, 2, 3, 4].map((i) => (
@@ -127,7 +127,7 @@ export default function AdminOrganisersListPage() {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </AdminScrollPanel>
       </div>
     </AdminShell>
   );

@@ -60,6 +60,8 @@ export interface SponsorLogo {
   sponsorPriority?: number;
   /** Future tier — when set, takes precedence over legacy `type` string. */
   priorityType?: SponsorPriorityType | string;
+  /** Cloudinary public_id — stored on upload for safe cleanup on replace/remove. */
+  publicId?: string;
 }
 
 /** Master sponsor row shape (subset used by validation). */

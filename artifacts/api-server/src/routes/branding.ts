@@ -91,8 +91,9 @@ router.put("/auth/admin/branding/assets/:assetType", async (req, res) => {
     return;
   }
 
-  const { fileUrl, fileName, mimeType, width, height, fileSize } = req.body as {
+  const { fileUrl, filePublicId, fileName, mimeType, width, height, fileSize } = req.body as {
     fileUrl?: string;
+    filePublicId?: string | null;
     fileName?: string | null;
     mimeType?: string | null;
     width?: number | null;
@@ -109,6 +110,7 @@ router.put("/auth/admin/branding/assets/:assetType", async (req, res) => {
     const result = await brandingService.upsertAsset({
       assetType,
       fileUrl,
+      filePublicId,
       fileName,
       mimeType,
       width,

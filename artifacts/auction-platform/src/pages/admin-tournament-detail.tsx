@@ -22,6 +22,7 @@ import {
   listAdminTournaments,
   updateAdminTournament,
 } from "@/lib/auth";
+import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { Switch } from "@/components/ui/switch";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
@@ -345,28 +346,34 @@ export default function AdminTournamentDetailPage() {
               </div>
             </div>
           ) : tab === "players" ? (
-            <div className="rounded-xl border border-border bg-card/70">
-              {detail.players.slice(0, 30).map((p) => (
-                <div key={p.id} className="grid grid-cols-[1fr_160px_120px_130px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                  <span className="text-white">{p.name}</span><span className="text-muted-foreground">{p.role || "No role"}</span><span>{p.status}</span><span className="text-right">₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}</span>
-                </div>
-              ))}
+            <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
+              <AdminScrollPanel>
+                {detail.players.map((p) => (
+                  <div key={p.id} className="grid grid-cols-[1fr_160px_120px_130px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
+                    <span className="text-white">{p.name}</span><span className="text-muted-foreground">{p.role || "No role"}</span><span>{p.status}</span><span className="text-right">₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
+              </AdminScrollPanel>
             </div>
           ) : tab === "teams" ? (
-            <div className="rounded-xl border border-border bg-card/70">
-              {detail.teams.map((team) => (
-                <div key={team.id} className="grid grid-cols-[1fr_160px_160px_160px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                  <span className="text-white">{team.name}</span><span className="text-muted-foreground">{team.shortCode}</span><span>{team.ownerName || "No owner"}</span><span className="text-right">₹{team.purseUsed.toLocaleString("en-IN")} used</span>
-                </div>
-              ))}
+            <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
+              <AdminScrollPanel>
+                {detail.teams.map((team) => (
+                  <div key={team.id} className="grid grid-cols-[1fr_160px_160px_160px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
+                    <span className="text-white">{team.name}</span><span className="text-muted-foreground">{team.shortCode}</span><span>{team.ownerName || "No owner"}</span><span className="text-right">₹{team.purseUsed.toLocaleString("en-IN")} used</span>
+                  </div>
+                ))}
+              </AdminScrollPanel>
             </div>
           ) : tab === "bids" ? (
-            <div className="rounded-xl border border-border bg-card/70">
-              {detail.recentBids.map((bid) => (
-                <div key={bid.id} className="grid grid-cols-[100px_1fr_180px_140px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
-                  <span className="text-xs text-muted-foreground">{new Date(bid.timestamp).toLocaleTimeString()}</span><span className="text-white">{bid.playerName || "Event"}</span><span>{bid.teamName || "No team"}</span><span className="text-right text-primary">₹{bid.amount.toLocaleString("en-IN")}</span>
-                </div>
-              ))}
+            <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
+              <AdminScrollPanel>
+                {detail.recentBids.map((bid) => (
+                  <div key={bid.id} className="grid grid-cols-[100px_1fr_180px_140px] border-b border-border px-4 py-2.5 text-sm last:border-b-0">
+                    <span className="text-xs text-muted-foreground">{new Date(bid.timestamp).toLocaleTimeString()}</span><span className="text-white">{bid.playerName || "Event"}</span><span>{bid.teamName || "No team"}</span><span className="text-right text-primary">₹{bid.amount.toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
+              </AdminScrollPanel>
             </div>
           ) : tab === "live-monitor" ? (
             <LiveAuctionMonitor

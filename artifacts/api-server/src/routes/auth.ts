@@ -28,6 +28,7 @@ import { parseIndianMobile, isPlaceholderOrganizerMobile } from "@workspace/api-
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
+import { commitCloudinaryImageWrite } from "../lib/cloudinary-media-service";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
 import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
@@ -144,6 +145,7 @@ const organizerToJson = (o: typeof organizersTable.$inferSelect) => ({
   email: o.email,
   mobile: (o.mobile && !o.mobile.startsWith("eml:") && !o.mobile.startsWith("gid_")) ? o.mobile : null,
   photoUrl: o.photoUrl ?? null,
+  photoPublicId: o.photoPublicId ?? null,
   licenseStatus: o.licenseStatus,
   maxTournaments: o.maxTournaments,
   notes: o.notes,
@@ -1666,10 +1668,17 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
         (v) => v == null || v === "" || v.startsWith("https://"),
         "Photo URL must be a valid HTTPS URL",
       ),
+    photoPublicId: z.string().optional().nullable(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid profile data." }); return; }
 
-  const { name, email, mobile, photoUrl } = body.data;
+  const { name, email, mobile, photoUrl, photoPublicId } = body.data;
+
+  const [existingOrganizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+  if (!existingOrganizer) { res.status(404).json({ error: "Account not found." }); return; }
 
   let normalizedMobile: string | undefined;
   if (mobile !== undefined) {
@@ -1695,17 +1704,45 @@ router.patch("/auth/organizer-account/profile", async (req, res) => {
   if (name !== undefined) updates.name = name;
   if (email !== undefined) updates.email = email;
   if (normalizedMobile !== undefined) updates.mobile = normalizedMobile;
-  if (photoUrl !== undefined) updates.photoUrl = photoUrl || null;
+
+  const photoChanged = photoUrl !== undefined || photoPublicId !== undefined;
+  if (photoChanged) {
+    updates.photoUrl = photoUrl || null;
+    updates.photoPublicId = photoPublicId || null;
+  }
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update." });
     return;
   }
 
-  const [updated] = await db.update(organizersTable)
-    .set(updates)
-    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
-    .returning();
+  let updated!: typeof organizersTable.$inferSelect;
+  const persistOrganizerUpdate = async () => {
+    const [row] = await db.update(organizersTable)
+      .set(updates)
+      .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
+      .returning();
+    if (!row) throw new Error("ORGANIZER_NOT_FOUND");
+    updated = row;
+  };
+
+  if (photoChanged) {
+    await commitCloudinaryImageWrite({
+      previous: {
+        url: existingOrganizer.photoUrl,
+        publicId: existingOrganizer.photoPublicId,
+      },
+      next: {
+        url: photoUrl || null,
+        publicId: photoPublicId || null,
+      },
+      persist: persistOrganizerUpdate,
+      logger: req.log,
+      context: { route: "auth.organizerProfile", organizerId: req.jwtUser.organizerAccountId },
+    });
+  } else {
+    await persistOrganizerUpdate();
+  }
 
   res.json({ success: true, organizer: organizerToJson(updated) });
 });

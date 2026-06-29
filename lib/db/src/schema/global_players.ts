@@ -57,6 +57,7 @@ export const globalPlayersTable = pgTable(
     defaultRole: text("default_role"),
     age: integer("age"),
     photoUrl: text("photo_url"),
+    photoPublicId: text("photo_public_id"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

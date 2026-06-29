@@ -10,6 +10,8 @@ import {
   validateBrandingAssetUpload,
 } from "@workspace/api-base/branding-assets";
 import { fetchImageBuffer } from "./pdf-branding.js";
+import { commitCloudinaryImageWrite, destroyCloudinaryAssetSafe } from "./cloudinary-media-service";
+import { resolveCloudinaryPublicId } from "@workspace/api-base/cloudinary-media";
 
 /** In-memory cache for SSR-critical branding (refreshed at startup + on asset changes). */
 let cachedOpenGraphImageUrl: string | null = null;
@@ -27,6 +29,7 @@ export interface PdfWatermarkBranding {
 export interface UpsertAssetInput {
   assetType: BrandingAssetType;
   fileUrl: string;
+  filePublicId?: string | null;
   fileName?: string | null;
   mimeType?: string | null;
   width?: number | null;
@@ -39,6 +42,7 @@ function toRecord(row: typeof brandingAssetsTable.$inferSelect): BrandingAssetRe
     id: row.id,
     assetType: row.assetType as BrandingAssetType,
     fileUrl: row.fileUrl,
+    filePublicId: row.filePublicId ?? null,
     fileName: row.fileName,
     mimeType: row.mimeType,
     width: row.width,
@@ -126,41 +130,56 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
     .where(eq(brandingAssetsTable.assetType, input.assetType))
     .limit(1);
 
-  let row: typeof brandingAssetsTable.$inferSelect;
+  let row!: typeof brandingAssetsTable.$inferSelect;
 
-  if (existing) {
-    [row] = await db
-      .update(brandingAssetsTable)
-      .set({
-        fileUrl: input.fileUrl,
-        fileName: input.fileName ?? null,
-        mimeType: input.mimeType ?? null,
-        width: input.width ?? null,
-        height: input.height ?? null,
-        fileSize: input.fileSize ?? null,
-        version: existing.version + 1,
-        isActive: true,
-        updatedAt: now,
-      })
-      .where(eq(brandingAssetsTable.id, existing.id))
-      .returning();
-  } else {
-    [row] = await db
-      .insert(brandingAssetsTable)
-      .values({
-        assetType: input.assetType,
-        fileUrl: input.fileUrl,
-        fileName: input.fileName ?? null,
-        mimeType: input.mimeType ?? null,
-        width: input.width ?? null,
-        height: input.height ?? null,
-        fileSize: input.fileSize ?? null,
-        version: 1,
-        isActive: true,
-        updatedAt: now,
-      })
-      .returning();
-  }
+  await commitCloudinaryImageWrite({
+    previous: {
+      url: existing?.fileUrl ?? null,
+      publicId: existing?.filePublicId ?? null,
+    },
+    next: {
+      url: input.fileUrl,
+      publicId: input.filePublicId ?? null,
+    },
+    persist: async () => {
+      if (existing) {
+        [row] = await db
+          .update(brandingAssetsTable)
+          .set({
+            fileUrl: input.fileUrl,
+            filePublicId: input.filePublicId ?? null,
+            fileName: input.fileName ?? null,
+            mimeType: input.mimeType ?? null,
+            width: input.width ?? null,
+            height: input.height ?? null,
+            fileSize: input.fileSize ?? null,
+            version: existing.version + 1,
+            isActive: true,
+            updatedAt: now,
+          })
+          .where(eq(brandingAssetsTable.id, existing.id))
+          .returning();
+      } else {
+        [row] = await db
+          .insert(brandingAssetsTable)
+          .values({
+            assetType: input.assetType,
+            fileUrl: input.fileUrl,
+            filePublicId: input.filePublicId ?? null,
+            fileName: input.fileName ?? null,
+            mimeType: input.mimeType ?? null,
+            width: input.width ?? null,
+            height: input.height ?? null,
+            fileSize: input.fileSize ?? null,
+            version: 1,
+            isActive: true,
+            updatedAt: now,
+          })
+          .returning();
+      }
+    },
+    context: { route: "branding.upsertAsset", assetType: input.assetType },
+  });
 
   if (ASSET_TYPE_TO_LEGACY_COLUMN[input.assetType]) {
     await syncLegacyColumn(input.assetType, input.fileUrl);
@@ -181,9 +200,25 @@ export async function removeAsset(assetType: BrandingAssetType): Promise<void> {
 
   if (!existing) return;
 
+  const publicId = resolveCloudinaryPublicId({
+    url: existing.fileUrl,
+    publicId: existing.filePublicId,
+  });
+  if (publicId) {
+    await destroyCloudinaryAssetSafe(publicId, undefined, {
+      route: "branding.removeAsset",
+      assetType,
+    });
+  }
+
   await db
     .update(brandingAssetsTable)
-    .set({ isActive: false, updatedAt: new Date() })
+    .set({
+      isActive: false,
+      fileUrl: "",
+      filePublicId: null,
+      updatedAt: new Date(),
+    })
     .where(eq(brandingAssetsTable.id, existing.id));
 
   if (ASSET_TYPE_TO_LEGACY_COLUMN[assetType]) {

@@ -100,6 +100,7 @@ export default function PlayerRegister() {
   const [waLink, setWaLink] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
+  const [photoError, setPhotoError] = useState("");
 
   // Mobile lookup state (Phase 5)
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
@@ -109,6 +110,7 @@ export default function PlayerRegister() {
   const [registrationUpdated, setRegistrationUpdated] = useState(false);
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const photoFieldRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -124,6 +126,7 @@ export default function PlayerRegister() {
     availabilityDates: "",
     cricheroUrl: "",
     photoUrl: "",
+    photoPublicId: "",
     battingStyle: "",
     bowlingStyle: "",
     specialization: "",
@@ -133,6 +136,7 @@ export default function PlayerRegister() {
   const [specSelections, setSpecSelections] = useState<Record<number, string>>({});
   const [utrNumber, setUtrNumber] = useState("");
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
+  const [paymentScreenshotPublicId, setPaymentScreenshotPublicId] = useState("");
   const [selectedBidValue, setSelectedBidValue] = useState("");
 
   const loadContext = useCallback(async () => {
@@ -399,6 +403,7 @@ export default function PlayerRegister() {
     }
     setErrorMsg(null);
     setEmailError("");
+    setPhotoError("");
 
     const emailResult = showEmail
       ? parseOptionalEmail(form.email)
@@ -433,7 +438,8 @@ export default function PlayerRegister() {
     }
 
     if (!form.photoUrl.trim()) {
-      setErrorMsg("Please upload your player photo.");
+      setPhotoError("Player photo is required. Please upload your photo before submitting.");
+      photoFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -475,6 +481,7 @@ export default function PlayerRegister() {
           availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
           cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
           photoUrl: form.photoUrl || undefined,
+          photoPublicId: form.photoPublicId || undefined,
           basePrice: playerBidValueMode ? undefined : (tournament?.minBid ?? 100000),
           selectedBidValue: playerBidValueMode && !existingRegistration
             ? parseInt(selectedBidValue, 10)
@@ -483,12 +490,18 @@ export default function PlayerRegister() {
           registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
           utrNumber: utrNumber.trim() || undefined,
           paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
+          paymentScreenshotPublicId: paymentScreenshotPublicId.trim() || undefined,
         }),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (result?.field === "email") {
           setEmailError(result.error || "Please enter a valid email address");
+          return;
+        }
+        if (result?.field === "photoUrl") {
+          setPhotoError(result.error || "Player photo is required.");
+          photoFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
           return;
         }
         if (result?.field === "registrationDeclarationAccepted") {
@@ -646,12 +659,12 @@ export default function PlayerRegister() {
                       variant="outline"
                       onClick={() => {
                         setSubmitted(false); setWaConsent(false); setDeclarationAccepted(false); setErrorMsg(null); setEmailError("");
-                        setUtrNumber(""); setPaymentScreenshotUrl("");
+                        setUtrNumber(""); setPaymentScreenshotUrl(""); setPaymentScreenshotPublicId("");
                         setFoundProfile(null); setMobileLookedUp(false);
                         setForm({
                           name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
-                          cricheroUrl: "", photoUrl: "", battingStyle: "", bowlingStyle: "", specialization: "",
+                          cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "",
                         });
                         setSpecSelections({});
                       }}
@@ -957,10 +970,10 @@ export default function PlayerRegister() {
                         </div>
                       )}
 
-                      <div className="space-y-2">
+                      <div ref={photoFieldRef} className="space-y-2">
                         <Label>Player Photo *</Label>
                         <div className="flex gap-3 items-start">
-                          <div className="w-14 h-14 sm:w-12 sm:h-12 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <div className={`w-14 h-14 sm:w-12 sm:h-12 rounded-lg border bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0 ${photoError ? "border-destructive" : "border-border"}`}>
                             {form.photoUrl ? (
                               <img
                                 src={form.photoUrl}
@@ -989,13 +1002,17 @@ export default function PlayerRegister() {
                                   size="sm"
                                   variant="ghost"
                                   className="h-11 sm:h-7 text-sm sm:text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 w-full sm:w-auto"
-                                  onClick={() => f("photoUrl", "")}
+                                  onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
                                 >
                                   <X className="w-3.5 h-3.5" /> Remove
                                 </Button>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">Upload, crop, and enhance your photo.</p>
+                            {photoError ? (
+                              <p className="text-xs text-destructive">{photoError}</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Upload, crop, and enhance your photo.</p>
+                            )}
                           </div>
                         </div>
                         <ImageEditorDialog
@@ -1004,7 +1021,11 @@ export default function PlayerRegister() {
                           initialUrl={form.photoUrl || undefined}
                           aspect={1}
                           title="Player Photo"
-                          onSave={url => f("photoUrl", url)}
+                          onSave={upload => {
+                            f("photoUrl", upload.url);
+                            f("photoPublicId", upload.publicId);
+                            setPhotoError("");
+                          }}
                         />
                       </div>
 
@@ -1054,7 +1075,10 @@ export default function PlayerRegister() {
                           utrNumber={utrNumber}
                           paymentScreenshotUrl={paymentScreenshotUrl}
                           onUtrChange={setUtrNumber}
-                          onScreenshotChange={setPaymentScreenshotUrl}
+                          onScreenshotChange={(url, publicId) => {
+                            setPaymentScreenshotUrl(url);
+                            setPaymentScreenshotPublicId(publicId ?? "");
+                          }}
                           tournamentName={tournament?.name}
                           disabled={registerPending}
                         />

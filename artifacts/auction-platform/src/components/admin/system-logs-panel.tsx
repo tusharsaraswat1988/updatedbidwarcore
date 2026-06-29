@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
 import { useAdminAuth } from "@/hooks/use-auth";
 
 interface AuditEvent {
@@ -286,7 +286,7 @@ export function SystemLogsPanel() {
         <Button size="sm" className="h-9" onClick={() => void load()}>Apply</Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className={ADMIN_FLEX_SCROLL_CLASS}>
         {loading ? (
           <div className="space-y-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -308,7 +308,7 @@ export function SystemLogsPanel() {
             />
           ))
         )}
-      </ScrollArea>
+      </div>
 
       <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
         Audit logs are append-only and cannot be edited or deleted from this UI.

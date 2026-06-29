@@ -9,6 +9,9 @@ import {
   readPlatformDefaultAudio,
   writePlatformDefaultAudio,
 } from "../lib/platform-audio-defaults";
+import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
+import { type ImageFieldChange } from "../lib/cloudinary-image-fields";
+import { parseCloudinaryPublicIdFromUrl } from "@workspace/api-base/cloudinary-media";
 
 const router = Router();
 
@@ -368,7 +371,23 @@ const BUZZ_BG_KEYS = {
   "16:9": "buzz_studio_bg_16:9",
 } as const;
 
+const BUZZ_BG_PUBLIC_ID_KEYS = {
+  "1:1":  "buzz_studio_bg_1:1_public_id",
+  "4:5":  "buzz_studio_bg_4:5_public_id",
+  "9:16": "buzz_studio_bg_9:16_public_id",
+  "16:9": "buzz_studio_bg_16:9_public_id",
+} as const;
+
 type BuzzAspectRatioKey = keyof typeof BUZZ_BG_KEYS;
+
+const BUZZ_ASPECT_RATIOS: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
+
+const buzzPublicIdsSchema = z.object({
+  "1:1": z.string().nullable().optional(),
+  "4:5": z.string().nullable().optional(),
+  "9:16": z.string().nullable().optional(),
+  "16:9": z.string().nullable().optional(),
+}).optional();
 
 /** Returns a flat map of aspect ratio → background URL (or null). */
 async function readBuzzStudioAssets(): Promise<Record<BuzzAspectRatioKey, string | null>> {
@@ -385,6 +404,84 @@ async function readBuzzStudioAssets(): Promise<Record<BuzzAspectRatioKey, string
     "9:16": map[BUZZ_BG_KEYS["9:16"]] ?? null,
     "16:9": map[BUZZ_BG_KEYS["16:9"]] ?? null,
   };
+}
+
+async function readBuzzStudioAssetKeys(
+  urlKeys: Record<BuzzAspectRatioKey, string>,
+  publicIdKeys: Record<BuzzAspectRatioKey, string>,
+): Promise<{
+  urls: Record<BuzzAspectRatioKey, string | null>;
+  publicIds: Record<BuzzAspectRatioKey, string | null>;
+}> {
+  const keys = [...Object.values(urlKeys), ...Object.values(publicIdKeys)];
+  const rows = await db
+    .select()
+    .from(settingsTable)
+    .where(inArray(settingsTable.key, keys));
+
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value ?? null]));
+  const urls = {} as Record<BuzzAspectRatioKey, string | null>;
+  const publicIds = {} as Record<BuzzAspectRatioKey, string | null>;
+  for (const ratio of BUZZ_ASPECT_RATIOS) {
+    urls[ratio] = map[urlKeys[ratio]] ?? null;
+    publicIds[ratio] = map[publicIdKeys[ratio]] ?? null;
+  }
+  return { urls, publicIds };
+}
+
+async function patchBuzzStudioAssetSet(options: {
+  urlKeys: Record<BuzzAspectRatioKey, string>;
+  publicIdKeys: Record<BuzzAspectRatioKey, string>;
+  data: Partial<Record<BuzzAspectRatioKey, string | null>>;
+  publicIds?: Partial<Record<BuzzAspectRatioKey, string | null>>;
+  logger?: { error?: (obj: unknown, msg?: string) => void; warn?: (obj: unknown, msg?: string) => void };
+  context: Record<string, unknown>;
+}): Promise<void> {
+  const { urls: currentUrls, publicIds: currentPublicIds } = await readBuzzStudioAssetKeys(
+    options.urlKeys,
+    options.publicIdKeys,
+  );
+
+  const imageChanges: ImageFieldChange[] = [];
+  const pending: Partial<Record<BuzzAspectRatioKey, { url: string | null; publicId: string | null }>> = {};
+
+  for (const ratio of BUZZ_ASPECT_RATIOS) {
+    if (options.data[ratio] === undefined && options.publicIds?.[ratio] === undefined) continue;
+
+    const nextUrl = options.data[ratio] !== undefined
+      ? (options.data[ratio] ?? null)
+      : currentUrls[ratio];
+    const nextPublicId = options.publicIds?.[ratio] !== undefined
+      ? (options.publicIds[ratio] ?? null)
+      : options.data[ratio] !== undefined
+        ? parseCloudinaryPublicIdFromUrl(options.data[ratio] ?? null)
+        : currentPublicIds[ratio];
+
+    pending[ratio] = { url: nextUrl, publicId: nextPublicId };
+    imageChanges.push({
+      label: ratio,
+      previous: { url: currentUrls[ratio], publicId: currentPublicIds[ratio] },
+      next: { url: nextUrl, publicId: nextPublicId },
+    });
+  }
+
+  if (imageChanges.length === 0) {
+    return;
+  }
+
+  await commitBatchCloudinaryImageWrites({
+    changes: imageChanges,
+    persist: async () => {
+      for (const ratio of BUZZ_ASPECT_RATIOS) {
+        const next = pending[ratio];
+        if (!next) continue;
+        await upsertKey(options.urlKeys[ratio], next.url);
+        await upsertKey(options.publicIdKeys[ratio], next.publicId);
+      }
+    },
+    logger: options.logger,
+    context: options.context,
+  });
 }
 
 // GET /settings/buzz-studio-assets — public read (needed by preview & export)
@@ -406,6 +503,7 @@ const updateBuzzStudioAssetsSchema = z.object({
   "4:5":  z.string().url().nullable().optional(),
   "9:16": z.string().url().nullable().optional(),
   "16:9": z.string().url().nullable().optional(),
+  publicIds: buzzPublicIdsSchema,
 });
 
 // PATCH /auth/admin/settings/buzz-studio-assets — admin write
@@ -422,12 +520,14 @@ router.patch("/auth/admin/settings/buzz-studio-assets", async (req, res) => {
   }
 
   const data = parsed.data;
-  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
-  for (const ratio of ratios) {
-    if (data[ratio] !== undefined) {
-      await upsertKey(BUZZ_BG_KEYS[ratio], data[ratio] ?? null);
-    }
-  }
+  await patchBuzzStudioAssetSet({
+    urlKeys: BUZZ_BG_KEYS,
+    publicIdKeys: BUZZ_BG_PUBLIC_ID_KEYS,
+    data,
+    publicIds: data.publicIds,
+    logger: req.log,
+    context: { route: "settings.buzzStudioAssets" },
+  });
 
   res.json(await readBuzzStudioAssets());
 });
@@ -439,6 +539,7 @@ const updateTopBuysTemplateAssetsSchema = z.object({
   "4:5":  z.string().url().nullable().optional(),
   "9:16": z.string().url().nullable().optional(),
   "16:9": z.string().url().nullable().optional(),
+  publicIds: buzzPublicIdsSchema,
 });
 
 // GET /settings/buzz-studio-template-assets/top-buys — public read
@@ -470,14 +571,16 @@ router.patch("/auth/admin/settings/buzz-studio-template-assets/top-buys", async 
     return;
   }
 
-  const { TOP_BUYS_TEMPLATE_BG_KEYS, readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
+  const { TOP_BUYS_TEMPLATE_BG_KEYS, TOP_BUYS_TEMPLATE_BG_PUBLIC_ID_KEYS, readTopBuysTemplateAssets } = await import("../lib/buzz-studio-assets.js");
   const data = parsed.data;
-  const ratios: BuzzAspectRatioKey[] = ["1:1", "4:5", "9:16", "16:9"];
-  for (const ratio of ratios) {
-    if (data[ratio] !== undefined) {
-      await upsertKey(TOP_BUYS_TEMPLATE_BG_KEYS[ratio], data[ratio] ?? null);
-    }
-  }
+  await patchBuzzStudioAssetSet({
+    urlKeys: TOP_BUYS_TEMPLATE_BG_KEYS,
+    publicIdKeys: TOP_BUYS_TEMPLATE_BG_PUBLIC_ID_KEYS,
+    data,
+    publicIds: data.publicIds,
+    logger: req.log,
+    context: { route: "settings.topBuysTemplateAssets" },
+  });
 
   res.json(await readTopBuysTemplateAssets());
 });

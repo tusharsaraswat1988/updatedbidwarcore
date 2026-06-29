@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const showcaseEventsTable = pgTable("showcase_events", {
   id: serial("id").primaryKey(),
   imageUrl: text("image_url").notNull(),
+  imagePublicId: text("image_public_id"),
   sportName: text("sport_name").notNull(),
   tournamentName: text("tournament_name").notNull(),
   description: text("description"),

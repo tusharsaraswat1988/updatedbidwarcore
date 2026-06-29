@@ -104,7 +104,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
+import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -242,7 +243,7 @@ export function CreateTournamentModal({
             <Plus className="w-5 h-5 text-primary" /> Create Tournament
           </DialogTitle>
         </DialogHeader>
-        <ScrollArea className="flex-1 pr-1">
+        <div className={cn(ADMIN_FLEX_SCROLL_CLASS, "pr-1")}>
           <div className="space-y-4 p-1">
             {error && (
               <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">
@@ -379,7 +380,7 @@ export function CreateTournamentModal({
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
         <DialogFooter className="pt-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel
@@ -692,7 +693,7 @@ function DetailPanel({
   const isLocked = t.adminLocked;
 
   return (
-    <div className="flex-1 flex flex-col border-l border-border/40 bg-card/30 min-w-0">
+    <div className="flex-1 flex flex-col border-l border-border/40 bg-card/30 min-w-0 min-h-0">
       {/* Panel header */}
       <div className="p-4 border-b border-border/40 flex items-start justify-between gap-3 flex-shrink-0">
         <div className="min-w-0">
@@ -884,7 +885,7 @@ function DetailPanel({
           </TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 px-4 pb-4">
+        <div className={cn(ADMIN_FLEX_SCROLL_CLASS, "px-4 pb-4")}>
           {/* ── Overview ── */}
           <TabsContent value="overview" className="mt-4 space-y-5">
             {editing ? (
@@ -1609,7 +1610,7 @@ function DetailPanel({
               ))
             )}
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
 
       {/* Confirm reset (super admin) */}
@@ -1949,7 +1950,7 @@ function OrganizerDetailPanel({
         )}
       </AnimatePresence>
 
-      <ScrollArea className="flex-1 px-4 pb-4">
+      <div className={cn(ADMIN_FLEX_SCROLL_CLASS, "px-4 pb-4")}>
         <div className="mt-4 space-y-5">
           {editing ? (
             <>
@@ -2052,7 +2053,7 @@ function OrganizerDetailPanel({
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Confirm delete */}
       <AnimatePresence>
@@ -2166,7 +2167,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
         </div>
 
         {/* List */}
-        <ScrollArea className="flex-1">
+        <div className={ADMIN_FLEX_SCROLL_CLASS}>
           {loading ? (
             <div className="p-4 space-y-2">
               {[1, 2, 3, 4].map((i) => (
@@ -2221,7 +2222,7 @@ function OrganizersPanel({ isMaster }: { isMaster: boolean }) {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </div>
 
       {/* Right detail */}
@@ -2926,7 +2927,7 @@ function DisplayAuctionForm({
         <DialogHeader>
           <DialogTitle>{initial ? "Edit Display Auction" : "Add Display Auction"}</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[68vh] pr-2">
+        <div className="max-h-[68vh] overflow-y-auto overscroll-y-contain pr-2">
           <div className="space-y-4 py-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -3056,7 +3057,7 @@ function DisplayAuctionForm({
 
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
-        </ScrollArea>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={saving} className="gap-1.5">
@@ -3325,6 +3326,7 @@ export function ShowcasePanel() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [imagePublicId, setImagePublicId] = useState("");
   const [sportName, setSportName] = useState("");
   const [tournamentName, setTournamentName] = useState("");
   const [description, setDescription] = useState("");
@@ -3344,14 +3346,14 @@ export function ShowcasePanel() {
 
   function openAdd() {
     setEditItem(null);
-    setImageUrl(""); setSportName(""); setTournamentName(""); setDescription(""); setAltText(""); setActive(true);
+    setImageUrl(""); setImagePublicId(""); setSportName(""); setTournamentName(""); setDescription(""); setAltText(""); setActive(true);
     setError(null);
     setFormOpen(true);
   }
 
   function openEdit(item: ShowcaseEventRow) {
     setEditItem(item);
-    setImageUrl(item.imageUrl); setSportName(item.sportName); setTournamentName(item.tournamentName);
+    setImageUrl(item.imageUrl); setImagePublicId(""); setSportName(item.sportName); setTournamentName(item.tournamentName);
     setDescription(item.description ?? ""); setAltText(item.altText ?? ""); setActive(item.active);
     setError(null);
     setFormOpen(true);
@@ -3362,8 +3364,11 @@ export function ShowcasePanel() {
     const fd = new FormData();
     fd.append("file", file);
     const r = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" });
-    const d = await r.json() as { url?: string };
-    if (r.ok && d.url) setImageUrl(d.url);
+    const d = await r.json() as { url?: string; publicId?: string };
+    if (r.ok && d.url) {
+      setImageUrl(d.url);
+      setImagePublicId(d.publicId ?? "");
+    }
     setUploading(false);
   }
 
@@ -3372,6 +3377,7 @@ export function ShowcasePanel() {
     setError(null);
     const body = {
       imageUrl,
+      imagePublicId: imagePublicId || null,
       sportName,
       tournamentName,
       description: description.trim() || undefined,
@@ -4028,7 +4034,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* List */}
-              <ScrollArea className="flex-1">
+              <div className={ADMIN_FLEX_SCROLL_CLASS}>
                 {loading ? (
                   <div className="p-4 space-y-2">
                     {[1, 2, 3, 4].map((i) => (
@@ -4101,7 +4107,7 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </div>
 
             {/* Right: detail panel */}

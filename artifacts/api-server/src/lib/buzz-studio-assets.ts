@@ -86,6 +86,13 @@ export const TOP_BUYS_TEMPLATE_BG_KEYS = {
   "16:9": "buzz_studio_bg_top_buys_16:9",
 } as const;
 
+export const TOP_BUYS_TEMPLATE_BG_PUBLIC_ID_KEYS = {
+  "1:1":  "buzz_studio_bg_top_buys_1:1_public_id",
+  "4:5":  "buzz_studio_bg_top_buys_4:5_public_id",
+  "9:16": "buzz_studio_bg_top_buys_9:16_public_id",
+  "16:9": "buzz_studio_bg_top_buys_16:9_public_id",
+} as const;
+
 export type BuzzAspectRatioKey = keyof typeof TOP_BUYS_TEMPLATE_BG_KEYS;
 
 export async function readTopBuysTemplateAssets(): Promise<Record<BuzzAspectRatioKey, string | null>> {

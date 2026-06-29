@@ -48,6 +48,11 @@ import {
 import { findTournamentIdByRegistrationCode } from "../lib/registration-code";
 import { loadTournamentByRegistrationCode } from "../lib/registration-context-service.js";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
+import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
+import {
+  queueImageFieldChange,
+  type ImageFieldChange,
+} from "../lib/cloudinary-image-fields";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
 import {
   persistPlayerSpecificationsDualWrite,
@@ -213,6 +218,7 @@ function buildPublicRegistrationProfileUpdates(
     age: d.age ?? null,
     gender: d.gender ?? null,
     photoUrl: d.photoUrl ?? null,
+    photoPublicId: d.photoPublicId ?? null,
     jerseyNumber: d.jerseyNumber ?? null,
     jerseySize: d.jerseySize ?? null,
     achievements: d.achievements ?? null,
@@ -252,7 +258,12 @@ async function fetchTournamentPaymentConfig(tid: number) {
 
 function buildPaymentInsertFields(
   paymentConfig: ReturnType<typeof tournamentPaymentSettingsFromRow> | null,
-  input: { utrNumber?: string; paymentScreenshotUrl?: string; markPaymentCompleted?: boolean },
+  input: {
+    utrNumber?: string;
+    paymentScreenshotUrl?: string;
+    paymentScreenshotPublicId?: string;
+    markPaymentCompleted?: boolean;
+  },
   mode: "organizer" | "public",
 ) {
   const enabled = paymentConfig?.enableRegistrationPayment ?? false;
@@ -261,6 +272,7 @@ function buildPaymentInsertFields(
       registrationPaymentStatus: null as string | null,
       utrNumber: null as string | null,
       paymentScreenshotUrl: null as string | null,
+      paymentScreenshotPublicId: null as string | null,
       paymentSubmittedAt: null as Date | null,
     };
   }
@@ -274,6 +286,7 @@ function buildPaymentInsertFields(
     registrationPaymentStatus: status,
     utrNumber: input.utrNumber?.trim() || null,
     paymentScreenshotUrl: input.paymentScreenshotUrl?.trim() || null,
+    paymentScreenshotPublicId: input.paymentScreenshotPublicId?.trim() || null,
     paymentSubmittedAt: new Date(),
   };
 }
@@ -309,6 +322,7 @@ const playerInputSchema = z.object({
   age: z.number().int().optional(),
   gender: playerGenderSchema.nullable().optional(),
   photoUrl: cloudinaryImageUrl,
+  photoPublicId: z.string().optional().nullable(),
   basePrice: z.number().int().optional(),
   selectedBidValue: z.number().int().optional(),
   jerseyNumber: z.string().optional(),
@@ -326,6 +340,7 @@ const playerInputSchema = z.object({
   isNonPlayingMember: z.boolean().optional(),
   utrNumber: z.string().optional(),
   paymentScreenshotUrl: cloudinaryImageUrl,
+  paymentScreenshotPublicId: z.string().optional().nullable(),
   markPaymentCompleted: z.boolean().optional(),
   registrationDeclarationAccepted: z.boolean().optional(),
   specifications: z.array(playerSpecificationInputSchema).optional(),
@@ -427,6 +442,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
+      photoPublicId: d.photoPublicId ?? null,
       basePrice: bidResolved.fields.basePrice,
       selectedBidValue: bidResolved.fields.selectedBidValue,
       bidValueSource: bidResolved.fields.bidValueSource,
@@ -654,11 +670,44 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       specialization: legacySpecFields.specialization,
     };
 
-    const [player] = await db
-      .update(playersTable)
-      .set(updates)
-      .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
-      .returning();
+    const imageChanges: ImageFieldChange[] = [{
+      label: "photoUrl",
+      previous: { url: existing.photoUrl, publicId: existing.photoPublicId },
+      next: { url: d.photoUrl ?? null, publicId: d.photoPublicId ?? null },
+    }];
+    if (
+      paymentConfig?.enableRegistrationPayment
+      && existing.registrationPaymentStatus !== "approved"
+      && (d.paymentScreenshotUrl !== undefined || d.paymentScreenshotPublicId !== undefined)
+    ) {
+      imageChanges.push({
+        label: "paymentScreenshotUrl",
+        previous: {
+          url: existing.paymentScreenshotUrl,
+          publicId: existing.paymentScreenshotPublicId,
+        },
+        next: {
+          url: d.paymentScreenshotUrl ?? null,
+          publicId: d.paymentScreenshotPublicId ?? null,
+        },
+      });
+    }
+
+    let player!: typeof playersTable.$inferSelect;
+    await commitBatchCloudinaryImageWrites({
+      changes: imageChanges,
+      persist: async () => {
+        const [updated] = await db
+          .update(playersTable)
+          .set(updates)
+          .where(and(eq(playersTable.id, existing.id), eq(playersTable.tournamentId, tid)))
+          .returning();
+        if (!updated) throw new Error("PLAYER_NOT_FOUND");
+        player = updated;
+      },
+      logger: req.log,
+      context: { route: "players.publicRegistrationUpdate", tournamentId: tid, playerId: existing.id },
+    });
 
     let finalPlayer = player;
     let publicReRegistrationMeta: {
@@ -741,6 +790,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
+      photoPublicId: d.photoPublicId ?? null,
       basePrice: bidResolved.fields.basePrice,
       selectedBidValue: bidResolved.fields.selectedBidValue,
       bidValueSource: bidResolved.fields.bidValueSource,
@@ -932,6 +982,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     age: z.number().int().optional(),
     gender: playerGenderSchema.nullable().optional(),
     photoUrl: cloudinaryImageUrl,
+    photoPublicId: z.string().optional().nullable(),
     basePrice: z.number().int().optional(),
     selectedBidValue: z.number().int().nullable().optional(),
     jerseyNumber: z.string().optional(),
@@ -1030,6 +1081,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   }
 
   const updates: Record<string, unknown> = {};
+  const imageChanges: ImageFieldChange[] = [];
   if (d.categoryId !== undefined) updates.categoryId = d.categoryId;
   if (d.name !== undefined) updates.name = d.name;
   if (d.city !== undefined) updates.city = d.city;
@@ -1059,7 +1111,14 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
 
   if (d.age !== undefined) updates.age = d.age;
   if (d.gender !== undefined) updates.gender = d.gender;
-  if (d.photoUrl !== undefined) updates.photoUrl = d.photoUrl;
+  queueImageFieldChange(imageChanges, updates, {
+    label: "photoUrl",
+    urlKey: "photoUrl",
+    publicIdKey: "photoPublicId",
+    existing: { url: existing.photoUrl, publicId: existing.photoPublicId },
+    nextUrl: d.photoUrl,
+    nextPublicId: d.photoPublicId,
+  });
 
   if (d.selectedBidValue !== undefined || d.basePrice !== undefined) {
     const bidResolved = resolvePlayerBidFields(bidConfig, {
@@ -1103,12 +1162,27 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     return;
   }
 
-  const [player] = await db
-    .update(playersTable)
-    .set(updates)
-    .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
-    .returning();
-  if (!player) { res.status(404).json({ error: "Not found" }); return; }
+  let player!: typeof playersTable.$inferSelect;
+  const persistPlayerUpdate = async () => {
+    const [updated] = await db
+      .update(playersTable)
+      .set(updates)
+      .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)))
+      .returning();
+    if (!updated) throw new Error("PLAYER_NOT_FOUND");
+    player = updated;
+  };
+
+  if (imageChanges.length > 0) {
+    await commitBatchCloudinaryImageWrites({
+      changes: imageChanges,
+      persist: persistPlayerUpdate,
+      logger: req.log,
+      context: { route: "players.patch", tournamentId: tid, playerId },
+    });
+  } else {
+    await persistPlayerUpdate();
+  }
 
   if (normalizedEmail !== undefined) {
     void recoverJobsForPlayerEmailUpdate(playerId, player.email).catch(() => {});

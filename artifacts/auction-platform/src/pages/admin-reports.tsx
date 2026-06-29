@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -269,7 +269,7 @@ export default function AdminReports() {
                 />
               </div>
             </div>
-            <ScrollArea className="flex-1">
+            <div className={ADMIN_FLEX_SCROLL_CLASS}>
               <div className="p-3 space-y-4">
                 {(Object.keys(grouped) as ReportType["category"][]).map(cat => {
                   const items = grouped[cat];
@@ -311,7 +311,7 @@ export default function AdminReports() {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </aside>
 
           {/* Main content */}
@@ -348,7 +348,7 @@ export default function AdminReports() {
                   <div className="mx-5 mt-3 rounded px-3 py-2 text-sm bg-destructive/10 text-destructive flex-shrink-0">{error}</div>
                 )}
 
-                <ScrollArea className="flex-1">
+                <div className={ADMIN_FLEX_SCROLL_CLASS}>
                   <div className="p-5 space-y-5">
                     {loadingPreview && !data && (
                       <div className="space-y-3">
@@ -393,7 +393,7 @@ export default function AdminReports() {
                       </>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </>
             )}
           </main>

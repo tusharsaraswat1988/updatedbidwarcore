@@ -15,7 +15,7 @@ import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminTournamentRow,
@@ -116,7 +116,7 @@ export default function AdminTournamentsListPage() {
           <span className="text-right">Action</span>
         </div>
 
-        <ScrollArea className="max-h-[calc(100vh-320px)]">
+        <AdminScrollPanel>
           {loading ? (
             <div className="space-y-2 p-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -165,7 +165,7 @@ export default function AdminTournamentsListPage() {
               ))}
             </div>
           )}
-        </ScrollArea>
+        </AdminScrollPanel>
       </div>
 
       <AnimatePresence>

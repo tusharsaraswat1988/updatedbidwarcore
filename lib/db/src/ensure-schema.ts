@@ -272,4 +272,20 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  await pool.query(`
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_public_id text;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS payment_screenshot_public_id text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS logo_public_id text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_photo_public_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS logo_public_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS main_banner_public_id text;
+    ALTER TABLE organizers ADD COLUMN IF NOT EXISTS photo_public_id text;
+    ALTER TABLE global_players ADD COLUMN IF NOT EXISTS photo_public_id text;
+    ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS photo_public_id text;
+    ALTER TABLE badminton_players ADD COLUMN IF NOT EXISTS flag_public_id text;
+    ALTER TABLE branding_assets ADD COLUMN IF NOT EXISTS file_public_id text;
+    ALTER TABLE showcase_events ADD COLUMN IF NOT EXISTS image_public_id text;
+    ALTER TABLE tournament_player_profiles ADD COLUMN IF NOT EXISTS photo_override_public_id text;
+  `);
 }

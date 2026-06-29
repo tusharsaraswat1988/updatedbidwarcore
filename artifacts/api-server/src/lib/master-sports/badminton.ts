@@ -34,6 +34,18 @@ import {
   getBadmintonBranding,
   resolveBadmintonSponsorLogos,
 } from "./badminton-branding";
+import {
+  commitBatchCloudinaryImageWrites,
+  destroyRemovedCloudinaryImages,
+} from "../cloudinary-media-service";
+import {
+  listRemovedSponsorLogos,
+  parseSponsorLogosJson,
+} from "../sponsor-logo-cleanup";
+import {
+  queueImageFieldChange,
+  type ImageFieldChange,
+} from "../cloudinary-image-fields";
 
 export type { BadmintonBranding, ScoreBoardSponsor };
 export { getBadmintonBranding, resolveBadmintonSponsorLogos };
@@ -114,6 +126,7 @@ export async function updateBadmintonBranding(
   input: {
     displayName?: string;
     logoUrl?: string | null;
+    logoPublicId?: string | null;
     sponsorLogos?: string | null;
     venue?: string | null;
     organizerName?: string | null;
@@ -121,6 +134,7 @@ export async function updateBadmintonBranding(
     accentColor?: string;
     scoreBoardSponsor?: ScoreBoardSponsor | null;
   },
+  logger?: { error?: (obj: unknown, msg?: string) => void; warn?: (obj: unknown, msg?: string) => void },
 ): Promise<BadmintonBranding> {
   const [tournament] = await db
     .select()
@@ -130,31 +144,88 @@ export async function updateBadmintonBranding(
 
   if (!tournament) throw new Error("Tournament not found");
 
+  const currentBranding = getBadmintonBranding(
+    tournament,
+    tournament.scoringSettingsJson as Record<string, unknown>,
+  );
+  const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const currentBrandingRaw = (currentSettings.branding ?? {}) as Record<string, unknown>;
+
   const tournamentUpdates: Record<string, unknown> = {};
-  if (input.logoUrl !== undefined) tournamentUpdates.logoUrl = input.logoUrl;
+  const imageChanges: ImageFieldChange[] = [];
+  let removedSponsorLogos: ReturnType<typeof listRemovedSponsorLogos> = [];
+
   if (input.venue !== undefined) tournamentUpdates.venue = input.venue;
   if (input.organizerName !== undefined) tournamentUpdates.organizerName = input.organizerName;
 
-  const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
-  const currentBranding = (currentSettings.branding ?? {}) as Record<string, unknown>;
-  const nextBranding = { ...currentBranding };
+  queueImageFieldChange(imageChanges, tournamentUpdates, {
+    label: "logoUrl",
+    urlKey: "logoUrl",
+    publicIdKey: "logoPublicId",
+    existing: { url: tournament.logoUrl, publicId: tournament.logoPublicId },
+    nextUrl: input.logoUrl,
+    nextPublicId: input.logoPublicId,
+  });
+
+  if (input.sponsorLogos !== undefined) {
+    removedSponsorLogos = listRemovedSponsorLogos(
+      parseSponsorLogosJson(currentBranding.sponsorLogos),
+      parseSponsorLogosJson(input.sponsorLogos),
+    );
+  }
+
+  const nextBranding = { ...currentBrandingRaw };
   if (input.displayName !== undefined) nextBranding.displayName = input.displayName;
   if (input.sponsorLogos !== undefined) nextBranding.sponsorLogos = input.sponsorLogos;
   if (input.primaryColor !== undefined) nextBranding.primaryColor = input.primaryColor;
   if (input.accentColor !== undefined) nextBranding.accentColor = input.accentColor;
+
   if (input.scoreBoardSponsor !== undefined) {
-    nextBranding.scoreBoardSponsor = input.scoreBoardSponsor;
+    const previous = currentBranding.scoreBoardSponsor;
+    const next = input.scoreBoardSponsor;
+    imageChanges.push({
+      label: "scoreBoardSponsor.logoUrl",
+      previous: {
+        url: previous?.logoUrl ?? null,
+        publicId: previous?.logoPublicId ?? null,
+      },
+      next: {
+        url: next?.logoUrl ?? null,
+        publicId: next?.logoPublicId ?? null,
+      },
+    });
+    nextBranding.scoreBoardSponsor = next;
   }
 
   const nextSettings = { ...currentSettings, branding: nextBranding };
 
-  await db
-    .update(tournamentsTable)
-    .set({
-      ...tournamentUpdates,
-      scoringSettingsJson: nextSettings,
-    })
-    .where(eq(tournamentsTable.id, tournamentId));
+  const persistBrandingUpdate = async () => {
+    await db
+      .update(tournamentsTable)
+      .set({
+        ...tournamentUpdates,
+        scoringSettingsJson: nextSettings,
+      })
+      .where(eq(tournamentsTable.id, tournamentId));
+  };
+
+  if (imageChanges.length > 0) {
+    await commitBatchCloudinaryImageWrites({
+      changes: imageChanges,
+      persist: persistBrandingUpdate,
+      logger,
+      context: { route: "badminton.updateBranding", tournamentId },
+    });
+  } else {
+    await persistBrandingUpdate();
+  }
+
+  if (removedSponsorLogos.length > 0) {
+    await destroyRemovedCloudinaryImages(removedSponsorLogos, logger, {
+      route: "badminton.updateBranding.sponsorLogos",
+      tournamentId,
+    });
+  }
 
   const [updated] = await db
     .select()

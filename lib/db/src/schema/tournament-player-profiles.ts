@@ -27,6 +27,7 @@ export const tournamentPlayerProfilesTable = pgTable(
     /** Tournament-unique initials (AK, AK2, …) — never stored on master player. */
     initials: text("initials").notNull(),
     photoOverrideUrl: text("photo_override_url"),
+    photoOverridePublicId: text("photo_override_public_id"),
     category: text("category"),
     seedRank: integer("seed_rank"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

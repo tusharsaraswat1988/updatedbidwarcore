@@ -38,6 +38,15 @@ import {
 import { validateTournamentPaymentSettings } from "../lib/registration-payment";
 import { evaluateVenueAuctionGuard } from "@workspace/api-base/venue-auction-guard";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
+import { commitBatchCloudinaryImageWrites, destroyRemovedCloudinaryImages } from "../lib/cloudinary-media-service";
+import {
+  listRemovedSponsorLogos,
+  parseSponsorLogosJson,
+} from "../lib/sponsor-logo-cleanup";
+import {
+  queueImageFieldChange,
+  type ImageFieldChange,
+} from "../lib/cloudinary-image-fields";
 import { getPlatformDefaultAudioCached } from "../lib/platform-audio-defaults";
 import { brandingService } from "../lib/branding-service.js";
 import {
@@ -105,6 +114,7 @@ const tournamentInputSchema = z.object({
   organizerMobile: z.string().optional(),
   organizerEmail: z.string().optional(),
   logoUrl: cloudinaryLogoUrl,
+  logoPublicId: z.string().optional().nullable(),
   sponsorLogos: z.string().optional(),
   basePurse: z.number().int().optional(),
   minBid: z.number().int().optional(),
@@ -189,6 +199,7 @@ router.post("/tournaments", async (req, res) => {
       organizerMobile,
       organizerEmail,
       logoUrl: d.logoUrl ?? null,
+      logoPublicId: d.logoPublicId ?? null,
       sponsorLogos: validatedSponsorLogos ?? null,
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
@@ -249,6 +260,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     organizerMobile: z.string().optional(),
     organizerEmail: z.string().optional(),
     logoUrl: cloudinaryLogoUrl,
+    logoPublicId: z.string().optional().nullable(),
     sponsorLogos: z.string().optional(),
     basePurse: z.number().int().optional(),
     minBid: z.number().int().optional(),
@@ -297,6 +309,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     breakEndMusicUrl: z.string().nullable().optional(),
     breakEndMusicVolume: z.number().int().min(0).max(100).optional(),
     mainBannerUrl: z.string().nullable().optional(),
+    mainBannerPublicId: z.string().optional().nullable(),
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
     matchDates: z.string().nullable().optional(),
@@ -363,6 +376,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   }
 
   const updates: Record<string, unknown> = {};
+  const imageChanges: ImageFieldChange[] = [];
+  let removedSponsorLogos: ReturnType<typeof listRemovedSponsorLogos> = [];
   if (d.name !== undefined) updates.name = d.name;
   if (d.sport !== undefined) {
     updates.sport = d.sport;
@@ -374,13 +389,24 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) updates.organizerMobile = d.organizerMobile;
   if (d.organizerEmail !== undefined) updates.organizerEmail = d.organizerEmail;
-  if (d.logoUrl !== undefined) updates.logoUrl = d.logoUrl;
+  queueImageFieldChange(imageChanges, updates, {
+    label: "logoUrl",
+    urlKey: "logoUrl",
+    publicIdKey: "logoPublicId",
+    existing: { url: beforeTournament.logoUrl, publicId: beforeTournament.logoPublicId },
+    nextUrl: d.logoUrl,
+    nextPublicId: d.logoPublicId,
+  });
   if (d.sponsorLogos !== undefined) {
     const sponsorCheck = parseValidatedSponsorLogos(d.sponsorLogos);
     if (!sponsorCheck.ok) {
       res.status(400).json({ error: sponsorCheck.error });
       return;
     }
+    removedSponsorLogos = listRemovedSponsorLogos(
+      parseSponsorLogosJson(beforeTournament.sponsorLogos),
+      parseSponsorLogosJson(sponsorCheck.value ?? null),
+    );
     updates.sponsorLogos = sponsorCheck.value ?? null;
   }
   if (d.basePurse !== undefined) updates.basePurse = d.basePurse;
@@ -436,7 +462,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.breakEndMusicEnabled !== undefined) updates.breakEndMusicEnabled = d.breakEndMusicEnabled;
   if (d.breakEndMusicUrl !== undefined) updates.breakEndMusicUrl = d.breakEndMusicUrl === "" ? null : d.breakEndMusicUrl;
   if (d.breakEndMusicVolume !== undefined) updates.breakEndMusicVolume = d.breakEndMusicVolume;
-  if (d.mainBannerUrl !== undefined) updates.mainBannerUrl = d.mainBannerUrl;
+  queueImageFieldChange(imageChanges, updates, {
+    label: "mainBannerUrl",
+    urlKey: "mainBannerUrl",
+    publicIdKey: "mainBannerPublicId",
+    existing: { url: beforeTournament.mainBannerUrl, publicId: beforeTournament.mainBannerPublicId },
+    nextUrl: d.mainBannerUrl,
+    nextPublicId: d.mainBannerPublicId,
+  });
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
@@ -469,12 +502,42 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     res.status(400).json({ error: paymentSettingsValidation.error, field: paymentSettingsValidation.field });
     return;
   }
-  const [tournament] = await db
-    .update(tournamentsTable)
-    .set(updates)
-    .where(eq(tournamentsTable.id, id))
-    .returning();
-  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
+  let tournament!: typeof tournamentsTable.$inferSelect;
+  const persistTournamentUpdate = async () => {
+    const [updated] = await db
+      .update(tournamentsTable)
+      .set(updates)
+      .where(eq(tournamentsTable.id, id))
+      .returning();
+    if (!updated) throw new Error("TOURNAMENT_NOT_FOUND");
+    tournament = updated;
+  };
+
+  try {
+    if (imageChanges.length > 0) {
+      await commitBatchCloudinaryImageWrites({
+        changes: imageChanges,
+        persist: persistTournamentUpdate,
+        logger: req.log,
+        context: { route: "tournaments.patch", tournamentId: id },
+      });
+    } else {
+      await persistTournamentUpdate();
+    }
+  } catch (err) {
+    if ((err as Error).message === "TOURNAMENT_NOT_FOUND") {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    throw err;
+  }
+
+  if (removedSponsorLogos.length > 0) {
+    await destroyRemovedCloudinaryImages(removedSponsorLogos, req.log, {
+      route: "tournaments.patch.sponsorLogos",
+      tournamentId: id,
+    });
+  }
   const reasonResult = parseAuditReason(req.body, configFields.length > 0);
   auditLog(req, {
     category: "tournament",

@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { uploadImageFile } from "@/lib/cloudinary-upload";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function BackgroundUploadCard({
 }: {
   ratio: AspectRatio;
   url: string | null;
-  onChange: (url: string | null) => void;
+  onChange: (url: string | null, publicId?: string | null) => void;
 }) {
   const meta = RATIO_META[ratio];
   const [uploading, setUploading] = useState(false);
@@ -61,17 +62,10 @@ function BackgroundUploadCard({
     setError("");
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const r = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
-      const data = await r.json() as { url?: string; error?: string };
-      if (data.url) {
-        onChange(data.url);
-      } else {
-        setError(data.error ?? "Upload failed");
-      }
-    } catch {
-      setError("Upload failed — check your connection");
+      const upload = await uploadImageFile(file, file.name);
+      onChange(upload.url, upload.publicId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -94,7 +88,7 @@ function BackgroundUploadCard({
             size="sm"
             variant="ghost"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-            onClick={() => onChange(null)}
+            onClick={() => onChange(null, null)}
             title="Remove background"
           >
             <X className="h-3.5 w-3.5" />
@@ -172,6 +166,12 @@ export default function AdminCreativeAssets() {
     "9:16": null,
     "16:9": null,
   });
+  const [publicIds, setPublicIds] = useState<Record<AspectRatio, string | null>>({
+    "1:1": null,
+    "4:5": null,
+    "9:16": null,
+    "16:9": null,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -195,8 +195,11 @@ export default function AdminCreativeAssets() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = useCallback((ratio: AspectRatio, url: string | null) => {
+  const handleChange = useCallback((ratio: AspectRatio, url: string | null, publicId?: string | null) => {
     setBackgrounds((prev) => ({ ...prev, [ratio]: url }));
+    if (publicId !== undefined) {
+      setPublicIds((prev) => ({ ...prev, [ratio]: publicId }));
+    }
     setDirty(true);
     setSaved(false);
   }, []);
@@ -209,7 +212,7 @@ export default function AdminCreativeAssets() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(backgrounds),
+        body: JSON.stringify({ ...backgrounds, publicIds }),
       });
       if (!r.ok) {
         let message = `Save failed (${r.status})`;
@@ -358,6 +361,12 @@ function TopBuysTemplateAssetsSection() {
     "9:16": null,
     "16:9": null,
   });
+  const [publicIds, setPublicIds] = useState<Record<AspectRatio, string | null>>({
+    "1:1": null,
+    "4:5": null,
+    "9:16": null,
+    "16:9": null,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -381,8 +390,11 @@ function TopBuysTemplateAssetsSection() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = useCallback((ratio: AspectRatio, url: string | null) => {
+  const handleChange = useCallback((ratio: AspectRatio, url: string | null, publicId?: string | null) => {
     setBackgrounds((prev) => ({ ...prev, [ratio]: url }));
+    if (publicId !== undefined) {
+      setPublicIds((prev) => ({ ...prev, [ratio]: publicId }));
+    }
     setDirty(true);
     setSaved(false);
   }, []);
@@ -395,7 +407,7 @@ function TopBuysTemplateAssetsSection() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(backgrounds),
+        body: JSON.stringify({ ...backgrounds, publicIds }),
       });
       if (!r.ok) {
         let message = `Save failed (${r.status})`;

@@ -281,7 +281,7 @@ function AssetCard({
       const fd = new FormData();
       fd.append("file", file);
       const uploadRes = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
-      const uploadData = await uploadRes.json() as { url?: string; error?: string };
+      const uploadData = await uploadRes.json() as { url?: string; publicId?: string; error?: string };
       if (!uploadData.url) {
         setError(uploadData.error ?? "Upload failed");
         return;
@@ -293,6 +293,7 @@ function AssetCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileUrl: uploadData.url,
+          filePublicId: uploadData.publicId ?? null,
           fileName: file.name,
           mimeType: file.type,
           width,

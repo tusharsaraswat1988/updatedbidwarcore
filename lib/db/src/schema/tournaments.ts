@@ -19,6 +19,7 @@ export const tournamentsTable = pgTable("tournaments", {
   organizerEmail: text("organizer_email"),
   organizerPassword: text("organizer_password"),
   logoUrl: text("logo_url"),
+  logoPublicId: text("logo_public_id"),
   sponsorLogos: text("sponsor_logos"),
   basePurse: integer("base_purse").notNull().default(10000000),
   minBid: integer("min_bid").notNull().default(100000),
@@ -87,6 +88,7 @@ export const tournamentsTable = pgTable("tournaments", {
   cheerFanBattleEnabled: boolean("cheer_fan_battle_enabled").notNull().default(false),
   // Main Banner — full-screen broadcast overlay for felicitation/announcements
   mainBannerUrl: text("main_banner_url"),
+  mainBannerPublicId: text("main_banner_public_id"),
   mainBannerEnabled: boolean("main_banner_enabled").notNull().default(false),
   mainBannerFit: text("main_banner_fit").notNull().default("cover"),
   // BidWar Local — premium offline auction feature

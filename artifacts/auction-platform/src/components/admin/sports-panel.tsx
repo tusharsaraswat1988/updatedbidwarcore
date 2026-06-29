@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ADMIN_FLEX_SCROLL_CLASS } from "@/components/admin/admin-scroll-panel";
 import {
   Select,
   SelectContent,
@@ -684,7 +684,7 @@ export function SportsPanel() {
           <Layers className="w-3.5 h-3.5 text-muted-foreground" />
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-1">Sports</p>
         </div>
-        <ScrollArea className="flex-1">
+        <div className={ADMIN_FLEX_SCROLL_CLASS}>
           {loading ? (
             <div className="p-3 space-y-2">
               {[1, 2, 3].map((i) => (
@@ -724,7 +724,7 @@ export function SportsPanel() {
               )}
             </div>
           )}
-        </ScrollArea>
+        </div>
         <div className="p-2 border-t border-border/30 space-y-2 flex-shrink-0">
           {selectedSport && (
             <div className="rounded-lg border border-border/40 bg-muted/10 p-2 space-y-2">
@@ -821,7 +821,7 @@ export function SportsPanel() {
             </div>
           </div>
         ) : (
-          <ScrollArea className="flex-1">
+          <div className={ADMIN_FLEX_SCROLL_CLASS}>
             <div className="p-2 space-y-1">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
                 <SortableContext items={activeRoles.map((r) => r.id)} strategy={verticalListSortingStrategy}>
@@ -856,7 +856,7 @@ export function SportsPanel() {
                 </Button>
               </div>
             </div>
-          </ScrollArea>
+          </div>
         )}
       </div>
 
@@ -880,7 +880,7 @@ export function SportsPanel() {
           />
         ) : (
           <>
-            <ScrollArea className="flex-1">
+            <div className={ADMIN_FLEX_SCROLL_CLASS}>
               <div className="p-4 space-y-3">
                 {activeSpecGroups.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border/50 p-6 text-center">
@@ -937,7 +937,7 @@ export function SportsPanel() {
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Sticky registration preview */}
             <div className="flex-shrink-0 sticky bottom-0">

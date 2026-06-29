@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { CloudinaryImageUpload } from "@/lib/cloudinary-upload";
+import { uploadImageFile } from "@/lib/cloudinary-upload";
 import Cropper, { type Area } from "react-easy-crop";
 import imageCompression from "browser-image-compression";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +19,7 @@ type Props = {
   initialUrl?: string;
   aspect?: number;
   title?: string;
-  onSave: (url: string) => void;
+  onSave: (upload: CloudinaryImageUpload) => void;
   /** Max output dimension after crop (default 800 — use 1920 for LED banners). */
   exportMaxWidthOrHeight?: number;
   /** Max upload size in MB after compression (default 0.4). */
@@ -241,15 +242,8 @@ export function ImageEditorDialog({
       );
       // 3. Upload via API → Cloudinary. The server returns a secure HTTPS URL.
       setProcessing("Uploading to cloud storage...");
-      const formData = new FormData();
-      formData.append("file", compressed, "image.png");
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error || `Upload failed (${res.status})`);
-      }
-      const { url } = await res.json() as { url: string };
-      onSave(url);
+      const uploaded = await uploadImageFile(compressed, "image.png");
+      onSave(uploaded);
       onClose();
     } catch (e) {
       setError(

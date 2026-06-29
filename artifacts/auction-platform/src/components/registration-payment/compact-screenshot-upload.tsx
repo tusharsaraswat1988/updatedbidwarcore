@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { uploadImage } from "@workspace/api-client-react";
+import { uploadImageFile } from "@/lib/cloudinary-upload";
 
 interface CompactScreenshotUploadProps {
   value: string;
-  onChange: (url: string) => void;
+  onChange: (url: string, publicId?: string) => void;
   disabled?: boolean;
 }
 
@@ -30,8 +30,8 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
     setError(null);
     setUploading(true);
     try {
-      const result = await uploadImage({ file });
-      if (result.url) onChange(result.url);
+      const result = await uploadImageFile(file, file.name || "screenshot.png");
+      onChange(result.url, result.publicId);
     } catch {
       setError("Upload failed. Please try again.");
     } finally {

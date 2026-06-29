@@ -52,6 +52,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
   const [name, setName] = useState(organizer.name);
   const [email, setEmail] = useState(organizer.email ?? "");
   const [photoUrl, setPhotoUrl] = useState(organizer.photoUrl ?? "");
+  const [photoPublicId, setPhotoPublicId] = useState(organizer.photoPublicId ?? "");
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +62,8 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
     setName(organizer.name);
     setEmail(organizer.email ?? "");
     setPhotoUrl(organizer.photoUrl ?? "");
-  }, [organizer.id, organizer.name, organizer.email, organizer.photoUrl]);
+    setPhotoPublicId(organizer.photoPublicId ?? "");
+  }, [organizer.id, organizer.name, organizer.email, organizer.photoUrl, organizer.photoPublicId]);
 
   const hasChanges =
     name !== organizer.name ||
@@ -76,6 +78,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
       name: name.trim(),
       email: email.trim() || null,
       photoUrl: photoUrl || null,
+      photoPublicId: photoPublicId || null,
     });
     setLoading(false);
     if (!r.success) { setError(r.error || "Failed to save."); return; }
@@ -118,7 +121,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
               {photoUrl && (
                 <button
                   type="button"
-                  onClick={() => setPhotoUrl("")}
+                  onClick={() => { setPhotoUrl(""); setPhotoPublicId(""); }}
                   className="text-xs text-muted-foreground hover:text-destructive ml-3 mt-0.5"
                 >
                   Remove
@@ -133,7 +136,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
             initialUrl={photoUrl || undefined}
             aspect={1}
             title="Profile Photo"
-            onSave={url => { setPhotoUrl(url); setError(""); }}
+            onSave={upload => { setPhotoUrl(upload.url); setPhotoPublicId(upload.publicId); setError(""); }}
           />
 
           <div className="grid sm:grid-cols-2 gap-4">

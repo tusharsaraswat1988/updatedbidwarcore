@@ -98,9 +98,11 @@ function TeamForm({
     ownerMobile: team?.ownerMobile ? sanitizeMobileInput(team.ownerMobile) : "",
     ownerEmail: team?.ownerEmail || "",
     ownerPhotoUrl: team?.ownerPhotoUrl && !team.ownerPhotoUrl.startsWith("data:") ? team.ownerPhotoUrl : "",
+    ownerPhotoPublicId: team?.ownerPhotoPublicId ?? "",
     color: team?.color || defaultNewColor,
     purse: team?.purse || basePurse,
     logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
+    logoPublicId: team?.logoPublicId ?? "",
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
@@ -128,9 +130,11 @@ function TeamForm({
       ownerMobile: team?.ownerMobile ? sanitizeMobileInput(team.ownerMobile) : "",
       ownerEmail: team?.ownerEmail || "",
       ownerPhotoUrl: team?.ownerPhotoUrl && !team.ownerPhotoUrl.startsWith("data:") ? team.ownerPhotoUrl : "",
+      ownerPhotoPublicId: team?.ownerPhotoPublicId ?? "",
       color: team?.color || pickNextTeamColor(existingTeamColors),
       purse: team?.purse || basePurse,
       logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
+      logoPublicId: team?.logoPublicId ?? "",
     });
     setShortCodeManuallyEdited(!isNew);
     setError("");
@@ -164,8 +168,10 @@ function TeamForm({
       ownerMobile: mobileResult.normalized,
       ownerEmail: ownerEmailResult.email || "",
       ownerPhotoUrl: form.ownerPhotoUrl.trim() || "",
+      ownerPhotoPublicId: form.ownerPhotoPublicId.trim() || undefined,
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
+      logoPublicId: form.logoPublicId.trim() || undefined,
       ...(team ? { purse: form.purse } : {}),
     };
     try {
@@ -312,7 +318,7 @@ function TeamForm({
                   size="sm"
                   variant="ghost"
                   className="h-8 gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setForm(f => ({ ...f, ownerPhotoUrl: "" }))}
+                  onClick={() => setForm(f => ({ ...f, ownerPhotoUrl: "", ownerPhotoPublicId: "" }))}
                 >
                   <X className="w-3.5 h-3.5" /> Remove
                 </Button>
@@ -327,7 +333,7 @@ function TeamForm({
           initialUrl={form.ownerPhotoUrl || undefined}
           aspect={1}
           title="Owner Photo"
-          onSave={url => setForm(f => ({ ...f, ownerPhotoUrl: url }))}
+          onSave={upload => setForm(f => ({ ...f, ownerPhotoUrl: upload.url, ownerPhotoPublicId: upload.publicId }))}
         />
       </div>
 
@@ -389,7 +395,7 @@ function TeamForm({
                   size="sm"
                   variant="ghost"
                   className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-                  onClick={() => setForm(f => ({ ...f, logoUrl: "" }))}
+                  onClick={() => setForm(f => ({ ...f, logoUrl: "", logoPublicId: "" }))}
                 >
                   <X className="w-3.5 h-3.5" /> Remove
                 </Button>
@@ -403,7 +409,7 @@ function TeamForm({
           initialUrl={form.logoUrl || undefined}
           aspect={1}
           title="Team Logo"
-          onSave={url => setForm(f => ({ ...f, logoUrl: url }))}
+          onSave={upload => setForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
         />
       </div>
 

@@ -19,6 +19,7 @@ export const playersTable = pgTable(
     age: integer("age"),
     gender: text("gender"),
     photoUrl: text("photo_url"),
+    photoPublicId: text("photo_public_id"),
     basePrice: integer("base_price").notNull().default(100000),
     /** Player-selected bid value when bid_value_mode = player; mirrors base_price at registration time */
     selectedBidValue: integer("selected_bid_value"),
@@ -54,6 +55,7 @@ export const playersTable = pgTable(
     registrationPaymentStatus: text("registration_payment_status"), // pending | approved | rejected
     utrNumber: text("utr_number"),
     paymentScreenshotUrl: text("payment_screenshot_url"),
+    paymentScreenshotPublicId: text("payment_screenshot_public_id"),
     paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

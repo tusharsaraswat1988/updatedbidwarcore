@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -654,7 +653,7 @@ function ReplayTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
       {tid && !loading && events.length === 0 && <EmptyState msg="No auction events recorded for this tournament yet." />}
 
       {tid && !loading && groups.length > 0 && (
-        <ScrollArea className="h-[calc(100vh-220px)]">
+        <div className="h-[calc(100dvh-14rem)] overflow-y-auto overscroll-y-contain">
           <div className="flex flex-col pr-2 pb-4">
             {groups.map((g, idx) => (
               <div key={idx} className="flex gap-3 min-h-0">
@@ -766,7 +765,7 @@ function ReplayTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       )}
     </div>
   );
@@ -832,7 +831,7 @@ function DemandTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
               <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right">Bids</span>
               <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right">Sold</span>
             </div>
-            <ScrollArea className="h-[calc(100vh-400px)]">
+            <div className="h-[calc(100dvh-25rem)] overflow-y-auto overscroll-y-contain">
               <div className="divide-y divide-white/4">
                 {rows.map((row, idx) => (
                   <div key={row.player_id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-white/2 transition-colors">
@@ -858,7 +857,7 @@ function DemandTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </motion.div>
       )}
@@ -1217,7 +1216,7 @@ function EventsTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
               <span key={h} className={`text-[9px] uppercase tracking-widest text-muted-foreground/50 ${i === 0 ? "col-span-2" : i === 1 ? "col-span-1" : i === 2 ? "col-span-3" : i === 3 ? "col-span-3" : "col-span-2 text-right"}`}>{h}</span>
             ))}
           </div>
-          <ScrollArea className="h-[calc(100vh-320px)]">
+          <div className="h-[calc(100dvh-20rem)] overflow-y-auto overscroll-y-contain">
             <div className="divide-y divide-white/4">
               {filtered.map((ev, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-white/2 transition-colors">
@@ -1237,7 +1236,7 @@ function EventsTab({ filters, refreshKey }: { filters: IntelFilters; refreshKey:
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-2 border-t border-white/5 bg-white/2">
             <span className="text-[10px] text-muted-foreground">
@@ -1376,7 +1375,7 @@ function PlayersTab({ filters }: { filters: IntelFilters }) {
 
               {detailLoading && <SkeletonRows n={4} />}
               {!detailLoading && detail && (
-                <ScrollArea className="h-[calc(100vh-260px)]">
+                <div className="h-[calc(100dvh-16rem)] overflow-y-auto overscroll-y-contain">
                   <div className="flex flex-col gap-4 pr-2">
                     <div className="grid grid-cols-2 gap-2.5">
                       <MetricCard label="Auctions" value={selectedPlayer.total_auctions} icon={Gavel} accent="cyan" />
@@ -1446,7 +1445,7 @@ function PlayersTab({ filters }: { filters: IntelFilters }) {
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </motion.div>
           )}
@@ -1601,7 +1600,7 @@ function IntensityTab({ filters, refreshKey }: { filters: IntelFilters; refreshK
               <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50 text-right">Response</span>
               <span className="col-span-2 text-[9px] uppercase tracking-widest text-muted-foreground/50">Badges</span>
             </div>
-            <ScrollArea className="h-[calc(100vh-380px)]">
+            <div className="h-[calc(100dvh-24rem)] overflow-y-auto overscroll-y-contain">
               <div className="divide-y divide-white/4">
                 {data.players.map(row => (
                   <div key={row.player_id} className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-white/2">
@@ -1629,7 +1628,7 @@ function IntensityTab({ filters, refreshKey }: { filters: IntelFilters; refreshK
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </motion.div>
       )}

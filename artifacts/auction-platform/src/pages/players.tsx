@@ -62,7 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, Gavel, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import {
@@ -540,6 +540,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     age: player?.age ? String(player.age) : "",
     gender: player?.gender ?? "",
     photoUrl: player?.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
+    photoPublicId: player?.photoPublicId ?? "",
     basePrice: player?.basePrice || tournament?.minBid || 100000,
     selectedBidValue: player?.selectedBidValue ? String(player.selectedBidValue) : "",
     jerseyNumber: player?.jerseyNumber || "",
@@ -744,6 +745,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             ? null
             : undefined,
       photoUrl: form.photoUrl || undefined,
+      photoPublicId: form.photoPublicId || undefined,
       ...(bidValueEditable
         ? showPlayerBidSelector
           ? { selectedBidValue: parseInt(form.selectedBidValue, 10) || undefined }
@@ -1165,7 +1167,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-                    onClick={() => f("photoUrl", "")}
+                    onClick={() => { f("photoUrl", ""); f("photoPublicId", ""); }}
                   >
                     <X className="w-3 h-3" /> Remove
                   </Button>
@@ -1179,7 +1181,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             initialUrl={form.photoUrl || undefined}
             aspect={1}
             title="Player Photo"
-            onSave={url => f("photoUrl", url)}
+            onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
           />
         </div>
       {(() => {
@@ -1904,7 +1906,6 @@ function PlayerDetailPanel({
   const tagTheme = getTagTheme(player.playerTag);
   const isCricket = (tournament?.sport ?? "cricket") === "cricket";
   const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
-  const operatorUrl = `/tournament/${tournamentId}/auction`;
 
   return (
     <div className="space-y-4">
@@ -2119,14 +2120,6 @@ function PlayerDetailPanel({
         ) : null}
         <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={onDelete}>
           <Trash2 className="w-3.5 h-3.5" /> Delete
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => window.open(operatorUrl, "_blank", "noopener,noreferrer")}
-        >
-          <Gavel className="w-3.5 h-3.5" /> Auction Control
         </Button>
       </div>
     </div>

@@ -1,11 +1,10 @@
-import {
-  Router,
-  type Request,
-  type Response,
-  type NextFunction,
-} from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
 import sharp from "sharp";
+import {
+  getCloudinary,
+  uploadBufferToCloudinary,
+} from "../lib/cloudinary-media-service";
 
 const router = Router();
 
@@ -40,7 +39,7 @@ const imageUpload = multer({
 
 const mediaUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB for video/gif
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
     const allowed =
       file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
@@ -66,8 +65,8 @@ const audioUpload = multer({
       "audio/webm",
     ]);
     if (
-      !allowed.has(file.mimetype) &&
-      !file.originalname.match(/\.(mp3|ogg|wav|aac|m4a|webm)$/i)
+      !allowed.has(file.mimetype)
+      && !file.originalname.match(/\.(mp3|ogg|wav|aac|m4a|webm)$/i)
     ) {
       cb(new Error("Unsupported audio type. Upload MP3, OGG, WAV, or AAC."));
       return;
@@ -78,16 +77,16 @@ const audioUpload = multer({
 
 function isSvg(file: Express.Multer.File) {
   return (
-    file.mimetype === "image/svg+xml" ||
-    file.originalname.toLowerCase().endsWith(".svg")
+    file.mimetype === "image/svg+xml"
+    || file.originalname.toLowerCase().endsWith(".svg")
   );
 }
 
 function shouldOptimizeRasterImage(file: Express.Multer.File) {
   return (
-    file.mimetype.startsWith("image/") &&
-    !isSvg(file) &&
-    file.mimetype !== "image/gif"
+    file.mimetype.startsWith("image/")
+    && !isSvg(file)
+    && file.mimetype !== "image/gif"
   );
 }
 
@@ -115,52 +114,10 @@ function clearMulterFileBuffer(file?: Express.Multer.File) {
   file.buffer = Buffer.alloc(0);
 }
 
-function uploadToCloudinary(
-  cloudinary: Awaited<ReturnType<typeof getCloudinary>>,
-  buffer: Buffer,
-  options: Record<string, unknown>,
-) {
-  if (!cloudinary) throw new Error("Cloudinary is not configured");
-  return new Promise<string>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      options,
-      (error, result) => {
-        if (error || !result)
-          reject(error ?? new Error("Cloudinary upload failed"));
-        else resolve(result.secure_url);
-      },
-    );
-    stream.end(buffer);
-  });
-}
-
-async function getCloudinary() {
-  if (
-    !process.env.CLOUDINARY_CLOUD_NAME ||
-    !process.env.CLOUDINARY_API_KEY ||
-    !process.env.CLOUDINARY_API_SECRET
-  ) {
-    return null;
-  }
-  if (
-    process.env.CLOUDINARY_URL &&
-    !process.env.CLOUDINARY_URL.startsWith("cloudinary://")
-  ) {
-    delete process.env.CLOUDINARY_URL;
-  }
-  const { v2: cloudinary } = await import("cloudinary");
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
-  return cloudinary;
-}
-
 /**
  * POST /api/upload
  * Accepts a single image file (multipart/form-data, field name "file").
- * Uploads it to Cloudinary and returns the secure HTTPS URL.
+ * Uploads it to Cloudinary and returns the secure HTTPS URL and public_id.
  */
 router.post("/upload", imageUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
@@ -173,12 +130,10 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
   }
 
   if (!req.file) {
-    res
-      .status(400)
-      .json({
-        error:
-          "No file provided. Send a multipart/form-data request with a field named 'file'.",
-      });
+    res.status(400).json({
+      error:
+        "No file provided. Send a multipart/form-data request with a field named 'file'.",
+    });
     return;
   }
 
@@ -186,14 +141,14 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
   try {
     const optimized = await optimizeImageBuffer(req.file);
     uploadBuffer = optimized.buffer;
-    const url = await uploadToCloudinary(cloudinary, uploadBuffer, {
+    const uploaded = await uploadBufferToCloudinary(uploadBuffer, {
       folder: "bidwar",
       resource_type: "image",
       quality: "auto",
       fetch_format: "auto",
       format: optimized.mimetype === "image/webp" ? "webp" : undefined,
     });
-    res.json({ url });
+    res.json({ url: uploaded.url, publicId: uploaded.publicId });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
@@ -206,8 +161,6 @@ router.post("/upload", imageUpload.single("file"), async (req, res) => {
 /**
  * POST /api/upload/media
  * Accepts images OR video files (MP4, WEBM, GIF) up to 20 MB.
- * Uses Cloudinary resource_type "auto" so videos are stored correctly.
- * Used for branding assets like logo animations.
  */
 router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
   const cloudinary = await getCloudinary();
@@ -225,8 +178,8 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
   }
 
   if (
-    req.file.mimetype.startsWith("image/") &&
-    req.file.size > MAX_IMAGE_UPLOAD_BYTES
+    req.file.mimetype.startsWith("image/")
+    && req.file.size > MAX_IMAGE_UPLOAD_BYTES
   ) {
     clearMulterFileBuffer(req.file);
     res.status(413).json({ error: "Image uploads are limited to 5 MB." });
@@ -241,11 +194,11 @@ router.post("/upload/media", mediaUpload.single("file"), async (req, res) => {
     } else {
       uploadBuffer = req.file.buffer;
     }
-    const url = await uploadToCloudinary(cloudinary, uploadBuffer, {
+    const uploaded = await uploadBufferToCloudinary(uploadBuffer, {
       folder: "bidwar/branding",
       resource_type: "auto",
     });
-    res.json({ url });
+    res.json({ url: uploaded.url, publicId: uploaded.publicId });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary media upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });
@@ -275,18 +228,11 @@ router.post("/upload/audio", audioUpload.single("file"), async (req, res) => {
   }
 
   try {
-    const url = await new Promise<string>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "bidwar/audio", resource_type: "video" },
-        (error, result) => {
-          if (error || !result)
-            reject(error ?? new Error("Cloudinary upload failed"));
-          else resolve(result.secure_url);
-        },
-      );
-      stream.end(req.file!.buffer);
+    const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: "bidwar/audio",
+      resource_type: "video",
     });
-    res.json({ url });
+    res.json({ url: uploaded.url, publicId: uploaded.publicId });
   } catch (err) {
     req.log?.error({ err }, "Cloudinary audio upload error");
     res.status(500).json({ error: "Upload failed. Please try again." });

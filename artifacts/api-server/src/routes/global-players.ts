@@ -17,6 +17,8 @@ import { serializeGlobalPlayerWithProfiles } from "../lib/master-sports/global-p
 import { playerSportProfileService } from "../lib/master-sports/player-sport-profile-service";
 import { isPlayerSpecsV2Enabled } from "@workspace/api-base/player-specs-v2";
 import { playerSpecificationService } from "../lib/player-specification-service";
+import { commitCloudinaryImageWrite } from "../lib/cloudinary-media-service";
+import { parseCloudinaryPublicIdFromUrl } from "@workspace/api-base/cloudinary-media";
 
 async function attachSpecificationsToSearchRows(
   rows: Array<Record<string, unknown> & { id: number }>,
@@ -247,6 +249,7 @@ router.post("/global-players", async (req, res) => {
     age: z.number().int().optional(),
     gender: z.enum(["M", "F"]).nullable().optional(),
     photoUrl: cloudinaryImageUrl,
+    photoPublicId: z.string().optional().nullable(),
     notes: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -274,29 +277,46 @@ router.post("/global-players", async (req, res) => {
       .from(globalPlayersTable)
       .where(eq(globalPlayersTable.mobileNumber, mobileNumber));
     if (existing) {
-      const identityUpdate = {
-        canonicalName: d.canonicalName,
-        city: d.city ?? existing.city,
-        age: d.age ?? existing.age,
-        gender: d.gender ?? existing.gender,
-        photoUrl: d.photoUrl ?? existing.photoUrl,
-        notes: d.notes ?? existing.notes,
-        updatedAt: new Date(),
-      };
+      const nextPhotoUrl = d.photoUrl !== undefined ? (d.photoUrl || null) : existing.photoUrl;
+      const nextPhotoPublicId = d.photoPublicId !== undefined
+        ? (d.photoPublicId || null)
+        : d.photoUrl !== undefined
+          ? parseCloudinaryPublicIdFromUrl(d.photoUrl)
+          : existing.photoPublicId;
 
-      const [updated] = await db
-        .update(globalPlayersTable)
-        .set(
-          profilesEnabled
-            ? identityUpdate
-            : {
-                ...identityUpdate,
-                sport: d.sport ?? existing.sport,
-                defaultRole: d.defaultRole ?? existing.defaultRole,
-              },
-        )
-        .where(eq(globalPlayersTable.id, existing.id))
-        .returning();
+      let updated!: typeof existing;
+      await commitCloudinaryImageWrite({
+        previous: { url: existing.photoUrl, publicId: existing.photoPublicId },
+        next: { url: nextPhotoUrl, publicId: nextPhotoPublicId },
+        persist: async () => {
+          const identityUpdate = {
+            canonicalName: d.canonicalName,
+            city: d.city ?? existing.city,
+            age: d.age ?? existing.age,
+            gender: d.gender ?? existing.gender,
+            photoUrl: nextPhotoUrl,
+            photoPublicId: nextPhotoPublicId,
+            notes: d.notes ?? existing.notes,
+            updatedAt: new Date(),
+          };
+
+          [updated] = await db
+            .update(globalPlayersTable)
+            .set(
+              profilesEnabled
+                ? identityUpdate
+                : {
+                    ...identityUpdate,
+                    sport: d.sport ?? existing.sport,
+                    defaultRole: d.defaultRole ?? existing.defaultRole,
+                  },
+            )
+            .where(eq(globalPlayersTable.id, existing.id))
+            .returning();
+        },
+        logger: req.log,
+        context: { route: "global-players.post.merge", globalPlayerId: existing.id },
+      });
 
       if (profilesEnabled && d.sport) {
         await playerSportProfileService.upsertSportProfile(updated.id, {
@@ -327,6 +347,7 @@ router.post("/global-players", async (req, res) => {
       age: d.age ?? null,
       gender: d.gender ?? null,
       photoUrl: d.photoUrl ?? null,
+      photoPublicId: d.photoPublicId ?? null,
       notes: d.notes ?? null,
     })
     .returning();

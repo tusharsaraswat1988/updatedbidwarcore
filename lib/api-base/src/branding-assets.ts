@@ -40,6 +40,7 @@ export interface BrandingAssetRecord {
   id: number;
   assetType: BrandingAssetType;
   fileUrl: string;
+  filePublicId?: string | null;
   fileName: string | null;
   mimeType: string | null;
   width: number | null;

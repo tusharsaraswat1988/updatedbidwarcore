@@ -34,7 +34,8 @@
     "./player-spec-export": "./src/player-spec-export.ts",
     "./export-players-rows": "./src/export-players-rows.ts",
     "./player-sport-profiles": "./src/player-sport-profiles.ts",
-    "./venue-auction-guard": "./src/venue-auction-guard.ts"
+    "./venue-auction-guard": "./src/venue-auction-guard.ts",
+    "./cloudinary-media": "./src/cloudinary-media.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

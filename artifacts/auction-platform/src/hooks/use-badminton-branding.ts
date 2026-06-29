@@ -5,6 +5,7 @@ import type { SponsorLogo } from "@/lib/sponsor-logo";
 
 export interface ScoreBoardSponsor {
   logoUrl: string | null;
+  logoPublicId?: string | null;
   name: string | null;
   title: string | null;
 }

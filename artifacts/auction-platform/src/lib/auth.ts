@@ -245,7 +245,7 @@ export async function fetchAdminTournamentDetail(tournamentId: number): Promise<
 
 // ─── Organizer Account ────────────────────────────────────────────────────────
 
-export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; photoUrl?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
+export type OrganizerInfo = { id: number; name: string; email: string | null; mobile: string | null; photoUrl?: string | null; photoPublicId?: string | null; licenseStatus: string; maxTournaments: number; hasPassword?: boolean; needsMobile?: boolean };
 
 export async function signupSendOtp(data: {
   name: string; mobile: string; email?: string; password: string;
@@ -401,7 +401,7 @@ export async function logoutOrganizerAccount(): Promise<void> {
 }
 
 export async function updateOrganizerProfile(data: {
-  name?: string; email?: string | null; mobile?: string; photoUrl?: string | null;
+  name?: string; email?: string | null; mobile?: string; photoUrl?: string | null; photoPublicId?: string | null;
 }): Promise<{ success: boolean; error?: string; organizer?: OrganizerInfo }> {
   try {
     const r = await apiFetch("/auth/organizer-account/profile", {

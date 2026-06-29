@@ -217,6 +217,7 @@ router.patch("/branding", async (req, res) => {
         (v) => v == null || v === "" || v.startsWith("https://res.cloudinary.com/"),
         "Logo URL must be a Cloudinary HTTPS URL",
       ),
+    logoPublicId: z.string().nullable().optional(),
     sponsorLogos: z.string().nullable().optional(),
     venue: z.string().max(200).nullable().optional(),
     organizerName: z.string().max(200).nullable().optional(),
@@ -232,6 +233,7 @@ router.patch("/branding", async (req, res) => {
             (v) => v == null || v === "" || v.startsWith("https://res.cloudinary.com/"),
             "Logo URL must be a Cloudinary HTTPS URL",
           ),
+        logoPublicId: z.string().nullable().optional(),
         name: z.string().max(200).nullable().optional(),
         title: z.string().max(200).nullable().optional(),
       })
@@ -254,7 +256,7 @@ router.patch("/branding", async (req, res) => {
   }
 
   try {
-    const branding = await updateBadmintonBranding(tournamentId, parsed.data);
+    const branding = await updateBadmintonBranding(tournamentId, parsed.data, req.log);
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });

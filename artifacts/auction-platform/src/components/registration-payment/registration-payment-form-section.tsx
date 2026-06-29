@@ -16,7 +16,7 @@ interface RegistrationPaymentFormSectionProps {
   utrNumber: string;
   paymentScreenshotUrl: string;
   onUtrChange: (value: string) => void;
-  onScreenshotChange: (url: string) => void;
+  onScreenshotChange: (url: string, publicId?: string) => void;
   tournamentName?: string;
   disabled?: boolean;
 }

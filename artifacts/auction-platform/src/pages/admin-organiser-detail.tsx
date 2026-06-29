@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Building2, Lock, MessageSquare, Radio, ShieldCheck, Trophy, Users, Wallet } from "lucide-react";
 import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
+import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,11 +135,12 @@ export default function AdminOrganiserDetailPage() {
           </div>
 
           <div className="grid grid-cols-[1fr_340px] gap-4">
-            <div className="rounded-xl border border-border bg-card/70">
+            <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
               <div className="border-b border-border px-4 py-3">
                 <h2 className="font-display font-black text-white">Tournaments</h2>
               </div>
-              <div className="divide-y divide-border">
+              <AdminScrollPanel>
+                <div className="divide-y divide-border">
                 {linkedTournaments.map((t) => (
                   <button
                     key={t.id}
@@ -156,7 +158,8 @@ export default function AdminOrganiserDetailPage() {
                     No linked tournaments for this organiser.
                   </div>
                 )}
-              </div>
+                </div>
+              </AdminScrollPanel>
             </div>
 
             <div className="space-y-4">

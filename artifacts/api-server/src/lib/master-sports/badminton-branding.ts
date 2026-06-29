@@ -15,6 +15,7 @@ export type BadmintonBranding = {
 
 export type ScoreBoardSponsor = {
   logoUrl: string | null;
+  logoPublicId?: string | null;
   name: string | null;
   title: string | null;
 };
@@ -24,10 +25,14 @@ function parseScoreBoardSponsor(raw: unknown): ScoreBoardSponsor | null {
   const o = raw as Record<string, unknown>;
   const logoUrl =
     typeof o.logoUrl === "string" && o.logoUrl.trim() ? o.logoUrl.trim() : null;
+  const logoPublicId =
+    typeof o.logoPublicId === "string" && o.logoPublicId.trim()
+      ? o.logoPublicId.trim()
+      : null;
   const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : null;
   const title = typeof o.title === "string" && o.title.trim() ? o.title.trim() : null;
   if (!logoUrl && !name && !title) return null;
-  return { logoUrl, name, title };
+  return { logoUrl, logoPublicId, name, title };
 }
 
 /** Badminton LED/OBS sponsors — stored separately from auction `tournaments.sponsor_logos`. */

@@ -24,7 +24,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Tournament {
   id: number;
@@ -680,9 +679,9 @@ export default function AdminCommunicate() {
 
               <div className="space-y-1">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Message</p>
-                <ScrollArea className="max-h-32 rounded border border-border/50 bg-muted/10 p-2.5">
+                <div className="max-h-32 overflow-y-auto overscroll-y-contain rounded border border-border/50 bg-muted/10 p-2.5">
                   <p className="text-xs whitespace-pre-wrap leading-relaxed">{selectedLog.messageContent}</p>
-                </ScrollArea>
+                </div>
               </div>
 
               {selectedLog.metaMessageId && (
