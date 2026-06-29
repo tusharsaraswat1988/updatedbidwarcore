@@ -29,6 +29,12 @@ import {
   getWorkbookHealth,
   buildValidationReportCsv,
   buildWorkbookExportFilename,
+  getPhotoImportSummary,
+  getPhotoJobProgress,
+  listPhotoJobItems,
+  retryFailedPhotos,
+  DEFAULT_PHOTO_IMPORT_MODE,
+  type PhotoImportMode,
 } from "../lib/bulk-import/workbook-service.ts";
 import {
   rollbackBulkImportJob,
@@ -76,6 +82,13 @@ function performedBy(req: Request): string {
 function parseImportMode(raw: unknown): WorkbookImportMode {
   const mode = String(raw ?? "merge_data") as WorkbookImportMode;
   return WORKBOOK_IMPORT_MODES.includes(mode) ? mode : "merge_data";
+}
+
+const PHOTO_IMPORT_MODES: PhotoImportMode[] = ["replace_all", "skip_existing", "replace_empty_only"];
+
+function parsePhotoImportMode(raw: unknown): PhotoImportMode {
+  const mode = String(raw ?? DEFAULT_PHOTO_IMPORT_MODE) as PhotoImportMode;
+  return PHOTO_IMPORT_MODES.includes(mode) ? mode : DEFAULT_PHOTO_IMPORT_MODE;
 }
 
 function tournamentId(req: Request): number {
@@ -169,7 +182,7 @@ router.post("/import/preview", requireMasterAdmin, fileUpload.single("file"), as
       totalRows: preview.summary.rowsTotal,
       failedRows: preview.summary.errors,
       skippedRows: preview.summary.skips,
-      previewJson: { summary: preview.summary, health: preview.health, diffs: preview.diffs, workbook },
+      previewJson: { summary: preview.summary, health: preview.health, diffs: preview.diffs, photoValidation: preview.photoValidation, workbook },
       errorReportJson: preview.issues,
     }).returning();
 
@@ -178,6 +191,8 @@ router.post("/import/preview", requireMasterAdmin, fileUpload.single("file"), as
     res.json({
       jobId: job!.id,
       preview,
+      photoValidation: preview.photoValidation,
+      photoQualityResults: preview.photoQualityResults,
       fileName,
       sourceType,
       health: preview.health,
@@ -192,7 +207,11 @@ router.post("/import/preview", requireMasterAdmin, fileUpload.single("file"), as
 /** POST /tournaments/:id/workbook/import/confirm */
 router.post("/import/confirm", requireMasterAdmin, async (req: Request, res: Response) => {
   const tid = tournamentId(req);
-  const { jobId, versionNotes } = req.body as { jobId?: number; versionNotes?: string };
+  const { jobId, versionNotes, photoImportMode: rawPhotoMode } = req.body as {
+    jobId?: number;
+    versionNotes?: string;
+    photoImportMode?: string;
+  };
 
   if (!Number.isFinite(tid) || !jobId) {
     res.status(400).json({ error: "tournamentId and jobId required" });
@@ -233,6 +252,7 @@ router.post("/import/confirm", requireMasterAdmin, async (req: Request, res: Res
       sourceType: job.sourceType ?? "excel",
       googleSheetUrl: job.googleSheetUrl ?? undefined,
       versionNotes,
+      photoImportMode: parsePhotoImportMode(rawPhotoMode),
       ...clientMeta(req),
     });
 
@@ -330,7 +350,41 @@ router.get("/version/:versionId", requireMasterAdmin, async (req: Request, res: 
 router.get("/import/jobs/:jobId", requireMasterAdmin, async (req: Request, res: Response) => {
   const detail = await getImportJobDetail(Number(req.params.jobId));
   if (!detail) { res.status(404).json({ error: "Job not found" }); return; }
-  res.json(detail);
+  const photoProgress = await getPhotoJobProgress(detail.job.id);
+  const photoSummary = await getPhotoImportSummary(detail.job.id);
+  res.json({ ...detail, photoProgress, photoSummary });
+});
+
+/** GET /tournaments/:id/workbook/import/jobs/:jobId/photos */
+router.get("/import/jobs/:jobId/photos", requireMasterAdmin, async (req: Request, res: Response) => {
+  const jobId = Number(req.params.jobId);
+  const progress = await getPhotoJobProgress(jobId);
+  const summary = await getPhotoImportSummary(jobId);
+  const items = await listPhotoJobItems(jobId);
+  res.json({ progress, summary, items });
+});
+
+/** POST /tournaments/:id/workbook/import/jobs/:jobId/photos/retry */
+router.post("/import/jobs/:jobId/photos/retry", requireMasterAdmin, async (req: Request, res: Response) => {
+  const jobId = Number(req.params.jobId);
+  const tid = tournamentId(req);
+  try {
+    const result = await retryFailedPhotos(jobId, {
+      performedBy: performedBy(req),
+      ...clientMeta(req),
+    });
+    auditLog(req, {
+      category: "admin",
+      action: "bmw.photos_retried",
+      summary: `Retried ${result.requeued} failed photos for job ${jobId}`,
+      tournamentId: tid,
+      metadata: result,
+    });
+    const progress = await getPhotoJobProgress(jobId);
+    res.json({ ...result, progress });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Photo retry failed" });
+  }
 });
 
 router.post("/import/jobs/:jobId/rollback", requireMasterAdmin, async (req: Request, res: Response) => {

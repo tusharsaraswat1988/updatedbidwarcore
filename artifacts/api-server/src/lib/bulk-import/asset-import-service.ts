@@ -3,7 +3,7 @@
  */
 
 import type { ParsedWorkbook } from "@workspace/api-base/tournament-workbook";
-import { importPhotoFromUrl, isPhotoUrl } from "./photo-import-service.ts";
+import { importPhotoFromUrl, isPhotoUrl, isStableCloudinaryPhotoUrl } from "./photo-import-service.ts";
 import { readFile } from "node:fs/promises";
 
 export type AssetImportResult = {
@@ -80,6 +80,15 @@ export async function importAssetsFromWorkbook(
           mediaType,
           originalUrl: url,
           storedUrl: uploaded.url,
+          status: "Uploaded",
+        });
+      } else if (isStableCloudinaryPhotoUrl(url)) {
+        results.push({
+          entityType,
+          entityName,
+          mediaType,
+          originalUrl: url,
+          storedUrl: url,
           status: "Uploaded",
         });
       } else if (isPhotoUrl(url) || source === "Direct URL" || url.startsWith("http")) {

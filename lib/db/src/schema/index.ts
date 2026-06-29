@@ -41,6 +41,8 @@ export * from "./badminton";
 export * from "./master-sports";
 export * from "./tournament-player-profiles";
 export * from "./bulk-import";
+export * from "./bulk-import-photo-items";
+export * from "./photo-source-assets";
 export * from "./entity-audit-logs";
 export * from "./workbook-versions";
 export * from "./workbook-mapping-profiles";

@@ -35,7 +35,26 @@ import {
   parseExcelBufferToRawWorkbook,
   readWorkbookFromGoogleSheetUrl,
 } from "./google-sheet-workbook-reader.ts";
-import { importPhotosFromRows, isPhotoUrl } from "./photo-import-service.ts";
+import {
+  isPhotoUrl,
+  validatePhotoLinks,
+  type PhotoValidationSummary,
+  type PhotoLinkValidation,
+} from "./photo-import-service.ts";
+import {
+  applyImmediateCloudinaryPhotos,
+  getPhotoImportSummary,
+  getPhotoJobProgress,
+  listPhotoJobItems,
+  lookupExistingPlayerPhotos,
+  queuePhotosForJob,
+  retryFailedPhotos,
+  startPhotoJobProcessing,
+  DEFAULT_PHOTO_IMPORT_MODE,
+  type PhotoImportMode,
+  type PhotoImportSummary,
+  type PhotoJobProgress,
+} from "./photo-queue-service.ts";
 import {
   commitAuctionImport,
   validateAuctionImport,
@@ -149,7 +168,10 @@ export async function validateTournamentWorkbook(
   tournamentId: number,
   workbook: ParsedWorkbook,
   mode: WorkbookImportMode,
-): Promise<WorkbookValidationResult> {
+): Promise<WorkbookValidationResult & {
+  photoValidation?: PhotoValidationSummary;
+  photoQualityResults?: PhotoLinkValidation[];
+}> {
   const ctx = await buildWorkbookValidationContext(tournamentId, mode);
   const result = validateWorkbook(workbook, ctx);
 
@@ -169,8 +191,37 @@ export async function validateTournamentWorkbook(
     }
   }
 
+  const photoUrls = playerRows
+    .map((row) => String(row["Photo URL"] ?? "").trim())
+    .filter(Boolean);
+  let photoValidation: PhotoValidationSummary | undefined;
+  let photoQualityResults: PhotoLinkValidation[] | undefined;
+  if (photoUrls.length > 0) {
+    const { summary, results } = await validatePhotoLinks(photoUrls);
+    photoValidation = summary;
+    photoQualityResults = results.filter((r) => r.qualityWarnings?.length);
+
+    for (const photoResult of results) {
+      if (!photoResult.qualityWarnings?.length) continue;
+      const rowIndex = playerRows.findIndex(
+        (row) => String(row["Photo URL"] ?? "").trim() === photoResult.url,
+      );
+      for (const warning of photoResult.qualityWarnings) {
+        result.issues.push({
+          sheet: "03_Players",
+          row: rowIndex >= 0 ? rowIndex + 2 : 0,
+          column: "Photo URL",
+          severity: "warning",
+          message: `${warning}${photoResult.width && photoResult.height ? ` (${photoResult.width}×${photoResult.height})` : ""}`,
+          code: "PHOTO_QUALITY",
+        });
+        result.summary.warnings++;
+      }
+    }
+  }
+
   result.valid = result.issues.filter((x) => x.severity === "error").length === 0 && result.summary.rowsTotal > 0;
-  return result;
+  return { ...result, photoValidation, photoQualityResults };
 }
 
 async function commitWorkbookEntities(
@@ -315,8 +366,9 @@ export async function commitTournamentWorkbook(
     sourceType?: string;
     googleSheetUrl?: string;
     versionNotes?: string;
+    photoImportMode?: PhotoImportMode;
   },
-): Promise<{ jobId: number; updatedRows: number; versionId?: number }> {
+): Promise<{ jobId: number; updatedRows: number; versionId?: number; photoQueued?: number; photoImportMode?: PhotoImportMode }> {
   if (validation.mode === "dry_run") {
     return { jobId: 0, updatedRows: 0 };
   }
@@ -328,7 +380,6 @@ export async function commitTournamentWorkbook(
     applyAssetResultsToWorkbook(workbook, assetResults);
 
     const playerRows = workbook.sheets["03_Players"] ?? [];
-    await importPhotosFromRows(playerRows, ["Photo URL", "Logo URL"]);
 
     const start = Date.now();
     const entitiesCreated = await commitWorkbookEntities(tournamentId, workbook);
@@ -379,6 +430,61 @@ export async function commitTournamentWorkbook(
       jobId = job!.id;
     }
 
+    let photoQueued = 0;
+    const photoImportMode = meta.photoImportMode ?? DEFAULT_PHOTO_IMPORT_MODE;
+    if (jobId) {
+      const photoItemCandidates = playerRows
+        .map((row, index) => {
+          const url = String(row["Photo URL"] ?? "").trim();
+          if (!url) return null;
+          const identity = resolvePlayerIdentity(row, valCtx.existingPlayers, valCtx.auctionCode);
+          return {
+            playerId: identity.playerId ?? null,
+            playerName: String(row["Player Name"] ?? "").trim() || null,
+            sheetRow: index + 2,
+            sourceUrl: url,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item != null);
+
+      const playerIds = photoItemCandidates
+        .map((item) => item.playerId)
+        .filter((id): id is number => id != null);
+      const existingPhotoMap = await lookupExistingPlayerPhotos(playerIds);
+
+      const photoItems = photoItemCandidates.map((item) => {
+        const existing = item.playerId ? existingPhotoMap.get(item.playerId) : undefined;
+        const hadExistingPhoto =
+          photoImportMode === "skip_existing"
+            ? existing?.hasAny ?? false
+            : existing?.hasContent ?? false;
+        return {
+          ...item,
+          hadExistingPhoto,
+        };
+      });
+
+      photoQueued = await queuePhotosForJob(
+        jobId,
+        tournamentId,
+        meta.performedBy,
+        photoItems,
+        photoImportMode,
+      );
+      await applyImmediateCloudinaryPhotos(jobId, tournamentId, photoImportMode, {
+        performedBy: meta.performedBy,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      });
+      if (photoQueued > 0) {
+        startPhotoJobProcessing(jobId, {
+          performedBy: meta.performedBy,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+        });
+      }
+    }
+
     const sport = getWorkbookSport(workbook);
     const [version] = await db.insert(workbookVersionsTable).values({
       tournamentId,
@@ -424,6 +530,8 @@ export async function commitTournamentWorkbook(
       jobId,
       updatedRows: playerUpdated + entitiesCreated,
       versionId: version?.id,
+      photoQueued,
+      photoImportMode,
     };
   } finally {
     if (extractDir) await cleanupZipExtract(extractDir);
@@ -457,6 +565,17 @@ export async function getWorkbookHealth(
 }
 
 export { buildValidationReportCsv, parseLegacyExcelBuffer as parseLegacyAuctionExcelBuffer };
+export {
+  getPhotoImportSummary,
+  getPhotoJobProgress,
+  listPhotoJobItems,
+  retryFailedPhotos,
+  DEFAULT_PHOTO_IMPORT_MODE,
+  type PhotoImportMode,
+  type PhotoImportSummary,
+  type PhotoJobProgress,
+};
+export type { PhotoValidationSummary, PhotoLinkValidation } from "./photo-import-service.ts";
 
 /** @deprecated Use bmwPlayerRowToLegacyAuctionRow */
 export { bmwPlayerRowToLegacyAuctionRow as tmwPlayerRowToLegacyAuctionRow };

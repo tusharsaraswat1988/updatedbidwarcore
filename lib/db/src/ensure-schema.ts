@@ -392,5 +392,82 @@ export async function ensureCoreSchema(pool: pg.Pool): Promise<void> {
       ON workbook_mapping_profiles (tournament_id);
     CREATE INDEX IF NOT EXISTS ix_workbook_mapping_profiles_organizer
       ON workbook_mapping_profiles (organizer_id);
+
+    CREATE TABLE IF NOT EXISTS bulk_import_photo_items (
+      id BIGSERIAL PRIMARY KEY,
+      job_id INTEGER NOT NULL,
+      tournament_id INTEGER NOT NULL,
+      player_id INTEGER,
+      player_name TEXT,
+      sheet_row INTEGER,
+      source_url TEXT NOT NULL,
+      source_key TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      validation_status TEXT,
+      stored_url TEXT,
+      public_id TEXT,
+      failure_reason TEXT,
+      reused_from_item_id INTEGER,
+      uploaded_by TEXT NOT NULL,
+      processed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_photo_items_job
+      ON bulk_import_photo_items (job_id);
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_photo_items_tournament
+      ON bulk_import_photo_items (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_photo_items_source_key
+      ON bulk_import_photo_items (tournament_id, source_key);
+    CREATE INDEX IF NOT EXISTS ix_bulk_import_photo_items_status
+      ON bulk_import_photo_items (job_id, status);
+
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS source_type TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS drive_file_id TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_file_name TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_stored_url TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_public_id TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_width INTEGER;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_height INTEGER;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_bytes INTEGER;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS original_format TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS downloaded_at TIMESTAMPTZ;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS quality_warnings JSONB;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS skip_reason TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS reused_from_cache_id INTEGER;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS had_existing_photo INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS photo_import_mode TEXT;
+    ALTER TABLE bulk_import_photo_items ADD COLUMN IF NOT EXISTS processing_version TEXT;
+
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_original_url TEXT;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_original_public_id TEXT;
+
+    CREATE TABLE IF NOT EXISTS photo_source_assets (
+      id BIGSERIAL PRIMARY KEY,
+      source_key TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      drive_file_id TEXT,
+      checksum TEXT NOT NULL,
+      original_source_url TEXT NOT NULL,
+      original_file_name TEXT,
+      original_url TEXT NOT NULL,
+      original_public_id TEXT NOT NULL,
+      original_width INTEGER,
+      original_height INTEGER,
+      original_bytes INTEGER,
+      original_format TEXT,
+      standard_url TEXT NOT NULL,
+      standard_public_id TEXT NOT NULL,
+      downloaded_at TIMESTAMPTZ NOT NULL,
+      processing_version TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_photo_source_assets_source_key
+      ON photo_source_assets (source_key);
+    CREATE INDEX IF NOT EXISTS ix_photo_source_assets_checksum
+      ON photo_source_assets (checksum);
+    CREATE INDEX IF NOT EXISTS ix_photo_source_assets_drive_file_id
+      ON photo_source_assets (drive_file_id);
   `);
 }

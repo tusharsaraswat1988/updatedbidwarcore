@@ -12,6 +12,7 @@ import {
   Loader2,
   Link2,
   GitBranch,
+  ImageIcon,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
@@ -21,6 +22,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -80,7 +82,73 @@ type WorkbookPreview = {
   dryRun?: boolean;
   health?: WorkbookHealth;
   diffs?: FieldDiff[];
+  photoValidation?: PhotoValidationSummary;
+  photoQualityResults?: PhotoQualityResult[];
 };
+
+type PhotoImportMode = "replace_all" | "skip_existing" | "replace_empty_only";
+
+type PhotoQualityResult = {
+  url: string;
+  qualityWarnings?: string[];
+  width?: number;
+  height?: number;
+};
+
+type PhotoValidationSummary = {
+  found: number;
+  accessible: number;
+  private: number;
+  broken: number;
+  notImage: number;
+  unsupported: number;
+  skipped: number;
+  qualityWarnings: number;
+};
+
+type PhotoJobProgress = {
+  total: number;
+  pending: number;
+  processing: number;
+  uploaded: number;
+  failed: number;
+  skipped: number;
+  complete: boolean;
+};
+
+type PhotoImportSummary = PhotoJobProgress & {
+  playersWithPhotos: number;
+  newPhotosUploaded: number;
+  existingPhotosReused: number;
+  photosReplaced: number;
+  warnings: number;
+  processingTimeMs: number | null;
+};
+
+type PhotoJobItem = {
+  id: number;
+  playerId: number | null;
+  playerName: string | null;
+  sourceUrl: string;
+  status: string;
+  storedUrl: string | null;
+  failureReason: string | null;
+  skipReason: string | null;
+  validationStatus: string | null;
+  qualityWarnings?: string[] | null;
+  originalStoredUrl?: string | null;
+  driveFileId?: string | null;
+  processingVersion?: string | null;
+};
+
+function formatProcessingTime(ms: number | null | undefined): string {
+  if (ms == null) return "—";
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return `${minutes}m ${rem}s`;
+}
 
 type ImportJob = {
   id: number;
@@ -153,6 +221,7 @@ export default function TournamentMasterWorkbookPage() {
 
   const [view, setView] = useState<View>("main");
   const [importMode, setImportMode] = useState<ImportMode>("merge_data");
+  const [photoImportMode, setPhotoImportMode] = useState<PhotoImportMode>("replace_empty_only");
   const [googleSheetUrl, setGoogleSheetUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -164,8 +233,22 @@ export default function TournamentMasterWorkbookPage() {
   const [previewSourceType, setPreviewSourceType] = useState<string | null>(null);
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [versions, setVersions] = useState<WorkbookVersion[]>([]);
-  const [selectedJob, setSelectedJob] = useState<{ job: ImportJob; items: unknown[] } | null>(null);
-  const [confirmResult, setConfirmResult] = useState<{ jobId: number; updatedRows: number; versionId?: number } | null>(null);
+  const [selectedJob, setSelectedJob] = useState<{
+    job: ImportJob;
+    items: unknown[];
+    photoProgress?: PhotoJobProgress;
+    photoSummary?: PhotoImportSummary;
+    photoItems?: PhotoJobItem[];
+  } | null>(null);
+  const [confirmResult, setConfirmResult] = useState<{
+    jobId: number;
+    updatedRows: number;
+    versionId?: number;
+    photoQueued?: number;
+  } | null>(null);
+  const [photoProgress, setPhotoProgress] = useState<PhotoJobProgress | null>(null);
+  const [photoSummary, setPhotoSummary] = useState<PhotoImportSummary | null>(null);
+  const photoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!tournamentId) return;
@@ -191,8 +274,82 @@ export default function TournamentMasterWorkbookPage() {
   useEffect(() => {
     return () => {
       exportPhaseTimersRef.current.forEach(clearTimeout);
+      if (photoPollRef.current) clearInterval(photoPollRef.current);
     };
   }, []);
+
+  const pollPhotoProgress = useCallback(async (jobId: number) => {
+    if (!tournamentId) return null;
+    const r = await fetch(`${API}/tournaments/${tournamentId}/workbook/import/jobs/${jobId}/photos`, {
+      credentials: "include",
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    setPhotoProgress(data.progress ?? null);
+    setPhotoSummary(data.summary ?? null);
+    return data.progress as PhotoJobProgress | null;
+  }, [tournamentId]);
+
+  const startPhotoPolling = useCallback((jobId: number) => {
+    if (photoPollRef.current) clearInterval(photoPollRef.current);
+    void pollPhotoProgress(jobId);
+    photoPollRef.current = setInterval(() => {
+      void pollPhotoProgress(jobId).then((progress) => {
+        if (progress?.complete && photoPollRef.current) {
+          clearInterval(photoPollRef.current);
+          photoPollRef.current = null;
+        }
+      });
+    }, 3000);
+  }, [pollPhotoProgress]);
+
+  async function loadJobDetail(jobId: number) {
+    if (!tournamentId) return;
+    const r = await fetch(`${API}/tournaments/${tournamentId}/workbook/import/jobs/${jobId}`, {
+      credentials: "include",
+    });
+    if (!r.ok) throw new Error("Failed to load job detail");
+    const data = await r.json();
+    const photoR = await fetch(`${API}/tournaments/${tournamentId}/workbook/import/jobs/${jobId}/photos`, {
+      credentials: "include",
+    });
+    const photoData = photoR.ok ? await photoR.json() : { progress: null, items: [] };
+    setSelectedJob({
+      job: data.job,
+      items: data.items ?? [],
+      photoProgress: data.photoProgress ?? photoData.progress,
+      photoSummary: data.photoSummary ?? photoData.summary,
+      photoItems: photoData.items ?? [],
+    });
+    setView("job-detail");
+  }
+
+  async function retryFailedPhotos(jobId: number) {
+    if (!tournamentId) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`${API}/tournaments/${tournamentId}/workbook/import/jobs/${jobId}/photos/retry`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Retry failed");
+      toast({
+        title: "Photo retry started",
+        description: `${data.requeued ?? 0} failed photos re-queued for processing.`,
+      });
+      startPhotoPolling(jobId);
+      await loadJobDetail(jobId);
+    } catch (e) {
+      toast({
+        title: "Retry failed",
+        description: e instanceof Error ? e.message : "Could not retry photos",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleExport() {
     if (!tournamentId || exporting) return;
@@ -245,7 +402,7 @@ export default function TournamentMasterWorkbookPage() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Preview failed");
-      setPreview(data.preview);
+      setPreview({ ...data.preview, photoValidation: data.photoValidation ?? data.preview?.photoValidation, photoQualityResults: data.photoQualityResults ?? data.preview?.photoQualityResults });
       setPreviewJobId(data.jobId);
       setPreviewFileName(data.fileName);
       setPreviewSourceType(data.sourceType);
@@ -258,7 +415,7 @@ export default function TournamentMasterWorkbookPage() {
   }
 
   async function handleConfirmImport() {
-    if (!previewJobId || !preview?.valid) return;
+    if (!previewJobId || !preview?.valid || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -266,15 +423,26 @@ export default function TournamentMasterWorkbookPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: previewJobId }),
+        body: JSON.stringify({ jobId: previewJobId, photoImportMode }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Import failed");
       setConfirmResult(data);
       setPreview(null);
       setView("main");
+      if (data.photoQueued > 0) {
+        startPhotoPolling(data.jobId);
+      }
+      toast({
+        title: "Workbook imported",
+        description: `${data.updatedRows ?? 0} changes applied (Job #${data.jobId}).${
+          data.photoQueued > 0 ? ` ${data.photoQueued} photos queued.` : ""
+        }`,
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Import commit failed");
+      const message = e instanceof Error ? e.message : "Import commit failed";
+      setError(message);
+      toast({ title: "Import failed", description: message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -340,10 +508,66 @@ export default function TournamentMasterWorkbookPage() {
       )}
 
       {confirmResult && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          Workbook imported — {confirmResult.updatedRows} changes (Job #{confirmResult.jobId}
-          {confirmResult.versionId ? `, Version #${confirmResult.versionId}` : ""}).
+        <div className="mb-4 space-y-3">
+          <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Players imported — {confirmResult.updatedRows} changes (Job #{confirmResult.jobId}
+            {confirmResult.versionId ? `, Version #${confirmResult.versionId}` : ""}).
+          </div>
+          {photoProgress && photoProgress.total > 0 && (
+            <div className="rounded-lg border border-border bg-card/70 px-4 py-3 text-sm">
+              <div className="flex items-center gap-2 text-white font-medium">
+                {photoProgress.complete ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-400" />
+                ) : (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                )}
+                Photos {photoProgress.uploaded + photoProgress.skipped}/{photoProgress.total}
+                {!photoProgress.complete && " · Processing"}
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width: `${Math.round(((photoProgress.uploaded + photoProgress.skipped + photoProgress.failed) / photoProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>{photoProgress.uploaded} uploaded</span>
+                {photoProgress.skipped > 0 && <span>{photoProgress.skipped} skipped</span>}
+                {photoProgress.failed > 0 && <span className="text-amber-300">{photoProgress.failed} failed</span>}
+                {!photoProgress.complete && <span>{photoProgress.pending + photoProgress.processing} remaining</span>}
+              </div>
+              {photoProgress.complete && photoSummary && (
+                <div className="mt-4 rounded-md border border-border bg-background/40 p-3 text-xs">
+                  <div className="font-medium text-white mb-2">Photo Import Summary</div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+                    <div><span className="text-muted-foreground">Players</span> <strong className="text-white ml-1">{photoSummary.playersWithPhotos}</strong></div>
+                    <div><span className="text-muted-foreground">New Uploaded</span> <strong className="text-green-400 ml-1">{photoSummary.newPhotosUploaded}</strong></div>
+                    <div><span className="text-muted-foreground">Reused</span> <strong className="text-white ml-1">{photoSummary.existingPhotosReused}</strong></div>
+                    <div><span className="text-muted-foreground">Replaced</span> <strong className="text-white ml-1">{photoSummary.photosReplaced}</strong></div>
+                    <div><span className="text-muted-foreground">Skipped</span> <strong className="text-white ml-1">{photoSummary.skipped}</strong></div>
+                    <div><span className="text-muted-foreground">Failed</span> <strong className="text-amber-300 ml-1">{photoSummary.failed}</strong></div>
+                    <div><span className="text-muted-foreground">Warnings</span> <strong className="text-amber-300 ml-1">{photoSummary.warnings}</strong></div>
+                    <div><span className="text-muted-foreground">Time</span> <strong className="text-white ml-1">{formatProcessingTime(photoSummary.processingTimeMs)}</strong></div>
+                  </div>
+                </div>
+              )}
+              {photoProgress.failed > 0 && photoProgress.complete && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 gap-1.5"
+                  disabled={busy}
+                  onClick={() => void retryFailedPhotos(confirmResult.jobId)}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Retry Failed Photos
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -473,6 +697,81 @@ export default function TournamentMasterWorkbookPage() {
             </div>
           )}
 
+          {preview.photoValidation && preview.photoValidation.found > 0 && (
+            <div className="mt-4 rounded-lg border border-border bg-background/50 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-white mb-3">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                Photo Validation
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+                {[["Found", preview.photoValidation.found], ["Accessible", preview.photoValidation.accessible], ["Private", preview.photoValidation.private], ["Broken", preview.photoValidation.broken], ["Not Image", preview.photoValidation.notImage], ["Unsupported", preview.photoValidation.unsupported], ["Quality", preview.photoValidation.qualityWarnings ?? 0]].map(([label, value]) => (
+                  <div key={String(label)} className="rounded-md border border-border px-3 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
+                    <div className={cn(
+                      "text-lg font-bold",
+                      label === "Accessible" && Number(value) > 0 ? "text-green-400"
+                      : (label === "Private" || label === "Broken" || label === "Quality") && Number(value) > 0 ? "text-amber-300"
+                      : "text-white",
+                    )}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(preview.photoValidation.private + preview.photoValidation.broken) > 0 && (
+                <p className="mt-3 text-xs text-amber-300">
+                  Some photos may fail during import. Player data will still import successfully.
+                </p>
+              )}
+              {(preview.photoQualityResults?.length ?? 0) > 0 && (
+                <AdminScrollPanel className="mt-3 max-h-32 rounded-md border border-border">
+                  {preview.photoQualityResults!.slice(0, 20).map((item) => (
+                    <div key={item.url} className="border-b border-border px-3 py-2 text-xs last:border-b-0">
+                      <div className="text-muted-foreground truncate">{item.url}</div>
+                      <div className="text-amber-300 mt-0.5">
+                        {item.qualityWarnings?.join(" · ")}
+                        {item.width && item.height ? ` (${item.width}×${item.height})` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </AdminScrollPanel>
+              )}
+            </div>
+          )}
+
+          {preview.photoValidation && preview.photoValidation.found > 0 && importMode !== "dry_run" && (
+            <div className="mt-4 rounded-lg border border-border bg-background/50 p-4">
+              <div className="text-sm font-medium text-white mb-3">Photo Import Mode</div>
+              <RadioGroup
+                value={photoImportMode}
+                onValueChange={(v) => setPhotoImportMode(v as PhotoImportMode)}
+                className="space-y-2"
+              >
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <RadioGroupItem value="replace_empty_only" className="mt-0.5" />
+                  <span>
+                    <span className="text-white">Replace Empty Photos Only</span>
+                    <span className="block text-xs text-muted-foreground">Default — only import photos for players without a photo.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <RadioGroupItem value="skip_existing" className="mt-0.5" />
+                  <span>
+                    <span className="text-white">Skip Existing Photos</span>
+                    <span className="block text-xs text-muted-foreground">Only import photos for players without a photo.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <RadioGroupItem value="replace_all" className="mt-0.5" />
+                  <span>
+                    <span className="text-white">Replace Existing Photos</span>
+                    <span className="block text-xs text-muted-foreground">Replace every player photo from the workbook.</span>
+                  </span>
+                </label>
+              </RadioGroup>
+            </div>
+          )}
+
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
             {[["Total Rows", preview.summary.rowsTotal], ["Creates", preview.summary.creates], ["Updates", preview.summary.updates], ["Skips", preview.summary.skips], ["Errors", preview.summary.errors], ["Warnings", preview.summary.warnings]].map(([label, value]) => (
               <div key={String(label)} className="rounded-lg border border-border bg-background/50 p-3">
@@ -524,15 +823,31 @@ export default function TournamentMasterWorkbookPage() {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { setView("main"); setPreview(null); }}>Cancel</Button>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => { setView("main"); setPreview(null); }} disabled={busy}>
+              Cancel
+            </Button>
             {preview.valid && importMode !== "dry_run" && (
-              <Button onClick={handleConfirmImport} disabled={busy} className="gap-2">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Confirm Import
+              <Button onClick={() => void handleConfirmImport()} disabled={busy} className="gap-2" aria-busy={busy}>
+                {busy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Applying import…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" aria-hidden />
+                    Confirm Import
+                  </>
+                )}
               </Button>
             )}
           </div>
+          {busy && (
+            <p className="mt-3 text-xs text-muted-foreground" role="status" aria-live="polite">
+              Saving player updates and audit logs — large imports can take up to a minute. Please keep this tab open.
+            </p>
+          )}
         </Card>
       )}
 
@@ -544,13 +859,117 @@ export default function TournamentMasterWorkbookPage() {
           </div>
           <AdminScrollPanel>
             {jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No imports yet.</p> : jobs.map((job) => (
-              <div key={job.id} className="border-b border-border px-4 py-3 text-sm last:border-b-0">
+              <button
+                key={job.id}
+                type="button"
+                className="w-full border-b border-border px-4 py-3 text-left text-sm last:border-b-0 hover:bg-muted/30 transition-colors"
+                onClick={() => void loadJobDetail(job.id).catch(() => setError("Could not load job detail"))}
+              >
                 <div className="text-white font-medium">{job.fileName || `Job #${job.id}`}</div>
                 <div className="text-xs text-muted-foreground">{new Date(job.uploadedAt).toLocaleString()} · {job.importMode ?? job.sourceType} · {job.status}</div>
                 <div className="text-xs text-muted-foreground">{job.updatedRows} updated · {job.totalRows} total</div>
-              </div>
+              </button>
             ))}
           </AdminScrollPanel>
+        </Card>
+      )}
+
+      {view === "job-detail" && selectedJob && (
+        <Card className="border-border bg-card/70 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-white">Import Job #{selectedJob.job.id}</h3>
+              <p className="text-xs text-muted-foreground">{selectedJob.job.fileName}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {new Date(selectedJob.job.uploadedAt).toLocaleString()} · {selectedJob.job.status}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {selectedJob.photoProgress && selectedJob.photoProgress.failed > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  disabled={busy}
+                  onClick={() => void retryFailedPhotos(selectedJob.job.id)}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Retry Failed Photos
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setView("history")}>Back</Button>
+            </div>
+          </div>
+
+          {selectedJob.photoProgress && selectedJob.photoProgress.total > 0 && (
+            <div className="mt-4 rounded-lg border border-border bg-background/50 p-4">
+              <div className="text-sm font-medium text-white mb-2">Photo Import Status</div>
+              {selectedJob.photoSummary?.complete && selectedJob.photoSummary && (
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs">
+                  <div><span className="text-muted-foreground">New Uploaded</span> <strong className="text-green-400 ml-1">{selectedJob.photoSummary.newPhotosUploaded}</strong></div>
+                  <div><span className="text-muted-foreground">Reused</span> <strong className="text-white ml-1">{selectedJob.photoSummary.existingPhotosReused}</strong></div>
+                  <div><span className="text-muted-foreground">Replaced</span> <strong className="text-white ml-1">{selectedJob.photoSummary.photosReplaced}</strong></div>
+                  <div><span className="text-muted-foreground">Time</span> <strong className="text-white ml-1">{formatProcessingTime(selectedJob.photoSummary.processingTimeMs)}</strong></div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 text-xs">
+                <div><span className="text-muted-foreground">Total</span> <strong className="text-white ml-1">{selectedJob.photoProgress.total}</strong></div>
+                <div><span className="text-muted-foreground">Uploaded</span> <strong className="text-green-400 ml-1">{selectedJob.photoProgress.uploaded}</strong></div>
+                <div><span className="text-muted-foreground">Failed</span> <strong className="text-amber-300 ml-1">{selectedJob.photoProgress.failed}</strong></div>
+                <div><span className="text-muted-foreground">Skipped</span> <strong className="text-white ml-1">{selectedJob.photoProgress.skipped}</strong></div>
+                <div><span className="text-muted-foreground">Pending</span> <strong className="text-white ml-1">{selectedJob.photoProgress.pending + selectedJob.photoProgress.processing}</strong></div>
+              </div>
+            </div>
+          )}
+
+          {selectedJob.photoItems && selectedJob.photoItems.length > 0 && (
+            <AdminScrollPanel className="mt-4 max-h-64 rounded-lg border border-border">
+              {selectedJob.photoItems.map((item) => (
+                <div key={item.id} className="border-b border-border px-3 py-2 text-xs last:border-b-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-white">{item.playerName || `Player #${item.playerId ?? "?"}`}</span>
+                    <Badge variant="outline" className={
+                      item.status === "uploaded" ? "text-green-400 border-green-500/30"
+                      : item.status === "failed" ? "text-amber-300 border-amber-500/30"
+                      : item.status === "processing" ? "text-primary border-primary/30"
+                      : "text-muted-foreground"
+                    }>
+                      {item.status}
+                    </Badge>
+                  </div>
+                  {item.failureReason && (
+                    <div className="text-muted-foreground mt-0.5">{item.failureReason}</div>
+                  )}
+                  {item.skipReason && (
+                    <div className="text-muted-foreground mt-0.5">{item.skipReason}</div>
+                  )}
+                  {item.qualityWarnings && item.qualityWarnings.length > 0 && (
+                    <div className="text-amber-300 mt-0.5">{item.qualityWarnings.join(" · ")}</div>
+                  )}
+                  {item.sourceUrl && (
+                    <div className="text-muted-foreground mt-0.5 truncate" title={item.sourceUrl}>Source: {item.sourceUrl}</div>
+                  )}
+                </div>
+              ))}
+            </AdminScrollPanel>
+          )}
+
+          {(selectedJob.items as Array<{ fieldName: string; oldValue: string | null; newValue: string | null; playerId: number; status: string }>).length > 0 && (
+            <>
+              <div className="mt-4 text-xs uppercase text-muted-foreground">Field Changes</div>
+              <AdminScrollPanel className="mt-2 max-h-48 rounded-lg border border-border">
+                {(selectedJob.items as Array<{ fieldName: string; oldValue: string | null; newValue: string | null; playerId: number; status: string }>).map((item, i) => (
+                  <div key={i} className="border-b border-border px-3 py-2 text-xs last:border-b-0">
+                    <span className="text-white">Player #{item.playerId}</span>
+                    <span className="text-muted-foreground"> · {item.fieldName}</span>
+                    <div className="text-muted-foreground">
+                      {item.oldValue ?? "(empty)"} → {item.newValue ?? "(empty)"}
+                    </div>
+                  </div>
+                ))}
+              </AdminScrollPanel>
+            </>
+          )}
         </Card>
       )}
 

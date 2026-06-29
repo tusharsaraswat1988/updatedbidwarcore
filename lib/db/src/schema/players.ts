@@ -20,6 +20,9 @@ export const playersTable = pgTable(
     gender: text("gender"),
     photoUrl: text("photo_url"),
     photoPublicId: text("photo_public_id"),
+    /** Full-resolution original — preserved for print, certificates, LED screens */
+    photoOriginalUrl: text("photo_original_url"),
+    photoOriginalPublicId: text("photo_original_public_id"),
     basePrice: integer("base_price").notNull().default(100000),
     /** Player-selected bid value when bid_value_mode = player; mirrors base_price at registration time */
     selectedBidValue: integer("selected_bid_value"),
