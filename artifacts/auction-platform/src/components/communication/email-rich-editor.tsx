@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -13,11 +13,13 @@ import {
   ListOrdered,
   Minus,
   Palette,
+  RectangleHorizontal,
   Table,
   Underline,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -27,6 +29,34 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+const TOOLBAR_BTN_CLASS =
+  "h-8 w-8 shrink-0 cursor-pointer bg-background shadow-xs hover:bg-accent hover:text-accent-foreground active:scale-[0.98]";
+
+type ToolbarBtnProps = {
+  onClick: () => void;
+  onMouseDown: (event: MouseEvent) => void;
+  title?: string;
+  children: ReactNode;
+  className?: string;
+};
+
+function ToolbarBtn({ onClick, onMouseDown, title, children, className }: ToolbarBtnProps) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className={cn(TOOLBAR_BTN_CLASS, className)}
+      onMouseDown={onMouseDown}
+      onClick={onClick}
+      title={title}
+    >
+      {children}
+    </Button>
+  );
+}
 
 const MERGE_VARS = [
   "{{team_name}}",
@@ -42,9 +72,29 @@ const MERGE_VARS = [
   "{{payment_link}}",
   "{{support_number}}",
   "{{organiser_name}}",
+  "{{organiser_phone}}",
+  "{{organiser_email}}",
   "{{amount}}",
   "{{current_year}}",
+  "{{bidwar_logo}}",
+  "{{tournament_logo}}",
+  "{{sport_name}}",
+  "{{registration_id}}",
+  "{{registration_date}}",
+  "{{venue}}",
+  "{{tournament_dates}}",
 ];
+
+const EMAIL_TEXT_COLORS = [
+  { label: "Dark", value: "#111111" },
+  { label: "Body", value: "#444444" },
+  { label: "BidWar Gold", value: "#F4B400" },
+  { label: "Muted", value: "#777777" },
+  { label: "White", value: "#FFFFFF" },
+  { label: "Link Blue", value: "#2563eb" },
+  { label: "Success", value: "#16a34a" },
+  { label: "Red", value: "#dc2626" },
+] as const;
 
 type EmailRichEditorProps = {
   value: string;
@@ -55,17 +105,80 @@ type EmailRichEditorProps = {
 
 export function EmailRichEditor({ value, onChange, previewHtml, previewSubject }: EmailRichEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
+  const lastHtmlRef = useRef(value);
+  const isInternalChangeRef = useRef(false);
+  const initializedRef = useRef(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
-  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  const [colorOpen, setColorOpen] = useState(false);
+  const [customTextColor, setCustomTextColor] = useState("#111111");
 
-  const exec = useCallback((command: string, val?: string) => {
-    document.execCommand(command, false, val);
-    if (editorRef.current) onChange(editorRef.current.innerHTML);
-  }, [onChange]);
+  const saveSelection = useCallback(() => {
+    const selection = window.getSelection();
+    if (
+      selection &&
+      selection.rangeCount > 0 &&
+      editorRef.current?.contains(selection.anchorNode)
+    ) {
+      savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+    }
+  }, []);
+
+  const restoreSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const range = savedSelectionRef.current;
+    if (!selection || !range) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, []);
+
+  const syncHtml = useCallback(
+    (html: string) => {
+      isInternalChangeRef.current = true;
+      lastHtmlRef.current = html;
+      onChange(html);
+    },
+    [onChange],
+  );
+
+  const exec = useCallback(
+    (command: string, val?: string) => {
+      editorRef.current?.focus();
+      restoreSelection();
+      document.execCommand(command, false, val);
+      if (editorRef.current) syncHtml(editorRef.current.innerHTML);
+    },
+    [restoreSelection, syncHtml],
+  );
+
+  const handleToolbarMouseDown = useCallback(
+    (event: MouseEvent) => {
+      event.preventDefault();
+      saveSelection();
+    },
+    [saveSelection],
+  );
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    if (!initializedRef.current) {
+      editorRef.current.innerHTML = value;
+      lastHtmlRef.current = value;
+      initializedRef.current = true;
+      return;
+    }
+
+    if (value !== lastHtmlRef.current && !isInternalChangeRef.current) {
+      editorRef.current.innerHTML = value;
+    }
+    lastHtmlRef.current = value;
+    isInternalChangeRef.current = false;
+  }, [value]);
 
   const handleInput = () => {
-    if (editorRef.current) onChange(editorRef.current.innerHTML);
+    if (editorRef.current) syncHtml(editorRef.current.innerHTML);
   };
 
   const insertMergeVar = (variable: string) => {
@@ -83,6 +196,7 @@ export function EmailRichEditor({ value, onChange, previewHtml, previewSubject }
   };
 
   const insertImage = () => {
+    saveSelection();
     const url = prompt("Image URL:");
     if (url) exec("insertHTML", `<img src="${url}" alt="" style="max-width:100%;height:auto;" />`);
   };
@@ -98,60 +212,117 @@ export function EmailRichEditor({ value, onChange, previewHtml, previewSubject }
     );
   };
 
+  const applyTextColor = (color: string) => {
+    exec("foreColor", color);
+    setCustomTextColor(color);
+    setColorOpen(false);
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-2">
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("bold")} title="Bold">
+      <div className="flex flex-wrap gap-1.5 rounded-lg border bg-muted/40 p-2">
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("bold")} title="Bold">
           <Bold className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("italic")} title="Italic">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("italic")} title="Italic">
           <Italic className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("underline")} title="Underline">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("underline")} title="Underline">
           <Underline className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("formatBlock", "h1")} title="Heading 1">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("formatBlock", "<h1>")} title="Heading 1">
           <Heading1 className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("formatBlock", "h2")} title="Heading 2">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("formatBlock", "<h2>")} title="Heading 2">
           <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("insertUnorderedList")} title="Bullet list">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("insertUnorderedList")} title="Bullet list">
           <List className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("insertOrderedList")} title="Numbered list">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("insertOrderedList")} title="Numbered list">
           <ListOrdered className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("justifyLeft")} title="Align left">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("justifyLeft")} title="Align left">
           <AlignLeft className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => exec("justifyCenter")} title="Align center">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={() => exec("justifyCenter")} title="Align center">
           <AlignCenter className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLinkOpen(true)} title="Link">
+        </ToolbarBtn>
+        <ToolbarBtn
+          onMouseDown={handleToolbarMouseDown}
+          onClick={() => {
+            saveSelection();
+            setLinkOpen(true);
+          }}
+          title="Link"
+        >
           <Link className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={insertImage} title="Image">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={insertImage} title="Image">
           <Image className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={insertTable} title="Table">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={insertTable} title="Table">
           <Table className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={insertColumns} title="Columns">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={insertColumns} title="Columns">
           <Columns2 className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={insertDivider} title="Divider">
+        </ToolbarBtn>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={insertDivider} title="Divider">
           <Minus className="h-4 w-4" />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={insertButton} title="Button">
-          <Palette className="h-4 w-4" />
-        </Button>
+        </ToolbarBtn>
+        <Popover open={colorOpen} onOpenChange={setColorOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className={TOOLBAR_BTN_CLASS}
+              onMouseDown={handleToolbarMouseDown}
+              title="Text color"
+            >
+              <Palette className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3" align="start">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Text color</p>
+            <div className="grid grid-cols-4 gap-2">
+              {EMAIL_TEXT_COLORS.map((swatch) => (
+                <button
+                  key={swatch.value}
+                  type="button"
+                  title={swatch.label}
+                  className="h-8 w-8 cursor-pointer rounded-md border shadow-xs transition-transform hover:scale-105 active:scale-95"
+                  style={{ backgroundColor: swatch.value }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applyTextColor(swatch.value)}
+                />
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <Label htmlFor="email-editor-text-color" className="shrink-0 text-xs">
+                Custom
+              </Label>
+              <input
+                id="email-editor-text-color"
+                type="color"
+                value={customTextColor}
+                onChange={(event) => applyTextColor(event.target.value)}
+                className="h-8 w-full cursor-pointer rounded border bg-background"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+        <ToolbarBtn onMouseDown={handleToolbarMouseDown} onClick={insertButton} title="Insert button">
+          <RectangleHorizontal className="h-4 w-4" />
+        </ToolbarBtn>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="h-8 text-xs"
+          className="h-8 shrink-0 cursor-pointer bg-background px-2.5 text-xs font-medium shadow-xs hover:bg-accent hover:text-accent-foreground active:scale-[0.98]"
+          onMouseDown={handleToolbarMouseDown}
           onClick={() => exec("backColor", "#fef3c7")}
+          title="Highlight selected text"
         >
           Highlight
         </Button>
@@ -162,7 +333,8 @@ export function EmailRichEditor({ value, onChange, previewHtml, previewSubject }
           <button
             key={v}
             type="button"
-            className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary hover:bg-primary/20"
+            className="cursor-pointer rounded border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary shadow-xs transition-colors hover:border-primary/40 hover:bg-primary/20 active:scale-[0.98]"
+            onMouseDown={handleToolbarMouseDown}
             onClick={() => insertMergeVar(v)}
           >
             {v}
@@ -182,8 +354,8 @@ export function EmailRichEditor({ value, onChange, previewHtml, previewSubject }
             ref={editorRef}
             contentEditable
             className="min-h-[320px] rounded-lg border bg-background p-4 text-sm prose prose-sm dark:prose-invert max-w-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-            dangerouslySetInnerHTML={{ __html: value }}
             onInput={handleInput}
+            onBlur={saveSelection}
             suppressContentEditableWarning
           />
         </TabsContent>

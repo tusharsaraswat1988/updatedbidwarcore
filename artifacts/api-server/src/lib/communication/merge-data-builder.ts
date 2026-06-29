@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { buildPublicUrl, getPublicOrigin } from "../runtime-env.js";
+import { buildPlayerRegistrationMergeData } from "./player-registration-merge-data.js";
 
 function appUrl(): string {
   return process.env.APP_URL?.trim() || getPublicOrigin();
@@ -25,7 +26,7 @@ export async function buildMergeDataForRecipient(recipient: {
     email: recipient.email,
     current_year: String(new Date().getFullYear()),
     app_url: appUrl(),
-    support_number: "+91 98765 43210",
+    support_number: "+91 8707488250",
   };
 
   const [branding] = await db
@@ -77,24 +78,25 @@ export async function buildMergeDataForRecipient(recipient: {
       .limit(1);
 
     if (player) {
-      const [tournament] = await db
-        .select()
-        .from(tournamentsTable)
-        .where(eq(tournamentsTable.id, player.tournamentId))
-        .limit(1);
-
+      const registrationData = await buildPlayerRegistrationMergeData(player.id);
+      let paymentLink = "";
+      if (player.registrationPaymentStatus === "pending") {
+        const [tournament] = await db
+          .select({
+            id: tournamentsTable.id,
+            auctionCode: tournamentsTable.auctionCode,
+          })
+          .from(tournamentsTable)
+          .where(eq(tournamentsTable.id, player.tournamentId))
+          .limit(1);
+        if (tournament) {
+          paymentLink = `${appUrl()}/register/${tournament.auctionCode ?? tournament.id}`;
+        }
+      }
       return {
         ...base,
-        player_name: player.name,
-        tournament_name: tournament?.name ?? "",
-        auction_name: tournament?.name ?? "",
-        auction_date: tournament?.auctionDate ?? "",
-        email: player.email ?? recipient.email,
-        login_link: appUrl(),
-        payment_link:
-          player.registrationPaymentStatus === "pending" && tournament
-            ? `${appUrl()}/register/${tournament.auctionCode ?? tournament.id}`
-            : "",
+        ...registrationData,
+        payment_link: paymentLink,
       };
     }
   }

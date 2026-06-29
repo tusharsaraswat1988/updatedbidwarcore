@@ -17,6 +17,7 @@ import type {
 } from "../notifications/types.js";
 import { logger } from "../logger.js";
 import { createCommunicationJob } from "./job-service.js";
+import { buildPlayerRegistrationMergeData } from "./player-registration-merge-data.js";
 import { getTemplateByEventType } from "./template-service.js";
 
 /** Maps business events to communication template internal keys. */
@@ -248,6 +249,14 @@ export async function createJobFromBusinessEvent<E extends NotificationEventType
     return null;
   }
 
+  let mergeData = jobData.mergeData;
+  if (eventType === "PLAYER_REGISTERED" && jobData.entityId) {
+    mergeData = {
+      ...mergeData,
+      ...(await buildPlayerRegistrationMergeData(jobData.entityId)),
+    };
+  }
+
   const entityId = jobData.entityId ?? randomUUID();
   const idempotencyKey = buildIdempotencyKey(
     eventType,
@@ -266,7 +275,7 @@ export async function createJobFromBusinessEvent<E extends NotificationEventType
     recipientEmail: jobData.recipientEmail,
     recipientPhone: jobData.recipientPhone,
     recipientRole: jobData.recipientRole,
-    mergeData: jobData.mergeData,
+    mergeData: mergeData,
     idempotencyKey,
     sentBy: "system",
   });

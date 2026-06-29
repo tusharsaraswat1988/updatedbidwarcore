@@ -4,8 +4,12 @@ import {
   communicationTemplatesTable,
   communicationTemplateVersionsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { logger } from "../logger.js";
+import {
+  PLAYER_REGISTRATION_HTML,
+  PLAYER_REGISTRATION_SUBJECT,
+} from "./player-registration-email-template.js";
 
 const DEFAULT_TEMPLATES = [
   {
@@ -33,11 +37,8 @@ const DEFAULT_TEMPLATES = [
     name: "Player Registration",
     internalKey: "player_registration",
     eventType: "PLAYER_REGISTERED",
-    subject: "Registration confirmed — {{tournament_name}}",
-    htmlBody: `<h1>Registration Confirmed</h1>
-<p>Hi {{player_name}},</p>
-<p>You are registered for <strong>{{tournament_name}}</strong>.</p>
-{{#payment_link}}<p><a href="{{payment_link}}">Complete payment</a></p>{{/payment_link}}`,
+    subject: PLAYER_REGISTRATION_SUBJECT,
+    htmlBody: PLAYER_REGISTRATION_HTML,
   },
   {
     name: "Welcome Organiser",
@@ -187,7 +188,7 @@ const DEFAULT_ASSETS = [
     name: "Support Number",
     assetKey: "support_number",
     assetType: "brand_color",
-    content: "+91 98765 43210",
+    content: "+91 8707488250",
     description: "Support contact number for merge variable",
   },
 ];
@@ -212,7 +213,12 @@ export async function seedCommunicationDefaults(): Promise<void> {
       .where(eq(communicationTemplatesTable.internalKey, tpl.internalKey))
       .limit(1);
 
-    if (existing) continue;
+    if (existing) {
+      if (tpl.internalKey === "player_registration") {
+        await upgradePlayerRegistrationTemplateIfNeeded(existing);
+      }
+      continue;
+    }
 
     const [created] = await db
       .insert(communicationTemplatesTable)
@@ -242,4 +248,46 @@ export async function seedCommunicationDefaults(): Promise<void> {
   }
 
   logger.info("Communication Center defaults seeded");
+}
+
+async function upgradePlayerRegistrationTemplateIfNeeded(existing: {
+  id: string;
+  htmlBody: string;
+}): Promise<void> {
+  const alreadyUpgraded =
+    existing.htmlBody.includes("Support BidWar") ||
+    existing.htmlBody.includes("What happens next?");
+  if (alreadyUpgraded) return;
+
+  const [latest] = await db
+    .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
+    .from(communicationTemplateVersionsTable)
+    .where(eq(communicationTemplateVersionsTable.templateId, existing.id))
+    .orderBy(desc(communicationTemplateVersionsTable.versionNumber))
+    .limit(1);
+
+  const nextVersion = (latest?.versionNumber ?? 0) + 1;
+
+  await db
+    .update(communicationTemplatesTable)
+    .set({
+      subject: PLAYER_REGISTRATION_SUBJECT,
+      htmlBody: PLAYER_REGISTRATION_HTML,
+      updatedAt: new Date(),
+    })
+    .where(eq(communicationTemplatesTable.id, existing.id));
+
+  await db.insert(communicationTemplateVersionsTable).values({
+    templateId: existing.id,
+    versionNumber: nextVersion,
+    subject: PLAYER_REGISTRATION_SUBJECT,
+    htmlBody: PLAYER_REGISTRATION_HTML,
+    createdBy: "system",
+    changeNote: "Premium onboarding email redesign",
+  });
+
+  logger.info(
+    { templateId: existing.id, version: nextVersion },
+    "Player registration template upgraded",
+  );
 }
