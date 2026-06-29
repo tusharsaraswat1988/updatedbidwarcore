@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { CloudinaryImageUpload } from "@/lib/cloudinary-upload";
 import { uploadImageFile } from "@/lib/cloudinary-upload";
 import Cropper, { type Area } from "react-easy-crop";
+import "react-easy-crop/react-easy-crop.css";
 import imageCompression from "browser-image-compression";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -163,19 +165,19 @@ export function ImageEditorDialog({
     setRotation(0);
   }
 
-  function handleDragOver(e: React.DragEvent) {
+  function handleDragOver(e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   }
 
-  function handleDragLeave(e: React.DragEvent) {
+  function handleDragLeave(e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   }
 
-  function handleDrop(e: React.DragEvent) {
+  function handleDrop(e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -258,7 +260,7 @@ export function ImageEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="dark p-0 gap-0 flex flex-col overflow-hidden w-[calc(100vw-0.5rem)] max-w-3xl max-h-[95dvh] fixed inset-x-1 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-h-[90vh] sm:rounded-lg">
+      <DialogContent className="dark p-0 gap-0 flex flex-col overflow-hidden w-[calc(100vw-0.5rem)] max-w-3xl max-h-[95dvh] fixed inset-x-1 bottom-0 top-auto translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-h-[90vh] sm:rounded-lg z-[100]">
         <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4 border-b border-border bg-card/50 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CropIcon className="w-5 h-5 text-primary" /> {title}
